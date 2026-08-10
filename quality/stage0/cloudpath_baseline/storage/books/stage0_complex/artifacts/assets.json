@@ -1,0 +1,34 @@
+[
+  {
+    "asset_id": "fig_stage0_complex_ch_001_p001_01",
+    "book_id": "stage0_complex",
+    "chapter_id": "ch_001",
+    "source_type": "extracted",
+    "page": 1,
+    "type": "figure",
+    "caption": "整本文档（未识别到清晰目录） 相关原书插图候选",
+    "bbox": [
+      71.4,
+      151.56,
+      523.6,
+      378.9
+    ],
+    "image_url": "/api/books/stage0_complex/assets/fig_stage0_complex_ch_001_p001_01/file",
+    "thumbnail_url": "/api/books/stage0_complex/assets/fig_stage0_complex_ch_001_p001_01/thumbnail",
+    "source_page_image_url": "/api/books/stage0_complex/assets/fig_stage0_complex_ch_001_p001_01/source-page",
+    "source_chunk_ids": [
+      "stage0_complex_ch_001_619e3fb1264b",
+      "stage0_complex_ch_001_09d316537224",
+      "stage0_complex_ch_001_452f029b67fc",
+      "stage0_complex_ch_001_a33fb310ca3d",
+      "stage0_complex_ch_001_4b6211f68e15",
+      "stage0_complex_ch_001_6008795c6091",
+      "stage0_complex_ch_001_8bc9c3da7f8e",
+      "stage0_complex_ch_001_8c2079de4647"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "candidate"
+  }
+]

@@ -1,0 +1,1 @@
+{"block_id": "p1_ocr_mock_001", "page": 1, "type": "ocr_pending", "text": "OCR pending for page 1. Install PaddleOCR or set BOOKCOURSE_OCR_PROVIDER=paddleocr for Chinese OCR.", "bbox": [96.0, 64.0, 1104.0, 144.0], "font_size": null, "confidence": 0.01, "low_confidence": true, "book_id": "stage0_image"}

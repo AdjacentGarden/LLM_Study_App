@@ -1,0 +1,42 @@
+[
+  {
+    "page": 1,
+    "pdf_page_index": 0,
+    "text": "Native text page: Photosynthesis converts light energy.\n",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p1_b001",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Native text page: Photosynthesis converts light energy.",
+        "bbox": [
+          72.0,
+          76.0250015258789,
+          388.4850158691406,
+          93.88700103759766
+        ],
+        "font_size": 13.0,
+        "confidence": null,
+        "low_confidence": false
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": null,
+    "quality_warnings": [],
+    "preprocessed_image_url": null,
+    "layout_regions": []
+  },
+  {
+    "page": 2,
+    "pdf_page_index": 1,
+    "text": "",
+    "needs_ocr": true,
+    "blocks": [],
+    "ocr_provider": null,
+    "ocr_confidence": null,
+    "quality_warnings": [],
+    "preprocessed_image_url": null,
+    "layout_regions": []
+  }
+]

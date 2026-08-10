@@ -1,0 +1,107 @@
+[
+  {
+    "type": "text",
+    "text": "Two-column lesson with table and formula",
+    "text_level": 2,
+    "bbox": [
+      78,
+      46,
+      620,
+      70
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "LEFT COLUMN",
+    "bbox": [
+      77,
+      106,
+      218,
+      123
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Mitosis produces genetically similar daughter cells.",
+    "bbox": [
+      77,
+      127,
+      455,
+      162
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Prophase is followed by metaphase,",
+    "bbox": [
+      78,
+      165,
+      383,
+      182
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "anaphase, and telophase.",
+    "bbox": [
+      78,
+      185,
+      299,
+      203
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "RIGHT COLUMN",
+    "bbox": [
+      524,
+      106,
+      675,
+      124
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Meiosis contains two divisions and produces haploid cells.",
+    "bbox": [
+      522,
+      127,
+      895,
+      163
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Independent assortment increases variation.",
+    "bbox": [
+      524,
+      165,
+      894,
+      182
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "table",
+    "img_path": "images/03df3bd072370f7f3e1e4b726086ef5ee6a2029dc7cd3bfe4e518235ffeb3559.jpg",
+    "table_caption": [
+      "Formula: P(A and B) = P(A) \\* P(B)"
+    ],
+    "table_footnote": [],
+    "table_body": "<table><tr><td rowspan=1 colspan=1>Stage</td><td rowspan=1 colspan=1>Chromosome state</td></tr><tr><td rowspan=1 colspan=1>G1</td><td rowspan=1 colspan=1>unreplicated</td></tr><tr><td rowspan=1 colspan=1>S</td><td rowspan=1 colspan=1>DNA replication</td></tr><tr><td rowspan=1 colspan=1>G2</td><td rowspan=1 colspan=1>replicated</td></tr></table>",
+    "bbox": [
+      80,
+      578,
+      873,
+      732
+    ],
+    "page_idx": 0
+  }
+]

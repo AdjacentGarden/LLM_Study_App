@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>State Motion Harness</title>
+    <script>
+      (() => {
+        const NativeResizeObserver = window.ResizeObserver;
+        const audit = { created: 0, disconnected: 0 };
+        window.__motionObserverAudit = audit;
+        if (!NativeResizeObserver) return;
+        window.ResizeObserver = class extends NativeResizeObserver {
+          constructor(callback) {
+            super(callback);
+            audit.created += 1;
+          }
+
+          disconnect() {
+            audit.disconnected += 1;
+            super.disconnect();
+          }
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="state-motion-root"></div>
+    <script type="module" src="/e2e/state-motion-harness.tsx"></script>
+  </body>
+</html>

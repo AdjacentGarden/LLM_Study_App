@@ -1,0 +1,54 @@
+[
+  {
+    "asset_id": "asset_table",
+    "book_id": "stage3_golden",
+    "chapter_id": "chapter_deep",
+    "source_type": "mineru",
+    "page": 4,
+    "type": "table",
+    "caption": "Measured pathway responses",
+    "bbox": [
+      60.0,
+      220.0,
+      535.0,
+      650.0
+    ],
+    "image_url": "/golden/table",
+    "thumbnail_url": "/golden/table-thumb",
+    "source_page_image_url": null,
+    "source_chunk_ids": [],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": null,
+    "source_parser": "mineru",
+    "content_hash": null,
+    "metadata": {}
+  },
+  {
+    "asset_id": "asset_figure",
+    "book_id": "stage3_golden",
+    "chapter_id": "chapter_deep",
+    "source_type": "mineru",
+    "page": 5,
+    "type": "figure",
+    "caption": "Diagram showing ATP-driven transport across a selective membrane.",
+    "bbox": [
+      90.0,
+      180.0,
+      500.0,
+      520.0
+    ],
+    "image_url": "/golden/figure",
+    "thumbnail_url": "/golden/figure-thumb",
+    "source_page_image_url": null,
+    "source_chunk_ids": [],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": null,
+    "source_parser": "mineru",
+    "content_hash": null,
+    "metadata": {}
+  }
+]

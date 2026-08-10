@@ -1,0 +1,238 @@
+/* Parse confirmation borrows the shared-course cover-to-content composition,
+   then replaces community statistics and tabs with the real parsing contract. */
+.app-shell[data-active-screen="parseReady"] {
+  background: var(--color-primary-light);
+  background-image: none;
+}
+
+.app-shell[data-active-screen="parseReady"] .header-glass {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.screen-content.with-header.without-nav[data-screen="parseReady"] {
+  --parse-ready-visual-block: 14rem;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 0;
+  background: var(--color-surface);
+  background-image: none;
+}
+
+.screen-content.with-header.without-nav[data-screen="parseReady"]::before {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: calc(
+    var(--safe-area-top)
+    + var(--header-block-size)
+    + var(--space-layout)
+    + var(--space-layout)
+    + var(--parse-ready-visual-block)
+  );
+  pointer-events: none;
+  background: var(--color-primary-light);
+  content: "";
+}
+
+.screen-content.with-header.without-nav[data-screen="parseReady"] > .motion-screen-transition {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+.parse-ready-workspace {
+  width: 100%;
+}
+
+.parse-ready-overview {
+  --community-detail-visual-expanded: var(--parse-ready-visual-block);
+}
+
+.parse-ready-cover {
+  grid-template-rows: 1fr auto auto 1fr;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  color: var(--color-primary-pressed);
+  background: var(--color-primary-soft);
+  text-align: center;
+}
+
+.parse-ready-cover-icon {
+  width: 5.5rem;
+  height: 5.5rem;
+  align-self: end;
+  display: grid;
+  place-items: center;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border-radius: 1rem;
+}
+
+.parse-ready-cover > strong {
+  align-self: end;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.parse-ready-cover > span:last-child {
+  align-self: start;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.parse-ready-summary {
+  padding-bottom: calc(
+    2rem
+    + var(--safe-area-bottom)
+    + var(--touch-target-primary)
+    + 2.5rem
+  );
+}
+
+.parse-ready-summary .community-detail-owner {
+  color: var(--color-primary-pressed);
+}
+
+.parse-ready-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.parse-ready-summary h2 {
+  max-width: 22ch;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow-wrap: anywhere;
+}
+
+.parse-ready-summary .parse-info-grid {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.parse-ready-summary .parse-info-grid .metric-card {
+  min-height: 5.125rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 0.875rem;
+}
+
+.parse-ready-summary .parse-info-grid .metric-card strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.parse-ready-summary .parse-info-grid .metric-card span {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.parse-ready-error {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  padding: 0.75rem;
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-radius: 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.parse-ready-error svg {
+  margin-top: 0.0625rem;
+}
+
+.parse-ready-actions .button {
+  width: min(64%, 20.5rem);
+  min-height: 3.5rem;
+  margin-inline: auto;
+  border-radius: 999px;
+}
+
+.parse-ready-actions {
+  background: transparent;
+}
+
+.screen-content[data-screen="parseReady"] ~ .toast {
+  bottom: calc(
+    var(--overlay-visual-bottom)
+    + var(--safe-area-bottom)
+    + var(--touch-target-primary)
+    + 2rem
+  );
+}
+
+.screen-content[data-screen="parseReady"] .parse-flow-empty {
+  width: 100%;
+  max-width: 40rem;
+  margin-inline: auto;
+  padding:
+    var(--space-layout)
+    var(--space-inline)
+    calc(var(--safe-area-bottom) + var(--touch-target-primary) + 2.5rem);
+}
+
+@media (max-width: 359px) {
+  .parse-ready-summary .parse-info-grid {
+    gap: 0.375rem;
+  }
+
+  .parse-ready-summary .parse-info-grid .metric-card {
+    padding-inline: 0.25rem;
+  }
+
+  .parse-ready-actions .button {
+    width: min(72%, 20.5rem);
+  }
+}
+
+@media (max-width: 480px) and (max-height: 740px) and (orientation: portrait) {
+  .screen-content.with-header.without-nav[data-screen="parseReady"] {
+    --parse-ready-visual-block: 10.5rem;
+  }
+
+  .parse-ready-visual .community-detail-cover,
+  .parse-ready-visual .community-detail-cover-fallback {
+    top: 0.75rem;
+    width: min(46%, 13rem);
+  }
+
+  .parse-ready-summary {
+    margin-top: -2.5rem;
+    padding-top: 9rem;
+  }
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .screen-content.with-header.without-nav[data-screen="parseReady"] {
+    --parse-ready-visual-block: 17rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parse-ready-overview,
+  .parse-ready-summary,
+  .parse-ready-cover {
+    transition: none;
+  }
+}

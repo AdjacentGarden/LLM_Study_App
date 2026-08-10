@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:13:47.697233+00:00",
+  "python_executable": "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+  "stage5_test_files": [
+    "app\\tests\\test_stage5_format_e2e.py",
+    "app\\tests\\test_stage5_office_semantics.py",
+    "app\\tests\\test_stage5_upload_security.py",
+    "app\\tests\\test_phase5_ocr.py"
+  ],
+  "commands": [
+    {
+      "id": "backend_full",
+      "command": [
+        "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "app/tests",
+        "-q"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\backend",
+      "duration_seconds": 115.39,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 346,
+        "failed": 0,
+        "skipped": 9
+      },
+      "stdout": "........................................................................ [ 20%]\n........................................................................ [ 40%]\n....................................................sssssss............. [ 60%]\n.........................................................ss............. [ 81%]\n...................................................................      [100%]\n346 passed, 9 skipped in 114.75s (0:01:54)\n",
+      "stderr": ""
+    },
+    {
+      "id": "backend_stage5",
+      "command": [
+        "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "app\\tests\\test_stage5_format_e2e.py",
+        "app\\tests\\test_stage5_office_semantics.py",
+        "app\\tests\\test_stage5_upload_security.py",
+        "app\\tests\\test_phase5_ocr.py",
+        "-q"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\backend",
+      "duration_seconds": 64.11,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 70,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "......................................................................   [100%]\n70 passed in 63.51s (0:01:03)\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_test",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "test"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "duration_seconds": 0.828,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 test\n> vitest run\n\n\n RUN  v4.1.9 D:/code/CloudPath_app/frontend\n\n\n Test Files  2 passed (2)\n      Tests  7 passed (7)\n   Start at  21:13:44\n   Duration  445ms (transform 72ms, setup 0ms, import 121ms, tests 337ms, environment 0ms)\n\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_lint",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "run",
+        "lint"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "duration_seconds": 1.047,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 lint\n> eslint .\n\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_build",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "run",
+        "build"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "duration_seconds": 1.484,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 build\n> tsc -b && vite build\n\n\u001b[36mvite v8.0.16 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\n\u001b[2K\ntransforming...✓ 1777 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.53 kB │ gzip:  0.33 kB\ndist/assets/index-CLpNF0N-.css   56.43 kB │ gzip: 12.03 kB\ndist/assets/index-Fdc5KsPX.js   294.61 kB │ gzip: 89.68 kB\n\n\u001b[32m✓ built in 135ms\u001b[39m\n",
+      "stderr": ""
+    }
+  ],
+  "summary": {
+    "all_passed": true,
+    "failed_commands": [],
+    "backend_full_passed": 346,
+    "backend_full_failed": 0,
+    "backend_full_skipped": 9,
+    "stage5_passed": 70,
+    "stage5_failed": 0,
+    "frontend_tests_passed": 7,
+    "frontend_lint_passed": true,
+    "frontend_build_passed": true
+  }
+}

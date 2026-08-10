@@ -1,0 +1,36 @@
+[
+  {
+    "type": "text",
+    "text": "Cellular respiration",
+    "text_level": 2,
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Synthetic stage 0 fixture",
+    "text_level": 2,
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "ATP production",
+    "text_level": 2,
+    "page_idx": 1
+  },
+  {
+    "type": "text",
+    "text": "Glycolysis occurs in the cytoplasm.",
+    "page_idx": 1
+  },
+  {
+    "type": "text",
+    "text": "The citric acid cycle occurs in mitochondria.",
+    "page_idx": 1
+  },
+  {
+    "type": "image",
+    "img_path": "images/a2f555e32391803662e3fec9681cb308097b0e901dd9a6f43c9780cdc74242bc.jpg",
+    "image_caption": [],
+    "page_idx": 1
+  }
+]

@@ -1,0 +1,795 @@
+/*
+ * P2 card system
+ *
+ * This file is imported after the legacy page styles on purpose. The app
+ * previously had multiple theme layers that reintroduced glass cards after a
+ * token was changed. These final rules keep old class names compatible while
+ * enforcing the A+C surface, contrast and touch-target contracts.
+ */
+
+html,
+body,
+.stage,
+.app-shell {
+  background: var(--color-bg);
+}
+
+.stage,
+.app-shell {
+  box-shadow: none;
+}
+
+.app-shell::before,
+.app-shell::after {
+  content: none;
+}
+
+.screen-content {
+  background: transparent;
+}
+
+/* Assignment is a focused, full-screen practice stage rather than a neutral
+   dashboard. The opaque brand tint continues behind the iOS header and safe
+   areas, while the two white exercise surfaces remain the only page cards. */
+.app-shell[data-active-screen="assignment"] {
+  background: #d9d2ff;
+}
+
+.screen-content[data-screen="assignment"] :is(.assignment-progress-card, .assignment-exercise-card) {
+  background: var(--color-surface);
+  border-color: rgba(94, 76, 148, 0.18);
+}
+
+.screen-content[data-screen="assignment"] .assignment-progress-card {
+  border-radius: 999px;
+}
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .screen-content[data-screen="assignment"] .assignment-exercise-card {
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 48px 48px 0 0;
+  }
+}
+
+/* The preview studio is a tool surface too: neutral, opaque, and readable. */
+.device-preview-studio {
+  --device-preview-surface: var(--color-surface);
+  --device-preview-border: var(--color-border);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.device-preview-toolbar {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.device-preview-control-group {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+}
+
+.device-preview-eyebrow,
+.device-preview-control-group legend {
+  color: var(--color-text-muted);
+}
+
+.device-preview-output-summary,
+.device-preview-toggle {
+  color: var(--color-text-secondary);
+}
+
+.device-preview-toggle[aria-pressed="true"] {
+  color: var(--color-primary-pressed);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  box-shadow: none;
+}
+
+.device-preview-toggle:hover {
+  background: var(--color-surface-tint);
+}
+
+.device-preview-canvas {
+  background: var(--color-surface-soft);
+  box-shadow: 0 4px 8px rgba(32, 38, 58, 0.14);
+}
+
+.screen-content *,
+.screen-content *::before,
+.screen-content *::after {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Keyboard focus must stand apart from every neutral reading surface. */
+:where(button, a, input, select, textarea):focus-visible,
+.screen-content :is(.mistake-list-item, .note-list-item, .toc-entry-title):focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+/* Default text, placeholders and form values never use the decorative tints. */
+.screen-content,
+.sheet,
+.toast,
+.ai-overlay {
+  color: var(--color-text);
+}
+
+.screen-content :is(p, small, label, .helper-text, .status-copy, .status-feedback),
+.sheet :is(p, small, label, .helper-text),
+.toast p,
+.ai-overlay :is(p, small, label, .helper-text) {
+  color: var(--color-text-secondary);
+}
+
+input,
+textarea,
+select {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-placeholder);
+  opacity: 1;
+}
+
+/* Every non-inline activation target gets a true 44px hit box. */
+button,
+[role="button"],
+a.button,
+.inline-link,
+.filter-pill,
+.knowledge-chip,
+.date-pill {
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+select,
+textarea {
+  min-block-size: var(--touch-target-min);
+}
+
+.check-list label,
+.export-module-list label,
+.settings-row,
+.chapter-row,
+.timeline-item,
+.task-line,
+.home-course-row,
+.home-course-error,
+.home-tool-button,
+.lesson-evidence-list button,
+.lesson-evidence-toggle,
+.source-reader-toolbar button,
+.toc-entry,
+.toc-expand-button,
+.toc-entry-title,
+.toc-edit-button,
+.course-card-edit,
+.course-card-menu button,
+.memory-reveal,
+.feeling-row button,
+.followups button,
+.ai-topic-row button,
+.ai-mode-row button,
+.ai-suggest-list button {
+  min-block-size: var(--touch-target-min);
+}
+
+.button,
+.button-primary,
+.home-primary-action,
+.assignment-primary-action .button,
+.parse-flow-actions .button,
+.course-ready-actions .button,
+.upload-flow-primary > .button {
+  min-block-size: var(--touch-target-primary);
+}
+
+.screen-content .button,
+.sheet .button {
+  min-block-size: var(--touch-target-primary);
+}
+
+.button {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+  box-shadow: none;
+}
+
+.button-primary {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: none;
+}
+
+.button-primary:hover {
+  color: var(--color-on-primary);
+  background: var(--color-primary-pressed);
+  border-color: var(--color-primary-pressed);
+}
+
+.button-primary:active {
+  background: var(--color-primary-pressed);
+  transform: translateY(1px);
+}
+
+.button-secondary {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  box-shadow: none;
+}
+
+.button-secondary:hover {
+  color: var(--color-primary-pressed);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+.button-text {
+  width: auto;
+  color: var(--color-primary);
+  background: transparent;
+  border-color: transparent;
+}
+
+.button-danger {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-danger-soft));
+}
+
+.button:disabled,
+button:disabled {
+  color: var(--color-text-muted);
+  background: #eef1f5;
+  border-color: #d9e0e9;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.icon-button {
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  border-radius: 12px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.header-glass {
+  min-height: var(--touch-target-min);
+  height: auto;
+  grid-template-columns: var(--touch-target-min) minmax(0, 1fr) var(--touch-target-min);
+}
+
+.header-spacer {
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+}
+
+.header-title p {
+  color: var(--color-text-secondary);
+}
+
+/* Flat reading surfaces: border or tone, never a translucent wide-shadow card. */
+.screen-content :is(
+  .hero-card,
+  .card,
+  .citation-card,
+  .quick-action,
+  .community-book-card,
+  .book-mini,
+  .chapter-row,
+  .settings-row,
+  .stage-row,
+  .metric-card,
+  .textbook-preview,
+  .check-list label,
+  .timeline-item,
+  .answer-compare div,
+  .learning-continuity,
+  .daily-task-card,
+  .schedule-card,
+  .plan-date-row,
+  .lesson-bottom-actions,
+  .sticky-actions,
+  .review-card,
+  .course-space-card,
+  .memory-card,
+  .adjustment-card,
+  .flashcard-context-card,
+  .mistake-list-item,
+  .note-list-item,
+  .source-reader-summary,
+  .source-reader-toolbar,
+  .source-page-frame,
+  .upload-sheet-card,
+  .upload-card,
+  .parse-file-card,
+  .insight-card,
+  .privacy-card,
+  .processing-status-card,
+  .book-summary,
+  .course-hero,
+  .lesson-title-card,
+  .source-fragment-card,
+  .ai-explain-card,
+  .concept-flash-card,
+  .diagnosis-card,
+  .knowledge-map-card,
+  .ai-suggestion-card,
+  .report-card,
+  .profile-card,
+  .community-detail-card,
+  .community-import-success,
+  .export-intro-card,
+  .export-module-list,
+  .note-card,
+  .notes-detail-panel,
+  .assignment-card,
+  .import-progress-card,
+  .guide-card,
+  .source-reader-empty,
+  .parse-empty-card
+) {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.screen-content :is(.card, .citation-card, .quick-action, .community-book-card, .book-mini, .chapter-row, .settings-row, .stage-row, .metric-card) {
+  --surface-tint: var(--color-surface);
+}
+
+.screen-content :is(.card, .quick-action, .community-book-card, .book-mini, .chapter-row, .settings-row, .stage-row, .metric-card, .course-space-card, .memory-card, .adjustment-card, .flashcard-context-card, .note-card, .assignment-card, .source-reader-summary, .source-reader-toolbar) > * {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.screen-content .card[data-surface="elevated"] {
+  box-shadow: 0 4px 8px rgba(32, 38, 58, 0.12);
+}
+
+/* Rows are structured content, not a stack of individual floating cards. */
+.screen-content :is(
+  .chapter-row,
+  .settings-row,
+  .task-line,
+  .timeline-item,
+  .lesson-evidence-list button,
+  .mistake-list-item,
+  .note-list-item,
+  .home-course-row,
+  .home-course-error,
+  .toc-entry,
+  .course-card-menu,
+  .source-reader-toolbar
+) {
+  border-radius: 0;
+  border-width: 0 0 1px;
+  border-color: var(--color-border);
+  background: transparent;
+  box-shadow: none;
+}
+
+.screen-content :is(.chapter-row, .settings-row, .task-line, .timeline-item, .lesson-evidence-list button, .mistake-list-item, .note-list-item, .home-course-row, .toc-entry):hover {
+  background: var(--color-surface-soft);
+}
+
+.screen-content :is(.chapter-row, .settings-row, .task-line, .timeline-item, .lesson-evidence-list button, .mistake-list-item, .note-list-item, .home-course-row, .toc-entry):last-child {
+  border-bottom: 0;
+}
+
+.screen-content .lesson-evidence-toggle,
+.screen-content .course-card-menu button,
+.screen-content .source-reader-toolbar button,
+.screen-content .memory-reveal,
+.screen-content .filter-pill,
+.screen-content .knowledge-chip {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.screen-content .lesson-evidence-toggle > span:last-child,
+.screen-content .lesson-source-link,
+.screen-content .inline-link,
+.screen-content .toc-toggle-all,
+.screen-content .toc-edit-button {
+  color: var(--color-primary);
+}
+
+.screen-content .quick-action,
+.screen-content .metric-card,
+.screen-content .course-action-grid .quick-action,
+.screen-content .concept-card-grid button,
+.screen-content .suggestion-grid button {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.screen-content .quick-action:hover,
+.screen-content .course-action-grid .quick-action:hover,
+.screen-content .concept-card-grid button:hover,
+.screen-content .suggestion-grid button:hover {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+
+/* Four course destinations belong to one compact tool group, not four cards. */
+.screen-content .course-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.screen-content .course-action-grid .quick-action,
+.screen-content .course-action-grid .quick-action:hover {
+  min-height: 82px;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.screen-content .course-action-grid .quick-action:hover,
+.screen-content .course-action-grid .quick-action:active {
+  background: var(--color-surface-soft);
+}
+
+.screen-content .course-action-grid .quick-action:nth-child(odd) {
+  border-inline-end: 1px solid var(--color-border);
+}
+
+.screen-content .course-action-grid .quick-action:nth-child(-n + 2) {
+  border-block-end: 1px solid var(--color-border);
+}
+
+.screen-content :is(.quick-icon, .settings-icon, .citation-icon, .continuity-icon, .stage-row > span, .book-summary-icon, .task-calendar) {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: none;
+}
+
+.screen-content :is(.hero-card, .course-hero, .book-summary, .lesson-title-card, .flashcard-hero, .plan-hero-card, .diagnosis-card, .memory-card) {
+  background: var(--color-surface);
+}
+
+.screen-content .plan-link-card {
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  box-shadow: none;
+}
+
+.screen-content .chapter-conflict-card {
+  background: var(--color-danger-soft);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-danger-soft));
+}
+
+.screen-content .chapter-conflict-heading :is(h3, p),
+.screen-content .chapter-delete-confirm :is(strong, p),
+.screen-content .chapter-conflict-list button > span,
+.screen-content .confirm-blocked-helper {
+  color: var(--color-danger);
+}
+
+.screen-content .feedback-stack > div,
+.screen-content .toc-directory,
+.screen-content .toc-children,
+.screen-content .flashcard-source-sidebar,
+.screen-content .course-space-meta span,
+.screen-content .chapter-evidence span {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.screen-content :is(.feedback-stack > div, .toc-directory, .flashcard-source-sidebar) {
+  border-radius: 12px;
+}
+
+.screen-content .source-page-skeleton,
+.screen-content .source-page-frame figcaption {
+  background: var(--color-surface-soft);
+}
+
+.screen-content .source-page-frame img {
+  background: var(--color-surface);
+}
+
+.screen-content .selected-file img,
+.screen-content .book-summary img,
+.screen-content .course-hero img,
+.screen-content .book-mini img,
+.screen-content .course-cover-image,
+.screen-content .success-hero-image,
+.screen-content .success-hero-image-fallback {
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+/* Concise, AA-safe semantic labels. */
+.pill,
+.screen-content .pill {
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-weight: 750;
+}
+
+.pill-purple,
+.screen-content .pill-purple {
+  color: var(--color-primary-pressed);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-light);
+}
+
+.pill-sky,
+.screen-content .pill-sky {
+  color: var(--color-info);
+  background: var(--color-info-soft);
+  border-color: #c8e0f2;
+}
+
+.pill-mint,
+.screen-content .pill-mint {
+  color: var(--color-mint);
+  background: #e4f5ef;
+  border-color: #c5e7dc;
+}
+
+.pill-orange,
+.screen-content .pill-orange {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+  border-color: #f2d9bc;
+}
+
+.screen-content :is(.progress-track, .diagnosis-knowledge-progress-track, .home-focus-progress) {
+  background: #dce3ed;
+}
+
+.screen-content :is(.progress-fill, .diagnosis-knowledge-progress-fill, .home-focus-progress span) {
+  background: var(--color-primary);
+}
+
+.screen-content :is(.metric-card strong, .diagnosis-card h2 strong, .score-number strong, .source-reader-toolbar strong) {
+  color: var(--color-primary);
+}
+
+.screen-content :is(.task-main p, .chapter-row p, .book-mini p, .note-card p, .timeline-item p, .lesson-evidence-list span, .lesson-evidence-list small, .concept-card-grid small, .memory-card-head span, .memory-card-source, .flashcard-progress span, .source-reader-summary p, .source-page-frame figcaption, .course-space-card p, .review-summary span, .plan-link-card p, .adjustment-card p) {
+  color: var(--color-text-secondary);
+}
+
+.screen-content :is(.task-line, .task-line strong, .task-line small, .chapter-evidence, .chapter-evidence small, .toc-entry-meta, .toc-directory-feedback, .chapter-confirm-action-feedback [role="status"], .toc-entry-issue) {
+  color: var(--color-text-secondary);
+}
+
+.screen-content .concept-card-grid small,
+.screen-content .home-section-heading p,
+.screen-content .home-course-copy small,
+.screen-content .home-tool-button small,
+.screen-content .home-path-step small {
+  color: var(--color-text-muted);
+}
+
+.screen-content .filter-pill.active,
+.screen-content .timeline-item.active,
+.screen-content .mistake-list-item[data-selected="true"],
+.screen-content .note-list-item[data-selected="true"] {
+  color: var(--color-primary-pressed);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
+}
+
+/* C: the companion only appears in agreed state-changing moments. */
+.home-focus-panel[data-brand-moment="home-task"] {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: #eef3fb url("/assets/brand/home-learning-path.webp") 90% center / auto 100% no-repeat;
+  box-shadow: none;
+}
+
+.home-focus-panel[data-brand-moment="home-task"]::before {
+  background: linear-gradient(90deg, #f8faff 0%, rgba(248, 250, 255, 0.96) 43%, rgba(248, 250, 255, 0.36) 68%, transparent 88%);
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-primary-action {
+  min-height: var(--touch-target-primary);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-primary-action:hover {
+  background: var(--color-primary-pressed);
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-learning-path {
+  background: rgba(255, 255, 255, 0.96);
+  border-top-color: var(--color-border);
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-path-step {
+  color: var(--color-text-secondary);
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-path-marker {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-tint);
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-path-step.is-done .home-path-marker,
+.home-focus-panel[data-brand-moment="home-task"] .home-path-step.is-active .home-path-marker {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+.home-focus-panel[data-brand-moment="home-task"] .home-path-step.is-error .home-path-marker {
+  color: var(--color-on-primary);
+  background: var(--color-danger);
+}
+
+.screen-content .daily-task-card {
+  background: #f2f5fb;
+}
+
+.screen-content .daily-task-card::before {
+  background: var(--brand-daily-task-cloud) right top / auto 100% no-repeat;
+}
+
+.screen-content .daily-task-card::after {
+  background: linear-gradient(90deg, #f2f5fb 0%, rgba(242, 245, 251, 0.92) 40%, transparent 78%);
+}
+
+.screen-content .report-card[data-surface="celebration"] {
+  background: #f1f4fb var(--brand-cloud-report) right 16px top 16px / min(165px, 42%) auto no-repeat;
+  border-color: var(--color-primary-light);
+  box-shadow: none;
+}
+
+.course-ready-primary[data-brand-moment="course-ready"] {
+  background: transparent;
+}
+
+/* No mascot or decorative gradient leaks into community or ordinary study pages. */
+.screen-content .card.community-hero,
+.screen-content .flashcard-hero,
+.screen-content .plan-hero-card,
+.screen-content .memory-card,
+.screen-content .lesson-title-card,
+.screen-content .course-hero,
+.screen-content .book-summary,
+.screen-content .diagnosis-card,
+.screen-content .source-page-skeleton,
+.screen-content .ai-current-book,
+.screen-content .ai-current-book-body {
+  background-image: none;
+}
+
+.screen-content .card.community-hero > div {
+  max-width: none;
+}
+
+/* Actual overlays may float, but use only the compact elevation token. */
+.sheet,
+.toast,
+.ai-overlay {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  box-shadow: 0 4px 8px rgba(32, 38, 58, 0.14);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.ai-overlay {
+  background-image: none;
+}
+
+.ai-orb,
+.ai-compose button,
+.success-mark,
+.upload-icon {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  box-shadow: 0 4px 8px rgba(32, 38, 58, 0.14);
+}
+
+.ai-intro p,
+.ai-suggest-title,
+.ai-current-book-body p,
+.ai-current-book-head,
+.ai-current-book-head span,
+.ai-intro span {
+  color: var(--color-text-secondary);
+}
+
+.ai-topic-row button,
+.ai-mode-row button,
+.ai-suggest-list button,
+.ai-current-book,
+.ai-current-book-body,
+.ai-compose {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+@media (max-width: 767px) and (min-height: 600px) and (orientation: portrait) {
+  .ai-overlay {
+    border-radius: 28px 28px 0 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-bar {
+    left: calc(var(--safe-area-left) + 12px);
+    right: calc(var(--safe-area-right) + 12px);
+  }
+
+  .screen-content .lesson-action-grid,
+  .screen-content .diagnosis-actions,
+  .screen-content .source-reader-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-height: 599px) and (orientation: landscape) {
+  .button,
+  .button-primary,
+  .home-primary-action,
+  .assignment-primary-action .button,
+  .parse-flow-actions .button,
+  .course-ready-actions .button,
+  .upload-flow-primary > .button {
+    min-block-size: var(--touch-target-primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-focus-panel[data-brand-moment="home-task"] .home-primary-action,
+  .button {
+    transition: none;
+  }
+}

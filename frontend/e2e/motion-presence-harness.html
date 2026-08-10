@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Motion Presence Harness</title>
+    <script>
+      (() => {
+        const active300 = new Set();
+        const active450 = new Set();
+        let scheduled300 = 0;
+        let scheduled450 = 0;
+        let fired300 = 0;
+        let fired450 = 0;
+        const nativeSetTimeout = window.setTimeout.bind(window);
+        const nativeClearTimeout = window.clearTimeout.bind(window);
+
+        window.__motionTimerAudit = {
+          get active300() {
+            return active300.size;
+          },
+          get active450() {
+            return active450.size;
+          },
+          get scheduled300() {
+            return scheduled300;
+          },
+          get scheduled450() {
+            return scheduled450;
+          },
+          get fired300() {
+            return fired300;
+          },
+          get fired450() {
+            return fired450;
+          }
+        };
+
+        window.setTimeout = (handler, timeout, ...args) => {
+          const isPresenceFallback = Number(timeout) === 300;
+          const isGlobalPresenceFallback = Number(timeout) === 450;
+          let timerId;
+          const wrappedHandler = typeof handler === "function"
+            ? () => {
+              if (isPresenceFallback) active300.delete(timerId);
+              if (isGlobalPresenceFallback) active450.delete(timerId);
+              if (isPresenceFallback) fired300 += 1;
+              if (isGlobalPresenceFallback) fired450 += 1;
+              handler(...args);
+              }
+            : handler;
+          timerId = nativeSetTimeout(wrappedHandler, timeout);
+          if (isPresenceFallback) {
+            active300.add(timerId);
+            scheduled300 += 1;
+          }
+          if (isGlobalPresenceFallback) {
+            active450.add(timerId);
+            scheduled450 += 1;
+          }
+          return timerId;
+        };
+
+        window.clearTimeout = (timerId) => {
+          active300.delete(timerId);
+          active450.delete(timerId);
+          return nativeClearTimeout(timerId);
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="motion-presence-root"></div>
+    <script type="module" src="/e2e/motion-presence-harness.tsx"></script>
+  </body>
+</html>

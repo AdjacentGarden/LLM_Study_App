@@ -1,0 +1,20 @@
+{
+  "book_id": "stage2_image_140246",
+  "filename": "source_diagram.png",
+  "file_type": "png",
+  "page_count": 1,
+  "has_text_layer": false,
+  "needs_ocr": false,
+  "quality_warnings": [
+    {
+      "page": null,
+      "code": "image_input",
+      "message": "image input will be preprocessed and OCRed"
+    },
+    {
+      "page": 1,
+      "code": "too_bright",
+      "message": "image is too bright for reliable OCR"
+    }
+  ]
+}

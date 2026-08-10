@@ -1,0 +1,765 @@
+[
+  {
+    "page": 1,
+    "pdf_page_index": 0,
+    "text": "Membrane energetics\nModule 1.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 1.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 1.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 1.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p001_header",
+        "page": 1,
+        "type": "paragraph",
+        "text": "CloudPath frozen golden course",
+        "bbox": [
+          80.0,
+          20.0,
+          400.0,
+          45.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p001_number",
+        "page": 1,
+        "type": "paragraph",
+        "text": "1",
+        "bbox": [
+          285.0,
+          810.0,
+          310.0,
+          830.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p001_title",
+        "page": 1,
+        "type": "title",
+        "text": "Membrane energetics",
+        "heading_level": 1,
+        "bbox": [
+          80.0,
+          70.0,
+          420.0,
+          105.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p001_paragraph_01",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Module 1.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          200.0,
+          520.0,
+          255.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-1-1",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 1
+        }
+      },
+      {
+        "block_id": "p001_paragraph_02",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Module 1.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          280.0,
+          520.0,
+          335.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-1-2",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 2
+        }
+      },
+      {
+        "block_id": "p001_paragraph_03",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Module 1.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          360.0,
+          520.0,
+          415.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-1-3",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 3
+        }
+      },
+      {
+        "block_id": "p001_paragraph_04",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Module 1.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 1.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          440.0,
+          520.0,
+          495.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-1-4",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 4
+        }
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": 0.98,
+    "parser": "mineru",
+    "quality_score": 0.98,
+    "source_width": 595.0,
+    "source_height": 842.0,
+    "metadata": {
+      "mineru_version": "3.4.4"
+    }
+  },
+  {
+    "page": 2,
+    "pdf_page_index": 1,
+    "text": "Module 2.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 2.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 2.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 2.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p002_header",
+        "page": 2,
+        "type": "paragraph",
+        "text": "CloudPath frozen golden course",
+        "bbox": [
+          80.0,
+          20.0,
+          400.0,
+          45.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p002_number",
+        "page": 2,
+        "type": "paragraph",
+        "text": "2",
+        "bbox": [
+          285.0,
+          810.0,
+          310.0,
+          830.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p002_paragraph_01",
+        "page": 2,
+        "type": "paragraph",
+        "text": "Module 2.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          200.0,
+          520.0,
+          255.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-2-1",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 1
+        }
+      },
+      {
+        "block_id": "p002_paragraph_02",
+        "page": 2,
+        "type": "paragraph",
+        "text": "Module 2.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          280.0,
+          520.0,
+          335.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-2-2",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 2
+        }
+      },
+      {
+        "block_id": "p002_paragraph_03",
+        "page": 2,
+        "type": "paragraph",
+        "text": "Module 2.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          360.0,
+          520.0,
+          415.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-2-3",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 3
+        }
+      },
+      {
+        "block_id": "p002_paragraph_04",
+        "page": 2,
+        "type": "paragraph",
+        "text": "Module 2.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 2.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          440.0,
+          520.0,
+          495.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-2-4",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 4
+        }
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": 0.98,
+    "parser": "mineru",
+    "quality_score": 0.98,
+    "source_width": 595.0,
+    "source_height": 842.0,
+    "metadata": {
+      "mineru_version": "3.4.4"
+    }
+  },
+  {
+    "page": 3,
+    "pdf_page_index": 2,
+    "text": "Module 3.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 3.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 3.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 3.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p003_header",
+        "page": 3,
+        "type": "paragraph",
+        "text": "CloudPath frozen golden course",
+        "bbox": [
+          80.0,
+          20.0,
+          400.0,
+          45.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p003_number",
+        "page": 3,
+        "type": "paragraph",
+        "text": "3",
+        "bbox": [
+          285.0,
+          810.0,
+          310.0,
+          830.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p003_paragraph_01",
+        "page": 3,
+        "type": "paragraph",
+        "text": "Module 3.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.1 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          200.0,
+          520.0,
+          255.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-3-1",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 1
+        }
+      },
+      {
+        "block_id": "p003_paragraph_02",
+        "page": 3,
+        "type": "paragraph",
+        "text": "Module 3.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.2 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          280.0,
+          520.0,
+          335.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-3-2",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 2
+        }
+      },
+      {
+        "block_id": "p003_paragraph_03",
+        "page": 3,
+        "type": "paragraph",
+        "text": "Module 3.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          360.0,
+          520.0,
+          415.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-3-3",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 3
+        }
+      },
+      {
+        "block_id": "p003_paragraph_04",
+        "page": 3,
+        "type": "paragraph",
+        "text": "Module 3.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 3.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          440.0,
+          520.0,
+          495.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-3-4",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 4
+        }
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": 0.98,
+    "parser": "mineru",
+    "quality_score": 0.98,
+    "source_width": 595.0,
+    "source_height": 842.0,
+    "metadata": {
+      "mineru_version": "3.4.4"
+    }
+  },
+  {
+    "page": 4,
+    "pdf_page_index": 3,
+    "text": "Independent events multiply because one event does not alter the probability of the other.\nP(A \\cap B)=P(A)P(B)\nThe surrounding explanation supplies the assumptions and interpretation for the symbolic statement.\nPathway Signal Value",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p004_header",
+        "page": 4,
+        "type": "paragraph",
+        "text": "CloudPath frozen golden course",
+        "bbox": [
+          80.0,
+          20.0,
+          400.0,
+          45.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p004_number",
+        "page": 4,
+        "type": "paragraph",
+        "text": "4",
+        "bbox": [
+          285.0,
+          810.0,
+          310.0,
+          830.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p004_paragraph_01",
+        "page": 4,
+        "type": "paragraph",
+        "text": "Independent events multiply because one event does not alter the probability of the other.",
+        "bbox": [
+          80.0,
+          200.0,
+          520.0,
+          255.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-4-1",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 1
+        }
+      },
+      {
+        "block_id": "p004_formula",
+        "page": 4,
+        "type": "formula",
+        "text": "P(A \\cap B)=P(A)P(B)",
+        "bbox": [
+          100.0,
+          150.0,
+          450.0,
+          195.0
+        ],
+        "source_parser": "mineru",
+        "content_hash": "formula",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "latex": "P(A \\cap B)=P(A)P(B)"
+        }
+      },
+      {
+        "block_id": "p004_paragraph_02",
+        "page": 4,
+        "type": "paragraph",
+        "text": "The surrounding explanation supplies the assumptions and interpretation for the symbolic statement.",
+        "bbox": [
+          80.0,
+          280.0,
+          520.0,
+          335.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-4-2",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 2
+        }
+      },
+      {
+        "block_id": "p004_table",
+        "page": 4,
+        "type": "table",
+        "text": "Pathway Signal Value",
+        "bbox": [
+          60.0,
+          220.0,
+          535.0,
+          650.0
+        ],
+        "source_parser": "mineru",
+        "asset_ids": [
+          "asset_table"
+        ],
+        "content_hash": "large-table",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "table_caption": [
+            "Measured pathway responses"
+          ],
+          "table_body": "<table><tr><th>Pathway</th><th>Signal</th><th>Value</th></tr><tr><td>Pathway 1</td><td>Signal 1</td><td>2</td></tr><tr><td>Pathway 2</td><td>Signal 2</td><td>4</td></tr><tr><td>Pathway 3</td><td>Signal 3</td><td>6</td></tr><tr><td>Pathway 4</td><td>Signal 4</td><td>8</td></tr><tr><td>Pathway 5</td><td>Signal 5</td><td>10</td></tr><tr><td>Pathway 6</td><td>Signal 6</td><td>12</td></tr><tr><td>Pathway 7</td><td>Signal 7</td><td>14</td></tr><tr><td>Pathway 8</td><td>Signal 8</td><td>16</td></tr><tr><td>Pathway 9</td><td>Signal 9</td><td>18</td></tr><tr><td>Pathway 10</td><td>Signal 10</td><td>20</td></tr><tr><td>Pathway 11</td><td>Signal 11</td><td>22</td></tr><tr><td>Pathway 12</td><td>Signal 12</td><td>24</td></tr><tr><td>Pathway 13</td><td>Signal 13</td><td>26</td></tr><tr><td>Pathway 14</td><td>Signal 14</td><td>28</td></tr><tr><td>Pathway 15</td><td>Signal 15</td><td>30</td></tr><tr><td>Pathway 16</td><td>Signal 16</td><td>32</td></tr><tr><td>Pathway 17</td><td>Signal 17</td><td>34</td></tr><tr><td>Pathway 18</td><td>Signal 18</td><td>36</td></tr><tr><td>Pathway 19</td><td>Signal 19</td><td>38</td></tr><tr><td>Pathway 20</td><td>Signal 20</td><td>40</td></tr><tr><td>Pathway 21</td><td>Signal 21</td><td>42</td></tr><tr><td>Pathway 22</td><td>Signal 22</td><td>44</td></tr><tr><td>Pathway 23</td><td>Signal 23</td><td>46</td></tr><tr><td>Pathway 24</td><td>Signal 24</td><td>48</td></tr><tr><td>Pathway 25</td><td>Signal 25</td><td>50</td></tr><tr><td>Pathway 26</td><td>Signal 26</td><td>52</td></tr><tr><td>Pathway 27</td><td>Signal 27</td><td>54</td></tr><tr><td>Pathway 28</td><td>Signal 28</td><td>56</td></tr><tr><td>Pathway 29</td><td>Signal 29</td><td>58</td></tr><tr><td>Pathway 30</td><td>Signal 30</td><td>60</td></tr><tr><td>Pathway 31</td><td>Signal 31</td><td>62</td></tr><tr><td>Pathway 32</td><td>Signal 32</td><td>64</td></tr><tr><td>Pathway 33</td><td>Signal 33</td><td>66</td></tr><tr><td>Pathway 34</td><td>Signal 34</td><td>68</td></tr><tr><td>Pathway 35</td><td>Signal 35</td><td>70</td></tr><tr><td>Pathway 36</td><td>Signal 36</td><td>72</td></tr><tr><td>Pathway 37</td><td>Signal 37</td><td>74</td></tr><tr><td>Pathway 38</td><td>Signal 38</td><td>76</td></tr><tr><td>Pathway 39</td><td>Signal 39</td><td>78</td></tr><tr><td>Pathway 40</td><td>Signal 40</td><td>80</td></tr><tr><td>Pathway 41</td><td>Signal 41</td><td>82</td></tr><tr><td>Pathway 42</td><td>Signal 42</td><td>84</td></tr><tr><td>Pathway 43</td><td>Signal 43</td><td>86</td></tr><tr><td>Pathway 44</td><td>Signal 44</td><td>88</td></tr><tr><td>Pathway 45</td><td>Signal 45</td><td>90</td></tr><tr><td>Pathway 46</td><td>Signal 46</td><td>92</td></tr><tr><td>Pathway 47</td><td>Signal 47</td><td>94</td></tr><tr><td>Pathway 48</td><td>Signal 48</td><td>96</td></tr><tr><td>Pathway 49</td><td>Signal 49</td><td>98</td></tr><tr><td>Pathway 50</td><td>Signal 50</td><td>100</td></tr><tr><td>Pathway 51</td><td>Signal 51</td><td>102</td></tr><tr><td>Pathway 52</td><td>Signal 52</td><td>104</td></tr><tr><td>Pathway 53</td><td>Signal 53</td><td>106</td></tr><tr><td>Pathway 54</td><td>Signal 54</td><td>108</td></tr><tr><td>Pathway 55</td><td>Signal 55</td><td>110</td></tr><tr><td>Pathway 56</td><td>Signal 56</td><td>112</td></tr><tr><td>Pathway 57</td><td>Signal 57</td><td>114</td></tr><tr><td>Pathway 58</td><td>Signal 58</td><td>116</td></tr><tr><td>Pathway 59</td><td>Signal 59</td><td>118</td></tr><tr><td>Pathway 60</td><td>Signal 60</td><td>120</td></tr><tr><td>Pathway 61</td><td>Signal 61</td><td>122</td></tr><tr><td>Pathway 62</td><td>Signal 62</td><td>124</td></tr><tr><td>Pathway 63</td><td>Signal 63</td><td>126</td></tr><tr><td>Pathway 64</td><td>Signal 64</td><td>128</td></tr><tr><td>Pathway 65</td><td>Signal 65</td><td>130</td></tr><tr><td>Pathway 66</td><td>Signal 66</td><td>132</td></tr><tr><td>Pathway 67</td><td>Signal 67</td><td>134</td></tr><tr><td>Pathway 68</td><td>Signal 68</td><td>136</td></tr><tr><td>Pathway 69</td><td>Signal 69</td><td>138</td></tr><tr><td>Pathway 70</td><td>Signal 70</td><td>140</td></tr><tr><td>Pathway 71</td><td>Signal 71</td><td>142</td></tr><tr><td>Pathway 72</td><td>Signal 72</td><td>144</td></tr><tr><td>Pathway 73</td><td>Signal 73</td><td>146</td></tr><tr><td>Pathway 74</td><td>Signal 74</td><td>148</td></tr><tr><td>Pathway 75</td><td>Signal 75</td><td>150</td></tr><tr><td>Pathway 76</td><td>Signal 76</td><td>152</td></tr><tr><td>Pathway 77</td><td>Signal 77</td><td>154</td></tr><tr><td>Pathway 78</td><td>Signal 78</td><td>156</td></tr><tr><td>Pathway 79</td><td>Signal 79</td><td>158</td></tr><tr><td>Pathway 80</td><td>Signal 80</td><td>160</td></tr><tr><td>Pathway 81</td><td>Signal 81</td><td>162</td></tr><tr><td>Pathway 82</td><td>Signal 82</td><td>164</td></tr><tr><td>Pathway 83</td><td>Signal 83</td><td>166</td></tr><tr><td>Pathway 84</td><td>Signal 84</td><td>168</td></tr><tr><td>Pathway 85</td><td>Signal 85</td><td>170</td></tr><tr><td>Pathway 86</td><td>Signal 86</td><td>172</td></tr><tr><td>Pathway 87</td><td>Signal 87</td><td>174</td></tr><tr><td>Pathway 88</td><td>Signal 88</td><td>176</td></tr><tr><td>Pathway 89</td><td>Signal 89</td><td>178</td></tr><tr><td>Pathway 90</td><td>Signal 90</td><td>180</td></tr><tr><td>Pathway 91</td><td>Signal 91</td><td>182</td></tr><tr><td>Pathway 92</td><td>Signal 92</td><td>184</td></tr><tr><td>Pathway 93</td><td>Signal 93</td><td>186</td></tr><tr><td>Pathway 94</td><td>Signal 94</td><td>188</td></tr><tr><td>Pathway 95</td><td>Signal 95</td><td>190</td></tr><tr><td>Pathway 96</td><td>Signal 96</td><td>192</td></tr><tr><td>Pathway 97</td><td>Signal 97</td><td>194</td></tr><tr><td>Pathway 98</td><td>Signal 98</td><td>196</td></tr><tr><td>Pathway 99</td><td>Signal 99</td><td>198</td></tr><tr><td>Pathway 100</td><td>Signal 100</td><td>200</td></tr><tr><td>Pathway 101</td><td>Signal 101</td><td>202</td></tr><tr><td>Pathway 102</td><td>Signal 102</td><td>204</td></tr><tr><td>Pathway 103</td><td>Signal 103</td><td>206</td></tr><tr><td>Pathway 104</td><td>Signal 104</td><td>208</td></tr><tr><td>Pathway 105</td><td>Signal 105</td><td>210</td></tr><tr><td>Pathway 106</td><td>Signal 106</td><td>212</td></tr><tr><td>Pathway 107</td><td>Signal 107</td><td>214</td></tr><tr><td>Pathway 108</td><td>Signal 108</td><td>216</td></tr><tr><td>Pathway 109</td><td>Signal 109</td><td>218</td></tr><tr><td>Pathway 110</td><td>Signal 110</td><td>220</td></tr><tr><td>Pathway 111</td><td>Signal 111</td><td>222</td></tr><tr><td>Pathway 112</td><td>Signal 112</td><td>224</td></tr><tr><td>Pathway 113</td><td>Signal 113</td><td>226</td></tr><tr><td>Pathway 114</td><td>Signal 114</td><td>228</td></tr><tr><td>Pathway 115</td><td>Signal 115</td><td>230</td></tr><tr><td>Pathway 116</td><td>Signal 116</td><td>232</td></tr><tr><td>Pathway 117</td><td>Signal 117</td><td>234</td></tr><tr><td>Pathway 118</td><td>Signal 118</td><td>236</td></tr><tr><td>Pathway 119</td><td>Signal 119</td><td>238</td></tr><tr><td>Pathway 120</td><td>Signal 120</td><td>240</td></tr></table>"
+        }
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": 0.98,
+    "parser": "mineru",
+    "quality_score": 0.98,
+    "source_width": 595.0,
+    "source_height": 842.0,
+    "metadata": {
+      "mineru_version": "3.4.4"
+    }
+  },
+  {
+    "page": 5,
+    "pdf_page_index": 4,
+    "text": "Diagram showing ATP-driven transport across a selective membrane.\nLow confidence OCR fragment retained only for audit and quarantine.\nModule 5.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.\nModule 5.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p005_header",
+        "page": 5,
+        "type": "paragraph",
+        "text": "CloudPath frozen golden course",
+        "bbox": [
+          80.0,
+          20.0,
+          400.0,
+          45.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p005_number",
+        "page": 5,
+        "type": "paragraph",
+        "text": "5",
+        "bbox": [
+          285.0,
+          810.0,
+          310.0,
+          830.0
+        ],
+        "source_parser": "mineru",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p005_figure",
+        "page": 5,
+        "type": "image",
+        "text": "Diagram showing ATP-driven transport across a selective membrane.",
+        "bbox": [
+          90.0,
+          180.0,
+          500.0,
+          520.0
+        ],
+        "source_parser": "mineru",
+        "asset_ids": [
+          "asset_figure"
+        ],
+        "content_hash": "figure-caption",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      },
+      {
+        "block_id": "p005_paragraph_02",
+        "page": 5,
+        "type": "paragraph",
+        "text": "Low confidence OCR fragment retained only for audit and quarantine.",
+        "bbox": [
+          80.0,
+          280.0,
+          520.0,
+          335.0
+        ],
+        "confidence": 0.2,
+        "low_confidence": true,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-5-2",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 2
+        }
+      },
+      {
+        "block_id": "p005_paragraph_03",
+        "page": 5,
+        "type": "paragraph",
+        "text": "Module 5.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.3 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          360.0,
+          520.0,
+          415.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-5-3",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 3,
+          "slide_number": 7,
+          "slide_title": "Transport summary",
+          "source_format": "pptx"
+        }
+      },
+      {
+        "block_id": "p005_paragraph_04",
+        "page": 5,
+        "type": "paragraph",
+        "text": "Module 5.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses. Module 5.4 explains how membrane gradients coordinate transport, energy conversion, feedback control, and measurable cellular responses.",
+        "bbox": [
+          80.0,
+          440.0,
+          520.0,
+          495.0
+        ],
+        "confidence": null,
+        "low_confidence": false,
+        "source_parser": "mineru",
+        "content_hash": "paragraph-5-4",
+        "metadata": {
+          "page_size": [
+            595.0,
+            842.0
+          ],
+          "mineru_content_index": 4,
+          "sheet_name": "Measurements",
+          "cell_range": "A1:C24",
+          "source_format": "xlsx"
+        }
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": 0.98,
+    "parser": "mineru",
+    "quality_score": 0.98,
+    "source_width": 595.0,
+    "source_height": 842.0,
+    "metadata": {
+      "mineru_version": "3.4.4"
+    }
+  }
+]

@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:31:52.834676+00:00",
+  "run_id": "run_20260714T111508Z",
+  "formats": [
+    {
+      "format": "pdf",
+      "validation_passed": true,
+      "source_unit": "page",
+      "final_parser": "mineru",
+      "elapsed_seconds": 5.054,
+      "chunk_count": 2,
+      "asset_count": 0,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "png",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 10.833,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "jpg",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.212,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "jpeg",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.266,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "jp2",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.361,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "webp",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.225,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "gif",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.216,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "bmp",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.204,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "tif",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.251,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "tiff",
+      "validation_passed": true,
+      "source_unit": "image",
+      "final_parser": "ocr",
+      "elapsed_seconds": 8.375,
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation_location_type": "page",
+      "citation_location_label": "第 1 页",
+      "passed": true
+    },
+    {
+      "format": "docx",
+      "validation_passed": true,
+      "source_unit": "document",
+      "final_parser": "mineru",
+      "elapsed_seconds": 3.838,
+      "chunk_count": 3,
+      "asset_count": 1,
+      "citation_location_type": "document",
+      "citation_location_label": "课程：整本文档导读 > 1. Cell membrane · 块 3",
+      "passed": true
+    },
+    {
+      "format": "pptx",
+      "validation_passed": true,
+      "source_unit": "slide",
+      "final_parser": "mineru",
+      "elapsed_seconds": 3.858,
+      "chunk_count": 1,
+      "asset_count": 1,
+      "citation_location_type": "slide",
+      "citation_location_label": "幻灯片 2：ATP production",
+      "passed": true
+    },
+    {
+      "format": "xlsx",
+      "validation_passed": true,
+      "source_unit": "sheet",
+      "final_parser": "mineru",
+      "elapsed_seconds": 3.779,
+      "chunk_count": 2,
+      "asset_count": 0,
+      "citation_location_type": "sheet",
+      "citation_location_label": "工作表 Growth Data（A1:D5）",
+      "passed": true
+    }
+  ],
+  "success_rate": 1.0,
+  "warm_pipeline_p95_seconds": 9.358,
+  "gpu": {
+    "sample_count": 293,
+    "peak_memory_used_mib": 2304,
+    "peak_utilization_percent": 4,
+    "oom_count": 0
+  },
+  "passed": true
+}

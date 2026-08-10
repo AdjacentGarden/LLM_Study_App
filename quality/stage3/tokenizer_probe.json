@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T04:06:00.086032+00:00",
+  "model": "BAAI/bge-m3",
+  "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+  "transformers_version": "4.57.6",
+  "tokenizers_version": "0.22.2",
+  "tokenizer_class": "XLMRobertaTokenizerFast",
+  "chunk_config": {
+    "target": 450,
+    "max": 700,
+    "min": 120,
+    "overlap": 80,
+    "atomic_hard_max": 900,
+    "quality_threshold": 0.45
+  },
+  "samples": [
+    {
+      "source": "Cell biology: the plasma membrane regulates transport.",
+      "token_count": 12,
+      "stable_repeat": true,
+      "decoded": "Cell biology: the plasma membrane regulates transport."
+    },
+    {
+      "source": "细胞生物学：细胞膜调节物质运输。",
+      "token_count": 11,
+      "stable_repeat": true,
+      "decoded": "细胞生物学:细胞膜调节物质运输。"
+    },
+    {
+      "source": "Stage | Chromosome state\nG1 | unreplicated\nG2 | replicated",
+      "token_count": 21,
+      "stable_repeat": true,
+      "decoded": "Stage | Chromosome state G1 | unreplicated G2 | replicated"
+    },
+    {
+      "source": "Probability explanation: $P(A \\cap B)=P(A)P(B)$.",
+      "token_count": 24,
+      "stable_repeat": true,
+      "decoded": "Probability explanation: $P(A \\cap B)=P(A)P(B)$."
+    }
+  ],
+  "complete_embedding_text_token_count": 24,
+  "passed": true
+}

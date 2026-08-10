@@ -1,0 +1,52 @@
+[
+  {
+    "asset_id": "img_stage0_scanned_ch_001_p001_01",
+    "book_id": "stage0_scanned",
+    "chapter_id": "ch_001",
+    "source_type": "extracted",
+    "page": 1,
+    "type": "figure",
+    "caption": "整本文档（OCR 低置信度，需复核） 内嵌原书插图",
+    "bbox": [
+      40.25,
+      100.0,
+      554.75,
+      443.0
+    ],
+    "image_url": "/api/books/stage0_scanned/assets/img_stage0_scanned_ch_001_p001_01/file",
+    "thumbnail_url": "/api/books/stage0_scanned/assets/img_stage0_scanned_ch_001_p001_01/thumbnail",
+    "source_page_image_url": "/api/books/stage0_scanned/assets/img_stage0_scanned_ch_001_p001_01/source-page",
+    "source_chunk_ids": [
+      "stage0_scanned_ch_001_77fa43763556"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "ready"
+  },
+  {
+    "asset_id": "fig_stage0_scanned_ch_001_p001_01",
+    "book_id": "stage0_scanned",
+    "chapter_id": "ch_001",
+    "source_type": "extracted",
+    "page": 1,
+    "type": "figure",
+    "caption": "整本文档（OCR 低置信度，需复核） 相关原书插图候选",
+    "bbox": [
+      71.4,
+      151.56,
+      523.6,
+      378.9
+    ],
+    "image_url": "/api/books/stage0_scanned/assets/fig_stage0_scanned_ch_001_p001_01/file",
+    "thumbnail_url": "/api/books/stage0_scanned/assets/fig_stage0_scanned_ch_001_p001_01/thumbnail",
+    "source_page_image_url": "/api/books/stage0_scanned/assets/fig_stage0_scanned_ch_001_p001_01/source-page",
+    "source_chunk_ids": [
+      "stage0_scanned_ch_001_77fa43763556"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "candidate"
+  }
+]

@@ -1,0 +1,110 @@
+{
+  "pdf_info": [
+    {
+      "preproc_blocks": [
+        {
+          "type": "chart",
+          "bbox": [
+            29,
+            29,
+            402,
+            257
+          ],
+          "blocks": [
+            {
+              "score": 0.9029,
+              "bbox": [
+                29,
+                29,
+                402,
+                257
+              ],
+              "index": 1,
+              "type": "chart_body",
+              "lines": [
+                {
+                  "bbox": [
+                    29,
+                    29,
+                    402,
+                    257
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        29,
+                        29,
+                        402,
+                        257
+                      ],
+                      "type": "chart",
+                      "image_path": "4aae273402784e40f68a3768ae5425813b1d84254e3977641b0776d690c71506.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "score": 0.9029
+        }
+      ],
+      "page_idx": 0,
+      "page_size": [
+        432,
+        288
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "type": "chart",
+          "bbox": [
+            29,
+            29,
+            402,
+            257
+          ],
+          "blocks": [
+            {
+              "score": 0.9029,
+              "bbox": [
+                29,
+                29,
+                402,
+                257
+              ],
+              "index": 1,
+              "type": "chart_body",
+              "lines": [
+                {
+                  "bbox": [
+                    29,
+                    29,
+                    402,
+                    257
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        29,
+                        29,
+                        402,
+                        257
+                      ],
+                      "type": "chart",
+                      "image_path": "4aae273402784e40f68a3768ae5425813b1d84254e3977641b0776d690c71506.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "score": 0.9029
+        }
+      ]
+    }
+  ],
+  "_backend": "pipeline",
+  "_version_name": "3.4.4"
+}

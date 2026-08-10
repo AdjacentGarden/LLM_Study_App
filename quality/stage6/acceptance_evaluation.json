@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:33:15.023380+00:00",
+  "metric_protocol_version": "stage0-v1",
+  "stage_results": {
+    "stage2_passed": true,
+    "stage3_passed": true,
+    "stage4_failed_checks": 0,
+    "stage5_passed": true
+  },
+  "check_count": 10,
+  "passed_count": 10,
+  "failed_count": 0,
+  "checks": [
+    {
+      "id": "all_automated_tests",
+      "criterion": "所有自动化测试通过，条件跳过项已有明确独立证据",
+      "passed": true,
+      "observed": {
+        "all_passed": true,
+        "failed_commands": [],
+        "backend_full_passed": 346,
+        "backend_full_failed": 0,
+        "backend_full_skipped": 9,
+        "failure_matrix_passed": 72,
+        "failure_matrix_failed": 0,
+        "frontend_tests_passed": 7,
+        "frontend_lint_passed": true,
+        "frontend_build_passed": true,
+        "isolated_stage4_passed": 296,
+        "isolated_database_rows_after_tests": {
+          "state": 0,
+          "vectors": 0
+        }
+      },
+      "evidence": [
+        "quality/stage6/test_results.json",
+        "quality/stage4/test_results.json",
+        "quality/stage4/environment_probe.json"
+      ]
+    },
+    {
+      "id": "target_format_success_rate",
+      "criterion": "目标格式端到端成功率达到冻结任务成功率门槛",
+      "passed": true,
+      "observed": {
+        "formats": 13,
+        "success_rate": 1.0,
+        "threshold": 1.0
+      },
+      "evidence": [
+        "quality/stage5/real_e2e_probe.json",
+        "quality/stage5/acceptance_evaluation.json"
+      ]
+    },
+    {
+      "id": "citation_locations",
+      "criterion": "RAG 引用可定位正确页面、幻灯片、工作表和文档块",
+      "passed": true,
+      "observed": {
+        "pdf_page_accuracy": 1.0,
+        "docx": "课程：整本文档导读 > 1. Cell membrane · 块 3",
+        "pptx": "幻灯片 2：ATP production",
+        "xlsx": "工作表 Growth Data（A1:D5）"
+      },
+      "evidence": [
+        "quality/stage2/retrieval_probe.json",
+        "quality/stage5/real_e2e_probe.json"
+      ]
+    },
+    {
+      "id": "retrieval_thresholds",
+      "criterion": "Recall@5、引用准确率和覆盖率达到冻结门槛",
+      "passed": true,
+      "observed": {
+        "metrics": {
+          "recall_at_5": 1.0,
+          "citation_page_accuracy_over_all_queries": 1.0,
+          "citation_page_accuracy_conditional_on_retrieval": 1.0,
+          "query_result_coverage": 1.0
+        },
+        "thresholds": {
+          "recall_at_5": 1.0,
+          "citation_page_accuracy_over_all_queries": 1.0,
+          "citation_page_accuracy_conditional_on_retrieval": 1.0,
+          "query_result_coverage": 1.0
+        }
+      },
+      "evidence": [
+        "quality/stage0/acceptance_thresholds.json",
+        "quality/stage2/retrieval_probe.json"
+      ]
+    },
+    {
+      "id": "performance_and_gpu",
+      "criterion": "解析耗时、队列/并发和 GPU OOM 达到冻结门槛",
+      "passed": true,
+      "observed": {
+        "performance": {
+          "warm_mineru_p95_seconds": {
+            "value": 2.106,
+            "threshold": 10.0,
+            "passed": true
+          },
+          "cold_pipeline_seconds": {
+            "value": 23.658,
+            "threshold": 180.0,
+            "passed": true
+          },
+          "warm_pipeline_p95_seconds": {
+            "value": 21.393,
+            "threshold": 30.0,
+            "passed": true
+          },
+          "all_format_pipeline_p95_seconds": {
+            "value": 9.358,
+            "threshold": 30.0,
+            "passed": true
+          },
+          "gpu_peak_memory_used_mib": {
+            "value": 2401,
+            "threshold": 14500,
+            "passed": true
+          },
+          "gpu_oom_count": {
+            "value": 0,
+            "threshold": 0,
+            "passed": true
+          }
+        },
+        "queued_tasks_now": 0,
+        "processing_tasks_now": 0,
+        "max_concurrent_requests": 1
+      },
+      "evidence": [
+        "quality/stage6/quality_performance_comparison.json",
+        "quality/stage6/operational_probe.json"
+      ]
+    },
+    {
+      "id": "failure_and_fallback_matrix",
+      "criterion": "MinerU 停止/失败/网络中断、PDF/图片降级和数据库故障符合规则",
+      "passed": true,
+      "observed": {
+        "focused_tests_passed": 72,
+        "focused_tests_failed": 0,
+        "fallbacks": {
+          "offline_native_fallback": [
+            "pymupdf",
+            "pymupdf"
+          ],
+          "offline_scanned_fallback": [
+            "ocr"
+          ],
+          "offline_image_fallback": [
+            "ocr"
+          ]
+        }
+      },
+      "evidence": [
+        "quality/stage6/test_results.json",
+        "quality/stage2/acceptance_evaluation.json"
+      ]
+    },
+    {
+      "id": "deployment_readiness",
+      "criterion": "生产配置、启动顺序、健康检查与监控有明确说明",
+      "passed": true,
+      "observed": {
+        "deployment_runbook": "DEPLOYMENT_ROLLBACK_RUNBOOK.md",
+        "monitoring_checklist": "MONITORING_CHECKLIST.md"
+      },
+      "evidence": [
+        "quality\\stage6\\DEPLOYMENT_ROLLBACK_RUNBOOK.md",
+        "quality\\stage6\\MONITORING_CHECKLIST.md"
+      ]
+    },
+    {
+      "id": "rollback_preserves_originals",
+      "criterion": "旧解析路由回退可执行且不破坏原文件",
+      "passed": true,
+      "observed": {
+        "route_rollback": "pymupdf + PaddleOCR",
+        "office_behavior": "closed during rollback"
+      },
+      "evidence": [
+        "quality\\stage6\\DEPLOYMENT_ROLLBACK_RUNBOOK.md"
+      ]
+    },
+    {
+      "id": "historical_migration_not_executed",
+      "criterion": "历史批量重解析未自动执行且已形成独立决策",
+      "passed": true,
+      "observed": {
+        "local_courses": 0,
+        "local_candidates": 0,
+        "production_accessed": false,
+        "decision": "not_executed"
+      },
+      "evidence": [
+        "quality/stage6/historical_reparse_inventory.json",
+        "quality\\stage6\\HISTORICAL_DATA_MIGRATION_DECISION.md"
+      ]
+    },
+    {
+      "id": "remaining_risks_documented",
+      "criterion": "所有剩余风险和后续优化项已列明",
+      "passed": true,
+      "observed": {
+        "risk_document": "REMAINING_RISKS.md"
+      },
+      "evidence": [
+        "quality\\stage6\\REMAINING_RISKS.md"
+      ]
+    }
+  ],
+  "failures": [],
+  "unauthorized_operations": {
+    "production_configuration_switched": false,
+    "shared_or_production_database_migrated": false,
+    "historical_bulk_reparse_executed": false,
+    "historical_data_deleted": false
+  },
+  "passed": true
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-13T12:07:41.827420+00:00",
+  "endpoint": "http://127.0.0.1:8001",
+  "input_fixture": "sample.pptx",
+  "input_bytes": 36487,
+  "input_sha256": "76b093452aac4c5e860d3a8cccd7df8a48867042b997626bdeb47c3b4adfd0e7",
+  "options_sha256": "f90cc9668e909271b5e98789ff8c9fa3dba5db902aa9d8f46ad7cfe58072b6b1",
+  "return_images": true,
+  "health": {
+    "status": "healthy",
+    "version": "3.4.4",
+    "protocol_version": 2,
+    "max_concurrent_requests": 1,
+    "task_retention_seconds": 86400,
+    "task_cleanup_interval_seconds": 300
+  },
+  "outcome": "completed",
+  "elapsed_seconds": 0.625,
+  "task": {
+    "task_id": "f98ace17-e27b-4e3f-8555-aea4eeb49be2",
+    "status": "completed",
+    "parse_generation": 1,
+    "resumed": false,
+    "queued_ahead": 0
+  },
+  "result": {
+    "backend": "pipeline",
+    "version": "3.4.4",
+    "document_count": 1,
+    "markdown_chars": 238,
+    "middle_page_count": 2,
+    "content_item_count": 6,
+    "content_type_counts": {
+      "image": 1,
+      "text": 5
+    },
+    "image_count": 1,
+    "image_data_uri_chars": 47995,
+    "result_digest": "281b310c125247ff813b940c0cdec7a8e2be74ea82abc4c89da5b8669d025d35"
+  },
+  "gpu": {
+    "sample_count": 3,
+    "peak_memory_used_mib": 2168,
+    "peak_utilization_percent": 9
+  }
+}

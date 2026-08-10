@@ -1,0 +1,39 @@
+[
+  {
+    "type": "text",
+    "text": "Synthetic Biology Handout",
+    "text_level": 1,
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "**1. Cell membrane**",
+    "text_level": 1,
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "The cell membrane controls exchange between the cell and its environment.",
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "**1.1 Transport comparison**",
+    "text_level": 2,
+    "page_idx": 0
+  },
+  {
+    "type": "table",
+    "table_caption": [],
+    "table_body": "<table><tr><td><p>Process</p></td><td><p>Energy</p></td></tr><tr><td><p>Diffusion</p></td><td><p>No ATP</p></td></tr><tr><td><p>Active transport</p></td><td><p>Uses ATP</p></td></tr></table>",
+    "page_idx": 0
+  },
+  {
+    "type": "image",
+    "img_path": "images/a2f555e32391803662e3fec9681cb308097b0e901dd9a6f43c9780cdc74242bc.jpg",
+    "image_caption": [
+      "Figure 1. Synthetic cell diagram."
+    ],
+    "page_idx": 0
+  }
+]

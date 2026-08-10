@@ -1,0 +1,411 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T04:52:28.681045+00:00",
+  "metric_protocol_version": "stage0-v1",
+  "source_files": {
+    "thresholds": {
+      "path": "quality\\stage0\\acceptance_thresholds.json",
+      "sha256": "80210e8fc118b38c606ad9b5023773e4c8254e3f39328a7a10ebdd7cbd349439"
+    },
+    "tokenizer": {
+      "path": "quality\\stage3\\tokenizer_probe.json",
+      "sha256": "284ee448e32f6dcef90b68fe66c89d229b4852426ca7e574dfbf07871f868b41"
+    },
+    "golden": {
+      "path": "quality\\stage3\\chunker_golden.json",
+      "sha256": "de36610a223c897f3da309a27d54ebccf992b3a1336b796030cd1e515cccb925"
+    },
+    "real_v2": {
+      "path": "quality\\stage3\\real_v2_probe.json",
+      "sha256": "bf43246fc295eb9561a4d64eb27747f179b32bea87579379554260840fb51e9e"
+    },
+    "retrieval": {
+      "path": "quality\\stage2\\retrieval_probe.json",
+      "sha256": "f0bb6a4698ff0960ce3f94593545e9efdeaf4f55a27dabb5b4b0509a2ad50fa1"
+    },
+    "tests": {
+      "path": "quality\\stage3\\test_results.json",
+      "sha256": "35b2691c7cf7ca01e456cd5b298f8d3490d18c2892c93afd4be91dce798cf92a"
+    }
+  },
+  "additional_evidence": {
+    "golden_chunks": {
+      "path": "quality\\stage3\\runs\\run_20260714T042508Z\\artifacts\\chunks_v2.jsonl",
+      "sha256": "1880c644740f0157b1b0addfb47fe269cb39fd533bb9fd8f8a7cc5863766e723"
+    }
+  },
+  "source_errors": {},
+  "check_count": 20,
+  "checks": [
+    {
+      "id": "stage3_01_normal_chunk_sizes",
+      "criterion": "普通正文符合目标、最大和最小 token 规则",
+      "passed": true,
+      "actual": {
+        "config": {
+          "target_tokens": 450,
+          "max_tokens": 700,
+          "min_tokens": 120,
+          "overlap_tokens": 80,
+          "atomic_hard_max_tokens": 900,
+          "quality_threshold": 0.45
+        },
+        "short_unexplained": []
+      },
+      "expected": {
+        "target_tokens": 450,
+        "max_tokens": 700,
+        "min_tokens": 120,
+        "overlap_tokens": 80,
+        "atomic_hard_max_tokens": 900,
+        "quality_threshold": 0.45
+      },
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_02_overlap_and_duplicates",
+      "criterion": "相邻 overlap、精确重复率和 overlap 重复率符合冻结阈值",
+      "passed": true,
+      "actual": {
+        "exact_duplicate_ratio": 0.0,
+        "overlap_duplicate_token_ratio": 0.054147
+      },
+      "expected": {
+        "exact_duplicate_ratio_max": 0.0,
+        "overlap_duplicate_token_ratio_max": 0.2
+      },
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_03_frozen_tokenizer",
+      "criterion": "所有 token 数使用冻结 tokenizer、revision、依赖和完整 embedding 文本",
+      "passed": true,
+      "actual": {
+        "model": "BAAI/bge-m3",
+        "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+        "transformers_version": "4.57.6",
+        "tokenizers_version": "0.22.2",
+        "passed": true
+      },
+      "expected": {
+        "model": "BAAI/bge-m3",
+        "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+        "transformers_version": "4.57.6",
+        "tokenizers_version": "0.22.2"
+      },
+      "evidence": [
+        "tokenizer_probe.json",
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_04_tail_and_atomic_limits",
+      "criterion": "短尾、表格和公式超限行为符合冻结协议",
+      "passed": true,
+      "actual": {
+        "token_max": 700,
+        "warnings": [
+          "short_tail",
+          "short_tail",
+          "short_tail"
+        ]
+      },
+      "expected": {
+        "atomic_hard_max": 900
+      },
+      "evidence": [
+        "chunker_golden.json",
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "stage3_05_quality_formula",
+      "criterion": "quality score 按 quality-v1 冻结公式计算并记录版本",
+      "passed": true,
+      "actual": {
+        "chunk_count_checked": 10
+      },
+      "expected": {
+        "formula": {
+          "version": "quality-v1",
+          "valid_character_score_weight": 0.25,
+          "content_coverage_score_weight": 0.3,
+          "ocr_confidence_score_weight": 0.15,
+          "mapping_completeness_score_weight": 0.2,
+          "deduplication_score_weight": 0.1,
+          "usable_content_definition": "Non-empty text/table/formula content, or image/chart content with a non-empty caption, footnote, OCR text, or analysis. An asset path alone is not usable semantic content.",
+          "native_text_ocr_confidence_default": 1.0,
+          "image_without_semantic_text_ocr_confidence_default": 0.0
+        }
+      },
+      "evidence": [
+        "chunks_v2.jsonl",
+        "acceptance_thresholds.json"
+      ]
+    },
+    {
+      "id": "stage3_06_heading_embedding",
+      "criterion": "标题路径同时进入 embedding 文本和 metadata",
+      "passed": true,
+      "actual": true,
+      "expected": true,
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_07_cross_page_ranges",
+      "criterion": "chunk 可跨页且页码范围准确",
+      "passed": true,
+      "actual": true,
+      "expected": true,
+      "evidence": [
+        "chunker_golden.json",
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "stage3_08_table_headers",
+      "criterion": "大表格拆分后每段保留表头",
+      "passed": true,
+      "actual": true,
+      "expected": true,
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_09_formula_semantics",
+      "criterion": "公式保留 LaTeX 和附近语义",
+      "passed": true,
+      "actual": true,
+      "expected": true,
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_10_asset_binding",
+      "criterion": "图片与表格 chunk 正确双向绑定 Asset",
+      "passed": true,
+      "actual": {
+        "asset_count": 2,
+        "asset_source_link_count": 3
+      },
+      "expected": "all asset relationships bidirectional",
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_11_furniture_filter",
+      "criterion": "页眉、页脚和纯页码不进入普通正文",
+      "passed": true,
+      "actual": true,
+      "expected": true,
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_12_quality_quarantine",
+      "criterion": "低质量内容默认不参与检索",
+      "passed": true,
+      "actual": {
+        "quarantined": 1,
+        "stage3_failed": 0
+      },
+      "expected": {
+        "quarantined_min": 1,
+        "stage3_failed": 0
+      },
+      "evidence": [
+        "chunker_golden.json",
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "stage3_13_stable_ids",
+      "criterion": "相同输入和配置重复解析产生稳定 chunk ID",
+      "passed": true,
+      "actual": true,
+      "expected": true,
+      "evidence": [
+        "chunker_golden.json"
+      ]
+    },
+    {
+      "id": "stage3_14_lesson_v2_consumer",
+      "criterion": "课程生成可端到端读取 Chunk V2",
+      "passed": true,
+      "actual": {
+        "lesson_test_present": true,
+        "stage3_passed": 58
+      },
+      "expected": {
+        "lesson_test_present": true,
+        "stage3_failed": 0
+      },
+      "evidence": [
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "stage3_15_real_v2_contract",
+      "criterion": "真实 V2 五场景逐本检查全部通过",
+      "passed": true,
+      "actual": {
+        "passed": true,
+        "scenarios": [
+          "complex",
+          "image",
+          "mixed",
+          "native",
+          "scanned"
+        ],
+        "record_count": 5,
+        "failures": []
+      },
+      "expected": {
+        "passed": true,
+        "scenarios": [
+          "complex",
+          "image",
+          "mixed",
+          "native",
+          "scanned"
+        ],
+        "record_count": 5,
+        "failures": []
+      },
+      "evidence": [
+        "real_v2_probe.json"
+      ]
+    },
+    {
+      "id": "stage3_16_real_v2_aggregate",
+      "criterion": "真实 V2 聚合指标无缺失且通过",
+      "passed": true,
+      "actual": {
+        "scenario_count": 5,
+        "query_count": 8,
+        "chunk_count": 11,
+        "asset_count": 4,
+        "indexable_chunk_count": 11,
+        "quarantined_chunk_count": 0,
+        "ordinary_chunk_count": 4,
+        "atomic_chunk_count": 7,
+        "token_total": 350,
+        "token_max": 81,
+        "overlap_token_count": 0,
+        "overlap_duplicate_token_ratio": 0.0,
+        "exact_duplicate_count_within_books": 0,
+        "retrieval_metrics": {
+          "recall_at_5": 1.0,
+          "citation_page_accuracy_over_all_queries": 1.0,
+          "citation_page_accuracy_conditional_on_retrieval": 1.0,
+          "query_result_coverage": 1.0
+        }
+      },
+      "expected": {
+        "scenario_count": 5,
+        "query_count": 8,
+        "chunk_count_min": 1,
+        "token_max": 900,
+        "exact_duplicate_count": 0,
+        "overlap_ratio_max": 0.2
+      },
+      "evidence": [
+        "real_v2_probe.json"
+      ]
+    },
+    {
+      "id": "stage3_17_retrieval_regression",
+      "criterion": "冻结 8 问检索与引用指标达到阈值",
+      "passed": true,
+      "actual": {
+        "query_count": 8,
+        "metrics": {
+          "recall_at_5": 1.0,
+          "citation_page_accuracy_over_all_queries": 1.0,
+          "citation_page_accuracy_conditional_on_retrieval": 1.0,
+          "query_result_coverage": 1.0
+        }
+      },
+      "expected": {
+        "query_count": 8,
+        "thresholds": {
+          "embedding_model": "BAAI/bge-m3",
+          "embedding_revision": "5617a9f61b028005a4858fdac845db406aefb181",
+          "embedding_dimensions": 1024,
+          "reranker_model": "BAAI/bge-reranker-v2-m3",
+          "reranker_revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+          "frozen_query_count": 8,
+          "recall_at_5_min": 1.0,
+          "citation_page_accuracy_over_all_queries_min": 1.0,
+          "citation_page_accuracy_conditional_on_retrieval_min": 1.0,
+          "query_result_coverage_min": 1.0,
+          "native_text_subset_recall_at_5_min": 1.0
+        }
+      },
+      "evidence": [
+        "retrieval_probe.json"
+      ]
+    },
+    {
+      "id": "stage3_18_backend_regression",
+      "criterion": "后端全量测试无回归",
+      "passed": true,
+      "actual": {
+        "passed": 264,
+        "failed": 0,
+        "skipped": 0
+      },
+      "expected": {
+        "failed": 0
+      },
+      "evidence": [
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "stage3_19_stage3_regression",
+      "criterion": "阶段 3 专项测试无失败",
+      "passed": true,
+      "actual": {
+        "passed": 58,
+        "failed": 0
+      },
+      "expected": {
+        "failed": 0
+      },
+      "evidence": [
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "stage3_20_frontend_regression",
+      "criterion": "前端测试、Lint 和生产构建全部通过",
+      "passed": true,
+      "actual": {
+        "tests": 4,
+        "lint": true,
+        "build": true
+      },
+      "expected": {
+        "tests_min": 1,
+        "lint": true,
+        "build": true
+      },
+      "evidence": [
+        "test_results.json"
+      ]
+    }
+  ],
+  "failures": [],
+  "passed": true
+}

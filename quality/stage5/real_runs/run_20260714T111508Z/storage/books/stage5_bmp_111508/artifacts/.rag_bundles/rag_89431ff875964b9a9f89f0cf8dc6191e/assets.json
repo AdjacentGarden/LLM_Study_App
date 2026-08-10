@@ -1,0 +1,39 @@
+[
+  {
+    "asset_id": "mineru_38b9f6a887adff977e09",
+    "book_id": "stage5_bmp_111508",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 1,
+    "type": "chart",
+    "caption": "",
+    "bbox": [
+      28.944,
+      28.8,
+      401.76,
+      256.896
+    ],
+    "image_url": "/api/books/stage5_bmp_111508/assets/mineru_38b9f6a887adff977e09/file",
+    "thumbnail_url": "/api/books/stage5_bmp_111508/assets/mineru_38b9f6a887adff977e09/thumbnail",
+    "source_page_image_url": null,
+    "source_chunk_ids": [],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "needs_review",
+    "source_parser": "mineru",
+    "content_hash": "8c5bd858fd612880e649e9851c39c1a653ed7ae52e127a9bdf7d878cee1e85e0",
+    "metadata": {
+      "mineru_image_name": "eeb9f08aa7de484e4d7a5129f6eb49bf06a84c5e9ccd966de4d1023225d0743d.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1037,
+      "height": 634,
+      "source_format": "bmp",
+      "source_unit": "image",
+      "index": 1,
+      "label": "图片 1",
+      "page_text_parser": "ocr",
+      "mineru_page_text_replaced": true
+    }
+  }
+]

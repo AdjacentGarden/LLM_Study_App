@@ -1,0 +1,32 @@
+[
+  {
+    "asset_id": "fig_stage2_fallback_native_141107_ch_001_p001_01",
+    "book_id": "stage2_fallback_native_141107",
+    "chapter_id": "ch_001",
+    "source_type": "extracted",
+    "page": 1,
+    "type": "figure",
+    "caption": "整本文档（未识别到清晰目录） 相关原书插图候选",
+    "bbox": [
+      71.4,
+      151.56,
+      523.6,
+      378.9
+    ],
+    "image_url": "/api/books/stage2_fallback_native_141107/assets/fig_stage2_fallback_native_141107_ch_001_p001_01/file",
+    "thumbnail_url": "/api/books/stage2_fallback_native_141107/assets/fig_stage2_fallback_native_141107_ch_001_p001_01/thumbnail",
+    "source_page_image_url": "/api/books/stage2_fallback_native_141107/assets/fig_stage2_fallback_native_141107_ch_001_p001_01/source-page",
+    "source_chunk_ids": [
+      "stage2_fallback_native_141107_ch_001_f4f68a1728b7",
+      "stage2_fallback_native_141107_ch_001_4e062f3432ba",
+      "stage2_fallback_native_141107_ch_001_a5986765419a"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "candidate",
+    "source_parser": null,
+    "content_hash": null,
+    "metadata": {}
+  }
+]

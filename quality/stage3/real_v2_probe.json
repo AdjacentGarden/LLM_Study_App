@@ -1,0 +1,877 @@
+{
+  "schema_version": 1,
+  "metric_protocol_version": "stage0-v1",
+  "captured_at": "2026-07-14T04:44:38.249417+00:00",
+  "pipeline_run_id": "run_20260714T043219Z",
+  "storage": "quality/stage2/real_runs/run_20260714T043219Z/storage",
+  "tokenizer": {
+    "model": "BAAI/bge-m3",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "implementation": "XLMRobertaTokenizerFast"
+  },
+  "thresholds": {
+    "normal_max_tokens": 700,
+    "atomic_hard_max_tokens": 900,
+    "min_tokens": 120,
+    "overlap_tokens": 80,
+    "overlap_ratio_max": 0.2,
+    "quality_threshold": 0.45,
+    "quality_version": "quality-v1",
+    "frozen_query_count": 8
+  },
+  "input_files": [
+    {
+      "path": "quality/stage0/acceptance_thresholds.json",
+      "size_bytes": 4129,
+      "sha256": "80210e8fc118b38c606ad9b5023773e4c8254e3f39328a7a10ebdd7cbd349439"
+    },
+    {
+      "path": "quality/stage2/latest_real_run.txt",
+      "size_bytes": 22,
+      "sha256": "a6623cf349513ecb9d69e8bd472cc075bf45e8d2a79e0f76015cf0838c8b9983"
+    },
+    {
+      "path": "quality/stage2/real_pipeline_probe.json",
+      "size_bytes": 14653,
+      "sha256": "9d69b0ece31f15275a10f7619bfb3b7b5e2d96856ad4b2d99ac85294ad460fce"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_complex_043219/artifacts/.rag_bundles/manifest.json",
+      "size_bytes": 243,
+      "sha256": "9e61fac08d74a2cf2305d83d1eeb784f6fe3bb4a7f4916a10f7cc8d4a1f06414"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_complex_043219/artifacts/.rag_bundles/rag_130c36d84db44a2281ee2b4d4c0f8909/assets.json",
+      "size_bytes": 1155,
+      "sha256": "656bb368e20fc845fe2d6fff2e9c5a06b98785f7b3556decaa5fbfde89d50db2"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_complex_043219/artifacts/.rag_bundles/rag_130c36d84db44a2281ee2b4d4c0f8909/chunks.jsonl",
+      "size_bytes": 4048,
+      "sha256": "e07ac1890c2ac346cdb2e3d580a3bbae2ee55a8b2092097d645404fcf80299c8"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_complex_043219/artifacts/pages.json",
+      "size_bytes": 12336,
+      "sha256": "7062e25a653bd86388e0da62183ea0231651e4283a226c003aeabfb3e5f197b8"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_image_043219/artifacts/.rag_bundles/manifest.json",
+      "size_bytes": 243,
+      "sha256": "ab4e715e229ff455c1ac497599bfd64c5436cdbdfb3ecdf193fd1aa82cd8ed70"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_image_043219/artifacts/.rag_bundles/rag_58f552f856604355a607180032f7b15c/assets.json",
+      "size_bytes": 1049,
+      "sha256": "3a2f283765fd4d9446597829f6e9f84de9f02c353b7c0736a0b0083807cfb4a4"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_image_043219/artifacts/.rag_bundles/rag_58f552f856604355a607180032f7b15c/chunks.jsonl",
+      "size_bytes": 2665,
+      "sha256": "c6cb9977fdad08cb240a56eb3053ffc473bb73029ec695511e584ee73c2b124f"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_image_043219/artifacts/pages.json",
+      "size_bytes": 2292,
+      "sha256": "45e90f7965de5094d35340e7711259b9b2b57574b02812537a9dbc5c545f436a"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_mixed_043219/artifacts/.rag_bundles/manifest.json",
+      "size_bytes": 243,
+      "sha256": "ef4bd6233746caaedab13d9be0c081a90d590fcf11189586476f9b818ebd6599"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_mixed_043219/artifacts/.rag_bundles/rag_96aa4d3da8f1413bb3ef81c133271100/assets.json",
+      "size_bytes": 1050,
+      "sha256": "e5b97358173449720dd485c84939811118ec2eaf5f12f9e0f5ef25df2be03ae0"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_mixed_043219/artifacts/.rag_bundles/rag_96aa4d3da8f1413bb3ef81c133271100/chunks.jsonl",
+      "size_bytes": 4058,
+      "sha256": "6ad3181c419ad10d1724926de35df918abb7199b954fc5ada07e446b835530bc"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_mixed_043219/artifacts/pages.json",
+      "size_bytes": 3901,
+      "sha256": "34f35fb2fa41f688641c30547e9e5d740bdc1424d2ff29b5798ace2289cad4fb"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_native_043219/artifacts/.rag_bundles/manifest.json",
+      "size_bytes": 243,
+      "sha256": "d1e23ea8de58ed362b457cfc5f02ec0f3df0e868285626b7f0b28b602e7f81f1"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_native_043219/artifacts/.rag_bundles/rag_5e8025f1581546cc921d0a5b16b3ff89/assets.json",
+      "size_bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_native_043219/artifacts/.rag_bundles/rag_5e8025f1581546cc921d0a5b16b3ff89/chunks.jsonl",
+      "size_bytes": 3325,
+      "sha256": "ebf1b64da4bbbb02092e9da12a08e751cb9fd2e05a1b2a9c6e157f0d6ee4f71a"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_native_043219/artifacts/pages.json",
+      "size_bytes": 9539,
+      "sha256": "ee0b6ffaea237d736434cdb61c96fdf7cca1cccf198904fed02627aaedfe4089"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_scanned_043219/artifacts/.rag_bundles/manifest.json",
+      "size_bytes": 243,
+      "sha256": "ae18d08d0443cdc0bf0d7395bec9eff6acfc04564da3da8e688fa552ca90b968"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_scanned_043219/artifacts/.rag_bundles/rag_577eeecd56464f7e9fe49fa20a33bcd9/assets.json",
+      "size_bytes": 1056,
+      "sha256": "cae09652df7b2ae34f382dfa8afce903cb9d3a0f3d7746bbe8ade229070323f8"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_scanned_043219/artifacts/.rag_bundles/rag_577eeecd56464f7e9fe49fa20a33bcd9/chunks.jsonl",
+      "size_bytes": 2671,
+      "sha256": "269449bb92b2a804d863943ba067b11ab9fe79ade36dc9e017e092792005b71d"
+    },
+    {
+      "path": "quality/stage2/real_runs/run_20260714T043219Z/storage/books/stage2_scanned_043219/artifacts/pages.json",
+      "size_bytes": 2291,
+      "sha256": "3c59337548a34165b7f62f7370901fe22257a3b057225ac35f473a0f5e82b8f9"
+    },
+    {
+      "path": "quality/stage2/retrieval_probe.json",
+      "size_bytes": 6406,
+      "sha256": "f0bb6a4698ff0960ce3f94593545e9efdeaf4f55a27dabb5b4b0509a2ad50fa1"
+    }
+  ],
+  "books": [
+    {
+      "scenario": "native",
+      "book_id": "stage2_native_043219",
+      "generation": "rag_5e8025f1581546cc921d0a5b16b3ff89",
+      "build_id": "build_7f5a65af4d214a4791aa597491f6f937",
+      "chunk_count": 2,
+      "ordinary_chunk_count": 2,
+      "atomic_chunk_count": 0,
+      "asset_count": 0,
+      "source_block_count": 7,
+      "indexable_chunk_count": 2,
+      "quarantined_chunk_ids": [],
+      "token_total": 97,
+      "token_max": 56,
+      "ordinary_token_max": 56,
+      "atomic_token_max": 0,
+      "overlap_token_count": 0,
+      "overlap_duplicate_token_ratio": 0.0,
+      "exact_duplicate_count": 0,
+      "exact_duplicate_ratio": 0.0,
+      "checks": {
+        "active_generation": {
+          "observed": {
+            "state": "ready",
+            "generation": "rag_5e8025f1581546cc921d0a5b16b3ff89"
+          },
+          "operator": "ready generation",
+          "expected": true,
+          "passed": true
+        },
+        "all_chunks_v2": {
+          "observed": 2,
+          "operator": "all chunk_version ==",
+          "expected": "v2",
+          "passed": true
+        },
+        "token_count_exact": {
+          "observed": 2,
+          "operator": "all persisted == locked BGE recomputation",
+          "expected": true,
+          "passed": true
+        },
+        "ordinary_token_limit": {
+          "observed": 56,
+          "operator": "<=",
+          "expected": 700,
+          "passed": true
+        },
+        "atomic_token_limit": {
+          "observed": 0,
+          "operator": "<=",
+          "expected": 900,
+          "passed": true
+        },
+        "short_tail_protocol": {
+          "observed": 120,
+          "operator": "short ordinary chunk has warning",
+          "expected": "short_tail",
+          "passed": true
+        },
+        "quality_v1_protocol": {
+          "observed": 2,
+          "operator": "all quality records valid",
+          "expected": "quality-v1",
+          "passed": true
+        },
+        "heading_prefix": {
+          "observed": 2,
+          "operator": "all rendered text starts with heading path",
+          "expected": true,
+          "passed": true
+        },
+        "exact_duplicate_ratio": {
+          "observed": 0.0,
+          "operator": "<=",
+          "expected": 0.0,
+          "passed": true
+        },
+        "overlap_protocol": {
+          "observed": {
+            "tokens": 0,
+            "ratio": 0.0
+          },
+          "operator": "per chunk <= limits and global ratio <=",
+          "expected": {
+            "tokens": 80,
+            "ratio": 0.2
+          },
+          "passed": true
+        },
+        "source_block_page_ranges": {
+          "observed": 7,
+          "operator": "contains all chunk sources in chunk range",
+          "expected": true,
+          "passed": true
+        },
+        "asset_links_bidirectional": {
+          "observed": 0,
+          "operator": "all links reciprocal",
+          "expected": true,
+          "passed": true
+        },
+        "artifact_identity": {
+          "observed": "stage2_native_043219",
+          "operator": "all artifact book_id ==",
+          "expected": "stage2_native_043219",
+          "passed": true
+        }
+      },
+      "failures": [],
+      "passed": true
+    },
+    {
+      "scenario": "complex",
+      "book_id": "stage2_complex_043219",
+      "generation": "rag_130c36d84db44a2281ee2b4d4c0f8909",
+      "build_id": "build_a057d2981ebb4ab8b553e37579c53c34",
+      "chunk_count": 2,
+      "ordinary_chunk_count": 1,
+      "atomic_chunk_count": 1,
+      "asset_count": 1,
+      "source_block_count": 9,
+      "indexable_chunk_count": 2,
+      "quarantined_chunk_ids": [],
+      "token_total": 142,
+      "token_max": 81,
+      "ordinary_token_max": 81,
+      "atomic_token_max": 61,
+      "overlap_token_count": 0,
+      "overlap_duplicate_token_ratio": 0.0,
+      "exact_duplicate_count": 0,
+      "exact_duplicate_ratio": 0.0,
+      "checks": {
+        "active_generation": {
+          "observed": {
+            "state": "ready",
+            "generation": "rag_130c36d84db44a2281ee2b4d4c0f8909"
+          },
+          "operator": "ready generation",
+          "expected": true,
+          "passed": true
+        },
+        "all_chunks_v2": {
+          "observed": 2,
+          "operator": "all chunk_version ==",
+          "expected": "v2",
+          "passed": true
+        },
+        "token_count_exact": {
+          "observed": 2,
+          "operator": "all persisted == locked BGE recomputation",
+          "expected": true,
+          "passed": true
+        },
+        "ordinary_token_limit": {
+          "observed": 81,
+          "operator": "<=",
+          "expected": 700,
+          "passed": true
+        },
+        "atomic_token_limit": {
+          "observed": 61,
+          "operator": "<=",
+          "expected": 900,
+          "passed": true
+        },
+        "short_tail_protocol": {
+          "observed": 120,
+          "operator": "short ordinary chunk has warning",
+          "expected": "short_tail",
+          "passed": true
+        },
+        "quality_v1_protocol": {
+          "observed": 2,
+          "operator": "all quality records valid",
+          "expected": "quality-v1",
+          "passed": true
+        },
+        "heading_prefix": {
+          "observed": 2,
+          "operator": "all rendered text starts with heading path",
+          "expected": true,
+          "passed": true
+        },
+        "exact_duplicate_ratio": {
+          "observed": 0.0,
+          "operator": "<=",
+          "expected": 0.0,
+          "passed": true
+        },
+        "overlap_protocol": {
+          "observed": {
+            "tokens": 0,
+            "ratio": 0.0
+          },
+          "operator": "per chunk <= limits and global ratio <=",
+          "expected": {
+            "tokens": 80,
+            "ratio": 0.2
+          },
+          "passed": true
+        },
+        "source_block_page_ranges": {
+          "observed": 9,
+          "operator": "contains all chunk sources in chunk range",
+          "expected": true,
+          "passed": true
+        },
+        "asset_links_bidirectional": {
+          "observed": 1,
+          "operator": "all links reciprocal",
+          "expected": true,
+          "passed": true
+        },
+        "artifact_identity": {
+          "observed": "stage2_complex_043219",
+          "operator": "all artifact book_id ==",
+          "expected": "stage2_complex_043219",
+          "passed": true
+        }
+      },
+      "failures": [],
+      "passed": true
+    },
+    {
+      "scenario": "mixed",
+      "book_id": "stage2_mixed_043219",
+      "generation": "rag_96aa4d3da8f1413bb3ef81c133271100",
+      "build_id": "build_c5cd93f0effb4f88ad6e988799f4047b",
+      "chunk_count": 3,
+      "ordinary_chunk_count": 1,
+      "atomic_chunk_count": 2,
+      "asset_count": 1,
+      "source_block_count": 3,
+      "indexable_chunk_count": 3,
+      "quarantined_chunk_ids": [],
+      "token_total": 51,
+      "token_max": 21,
+      "ordinary_token_max": 21,
+      "atomic_token_max": 17,
+      "overlap_token_count": 0,
+      "overlap_duplicate_token_ratio": 0.0,
+      "exact_duplicate_count": 0,
+      "exact_duplicate_ratio": 0.0,
+      "checks": {
+        "active_generation": {
+          "observed": {
+            "state": "ready",
+            "generation": "rag_96aa4d3da8f1413bb3ef81c133271100"
+          },
+          "operator": "ready generation",
+          "expected": true,
+          "passed": true
+        },
+        "all_chunks_v2": {
+          "observed": 3,
+          "operator": "all chunk_version ==",
+          "expected": "v2",
+          "passed": true
+        },
+        "token_count_exact": {
+          "observed": 3,
+          "operator": "all persisted == locked BGE recomputation",
+          "expected": true,
+          "passed": true
+        },
+        "ordinary_token_limit": {
+          "observed": 21,
+          "operator": "<=",
+          "expected": 700,
+          "passed": true
+        },
+        "atomic_token_limit": {
+          "observed": 17,
+          "operator": "<=",
+          "expected": 900,
+          "passed": true
+        },
+        "short_tail_protocol": {
+          "observed": 120,
+          "operator": "short ordinary chunk has warning",
+          "expected": "short_tail",
+          "passed": true
+        },
+        "quality_v1_protocol": {
+          "observed": 3,
+          "operator": "all quality records valid",
+          "expected": "quality-v1",
+          "passed": true
+        },
+        "heading_prefix": {
+          "observed": 3,
+          "operator": "all rendered text starts with heading path",
+          "expected": true,
+          "passed": true
+        },
+        "exact_duplicate_ratio": {
+          "observed": 0.0,
+          "operator": "<=",
+          "expected": 0.0,
+          "passed": true
+        },
+        "overlap_protocol": {
+          "observed": {
+            "tokens": 0,
+            "ratio": 0.0
+          },
+          "operator": "per chunk <= limits and global ratio <=",
+          "expected": {
+            "tokens": 80,
+            "ratio": 0.2
+          },
+          "passed": true
+        },
+        "source_block_page_ranges": {
+          "observed": 3,
+          "operator": "contains all chunk sources in chunk range",
+          "expected": true,
+          "passed": true
+        },
+        "asset_links_bidirectional": {
+          "observed": 1,
+          "operator": "all links reciprocal",
+          "expected": true,
+          "passed": true
+        },
+        "artifact_identity": {
+          "observed": "stage2_mixed_043219",
+          "operator": "all artifact book_id ==",
+          "expected": "stage2_mixed_043219",
+          "passed": true
+        }
+      },
+      "failures": [],
+      "passed": true
+    },
+    {
+      "scenario": "scanned",
+      "book_id": "stage2_scanned_043219",
+      "generation": "rag_577eeecd56464f7e9fe49fa20a33bcd9",
+      "build_id": "build_812c3e41bb8a48a6a496fc2a919a5d2b",
+      "chunk_count": 2,
+      "ordinary_chunk_count": 0,
+      "atomic_chunk_count": 2,
+      "asset_count": 1,
+      "source_block_count": 2,
+      "indexable_chunk_count": 2,
+      "quarantined_chunk_ids": [],
+      "token_total": 30,
+      "token_max": 17,
+      "ordinary_token_max": 0,
+      "atomic_token_max": 17,
+      "overlap_token_count": 0,
+      "overlap_duplicate_token_ratio": 0.0,
+      "exact_duplicate_count": 0,
+      "exact_duplicate_ratio": 0.0,
+      "checks": {
+        "active_generation": {
+          "observed": {
+            "state": "ready",
+            "generation": "rag_577eeecd56464f7e9fe49fa20a33bcd9"
+          },
+          "operator": "ready generation",
+          "expected": true,
+          "passed": true
+        },
+        "all_chunks_v2": {
+          "observed": 2,
+          "operator": "all chunk_version ==",
+          "expected": "v2",
+          "passed": true
+        },
+        "token_count_exact": {
+          "observed": 2,
+          "operator": "all persisted == locked BGE recomputation",
+          "expected": true,
+          "passed": true
+        },
+        "ordinary_token_limit": {
+          "observed": 0,
+          "operator": "<=",
+          "expected": 700,
+          "passed": true
+        },
+        "atomic_token_limit": {
+          "observed": 17,
+          "operator": "<=",
+          "expected": 900,
+          "passed": true
+        },
+        "short_tail_protocol": {
+          "observed": 120,
+          "operator": "short ordinary chunk has warning",
+          "expected": "short_tail",
+          "passed": true
+        },
+        "quality_v1_protocol": {
+          "observed": 2,
+          "operator": "all quality records valid",
+          "expected": "quality-v1",
+          "passed": true
+        },
+        "heading_prefix": {
+          "observed": 2,
+          "operator": "all rendered text starts with heading path",
+          "expected": true,
+          "passed": true
+        },
+        "exact_duplicate_ratio": {
+          "observed": 0.0,
+          "operator": "<=",
+          "expected": 0.0,
+          "passed": true
+        },
+        "overlap_protocol": {
+          "observed": {
+            "tokens": 0,
+            "ratio": 0.0
+          },
+          "operator": "per chunk <= limits and global ratio <=",
+          "expected": {
+            "tokens": 80,
+            "ratio": 0.2
+          },
+          "passed": true
+        },
+        "source_block_page_ranges": {
+          "observed": 2,
+          "operator": "contains all chunk sources in chunk range",
+          "expected": true,
+          "passed": true
+        },
+        "asset_links_bidirectional": {
+          "observed": 1,
+          "operator": "all links reciprocal",
+          "expected": true,
+          "passed": true
+        },
+        "artifact_identity": {
+          "observed": "stage2_scanned_043219",
+          "operator": "all artifact book_id ==",
+          "expected": "stage2_scanned_043219",
+          "passed": true
+        }
+      },
+      "failures": [],
+      "passed": true
+    },
+    {
+      "scenario": "image",
+      "book_id": "stage2_image_043219",
+      "generation": "rag_58f552f856604355a607180032f7b15c",
+      "build_id": "build_61c00c030d954a83b9f0a99db661ba71",
+      "chunk_count": 2,
+      "ordinary_chunk_count": 0,
+      "atomic_chunk_count": 2,
+      "asset_count": 1,
+      "source_block_count": 2,
+      "indexable_chunk_count": 2,
+      "quarantined_chunk_ids": [],
+      "token_total": 30,
+      "token_max": 17,
+      "ordinary_token_max": 0,
+      "atomic_token_max": 17,
+      "overlap_token_count": 0,
+      "overlap_duplicate_token_ratio": 0.0,
+      "exact_duplicate_count": 0,
+      "exact_duplicate_ratio": 0.0,
+      "checks": {
+        "active_generation": {
+          "observed": {
+            "state": "ready",
+            "generation": "rag_58f552f856604355a607180032f7b15c"
+          },
+          "operator": "ready generation",
+          "expected": true,
+          "passed": true
+        },
+        "all_chunks_v2": {
+          "observed": 2,
+          "operator": "all chunk_version ==",
+          "expected": "v2",
+          "passed": true
+        },
+        "token_count_exact": {
+          "observed": 2,
+          "operator": "all persisted == locked BGE recomputation",
+          "expected": true,
+          "passed": true
+        },
+        "ordinary_token_limit": {
+          "observed": 0,
+          "operator": "<=",
+          "expected": 700,
+          "passed": true
+        },
+        "atomic_token_limit": {
+          "observed": 17,
+          "operator": "<=",
+          "expected": 900,
+          "passed": true
+        },
+        "short_tail_protocol": {
+          "observed": 120,
+          "operator": "short ordinary chunk has warning",
+          "expected": "short_tail",
+          "passed": true
+        },
+        "quality_v1_protocol": {
+          "observed": 2,
+          "operator": "all quality records valid",
+          "expected": "quality-v1",
+          "passed": true
+        },
+        "heading_prefix": {
+          "observed": 2,
+          "operator": "all rendered text starts with heading path",
+          "expected": true,
+          "passed": true
+        },
+        "exact_duplicate_ratio": {
+          "observed": 0.0,
+          "operator": "<=",
+          "expected": 0.0,
+          "passed": true
+        },
+        "overlap_protocol": {
+          "observed": {
+            "tokens": 0,
+            "ratio": 0.0
+          },
+          "operator": "per chunk <= limits and global ratio <=",
+          "expected": {
+            "tokens": 80,
+            "ratio": 0.2
+          },
+          "passed": true
+        },
+        "source_block_page_ranges": {
+          "observed": 2,
+          "operator": "contains all chunk sources in chunk range",
+          "expected": true,
+          "passed": true
+        },
+        "asset_links_bidirectional": {
+          "observed": 1,
+          "operator": "all links reciprocal",
+          "expected": true,
+          "passed": true
+        },
+        "artifact_identity": {
+          "observed": "stage2_image_043219",
+          "operator": "all artifact book_id ==",
+          "expected": "stage2_image_043219",
+          "passed": true
+        }
+      },
+      "failures": [],
+      "passed": true
+    }
+  ],
+  "aggregate": {
+    "scenario_count": 5,
+    "query_count": 8,
+    "chunk_count": 11,
+    "asset_count": 4,
+    "indexable_chunk_count": 11,
+    "quarantined_chunk_count": 0,
+    "ordinary_chunk_count": 4,
+    "atomic_chunk_count": 7,
+    "token_total": 350,
+    "token_max": 81,
+    "overlap_token_count": 0,
+    "overlap_duplicate_token_ratio": 0.0,
+    "exact_duplicate_count_within_books": 0,
+    "retrieval_metrics": {
+      "recall_at_5": 1.0,
+      "citation_page_accuracy_over_all_queries": 1.0,
+      "citation_page_accuracy_conditional_on_retrieval": 1.0,
+      "query_result_coverage": 1.0
+    }
+  },
+  "checks": {
+    "latest_input_alignment": {
+      "observed": {
+        "marker": "run_20260714T043219Z",
+        "pipeline": "run_20260714T043219Z",
+        "retrieval": "run_20260714T043219Z"
+      },
+      "operator": "all equal",
+      "expected": "run_20260714T043219Z",
+      "passed": true
+    },
+    "real_scenarios": {
+      "observed": {
+        "count": 5,
+        "names": [
+          "complex",
+          "image",
+          "mixed",
+          "native",
+          "scanned"
+        ],
+        "pipeline_passed": true
+      },
+      "operator": "==",
+      "expected": {
+        "count": 5,
+        "names": [
+          "complex",
+          "image",
+          "mixed",
+          "native",
+          "scanned"
+        ],
+        "pipeline_passed": true
+      },
+      "passed": true
+    },
+    "active_generations": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "retrieval_queries": {
+      "observed": {
+        "declared": 8,
+        "recorded": 8,
+        "report_passed": true
+      },
+      "operator": "==",
+      "expected": {
+        "declared": 8,
+        "recorded": 8,
+        "report_passed": true
+      },
+      "passed": true
+    },
+    "retrieval_excludes_quarantined": {
+      "observed": {
+        "quarantined_result_ids": [],
+        "inactive_result_ids": []
+      },
+      "operator": "==",
+      "expected": {
+        "quarantined_result_ids": [],
+        "inactive_result_ids": []
+      },
+      "passed": true
+    },
+    "active_generation": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "all_chunks_v2": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "artifact_identity": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "asset_links_bidirectional": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "atomic_token_limit": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "exact_duplicate_ratio": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "heading_prefix": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "ordinary_token_limit": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "overlap_protocol": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "quality_v1_protocol": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "short_tail_protocol": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "source_block_page_ranges": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    },
+    "token_count_exact": {
+      "observed": 5,
+      "operator": "books passed ==",
+      "expected": 5,
+      "passed": true
+    }
+  },
+  "failures": [],
+  "passed": true
+}

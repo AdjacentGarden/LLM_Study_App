@@ -1,0 +1,1083 @@
+{
+  "schema_version": 1,
+  "endpoint": "http://127.0.0.1:8001",
+  "health_status_code": 200,
+  "health": {
+    "status": "healthy",
+    "version": "3.4.4",
+    "protocol_version": 2,
+    "queued_tasks": 0,
+    "processing_tasks": 0,
+    "completed_tasks": 13,
+    "failed_tasks": 0,
+    "max_concurrent_requests": 1,
+    "processing_window_size": 64,
+    "task_retention_seconds": 86400,
+    "task_cleanup_interval_seconds": 300
+  },
+  "probes": [
+    {
+      "file": "native_text.pdf",
+      "bytes": 2045,
+      "sha256": "8b7882e21c2a3a4daa1998c8f91676b288d56fe61f0d433745ef31d3433efee7",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "07ab1090-e89b-4789-84d1-d004811d965d",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "native_text"
+        ],
+        "created_at": "2026-07-13T11:07:33.831183+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/07ab1090-e89b-4789-84d1-d004811d965d",
+        "result_url": "http://127.0.0.1:8001/tasks/07ab1090-e89b-4789-84d1-d004811d965d/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 4
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "07ab1090-e89b-4789-84d1-d004811d965d",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "native_text"
+        ],
+        "created_at": "2026-07-13T11:07:33.831183+00:00",
+        "started_at": "2026-07-13T11:07:33.831685+00:00",
+        "completed_at": "2026-07-13T11:07:34.337872+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/07ab1090-e89b-4789-84d1-d004811d965d",
+        "result_url": "http://127.0.0.1:8001/tasks/07ab1090-e89b-4789-84d1-d004811d965d/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "native_text_pdf_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "native_text": {
+            "md_content": {
+              "type": "string",
+              "length": 345
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 20266
+            },
+            "content_list": {
+              "type": "string",
+              "length": 1624
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "native_text",
+        "markdown_chars": 345,
+        "page_count": 2,
+        "content_item_count": 7,
+        "content_type_counts": {
+          "text": 7
+        },
+        "content_page_indices": [
+          0,
+          1
+        ],
+        "text_levels": [
+          1,
+          2
+        ]
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 4,
+      "elapsed_seconds": 1.125
+    },
+    {
+      "file": "multicolumn_table_formula.pdf",
+      "bytes": 3730,
+      "sha256": "a744e95eef6468970afddd8787a25caa9be8db918def1220ddc7fe507d990cfd",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "928f36f3-0b2f-4f66-b5e2-500e8bb8bb3f",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "multicolumn_table_formula"
+        ],
+        "created_at": "2026-07-13T11:07:34.949701+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/928f36f3-0b2f-4f66-b5e2-500e8bb8bb3f",
+        "result_url": "http://127.0.0.1:8001/tasks/928f36f3-0b2f-4f66-b5e2-500e8bb8bb3f/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "928f36f3-0b2f-4f66-b5e2-500e8bb8bb3f",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "multicolumn_table_formula"
+        ],
+        "created_at": "2026-07-13T11:07:34.949701+00:00",
+        "started_at": "2026-07-13T11:07:34.950707+00:00",
+        "completed_at": "2026-07-13T11:07:35.568863+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/928f36f3-0b2f-4f66-b5e2-500e8bb8bb3f",
+        "result_url": "http://127.0.0.1:8001/tasks/928f36f3-0b2f-4f66-b5e2-500e8bb8bb3f/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "multicolumn_table_formula_pdf_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "multicolumn_table_formula": {
+            "md_content": {
+              "type": "string",
+              "length": 674
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 31780
+            },
+            "content_list": {
+              "type": "string",
+              "length": 2438
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "multicolumn_table_formula",
+        "markdown_chars": 674,
+        "page_count": 1,
+        "content_item_count": 9,
+        "content_type_counts": {
+          "text": 8,
+          "table": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": [
+          2
+        ]
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.094
+    },
+    {
+      "file": "scanned.pdf",
+      "bytes": 2883591,
+      "sha256": "b63aacbb0ea87c7b67472fc73df54b6c284ef37562859c16512e4d8632b61a57",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "aded130d-cd77-4eaf-825a-c32dc878f54f",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "scanned"
+        ],
+        "created_at": "2026-07-13T11:07:36.050299+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/aded130d-cd77-4eaf-825a-c32dc878f54f",
+        "result_url": "http://127.0.0.1:8001/tasks/aded130d-cd77-4eaf-825a-c32dc878f54f/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "aded130d-cd77-4eaf-825a-c32dc878f54f",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "scanned"
+        ],
+        "created_at": "2026-07-13T11:07:36.050299+00:00",
+        "started_at": "2026-07-13T11:07:36.050801+00:00",
+        "completed_at": "2026-07-13T11:07:36.441677+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/aded130d-cd77-4eaf-825a-c32dc878f54f",
+        "result_url": "http://127.0.0.1:8001/tasks/aded130d-cd77-4eaf-825a-c32dc878f54f/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "scanned_pdf_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "scanned": {
+            "md_content": {
+              "type": "string",
+              "length": 80
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 4011
+            },
+            "content_list": {
+              "type": "string",
+              "length": 339
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "scanned",
+        "markdown_chars": 80,
+        "page_count": 1,
+        "content_item_count": 1,
+        "content_type_counts": {
+          "chart": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": []
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.109
+    },
+    {
+      "file": "mixed.pdf",
+      "bytes": 2884116,
+      "sha256": "840782f620f41ea487f53467890ba7c9fba41e25519e5f8fb6a4800a03170ab6",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "27150914-b327-4360-8f07-a7ea803b05bf",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "mixed"
+        ],
+        "created_at": "2026-07-13T11:07:37.171319+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/27150914-b327-4360-8f07-a7ea803b05bf",
+        "result_url": "http://127.0.0.1:8001/tasks/27150914-b327-4360-8f07-a7ea803b05bf/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "27150914-b327-4360-8f07-a7ea803b05bf",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "mixed"
+        ],
+        "created_at": "2026-07-13T11:07:37.171319+00:00",
+        "started_at": "2026-07-13T11:07:37.171821+00:00",
+        "completed_at": "2026-07-13T11:07:37.656142+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/27150914-b327-4360-8f07-a7ea803b05bf",
+        "result_url": "http://127.0.0.1:8001/tasks/27150914-b327-4360-8f07-a7ea803b05bf/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "mixed_pdf_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "mixed": {
+            "md_content": {
+              "type": "string",
+              "length": 136
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 6896
+            },
+            "content_list": {
+              "type": "string",
+              "length": 567
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "mixed",
+        "markdown_chars": 136,
+        "page_count": 2,
+        "content_item_count": 2,
+        "content_type_counts": {
+          "text": 1,
+          "chart": 1
+        },
+        "content_page_indices": [
+          0,
+          1
+        ],
+        "text_levels": []
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.125
+    },
+    {
+      "file": "source_diagram.png",
+      "bytes": 10096,
+      "sha256": "86e1c3efaf29b71a3e73b2a3ca4c933bc728a460d91cab9391f2114db10cdf07",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "0b2440f9-277e-4b79-b139-d1c8b5defd22",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "source_diagram"
+        ],
+        "created_at": "2026-07-13T11:07:38.255215+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/0b2440f9-277e-4b79-b139-d1c8b5defd22",
+        "result_url": "http://127.0.0.1:8001/tasks/0b2440f9-277e-4b79-b139-d1c8b5defd22/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 4
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "0b2440f9-277e-4b79-b139-d1c8b5defd22",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "source_diagram"
+        ],
+        "created_at": "2026-07-13T11:07:38.255215+00:00",
+        "started_at": "2026-07-13T11:07:38.256220+00:00",
+        "completed_at": "2026-07-13T11:07:38.599990+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/0b2440f9-277e-4b79-b139-d1c8b5defd22",
+        "result_url": "http://127.0.0.1:8001/tasks/0b2440f9-277e-4b79-b139-d1c8b5defd22/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "source_diagram_png_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "source_diagram": {
+            "md_content": {
+              "type": "string",
+              "length": 80
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 4003
+            },
+            "content_list": {
+              "type": "string",
+              "length": 338
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "source_diagram",
+        "markdown_chars": 80,
+        "page_count": 1,
+        "content_item_count": 1,
+        "content_type_counts": {
+          "chart": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": []
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 4,
+      "elapsed_seconds": 1.094
+    },
+    {
+      "file": "sample.docx",
+      "bytes": 44260,
+      "sha256": "cbb0e25f12b7dc1b49d7d68c07ef39c7c1e63cd826c35dc00a6e22c9572ae127",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "7fdd2124-0e7e-4487-aabd-3772475556e7",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:39.355413+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/7fdd2124-0e7e-4487-aabd-3772475556e7",
+        "result_url": "http://127.0.0.1:8001/tasks/7fdd2124-0e7e-4487-aabd-3772475556e7/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 4
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "7fdd2124-0e7e-4487-aabd-3772475556e7",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:39.355413+00:00",
+        "started_at": "2026-07-13T11:07:39.355917+00:00",
+        "completed_at": "2026-07-13T11:07:39.437851+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/7fdd2124-0e7e-4487-aabd-3772475556e7",
+        "result_url": "http://127.0.0.1:8001/tasks/7fdd2124-0e7e-4487-aabd-3772475556e7/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "sample_docx_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "sample": {
+            "md_content": {
+              "type": "string",
+              "length": 469
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 4966
+            },
+            "content_list": {
+              "type": "string",
+              "length": 1089
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "sample",
+        "markdown_chars": 469,
+        "page_count": 1,
+        "content_item_count": 6,
+        "content_type_counts": {
+          "text": 4,
+          "table": 1,
+          "image": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": [
+          1,
+          2
+        ]
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 4,
+      "elapsed_seconds": 1.109
+    },
+    {
+      "file": "sample.pptx",
+      "bytes": 36487,
+      "sha256": "76b093452aac4c5e860d3a8cccd7df8a48867042b997626bdeb47c3b4adfd0e7",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "6b6397fc-9582-491f-bfac-8e2a1b8c5fe4",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:40.458365+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/6b6397fc-9582-491f-bfac-8e2a1b8c5fe4",
+        "result_url": "http://127.0.0.1:8001/tasks/6b6397fc-9582-491f-bfac-8e2a1b8c5fe4/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 1,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "6b6397fc-9582-491f-bfac-8e2a1b8c5fe4",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:40.458365+00:00",
+        "started_at": "2026-07-13T11:07:40.458867+00:00",
+        "completed_at": "2026-07-13T11:07:40.469926+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/6b6397fc-9582-491f-bfac-8e2a1b8c5fe4",
+        "result_url": "http://127.0.0.1:8001/tasks/6b6397fc-9582-491f-bfac-8e2a1b8c5fe4/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "sample_pptx_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "sample": {
+            "md_content": {
+              "type": "string",
+              "length": 238
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 3759
+            },
+            "content_list": {
+              "type": "string",
+              "length": 799
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "sample",
+        "markdown_chars": 238,
+        "page_count": 2,
+        "content_item_count": 6,
+        "content_type_counts": {
+          "text": 5,
+          "image": 1
+        },
+        "content_page_indices": [
+          0,
+          1
+        ],
+        "text_levels": [
+          2
+        ]
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 0.079
+    },
+    {
+      "file": "sample.xlsx",
+      "bytes": 5573,
+      "sha256": "9f60dda01a1a676850ae0c7f0d4b7e0db751817bac2418f3b778fb9ce40d03fc",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "046f6615-7a9d-4e2d-8b1d-3d7d17c28a44",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:40.537115+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/046f6615-7a9d-4e2d-8b1d-3d7d17c28a44",
+        "result_url": "http://127.0.0.1:8001/tasks/046f6615-7a9d-4e2d-8b1d-3d7d17c28a44/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "046f6615-7a9d-4e2d-8b1d-3d7d17c28a44",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:40.537115+00:00",
+        "started_at": "2026-07-13T11:07:40.537618+00:00",
+        "completed_at": "2026-07-13T11:07:40.543649+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/046f6615-7a9d-4e2d-8b1d-3d7d17c28a44",
+        "result_url": "http://127.0.0.1:8001/tasks/046f6615-7a9d-4e2d-8b1d-3d7d17c28a44/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "sample_xlsx_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "sample": {
+            "md_content": {
+              "type": "string",
+              "length": 698
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 3566
+            },
+            "content_list": {
+              "type": "string",
+              "length": 1164
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "sample",
+        "markdown_chars": 698,
+        "page_count": 2,
+        "content_item_count": 4,
+        "content_type_counts": {
+          "text": 2,
+          "table": 2
+        },
+        "content_page_indices": [
+          0,
+          1
+        ],
+        "text_levels": [
+          1
+        ]
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.093
+    },
+    {
+      "file": "animated.gif",
+      "bytes": 12037,
+      "sha256": "56280c8e5a354cbf250773df260e5d9172688dcdd6b0915659f81521c175d0dc",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "c0c6fac5-98f1-4ab2-9954-0b02e091ecf2",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "animated"
+        ],
+        "created_at": "2026-07-13T11:07:41.644334+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/c0c6fac5-98f1-4ab2-9954-0b02e091ecf2",
+        "result_url": "http://127.0.0.1:8001/tasks/c0c6fac5-98f1-4ab2-9954-0b02e091ecf2/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "c0c6fac5-98f1-4ab2-9954-0b02e091ecf2",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "animated"
+        ],
+        "created_at": "2026-07-13T11:07:41.644334+00:00",
+        "started_at": "2026-07-13T11:07:41.644837+00:00",
+        "completed_at": "2026-07-13T11:07:41.982389+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/c0c6fac5-98f1-4ab2-9954-0b02e091ecf2",
+        "result_url": "http://127.0.0.1:8001/tasks/c0c6fac5-98f1-4ab2-9954-0b02e091ecf2/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "animated_gif_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "animated": {
+            "md_content": {
+              "type": "string",
+              "length": 80
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 4003
+            },
+            "content_list": {
+              "type": "string",
+              "length": 338
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "animated",
+        "markdown_chars": 80,
+        "page_count": 1,
+        "content_item_count": 1,
+        "content_type_counts": {
+          "chart": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": []
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.094
+    },
+    {
+      "file": "multipage.tiff",
+      "bytes": 5760288,
+      "sha256": "0b3029ebdec5297ea2a27a7f65ba2b030a44ed7a4af3ac76eab7df1de7d7a0e6",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "943fd72a-53b1-47fb-adbc-81a9dbf3973c",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "multipage"
+        ],
+        "created_at": "2026-07-13T11:07:42.739399+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/943fd72a-53b1-47fb-adbc-81a9dbf3973c",
+        "result_url": "http://127.0.0.1:8001/tasks/943fd72a-53b1-47fb-adbc-81a9dbf3973c/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "943fd72a-53b1-47fb-adbc-81a9dbf3973c",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "multipage"
+        ],
+        "created_at": "2026-07-13T11:07:42.739399+00:00",
+        "started_at": "2026-07-13T11:07:42.740404+00:00",
+        "completed_at": "2026-07-13T11:07:43.058726+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/943fd72a-53b1-47fb-adbc-81a9dbf3973c",
+        "result_url": "http://127.0.0.1:8001/tasks/943fd72a-53b1-47fb-adbc-81a9dbf3973c/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "multipage_tiff_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "multipage": {
+            "md_content": {
+              "type": "string",
+              "length": 80
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 4003
+            },
+            "content_list": {
+              "type": "string",
+              "length": 338
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "multipage",
+        "markdown_chars": 80,
+        "page_count": 1,
+        "content_item_count": 1,
+        "content_type_counts": {
+          "chart": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": []
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.109
+    },
+    {
+      "file": "sample.tif",
+      "bytes": 2880140,
+      "sha256": "3c94087ef765ba67b2945ad49ed61196cef44fa52f437ea9fdaca92118536fec",
+      "submit_status_code": 202,
+      "submit_response": {
+        "task_id": "af9ddd98-af3e-4e74-9f70-b63e90ffa656",
+        "status": "pending",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:43.848162+00:00",
+        "started_at": null,
+        "completed_at": null,
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/af9ddd98-af3e-4e74-9f70-b63e90ffa656",
+        "result_url": "http://127.0.0.1:8001/tasks/af9ddd98-af3e-4e74-9f70-b63e90ffa656/result",
+        "queued_ahead": 0,
+        "message": "Task submitted successfully"
+      },
+      "poll_count": 2,
+      "gpu_samples": [
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        },
+        {
+          "memory_used_mib": 2253,
+          "utilization_percent": 1
+        }
+      ],
+      "last_poll_status_code": 200,
+      "last_poll": {
+        "task_id": "af9ddd98-af3e-4e74-9f70-b63e90ffa656",
+        "status": "completed",
+        "backend": "pipeline",
+        "file_names": [
+          "sample"
+        ],
+        "created_at": "2026-07-13T11:07:43.848162+00:00",
+        "started_at": "2026-07-13T11:07:43.848665+00:00",
+        "completed_at": "2026-07-13T11:07:44.190163+00:00",
+        "error": null,
+        "status_url": "http://127.0.0.1:8001/tasks/af9ddd98-af3e-4e74-9f70-b63e90ffa656",
+        "result_url": "http://127.0.0.1:8001/tasks/af9ddd98-af3e-4e74-9f70-b63e90ffa656/result",
+        "queued_ahead": 0
+      },
+      "result_status_code": 200,
+      "result_file": "sample_tif_result.json",
+      "result_shape": {
+        "backend": {
+          "type": "string",
+          "length": 8
+        },
+        "version": {
+          "type": "string",
+          "length": 5
+        },
+        "results": {
+          "sample": {
+            "md_content": {
+              "type": "string",
+              "length": 80
+            },
+            "middle_json": {
+              "type": "string",
+              "length": 4003
+            },
+            "content_list": {
+              "type": "string",
+              "length": 338
+            }
+          }
+        }
+      },
+      "result_metrics": {
+        "document_count": 1,
+        "document_key": "sample",
+        "markdown_chars": 80,
+        "page_count": 1,
+        "content_item_count": 1,
+        "content_type_counts": {
+          "chart": 1
+        },
+        "content_page_indices": [
+          0
+        ],
+        "text_levels": []
+      },
+      "final_status": "completed",
+      "gpu_peak_memory_used_mib": 2253,
+      "gpu_peak_utilization_percent": 1,
+      "elapsed_seconds": 1.125
+    }
+  ]
+}

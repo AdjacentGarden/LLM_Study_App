@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "book_id": "stage2_fallback_image_024444",
+  "requested_parser": "mineru",
+  "final_parser": "ocr",
+  "parse_generation": null,
+  "created_at": "2026-07-14T02:45:01.030202+00:00",
+  "source_page_count": 1,
+  "output_page_count": 1,
+  "attempts": [
+    {
+      "parser": "mineru",
+      "scope": "document",
+      "pages": [],
+      "status": "failed",
+      "duration_ms": 208,
+      "error_code": "mineru_timeout",
+      "retryable": true,
+      "detail": "mineru_timeout",
+      "quality_score": null
+    },
+    {
+      "parser": "ocr",
+      "scope": "pages",
+      "pages": [
+        1
+      ],
+      "status": "succeeded",
+      "duration_ms": 4594,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.9921059161424637
+    }
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "parser": "ocr",
+      "quality_score": 0.9921059161424637,
+      "status": "accepted",
+      "warnings": [
+        "too_bright",
+        "ocr_visual_word_spacing"
+      ]
+    }
+  ],
+  "missing_pages": [],
+  "warnings": [
+    "image_input",
+    "too_bright",
+    "too_bright",
+    "ocr_visual_word_spacing"
+  ],
+  "mineru_backend": null,
+  "mineru_version": null
+}

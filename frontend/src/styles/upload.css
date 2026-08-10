@@ -1,0 +1,408 @@
+/* Upload is a focused, single-decision flow: a lavender cover with one white
+   content sheet. The sheet owns the viewport edges so the learner never has to
+   scan a collection of competing cards before choosing a file. */
+.app-shell[data-active-screen="upload"] {
+  --upload-cover: #dccafa;
+  --upload-sheet-top: 108px;
+  background: var(--upload-cover);
+}
+
+.app-shell[data-active-screen="upload"]::before,
+.app-shell[data-active-screen="upload"]::after {
+  background: transparent;
+  opacity: 0;
+}
+
+.app-shell[data-active-screen="upload"] .header-bar {
+  top: 22px;
+  left: max(20px, calc(var(--safe-area-left) + var(--space-inline)));
+  right: max(20px, calc(var(--safe-area-right) + var(--space-inline)));
+}
+
+.app-shell[data-active-screen="upload"] .header-title h1 {
+  color: var(--color-on-primary);
+}
+
+.app-shell[data-active-screen="upload"] .header-glass .icon-button {
+  width: 34px;
+  height: 34px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.screen-content[data-screen="upload"] {
+  padding: var(--upload-sheet-top) 0 0;
+  background: transparent;
+}
+
+.screen-content[data-screen="upload"] > .motion-screen-transition,
+.screen-content[data-screen="upload"] .motion-screen-surface,
+.screen-content[data-screen="upload"] .upload-flow-screen {
+  min-height: calc(100dvh - var(--upload-sheet-top));
+}
+
+.screen-content[data-screen="upload"] .upload-flow-screen {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  margin: 0;
+}
+
+.screen-content[data-screen="upload"] .upload-sheet-card {
+  width: 100%;
+  min-height: calc(100dvh - var(--upload-sheet-top));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: start;
+  gap: 0;
+  margin: 0;
+  padding: 48px max(32px, calc((100% - 560px) / 2)) 40px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 0;
+  border-radius: 54px 54px 0 0;
+  box-shadow: none;
+}
+
+.screen-content[data-screen="upload"] .upload-sheet-copy,
+.screen-content[data-screen="upload"] .upload-source-copy {
+  width: 100%;
+  max-width: 520px;
+  text-align: center;
+}
+
+.screen-content[data-screen="upload"] .upload-sheet-copy h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.screen-content[data-screen="upload"] .upload-sheet-copy p {
+  margin: 7px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+
+.screen-content[data-screen="upload"] .upload-add-tile {
+  width: min(210px, calc(100vw - 112px));
+  margin-top: 16px;
+  aspect-ratio: 1;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 0;
+  border-radius: 18px;
+  box-shadow:
+    inset 0 0 0 1.5px #e1e6ee,
+    0 12px 28px rgba(66, 76, 105, 0.12);
+}
+
+.screen-content[data-screen="upload"] .upload-add-tile:hover:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-primary-light),
+    0 12px 28px rgba(66, 76, 105, 0.15);
+}
+
+.screen-content[data-screen="upload"] .upload-add-tile:focus-visible {
+  outline-color: rgba(91, 33, 182, 0.46);
+}
+
+.screen-content[data-screen="upload"] .upload-add-tile.has-selection {
+  width: min(228px, calc(100vw - 88px));
+  cursor: default;
+  box-shadow:
+    inset 0 0 0 2px var(--color-primary),
+    0 12px 28px rgba(91, 33, 182, 0.14);
+}
+
+.screen-content[data-screen="upload"] .upload-add-icon {
+  width: 70px;
+  height: 70px;
+  color: var(--color-text);
+  background: transparent;
+  border-radius: 0;
+}
+
+.screen-content[data-screen="upload"] .upload-selected-file-visual {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: 16px 14px;
+  padding: 24px;
+}
+
+.screen-content[data-screen="upload"] .upload-selected-file-item {
+  width: 58px;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.screen-content[data-screen="upload"] .upload-selected-file-icon {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border-radius: 14px;
+}
+
+.screen-content[data-screen="upload"] .upload-selected-file-item strong {
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.screen-content[data-screen="upload"] .upload-remove-file {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--color-on-primary);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+}
+
+.screen-content[data-screen="upload"] .upload-remove-file-mark {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--color-on-primary);
+  background: var(--color-danger);
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(180, 35, 60, 0.24);
+}
+
+.screen-content[data-screen="upload"] .upload-remove-file:hover:not(:disabled) .upload-remove-file-mark {
+  background: #8f1830;
+}
+
+.screen-content[data-screen="upload"] .upload-remove-file:focus-visible {
+  outline-offset: -5px;
+}
+
+.screen-content[data-screen="upload"] .upload-remove-file:disabled {
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+}
+
+.screen-content[data-screen="upload"] .upload-add-more {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  margin: 2px 0 0;
+  padding: 0;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--color-primary-light);
+}
+
+.screen-content[data-screen="upload"] .upload-add-more:hover:not(:disabled) {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+}
+
+.screen-content[data-screen="upload"] .upload-add-more:disabled {
+  color: var(--color-text-muted);
+  background: var(--color-surface-tint);
+  border: 0;
+}
+
+.screen-content[data-screen="upload"] .upload-source-copy {
+  margin-top: 14px;
+}
+
+.screen-content[data-screen="upload"] button.upload-add-tile + .upload-source-copy {
+  margin-top: 30px;
+}
+
+.screen-content[data-screen="upload"] .upload-source-copy h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.screen-content[data-screen="upload"] .upload-source-copy p {
+  max-width: 34ch;
+  margin: 6px auto 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.screen-content[data-screen="upload"] .upload-error {
+  width: min(100%, 520px);
+  margin: 12px 0 0;
+  justify-content: center;
+  color: var(--color-danger);
+}
+
+.screen-content[data-screen="upload"] .upload-flow-primary > .button {
+  width: min(100%, 360px);
+  height: 48px;
+  min-height: 48px;
+  margin-top: clamp(40px, 7.6dvh, 62px);
+  padding-block: 0;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .app-shell[data-active-screen="upload"] {
+    --upload-sheet-top: calc(var(--safe-area-top) + 58px);
+  }
+
+  .app-shell[data-active-screen="upload"] .ios-status-bar {
+    color: var(--color-on-primary);
+  }
+
+  .app-shell[data-active-screen="upload"] .header-bar {
+    top: var(--safe-area-top);
+    left: calc(var(--safe-area-left) + 12px);
+    right: calc(var(--safe-area-right) + 12px);
+  }
+
+  .screen-content[data-screen="upload"] .upload-sheet-card {
+    padding-inline: max(28px, calc(var(--safe-area-left) + 28px));
+  }
+
+  .screen-content[data-screen="upload"] .upload-add-tile {
+    width: min(196px, calc(100vw - 96px));
+  }
+
+  .screen-content[data-screen="upload"] .upload-flow-primary > .button {
+    width: min(100%, 242px);
+  }
+}
+
+@media (max-width: 480px) and (max-height: 740px) and (orientation: portrait) {
+  .screen-content[data-screen="upload"] .upload-sheet-card {
+    padding-top: 28px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-sheet-copy h2 {
+    font-size: 24px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-sheet-copy p,
+  .screen-content[data-screen="upload"] .upload-source-copy p {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .screen-content[data-screen="upload"] .upload-add-tile {
+    width: min(154px, calc(100vw - 104px));
+    margin-top: 12px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-add-tile.has-selection {
+    width: min(176px, calc(100vw - 96px));
+  }
+
+  .screen-content[data-screen="upload"] .upload-selected-file-visual {
+    gap: 12px 10px;
+    padding: 18px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-selected-file-item {
+    width: 48px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-selected-file-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-add-more {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-source-copy {
+    margin-top: 12px;
+  }
+
+  .screen-content[data-screen="upload"] button.upload-add-tile + .upload-source-copy {
+    margin-top: 24px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-source-copy h3 {
+    font-size: 17px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-flow-primary > .button {
+    margin-top: 24px;
+  }
+}
+
+@media (max-height: 599px) and (orientation: landscape) {
+  .app-shell[data-active-screen="upload"] {
+    --upload-sheet-top: 82px;
+  }
+
+  .app-shell[data-active-screen="upload"] .header-bar {
+    top: 18px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-sheet-card {
+    padding-top: 28px;
+    border-radius: 36px 36px 0 0;
+  }
+
+  .screen-content[data-screen="upload"] .upload-add-tile {
+    width: 154px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-add-tile.has-selection {
+    width: 176px;
+  }
+
+  .screen-content[data-screen="upload"] .upload-flow-primary > .button {
+    margin-top: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-content[data-screen="upload"] .upload-add-tile {
+    transition: none;
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "pdf_info": [
+    {
+      "para_blocks": [
+        {
+          "type": "title",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "Synthetic Biology Handout"
+                }
+              ]
+            }
+          ],
+          "index": 0,
+          "is_numbered_style": false,
+          "level": 1
+        },
+        {
+          "type": "title",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "1. Cell membrane",
+                  "style": [
+                    "bold"
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "is_numbered_style": false,
+          "level": 1
+        },
+        {
+          "type": "text",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "The cell membrane controls exchange between the cell and its environment."
+                }
+              ]
+            }
+          ],
+          "index": 2
+        },
+        {
+          "type": "title",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "1.1 Transport comparison",
+                  "style": [
+                    "bold"
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 3,
+          "is_numbered_style": false,
+          "level": 2
+        },
+        {
+          "type": "table",
+          "blocks": [
+            {
+              "lines": [
+                {
+                  "spans": [
+                    {
+                      "type": "table",
+                      "html": "<table><tr><td><p>Process</p></td><td><p>Energy</p></td></tr><tr><td><p>Diffusion</p></td><td><p>No ATP</p></td></tr><tr><td><p>Active transport</p></td><td><p>Uses ATP</p></td></tr></table>"
+                    }
+                  ]
+                }
+              ],
+              "index": 4,
+              "type": "table_body"
+            }
+          ],
+          "index": 4
+        },
+        {
+          "type": "image",
+          "blocks": [
+            {
+              "lines": [
+                {
+                  "spans": [
+                    {
+                      "type": "image",
+                      "image_path": "a2f555e32391803662e3fec9681cb308097b0e901dd9a6f43c9780cdc74242bc.jpg"
+                    }
+                  ]
+                }
+              ],
+              "index": 5,
+              "type": "image_body"
+            },
+            {
+              "lines": [
+                {
+                  "spans": [
+                    {
+                      "type": "text",
+                      "content": "Figure 1. Synthetic cell diagram."
+                    }
+                  ]
+                }
+              ],
+              "index": 6,
+              "type": "image_caption"
+            }
+          ],
+          "index": 5
+        }
+      ],
+      "discarded_blocks": [],
+      "page_idx": 0
+    }
+  ],
+  "_backend": "office",
+  "_version_name": "3.4.4"
+}

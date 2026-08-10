@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T04:36:26.009349+00:00",
+  "python_executable": "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+  "stage3_test_files": [
+    "app\\tests\\test_stage3_blocker_regressions.py",
+    "app\\tests\\test_stage3_bundle_consistency.py",
+    "app\\tests\\test_stage3_bundle_visibility.py",
+    "app\\tests\\test_stage3_consumer_integration.py",
+    "app\\tests\\test_stage3_image_file_consistency.py",
+    "app\\tests\\test_stage3_lesson_v2_e2e.py",
+    "app\\tests\\test_stage3_pipeline_visibility.py",
+    "app\\tests\\test_stage3_rebuilder_asset_reconciliation.py",
+    "app\\tests\\test_chunk_protocol_stage3.py",
+    "app\\tests\\test_chunker_v2_stage3.py"
+  ],
+  "commands": [
+    {
+      "id": "backend_full",
+      "label": "Backend full pytest suite",
+      "kind": "pytest",
+      "command": [
+        "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "app/tests",
+        "-q"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\backend",
+      "started_at": "2026-07-14T04:36:12.629653+00:00",
+      "duration_seconds": 8.5,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 264,
+        "failed": 0,
+        "skipped": 0,
+        "test_files_passed": 0
+      },
+      "stdout": "........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 81%]\n................................................                         [100%]\n264 passed in 7.95s\n",
+      "stderr": ""
+    },
+    {
+      "id": "backend_stage3",
+      "label": "Stage 3 focused pytest matrix",
+      "kind": "pytest",
+      "command": [
+        "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "app\\tests\\test_stage3_blocker_regressions.py",
+        "app\\tests\\test_stage3_bundle_consistency.py",
+        "app\\tests\\test_stage3_bundle_visibility.py",
+        "app\\tests\\test_stage3_consumer_integration.py",
+        "app\\tests\\test_stage3_image_file_consistency.py",
+        "app\\tests\\test_stage3_lesson_v2_e2e.py",
+        "app\\tests\\test_stage3_pipeline_visibility.py",
+        "app\\tests\\test_stage3_rebuilder_asset_reconciliation.py",
+        "app\\tests\\test_chunk_protocol_stage3.py",
+        "app\\tests\\test_chunker_v2_stage3.py",
+        "-q"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\backend",
+      "started_at": "2026-07-14T04:36:21.131962+00:00",
+      "duration_seconds": 1.375,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 58,
+        "failed": 0,
+        "skipped": 0,
+        "test_files_passed": 0
+      },
+      "stdout": "..........................................................               [100%]\n58 passed in 0.90s\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_test",
+      "label": "Frontend Vitest suite",
+      "kind": "vitest",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "test"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "started_at": "2026-07-14T04:36:22.512967+00:00",
+      "duration_seconds": 0.891,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "test_files_passed": 1
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 test\n> vitest run\n\n\n RUN  v4.1.9 D:/code/CloudPath_app/frontend\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  12:36:22\n   Duration  452ms (transform 26ms, setup 0ms, import 21ms, tests 342ms, environment 0ms)\n\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_lint",
+      "label": "Frontend ESLint",
+      "kind": "check",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "run",
+        "lint"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "started_at": "2026-07-14T04:36:23.392443+00:00",
+      "duration_seconds": 1.062,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "test_files_passed": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 lint\n> eslint .\n\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_build",
+      "label": "Frontend TypeScript/Vite build",
+      "kind": "check",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "run",
+        "build"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "started_at": "2026-07-14T04:36:24.464138+00:00",
+      "duration_seconds": 1.547,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "test_files_passed": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 build\n> tsc -b && vite build\n\n\u001b[36mvite v8.0.16 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\n\u001b[2K\ntransforming...✓ 1777 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.53 kB │ gzip:  0.33 kB\ndist/assets/index-CLpNF0N-.css   56.43 kB │ gzip: 12.03 kB\ndist/assets/index-C_mjnZQ4.js   293.81 kB │ gzip: 89.29 kB\n\n\u001b[32m✓ built in 134ms\u001b[39m\n",
+      "stderr": ""
+    }
+  ],
+  "summary": {
+    "command_count": 5,
+    "all_passed": true,
+    "failed_commands": [],
+    "backend_full_passed": 264,
+    "backend_full_failed": 0,
+    "backend_full_skipped": 0,
+    "stage3_passed": 58,
+    "stage3_failed": 0,
+    "frontend_test_files_passed": 1,
+    "frontend_tests_passed": 4,
+    "frontend_lint_passed": true,
+    "frontend_build_passed": true
+  }
+}

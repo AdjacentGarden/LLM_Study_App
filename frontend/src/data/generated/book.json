@@ -1,0 +1,217 @@
+{
+  "provenance": {
+    "content_scope": "人教版高中生物必修 2《遗传与进化》当前 PDF 可用原文目录（源文件缺第 1 章正文）",
+    "fixture_policy": "目录按当前 PDF 实际页核验；源文件缺少第 1 章印刷页 1–14，第 2 章起使用 MinerU OCR 证据。",
+    "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+    "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+    "parser": "mineru",
+    "parser_version": "1.3.12",
+    "parser_command": "magic_pdf.tools.cli",
+    "parser_method": "ocr",
+    "parser_language": "ch",
+    "generated_at": "2026-08-01T22:03:33.740Z",
+    "raw_output_dir": ".cache/mineru/d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a/runs/2026-08-01T21-56-38-486Z-b36e9764-9869-4656-aaa0-db600729b5cd",
+    "raw_markdown_files": [
+      "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.md"
+    ],
+    "raw_middle_json_files": [
+      "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json"
+    ],
+    "raw_content_list_files": [
+      "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json"
+    ],
+    "content_list_sha256": "61f34ead0450b5cb3e761b9ab12479be18d61f070ebce9f0ca724f291c01bc2d",
+    "middle_json_sha256": "52c730fa4ef6839a3d1557e40cf66d5122ac273390029be26c98844eaaefb26c",
+    "markdown_sha256": "91cdb4e3ae4abdf6b84476d0c10403c96afc2cf55752936b9099f46c4c11e726",
+    "page_count": 125,
+    "scan_detection": {
+      "method": "PyMuPDF get_text(text) preflight",
+      "page_count": 125,
+      "pages_with_text": 0,
+      "total_text_chars": 0,
+      "has_text_layer": false,
+      "needs_ocr": true,
+      "sample_page_char_counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "grounding": {
+      "markdown_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.md",
+      "markdown_bytes": 228452,
+      "required_terms": {
+        "减数分裂": true,
+        "同源染色体": true,
+        "姐妹染色单体": true,
+        "受精作用": true
+      },
+      "term_evidence": {
+        "减数分裂": {
+          "present": true,
+          "page_idx": 4,
+          "pdf_page": 5,
+          "printed_page": null,
+          "content_list_entry_index": 45,
+          "content_list_entry_sha256": "1767736d18a17bc15dd0fecd1356426c9d2debcb54c37e02a3798a8590dcaa1c"
+        },
+        "同源染色体": {
+          "present": true,
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 118,
+          "content_list_entry_sha256": "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446"
+        },
+        "姐妹染色单体": {
+          "present": true,
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 115,
+          "content_list_entry_sha256": "eb22480329a391529dc4fb84290a8fc5dee247d53a1949e3a2a98079ba61e845"
+        },
+        "受精作用": {
+          "present": true,
+          "page_idx": 4,
+          "pdf_page": 5,
+          "printed_page": null,
+          "content_list_entry_index": 45,
+          "content_list_entry_sha256": "1767736d18a17bc15dd0fecd1356426c9d2debcb54c37e02a3798a8590dcaa1c"
+        }
+      }
+    },
+    "printed_page_mapping": {
+      "method": "one-based PDF page_idx plus a six-page front-matter offset",
+      "offset": 6,
+      "anchor": {
+        "page_idx": 12,
+        "pdf_page": 13,
+        "printed_page": 18,
+        "evidence": "middle.json discarded footer OCR"
+      },
+      "p0_manual_review": {
+        "page_idx": 10,
+        "pdf_page": 11,
+        "printed_page": 16,
+        "evidence": "middle.json discarded footer OCR candidate 16; migrated page image footer agrees"
+      },
+      "unresolved_pages": [
+        7,
+        8,
+        9,
+        10,
+        36,
+        48,
+        54,
+        55,
+        56,
+        74,
+        81,
+        83,
+        92,
+        104,
+        105,
+        121,
+        122,
+        123,
+        124,
+        125
+      ]
+    },
+    "p0_content": {
+      "section_title": "第1节 减数分裂和受精作用",
+      "section_title_pdf_page": 11,
+      "section_title_printed_page": 16,
+      "chunks": [
+        {
+          "chunk_id": "chunk_c2s1_11",
+          "pdf_pages": [
+            11,
+            11
+          ],
+          "printed_pages": [
+            16,
+            16
+          ],
+          "content_list_entry_indices": [
+            106
+          ],
+          "raw_ocr_text_sha256": "e4a29d1b5fe9a439a77b6561b1a38ec0e7158a5212a2d0ab76f19cb7d01de237"
+        },
+        {
+          "chunk_id": "chunk_c2s1_13",
+          "pdf_pages": [
+            13,
+            13
+          ],
+          "printed_pages": [
+            18,
+            18
+          ],
+          "content_list_entry_indices": [
+            118,
+            122,
+            125,
+            126
+          ],
+          "raw_ocr_text_sha256": "23f5aeb661ed0af86a7d61bbb0c1b7c698b9b02834dc08b5e47ee8c145b4f4e9"
+        },
+        {
+          "chunk_id": "chunk_c2s1_19",
+          "pdf_pages": [
+            19,
+            19
+          ],
+          "printed_pages": [
+            24,
+            24
+          ],
+          "content_list_entry_indices": [
+            216,
+            216
+          ],
+          "raw_ocr_text_sha256": "9ed33eefa494502fd3091dd87e283b6800c8ae8e37e58e43f17f5d818b08c398"
+        },
+        {
+          "chunk_id": "chunk_c2s1_20",
+          "pdf_pages": [
+            20,
+            20
+          ],
+          "printed_pages": [
+            25,
+            25
+          ],
+          "content_list_entry_indices": [
+            219
+          ],
+          "raw_ocr_text_sha256": "5fbb3f3ffd215221d8a567d4242a8a9068be19ed5db5222983993c70c78b51fd"
+        }
+      ],
+      "citation_policy": "每条课程引用必须保留原始 OCR 文本、PDF 页、教材印刷页、content_list 条目索引与哈希。"
+    }
+  },
+  "id": "book_biology_2",
+  "title": "生物 必修 2 遗传与进化",
+  "shortTitle": "遗传与进化",
+  "fileName": "人教版高中生物必修2遗传与进化.pdf",
+  "publisher": "人民教育出版社",
+  "pages": 125,
+  "fileSize": "38.8 MB",
+  "chapterCount": 7,
+  "sectionCount": 17,
+  "knowledgePointCount": 96,
+  "progress": 18,
+  "mastery": 68,
+  "planDays": 14,
+  "dailyMinutes": 30,
+  "cover": "/assets/textbook/biology-cover-thumb.webp"
+}

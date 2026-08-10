@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:24:00.307742+00:00",
+  "mode": "read_only_inventory",
+  "storage_root": "D:\\code\\CloudPath_app\\backend\\data",
+  "authoritative_for_production": false,
+  "production_or_shared_storage_accessed": false,
+  "course_count": 0,
+  "candidate_count": 0,
+  "courses": [],
+  "decision": "not_executed",
+  "requires_separate_approval": true,
+  "note": "The workspace contains no production storage. Run this read-only inventory against the approved production snapshot before any migration decision."
+}

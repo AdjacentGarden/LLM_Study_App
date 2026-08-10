@@ -1,0 +1,1 @@
+"""BookCourse AI backend package."""

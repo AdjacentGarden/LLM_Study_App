@@ -1,0 +1,86 @@
+[
+  {
+    "page": 1,
+    "pdf_page_index": 0,
+    "text": "Native text page: Photosynthesis converts light energy",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "p001_mineru_paragraph_06fd7159e9f52bdd",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Native text page: Photosynthesis converts light energy",
+        "bbox": [
+          68.425,
+          77.464,
+          388.535,
+          93.462
+        ],
+        "font_size": null,
+        "confidence": null,
+        "low_confidence": false,
+        "heading_level": null,
+        "source_parser": "mineru",
+        "source_block_id": null,
+        "content_format": null,
+        "content_hash": "76660456226fdf0427cb2cf78ce89f998cacd853ae8078521189538653490dfb",
+        "asset_ids": [],
+        "metadata": {
+          "mineru_type": "text",
+          "mineru_content_index": 0,
+          "normalized_bbox": [
+            115,
+            92,
+            653,
+            111
+          ],
+          "page_size": [
+            595.0,
+            842.0
+          ]
+        }
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": 0.9320999999999999,
+    "quality_warnings": [],
+    "preprocessed_image_url": null,
+    "layout_regions": [
+      {
+        "region_id": "p001_layout_mineru_paragraph_06fd7159e9f52bdd",
+        "page": 1,
+        "type": "paragraph",
+        "bbox": [
+          68.425,
+          77.464,
+          388.535,
+          93.462
+        ],
+        "confidence": 0.9320999999999999,
+        "source": "mineru"
+      }
+    ],
+    "parser": "mineru",
+    "quality_score": 0.989815
+  },
+  {
+    "page": 2,
+    "pdf_page_index": 1,
+    "text": "",
+    "needs_ocr": true,
+    "blocks": [],
+    "ocr_provider": null,
+    "ocr_confidence": null,
+    "quality_warnings": [
+      {
+        "page": 2,
+        "code": "page_unrecoverable",
+        "message": "No parser produced usable semantic content"
+      }
+    ],
+    "preprocessed_image_url": null,
+    "layout_regions": [],
+    "parser": "unrecoverable",
+    "quality_score": 0.0
+  }
+]

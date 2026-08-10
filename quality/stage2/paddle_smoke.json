@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T02:39:39.827667+00:00",
+  "provider": "paddleocr",
+  "device": "cpu",
+  "paddle_version": "3.3.1",
+  "paddleocr_version": "3.7.0",
+  "paddle_cuda_compiled": false,
+  "initialization_seconds": 2.412,
+  "recognition_seconds": 1.072,
+  "block_count": 1,
+  "semantic_characters": 31,
+  "mean_confidence": 0.997,
+  "recognized_text": [
+    "BookCourse AI OCR live test 456"
+  ],
+  "warnings": [],
+  "passed": true
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "page": 1,
+    "pdf_page_index": 0,
+    "text": "",
+    "needs_ocr": true,
+    "blocks": [],
+    "ocr_provider": null,
+    "ocr_confidence": null,
+    "quality_warnings": [
+      {
+        "page": 1,
+        "code": "page_unrecoverable",
+        "message": "No parser produced usable semantic content"
+      }
+    ],
+    "preprocessed_image_url": null,
+    "layout_regions": [],
+    "parser": "unrecoverable",
+    "quality_score": 0.0,
+    "metadata": {}
+  }
+]

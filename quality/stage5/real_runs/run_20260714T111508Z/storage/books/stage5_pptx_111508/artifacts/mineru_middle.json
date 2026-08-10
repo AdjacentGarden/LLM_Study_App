@@ -1,0 +1,114 @@
+{
+  "pdf_info": [
+    {
+      "para_blocks": [
+        {
+          "type": "title",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "Cellular respiration"
+                }
+              ]
+            }
+          ],
+          "index": 0,
+          "is_numbered_style": false,
+          "level": 2
+        },
+        {
+          "type": "title",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "Synthetic stage 0 fixture"
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "is_numbered_style": false,
+          "level": 2
+        }
+      ],
+      "discarded_blocks": [],
+      "page_idx": 0
+    },
+    {
+      "para_blocks": [
+        {
+          "type": "title",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "ATP production"
+                }
+              ]
+            }
+          ],
+          "index": 0,
+          "is_numbered_style": false,
+          "level": 2
+        },
+        {
+          "type": "text",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "Glycolysis occurs in the cytoplasm."
+                }
+              ]
+            }
+          ],
+          "index": 1
+        },
+        {
+          "type": "text",
+          "lines": [
+            {
+              "spans": [
+                {
+                  "type": "text",
+                  "content": "The citric acid cycle occurs in mitochondria."
+                }
+              ]
+            }
+          ],
+          "index": 2
+        },
+        {
+          "type": "image",
+          "blocks": [
+            {
+              "lines": [
+                {
+                  "spans": [
+                    {
+                      "type": "image",
+                      "image_path": "a2f555e32391803662e3fec9681cb308097b0e901dd9a6f43c9780cdc74242bc.jpg"
+                    }
+                  ]
+                }
+              ],
+              "index": 3,
+              "type": "image_body"
+            }
+          ],
+          "index": 3
+        }
+      ],
+      "discarded_blocks": [],
+      "page_idx": 1
+    }
+  ],
+  "_backend": "office",
+  "_version_name": "3.4.4"
+}

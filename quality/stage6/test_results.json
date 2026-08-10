@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:29:11.739156+00:00",
+  "python_executable": "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+  "failure_matrix_test_files": [
+    "app/tests/test_mineru_http_client.py",
+    "app/tests/test_mineru_task_store.py",
+    "app/tests/test_parser_router_stage2.py",
+    "app/tests/test_stage4_index_coordinator.py",
+    "app/tests/test_stage5_office_semantics.py"
+  ],
+  "expected_skip_explanation": {
+    "count": 9,
+    "reason": "Seven pgvector atomicity tests and two business lifecycle tests require the explicitly isolated Stage-4 loopback PostgreSQL/pgvector DSN.",
+    "independent_evidence": "quality/stage4/test_results.json backend_with_isolated_pgvector: 296 passed, 0 failed, 0 skipped"
+  },
+  "commands": [
+    {
+      "id": "backend_full",
+      "command": [
+        "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "app/tests",
+        "-q",
+        "-rs"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\backend",
+      "duration_seconds": 55.25,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 346,
+        "failed": 0,
+        "skipped": 9
+      },
+      "stdout": "........................................................................ [ 20%]\n........................................................................ [ 40%]\n....................................................sssssss............. [ 60%]\n.........................................................ss............. [ 81%]\n...................................................................      [100%]\n=========================== short test summary info ===========================\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:109: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:133: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:163: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:199: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:217: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:245: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_pgvector_stage4_integration.py:269: real pgvector tests require the explicitly isolated Stage 4 DSN\nSKIPPED [1] app\\tests\\test_stage4_business_indexing_integration.py:107: requires the explicitly approved Stage-4 loopback database\nSKIPPED [1] app\\tests\\test_stage4_business_indexing_integration.py:162: requires the explicitly approved Stage-4 loopback database\n346 passed, 9 skipped in 54.67s\n",
+      "stderr": ""
+    },
+    {
+      "id": "failure_matrix",
+      "command": [
+        "C:\\Users\\asd25\\AppData\\Local\\Temp\\cloudpath-stage0-venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "app/tests/test_mineru_http_client.py",
+        "app/tests/test_mineru_task_store.py",
+        "app/tests/test_parser_router_stage2.py",
+        "app/tests/test_stage4_index_coordinator.py",
+        "app/tests/test_stage5_office_semantics.py",
+        "-q"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\backend",
+      "duration_seconds": 14.25,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "........................................................................ [100%]\n72 passed in 13.71s\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_test",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "test"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "duration_seconds": 0.828,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 test\n> vitest run\n\n\n RUN  v4.1.9 D:/code/CloudPath_app/frontend\n\n\n Test Files  2 passed (2)\n      Tests  7 passed (7)\n   Start at  21:29:08\n   Duration  445ms (transform 73ms, setup 0ms, import 121ms, tests 338ms, environment 0ms)\n\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_lint",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "run",
+        "lint"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "duration_seconds": 1.016,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 lint\n> eslint .\n\n",
+      "stderr": ""
+    },
+    {
+      "id": "frontend_build",
+      "command": [
+        "D:\\Program Files\\nodejs\\npm.cmd",
+        "run",
+        "build"
+      ],
+      "cwd": "D:\\code\\CloudPath_app\\frontend",
+      "duration_seconds": 1.484,
+      "exit_code": 0,
+      "passed": true,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "stdout": "\n> bookcourse-ai-live-artifact@0.1.0 build\n> tsc -b && vite build\n\n\u001b[36mvite v8.0.16 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\n\u001b[2K\ntransforming...✓ 1777 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.53 kB │ gzip:  0.33 kB\ndist/assets/index-CLpNF0N-.css   56.43 kB │ gzip: 12.03 kB\ndist/assets/index-Fdc5KsPX.js   294.61 kB │ gzip: 89.68 kB\n\n\u001b[32m✓ built in 131ms\u001b[39m\n",
+      "stderr": ""
+    }
+  ],
+  "summary": {
+    "all_passed": true,
+    "failed_commands": [],
+    "backend_full_passed": 346,
+    "backend_full_failed": 0,
+    "backend_full_skipped": 9,
+    "failure_matrix_passed": 72,
+    "failure_matrix_failed": 0,
+    "frontend_tests_passed": 7,
+    "frontend_lint_passed": true,
+    "frontend_build_passed": true
+  }
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "asset_id": "mineru_bb5d4b840620a5a74fe0",
+    "book_id": "stage2_image_043219",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 1,
+    "type": "chart",
+    "caption": "",
+    "bbox": [
+      28.944,
+      28.8,
+      401.76,
+      256.896
+    ],
+    "image_url": "/api/books/stage2_image_043219/assets/mineru_bb5d4b840620a5a74fe0/file",
+    "thumbnail_url": "/api/books/stage2_image_043219/assets/mineru_bb5d4b840620a5a74fe0/thumbnail",
+    "source_page_image_url": null,
+    "source_chunk_ids": [],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "needs_review",
+    "source_parser": "mineru",
+    "content_hash": "8c5bd858fd612880e649e9851c39c1a653ed7ae52e127a9bdf7d878cee1e85e0",
+    "metadata": {
+      "mineru_image_name": "eeb9f08aa7de484e4d7a5129f6eb49bf06a84c5e9ccd966de4d1023225d0743d.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1037,
+      "height": 634,
+      "page_text_parser": "ocr",
+      "mineru_page_text_replaced": true
+    }
+  }
+]

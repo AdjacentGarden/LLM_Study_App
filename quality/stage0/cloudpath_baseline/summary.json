@@ -1,0 +1,437 @@
+{
+  "schema_version": 1,
+  "configuration": {
+    "parser_provider": "auto",
+    "ocr_provider": "mock",
+    "embedding_provider": "hashing",
+    "database_url": null
+  },
+  "scenarios": [
+    {
+      "book_id": "stage0_native",
+      "file": "native_text.pdf",
+      "parse_elapsed_seconds": 0.029,
+      "scan": {
+        "book_id": "stage0_native",
+        "filename": "native_text.pdf",
+        "file_type": "pdf",
+        "page_count": 2,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "quality_warnings": []
+      },
+      "parser_report": {
+        "book_id": "stage0_native",
+        "parser": "pymupdf",
+        "page_count": 2,
+        "warnings": [
+          "mineru:no endpoint or command configured",
+          "marker:no endpoint or command configured"
+        ],
+        "metadata": {
+          "file_type": "pdf",
+          "text_layer": true,
+          "parser_fallbacks": [
+            "mineru:no endpoint or command configured",
+            "marker:no endpoint or command configured"
+          ]
+        }
+      },
+      "chapter_count": 1,
+      "asset_count": 1,
+      "chunks": {
+        "count": 6,
+        "content_types": {
+          "text": 5,
+          "figure": 1
+        },
+        "total_characters": 352,
+        "min_characters": 19,
+        "max_characters": 170,
+        "mean_characters": 58.667,
+        "duplicate_count": 0,
+        "duplicate_ratio": 0.0
+      },
+      "queries": [
+        {
+          "question": "What regulates transport and communication?",
+          "expected_text": "plasma membrane regulates transport",
+          "expected_page": 1,
+          "elapsed_ms": 2.257,
+          "result_count": 1,
+          "relevant_in_top5": true,
+          "first_relevant_rank": 1,
+          "citation_page_correct": true,
+          "top_results": [
+            {
+              "chunk_id": "stage0_native_ch_001_452f029b67fc",
+              "content_type": "text",
+              "page_start": 1,
+              "text": "Cells are the basic structural and functional units of life.\nThe plasma membrane regulates transport and communication.\nThis file contains a native selectable text layer.",
+              "bm25_score": 4.661245,
+              "dense_score": 0.430331,
+              "rerank_score": 1.0,
+              "index_name": "artifact_hashing_fallback"
+            }
+          ]
+        },
+        {
+          "question": "What does DNA store?",
+          "expected_text": "dna stores hereditary information",
+          "expected_page": 2,
+          "elapsed_ms": 0.647,
+          "result_count": 1,
+          "relevant_in_top5": true,
+          "first_relevant_rank": 1,
+          "citation_page_correct": true,
+          "top_results": [
+            {
+              "chunk_id": "stage0_native_ch_001_b5a79eafde12",
+              "content_type": "text",
+              "page_start": 2,
+              "text": "DNA stores hereditary information. During transcription, DNA is used as a template\nfor RNA.",
+              "bm25_score": 2.349263,
+              "dense_score": 0.258199,
+              "rerank_score": 0.47582,
+              "index_name": "artifact_hashing_fallback"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "book_id": "stage0_complex",
+      "file": "multicolumn_table_formula.pdf",
+      "parse_elapsed_seconds": 0.027,
+      "scan": {
+        "book_id": "stage0_complex",
+        "filename": "multicolumn_table_formula.pdf",
+        "file_type": "pdf",
+        "page_count": 1,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "quality_warnings": []
+      },
+      "parser_report": {
+        "book_id": "stage0_complex",
+        "parser": "pymupdf",
+        "page_count": 1,
+        "warnings": [
+          "mineru:no endpoint or command configured",
+          "marker:no endpoint or command configured"
+        ],
+        "metadata": {
+          "file_type": "pdf",
+          "text_layer": true,
+          "parser_fallbacks": [
+            "mineru:no endpoint or command configured",
+            "marker:no endpoint or command configured"
+          ]
+        }
+      },
+      "chapter_count": 1,
+      "asset_count": 1,
+      "chunks": {
+        "count": 9,
+        "content_types": {
+          "text": 8,
+          "figure": 1
+        },
+        "total_characters": 402,
+        "min_characters": 13,
+        "max_characters": 124,
+        "mean_characters": 44.667,
+        "duplicate_count": 0,
+        "duplicate_ratio": 0.0
+      },
+      "queries": [
+        {
+          "question": "Which process produces haploid cells?",
+          "expected_text": "meiosis contains two divisions",
+          "expected_page": 1,
+          "elapsed_ms": 2.713,
+          "result_count": 2,
+          "relevant_in_top5": true,
+          "first_relevant_rank": 1,
+          "citation_page_correct": true,
+          "top_results": [
+            {
+              "chunk_id": "stage0_complex_ch_001_452f029b67fc",
+              "content_type": "text",
+              "page_start": 1,
+              "text": "RIGHT COLUMN\nMeiosis contains two divisions and produces\nhaploid cells.\nIndependent assortment increases variation.",
+              "bm25_score": 3.603024,
+              "dense_score": 0.358569,
+              "rerank_score": 0.835857,
+              "index_name": "artifact_hashing_fallback"
+            },
+            {
+              "chunk_id": "stage0_complex_ch_001_09d316537224",
+              "content_type": "text",
+              "page_start": 1,
+              "text": "LEFT COLUMN\nMitosis produces genetically similar daughter\ncells.\nProphase is followed by metaphase,\nanaphase, and telophase.",
+              "bm25_score": 1.976705,
+              "dense_score": 0.210819,
+              "rerank_score": 0.621082,
+              "index_name": "artifact_hashing_fallback"
+            }
+          ]
+        },
+        {
+          "question": "What happens during G2?",
+          "expected_text": "g2 replicated",
+          "expected_page": 1,
+          "elapsed_ms": 0.645,
+          "result_count": 1,
+          "relevant_in_top5": true,
+          "first_relevant_rank": 1,
+          "citation_page_correct": true,
+          "top_results": [
+            {
+              "chunk_id": "stage0_complex_ch_001_8c2079de4647",
+              "content_type": "text",
+              "page_start": 1,
+              "text": "G2\nreplicated",
+              "bm25_score": 2.889401,
+              "dense_score": 0.353553,
+              "rerank_score": 0.485355,
+              "index_name": "artifact_hashing_fallback"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "book_id": "stage0_scanned",
+      "file": "scanned.pdf",
+      "parse_elapsed_seconds": 0.163,
+      "scan": {
+        "book_id": "stage0_scanned",
+        "filename": "scanned.pdf",
+        "file_type": "pdf",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": true,
+        "quality_warnings": [
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          },
+          {
+            "page": 1,
+            "code": "ocr_mock_provider",
+            "message": "mock OCR provider used; text requires cloud OCR"
+          }
+        ]
+      },
+      "parser_report": {
+        "book_id": "stage0_scanned",
+        "parser": "ocr",
+        "page_count": 1,
+        "warnings": [
+          "too_bright",
+          "ocr_mock_provider"
+        ],
+        "metadata": {
+          "file_type": "pdf",
+          "ocr_provider": "mock"
+        }
+      },
+      "chapter_count": 1,
+      "asset_count": 2,
+      "chunks": {
+        "count": 3,
+        "content_types": {
+          "ocr_pending": 1,
+          "figure": 2
+        },
+        "total_characters": 92,
+        "min_characters": 25,
+        "max_characters": 40,
+        "mean_characters": 30.667,
+        "duplicate_count": 0,
+        "duplicate_ratio": 0.0
+      },
+      "queries": [
+        {
+          "question": "CELL DIAGRAM",
+          "expected_text": "cell diagram",
+          "expected_page": 1,
+          "elapsed_ms": 1.338,
+          "result_count": 0,
+          "relevant_in_top5": false,
+          "first_relevant_rank": null,
+          "citation_page_correct": false,
+          "top_results": []
+        }
+      ]
+    },
+    {
+      "book_id": "stage0_mixed",
+      "file": "mixed.pdf",
+      "parse_elapsed_seconds": 0.059,
+      "scan": {
+        "book_id": "stage0_mixed",
+        "filename": "mixed.pdf",
+        "file_type": "pdf",
+        "page_count": 2,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "quality_warnings": []
+      },
+      "parser_report": {
+        "book_id": "stage0_mixed",
+        "parser": "pymupdf",
+        "page_count": 2,
+        "warnings": [
+          "mineru:no endpoint or command configured",
+          "marker:no endpoint or command configured"
+        ],
+        "metadata": {
+          "file_type": "pdf",
+          "text_layer": true,
+          "parser_fallbacks": [
+            "mineru:no endpoint or command configured",
+            "marker:no endpoint or command configured"
+          ]
+        }
+      },
+      "chapter_count": 1,
+      "asset_count": 2,
+      "chunks": {
+        "count": 4,
+        "content_types": {
+          "text": 1,
+          "ocr_pending": 1,
+          "figure": 2
+        },
+        "total_characters": 147,
+        "min_characters": 25,
+        "max_characters": 55,
+        "mean_characters": 36.75,
+        "duplicate_count": 0,
+        "duplicate_ratio": 0.0
+      },
+      "queries": [
+        {
+          "question": "What converts light energy?",
+          "expected_text": "photosynthesis converts light energy",
+          "expected_page": 1,
+          "elapsed_ms": 1.814,
+          "result_count": 1,
+          "relevant_in_top5": true,
+          "first_relevant_rank": 1,
+          "citation_page_correct": true,
+          "top_results": [
+            {
+              "chunk_id": "stage0_mixed_ch_001_619e3fb1264b",
+              "content_type": "text",
+              "page_start": 1,
+              "text": "Native text page: Photosynthesis converts light energy.",
+              "bm25_score": 4.912209,
+              "dense_score": 0.566947,
+              "rerank_score": 1.0,
+              "index_name": "artifact_hashing_fallback"
+            }
+          ]
+        },
+        {
+          "question": "CELL DIAGRAM",
+          "expected_text": "cell diagram",
+          "expected_page": 2,
+          "elapsed_ms": 0.434,
+          "result_count": 0,
+          "relevant_in_top5": false,
+          "first_relevant_rank": null,
+          "citation_page_correct": false,
+          "top_results": []
+        }
+      ]
+    },
+    {
+      "book_id": "stage0_image",
+      "file": "source_diagram.png",
+      "parse_elapsed_seconds": 0.045,
+      "scan": {
+        "book_id": "stage0_image",
+        "filename": "source_diagram.png",
+        "file_type": "png",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": true,
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          },
+          {
+            "page": 1,
+            "code": "ocr_mock_provider",
+            "message": "mock OCR provider used; text requires cloud OCR"
+          }
+        ]
+      },
+      "parser_report": {
+        "book_id": "stage0_image",
+        "parser": "ocr",
+        "page_count": 1,
+        "warnings": [
+          "image_input",
+          "too_bright",
+          "too_bright",
+          "ocr_mock_provider"
+        ],
+        "metadata": {
+          "file_type": "png",
+          "ocr_provider": "mock"
+        }
+      },
+      "chapter_count": 1,
+      "asset_count": 0,
+      "chunks": {
+        "count": 1,
+        "content_types": {
+          "ocr_pending": 1
+        },
+        "total_characters": 40,
+        "min_characters": 40,
+        "max_characters": 40,
+        "mean_characters": 40,
+        "duplicate_count": 0,
+        "duplicate_ratio": 0.0
+      },
+      "queries": [
+        {
+          "question": "CELL DIAGRAM",
+          "expected_text": "cell diagram",
+          "expected_page": 1,
+          "elapsed_ms": 0.887,
+          "result_count": 0,
+          "relevant_in_top5": false,
+          "first_relevant_rank": null,
+          "citation_page_correct": false,
+          "top_results": []
+        }
+      ]
+    }
+  ],
+  "retrieval_metrics": {
+    "query_count": 8,
+    "recall_at_5": 0.625,
+    "citation_page_accuracy_over_all_queries": 0.625,
+    "citation_page_accuracy_conditional_on_retrieval": 1.0,
+    "query_result_coverage": 0.625
+  }
+}

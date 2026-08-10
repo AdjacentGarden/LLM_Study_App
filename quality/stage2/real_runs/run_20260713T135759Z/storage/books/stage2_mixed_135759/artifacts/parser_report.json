@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "book_id": "stage2_mixed_135759",
+  "requested_parser": "mineru",
+  "final_parser": "mixed",
+  "parse_generation": null,
+  "created_at": "2026-07-13T13:58:25.204810+00:00",
+  "source_page_count": 2,
+  "output_page_count": 2,
+  "attempts": [
+    {
+      "parser": "mineru",
+      "scope": "document",
+      "pages": [],
+      "status": "degraded",
+      "duration_ms": 2081,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.989815
+    },
+    {
+      "parser": "pymupdf",
+      "scope": "pages",
+      "pages": [
+        2
+      ],
+      "status": "degraded",
+      "duration_ms": 12,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.0
+    },
+    {
+      "parser": "ocr",
+      "scope": "pages",
+      "pages": [
+        2
+      ],
+      "status": "degraded",
+      "duration_ms": 18581,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.0
+    }
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "parser": "mineru",
+      "quality_score": 0.989815,
+      "status": "accepted",
+      "warnings": []
+    },
+    {
+      "page": 2,
+      "parser": "unrecoverable",
+      "quality_score": 0.0,
+      "status": "unrecoverable",
+      "warnings": [
+        "page_unrecoverable"
+      ]
+    }
+  ],
+  "missing_pages": [],
+  "warnings": [
+    "mineru_page_quality_rejected",
+    "page_2:mineru_quality_fallback",
+    "page_2:unrecoverable"
+  ],
+  "mineru_backend": "pipeline",
+  "mineru_version": "3.4.4"
+}

@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "metric_protocol_version": "stage0-v1",
+  "captured_at": "2026-07-14T04:33:59.065628+00:00",
+  "pipeline_run_id": "run_20260714T043219Z",
+  "fallback_run_id": "fallback_20260714T024444Z",
+  "checks": {
+    "probe_reports_pass": {
+      "value": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "operator": "all ==",
+      "threshold": true,
+      "passed": true
+    },
+    "scenario_set": {
+      "value": [
+        "complex",
+        "image",
+        "mixed",
+        "native",
+        "scanned"
+      ],
+      "operator": "==",
+      "threshold": [
+        "complex",
+        "image",
+        "mixed",
+        "native",
+        "scanned"
+      ],
+      "passed": true
+    },
+    "retrieval_pipeline_run": {
+      "value": "run_20260714T043219Z",
+      "operator": "==",
+      "threshold": "run_20260714T043219Z",
+      "passed": true
+    },
+    "valid_fixture_task_success_rate": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "source_page_coverage": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "usable_semantic_page_coverage": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "ocr_pending_ratio": {
+      "value": 0.0,
+      "operator": "<=",
+      "threshold": 0.0,
+      "passed": true
+    },
+    "invalid_character_ratio": {
+      "value": 0.0,
+      "operator": "<=",
+      "threshold": 0.01,
+      "passed": true
+    },
+    "document_quality_score": {
+      "value": 0.984871,
+      "operator": ">=",
+      "threshold": 0.75,
+      "passed": true
+    },
+    "page_quality_score": {
+      "value": 0.98185,
+      "operator": ">=",
+      "threshold": 0.6,
+      "passed": true
+    },
+    "usable_semantic_characters": {
+      "value": 49,
+      "operator": ">=",
+      "threshold": 20,
+      "passed": true
+    },
+    "missing_page_count": {
+      "value": 0,
+      "operator": "<=",
+      "threshold": 0,
+      "passed": true
+    },
+    "exact_duplicate_ratio": {
+      "value": 0.0,
+      "operator": "<=",
+      "threshold": 0.0,
+      "passed": true
+    },
+    "recall_at_5": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "citation_page_accuracy_over_all_queries": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "citation_page_accuracy_conditional_on_retrieval": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "query_result_coverage": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "native_text_subset_recall_at_5": {
+      "value": 1.0,
+      "operator": ">=",
+      "threshold": 1.0,
+      "passed": true
+    },
+    "frozen_query_count": {
+      "value": 8,
+      "operator": "==",
+      "threshold": 8,
+      "passed": true
+    },
+    "warm_mineru_p95_seconds": {
+      "value": 2.106,
+      "operator": "<=",
+      "threshold": 10.0,
+      "passed": true
+    },
+    "cold_pipeline_seconds": {
+      "value": 23.658,
+      "operator": "<=",
+      "threshold": 180.0,
+      "passed": true
+    },
+    "warm_pipeline_p95_seconds": {
+      "value": 21.393,
+      "operator": "<=",
+      "threshold": 30.0,
+      "passed": true
+    },
+    "gpu_peak_memory_used_mib": {
+      "value": 2401,
+      "operator": "<=",
+      "threshold": 14500,
+      "passed": true
+    },
+    "gpu_oom_count": {
+      "value": 0,
+      "operator": "<=",
+      "threshold": 0,
+      "passed": true
+    },
+    "progress_update_interval_seconds": {
+      "value": 4.01,
+      "operator": "<=",
+      "threshold": 5,
+      "passed": true
+    },
+    "normalized_artifacts": {
+      "value": true,
+      "operator": "==",
+      "threshold": true,
+      "passed": true
+    },
+    "parser_reports_complete": {
+      "value": true,
+      "operator": "==",
+      "threshold": true,
+      "passed": true
+    },
+    "mixed_pdf_page_routing": {
+      "value": {
+        "1": "mineru",
+        "2": "ocr"
+      },
+      "operator": "==",
+      "threshold": {
+        "1": "mineru",
+        "2": "ocr"
+      },
+      "passed": true
+    },
+    "offline_native_fallback": {
+      "value": [
+        "pymupdf",
+        "pymupdf"
+      ],
+      "operator": "==",
+      "threshold": [
+        "pymupdf",
+        "pymupdf"
+      ],
+      "passed": true
+    },
+    "offline_scanned_fallback": {
+      "value": [
+        "ocr"
+      ],
+      "operator": "==",
+      "threshold": [
+        "ocr"
+      ],
+      "passed": true
+    },
+    "offline_image_fallback": {
+      "value": [
+        "ocr"
+      ],
+      "operator": "==",
+      "threshold": [
+        "ocr"
+      ],
+      "passed": true
+    },
+    "real_paddleocr": {
+      "value": {
+        "provider": "paddleocr",
+        "semantic_characters": 31
+      },
+      "operator": "real and usable",
+      "threshold": {
+        "provider": "paddleocr",
+        "semantic_characters_min": 20
+      },
+      "passed": true
+    },
+    "mock_content_excluded": {
+      "value": true,
+      "operator": "==",
+      "threshold": true,
+      "passed": true
+    },
+    "structured_mapping_evidence": {
+      "value": [
+        "ocr_text",
+        "paragraph",
+        "table",
+        "title"
+      ],
+      "operator": "contains",
+      "threshold": [
+        "title",
+        "paragraph",
+        "table",
+        "ocr_text"
+      ],
+      "passed": true
+    }
+  },
+  "failures": [],
+  "passed": true
+}

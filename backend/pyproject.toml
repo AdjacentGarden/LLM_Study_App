@@ -1,0 +1,51 @@
+[project]
+name = "bookcourse-ai-backend"
+version = "0.1.0"
+description = "Cloud parsing and RAG backend for BookCourse AI"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "pydantic>=2.8.0",
+  "python-multipart>=0.0.9",
+  "httpx2>=2.5.0,<3.0.0",
+  "pymupdf>=1.24.0",
+  "numpy>=1.26.0",
+  "opencv-python-headless>=4.8.0",
+  "pillow>=10.0.0",
+  # Chunk V2 token counts are part of the persisted protocol. Keep both the
+  # high-level loader and Rust tokenizer runtime exact, not range-pinned.
+  "transformers==4.57.6",
+  "tokenizers==0.22.2",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0.0",
+  "httpx2>=2.5.0,<3.0.0",
+]
+ocr = [
+  "paddleocr==3.7.0",
+  "paddlepaddle==3.3.1",
+  # The complete PaddleOCR-VL pipeline is provided by PaddleX's OCR extra;
+  # installing only paddleocr/paddlepaddle leaves the VLM pipeline unusable.
+  "paddlex[ocr]==3.7.2",
+]
+rag = [
+  "jieba>=0.42.1",
+  "psycopg[binary]>=3.2.0",
+  "pgvector>=0.3.6",
+  "sentence-transformers>=3.0.0",
+]
+vector-labs = [
+  "chromadb>=0.5.0",
+  "pymilvus>=2.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["data*"]

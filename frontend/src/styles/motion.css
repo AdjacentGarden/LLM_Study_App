@@ -1,0 +1,1891 @@
+.button,
+.icon-button {
+  transition-property: transform;
+  transition-duration: var(--motion-duration-local-fast);
+  transition-timing-function: var(--motion-ease-local-state);
+}
+
+.button:active {
+  transform: scale(.98);
+  transition-duration: var(--motion-duration-local-fast);
+}
+
+.icon-button:active {
+  transform: scale(.96);
+  transition-duration: var(--motion-duration-local-fast);
+}
+
+.spin {
+  animation: motion-spinner var(--motion-duration-loading) linear infinite;
+}
+
+@keyframes motion-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stage-completion-check {
+  display: inline-grid;
+  place-items: center;
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: center;
+}
+
+.stage-completion-check[data-motion-stage-state="entering"] {
+  animation: motion-stage-check-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+@keyframes motion-stage-check-in {
+  from {
+    opacity: 0;
+    transform: scale(.85);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.motion-screen-transition {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+
+/* The current surface remains in normal flow and therefore owns the wrapper's
+   height. The outgoing surface is only a visual overlay. */
+.motion-screen-transition:has(> .motion-screen-surface[data-motion-surface="current"] > .centered-flow),
+.motion-screen-transition:has(> .motion-screen-surface[data-motion-surface="current"] > .centered-flow)
+  > .motion-screen-surface[data-motion-surface="current"] {
+  height: 100%;
+}
+
+.motion-screen-surface {
+  width: 100%;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"] > .motion-screen-surface {
+  animation-duration: var(--motion-duration-global);
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+/* Screen bodies use translucent surfaces, so cross-fading two live trees makes
+   text and cards visibly double-expose. Keep the outgoing tree mounted only for
+   generation-safe cleanup; the fully opaque current tree owns every painted
+   transition frame. */
+.motion-screen-transition[data-motion-state="transitioning"] {
+  overflow: clip;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"]
+  > .motion-screen-surface[data-motion-surface="current"] {
+  position: relative;
+  z-index: 1;
+  animation-timing-function: var(--motion-ease-global-enter);
+}
+
+.motion-screen-transition[data-motion-state="transitioning"]
+  > .motion-screen-surface[data-motion-surface="previous"] {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  animation-timing-function: var(--motion-ease-global-exit);
+}
+
+/* Idle surfaces retain no compositor layer or completed keyframe styles. */
+.motion-screen-transition[data-motion-state="idle"]
+  > .motion-screen-surface[data-motion-surface="current"] {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="forward"]
+  > .motion-screen-surface[data-motion-surface="current"] {
+  animation-name: motion-screen-phone-forward-in;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="forward"]
+  > .motion-screen-surface[data-motion-surface="previous"] {
+  animation-name: motion-screen-phone-forward-out;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="back"]
+  > .motion-screen-surface[data-motion-surface="current"] {
+  animation-name: motion-screen-phone-back-in;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="back"]
+  > .motion-screen-surface[data-motion-surface="previous"] {
+  animation-name: motion-screen-phone-back-out;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="replace"]
+  > .motion-screen-surface {
+  --motion-screen-replace-distance: var(--motion-distance-small);
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="replace"]
+  > .motion-screen-surface[data-motion-surface="current"] {
+  animation-name: motion-screen-replace-in;
+}
+
+.motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="replace"]
+  > .motion-screen-surface[data-motion-surface="previous"] {
+  animation-name: motion-screen-replace-out;
+}
+
+@keyframes motion-screen-phone-forward-in {
+  from {
+    transform: translateX(var(--motion-distance-medium));
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-screen-phone-forward-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(calc(0px - var(--motion-distance-small)));
+  }
+}
+
+@keyframes motion-screen-phone-back-in {
+  from {
+    transform: translateX(calc(0px - var(--motion-distance-medium)));
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-screen-phone-back-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(var(--motion-distance-small));
+  }
+}
+
+@keyframes motion-screen-replace-in {
+  from {
+    transform: translateY(var(--motion-screen-replace-distance));
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-screen-replace-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(calc(0px - var(--motion-screen-replace-distance)));
+  }
+}
+
+@keyframes motion-screen-tablet-in {
+  from {
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-screen-tablet-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(calc(0px - var(--motion-distance-small)));
+  }
+}
+
+@keyframes motion-screen-short-forward-in {
+  from {
+    transform: translateX(var(--motion-distance-small));
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-screen-short-forward-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+@keyframes motion-screen-short-back-in {
+  from {
+    transform: translateX(calc(0px - var(--motion-distance-small)));
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-screen-short-back-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction]
+    > .motion-screen-surface[data-motion-surface="current"] {
+    animation-name: motion-screen-tablet-in;
+  }
+
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction]
+    > .motion-screen-surface[data-motion-surface="previous"] {
+    animation-name: motion-screen-tablet-out;
+  }
+}
+
+.memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-face-front,
+.memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-face-back,
+.memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-face-back,
+.memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-face-front {
+  animation-duration: var(--motion-duration-local-slow);
+  animation-fill-mode: both;
+  animation-timing-function: var(--motion-ease-local-state);
+}
+
+@media (max-height: 599px) and (orientation: landscape) {
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="forward"]
+    > .motion-screen-surface[data-motion-surface="current"] {
+    animation-name: motion-screen-short-forward-in;
+  }
+
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="forward"]
+    > .motion-screen-surface[data-motion-surface="previous"] {
+    animation-name: motion-screen-short-forward-out;
+  }
+
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="back"]
+    > .motion-screen-surface[data-motion-surface="current"] {
+    animation-name: motion-screen-short-back-in;
+  }
+
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="back"]
+    > .motion-screen-surface[data-motion-surface="previous"] {
+    animation-name: motion-screen-short-back-out;
+  }
+
+  .motion-screen-transition[data-motion-state="transitioning"][data-motion-direction="replace"]
+    > .motion-screen-surface {
+    --motion-screen-replace-distance: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-global: 1ms;
+    --motion-duration-local-fast: 1ms;
+    --motion-duration-local-base: 1ms;
+    --motion-duration-local-slow: 1ms;
+    --motion-duration-press: 1ms;
+    --motion-duration-fast: 1ms;
+    --motion-duration-base: 1ms;
+    --motion-duration-surface: 1ms;
+    --motion-duration-progress: 1ms;
+    --motion-duration-flip: 1ms;
+    --motion-distance-small: 0px;
+    --motion-distance-medium: 0px;
+    --motion-distance-panel: 0px;
+  }
+
+  html,
+  body,
+  .screen-content {
+    scroll-behavior: auto !important;
+  }
+
+  .button,
+  .icon-button {
+    transition-duration: 0s !important;
+    transition-property: none !important;
+  }
+
+  .button:active,
+  .icon-button:active {
+    transform: none;
+  }
+
+  .spin,
+  .motion-screen-transition,
+  .motion-screen-surface,
+  .stage-completion-check {
+    animation: none !important;
+  }
+
+  .motion-screen-surface {
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+}
+
+.primary-nav .nav-item {
+  transition-duration: var(--motion-duration-local-fast);
+  transition-property: color, background-color;
+  transition-timing-function: var(--motion-ease-local-state);
+}
+
+.primary-nav .nav-icon {
+  transition-duration: var(--motion-duration-local-fast);
+  transition-property: transform;
+  transition-timing-function: var(--motion-ease-local-state);
+}
+
+.primary-nav .nav-item.active .nav-icon {
+  transform: scale(1.08);
+}
+
+.primary-nav .nav-item:active .nav-icon,
+.primary-nav .nav-item.active:active .nav-icon {
+  transform: scale(.96);
+}
+
+.nav-icon-motion {
+  display: contents;
+}
+
+.nav-item[data-motion-active="true"] .nav-icon-motion svg {
+  animation-duration: var(--motion-duration-local-fast);
+  animation-fill-mode: backwards;
+  animation-timing-function: var(--motion-ease-local-state);
+  transform-origin: center;
+}
+
+.nav-item[data-motion-active="true"][data-motion-nav-kind="standard"] .nav-icon-motion svg {
+  animation-name: motion-nav-active-in;
+}
+
+.nav-item[data-motion-active="true"][data-motion-nav-kind="upload"] .nav-icon-motion svg {
+  animation-name: motion-nav-active-in;
+}
+
+@keyframes motion-nav-active-in {
+  from {
+    transform: scale(.94);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.sheet-scrim[data-motion-state="entering"],
+.ai-overlay-scrim[data-motion-state="entering"] {
+  animation: motion-scrim-in var(--motion-duration-global) var(--motion-ease-global-enter) both;
+}
+
+.sheet-scrim[data-motion-state="closing"],
+.ai-overlay-scrim[data-motion-state="closing"] {
+  animation: motion-scrim-out var(--motion-duration-global) var(--motion-ease-global-exit) both;
+}
+
+.sheet-scrim[data-motion-state="idle"],
+.ai-overlay-scrim[data-motion-state="idle"] {
+  animation: none;
+}
+
+@keyframes motion-scrim-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motion-scrim-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.sheet[data-motion-state="entering"] {
+  animation-duration: var(--motion-duration-global);
+  animation-fill-mode: both;
+  animation-name: motion-sheet-phone-in;
+  animation-timing-function: var(--motion-ease-global-enter);
+}
+
+.sheet[data-motion-state="closing"] {
+  animation-duration: var(--motion-duration-global);
+  animation-fill-mode: both;
+  animation-name: motion-sheet-phone-out;
+  animation-timing-function: var(--motion-ease-global-exit);
+}
+
+.sheet[data-motion-state="idle"] {
+  animation: none;
+}
+
+@keyframes motion-sheet-phone-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--motion-distance-medium) + var(--motion-distance-small)));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-sheet-phone-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-medium));
+  }
+}
+
+@keyframes motion-sheet-short-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-sheet-short-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+}
+
+@keyframes motion-panel-tablet-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--motion-distance-panel));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-panel-tablet-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+@keyframes motion-dialog-source-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-dialog-source-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+}
+
+@keyframes motion-dialog-center-in {
+  from {
+    opacity: 0;
+    transform: scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motion-dialog-center-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(.98);
+  }
+}
+
+.ai-overlay[data-motion-state="entering"] {
+  animation-duration: var(--motion-duration-global);
+  animation-fill-mode: both;
+  animation-name: motion-dialog-ai-phone-in;
+  animation-timing-function: var(--motion-ease-global-enter);
+}
+
+.ai-overlay[data-motion-state="closing"] {
+  z-index: 2;
+  animation-duration: var(--motion-duration-global);
+  animation-fill-mode: both;
+  animation-name: motion-dialog-ai-phone-out;
+  animation-timing-function: var(--motion-ease-global-exit);
+}
+
+.ai-overlay[data-motion-state="idle"] {
+  animation: none;
+}
+
+@keyframes motion-dialog-ai-phone-in {
+  0%,
+  22% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes motion-dialog-ai-phone-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  35%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes motion-dialog-ai-short-in {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes motion-dialog-ai-short-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  35%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes motion-dialog-ai-tablet-in {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes motion-dialog-ai-tablet-out {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  35%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.ai-shared-surface,
+.ai-shared-origin-icon {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ai-shared-surface {
+  --ai-shared-delta-x: 0px;
+  --ai-shared-delta-y: 0px;
+  --ai-shared-scale-x: 1;
+  --ai-shared-scale-y: 1;
+  --ai-shared-target-radius: 16px;
+  --ai-shared-target-background: var(--color-surface);
+  --ai-shared-target-border: var(--color-border);
+  z-index: 2;
+  transform-origin: top left;
+  border: 1px solid transparent;
+  background-color: var(--ai-shared-target-background);
+  box-shadow: 0 4px 8px rgba(32, 38, 58, 0.14);
+}
+
+.ai-shared-surface[data-motion-state="closing"] {
+  z-index: 1;
+}
+
+.ai-shared-surface[data-motion-ready="true"][data-motion-state="entering"] {
+  visibility: visible;
+  will-change: transform, opacity, border-radius, background-color;
+  animation: motion-dialog-ai-shared-in var(--motion-duration-global) var(--motion-ease-global-enter) both;
+}
+
+.ai-shared-surface[data-motion-ready="true"][data-motion-state="closing"] {
+  visibility: visible;
+  will-change: transform, border-radius, background-color;
+  animation: motion-dialog-ai-shared-out var(--motion-duration-global) var(--motion-ease-global-exit) both;
+}
+
+.ai-shared-origin-icon {
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  color: var(--color-primary);
+  transform-origin: center;
+}
+
+.ai-shared-origin-icon[data-motion-ready="true"][data-motion-state="entering"] {
+  visibility: visible;
+  animation: motion-dialog-ai-origin-icon-in var(--motion-duration-global) var(--motion-ease-global-enter) both;
+}
+
+.ai-shared-origin-icon[data-motion-ready="true"][data-motion-state="closing"] {
+  visibility: visible;
+  animation: motion-dialog-ai-origin-icon-out var(--motion-duration-global) var(--motion-ease-global-exit) both;
+}
+
+@keyframes motion-dialog-ai-shared-in {
+  from {
+    opacity: 1;
+    transform: translate3d(var(--ai-shared-delta-x), var(--ai-shared-delta-y), 0)
+      scale(var(--ai-shared-scale-x), var(--ai-shared-scale-y));
+    border-color: transparent;
+    border-radius: 999px;
+    background-color: var(--ai-shared-target-background);
+  }
+
+  28% {
+    border-color: transparent;
+    border-radius: 40px;
+    background-color: var(--ai-shared-target-background);
+  }
+
+  58% {
+    opacity: 1;
+    border-color: var(--ai-shared-target-border);
+    border-radius: var(--ai-shared-target-radius);
+    background-color: var(--ai-shared-target-background);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1, 1);
+    border-color: var(--ai-shared-target-border);
+    border-radius: var(--ai-shared-target-radius);
+    background-color: var(--ai-shared-target-background);
+  }
+}
+
+@keyframes motion-dialog-ai-shared-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1, 1);
+    border-color: var(--ai-shared-target-border);
+    border-radius: var(--ai-shared-target-radius);
+    background-color: var(--ai-shared-target-background);
+  }
+
+  46% {
+    border-color: var(--ai-shared-target-border);
+    border-radius: var(--ai-shared-target-radius);
+    background-color: var(--ai-shared-target-background);
+  }
+
+  74% {
+    border-color: transparent;
+    border-radius: 40px;
+    background-color: var(--color-primary-light);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(var(--ai-shared-delta-x), var(--ai-shared-delta-y), 0)
+      scale(var(--ai-shared-scale-x), var(--ai-shared-scale-y));
+    border-color: transparent;
+    border-radius: 999px;
+    background-color: var(--color-primary);
+  }
+}
+
+@keyframes motion-dialog-ai-origin-icon-in {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  35%,
+  to {
+    opacity: 0;
+    transform: scale(.78);
+  }
+}
+
+@keyframes motion-dialog-ai-origin-icon-out {
+  from,
+  68% {
+    opacity: 0;
+    transform: scale(.78);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.toast[data-motion-state="entering"] {
+  animation: motion-toast-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.toast[data-motion-state="closing"] {
+  animation: motion-toast-out var(--motion-duration-local-fast) var(--motion-ease-local-exit) both;
+}
+
+.toast[data-motion-state="idle"] {
+  animation: none;
+}
+
+@keyframes motion-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.ai-orb {
+  --ai-orb-drag-x: 0px;
+  --ai-orb-drag-y: 0px;
+  --ai-orb-settle-x: 0px;
+  --ai-orb-settle-y: 0px;
+  --ai-orb-scale: 1;
+  transform: translate3d(
+    calc(var(--ai-orb-drag-x) + var(--ai-orb-settle-x)),
+    calc(var(--ai-orb-drag-y) + var(--ai-orb-settle-y)),
+    0
+  ) scale(var(--ai-orb-scale));
+  transition-duration: var(--motion-duration-local-slow);
+  transition-property: transform;
+  transition-timing-function: var(--motion-ease-local-enter);
+}
+
+.ai-orb[hidden] {
+  display: none;
+}
+
+.ai-orb[data-ai-orb-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ai-orb.dragging,
+.ai-orb[data-ai-orb-settling="true"] {
+  transition-duration: 0s;
+  transition-property: transform;
+  transition-timing-function: var(--motion-ease-local-enter);
+}
+
+/* Override the legacy dragging transform so drag, FLIP, and press scale stay
+   composed on the same transform property. */
+.ai-orb.dragging {
+  transform: translate3d(
+    calc(var(--ai-orb-drag-x) + var(--ai-orb-settle-x)),
+    calc(var(--ai-orb-drag-y) + var(--ai-orb-settle-y)),
+    0
+  ) scale(var(--ai-orb-scale));
+}
+
+.ai-orb:active {
+  --ai-orb-scale: .96;
+}
+
+/* Upload, parse, and library feedback stay scoped to the changing status
+   content. They intentionally do not animate the containing screen or course
+   card. */
+.upload-status-feedback,
+.parse-status-feedback,
+.library-status-feedback {
+  --motion-status-distance: var(--motion-distance-small);
+  animation: motion-local-status-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.upload-success-mark,
+.library-status-success-mark {
+  animation: motion-success-mark-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+/* Chapter confirmation only animates the local element whose state changed.
+   Directory rows never use a shared stagger or screen-level transition. */
+.chapter-status-mark[data-motion-chapter-state="entering"] {
+  animation: motion-chapter-check-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.toc-entry[data-motion-chapter-selection="entering"] {
+  animation: motion-chapter-selection-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.chapter-save-feedback[data-motion-chapter-save="entering"],
+.toc-directory-feedback[data-motion-chapter-feedback="entering"],
+.chapter-confirm-action-feedback[data-motion-chapter-action] {
+  animation: motion-chapter-feedback-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.course-ready-success-mark[data-motion-course-ready-state="entering"] {
+  animation: motion-course-ready-success-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.course-ready-check-path {
+  stroke-dasharray: 25;
+  stroke-dashoffset: 0;
+}
+
+.course-ready-success-mark[data-motion-course-ready-state="entering"] .course-ready-check-path {
+  animation: motion-course-ready-check-path var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.success-hero-image[data-motion-image-state="loading"],
+.course-cover-image[data-motion-image-state="loading"] {
+  opacity: 0;
+}
+
+.success-hero-image[data-motion-image-state="entering"],
+.course-cover-image[data-motion-image-state="entering"] {
+  animation: motion-stage3-image-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+/* Stage 4A keeps entry feedback on explicitly named local nodes. Course cards
+   use session history in React; CSS only provides the finite visual mapping. */
+[data-motion-course-card-state="entering"] {
+  animation: motion-course-card-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+  animation-delay: calc(var(--motion-course-card-index) * 30ms);
+}
+
+[data-motion-item="content"][data-motion-item-state="entering"] {
+  --motion-local-item-x: 0px;
+  --motion-local-item-y: var(--motion-distance-small);
+  animation: motion-local-item-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+[data-motion-item="source-page-content"][data-motion-item-state="entering"] {
+  animation: motion-source-page-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.citation-media-image[data-motion-image-state="loading"],
+.source-page-image[data-motion-image-state="loading"] {
+  opacity: 0;
+}
+
+.citation-media-image[data-motion-image-state="entering"],
+.source-page-image[data-motion-image-state="entering"] {
+  animation: motion-stage3-image-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+/* Stage 4C keeps the remaining screens at a single, explicit local surface.
+   List rows, metric grids, and the Community grid deliberately stay static. */
+.community-cover-image[data-motion-image-state="loading"] {
+  opacity: 0;
+}
+
+.community-cover-image[data-motion-image-state="entering"] {
+  animation: motion-stage3-image-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+/* Stage 4B confines study-tool feedback to the one local control or result
+   that actually changed. None of these selectors target a screen root, task
+   list, source affordance, or assignment content outside its existing state. */
+.plan-date-selection-check[data-motion-plan-date-state="entering"] {
+  animation: motion-plan-date-check-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.timeline-task-completion[data-motion-plan-task-state="entering"],
+.assignment-answer-check[data-motion-assignment-answer-state="entering"] {
+  animation: motion-stage-check-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.assignment-card[data-motion-assignment-selection],
+.assignment-card[data-motion-assignment-submit],
+.assignment-primary-action .button[data-motion-assignment-submit] {
+  transition-property: border-color, background-color;
+  transition-duration: var(--motion-duration-local-fast);
+  transition-timing-function: var(--motion-ease-local-state);
+}
+
+.assignment-card[data-motion-assignment-selection="selected"] {
+  border-color: #9bb7ff;
+  background-color: rgba(244, 248, 255, .94);
+}
+
+.assignment-card[data-motion-assignment-submit="submitting"] {
+  border-color: #8f79ff;
+  background-color: rgba(246, 243, 255, .94);
+}
+
+.assignment-primary-action .button[data-motion-assignment-submit="submitting"] {
+  border-color: #6458f4;
+  background-color: #6458f4;
+}
+
+/* Flashcard geometry is intentionally isolated to the core question/answer
+   region. The memory-card, source links, reveal control, and action buttons
+   remain ordinary two-dimensional controls. */
+.memory-card-answer-motion {
+  perspective: 1000px;
+}
+
+.memory-card-answer-3d {
+  transform-style: preserve-3d;
+  transform-origin: center;
+}
+
+.memory-card-answer-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.memory-card-answer-face-back {
+  transform: rotateY(180deg);
+}
+
+.memory-card-answer-motion[data-motion-flash-side="back"] .memory-card-answer-3d {
+  transform: rotateY(180deg);
+}
+
+.memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-3d {
+  animation: motion-flashcard-flip-to-back var(--motion-duration-local-slow) var(--motion-ease-local-state) both;
+}
+
+.memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-3d {
+  animation: motion-flashcard-flip-to-front var(--motion-duration-local-slow) var(--motion-ease-local-state) both;
+}
+
+.memory-card-answer-motion[data-motion-flash-next-state="entering"] {
+  animation: motion-flashcard-next-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.diagnosis-knowledge-progress-fill[data-motion-diagnosis-progress-state="entering"] {
+  animation: motion-diagnosis-progress-in var(--motion-duration-local-slow) var(--motion-ease-progress) both;
+}
+
+.progress-fill {
+  transition-duration: var(--motion-duration-local-slow);
+  transition-timing-function: var(--motion-ease-progress);
+}
+
+@keyframes motion-local-status-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-status-distance));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-success-mark-in {
+  from {
+    opacity: 0;
+    transform: scale(.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motion-chapter-check-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(.85);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+@keyframes motion-chapter-selection-in {
+  from {
+    opacity: .72;
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-chapter-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-course-ready-success-in {
+  from {
+    opacity: 0;
+    transform: scale(.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motion-course-ready-check-path {
+  from {
+    stroke-dashoffset: 25;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes motion-stage3-image-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motion-plan-date-check-in {
+  from {
+    opacity: 0;
+    transform: scale(.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motion-flashcard-flip-to-back {
+  from {
+    transform: rotateY(0deg);
+  }
+
+  to {
+    transform: rotateY(180deg);
+  }
+}
+
+@keyframes motion-flashcard-flip-to-front {
+  from {
+    transform: rotateY(180deg);
+  }
+
+  to {
+    transform: rotateY(0deg);
+  }
+}
+
+@keyframes motion-flashcard-next-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-flashcard-next-tablet-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-flashcard-next-short-in {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes motion-flashcard-crossfade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motion-flashcard-crossfade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes motion-diagnosis-progress-in {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(var(--diagnosis-progress-scale));
+  }
+}
+
+@keyframes motion-course-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motion-local-item-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--motion-local-item-x), var(--motion-local-item-y));
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes motion-source-page-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .memory-card-answer-motion[data-motion-flash-next-state="entering"] {
+    animation-name: motion-flashcard-next-tablet-in;
+  }
+
+  .book-course-screen [data-motion-item="content"][data-motion-item-state="entering"],
+  .lesson-screen [data-motion-item="content"][data-motion-item-state="entering"] {
+    --motion-local-item-x: var(--motion-distance-small);
+    --motion-local-item-y: 0px;
+  }
+
+  .mistake-workspace .mistake-detail-card[data-motion-item="content"][data-motion-item-state="entering"],
+  .mistake-workspace .mistake-state-card[data-motion-item="content"][data-motion-item-state="entering"],
+  .notes-detail-panel[data-motion-item="content"][data-motion-item-state="entering"] {
+    --motion-local-item-x: var(--motion-distance-small);
+    --motion-local-item-y: 0px;
+  }
+
+  .sheet[data-sheet-type="chat"][data-motion-state="entering"] {
+    animation-name: motion-panel-tablet-in;
+  }
+
+  .sheet[data-sheet-type="chat"][data-motion-state="closing"] {
+    animation-name: motion-panel-tablet-out;
+  }
+
+  .ai-overlay[data-motion-state="entering"] {
+    animation-name: motion-dialog-ai-tablet-in;
+  }
+
+  .ai-overlay[data-motion-state="closing"] {
+    animation-name: motion-dialog-ai-tablet-out;
+  }
+
+  .sheet[data-sheet-type="source"][data-motion-state="entering"] {
+    animation-name: motion-dialog-source-in;
+  }
+
+  .sheet[data-sheet-type="source"][data-motion-state="closing"] {
+    animation-name: motion-dialog-source-out;
+  }
+
+  .sheet[data-sheet-type="note"][data-motion-state="entering"],
+  .sheet[data-sheet-type="editChapter"][data-motion-state="entering"] {
+    animation-name: motion-dialog-center-in;
+  }
+
+  .sheet[data-sheet-type="note"][data-motion-state="closing"],
+  .sheet[data-sheet-type="editChapter"][data-motion-state="closing"] {
+    animation-name: motion-dialog-center-out;
+  }
+}
+
+@media (max-height: 599px) and (orientation: landscape) {
+  .memory-card-answer-motion {
+    perspective: none;
+  }
+
+  .memory-card-answer-3d,
+  .memory-card-answer-motion[data-motion-flash-side="back"] .memory-card-answer-3d {
+    transform: none;
+    transform-style: flat;
+  }
+
+  .memory-card-answer-face,
+  .memory-card-answer-face-back {
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+    transform: none;
+  }
+
+  .memory-card-answer-motion[data-motion-flash-side="front"] .memory-card-answer-face-back,
+  .memory-card-answer-motion[data-motion-flash-side="back"] .memory-card-answer-face-front {
+    opacity: 0;
+  }
+
+  .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-3d,
+  .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-3d {
+    animation-name: none;
+  }
+
+  .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-face-front,
+  .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-face-back {
+    animation-name: motion-flashcard-crossfade-out;
+  }
+
+  .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-face-back,
+  .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-face-front {
+    animation-name: motion-flashcard-crossfade-in;
+  }
+
+  [data-motion-item="content"][data-motion-item-state="entering"] {
+    --motion-local-item-x: 0px;
+    --motion-local-item-y: 4px;
+  }
+
+  .upload-status-feedback,
+  .parse-status-feedback,
+  .library-status-feedback {
+    --motion-status-distance: 4px;
+  }
+
+  .chapter-status-mark[data-motion-chapter-state="entering"],
+  .toc-entry[data-motion-chapter-selection="entering"],
+  .chapter-save-feedback[data-motion-chapter-save="entering"],
+  .toc-directory-feedback[data-motion-chapter-feedback="entering"],
+  .chapter-confirm-action-feedback[data-motion-chapter-action] {
+    --motion-distance-small: 4px;
+  }
+
+  .memory-card-answer-motion[data-motion-flash-next-state="entering"] {
+    animation-name: motion-flashcard-next-short-in;
+  }
+
+  .sheet[data-motion-state="entering"] {
+    animation-name: motion-sheet-short-in;
+  }
+
+  .sheet[data-motion-state="closing"] {
+    animation-name: motion-sheet-short-out;
+  }
+
+  .ai-overlay[data-motion-state="entering"] {
+    animation-name: motion-dialog-ai-short-in;
+  }
+
+  .ai-overlay[data-motion-state="closing"] {
+    animation-name: motion-dialog-ai-short-out;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .nav-selection,
+  .nav-item .nav-icon,
+  .nav-item .nav-icon-motion svg,
+  .sheet,
+  .sheet-scrim,
+  .ai-overlay,
+  .ai-overlay-scrim,
+  .ai-shared-surface,
+  .ai-shared-origin-icon,
+  .toast,
+  .ai-orb {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .nav-selection {
+    will-change: auto;
+  }
+
+  .upload-status-feedback,
+  .parse-status-feedback,
+  .library-status-feedback,
+  .upload-success-mark,
+  .library-status-success-mark,
+  .chapter-status-mark,
+  .course-ready-success-mark,
+  .course-ready-check-path,
+  .toc-entry[data-motion-chapter-selection="entering"],
+  .chapter-save-feedback,
+  .toc-directory-feedback,
+  .chapter-confirm-action-feedback,
+  .success-hero-image[data-motion-image-state],
+  .course-cover-image[data-motion-image-state],
+  [data-motion-course-card-state],
+  [data-motion-item],
+  .citation-media-image[data-motion-image-state],
+  .source-page-image[data-motion-image-state],
+  .community-cover-image[data-motion-image-state],
+  .plan-date-selection-check,
+  .timeline-task-completion,
+  .assignment-answer-check,
+  .memory-card-answer-motion,
+  .memory-card-answer-3d,
+  .memory-card-answer-face {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none;
+  }
+
+  .memory-card-answer-motion {
+    perspective: none !important;
+  }
+
+  .memory-card-answer-3d {
+    transform-style: flat !important;
+  }
+
+  .memory-card-answer-face {
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+  }
+
+  .diagnosis-knowledge-progress-fill[data-motion-diagnosis-progress-state] {
+    animation: none !important;
+  }
+
+  .memory-card-answer-motion[data-motion-flash-side="front"] .memory-card-answer-face-back,
+  .memory-card-answer-motion[data-motion-flash-side="back"] .memory-card-answer-face-front {
+    opacity: 0 !important;
+  }
+
+  .assignment-card[data-motion-assignment-selection],
+  .assignment-card[data-motion-assignment-submit],
+  .assignment-primary-action .button[data-motion-assignment-submit] {
+    transition: none !important;
+  }
+
+  .progress-fill,
+  .flashcard-progress-track > span,
+  .flashcard-deck-preview,
+  .flashcard-deck-preview-surface,
+  .flashcard-deck-preview-footer,
+  .flashcard-progress,
+  .memory-card,
+  .memory-card-trigger,
+  .memory-card-source-row {
+    transition: none !important;
+  }
+
+  .primary-nav .nav-item.active:active .nav-icon,
+  .primary-nav .nav-item:active .nav-icon,
+  .ai-orb {
+    transform: none;
+  }
+}
+
+/* State feedback primitives. Each primitive owns only its local state layer;
+   screen/page layout remains in base.css or responsive.css. */
+.motion-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.motion-state-swap {
+  display: inline-grid;
+  vertical-align: baseline;
+}
+
+.motion-state-swap-visual {
+  display: inline-grid;
+  align-items: baseline;
+}
+
+.motion-state-swap-layer,
+.motion-state-swap-measure {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.motion-state-swap-previous::before,
+.motion-state-swap-measure::before {
+  content: attr(data-motion-value);
+}
+
+.motion-state-swap-previous {
+  opacity: 0;
+  transform: translateY(calc(0px - var(--motion-distance-text)));
+}
+
+.motion-state-swap-current {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.motion-state-swap-measure {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.motion-state-swap[data-motion-text-state="swapping"] .motion-state-swap-previous {
+  animation: motion-text-swap-exit var(--motion-duration-local-fast) var(--motion-ease-local-exit) both;
+}
+
+.motion-state-swap[data-motion-text-state="swapping"] .motion-state-swap-current {
+  animation: motion-text-swap-enter var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+@keyframes motion-text-swap-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(calc(0px - var(--motion-distance-text)));
+  }
+}
+
+@keyframes motion-text-swap-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-text));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--motion-duration-local-slow) var(--motion-ease-local-exit);
+}
+
+.motion-collapsible[data-motion-collapsible="expanded"] {
+  grid-template-rows: 1fr;
+  transition-duration: var(--motion-duration-local-slow);
+  transition-timing-function: var(--motion-ease-local-enter);
+}
+
+.motion-collapsible-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.motion-skeleton-reveal {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.motion-skeleton-layer {
+  min-width: 0;
+  transition: opacity var(--motion-duration-local-slow) var(--motion-ease-local-enter);
+}
+
+.motion-skeleton-placeholder,
+.motion-skeleton-error {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
+
+.motion-skeleton-placeholder {
+  opacity: 1;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.motion-skeleton-content {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.motion-skeleton-error {
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.motion-skeleton-reveal[data-motion-load-state="loading"] .motion-skeleton-placeholder > * {
+  animation: motion-skeleton-pulse var(--motion-duration-loading) var(--motion-ease-local-state) infinite;
+}
+
+.motion-skeleton-reveal[data-motion-load-state="revealing"] .motion-skeleton-placeholder {
+  opacity: 0;
+}
+
+.motion-skeleton-reveal[data-motion-load-state="revealing"] .motion-skeleton-content,
+.motion-skeleton-reveal[data-motion-load-state="ready"] .motion-skeleton-content {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.motion-skeleton-reveal[data-motion-load-state="ready"] .motion-skeleton-placeholder,
+.motion-skeleton-reveal[data-motion-load-state="error"] .motion-skeleton-placeholder,
+.motion-skeleton-reveal[data-motion-load-state="error"] .motion-skeleton-content {
+  opacity: 0;
+}
+
+.motion-skeleton-reveal[data-motion-load-state="error"] .motion-skeleton-error {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@keyframes motion-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .55;
+  }
+}
+
+.motion-sliding-filter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 48px;
+  background: var(--color-surface-soft, #f1f1f1);
+}
+
+.motion-sliding-filter-button {
+  position: relative;
+  z-index: 1;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 48px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--motion-duration-local-fast) var(--motion-ease-local-state);
+}
+
+/* Preserve the legacy filter-pill contract while the indicator supplies the
+   sliding selection surface. */
+.motion-sliding-filter-button.filter-pill {
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 0;
+  background: transparent;
+  font-weight: inherit;
+}
+
+.motion-sliding-filter-button.filter-pill.active {
+  color: var(--color-text, #202a3a);
+  background: transparent;
+  border-color: transparent;
+}
+
+.motion-sliding-filter-button[aria-pressed="true"],
+.motion-sliding-filter-button:hover {
+  color: var(--color-text);
+}
+
+.motion-sliding-filter-button:focus-visible {
+  z-index: 2;
+}
+
+.motion-sliding-filter-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-radius: 48px;
+  background: var(--color-surface, #fff);
+  pointer-events: none;
+  transition:
+    transform var(--motion-duration-local-slow) var(--motion-ease-local-state),
+    width var(--motion-duration-local-slow) var(--motion-ease-local-state);
+}
+
+.motion-icon-swap {
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+}
+
+.motion-icon-swap-layer {
+  display: inline-grid;
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: scale(var(--motion-scale-state));
+  transition:
+    opacity var(--motion-duration-local-fast) var(--motion-ease-local-state),
+    transform var(--motion-duration-local-fast) var(--motion-ease-local-state);
+  pointer-events: none;
+}
+
+.motion-icon-swap-layer.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.motion-error-shake[data-motion-error-state="shaking"] {
+  animation: motion-error-shake var(--motion-duration-local-base) var(--motion-ease-local-state) both;
+}
+
+.export-check-visual {
+  transition:
+    opacity var(--motion-duration-local-fast) var(--motion-ease-local-state),
+    transform var(--motion-duration-local-fast) var(--motion-ease-local-state),
+    background-color var(--motion-duration-local-fast) var(--motion-ease-local-state),
+    border-color var(--motion-duration-local-fast) var(--motion-ease-local-state);
+}
+
+.export-check-visual[data-motion-checkbox-state="checked"] .export-check-path {
+  animation: motion-checkbox-check-in var(--motion-duration-local-base) var(--motion-ease-local-enter) both;
+}
+
+.export-check-path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 0;
+}
+
+@keyframes motion-checkbox-check-in {
+  from {
+    stroke-dashoffset: 20;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes motion-error-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(calc(0px - var(--motion-distance-error)));
+  }
+
+  40% {
+    transform: translateX(3px);
+  }
+
+  60% {
+    transform: translateX(-2px);
+  }
+
+  80% {
+    transform: translateX(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-distance-text: 0px;
+    --motion-distance-error: 0px;
+    --motion-scale-state: 1;
+  }
+
+  .motion-state-swap[data-motion-text-state="swapping"] .motion-state-swap-previous,
+  .motion-state-swap[data-motion-text-state="swapping"] .motion-state-swap-current,
+  .motion-skeleton-reveal[data-motion-load-state="loading"] .motion-skeleton-placeholder > * {
+    animation: none !important;
+  }
+
+  .motion-collapsible,
+  .motion-skeleton-layer,
+  .motion-sliding-filter-button,
+  .motion-sliding-filter-indicator,
+  .motion-icon-swap-layer {
+    transition: none !important;
+  }
+
+  .motion-error-shake[data-motion-error-state="shaking"] {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .export-check-visual {
+    transition: none !important;
+  }
+
+  .export-check-visual[data-motion-checkbox-state="checked"] .export-check-path {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+}

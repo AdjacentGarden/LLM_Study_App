@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T05:46:50Z",
+  "isolation_declaration": {
+    "purpose": "Stage 4 pgvector migration, replacement, failure-injection, and deletion acceptance only",
+    "host": "127.0.0.1",
+    "port": 55432,
+    "database": "cloudpath_stage4",
+    "user": "cloudpath_stage4",
+    "data_directory": "%TEMP%\\cloudpath-stage4-pgdata-20260714",
+    "dsn_redacted": "postgresql://cloudpath_stage4@127.0.0.1:55432/cloudpath_stage4",
+    "shared_or_production_database_touched": false
+  },
+  "postgresql": {
+    "version": "16.14",
+    "listen_address": "127.0.0.1/32",
+    "vector_extension_version": "0.8.3",
+    "migration_runs": 2,
+    "migration_idempotent": true,
+    "post_test_state_rows": 0,
+    "post_test_vector_rows": 0,
+    "isolated_server_stopped_after_audit": true
+  },
+  "embedding_cuda_probe": {
+    "provider": "bge_m3",
+    "model": "BAAI/bge-m3",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "version": "v1",
+    "dimension": 1024,
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "torch": "2.13.0+cu130",
+    "transformers": "4.57.6",
+    "tokenizers": "0.22.2",
+    "sentence_transformers": "5.6.0",
+    "shape": [2, 1024],
+    "vector_norms": [1.0, 1.0],
+    "warm_probe_elapsed_seconds": 9.672,
+    "cuda_peak_mib": 2175.5,
+    "model_cache": "D:\\code\\MinerU\\.cache\\huggingface"
+  }
+}

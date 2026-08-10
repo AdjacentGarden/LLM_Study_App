@@ -1,0 +1,38 @@
+[
+  {
+    "asset_id": "mineru_7a70467a791b93b87021",
+    "book_id": "stage2_scanned_140246",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 1,
+    "type": "chart",
+    "caption": "",
+    "bbox": [
+      78.54,
+      134.72,
+      518.84,
+      405.844
+    ],
+    "image_url": "/api/books/stage2_scanned_140246/assets/mineru_7a70467a791b93b87021/file",
+    "thumbnail_url": "/api/books/stage2_scanned_140246/assets/mineru_7a70467a791b93b87021/thumbnail",
+    "source_page_image_url": null,
+    "source_chunk_ids": [
+      "stage2_scanned_140246_ch_001_d89961a15031",
+      "stage2_scanned_140246_ch_001_3b91f89849a7"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "needs_review",
+    "source_parser": "mineru",
+    "content_hash": "95efe828fcc27c8021628037129bdef6213441b67fa7fda08ad21d39d8a2645f",
+    "metadata": {
+      "mineru_image_name": "9841bbd51492858f9ae43db3e9223847aa12b4c68498c8b92ae022d132957409.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1223,
+      "height": 753,
+      "page_text_parser": "ocr",
+      "mineru_page_text_replaced": true
+    }
+  }
+]

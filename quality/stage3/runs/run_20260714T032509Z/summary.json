@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T03:25:12.910977+00:00",
+  "run_id": "run_20260714T032509Z",
+  "config": {
+    "target_tokens": 450,
+    "max_tokens": 700,
+    "min_tokens": 120,
+    "overlap_tokens": 80,
+    "atomic_hard_max_tokens": 900,
+    "quality_threshold": 0.45
+  },
+  "v1_chunk_count": 62,
+  "v2_chunk_count": 10,
+  "v2_indexable_count": 10,
+  "v2_quarantined_count": 0,
+  "token_counts": [
+    448,
+    528,
+    233,
+    77,
+    698,
+    561,
+    28,
+    28,
+    105,
+    115
+  ],
+  "token_min": 28,
+  "token_max": 698,
+  "overlap_token_count": 126,
+  "overlap_duplicate_token_ratio": 0.044665,
+  "exact_duplicate_count": 0,
+  "short_unexplained": [],
+  "warnings": [
+    "short_tail",
+    "short_tail",
+    "short_tail"
+  ],
+  "checks": {
+    "stable_chunk_ids": true,
+    "all_v2": true,
+    "token_counts_exact": true,
+    "standard_max": true,
+    "atomic_hard_max": true,
+    "short_tail_protocol": true,
+    "exact_duplicate_ratio": true,
+    "overlap_ratio": true,
+    "cross_page": true,
+    "deepest_chapter_only": true,
+    "heading_in_embedding": true,
+    "table_split_with_header": true,
+    "formula_latex_and_context": true,
+    "figure_asset_binding": true,
+    "table_asset_binding": true,
+    "furniture_filtered": true,
+    "quality_quarantine": false,
+    "office_location_metadata": true,
+    "legacy_comparison_available": true
+  },
+  "failures": [
+    "quality_quarantine"
+  ],
+  "passed": false
+}

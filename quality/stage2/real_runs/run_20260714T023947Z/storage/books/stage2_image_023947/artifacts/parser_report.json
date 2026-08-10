@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "book_id": "stage2_image_023947",
+  "requested_parser": "mineru",
+  "final_parser": "ocr",
+  "parse_generation": null,
+  "created_at": "2026-07-14T02:40:31.327679+00:00",
+  "source_page_count": 1,
+  "output_page_count": 1,
+  "attempts": [
+    {
+      "parser": "mineru",
+      "scope": "document",
+      "pages": [],
+      "status": "degraded",
+      "duration_ms": 2047,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.0
+    },
+    {
+      "parser": "ocr",
+      "scope": "pages",
+      "pages": [
+        1
+      ],
+      "status": "succeeded",
+      "duration_ms": 4575,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.9921059161424637
+    }
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "parser": "ocr",
+      "quality_score": 0.9921059161424637,
+      "status": "accepted",
+      "warnings": [
+        "too_bright",
+        "ocr_visual_word_spacing"
+      ]
+    }
+  ],
+  "missing_pages": [],
+  "warnings": [
+    "mineru_page_quality_rejected",
+    "page_1:mineru_quality_fallback"
+  ],
+  "mineru_backend": "pipeline",
+  "mineru_version": "3.4.4"
+}

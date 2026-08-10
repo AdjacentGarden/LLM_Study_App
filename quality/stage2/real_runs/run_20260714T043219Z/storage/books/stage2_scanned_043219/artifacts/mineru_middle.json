@@ -1,0 +1,110 @@
+{
+  "pdf_info": [
+    {
+      "preproc_blocks": [
+        {
+          "type": "chart",
+          "bbox": [
+            79,
+            135,
+            519,
+            406
+          ],
+          "blocks": [
+            {
+              "score": 0.5006,
+              "bbox": [
+                79,
+                135,
+                519,
+                406
+              ],
+              "index": 1,
+              "type": "chart_body",
+              "lines": [
+                {
+                  "bbox": [
+                    79,
+                    135,
+                    519,
+                    406
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        79,
+                        135,
+                        519,
+                        406
+                      ],
+                      "type": "chart",
+                      "image_path": "9841bbd51492858f9ae43db3e9223847aa12b4c68498c8b92ae022d132957409.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "score": 0.5006
+        }
+      ],
+      "page_idx": 0,
+      "page_size": [
+        595,
+        842
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "type": "chart",
+          "bbox": [
+            79,
+            135,
+            519,
+            406
+          ],
+          "blocks": [
+            {
+              "score": 0.5006,
+              "bbox": [
+                79,
+                135,
+                519,
+                406
+              ],
+              "index": 1,
+              "type": "chart_body",
+              "lines": [
+                {
+                  "bbox": [
+                    79,
+                    135,
+                    519,
+                    406
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        79,
+                        135,
+                        519,
+                        406
+                      ],
+                      "type": "chart",
+                      "image_path": "9841bbd51492858f9ae43db3e9223847aa12b4c68498c8b92ae022d132957409.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "score": 0.5006
+        }
+      ]
+    }
+  ],
+  "_backend": "pipeline",
+  "_version_name": "3.4.4"
+}

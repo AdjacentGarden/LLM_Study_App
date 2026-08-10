@@ -1,0 +1,852 @@
+{
+  "pdf_info": [
+    {
+      "preproc_blocks": [
+        {
+          "score": 0.5213,
+          "bbox": [
+            47,
+            39,
+            369,
+            59
+          ],
+          "index": 1,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                41,
+                367,
+                57
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    41,
+                    367,
+                    57
+                  ],
+                  "type": "text",
+                  "content": "Two-column lesson with table and formula",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 2
+        },
+        {
+          "score": 0.6382,
+          "bbox": [
+            46,
+            90,
+            130,
+            104
+          ],
+          "index": 2,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                48,
+                92,
+                127,
+                106
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    48,
+                    92,
+                    127,
+                    106
+                  ],
+                  "type": "text",
+                  "content": "LEFT COLUMN",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.9574,
+          "bbox": [
+            46,
+            107,
+            271,
+            137
+          ],
+          "index": 3,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                109,
+                268,
+                120
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    109,
+                    268,
+                    120
+                  ],
+                  "type": "text",
+                  "content": "Mitosis produces genetically similar daughter",
+                  "score": 1.0
+                }
+              ]
+            },
+            {
+              "bbox": [
+                48,
+                124,
+                76,
+                137
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    48,
+                    124,
+                    76,
+                    137
+                  ],
+                  "type": "text",
+                  "content": "cells.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.9261,
+          "bbox": [
+            47,
+            139,
+            228,
+            154
+          ],
+          "index": 4,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                141,
+                225,
+                153
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    141,
+                    225,
+                    153
+                  ],
+                  "type": "text",
+                  "content": "Prophase is followed by metaphase,",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.8807,
+          "bbox": [
+            47,
+            156,
+            178,
+            171
+          ],
+          "index": 5,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                158,
+                175,
+                168
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    158,
+                    175,
+                    168
+                  ],
+                  "type": "text",
+                  "content": "anaphase, and telophase.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.7233,
+          "bbox": [
+            312,
+            90,
+            402,
+            105
+          ],
+          "index": 6,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                314,
+                92,
+                399,
+                106
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    314,
+                    92,
+                    399,
+                    106
+                  ],
+                  "type": "text",
+                  "content": "RIGHT COLUMN",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.9476,
+          "bbox": [
+            311,
+            107,
+            533,
+            138
+          ],
+          "index": 7,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                314,
+                108,
+                531,
+                119
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    314,
+                    108,
+                    531,
+                    119
+                  ],
+                  "type": "text",
+                  "content": "Meiosis contains two divisions and produces",
+                  "score": 1.0
+                }
+              ]
+            },
+            {
+              "bbox": [
+                314,
+                125,
+                378,
+                136
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    314,
+                    125,
+                    378,
+                    136
+                  ],
+                  "type": "text",
+                  "content": "haploid cells.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.9293,
+          "bbox": [
+            312,
+            139,
+            532,
+            154
+          ],
+          "index": 8,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                315,
+                142,
+                530,
+                151
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    315,
+                    142,
+                    530,
+                    151
+                  ],
+                  "type": "text",
+                  "content": "Independent assortment increases variation.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "bbox": [
+            48,
+            487,
+            520,
+            617
+          ],
+          "blocks": [
+            {
+              "score": 0.6484,
+              "bbox": [
+                47,
+                428,
+                234,
+                443
+              ],
+              "index": 9,
+              "type": "table_caption",
+              "lines": [
+                {
+                  "bbox": [
+                    49,
+                    428,
+                    232,
+                    443
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        49,
+                        428,
+                        232,
+                        443
+                      ],
+                      "type": "text",
+                      "content": "Formula: P(A and B) = P(A) * P(B)",
+                      "score": 1.0
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "score": 0.9872,
+              "bbox": [
+                48,
+                487,
+                520,
+                617
+              ],
+              "index": 10,
+              "type": "table_body",
+              "lines": [
+                {
+                  "bbox": [
+                    48,
+                    487,
+                    520,
+                    617
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        48,
+                        487,
+                        520,
+                        617
+                      ],
+                      "type": "table",
+                      "html": "<table><tr><td rowspan=1 colspan=1>Stage</td><td rowspan=1 colspan=1>Chromosome state</td></tr><tr><td rowspan=1 colspan=1>G1</td><td rowspan=1 colspan=1>unreplicated</td></tr><tr><td rowspan=1 colspan=1>S</td><td rowspan=1 colspan=1>DNA replication</td></tr><tr><td rowspan=1 colspan=1>G2</td><td rowspan=1 colspan=1>replicated</td></tr></table>",
+                      "image_path": "03df3bd072370f7f3e1e4b726086ef5ee6a2029dc7cd3bfe4e518235ffeb3559.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 10,
+          "score": 0.9872
+        }
+      ],
+      "page_idx": 0,
+      "page_size": [
+        595,
+        842
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "score": 0.5213,
+          "bbox": [
+            47,
+            39,
+            369,
+            59
+          ],
+          "index": 1,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                41,
+                367,
+                57
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    41,
+                    367,
+                    57
+                  ],
+                  "type": "text",
+                  "content": "Two-column lesson with table and formula",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 2
+        },
+        {
+          "score": 0.6382,
+          "bbox": [
+            46,
+            90,
+            130,
+            104
+          ],
+          "index": 2,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                48,
+                92,
+                127,
+                106
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    48,
+                    92,
+                    127,
+                    106
+                  ],
+                  "type": "text",
+                  "content": "LEFT COLUMN",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            48,
+            92,
+            127,
+            106
+          ]
+        },
+        {
+          "score": 0.9574,
+          "bbox": [
+            46,
+            107,
+            271,
+            137
+          ],
+          "index": 3,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                109,
+                268,
+                120
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    109,
+                    268,
+                    120
+                  ],
+                  "type": "text",
+                  "content": "Mitosis produces genetically similar daughter",
+                  "score": 1.0
+                }
+              ]
+            },
+            {
+              "bbox": [
+                48,
+                124,
+                76,
+                137
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    48,
+                    124,
+                    76,
+                    137
+                  ],
+                  "type": "text",
+                  "content": "cells.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            48,
+            109,
+            268,
+            137
+          ]
+        },
+        {
+          "score": 0.9261,
+          "bbox": [
+            47,
+            139,
+            228,
+            154
+          ],
+          "index": 4,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                141,
+                225,
+                153
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    141,
+                    225,
+                    153
+                  ],
+                  "type": "text",
+                  "content": "Prophase is followed by metaphase,",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            49,
+            141,
+            225,
+            153
+          ]
+        },
+        {
+          "score": 0.8807,
+          "bbox": [
+            47,
+            156,
+            178,
+            171
+          ],
+          "index": 5,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                49,
+                158,
+                175,
+                168
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    49,
+                    158,
+                    175,
+                    168
+                  ],
+                  "type": "text",
+                  "content": "anaphase, and telophase.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            49,
+            158,
+            175,
+            168
+          ]
+        },
+        {
+          "score": 0.7233,
+          "bbox": [
+            312,
+            90,
+            402,
+            105
+          ],
+          "index": 6,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                314,
+                92,
+                399,
+                106
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    314,
+                    92,
+                    399,
+                    106
+                  ],
+                  "type": "text",
+                  "content": "RIGHT COLUMN",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            314,
+            92,
+            399,
+            106
+          ]
+        },
+        {
+          "score": 0.9476,
+          "bbox": [
+            311,
+            107,
+            533,
+            138
+          ],
+          "index": 7,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                314,
+                108,
+                531,
+                119
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    314,
+                    108,
+                    531,
+                    119
+                  ],
+                  "type": "text",
+                  "content": "Meiosis contains two divisions and produces",
+                  "score": 1.0
+                }
+              ]
+            },
+            {
+              "bbox": [
+                314,
+                125,
+                378,
+                136
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    314,
+                    125,
+                    378,
+                    136
+                  ],
+                  "type": "text",
+                  "content": "haploid cells.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            314,
+            108,
+            531,
+            136
+          ]
+        },
+        {
+          "score": 0.9293,
+          "bbox": [
+            312,
+            139,
+            532,
+            154
+          ],
+          "index": 8,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                315,
+                142,
+                530,
+                151
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    315,
+                    142,
+                    530,
+                    151
+                  ],
+                  "type": "text",
+                  "content": "Independent assortment increases variation.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            315,
+            142,
+            530,
+            151
+          ]
+        },
+        {
+          "type": "table",
+          "bbox": [
+            48,
+            487,
+            520,
+            617
+          ],
+          "blocks": [
+            {
+              "score": 0.6484,
+              "bbox": [
+                47,
+                428,
+                234,
+                443
+              ],
+              "index": 9,
+              "type": "table_caption",
+              "lines": [
+                {
+                  "bbox": [
+                    49,
+                    428,
+                    232,
+                    443
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        49,
+                        428,
+                        232,
+                        443
+                      ],
+                      "type": "text",
+                      "content": "Formula: P(A and B) = P(A) * P(B)",
+                      "score": 1.0
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "score": 0.9872,
+              "bbox": [
+                48,
+                487,
+                520,
+                617
+              ],
+              "index": 10,
+              "type": "table_body",
+              "lines": [
+                {
+                  "bbox": [
+                    48,
+                    487,
+                    520,
+                    617
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        48,
+                        487,
+                        520,
+                        617
+                      ],
+                      "type": "table",
+                      "html": "<table><tr><td rowspan=1 colspan=1>Stage</td><td rowspan=1 colspan=1>Chromosome state</td></tr><tr><td rowspan=1 colspan=1>G1</td><td rowspan=1 colspan=1>unreplicated</td></tr><tr><td rowspan=1 colspan=1>S</td><td rowspan=1 colspan=1>DNA replication</td></tr><tr><td rowspan=1 colspan=1>G2</td><td rowspan=1 colspan=1>replicated</td></tr></table>",
+                      "image_path": "03df3bd072370f7f3e1e4b726086ef5ee6a2029dc7cd3bfe4e518235ffeb3559.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 10,
+          "score": 0.9872
+        }
+      ]
+    }
+  ],
+  "_backend": "pipeline",
+  "_version_name": "3.4.4"
+}

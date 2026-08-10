@@ -1,0 +1,39 @@
+{
+  "book_id": "stage5_xlsx_111508",
+  "status": "toc_not_found",
+  "toc_pages": [
+    {
+      "page": 1,
+      "score": 27,
+      "line_count": 3,
+      "reasons": [
+        "识别到 3 行标题+页码结构"
+      ],
+      "sample_lines": [
+        "1 2 2.1",
+        "2 2.8 3.2",
+        "3 3.5 4.4"
+      ]
+    }
+  ],
+  "page_map": [
+    {
+      "pdf_page": 1,
+      "printed_page": 1,
+      "confidence": 25,
+      "source": "pdf_page_fallback",
+      "evidence": "未识别到印刷页码，暂用 PDF 页码"
+    },
+    {
+      "pdf_page": 2,
+      "printed_page": 2,
+      "confidence": 25,
+      "source": "pdf_page_fallback",
+      "evidence": "未识别到印刷页码，暂用 PDF 页码"
+    }
+  ],
+  "chapter_evidence": [],
+  "warnings": [
+    "未识别到可靠目录页，后续将退回正文标题规则或整本文档导读"
+  ]
+}

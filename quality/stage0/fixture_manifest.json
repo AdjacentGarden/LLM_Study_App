@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-13",
+  "contains_personal_data": false,
+  "entries": [
+    {
+      "file": "native_text.pdf",
+      "category": "valid",
+      "scenario": "native text PDF",
+      "bytes": 2045,
+      "sha256": "8b7882e21c2a3a4daa1998c8f91676b288d56fe61f0d433745ef31d3433efee7"
+    },
+    {
+      "file": "multicolumn_table_formula.pdf",
+      "category": "valid",
+      "scenario": "multi-column, table, formula",
+      "bytes": 3730,
+      "sha256": "a744e95eef6468970afddd8787a25caa9be8db918def1220ddc7fe507d990cfd"
+    },
+    {
+      "file": "scanned.pdf",
+      "category": "valid",
+      "scenario": "image-only PDF",
+      "bytes": 2883591,
+      "sha256": "b63aacbb0ea87c7b67472fc73df54b6c284ef37562859c16512e4d8632b61a57"
+    },
+    {
+      "file": "mixed.pdf",
+      "category": "valid",
+      "scenario": "native and scanned pages",
+      "bytes": 2884116,
+      "sha256": "840782f620f41ea487f53467890ba7c9fba41e25519e5f8fb6a4800a03170ab6"
+    },
+    {
+      "file": "encrypted.pdf",
+      "category": "reject",
+      "scenario": "encrypted PDF",
+      "bytes": 1463,
+      "sha256": "dccde3b9d3b275ecb576285d716fd373d08619c1276620deb837d647eff13676"
+    },
+    {
+      "file": "source_diagram.png",
+      "category": "valid",
+      "scenario": "PNG",
+      "bytes": 10096,
+      "sha256": "86e1c3efaf29b71a3e73b2a3ca4c933bc728a460d91cab9391f2114db10cdf07"
+    },
+    {
+      "file": "sample.jpg",
+      "category": "valid",
+      "scenario": "JPG",
+      "bytes": 47465,
+      "sha256": "c2ef24037cac08a2e4b8701e4b68b454d01713ba8c4bd416efee17b091d1f237"
+    },
+    {
+      "file": "sample.jpeg",
+      "category": "valid",
+      "scenario": "JPEG",
+      "bytes": 47465,
+      "sha256": "c2ef24037cac08a2e4b8701e4b68b454d01713ba8c4bd416efee17b091d1f237"
+    },
+    {
+      "file": "sample.webp",
+      "category": "valid",
+      "scenario": "WEBP",
+      "bytes": 10438,
+      "sha256": "d906d3b0512ea98b164dc38ecde1bb787e98bbc2fbf05f351f1726fbb3ff8562"
+    },
+    {
+      "file": "sample.bmp",
+      "category": "valid",
+      "scenario": "BMP",
+      "bytes": 2880054,
+      "sha256": "f16dabf3fd356554f01a6122c1d7da06a2dfc64b46a59fc7f706c7ff897e6529"
+    },
+    {
+      "file": "sample.jp2",
+      "category": "valid",
+      "scenario": "JPEG 2000",
+      "bytes": 62016,
+      "sha256": "fad53f2c7bc59193da9030c9859b005921f9dc3714e3bbfc9f3d8ab0d8a21a09"
+    },
+    {
+      "file": "animated.gif",
+      "category": "decision",
+      "scenario": "two-frame GIF",
+      "bytes": 12037,
+      "sha256": "56280c8e5a354cbf250773df260e5d9172688dcdd6b0915659f81521c175d0dc"
+    },
+    {
+      "file": "multipage.tiff",
+      "category": "decision",
+      "scenario": "two-page TIFF",
+      "bytes": 5760288,
+      "sha256": "0b3029ebdec5297ea2a27a7f65ba2b030a44ed7a4af3ac76eab7df1de7d7a0e6"
+    },
+    {
+      "file": "sample.tif",
+      "category": "decision",
+      "scenario": "TIF alias",
+      "bytes": 2880140,
+      "sha256": "3c94087ef765ba67b2945ad49ed61196cef44fa52f437ea9fdaca92118536fec"
+    },
+    {
+      "file": "sample.docx",
+      "category": "valid",
+      "scenario": "DOCX headings, table, image",
+      "bytes": 44260,
+      "sha256": "cbb0e25f12b7dc1b49d7d68c07ef39c7c1e63cd826c35dc00a6e22c9572ae127"
+    },
+    {
+      "file": "sample.pptx",
+      "category": "valid",
+      "scenario": "PPTX slides, image",
+      "bytes": 36487,
+      "sha256": "76b093452aac4c5e860d3a8cccd7df8a48867042b997626bdeb47c3b4adfd0e7"
+    },
+    {
+      "file": "sample.xlsx",
+      "category": "valid",
+      "scenario": "XLSX sheets, merged cells, formula",
+      "bytes": 5573,
+      "sha256": "9f60dda01a1a676850ae0c7f0d4b7e0db751817bac2418f3b778fb9ce40d03fc"
+    },
+    {
+      "file": "path_traversal.docx",
+      "category": "reject",
+      "scenario": "OOXML path traversal",
+      "bytes": 410,
+      "sha256": "f7b861570bd80de8d92ffcc0e2222a479951d4add8143392a1ed83e73b28f9a7"
+    },
+    {
+      "file": "high_compression_ratio.docx",
+      "category": "reject",
+      "scenario": "high compression ratio",
+      "bytes": 2447,
+      "sha256": "a6ece06c25abc3a257fa770b1ec1fbb66ca65f66f3bd54c72bfad984e5f6801b"
+    },
+    {
+      "file": "spoofed.docx",
+      "category": "reject",
+      "scenario": "extension spoofing",
+      "bytes": 43,
+      "sha256": "5ce8d25412517ba2b9f7429c3038f453198a4f55d7c929ce9ab689450a5aca0d"
+    },
+    {
+      "file": "corrupt.pdf",
+      "category": "reject",
+      "scenario": "corrupt PDF",
+      "bytes": 35,
+      "sha256": "e34729143b90154801813b6eb11e01711b6441e7ecbe11717568b744c71552ff"
+    },
+    {
+      "file": "corrupt.png",
+      "category": "reject",
+      "scenario": "corrupt PNG",
+      "bytes": 15,
+      "sha256": "c96b4adc5e8588e4243d099dc3cc2871c6fd3c9cb54c073660865bc4f99ea70d"
+    }
+  ]
+}
