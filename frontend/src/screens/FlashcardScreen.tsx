@@ -391,6 +391,7 @@ export function FlashcardScreen() {
           >
             <button
               className="memory-card-trigger memory-reveal"
+              data-mouse-drag-scroll="self"
               type="button"
               aria-label={`${showAnswer ? "参考答案" : "问题"}：${showAnswer ? current.back : current.front}。${showAnswer ? "点击返回问题" : "点击查看答案"}，左滑切换下一张。`}
               aria-pressed={showAnswer}

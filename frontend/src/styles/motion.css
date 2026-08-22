@@ -73,6 +73,13 @@
   will-change: transform;
 }
 
+/* Assignment opens into a denser, task-focused workspace. Give its incoming
+   surface one extra beat while keeping the other learning tools responsive. */
+.motion-screen-transition[data-motion-state="transitioning"][data-screen="assignment"]
+  > .motion-screen-surface[data-motion-surface="current"] {
+  animation-duration: var(--motion-duration-global-emphasis);
+}
+
 /* Screen bodies use translucent surfaces, so cross-fading two live trees makes
    text and cards visibly double-expose. Keep the outgoing tree mounted only for
    generation-safe cleanup; the fully opaque current tree owns every painted
@@ -218,6 +225,20 @@
   }
 }
 
+/* The phone Assignment surface contains a full-bleed exercise card whose
+   rounded sides extend beyond the padded content column. Keep this route's
+   global motion on the vertical axis so the card owns the same left/right
+   geometry in every painted frame. */
+@keyframes motion-screen-assignment-in {
+  from {
+    transform: translateY(var(--motion-distance-small));
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
 @keyframes motion-screen-tablet-out {
   from {
     opacity: 1;
@@ -286,6 +307,22 @@
   }
 }
 
+@media (max-width: 767px) and (orientation: portrait) {
+  /* The global transition wrapper normally clips overflowing screen bodies.
+     On Assignment that clip coincides with the padded content column and cuts
+     off both full-bleed rounded sides until the transition settles. The screen
+     scroller still owns the viewport boundary, so this targeted overflow is
+     contained by the app shell rather than leaking into the page. */
+  .motion-screen-transition[data-motion-state="transitioning"][data-screen="assignment"] {
+    overflow: visible;
+  }
+
+  .motion-screen-transition[data-motion-state="transitioning"][data-screen="assignment"]
+    > .motion-screen-surface[data-motion-surface="current"] {
+    animation-name: motion-screen-assignment-in;
+  }
+}
+
 .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-face-front,
 .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="front"] .memory-card-answer-face-back,
 .memory-card-answer-motion[data-motion-flash-state="flipping"][data-motion-flash-side="back"] .memory-card-answer-face-back,
@@ -325,6 +362,7 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-duration-global: 1ms;
+    --motion-duration-global-emphasis: 1ms;
     --motion-duration-local-fast: 1ms;
     --motion-duration-local-base: 1ms;
     --motion-duration-local-slow: 1ms;
@@ -736,6 +774,14 @@
   transform-origin: center;
 }
 
+.ai-shared-origin-icon > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(32, 38, 58, 0.16));
+}
+
 .ai-shared-origin-icon[data-motion-ready="true"][data-motion-state="entering"] {
   visibility: visible;
   animation: motion-dialog-ai-origin-icon-in var(--motion-duration-global) var(--motion-ease-global-enter) both;
@@ -915,6 +961,31 @@
 
 .ai-orb:active {
   --ai-orb-scale: .96;
+}
+
+.lesson-ai-entry {
+  transition:
+    filter var(--motion-duration-local-base) var(--motion-ease-local-enter),
+    transform var(--motion-duration-local-base) var(--motion-ease-local-enter);
+}
+
+.lesson-ai-entry[data-interaction="pressed"],
+.lesson-ai-entry[data-interaction="dragging"] {
+  --lesson-ai-entry-hover-x: 0px;
+  transition:
+    filter var(--motion-duration-local-fast) var(--motion-ease-local-enter),
+    transform var(--motion-duration-local-fast) var(--motion-ease-local-enter);
+}
+
+.lesson-ai-entry[data-settling="true"] {
+  --lesson-ai-entry-hover-x: 0px;
+  transition:
+    filter var(--motion-duration-local-base) var(--motion-ease-local-enter),
+    transform var(--motion-duration-local-base) var(--motion-ease-local-enter);
+}
+
+.lesson-ai-entry[data-relocating="true"] {
+  transition: none !important;
 }
 
 /* Upload, parse, and library feedback stay scoped to the changing status
@@ -1313,6 +1384,50 @@
   }
 }
 
+@keyframes motion-lesson-page-forward-in {
+  from {
+    opacity: 0.24;
+    transform: translateX(calc(var(--motion-distance-panel) * 2)) scale(0.992);
+  }
+
+  58% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes motion-lesson-page-back-in {
+  from {
+    opacity: 0.24;
+    transform: translateX(calc(var(--motion-distance-panel) * -2)) scale(0.992);
+  }
+
+  58% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.lesson-learning-page {
+  transform-origin: center center;
+}
+
+.lesson-learning-page[data-page-direction="forward"] {
+  animation: motion-lesson-page-forward-in var(--motion-duration-global) var(--motion-ease-local-enter) both;
+}
+
+.lesson-learning-page[data-page-direction="back"] {
+  animation: motion-lesson-page-back-in var(--motion-duration-global) var(--motion-ease-local-enter) both;
+}
+
 @media (min-width: 768px) and (min-height: 600px) {
   .memory-card-answer-motion[data-motion-flash-next-state="entering"] {
     animation-name: motion-flashcard-next-tablet-in;
@@ -1458,6 +1573,13 @@
   .ai-shared-origin-icon,
   .toast,
   .ai-orb {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .lesson-learning-page,
+  .lesson-page-progress span,
+  .lesson-ai-entry {
     animation: none !important;
     transition: none !important;
   }

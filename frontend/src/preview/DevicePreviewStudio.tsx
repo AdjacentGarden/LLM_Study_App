@@ -222,14 +222,16 @@ export function DevicePreviewStudio() {
                 <span className="device-preview-hardware-control device-preview-hardware-control--side" data-hardware-control="side" />
               </div>
             ) : null}
-            <iframe
-              ref={iframeRef}
-              className="device-preview-iframe"
-              title="BookCourse AI 设备预览内层应用"
-              src={EMBEDDED_PREVIEW_SRC}
-              width={geometry.logicalWidth}
-              height={geometry.logicalHeight}
-            />
+            <div className="device-preview-screen-clip">
+              <iframe
+                ref={iframeRef}
+                className="device-preview-iframe"
+                title="BookCourse AI 设备预览内层应用"
+                src={EMBEDDED_PREVIEW_SRC}
+                width={geometry.logicalWidth}
+                height={geometry.logicalHeight}
+              />
+            </div>
             {isIphonePortrait ? (
               <div
                 className="device-preview-dynamic-island"

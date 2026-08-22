@@ -13,7 +13,7 @@
     "test:state-motion": "playwright test e2e/state-motion.spec.ts",
     "test:e2e:demo": "playwright test e2e/demo-repository.spec.ts",
     "test:e2e": "playwright test",
-    "test:responsive": "playwright test e2e/responsive.spec.ts e2e/device-preview.spec.ts",
+    "test:responsive": "playwright test e2e/responsive.spec.ts e2e/device-preview.spec.ts e2e/tab-bar.spec.ts e2e/community-real-catalog.spec.ts e2e/source-reader-pagination.spec.ts",
     "demo:validate": "node scripts/validate-fixtures.mjs",
     "demo:content": "node scripts/build-demo-content.mjs",
     "demo:directory": "node scripts/sync-demo-directory.mjs",
@@ -23,9 +23,7 @@
     "demo:mineru": "node scripts/ingest-pdf.mjs"
   },
   "dependencies": {
-    "@gsap/react": "^2.1.2",
     "@vitejs/plugin-react": "6.0.2",
-    "gsap": "^3.15.0",
     "lucide-react": "1.18.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",

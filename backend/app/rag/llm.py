@@ -7,21 +7,31 @@ from app.core.ai_runtime import AIProviderRuntime, get_ai_runtime, policy_from_s
 from app.core.config import get_settings
 from app.core.deepseek import deepseek_payload_extras
 from app.core.errors import AppError
-from app.schemas.books import Citation
+from app.schemas.books import Citation, RagHistoryMessage
 
 
 class RagAnswerAdapter(Protocol):
     name: str
 
-    def answer(self, question: str, citations: list[Citation]) -> tuple[str, str]:
+    def answer(
+        self,
+        question: str,
+        citations: list[Citation],
+        history: list[RagHistoryMessage] | None = None,
+    ) -> tuple[str, str]:
         ...
 
 
 class TemplateRagAnswerAdapter:
     name = "template"
 
-    def answer(self, question: str, citations: list[Citation]) -> tuple[str, str]:
-        prompt = build_grounded_prompt(question, citations)
+    def answer(
+        self,
+        question: str,
+        citations: list[Citation],
+        history: list[RagHistoryMessage] | None = None,
+    ) -> tuple[str, str]:
+        prompt = build_grounded_prompt(question, citations, history=history)
         if not citations:
             return (
                 "\u539f\u4e66\u4e2d\u672a\u627e\u5230\u660e\u786e\u8bf4\u660e\u3002\u5efa\u8bae\u6269\u5927\u7ae0\u8282\u8303\u56f4\uff0c\u6216\u5728 OCR \u5b8c\u6210\u540e\u518d\u6b21\u68c0\u7d22\u3002",
@@ -48,12 +58,39 @@ class TemplateRagAnswerAdapter:
         return answer, prompt
 
 
-def build_grounded_prompt(question: str, citations: list[Citation], *, max_input_chars: int | None = None) -> str:
+def _render_history(history: list[RagHistoryMessage] | None, max_chars: int = 2400) -> str:
+    if not history:
+        return ""
+    lines: list[str] = []
+    remaining = max_chars
+    for item in history[-6:]:
+        label = "Student" if item.role == "user" else "Tutor"
+        content = " ".join(item.content.split())
+        rendered = f"{label}: {content}"
+        if len(rendered) > remaining:
+            rendered = rendered[:remaining]
+        if rendered:
+            lines.append(rendered)
+            remaining -= len(rendered) + 1
+        if remaining <= 0:
+            break
+    return "\n".join(lines)
+
+
+def build_grounded_prompt(
+    question: str,
+    citations: list[Citation],
+    *,
+    history: list[RagHistoryMessage] | None = None,
+    max_input_chars: int | None = None,
+) -> str:
+    rendered_history = _render_history(history)
+    history_section = f"Conversation so far:\n{rendered_history}\n" if rendered_history else ""
     prefix = (
         "Answer the student only with the retrieved textbook contexts below. "
         "If the contexts do not contain the answer, say the textbook source is insufficient. "
         "Always cite chapter, page and chunk id.\n"
-        f"Question: {question}\nContexts:\n"
+        f"{history_section}Question: {question}\nContexts:\n"
     )
     remaining = max_input_chars - len(prefix) if max_input_chars is not None else None
     contexts: list[str] = []
@@ -98,11 +135,21 @@ class OpenAICompatibleRagAnswerAdapter:
             self.name = name
         self.runtime = runtime or AIProviderRuntime(self.name, policy_from_settings())
 
-    def answer(self, question: str, citations: list[Citation]) -> tuple[str, str]:
+    def answer(
+        self,
+        question: str,
+        citations: list[Citation],
+        history: list[RagHistoryMessage] | None = None,
+    ) -> tuple[str, str]:
         settings = get_settings()
-        prompt = build_grounded_prompt(question, citations, max_input_chars=settings.llm_max_input_chars)
+        prompt = build_grounded_prompt(
+            question,
+            citations,
+            history=history,
+            max_input_chars=settings.llm_max_input_chars,
+        )
         if not citations:
-            return TemplateRagAnswerAdapter().answer(question, citations)
+            return TemplateRagAnswerAdapter().answer(question, citations, history)
         payload = {
             "model": self.model,
             "messages": [
@@ -116,6 +163,7 @@ class OpenAICompatibleRagAnswerAdapter:
                 {"role": "user", "content": prompt},
             ],
             "max_tokens": settings.llm_max_output_tokens,
+            "stream": False,
         }
         payload.update(self.extra_payload)
         cache_key = self.runtime.fingerprint(self.api_url, self.model, payload)

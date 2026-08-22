@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Protocol, TYPE_CHECKING
 
-from app.core.config import get_settings
+from app.core.config import BGE_RERANKER_REVISION, get_settings
 from app.core.logging import get_logger
 from app.document.chunk_protocol import is_chunk_indexable
 from app.rag.embedding import render_chunk_embedding_text
@@ -50,8 +50,19 @@ class HeuristicReranker:
 class BGERerankerService:
     name = "bge"
 
-    def __init__(self, model_name: str, *, fail_open: bool = True) -> None:
+    def __init__(
+        self,
+        model_name: str,
+        *,
+        revision: str = BGE_RERANKER_REVISION,
+        device: str = "auto",
+        fail_open: bool = True,
+    ) -> None:
+        if revision != BGE_RERANKER_REVISION:
+            raise ValueError(f"BGE reranker revision must be {BGE_RERANKER_REVISION}")
         self.model_name = model_name
+        self.revision = revision
+        self.device = device
         self.fail_open = fail_open
         self._model = None
         self._fallback = HeuristicReranker()
@@ -62,7 +73,10 @@ class BGERerankerService:
                 from sentence_transformers import CrossEncoder
             except Exception as exc:
                 raise RuntimeError("sentence_transformers is not installed") from exc
-            self._model = CrossEncoder(self.model_name)
+            kwargs: dict[str, str] = {"revision": self.revision}
+            if self.device != "auto":
+                kwargs["device"] = self.device
+            self._model = CrossEncoder(self.model_name, **kwargs)
         return self._model
 
     def rerank(self, query: str, candidates: list["RetrievedChunk"], *, top_k: int) -> list["RetrievedChunk"]:
@@ -91,5 +105,10 @@ class BGERerankerService:
 def get_reranker() -> Reranker:
     settings = get_settings()
     if settings.reranker_provider == "bge":
-        return BGERerankerService(settings.reranker_model, fail_open=settings.reranker_fail_open)
+        return BGERerankerService(
+            settings.reranker_model,
+            revision=settings.reranker_revision,
+            device=settings.reranker_device,
+            fail_open=settings.reranker_fail_open,
+        )
     return HeuristicReranker()

@@ -19,6 +19,16 @@ from app.core.errors import AppError
 _TRANSIENT_HTTP_STATUSES = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
+class _RejectRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Never forward provider credentials to a redirect destination."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_RejectRedirectHandler())
+
+
 @dataclass(frozen=True)
 class AIRuntimePolicy:
     max_concurrent: int = 4
@@ -169,7 +179,7 @@ class AIProviderRuntime:
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                with _NO_REDIRECT_OPENER.open(request, timeout=timeout_seconds) as response:
                     raw = self._read_bounded(response)
                 parsed = json.loads(raw.decode("utf-8"))
                 if not isinstance(parsed, dict):

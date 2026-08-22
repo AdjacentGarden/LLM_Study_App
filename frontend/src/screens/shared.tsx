@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
-import { textbookAssets } from "../data/mockBook";
-import { runtimeConfig } from "../config/runtime";
+import { resolveApiAssetUrl } from "../api/bookcourseApi";
 import { CollapsibleRegion, MotionIconSwap, useStageThreeImageMotion } from "../motion";
 import type { ApiChapter, ApiChunk, ChapterEvidence, ScanResult } from "../types/api";
 import type { Chapter, UploadedCourseFile } from "../types/app";
@@ -10,19 +9,28 @@ import { Button, ProgressBar } from "../components/ui";
 
 export const coursePreparationSteps = ["阅读文件内容和版面", "整理章节与知识点", "生成可学习的课程内容"];
 
-export const ragPipelineSteps = ["安全检查学习资料", "提取文字、图片和文档结构", "识别并核对章节目录", "建立可引用的教材检索"];
 
-
-export function backendAssetUrl(url?: string | null, fallback = textbookAssets.illustration) {
-  if (!url) return fallback;
-  if (/^https?:\/\//i.test(url) || url.startsWith("data:") || url.startsWith("/assets/")) return url;
-  return `${runtimeConfig.apiBaseUrl}${url}`;
+export function backendAssetUrl(url?: string | null, fallback = "") {
+  return resolveApiAssetUrl(url) ?? fallback;
 }
 
 
 export function sourcePageImageUrl(bookId: string, page: number) {
   const safePage = Math.max(1, Math.trunc(page));
-  return `${runtimeConfig.apiBaseUrl}/api/books/${encodeURIComponent(bookId)}/pages/${safePage}/image`;
+  if (import.meta.env.DEV && bookId === "book_biology_2") {
+    if (safePage <= 1) return "/assets/textbook/biology-cover.webp";
+    if (safePage <= 10) return "/assets/textbook/biology-catalog-1.webp";
+    if (safePage <= 25) return "/assets/textbook/biology-chapter-section-open.webp";
+    return "/assets/textbook/biology-chapter-2-open.webp";
+  }
+  if (import.meta.env.DEV && bookId === "catalog_high_school_math_required_2") {
+    return "/assets/book-covers/high-school-math-required-2.webp";
+  }
+  return resolveApiAssetUrl(`/api/books/${encodeURIComponent(bookId)}/pages/${safePage}/image`) ?? "";
+}
+
+export function courseCoverImageUrl(bookId: string, coverUrl?: string | null) {
+  return coverUrl ?? sourcePageImageUrl(bookId, 1);
 }
 
 
@@ -57,16 +65,9 @@ export function chapterConcepts(chapter: ApiChapter | null, chunk?: ApiChunk | n
 }
 
 
-const BIOLOGY_BOOK_DISPLAY_NAME = "人教版高中生物必修二遗传与进化";
-
-function isBiologyGeneticsBookTitle(value: string) {
-  const normalized = value.replace(/\s+/g, "");
-  return normalized.includes("人教版高中生物必修") && normalized.includes("遗传与进化");
-}
-
 export function liveBookTitle(uploadedFile?: UploadedCourseFile | null, scan?: ScanResult | null) {
-  const title = uploadedFile?.name ?? scan?.filename ?? "未选择教材";
-  return isBiologyGeneticsBookTitle(title) ? BIOLOGY_BOOK_DISPLAY_NAME : title;
+  const title = uploadedFile?.name ?? scan?.filename;
+  return title ? fileTitleBeforeParenthesis(title) : "未选择教材";
 }
 
 export function fileTitleBeforeParenthesis(fileName: string) {
@@ -215,7 +216,7 @@ export function ChapterEvidenceSummary({ evidence }: { evidence: ChapterEvidence
 
 
 export function CourseCover({ course }: { course: { bookId?: string; title: string; cover?: string } }) {
-  const cover = course.bookId ? sourcePageImageUrl(course.bookId, 1) : course.cover;
+  const cover = course.bookId ? courseCoverImageUrl(course.bookId, course.cover) : course.cover;
   const imageMotion = useStageThreeImageMotion(cover);
   if (cover && imageMotion.state !== "failed") {
     return (

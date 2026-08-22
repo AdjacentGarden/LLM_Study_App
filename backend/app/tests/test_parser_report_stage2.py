@@ -8,7 +8,7 @@ import pytest
 from app.core.config import get_settings
 from app.document.mineru.exceptions import MinerUStaleResultError
 from app.document.page_artifacts import atomic_write_json, write_parsed_document_artifacts
-from app.document.pipeline import DocumentParseQualityError, parse_document
+from app.document.pipeline import DocumentParseQualityError, _document_quality_gate_fails, parse_document
 from app.document.parsers.base import ParsedDocument, ParsedPage, ParserUnavailable, ParseRequest
 from app.document.parsers.router import ParserRouter
 from app.schemas.books import ScanResult, TextBlock
@@ -21,6 +21,32 @@ class Unavailable:
 
     def parse(self, request: ParseRequest) -> ParsedDocument:
         raise ParserUnavailable(self.name, self.detail)
+
+
+def test_quality_gate_accepts_sparse_degraded_pages_in_a_high_quality_long_book() -> None:
+    assert not _document_quality_gate_fails(
+        page_count=292,
+        document_quality=0.966,
+        degraded_pages={3, 53, 80, 81, 176, 221, 224, 230, 267, 273},
+        missing_pages=[],
+    )
+
+
+@pytest.mark.parametrize(
+    ("page_count", "quality", "degraded"),
+    [(20, 0.95, {1}), (100, 0.95, set(range(1, 7))), (292, 0.74, {3})],
+)
+def test_quality_gate_still_rejects_short_or_broadly_degraded_documents(
+    page_count: int,
+    quality: float,
+    degraded: set[int],
+) -> None:
+    assert _document_quality_gate_fails(
+        page_count=page_count,
+        document_quality=quality,
+        degraded_pages=degraded,
+        missing_pages=[],
+    )
 
 
 def _scan() -> ScanResult:

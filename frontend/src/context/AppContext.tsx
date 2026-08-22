@@ -19,8 +19,6 @@ export type CourseSummariesLoadState = "loading" | "ready" | "error";
 export type CourseSummariesReadyKind = "content" | "empty";
 
 export type AppContextValue = AppActions & {
-  /** Enables local display-only shelf metadata in the bundled demo app. */
-  demoShelfEnabled?: boolean;
   selectedUpload: boolean;
   setSelectedUpload: (value: boolean) => void;
   uploadedFile: UploadedCourseFile | null;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 
 import fitz
 from PIL import Image, UnidentifiedImageError
@@ -89,9 +90,13 @@ def _content_kind(path: Path, filename: str) -> str:
 def _validate_pdf(path: Path) -> None:
     settings = get_settings()
     try:
-        document = fitz.open(path)
+        # Validate from an in-memory stream. On Windows, MuPDF can retain a
+        # handle to a corrupt path after ``fitz.open(path)`` raises, preventing
+        # the upload route from deleting the rejected file.
+        pdf_bytes = path.read_bytes()
+        document = fitz.open(stream=pdf_bytes, filetype="pdf")
     except Exception as exc:
-        raise AppError("invalid_pdf", "PDF 文件无法打开或已损坏", details={"type": exc.__class__.__name__}) from exc
+        raise AppError("invalid_pdf", "PDF 文件无法打开或已损坏", details={"type": exc.__class__.__name__}) from None
     try:
         if document.is_encrypted or document.needs_pass:
             raise AppError("encrypted_pdf_unsupported", "暂不支持加密 PDF")
@@ -103,6 +108,19 @@ def _validate_pdf(path: Path) -> None:
                 "PDF 页数超过限制",
                 details={"page_count": document.page_count, "max_pdf_pages": settings.max_pdf_pages},
             )
+        for page_number in range(document.page_count):
+            rectangle = document.load_page(page_number).rect
+            render_pixels = math.ceil(rectangle.width * 2) * math.ceil(rectangle.height * 2)
+            if render_pixels > settings.max_pdf_render_pixels:
+                raise AppError(
+                    "pdf_page_pixel_limit_exceeded",
+                    "PDF 页面尺寸超过安全渲染限制",
+                    details={
+                        "page": page_number + 1,
+                        "render_pixels": render_pixels,
+                        "max_pdf_render_pixels": settings.max_pdf_render_pixels,
+                    },
+                )
     finally:
         document.close()
 

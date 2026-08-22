@@ -42,14 +42,14 @@ describe("stage 5 upload format contract", () => {
     })).toBe("3 个幻灯片");
   });
 
-  it("shortens the demo textbook name for display", () => {
+  it("shortens a server-provided textbook filename without a bundled title map", () => {
     expect(liveBookTitle({
       bookId: "book_biology_2",
       name: "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
       sizeBytes: 0,
       contentType: "application/pdf",
       uploadedAt: 0
-    })).toBe("人教版高中生物必修二遗传与进化");
+    })).toBe("人教版高中生物必修2遗传与进化");
   });
 
   it("shows only the uploaded title before its first parenthesis", () => {

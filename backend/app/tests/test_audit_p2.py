@@ -60,7 +60,7 @@ def test_p2_a4_app_provider_wraps_render():
     text = p.read_text(encoding="utf-8")
     assert "<AppProvider value={sharedProps}>" in text or "AppProvider value={sharedProps}" in text
     assert "from \"./screens\"" in text or "import(\"./screens/" in text
-    assert "<Suspense" in text
+    assert "<ScreenTransition" in text
     # screen invocations no longer spread sharedProps
     assert "{...sharedProps}" not in text
 
@@ -82,7 +82,7 @@ def test_p2_a6_shared_helpers_present():
         "QuickAction","BookMini","CourseCover","SettingsRow","ChapterEvidenceSummary",
         "backendAssetUrl","sourcePageImageUrl","sourcePageLabel","chapterConcepts",
         "liveBookTitle","formatFileSize","getFileKind","apiChapterToChapter",
-        "averageConfidence","ragPipelineSteps","acceptedCourseFileTypes",
+        "averageConfidence","acceptedCourseFileTypes",
     ]:
         assert f"export function {sym}" in text or f"export const {sym}" in text, f"{sym} missing from shared.tsx"
 
@@ -100,8 +100,13 @@ def test_p2_a6_shared_helpers_present():
 def test_p2_b_screens_use_context(screen):
     p = FRONT_SRC / "screens" / f"{screen}.tsx"
     text = p.read_text(encoding="utf-8")
-    assert f"export function {screen}() {{" in text
-    assert "useAppContext" in text
+    if screen == "BookCourseScreen":
+        assert "export { StudyScreen as BookCourseScreen }" in text
+        study_text = (FRONT_SRC / "screens" / "StudyScreen.tsx").read_text(encoding="utf-8")
+        assert "useAppContext" in study_text
+    else:
+        assert f"export function {screen}() {{" in text
+        assert "useAppContext" in text
 
 
 # ---------- C. Backend cache ----------

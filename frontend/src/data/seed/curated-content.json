@@ -29,8 +29,8 @@
     {
       "chapter_id": "frontmatter",
       "level": 1,
-      "source_title": "封面、编者信息、目录与科学家访谈",
-      "ai_title": "教材前置页",
+      "source_title": "第 1 章 遗传因子的发现",
+      "ai_title": "第 1 章 遗传因子的发现",
       "page_start": 1,
       "page_end": 9,
       "printed_page_start": null,
@@ -610,6 +610,53 @@
       "provenance_note": "该页图来自源前端既有视觉基线，本轮内容引用由 MinerU OCR 重新建立。"
     },
     {
+      "asset_id": "asset_ai_meiosis_fertilization_cycle_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂形成配子并通过受精恢复染色体数目的概览",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11",
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "减数分裂",
+        "配子",
+        "受精作用",
+        "染色体数目稳定"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_overview_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂一次复制、两次分裂的完整过程示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-overview-v2.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-overview-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "减数分裂",
+        "染色体数目减半"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
       "asset_id": "asset_ai_meiosis_homologous_v1",
       "book_id": "book_biology_2",
       "chapter_id": "c2s1",
@@ -634,6 +681,30 @@
       "review_status": "approved"
     },
     {
+      "asset_id": "asset_ai_meiosis_separation_compare_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体分离与姐妹染色单体分开的对比示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-separation-compare-v2.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-separation-compare-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "同源染色体",
+        "姐妹染色单体",
+        "减数第一次分裂",
+        "减数第二次分裂"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
       "asset_id": "asset_ai_fertilization_v1",
       "book_id": "book_biology_2",
       "chapter_id": "c2s1",
@@ -651,6 +722,100 @@
       "concepts": [
         "受精作用",
         "染色体数目稳定"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_dna_replication_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂前 DNA 复制使染色体形成姐妹染色单体",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-dna-replication-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-dna-replication-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "DNA 复制",
+        "姐妹染色单体",
+        "染色体数目"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_synapsis_crossing_over_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体联会形成四分体并发生交叉互换",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "同源染色体",
+        "联会",
+        "四分体",
+        "交叉互换"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_ii_centromere_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数第二次分裂中着丝点分裂和姐妹染色单体分开",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "减数第二次分裂",
+        "着丝点",
+        "姐妹染色单体"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_fertilization_homolog_pair_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "精卵融合使受精卵恢复成对的同源染色体",
+      "bbox": null,
+      "image_url": "/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "thumbnail_url": "/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "受精作用",
+        "单倍体",
+        "二倍体",
+        "同源染色体"
       ],
       "generation_provider": "openai-imagegen",
       "review_status": "approved"

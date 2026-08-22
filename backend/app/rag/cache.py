@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import threading
 from collections import OrderedDict
+from concurrent.futures import Future
+from dataclasses import dataclass
+import time
 from typing import Any, Callable, Generic, Hashable, Optional, TypeVar
 
 from app.core.config import get_settings
@@ -90,6 +93,112 @@ class LRUCache(Generic[K, V]):
             return key in self._data
 
 
+@dataclass(frozen=True)
+class _TimedValue(Generic[V]):
+    expires_at: float
+    value: V
+
+
+class RagAnswerCache(Generic[K, V]):
+    """TTL/LRU response cache with per-key request coalescing.
+
+    A100 deployments often receive the same question twice when a mobile
+    client retries or a learner taps a study preset repeatedly. Only the first
+    caller performs retrieval and LLM generation; followers wait on that same
+    result instead of creating a provider stampede.
+    """
+
+    def __init__(self, capacity: int, ttl_seconds: float) -> None:
+        self._capacity = max(1, capacity)
+        self._ttl_seconds = max(0.0, ttl_seconds)
+        self._data: "OrderedDict[K, _TimedValue[V]]" = OrderedDict()
+        self._inflight: dict[K, Future[V]] = {}
+        self._lock = threading.RLock()
+        self._hits = 0
+        self._misses = 0
+        self._coalesced = 0
+        self._evictions = 0
+
+    def get_or_compute(self, key: K, builder: Callable[[], V]) -> tuple[V, bool]:
+        if self._ttl_seconds <= 0:
+            with self._lock:
+                self._misses += 1
+            return builder(), False
+
+        owner = False
+        with self._lock:
+            now = time.monotonic()
+            cached = self._data.get(key)
+            if cached is not None:
+                if cached.expires_at > now:
+                    self._data.move_to_end(key)
+                    self._hits += 1
+                    return cached.value, True
+                self._data.pop(key, None)
+
+            future = self._inflight.get(key)
+            if future is None:
+                future = Future()
+                self._inflight[key] = future
+                owner = True
+                self._misses += 1
+            else:
+                self._hits += 1
+                self._coalesced += 1
+
+        if not owner:
+            return future.result(), True
+
+        try:
+            value = builder()
+        except BaseException as exc:
+            with self._lock:
+                self._inflight.pop(key, None)
+                future.set_exception(exc)
+            raise
+
+        with self._lock:
+            self._data[key] = _TimedValue(
+                expires_at=time.monotonic() + self._ttl_seconds,
+                value=value,
+            )
+            self._data.move_to_end(key)
+            while len(self._data) > self._capacity:
+                self._data.popitem(last=False)
+                self._evictions += 1
+            self._inflight.pop(key, None)
+            future.set_result(value)
+        return value, False
+
+    def pop_where(self, predicate: Callable[[K], bool]) -> int:
+        with self._lock:
+            keys = [key for key in self._data if predicate(key)]
+            for key in keys:
+                self._data.pop(key, None)
+            return len(keys)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._data.clear()
+
+    def snapshot(self) -> dict[str, int | float]:
+        with self._lock:
+            return {
+                "size": len(self._data),
+                "capacity": self._capacity,
+                "ttl_seconds": self._ttl_seconds,
+                "inflight": len(self._inflight),
+                "hits": self._hits,
+                "misses": self._misses,
+                "coalesced": self._coalesced,
+                "evictions": self._evictions,
+            }
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._data)
+
+
 # ---- Module-level caches ----
 # All guarded by settings.rag_cache_enabled at access time.
 
@@ -131,6 +240,20 @@ def _capacity_from_settings() -> int:
 _CHUNKS_CACHE: Optional[LRUCache[str, Any]] = None
 _BM25_CACHE: Optional[LRUCache[tuple[Hashable, ...], Any]] = None
 _ARTIFACT_EMBEDDING_CACHE: Optional[LRUCache[tuple[Hashable, ...], Any]] = None
+_RAG_ANSWER_CACHE: Optional[RagAnswerCache[tuple[Hashable, ...], Any]] = None
+
+
+def _rag_answer_cache() -> "RagAnswerCache[tuple[Hashable, ...], Any]":
+    global _RAG_ANSWER_CACHE
+    if _RAG_ANSWER_CACHE is None:
+        with _CACHE_INIT_LOCK:
+            if _RAG_ANSWER_CACHE is None:
+                settings = get_settings()
+                _RAG_ANSWER_CACHE = RagAnswerCache(
+                    settings.rag_answer_cache_max_items,
+                    settings.rag_cache_ttl_seconds,
+                )
+    return _RAG_ANSWER_CACHE
 
 
 def _generation_cache_key(
@@ -225,11 +348,27 @@ def get_artifact_embeddings(
     return value
 
 
+def get_or_compute_rag_answer(
+    key: tuple[Hashable, ...],
+    builder: Callable[[], Any],
+) -> tuple[Any, bool]:
+    if not is_cache_enabled():
+        return builder(), False
+    return _rag_answer_cache().get_or_compute(key, builder)
+
+
+def rag_answer_cache_snapshot() -> dict[str, int | float | bool]:
+    if not is_cache_enabled():
+        return {"enabled": False}
+    return {"enabled": True, **_rag_answer_cache().snapshot()}
+
+
 def invalidate_book(book_id: str) -> None:
     """Drop all cache entries related to a book (chunks + all chapter variants)."""
     invalidate_chunks(book_id)
     invalidate_bm25(book_id)
     invalidate_artifact_embeddings(book_id)
+    invalidate_rag_answers(book_id)
 
 
 def invalidate_chunks(book_id: str) -> None:
@@ -245,6 +384,11 @@ def invalidate_bm25(book_id: str) -> None:
 def invalidate_artifact_embeddings(book_id: str) -> None:
     if _ARTIFACT_EMBEDDING_CACHE is not None:
         _ARTIFACT_EMBEDDING_CACHE.pop_where(lambda key: bool(key) and key[0] == book_id)
+
+
+def invalidate_rag_answers(book_id: str) -> None:
+    if _RAG_ANSWER_CACHE is not None:
+        _RAG_ANSWER_CACHE.pop_where(lambda key: bool(key) and key[0] == book_id)
 
 
 def has_bm25_index(
@@ -281,6 +425,8 @@ def clear_rag_cache() -> None:
         _BM25_CACHE.clear()
     if _ARTIFACT_EMBEDDING_CACHE is not None:
         _ARTIFACT_EMBEDDING_CACHE.clear()
+    if _RAG_ANSWER_CACHE is not None:
+        _RAG_ANSWER_CACHE.clear()
 
 
 def cache_hit_description(*, chunks_hit: bool, bm25_hit: bool, vector_hit: bool) -> str:

@@ -210,6 +210,12 @@
   background: #f8fcff;
 }
 
+.device-preview-screen-clip {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* iPhone 17 Pro device presentation. The bezel is an overlay around the
    existing logical frame, so its 16px visual bleed never participates in
    output sizing or iframe viewport calculations. The Figma component's raw
@@ -330,11 +336,21 @@
   height: 107px;
 }
 
-.device-preview-frame--iphone-17-pro > .device-preview-iframe {
+.device-preview-frame--iphone-17-pro > .device-preview-screen-clip {
   position: relative;
   z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   border-radius: var(--iphone-screen-radius);
   clip-path: inset(0 round var(--iphone-screen-radius));
+}
+
+.device-preview-frame--iphone-17-pro > .device-preview-screen-clip > .device-preview-iframe {
+  position: relative;
+  z-index: 1;
+  border-radius: inherit;
+  clip-path: none;
 }
 
 .device-preview-dynamic-island {
@@ -395,7 +411,7 @@
   box-shadow: none;
 }
 
-.device-preview-studio[data-preview-chrome="0"] .device-preview-frame--iphone-17-pro > .device-preview-iframe {
+.device-preview-studio[data-preview-chrome="0"] .device-preview-frame--iphone-17-pro > .device-preview-screen-clip {
   border-radius: 0;
   clip-path: none;
 }

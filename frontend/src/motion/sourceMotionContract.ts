@@ -10,6 +10,7 @@ export type MotionSource = {
 
 const durationTokens = new Map([
   ["--motion-duration-global", "350ms"],
+  ["--motion-duration-global-emphasis", "450ms"],
   ["--motion-duration-local-fast", "150ms"],
   ["--motion-duration-local-base", "180ms"],
   ["--motion-duration-local-slow", "200ms"],
@@ -723,6 +724,7 @@ export function auditGsapMotion(sources: MotionSource[]) {
 export const semanticMotionTokenFixture = `
 :root {
   --motion-duration-global: 350ms;
+  --motion-duration-global-emphasis: 450ms;
   --motion-duration-local-fast: 150ms;
   --motion-duration-local-base: 180ms;
   --motion-duration-local-slow: 200ms;

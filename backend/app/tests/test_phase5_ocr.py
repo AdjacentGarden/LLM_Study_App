@@ -117,10 +117,8 @@ def test_unknown_ocr_provider_does_not_fall_back_to_mock(monkeypatch) -> None:
     monkeypatch.setenv("BOOKCOURSE_OCR_PROVIDER", "typo-provider")
     get_settings.cache_clear()
 
-    with pytest.raises(OCRUnavailable) as exc_info:
+    with pytest.raises(ValueError, match="BOOKCOURSE_OCR_PROVIDER"):
         get_ocr_adapter()
-
-    assert exc_info.value.reason == "unsupported_provider"
     get_settings.cache_clear()
 
 

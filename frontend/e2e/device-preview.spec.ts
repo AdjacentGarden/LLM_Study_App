@@ -42,6 +42,10 @@ test.describe("device preview studio", () => {
       const frame = page.frames().find((candidate) => candidate.url().includes("embedded=device-preview"));
       return frame ? await frame.evaluate(() => ({ height: window.innerHeight, width: window.innerWidth })) : null;
     }).toEqual({ height: 874, width: 402 });
+    const mountedFrame = page.frames().find((candidate) => candidate.url().includes("embedded=device-preview"));
+    if (!mountedFrame) throw new Error("The embedded preview frame did not finish mounting");
+    await mountedFrame.waitForLoadState("networkidle");
+    await expect(embeddedFrame.locator(".app-shell")).toBeVisible();
 
     await iframeHandle.evaluate((element) => {
       const iframeElement = element as HTMLIFrameElement;

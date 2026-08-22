@@ -6,14 +6,20 @@ from app.core.config import get_settings
 from app.main import create_app
 
 
-def test_runtime_capabilities_are_public_and_do_not_expose_secrets(monkeypatch) -> None:
+def test_runtime_capabilities_require_auth_and_do_not_expose_secrets(monkeypatch) -> None:
     monkeypatch.setenv("BOOKCOURSE_AUTH_MODE", "strict")
     monkeypatch.setenv("BOOKCOURSE_API_KEY", "never-return-this")
     monkeypatch.setenv("BOOKCOURSE_PARSER_PROVIDER", "pymupdf")
     monkeypatch.setenv("BOOKCOURSE_RAG_INDEX_PROVIDER", "artifact")
     get_settings.cache_clear()
-    response = TestClient(create_app()).get("/api/runtime-capabilities")
+    client = TestClient(create_app())
+    blocked = client.get("/api/runtime-capabilities")
+    response = client.get(
+        "/api/runtime-capabilities",
+        headers={"X-BookCourse-Api-Key": "never-return-this"},
+    )
 
+    assert blocked.status_code == 401
     assert response.status_code == 200
     payload = response.json()
     assert payload["auth_mode"] == "strict"
@@ -27,6 +33,9 @@ def test_runtime_capabilities_are_public_and_do_not_expose_secrets(monkeypatch) 
     assert payload["mineru_backend"] == "pipeline"
     assert payload["rag_index_provider"] == "artifact"
     assert payload["reranker_provider"] == "heuristic"
+    assert payload["reranker_model"] == "BAAI/bge-reranker-v2-m3"
+    assert len(payload["reranker_revision"]) == 40
+    assert payload["reranker_device"] == "auto"
     assert payload["reranker_fail_open"] is True
     assert payload["ai_max_concurrent"] == 4
     assert payload["ai_max_retries"] == 2

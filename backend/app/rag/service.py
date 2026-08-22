@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from hashlib import sha256
+import json
+import re
+
 from app.rag.audit import now_ms, write_rag_audit
+from app.rag.cache import get_or_compute_rag_answer
 from app.rag.llm import get_rag_answer_adapter
 from app.rag.retrieval import RetrievedChunk, retrieve_chunks
-from app.schemas.books import Asset, Citation, Chapter, RagQuery, RagResponse
-from app.services.artifact_store import read_assets, read_chapters
+from app.schemas.books import Asset, Citation, Chapter, RagPerformance, RagQuery, RagResponse
+from app.services.artifact_store import get_rag_bundle_identity, read_assets, read_chapters
 
 
 def _chapter_title(chapters: list[Chapter], chapter_id: str) -> str:
@@ -57,7 +62,36 @@ def _citation_location(item: RetrievedChunk) -> tuple[str, str]:
     return "page", f"第 {chunk.page_start} 页"
 
 
-def _citations(chapters: list[Chapter], retrieved: list[RetrievedChunk]) -> list[Citation]:
+def _quote_window(text: str, question: str, limit: int = 360) -> str:
+    """Return a compact citation window centered on the strongest query hit."""
+
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    terms = sorted(
+        set(re.findall(r"[A-Za-z0-9][A-Za-z0-9_.:-]{2,}|[\u4e00-\u9fff]{2,}", question)),
+        key=len,
+        reverse=True,
+    )
+    lowered = normalized.casefold()
+    match_start = -1
+    match_length = 0
+    for term in terms:
+        index = lowered.find(term.casefold())
+        if index >= 0:
+            match_start = index
+            match_length = len(term)
+            break
+    if match_start < 0:
+        return normalized[:limit].rstrip() + "…"
+    start = max(0, match_start - max(48, (limit - match_length) // 2))
+    end = min(len(normalized), start + limit)
+    start = max(0, end - limit)
+    quote = normalized[start:end].strip()
+    return ("…" if start else "") + quote + ("…" if end < len(normalized) else "")
+
+
+def _citations(chapters: list[Chapter], retrieved: list[RetrievedChunk], question: str) -> list[Citation]:
     citations: list[Citation] = []
     for item in retrieved[:3]:
         location_type, location_label = _citation_location(item)
@@ -81,7 +115,7 @@ def _citations(chapters: list[Chapter], retrieved: list[RetrievedChunk]) -> list
             chapter_title=_chapter_title(chapters, item.chunk.chapter_id),
             page=item.chunk.page_start,
             chunk_id=item.chunk.chunk_id,
-            quote=(item.chunk.text or "")[:180],
+            quote=_quote_window(item.chunk.text or "", question),
             score=round(item.score, 6),
             retrieval_method=item.retrieval_method,
             source_type=item.chunk.content_type,
@@ -116,19 +150,34 @@ def _confidence(citations: list[Citation], retrieved: list[RetrievedChunk]) -> s
     return "low"
 
 
-def answer_query(payload: RagQuery) -> RagResponse:
+def _answer_cache_key(payload: RagQuery) -> tuple[str, str | None, str, str]:
+    identity = get_rag_bundle_identity(payload.book_id)
+    generation = identity.generation or identity.build_id or identity.state
+    serialized = json.dumps(payload.model_dump(mode="json"), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return (
+        payload.book_id,
+        payload.chapter_id,
+        generation,
+        sha256(serialized.encode("utf-8")).hexdigest(),
+    )
+
+
+def _answer_query_uncached(payload: RagQuery) -> RagResponse:
+    request_started = now_ms()
     started = now_ms()
     retrieved = retrieve_chunks(payload.book_id, payload.question, payload.chapter_id)
     retrieval_ms = now_ms() - started
     chapters = read_chapters(payload.book_id)
-    citations = _citations(chapters, retrieved)
+    citations = _citations(chapters, retrieved, payload.question)
     adapter = get_rag_answer_adapter()
     answer_started = now_ms()
-    answer, prompt = adapter.answer(payload.question, citations)
+    answer, prompt = adapter.answer(payload.question, citations, payload.history)
     llm_ms = now_ms() - answer_started
     confidence = _confidence(citations, retrieved)
+    related_assets = _related_assets(payload.book_id, retrieved) if citations else []
 
-    cache_hit = retrieved[0].cache_hit if retrieved else "none"
+    retrieval_cache = retrieved[0].cache_hit if retrieved else "none"
+    total_ms = now_ms() - request_started
     write_rag_audit(
         payload.book_id,
         {
@@ -147,12 +196,40 @@ def answer_query(payload: RagQuery) -> RagResponse:
             "fallback_reason": retrieved[0].fallback_reason if retrieved else None,
             "embedding": retrieved[0].embedding_descriptor if retrieved else None,
             "top_rerank_score": round(retrieved[0].rerank_score, 6) if retrieved else None,
-            "cache_hit": cache_hit,
+            "cache_hit": retrieval_cache,
+            "total_ms": round(total_ms, 2),
         },
     )
     return RagResponse(
         answer=answer,
         citations=citations,
-        related_assets=_related_assets(payload.book_id, retrieved) if citations else [],
+        related_assets=related_assets,
         confidence=confidence,
+        performance=RagPerformance(
+            total_ms=round(total_ms, 2),
+            retrieval_ms=round(retrieval_ms, 2),
+            generation_ms=round(llm_ms, 2),
+            response_cache_hit=False,
+            retrieval_cache=retrieval_cache,
+            retrieved_chunks=len(retrieved),
+        ),
     )
+
+
+def answer_query(payload: RagQuery) -> RagResponse:
+    started = now_ms()
+    response, cache_hit = get_or_compute_rag_answer(
+        _answer_cache_key(payload),
+        lambda: _answer_query_uncached(payload),
+    )
+    if not cache_hit:
+        return response
+    performance = response.performance or RagPerformance()
+    return response.model_copy(update={
+        "performance": performance.model_copy(update={
+            "total_ms": round(now_ms() - started, 2),
+            "retrieval_ms": 0.0,
+            "generation_ms": 0.0,
+            "response_cache_hit": True,
+        }),
+    })

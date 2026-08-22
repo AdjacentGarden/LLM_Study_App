@@ -45,7 +45,6 @@ import {
 } from "../utils/chapterStructure";
 import {
   isLessonBuildTerminal,
-  lessonBuildSummary,
   successfulLessonChapterIds
 } from "../utils/lessonGeneration";
 import {
@@ -617,7 +616,7 @@ function ChapterDetailEditor({
 
 export function ChapterConfirmScreen() {
   const bookcourseRepository = useBookCourseRepository();
-  const { go, openSheet, parsedChapters, parsedScanResult, setActiveChapterId, setCurrentStudyPlan, setGeneratedFlashcards, setGeneratedLessons, setGeneratedQuizzes, setLessonBuildJobId, setLessonBuildJobStatus, setParsedChapters, showToast, uploadedFile } = useAppContext();
+  const { go, openSheet, parsedChapters, parsedScanResult, setActiveChapterId, setCurrentStudyPlan, setGeneratedFlashcards, setGeneratedLessons, setGeneratedQuizzes, setLessonBuildJobId, setLessonBuildJobStatus, setParsedChapters, uploadedFile } = useAppContext();
   const reducedMotion = useReducedMotion();
   const [generatingCourse, setGeneratingCourse] = useState(false);
   const [tocAnalysis, setTocAnalysis] = useState<TocAnalysis | null>(null);
@@ -626,6 +625,8 @@ export function ChapterConfirmScreen() {
   const [selectionFeedback, setSelectionFeedback] = useState<SelectionFeedback | null>(null);
   const [directoryFeedback, setDirectoryFeedback] = useState<DirectoryFeedback | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
+  const [tocAnalysisError, setTocAnalysisError] = useState<string | null>(null);
+  const [courseGenerationError, setCourseGenerationError] = useState<string | null>(null);
   const [chapterDrafts, setChapterDrafts] = useState<Record<string, ChapterDraft>>({});
   const feedbackSequenceRef = useRef(0);
   const saveFeedbackSequenceRef = useRef(0);
@@ -653,15 +654,18 @@ export function ChapterConfirmScreen() {
     bookcourseRepository
       .getTocAnalysis(uploadedFile.bookId)
       .then((analysis) => {
-        if (active) setTocAnalysis(analysis);
+        if (active) {
+          setTocAnalysisError(null);
+          setTocAnalysis(analysis);
+        }
       })
       .catch((err) => {
-        if (active) showToast(err instanceof Error ? err.message : "目录证据加载失败", "warning");
+        if (active) setTocAnalysisError(err instanceof Error ? err.message : "目录证据加载失败");
       });
     return () => {
       active = false;
     };
-  }, [bookcourseRepository, showToast, uploadedFile]);
+  }, [bookcourseRepository, uploadedFile]);
 
   useEffect(() => {
     if (!conflictParentKey) return;
@@ -728,7 +732,6 @@ export function ChapterConfirmScreen() {
       [nextChapter.chapter_id]: createChapterDraft(nextChapter)
     }));
     publishDirectoryFeedback("saved", `已保存“${nextChapter.source_title}”的目录修改。`);
-    showToast("本章修改已保存，请继续确认目录");
   }
 
   function deleteChapters(chapterIds: string[]) {
@@ -738,7 +741,6 @@ export function ChapterConfirmScreen() {
       Object.entries(current).filter(([chapterId]) => !removalIds.has(chapterId))
     ));
     publishDirectoryFeedback("deleted", `已移除 ${chapterIds.length} 个目录项。`);
-    showToast(`已移除 ${chapterIds.length} 个目录项`, "info");
   }
 
   function toggleChapter(chapterId: string) {
@@ -762,13 +764,14 @@ export function ChapterConfirmScreen() {
 
   async function confirmCourse() {
     if (!uploadedFile || !parsedChapters?.length) {
-      showToast("没有可确认的后端目录结果，请先完成解析", "warning");
+      setCourseGenerationError("没有可确认的后端目录结果，请先完成解析");
       return;
     }
     if (chapterRangeConflicts.length > 0) {
-      showToast(`请先处理 ${chapterRangeConflicts.length} 处同级章节页码冲突`, "warning");
+      setCourseGenerationError(`请先处理 ${chapterRangeConflicts.length} 处同级章节页码冲突`);
       return;
     }
+    setCourseGenerationError(null);
     setGeneratingCourse(true);
     try {
       const confirmedChapters = await bookcourseRepository.confirmChapters(uploadedFile.bookId, parsedChapters ?? []);
@@ -802,11 +805,9 @@ export function ChapterConfirmScreen() {
       setGeneratedQuizzes(quizzes);
       setCurrentStudyPlan(plan);
       setActiveChapterId(finalJob.lessons[0]?.chapter_id ?? null);
-      const summary = lessonBuildSummary(finalJob);
-      showToast(summary.message, summary.warningCount > 0 ? "warning" : "success");
       go("courseReady");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "课程内容生成失败", "warning");
+      setCourseGenerationError(err instanceof Error ? err.message : "课程内容生成失败");
     } finally {
       setGeneratingCourse(false);
     }
@@ -872,6 +873,11 @@ export function ChapterConfirmScreen() {
         title="本次解析目录"
         action={chapterTree.length > 0 ? <span className="toc-directory-count">{chapterTree.length} 章</span> : null}
       >
+        {tocAnalysisError ? (
+          <p className="toc-directory-feedback toc-directory-error" role="alert">
+            {tocAnalysisError}
+          </p>
+        ) : null}
         {directoryFeedback ? (
           <p
             key={`chapter-directory-feedback:${directoryFeedback.sequence}`}
@@ -945,14 +951,15 @@ export function ChapterConfirmScreen() {
         </aside>
       </div>
       <div className="chapter-confirm-actions">
-      {generatingCourse || chapterRangeConflicts.length > 0 ? (
+      {generatingCourse || chapterRangeConflicts.length > 0 || courseGenerationError ? (
         <div
-          key={`chapter-confirm-action:${generatingCourse ? "generating" : "blocked"}`}
+          key={`chapter-confirm-action:${generatingCourse ? "generating" : courseGenerationError ? "error" : "blocked"}`}
           className="chapter-confirm-action-feedback"
-          data-motion-chapter-action={generatingCourse ? "generating" : "blocked"}
+          data-motion-chapter-action={generatingCourse ? "generating" : courseGenerationError ? "error" : "blocked"}
         >
           {generatingCourse ? <p role="status">正在确认目录并生成课程内容。</p> : null}
           {chapterRangeConflicts.length > 0 ? <p className="confirm-blocked-helper">处理完成后即可生成课程</p> : null}
+          {courseGenerationError ? <p className="confirm-blocked-helper" role="alert">{courseGenerationError}</p> : null}
         </div>
       ) : null}
       <Button

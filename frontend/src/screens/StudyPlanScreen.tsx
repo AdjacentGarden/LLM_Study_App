@@ -37,12 +37,7 @@ export function StudyPlanScreen() {
   const bookcourseRepository = useBookCourseRepository();
   const { currentStudyPlan, go, setCurrentStudyPlan, showToast, uploadedFile } = useAppContext();
   const reducedMotion = useReducedMotion();
-  const [selectedDay, setSelectedDay] = useState(() => {
-    const initialPlanDays = normalizeStudyPlanDays(currentStudyPlan?.days);
-    return currentStudyPlan?.tasks.find((task) => (
-      selectRenderablePlanDay(task.day, initialPlanDays) === task.day
-    ))?.day ?? minimumStudyPlanDays;
-  });
+  const [selectedDay, setSelectedDay] = useState(1);
   const [planLoading, setPlanLoading] = useState(false);
   const [selectedDateMotion, setSelectedDateMotion] = useState<{ day: number | null; state: "entering" | "idle" }>({ day: null, state: "idle" });
   const [completedTaskMotionIds, setCompletedTaskMotionIds] = useState<ReadonlySet<string>>(() => new Set());

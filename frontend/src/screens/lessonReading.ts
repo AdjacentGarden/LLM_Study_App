@@ -3,6 +3,7 @@ import type { ApiAsset, LessonBlock, LessonCitation } from "../types/api";
 export type LessonReadingSection = {
   block: LessonBlock;
   asset: ApiAsset | null;
+  assets: ApiAsset[];
 };
 
 export type LessonConceptDetail = {
@@ -34,10 +35,8 @@ export function isWholePageScan(asset: ApiAsset) {
     && bottom >= 0.95;
 }
 
-function chooseUnusedAsset(candidates: ApiAsset[], usedAssetIds: Set<string>) {
-  return candidates
-    .filter((asset) => !usedAssetIds.has(asset.asset_id) && !isWholePageScan(asset))
-    .sort((left, right) => assetPriority(left) - assetPriority(right))[0] ?? null;
+function uniqueAssets(assets: ApiAsset[]) {
+  return [...new Map(assets.map((asset) => [asset.asset_id, asset])).values()];
 }
 
 export function buildLessonReadingSections(
@@ -45,9 +44,7 @@ export function buildLessonReadingSections(
   assets: ApiAsset[]
 ): LessonReadingSection[] {
   const assetsById = new Map(assets.map((asset) => [asset.asset_id, asset]));
-  const usedAssetIds = new Set<string>();
-
-  return blocks.map((block) => {
+  const candidatesByBlock = blocks.map((block) => {
     const explicitlyLinkedAssets = block.asset_ids
       .map((assetId) => assetsById.get(assetId))
       .filter((asset): asset is ApiAsset => Boolean(asset));
@@ -60,15 +57,32 @@ export function buildLessonReadingSections(
         hasTextMatch(block.title, concept) || hasTextMatch(block.content, concept)
       ))
     ));
-    const asset = chooseUnusedAsset([
-      ...explicitlyLinkedAssets,
-      ...chunkLinkedAssets,
-      ...conceptLinkedAssets
-    ], usedAssetIds);
-
-    if (asset) usedAssetIds.add(asset.asset_id);
-    return { block, asset };
+    return uniqueAssets([
+      ...explicitlyLinkedAssets.sort((left, right) => assetPriority(left) - assetPriority(right)),
+      ...chunkLinkedAssets.sort((left, right) => assetPriority(left) - assetPriority(right)),
+      ...conceptLinkedAssets.sort((left, right) => assetPriority(left) - assetPriority(right))
+    ]).filter((asset) => !isWholePageScan(asset));
   });
+
+  const usedAssetIds = new Set<string>();
+  const selectedByBlock = blocks.map(() => [] as ApiAsset[]);
+
+  // Give every knowledge point its first relevant illustration before filling a
+  // second slot. This prevents an earlier card from consuming all shared art.
+  for (let slot = 0; slot < 2; slot += 1) {
+    candidatesByBlock.forEach((candidates, blockIndex) => {
+      const nextAsset = candidates.find((asset) => !usedAssetIds.has(asset.asset_id));
+      if (!nextAsset) return;
+      selectedByBlock[blockIndex].push(nextAsset);
+      usedAssetIds.add(nextAsset.asset_id);
+    });
+  }
+
+  return blocks.map((block, blockIndex) => ({
+    block,
+    asset: selectedByBlock[blockIndex][0] ?? null,
+    assets: selectedByBlock[blockIndex]
+  }));
 }
 
 export function buildLessonConceptDetail(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.core.config import BGE_RERANKER_REVISION
 from app.rag.reranker import BGERerankerService
 
 
@@ -18,3 +19,8 @@ def test_bge_reranker_can_fail_closed(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="configured BGE reranker is unavailable"):
         service.rerank("question", [], top_k=5)
+
+
+def test_bge_reranker_rejects_floating_revision() -> None:
+    with pytest.raises(ValueError, match=BGE_RERANKER_REVISION):
+        BGERerankerService("BAAI/bge-reranker-v2-m3", revision="main")

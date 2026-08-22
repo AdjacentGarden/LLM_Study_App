@@ -79,11 +79,12 @@ def write_book_owner(book_id: str, user_id: str | None) -> None:
 
 
 def read_book_owner(book_id: str) -> str | None:
-    path = book_dir(book_id) / "_owner.json"
+    path = resolve_under_root("books", book_id, "_owner.json")
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8")).get("user_id")
+        owner = json.loads(path.read_text(encoding="utf-8")).get("user_id")
+        return owner.strip() if isinstance(owner, str) and owner.strip() else None
     except Exception:
         return None
 

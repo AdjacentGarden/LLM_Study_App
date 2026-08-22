@@ -1,3 +1,32 @@
+.app-shell[data-active-screen="mistakes"] .header-bar {
+  top: 0;
+  right: 0;
+  left: 0;
+  box-sizing: border-box;
+  padding:
+    calc(var(--safe-area-top) + var(--space-layout))
+    calc(var(--safe-area-right) + var(--space-inline))
+    var(--space-layout)
+    calc(var(--safe-area-left) + var(--space-inline));
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.app-shell[data-active-screen="mistakes"] .header-glass {
+  border-color: transparent;
+  background: var(--color-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (min-width: 768px) {
+  .app-shell[data-active-screen="mistakes"] .header-bar {
+    left: calc(var(--safe-area-left) + var(--nav-rail-width) + var(--space-layout) + var(--space-layout));
+    padding-left: 0;
+  }
+}
+
 .mistake-book-screen {
   width: min(100%, 1120px);
   margin-inline: auto;
@@ -5,7 +34,6 @@
 }
 
 .mistake-overview,
-.mistake-insights,
 .mistake-toolbar,
 .mistake-list,
 .mistake-detail-card,
@@ -27,7 +55,6 @@
 .mistake-overview-main,
 .mistake-overview-main > div,
 .mistake-overview-stats,
-.mistake-insights > div:first-child,
 .mistake-toolbar,
 .mistake-search,
 .mistake-list-heading,
@@ -57,9 +84,6 @@
 .mistake-overview-main p,
 .mistake-overview-main strong,
 .mistake-overview-main small,
-.mistake-insights p,
-.mistake-insights strong,
-.mistake-insights small,
 .mistake-list-heading h2,
 .mistake-list-heading span,
 .mistake-detail-card h2,
@@ -157,63 +181,6 @@
   background: var(--color-primary);
   transform-origin: left center;
   transition: transform var(--motion-duration-local-slow) var(--motion-ease-progress);
-}
-
-.mistake-insights {
-  display: grid;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-large);
-  background: var(--color-surface-soft);
-}
-
-.mistake-insights > div:first-child {
-  gap: 9px;
-  color: var(--color-primary);
-}
-
-.mistake-insights > div:first-child span {
-  display: grid;
-  gap: 1px;
-}
-
-.mistake-insights strong {
-  color: var(--color-text);
-  font-size: 13px;
-}
-
-.mistake-insights small {
-  color: var(--color-text-secondary);
-  font-size: 11px;
-}
-
-.mistake-insight-topics {
-  display: grid;
-  gap: 7px;
-}
-
-.mistake-insight-topics > span {
-  position: relative;
-  z-index: 0;
-  min-height: 29px;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  padding-inline: 10px;
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.mistake-insight-topics i {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: var(--color-primary-soft);
-  transform-origin: left center;
 }
 
 .mistake-toolbar {
@@ -951,15 +918,6 @@
     grid-column: 2;
   }
 
-  .mistake-insights {
-    grid-template-columns: minmax(180px, .52fr) minmax(0, 1.48fr);
-    align-items: center;
-  }
-
-  .mistake-insight-topics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .mistake-workspace {
     grid-template-columns: minmax(240px, .8fr) minmax(0, 1.2fr);
   }
@@ -1018,19 +976,34 @@
     gap: 12px;
   }
 
-  .mistake-overview,
-  .mistake-review-question,
-  .mistake-review-analysis {
-    padding: 14px;
+  .mistake-overview {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .mistake-overview-main {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
   }
 
   .mistake-overview-main .button {
+    width: auto;
     padding-inline: 12px;
     font-size: 12px;
   }
 
   .mistake-overview-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mistake-overview-stats > span {
+    padding: 8px 7px;
+  }
+
+  .mistake-review-question,
+  .mistake-review-analysis {
+    padding: 14px;
   }
 
   .mistake-book-screen .mistake-filter-group {
@@ -1065,7 +1038,6 @@
 
 @media (max-height: 599px) and (orientation: landscape) {
   .mistake-overview,
-  .mistake-insights,
   .mistake-review-question,
   .mistake-review-analysis {
     padding: 12px;

@@ -190,6 +190,14 @@ def _write_thumbnail(image_path: Path, thumb_path: Path) -> None:
         shutil.copyfile(image_path, thumb_path)
 
 
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def run_generation_job(job_id: str, payload: ImageGenerationRequest) -> None:
     started = time.perf_counter()
     provider = get_settings().image_provider
@@ -212,6 +220,7 @@ def run_generation_job(job_id: str, payload: ImageGenerationRequest) -> None:
         adapter = get_image_adapter()
         adapter.generate(prompt, image_path)
         _write_thumbnail(image_path, thumb_path)
+        content_hash = _file_sha256(image_path)
 
         settings = get_settings()
         asset = Asset(
@@ -231,6 +240,7 @@ def run_generation_job(job_id: str, payload: ImageGenerationRequest) -> None:
             generation_provider=settings.image_provider,
             generation_prompt=prompt,
             review_status="pending",
+            content_hash=content_hash,
         )
 
         committed_asset: Asset | None = None

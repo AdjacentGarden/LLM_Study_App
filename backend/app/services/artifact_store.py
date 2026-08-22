@@ -11,7 +11,13 @@ import tempfile
 import threading
 from uuid import uuid4
 
-from app.rag.cache import get_chunks, invalidate_artifact_embeddings, invalidate_bm25, invalidate_chunks
+from app.rag.cache import (
+    get_chunks,
+    invalidate_artifact_embeddings,
+    invalidate_bm25,
+    invalidate_chunks,
+    invalidate_rag_answers,
+)
 from app.schemas.books import Asset, Chapter, Chunk, Flashcard, Lesson, QuizQuestion
 from app.services.storage import artifact_dir
 
@@ -162,6 +168,7 @@ def _invalidate_rag_caches(book_id: str) -> None:
     invalidate_chunks(book_id)
     invalidate_bm25(book_id)
     invalidate_artifact_embeddings(book_id)
+    invalidate_rag_answers(book_id)
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
@@ -501,8 +508,9 @@ def _read_json(path: Path, default: list[dict]) -> list[dict]:
 
 
 def read_chapters(book_id: str) -> list[Chapter]:
-    path = artifact_dir(book_id) / "chapters.json"
-    return [Chapter.model_validate(item) for item in _read_json(path, [])]
+    with _book_lock(book_id):
+        path = artifact_dir(book_id) / "chapters.json"
+        return [Chapter.model_validate(item) for item in _read_json(path, [])]
 
 
 def write_chapters(
@@ -548,9 +556,10 @@ def _write_chapters_unlocked(book_id: str, chapters: list[Chapter]) -> None:
 
 
 def write_original_chapters_once(book_id: str, chapters: list[Chapter]) -> None:
-    path = artifact_dir(book_id) / "chapters_original.json"
-    if not path.exists():
-        path.write_text(json.dumps([item.model_dump() for item in chapters], ensure_ascii=False, indent=2), encoding="utf-8")
+    with _cross_process_book_lock(book_id), _book_lock(book_id):
+        path = artifact_dir(book_id) / "chapters_original.json"
+        if not path.exists():
+            _atomic_write_json(path, [item.model_dump(mode="json") for item in chapters])
 
 
 def read_assets(book_id: str) -> list[Asset]:
@@ -607,30 +616,42 @@ def write_chunks(book_id: str, chunks: list[Chunk]) -> None:
 
 
 def read_lessons(book_id: str) -> list[Lesson]:
-    path = artifact_dir(book_id) / "lessons.json"
-    return [Lesson.model_validate(item) for item in _read_json(path, [])]
+    with _book_lock(book_id):
+        path = artifact_dir(book_id) / "lessons.json"
+        return [Lesson.model_validate(item) for item in _read_json(path, [])]
 
 
 def write_lessons(book_id: str, lessons: list[Lesson]) -> None:
-    path = artifact_dir(book_id) / "lessons.json"
-    path.write_text(json.dumps([item.model_dump() for item in lessons], ensure_ascii=False, indent=2), encoding="utf-8")
+    with _cross_process_book_lock(book_id), _book_lock(book_id):
+        _atomic_write_json(
+            artifact_dir(book_id) / "lessons.json",
+            [item.model_dump(mode="json") for item in lessons],
+        )
 
 
 def read_flashcards(book_id: str) -> list[Flashcard]:
-    path = artifact_dir(book_id) / "flashcards.json"
-    return [Flashcard.model_validate(item) for item in _read_json(path, [])]
+    with _book_lock(book_id):
+        path = artifact_dir(book_id) / "flashcards.json"
+        return [Flashcard.model_validate(item) for item in _read_json(path, [])]
 
 
 def write_flashcards(book_id: str, cards: list[Flashcard]) -> None:
-    path = artifact_dir(book_id) / "flashcards.json"
-    path.write_text(json.dumps([item.model_dump() for item in cards], ensure_ascii=False, indent=2), encoding="utf-8")
+    with _cross_process_book_lock(book_id), _book_lock(book_id):
+        _atomic_write_json(
+            artifact_dir(book_id) / "flashcards.json",
+            [item.model_dump(mode="json") for item in cards],
+        )
 
 
 def read_quizzes(book_id: str) -> list[QuizQuestion]:
-    path = artifact_dir(book_id) / "quizzes.json"
-    return [QuizQuestion.model_validate(item) for item in _read_json(path, [])]
+    with _book_lock(book_id):
+        path = artifact_dir(book_id) / "quizzes.json"
+        return [QuizQuestion.model_validate(item) for item in _read_json(path, [])]
 
 
 def write_quizzes(book_id: str, questions: list[QuizQuestion]) -> None:
-    path = artifact_dir(book_id) / "quizzes.json"
-    path.write_text(json.dumps([item.model_dump() for item in questions], ensure_ascii=False, indent=2), encoding="utf-8")
+    with _cross_process_book_lock(book_id), _book_lock(book_id):
+        _atomic_write_json(
+            artifact_dir(book_id) / "quizzes.json",
+            [item.model_dump(mode="json") for item in questions],
+        )

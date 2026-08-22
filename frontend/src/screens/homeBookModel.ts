@@ -226,7 +226,7 @@ export function buildHomeBookModels({
       errorMessage,
       updatedAt: course.updated_at,
       coverVariant: stableBookCoverVariant(course.book_id, title),
-      coverUrl: catalogByBookId.get(course.book_id)?.coverUrl ?? null
+      coverUrl: course.cover_url ?? catalogByBookId.get(course.book_id)?.coverUrl ?? null
     };
   });
 

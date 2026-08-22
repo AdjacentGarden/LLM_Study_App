@@ -27,6 +27,22 @@ Run tests:
 python -m pytest
 ```
 
+## Real community catalog
+
+`GET /api/community/books` exposes a fixed catalog of three complete Project
+Gutenberg PDF editions. Run `python -m app.community.prefetch` during server
+provisioning to download them into the server-owned `community-library`
+directory. The prefetch rejects redirects, verifies the exact content type,
+byte length and SHA-256 digest, and validates PDF safety limits.
+`POST /api/community/books/{catalog_id}/import` copies the verified server
+source and publishes it atomically into the authenticated user's course storage.
+Repeated imports are idempotent. A failed or changed source leaves no partial
+course behind. Source and license links are returned with every catalog item.
+
+The current catalog is intentionally small and verifiable: *Calculus Made
+Easy*, the first six books of Euclid's *Elements*, and *Utility of Quaternions
+in Physics*. Their provenance is recorded in `THIRD_PARTY_NOTICES.md`.
+
 ## Supported uploads and safety validation
 
 The public upload contract accepts PDF; PNG, JPG/JPEG, JP2, WEBP, single-frame
@@ -154,7 +170,7 @@ Source figures remain the primary strategy. AI images are stored as `source_type
 Chunker V2 counts the exact text sent to embeddings (heading path, overlap,
 and body) with `BAAI/bge-m3` revision
 `5617a9f61b028005a4858fdac845db406aefb181`. This protocol is intentionally
-not configurable: `transformers==4.57.6` and `tokenizers==0.22.2` are exact
+not configurable: `transformers==5.5.4` and `tokenizers==0.22.2` are exact
 runtime dependencies, and tokenizer/version/load failures stop chunking rather
 than silently changing persisted token counts.
 
@@ -311,6 +327,12 @@ Relevant settings are listed in `.env.example`. Important lifecycle constraints:
 - The parse API reserves one monotonically increasing generation before it
   queues work, binds that generation to one CloudPath job, and resumes the
   persisted MinerU task ID instead of uploading the source again.
+- A completed parse is a durable backend cache entry. When the source SHA-256,
+  parser endpoint/options, successful persisted job, and required artifacts
+  still match, another `POST /api/books/{book_id}/parse` returns that completed
+  job immediately without creating a new generation or queueing GPU work.
+  Replacing the source file, changing parser options, or detecting incomplete
+  artifacts invalidates the hit and starts a new generation.
 - A stale MinerU generation is propagated before the router can enter a
   fallback path; mapping and every artifact publication boundary also verify
   the active generation. A late obsolete result cannot replace newer
@@ -349,6 +371,12 @@ for traceability; RAG reads normalized `chunks.jsonl`, not the raw response.
 `artifacts/page_images/*` is generated lazily by the page-image API, and
 `artifacts/rag_audit.jsonl` is appended later when RAG queries run; neither is
 a mandatory parse output.
+
+For production, `BOOKCOURSE_STORAGE_ROOT` must point at persistent server or
+cloud-mounted storage (the deployment profile uses `/var/lib/bookcourse`). Do
+not place parsed books in a frontend image or application bundle: originals,
+normalized artifacts, page previews, generated lessons, and task state all
+remain backend-owned and survive application rebuilds and restarts.
 
 ## Judge Verification
 

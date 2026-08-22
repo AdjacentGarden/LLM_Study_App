@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import get_settings
+from app.core.errors import AppError
 from app.lessons import service as lesson_service
 from app.lessons.planning import build_lesson_generation_plan
 from app.lessons.service import lesson_job_store, run_lesson_build_job
@@ -243,6 +244,29 @@ def test_one_generation_exception_does_not_abort_other_targets(monkeypatch: pyte
     statuses = {item.chapter_id: item.status for item in result.chapter_results}
     assert statuses == {"ready": "done", "broken": "failed"}
     assert [lesson.chapter_id for lesson in read_lessons(book_id)] == ["ready"]
+
+
+def test_invalid_provider_content_is_retried_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    book_id = "book_generation_retry"
+    write_chapters(book_id, [_chapter("ready", "Ready lesson")])
+    write_assets_and_chunks(book_id, [], [_chunk(book_id, "ready", "body")])
+    original_build = lesson_service._build_target_lesson
+    attempts = 0
+
+    def invalid_once(book_id_arg, entry, adapter):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise AppError("lesson_llm_invalid_schema", "invalid provider content", status_code=502)
+        return original_build(book_id_arg, entry, adapter)
+
+    monkeypatch.setattr(lesson_service, "_build_target_lesson", invalid_once)
+
+    result = _run_job(book_id)
+
+    assert attempts == 2
+    assert result.status == "done"
+    assert [lesson.chapter_id for lesson in result.lessons] == ["ready"]
 
 
 def test_requesting_parent_and_child_deduplicates_the_expanded_child() -> None:

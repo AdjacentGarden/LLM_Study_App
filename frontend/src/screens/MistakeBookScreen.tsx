@@ -143,7 +143,6 @@ export function MistakeBookScreen() {
     masteryFor(mistake, localMastery) === "repeated" || errorCountFor(mistake) > 1
   )).length;
   const masteryProgress = mistakes.length > 0 ? Math.round((masteredCount / mistakes.length) * 100) : 0;
-  const topicSummary = Array.from(new Set(mistakes.flatMap((mistake) => mistake.knowledge_points))).slice(0, 3);
   const hasVisibleMistakeList = Boolean(uploadedFile && !mistakeError && !loadingMistakes && filteredMistakes.length > 0);
   const detailMotion = useLocalMotionItem(
     `mistake-detail:${detailMotionSelection ?? "initial"}:${detailRevision}`,
@@ -403,20 +402,6 @@ export function MistakeBookScreen() {
             <span><strong>{masteryProgress}%</strong><small>掌握进度</small></span>
           </div>
           <div className="mistake-overview-progress" aria-hidden="true"><span style={{ transform: `scaleX(${masteryProgress / 100})` }} /></div>
-        </section>
-      ) : null}
-
-      {uploadedFile && !mistakeError && !loadingMistakes && mistakes.length > 0 ? (
-        <section className="mistake-insights" aria-label="薄弱知识点">
-          <div>
-            <Target size={18} aria-hidden="true" />
-            <span><strong>优先复习</strong><small>从卡点最集中的知识开始</small></span>
-          </div>
-          <div className="mistake-insight-topics">
-            {(topicSummary.length > 0 ? topicSummary : ["等待知识点分析"]).map((topic, index) => (
-              <span key={topic}><i style={{ transform: `scaleX(${Math.max(.38, 1 - index * .22)})` }} />{topic}</span>
-            ))}
-          </div>
         </section>
       ) : null}
 

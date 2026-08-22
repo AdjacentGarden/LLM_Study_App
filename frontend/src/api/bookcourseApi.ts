@@ -1,5 +1,7 @@
 import { runtimeConfig } from "../config/runtime";
 import type {
+  AssistantChatRequest,
+  AssistantChatResponse,
   AssignmentSubmitRequest,
   AssignmentSubmitResponse,
   ApiAsset,
@@ -8,6 +10,8 @@ import type {
   ApiErrorPayload,
   AssetSourceType,
   ChapterUpdate,
+  CommunityBookSummary,
+  CommunityImportResponse,
   CourseSummary,
   DiagnosisResponse,
   FileSaveResponse,
@@ -48,6 +52,16 @@ export class BookCourseApiError extends Error {
     this.details = payload.details ?? {};
     this.status = status;
   }
+}
+
+export function resolveApiAssetUrl(source: string | null | undefined): string | null {
+  if (!source) return null;
+  if (/^https?:\/\//i.test(source) || source.startsWith("data:") || source.startsWith("blob:")) return source;
+  return `${runtimeConfig.apiBaseUrl}${source.startsWith("/") ? source : `/${source}`}`;
+}
+
+function withResolvedCommunityCover(book: CommunityBookSummary): CommunityBookSummary {
+  return { ...book, cover: resolveApiAssetUrl(book.cover) ?? book.cover };
 }
 
 function delay(ms: number) {
@@ -127,8 +141,35 @@ export const bookcourseApi = {
     return requestJson<RuntimeCapabilities>("/api/runtime-capabilities");
   },
 
-  listCourses() {
-    return requestJson<CourseSummary[]>("/api/books");
+  async listCourses(): Promise<CourseSummary[]> {
+    const courses = await requestJson<CourseSummary[]>("/api/books");
+    return courses.map((course) => ({
+      ...course,
+      cover_url: resolveApiAssetUrl(course.cover_url)
+    }));
+  },
+
+  chatAssistant(payload: AssistantChatRequest) {
+    return requestJson<AssistantChatResponse>("/api/assistant/chat", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }, 0);
+  },
+
+  listCommunityBooks() {
+    return requestJson<CommunityBookSummary[]>("/api/community/books")
+      .then((books) => books.map(withResolvedCommunityCover));
+  },
+
+  getCommunityBook(catalogId: string) {
+    return requestJson<CommunityBookSummary>(`/api/community/books/${encodeURIComponent(catalogId)}`)
+      .then(withResolvedCommunityCover);
+  },
+
+  importCommunityBook(catalogId: string) {
+    return requestJson<CommunityImportResponse>(`/api/community/books/${encodeURIComponent(catalogId)}/import`, {
+      method: "POST"
+    }, 0);
   },
 
   deleteCourse(bookId: string) {

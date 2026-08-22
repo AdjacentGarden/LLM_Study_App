@@ -21,7 +21,7 @@ import { CollapsibleRegion, MotionIconSwap } from "../motion";
 import type { ApiChapter, StudyTask } from "../types/api";
 import type { StudyLocation } from "../types/app";
 import { buildChapterTree, type ChapterTreeNode } from "../utils/chapterStructure";
-import { liveBookTitle, sourcePageImageUrl, sourcePageLabel } from "./shared";
+import { courseCoverImageUrl, liveBookTitle, sourcePageLabel } from "./shared";
 import { studyToolDefinitions, type StudyToolId } from "./studyTools";
 import { calculateChapterProgress } from "./studyProgress";
 import { hasCompleteLoadedCourseContext } from "./courseResourceIdentity";
@@ -61,7 +61,9 @@ function chapterPageLabel(chapter: ApiChapter): string {
 }
 
 function countFormalSections(node: ChapterTreeNode): number {
-  return node.children.filter((child) => /^第\s*\d+\s*节/.test(child.chapter.source_title)).length;
+  return node.children.filter((child) => (
+    /^(?:第\s*\d+\s*节|\d+\.\d+\*?\s*)/.test(child.chapter.source_title)
+  )).length;
 }
 
 function getChapterNodeIds(node: ChapterTreeNode): string[] {
@@ -332,7 +334,7 @@ function StudyChapter({
               depth={depth}
               expanded={location.expandedSectionId === chapter.chapter_id}
               key={chapter.chapter_id}
-              progress={calculateChapterProgress(tasks, chapterIds)}
+              progress={node.children.length === 0 ? progress : calculateChapterProgress(tasks, chapterIds)}
               onToggle={() => onToggleSection(chapter.chapter_id)}
             />
           ))}
@@ -457,12 +459,18 @@ export function StudyScreen() {
 
   const totalTasks = currentStudyPlan?.tasks.length ?? 0;
   const completedTasks = currentStudyPlan?.tasks.filter((task) => task.status === "done").length ?? 0;
-  const planProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const chapterProgresses = chapterTree.map((node) => (
+    calculateChapterProgress(currentStudyPlan?.tasks ?? [], getChapterNodeIds(node))
+  ));
+  const planProgress = totalTasks > 0
+      ? Math.round((completedTasks / totalTasks) * 100)
+      : 0;
   const currentSection = activeChapters?.find((chapter) => chapter.chapter_id === location.expandedSectionId)
     ?? activeChapters?.[0]
     ?? null;
   const currentLesson = generatedLessons?.find((lesson) => lesson.chapter_id === currentSection?.chapter_id);
   const bookTitle = liveBookTitle(uploadedFile, parsedScanResult);
+  const activeCourseSummary = courseSummaries.find((course) => course.book_id === uploadedFile?.bookId);
   const todayMinutes = currentStudyPlan?.daily_minutes ?? 25;
 
   function toggleChapter(node: ChapterTreeNode) {
@@ -573,7 +581,7 @@ export function StudyScreen() {
       <div className={`study-sticky-stack ${planCompact ? "is-plan-compact" : ""}`}>
         <header className="study-book-bar">
           <button className="study-book-switch" type="button" onClick={() => openSheet({ type: "bookSwitcher" })}>
-            <img src={sourcePageImageUrl(uploadedFile.bookId, 1)} alt="" />
+            <img src={courseCoverImageUrl(uploadedFile.bookId, activeCourseSummary?.cover_url)} alt="" />
             <span>
               <small>当前教材</small>
               <strong>{bookTitle}</strong>
@@ -590,30 +598,29 @@ export function StudyScreen() {
           data-plan-state={planCompact ? "compact" : "expanded"}
           aria-label="学习计划"
         >
-          {!planCompact ? (
-            <>
-              <div className="study-plan-heading">
-                <h1>学习计划</h1>
-                <button type="button" onClick={() => go("plan")}>
-                  计划详情
-                  <ChevronRight size={16} aria-hidden="true" />
-                </button>
+          <div className="study-plan-details" aria-hidden={planCompact}>
+            <div className="study-plan-heading">
+              <h1>学习计划</h1>
+              <button type="button" tabIndex={planCompact ? -1 : undefined} onClick={() => go("plan")}>
+                计划详情
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="study-plan-copy">
+              <span className="study-plan-icon" aria-hidden="true"><Check size={18} /></span>
+              <div>
+                <small>{`今日建议 · ${todayMinutes} 分钟`}</small>
+                <strong>{currentLesson?.title ?? currentSection?.source_title ?? "从第一节开始"}</strong>
               </div>
-              <div className="study-plan-copy">
-                <span className="study-plan-icon" aria-hidden="true"><Check size={18} /></span>
-                <div>
-                  <small>今日建议 · {todayMinutes} 分钟</small>
-                  <strong>{currentLesson?.title ?? currentSection?.source_title ?? "从第一节开始"}</strong>
-                </div>
-              </div>
-            </>
-          ) : null}
+            </div>
+          </div>
           <ProgressBar value={planProgress} label={`计划完成 ${planProgress}%`} />
         </section>
       </div>
 
       <section
         className={`study-directory ${directoryDragging ? "is-mouse-dragging" : ""}`}
+        data-mouse-drag-scroll="ignore"
         aria-labelledby="study-directory-title"
         onClickCapture={suppressClickAfterDirectoryDrag}
         onPointerCancel={finishDirectoryMouseDrag}
@@ -631,7 +638,7 @@ export function StudyScreen() {
               key={node.chapter.chapter_id}
               node={node}
               chapterIndex={index}
-              progress={calculateChapterProgress(currentStudyPlan?.tasks ?? [], getChapterNodeIds(node))}
+              progress={chapterProgresses[index] ?? 0}
               tasks={currentStudyPlan?.tasks ?? []}
               location={location}
               onToggleChapter={() => toggleChapter(node)}

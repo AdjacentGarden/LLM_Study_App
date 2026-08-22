@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -8,6 +8,7 @@ import {
 import {
   Button,
   Card,
+  openGlobalAiAssistantEvent,
   ProgressBar
 } from "../components/ui";
 import { useAppContext } from "../context/AppContext";
@@ -21,8 +22,8 @@ import {
 } from "../utils/lessonGeneration";
 import {
   backendAssetUrl,
-  chapterConcepts,
   liveBookTitle,
+  sourcePageImageUrl,
   sourcePageLabel
 } from "./shared";
 import {
@@ -30,9 +31,11 @@ import {
   learnerCitationPageLabel
 } from "./lessonEvidence";
 import {
-  buildLessonConceptDetail,
   buildLessonReadingSections
 } from "./lessonReading";
+import { LessonAiChatEntry } from "./LessonAiChatEntry";
+
+const lessonIntroductionAssetId = "asset_ai_meiosis_fertilization_cycle_v1";
 
 function assetPrintedPage(asset: ApiAsset) {
   if (asset.source_type !== "extracted") return null;
@@ -90,6 +93,28 @@ function LessonFigure({
   );
 }
 
+function LessonSourceEntry({
+  citation,
+  onOpen
+}: {
+  citation: LessonCitation;
+  onOpen: () => void;
+}) {
+  const pageLabel = learnerCitationPageLabel(citation);
+
+  return (
+    <button
+      className="lesson-source-link"
+      type="button"
+      aria-label={`查看原文，${pageLabel}`}
+      onClick={onOpen}
+    >
+      <BookOpen size={17} aria-hidden="true" />
+      <span>查看原文</span>
+    </button>
+  );
+}
+
 export function LessonScreen() {
   const bookcourseRepository = useBookCourseRepository();
   const {
@@ -99,7 +124,6 @@ export function LessonScreen() {
     generatedQuizzes,
     go,
     lessonBuildJobStatus,
-    openSourcePage,
     openSheet,
     parsedAssets,
     parsedChapters,
@@ -137,11 +161,8 @@ export function LessonScreen() {
         )
       )) ?? []
     : [];
-  const concepts = lesson?.key_concepts.length
-    ? lesson.key_concepts
-    : chapterConcepts(liveChapter, liveChunks[0]);
+  const lessonIntroductionAsset = liveAssets.find((asset) => asset.asset_id === lessonIntroductionAssetId) ?? null;
   const lessonTitle = lesson?.title ?? liveChapter?.ai_title ?? "等待章节课程";
-  const sourceTitle = lesson?.source_title ?? liveChapter?.source_title ?? "等待章节";
   const learnerPageStart = liveChapter?.printed_page_start ?? lesson?.page_start ?? liveChapter?.page_start;
   const learnerPageEnd = liveChapter?.printed_page_end ?? lesson?.page_end ?? liveChapter?.page_end;
   const pages = learnerPageStart
@@ -152,11 +173,22 @@ export function LessonScreen() {
     () => buildLessonReadingSections(lessonBlocks, liveAssets),
     [lessonBlocks, liveAssets]
   );
+  const [activeLessonPage, setActiveLessonPage] = useState(0);
+  const [lessonPageDirection, setLessonPageDirection] = useState<"back" | "forward">("forward");
+  const lessonSwipeStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const lessonMotionKey = `${uploadedFile?.bookId ?? "empty"}:${liveChapter?.chapter_id ?? "empty"}:${lesson?.lesson_id ?? "pending"}`;
   const emptyMotion = useLocalMotionItem(`lesson:${lessonMotionKey}:empty`);
   const titleMotion = useLocalMotionItem(`lesson:${lessonMotionKey}:title`);
   const primaryMotion = useLocalMotionItem(`lesson:${lessonMotionKey}:primary`);
-  const conceptsMotion = useLocalMotionItem(`lesson:${lessonMotionKey}:concepts`);
+
+  useEffect(() => {
+    setActiveLessonPage(0);
+    setLessonPageDirection("forward");
+  }, [lessonMotionKey]);
+
+  useEffect(() => {
+    setActiveLessonPage((currentPage) => Math.min(currentPage, readingSections.length));
+  }, [readingSections.length]);
 
   if (!uploadedFile || !liveChapter) {
     return (
@@ -176,7 +208,7 @@ export function LessonScreen() {
   const activeLiveChapter = liveChapter;
 
   function openCitationSource(blockTitle: string, citation: LessonCitation) {
-    openSourcePage({
+    const source = {
       bookId: activeUploadedFile.bookId,
       title: blockTitle,
       pageStart: citation.page_start,
@@ -184,6 +216,15 @@ export function LessonScreen() {
       printedPageStart: citation.printed_page_start,
       printedPageEnd: citation.printed_page_end,
       from: "lesson"
+    } as const;
+    const sourceChunk = liveChunks.find((chunk) => chunk.chunk_id === citation.chunk_id);
+    openSheet({
+      type: "source",
+      title: blockTitle,
+      page: detailedCitationPageLabel(citation),
+      image: sourcePageImageUrl(activeUploadedFile.bookId, citation.page_start),
+      text: sourceChunk?.text.trim() || citation.quote?.trim() || undefined,
+      source
     });
   }
 
@@ -194,7 +235,7 @@ export function LessonScreen() {
     }
     if (asset.source_type !== "extracted") return;
     const printedPage = assetPrintedPage(asset);
-    openSourcePage({
+    const source = {
       bookId: activeUploadedFile.bookId,
       title: asset.caption,
       pageStart: asset.page,
@@ -202,31 +243,60 @@ export function LessonScreen() {
       printedPageStart: printedPage ?? undefined,
       printedPageEnd: printedPage ?? undefined,
       from: "lesson"
+    } as const;
+    const sourceText = liveChunks
+      .filter((chunk) => chunk.page_start <= asset.page && asset.page <= chunk.page_end)
+      .map((chunk) => chunk.text.trim())
+      .filter(Boolean)
+      .join("\n\n");
+    const page = typeof printedPage === "number"
+      ? `教材${sourcePageLabel(printedPage)}（PDF ${sourcePageLabel(asset.page)}）`
+      : `教材${sourcePageLabel(asset.page)}`;
+    openSheet({
+      type: "source",
+      title: asset.caption,
+      page,
+      image: sourcePageImageUrl(activeUploadedFile.bookId, asset.page),
+      text: sourceText || undefined,
+      source
     });
   }
 
-  function openConceptDetail(concept: string) {
-    const detail = buildLessonConceptDetail(concept, lesson?.summary ?? sourceTitle, readingSections);
-    const citation = detail.citation;
-    const source = citation ? {
-      bookId: activeUploadedFile.bookId,
-      title: concept,
-      pageStart: citation.page_start,
-      pageEnd: citation.page_end,
-      printedPageStart: citation.printed_page_start,
-      printedPageEnd: citation.printed_page_end,
-      from: "lesson" as const
-    } : undefined;
+  function moveLessonPage(nextPage: number) {
+    const boundedPage = Math.max(0, Math.min(readingSections.length, nextPage));
+    if (boundedPage === activeLessonPage) return;
+    setLessonPageDirection(boundedPage > activeLessonPage ? "forward" : "back");
+    setActiveLessonPage(boundedPage);
+  }
 
-    openSheet({
-      type: "note",
-      concept,
-      explanation: detail.explanation,
-      sourceLabel: citation ? `查看${detailedCitationPageLabel(citation)}` : undefined,
-      source,
-      image: backendAssetUrl(detail.asset?.image_url),
-      imageCaption: detail.asset?.caption
-    });
+  function handleLessonKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      moveLessonPage(activeLessonPage - 1);
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      moveLessonPage(activeLessonPage + 1);
+    }
+  }
+
+  function handleLessonPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    lessonSwipeStart.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId
+    };
+  }
+
+  function handleLessonPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const swipeStart = lessonSwipeStart.current;
+    lessonSwipeStart.current = null;
+    if (!swipeStart || swipeStart.pointerId !== event.pointerId) return;
+    const horizontalDistance = event.clientX - swipeStart.x;
+    const verticalDistance = event.clientY - swipeStart.y;
+    if (Math.abs(horizontalDistance) < 48 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance) * 1.2) return;
+    moveLessonPage(activeLessonPage + (horizontalDistance < 0 ? 1 : -1));
   }
 
   async function buildCurrentLesson() {
@@ -271,17 +341,36 @@ export function LessonScreen() {
     }
   }
 
-  const appShell = typeof document === "undefined" ? null : document.querySelector(".app-shell");
+  const appShell = typeof document === "undefined" ? null : document.querySelector<HTMLElement>(".app-shell");
+  const lessonPageCount = readingSections.length + 1;
+  const isLastLessonPage = activeLessonPage === lessonPageCount - 1;
+  const fallbackChunk = liveChunks.find((chunk) => chunk.content_type !== "ocr_pending") ?? liveChunks[0] ?? null;
+  const lessonFallbackCitation = readingSections
+    .map((section) => section.block.citations[0] ?? null)
+    .find((citation): citation is LessonCitation => citation !== null)
+    ?? {
+      chunk_id: fallbackChunk?.chunk_id ?? "",
+      page_start: fallbackChunk?.page_start ?? activeLiveChapter.page_start,
+      page_end: fallbackChunk?.page_end ?? activeLiveChapter.page_end,
+      printed_page_start: fallbackChunk?.printed_page_start ?? activeLiveChapter.printed_page_start,
+      printed_page_end: fallbackChunk?.printed_page_end ?? activeLiveChapter.printed_page_end,
+      quote: fallbackChunk?.text.trim() || null
+    };
 
   return (
     <>
-      <div className="lesson-screen">
+      <div
+        className="lesson-screen"
+        onPointerDown={handleLessonPointerDown}
+        onPointerUp={handleLessonPointerUp}
+        onPointerCancel={() => { lessonSwipeStart.current = null; }}
+      >
         <div className="lesson-layout">
-          <article className="lesson-reading-column" aria-labelledby="lesson-article-title">
-          <header {...titleMotion.attributes} className="lesson-article-header">
-            <h2 id="lesson-article-title">{lessonTitle}</h2>
-            <p className="lesson-article-meta">{liveBookTitle(activeUploadedFile)} · 原书{pages}</p>
-            {!lesson ? (
+          <article className="lesson-reading-column" aria-label={lessonTitle}>
+          {!lesson ? (
+            <header {...titleMotion.attributes} className="lesson-article-header">
+              <h2 id="lesson-article-title">{lessonTitle}</h2>
+              <p className="lesson-article-meta">{liveBookTitle(activeUploadedFile)} · 原书{pages}</p>
               <div className="lesson-generation-panel">
                 <p>生成后会把本节原文整理成可追溯的图文知识讲解。</p>
                 <ProgressBar
@@ -296,74 +385,144 @@ export function LessonScreen() {
                   基于全文生成本章课程
                 </Button>
               </div>
-            ) : null}
-          </header>
+            </header>
+          ) : null}
 
           {lesson ? (
             <>
-              <section {...primaryMotion.attributes} className="lesson-introduction" aria-labelledby="lesson-introduction-title">
-                <h3 id="lesson-introduction-title">本节导读</h3>
-                <p>{lesson.summary}</p>
-                {lesson.objectives.length > 0 ? (
-                  <ul aria-label="本节学习目标">
-                    {lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}
-                  </ul>
-                ) : null}
-              </section>
+              {(() => {
+                const activeSection = activeLessonPage === 0
+                  ? null
+                  : readingSections[activeLessonPage - 1] ?? null;
+                const citation = activeSection?.block.citations[0] ?? lessonFallbackCitation;
+                const pageTitle = activeSection?.block.title ?? "本节导读";
+                const activeAssets = activeSection?.assets ?? [];
+                const contentParagraphs = activeSection
+                  ? activeSection.block.content
+                      .split(/\n\s*\n/)
+                      .map((paragraph) => paragraph.trim())
+                      .filter(Boolean)
+                  : [];
+                return (
+                  <div
+                    className="lesson-knowledge-pager"
+                    role="group"
+                    aria-roledescription="章节学习分页"
+                    aria-label={`章节学习第 ${activeLessonPage + 1} 页，共 ${lessonPageCount} 页`}
+                    tabIndex={0}
+                    onKeyDown={handleLessonKeyDown}
+                  >
+                    <div className="lesson-page-overview">
+                      <div className="lesson-page-status" aria-live="polite" aria-atomic="true">
+                        <span>第 {activeLessonPage + 1} / {lessonPageCount} 页</span>
+                        <strong>{pageTitle}</strong>
+                        <small aria-hidden="true">左右滑动</small>
+                      </div>
+                      <div
+                        className="lesson-page-progress"
+                        role="progressbar"
+                        aria-label="章节学习进度"
+                        aria-valuemin={1}
+                        aria-valuemax={lessonPageCount}
+                        aria-valuenow={activeLessonPage + 1}
+                      >
+                        <span style={{ width: `${((activeLessonPage + 1) / lessonPageCount) * 100}%` }} />
+                      </div>
+                    </div>
 
-              <div className="lesson-knowledge-flow">
-                {readingSections.map(({ block, asset }) => {
-                  const citation = block.citations[0] ?? null;
-                  return (
-                    <section className="lesson-knowledge-section" key={block.block_id} aria-labelledby={`${block.block_id}-title`}>
-                      <h3 id={`${block.block_id}-title`}>{block.title}</h3>
-                      <p>{block.content}</p>
-                      {asset ? (
-                        <LessonFigure
-                          asset={asset}
-                          citation={citation}
-                          onOpenSource={() => openAssetSource(block.title, asset, citation)}
-                        />
-                      ) : null}
-                      {citation ? (
-                        <button
-                          className="lesson-source-link"
-                          type="button"
-                          onClick={() => openCitationSource(block.title, citation)}
+                    <div className="lesson-knowledge-page-window">
+                      {activeSection ? (
+                        <section
+                          className="lesson-knowledge-section lesson-learning-page"
+                          key={activeSection.block.block_id}
+                          data-page-direction={lessonPageDirection}
+                          aria-labelledby={`${activeSection.block.block_id}-title`}
                         >
-                          查看{learnerCitationPageLabel(citation)}
-                        </button>
-                      ) : null}
-                    </section>
-                  );
-                })}
-              </div>
-
-              <section {...conceptsMotion.attributes} className="lesson-concepts" aria-labelledby="lesson-concepts-title">
-                <div className="lesson-section-heading">
-                  <h3 id="lesson-concepts-title">核心概念</h3>
-                  <span>点击查看知识详情</span>
-                </div>
-                <div className="concept-card-grid">
-                  {concepts.slice(0, 6).map((concept) => (
-                    <button
-                      type="button"
-                      key={concept}
-                      aria-label={`查看核心概念：${concept}`}
-                      onClick={() => openConceptDetail(concept)}
-                    >
-                      <strong>{concept}</strong>
-                    </button>
-                  ))}
-                </div>
-              </section>
+                          <h3 id={`${activeSection.block.block_id}-title`}>{activeSection.block.title}</h3>
+                          {contentParagraphs.map((paragraph, paragraphIndex) => {
+                            const inlineAsset = activeAssets[paragraphIndex] ?? null;
+                            return (
+                              <Fragment key={`${activeSection.block.block_id}-paragraph-${paragraphIndex}`}>
+                                <p>{paragraph}</p>
+                                {inlineAsset ? (
+                                  <LessonFigure
+                                    asset={inlineAsset}
+                                    citation={citation}
+                                    onOpenSource={() => openAssetSource(activeSection.block.title, inlineAsset, citation)}
+                                  />
+                                ) : null}
+                              </Fragment>
+                            );
+                          })}
+                          {activeAssets.slice(contentParagraphs.length).map((asset) => (
+                            <LessonFigure
+                              key={asset.asset_id}
+                              asset={asset}
+                              citation={citation}
+                              onOpenSource={() => openAssetSource(activeSection.block.title, asset, citation)}
+                            />
+                          ))}
+                          <LessonSourceEntry
+                            citation={citation}
+                            onOpen={() => openCitationSource(activeSection.block.title, citation)}
+                          />
+                        </section>
+                      ) : (
+                        <section
+                          {...primaryMotion.attributes}
+                          className="lesson-introduction lesson-learning-page"
+                          key="lesson-introduction"
+                          data-page-direction={lessonPageDirection}
+                          aria-labelledby="lesson-introduction-title"
+                        >
+                          <div {...titleMotion.attributes} className="lesson-introduction-heading">
+                            <h2 id="lesson-article-title">{lessonTitle}</h2>
+                            <p className="lesson-article-meta">{liveBookTitle(activeUploadedFile)} · 原书{pages}</p>
+                          </div>
+                          <h3 id="lesson-introduction-title">本节导读</h3>
+                          <p>{lesson.summary}</p>
+                          {lessonIntroductionAsset ? (
+                            <LessonFigure
+                              asset={lessonIntroductionAsset}
+                              citation={null}
+                              onOpenSource={() => {}}
+                            />
+                          ) : null}
+                          {lesson.objectives.length > 0 ? (
+                            <ul aria-label="本节学习目标">
+                              {lesson.objectives.map((objective) => <li key={objective}>{objective}</li>)}
+                            </ul>
+                          ) : null}
+                          <LessonSourceEntry
+                            citation={citation}
+                            onOpen={() => openCitationSource("本节导读", citation)}
+                          />
+                        </section>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           ) : null}
           </article>
         </div>
       </div>
 
-      {lesson && appShell ? createPortal(
+      {appShell ? createPortal(
+        <LessonAiChatEntry
+          avoidCompletionAction={Boolean(lesson && isLastLessonPage)}
+          containerElement={appShell}
+          onOpen={(origin) => {
+            appShell.dispatchEvent(new CustomEvent(openGlobalAiAssistantEvent, {
+              detail: { origin }
+            }));
+          }}
+        />,
+        appShell
+      ) : null}
+
+      {lesson && isLastLessonPage && appShell ? createPortal(
         <div className="lesson-floating-complete" aria-label="章节完成操作">
           <Button icon={<CheckCircle2 size={18} aria-hidden="true" />} onClick={() => go("study")}>
             完成本节

@@ -1,10 +1,24 @@
 import demoStateJson from "../data/generated/demo-state.json";
+import { bookcourseApi } from "../api/bookcourseApi";
+import {
+  demoMathAssets,
+  demoMathBookId,
+  demoMathChapters,
+  demoMathChunks,
+  demoMathFlashcards,
+  demoMathLessons,
+  demoMathQuizzes,
+  demoMathScan,
+  demoMathStudyPlan,
+  demoMathSummary
+} from "../data/demoMathCourse";
 import type {
   ApiAsset,
   ApiChapter,
   ApiChunk,
   AssignmentSubmitRequest,
   AssignmentSubmitResponse,
+  CommunityBookSummary,
   CourseSummary,
   DiagnosisResponse,
   Flashcard,
@@ -119,12 +133,28 @@ function asCitation(chapterId: string, chunkId: string, quote: string) {
 export class DemoRepository {
   private readonly jobs = new Map<string, DemoJob>();
   private readonly lessonJobs = new Map<string, number>();
+  private readonly realParseJobs = new Set<string>();
+  private readonly realLessonJobs = new Set<string>();
+  private readonly realImageJobs = new Set<string>();
+  private readonly realChapterIds = new Set<string>();
+  private readonly realAssignmentIds = new Set<string>();
+  private readonly realTaskIds = new Set<string>();
   private parseJobSequence = 0;
   private state: DemoState = clone(seed);
+
+  private isDemoBook(bookId: string) {
+    return bookId === this.state.book.id || bookId === demoMathBookId;
+  }
 
   reset() {
     this.jobs.clear();
     this.lessonJobs.clear();
+    this.realParseJobs.clear();
+    this.realLessonJobs.clear();
+    this.realImageJobs.clear();
+    this.realChapterIds.clear();
+    this.realAssignmentIds.clear();
+    this.realTaskIds.clear();
     this.parseJobSequence = 0;
     this.state = clone(seed);
   }
@@ -137,9 +167,11 @@ export class DemoRepository {
   async listCourses(): Promise<CourseSummary[]> {
     await wait();
     const { book } = this.state;
+    const realCourses = await bookcourseApi.listCourses().catch(() => []);
     return [{
       book_id: book.id,
       title: book.title,
+      cover_url: "/assets/book-covers/biology-required-2.webp",
       filename: book.fileName,
       status: "ready",
       page_count: book.pages,
@@ -158,10 +190,30 @@ export class DemoRepository {
       parse_job_message: "MinerU 结构化课程已就绪",
       parse_job_error: null,
       updated_at: 1785638400
-    }];
+    }, {
+      ...clone(demoMathSummary),
+      cover_url: "/assets/book-covers/high-school-math-required-2.webp"
+    }, ...realCourses.filter((course) => !this.isDemoBook(course.book_id))];
   }
 
-  async deleteCourse(_bookId: string) {
+  async listCommunityBooks(): Promise<CommunityBookSummary[]> {
+    return bookcourseApi.listCommunityBooks();
+  }
+
+  async getCommunityBook(catalogId: string): Promise<CommunityBookSummary> {
+    return bookcourseApi.getCommunityBook(catalogId);
+  }
+
+  async importCommunityBook(catalogId: string) {
+    return bookcourseApi.importCommunityBook(catalogId);
+  }
+
+  async chatAssistant(payload: Parameters<typeof bookcourseApi.chatAssistant>[0]) {
+    return bookcourseApi.chatAssistant(payload);
+  }
+
+  async deleteCourse(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.deleteCourse(bookId);
     await wait();
   }
 
@@ -180,6 +232,11 @@ export class DemoRepository {
   }
 
   async startParse(bookId: string): Promise<ParseJobResponse> {
+    if (!this.isDemoBook(bookId)) {
+      const job = await bookcourseApi.startParse(bookId);
+      this.realParseJobs.add(job.job_id);
+      return job;
+    }
     await wait();
     this.parseJobSequence += 1;
     const jobId = `parse_job_demo_${this.parseJobSequence}`;
@@ -188,6 +245,7 @@ export class DemoRepository {
   }
 
   async getJob(jobId: string): Promise<JobStatusResponse> {
+    if (this.realParseJobs.has(jobId)) return bookcourseApi.getJob(jobId);
     await wait();
     const job = this.jobs.get(jobId) ?? { jobId, bookId: this.state.book.id, pollCount: 0 };
     job.pollCount += 1;
@@ -205,17 +263,26 @@ export class DemoRepository {
     };
   }
 
-  async getScanResult(_bookId: string) {
+  async getScanResult(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getScanResult(bookId);
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathScan);
     return clone(this.state.scan);
   }
 
-  async getChapters(_bookId: string) {
+  async getChapters(bookId: string) {
+    if (!this.isDemoBook(bookId)) {
+      const chapters = await bookcourseApi.getChapters(bookId);
+      chapters.forEach((chapter) => this.realChapterIds.add(chapter.chapter_id));
+      return chapters;
+    }
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathChapters);
     return clone(this.state.chapters);
   }
 
-  async updateChapter(_bookId: string, chapterId: string, payload: Partial<ApiChapter>) {
+  async updateChapter(bookId: string, chapterId: string, payload: Partial<ApiChapter>) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.updateChapter(bookId, chapterId, payload);
     await wait();
     const chapter = this.state.chapters.find((item) => item.chapter_id === chapterId);
     if (!chapter) throw new Error("目录项不存在");
@@ -223,12 +290,14 @@ export class DemoRepository {
     return clone(chapter);
   }
 
-  async rebuildChapters(_bookId: string) {
+  async rebuildChapters(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.rebuildChapters(bookId);
     await wait();
     return clone(this.state.chapters);
   }
 
   async getTocAnalysis(bookId: string): Promise<TocAnalysis> {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getTocAnalysis(bookId);
     await wait();
     const pageMap: PageMapEntry[] = this.state.scan.source_locations.map((location) => ({
       pdf_page: Number(location.pdf_page ?? location.index),
@@ -266,18 +335,26 @@ export class DemoRepository {
     return (await this.getTocAnalysis(bookId)).page_map;
   }
 
-  async confirmChapters(_bookId: string, chapters?: ApiChapter[]) {
+  async confirmChapters(bookId: string, chapters?: ApiChapter[]) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.confirmChapters(bookId, chapters);
     await wait();
     this.state.chapters = clone(chapters?.length ? chapters : this.state.chapters);
     return clone(this.state.chapters);
   }
 
-  async getChunks(_bookId: string) {
+  async getChunks(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getChunks(bookId);
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathChunks);
     return clone(this.state.chunks);
   }
 
   async buildLessons(bookId: string, payload: LessonBuildRequest = {}): Promise<LessonBuildJobResponse> {
+    if (!this.isDemoBook(bookId)) {
+      const job = await bookcourseApi.buildLessons(bookId, payload);
+      this.realLessonJobs.add(job.job_id);
+      return job;
+    }
     await wait();
     const requested = payload.chapter_ids?.length ? new Set(payload.chapter_ids) : null;
     const lessons = clone(this.state.lessons.filter((lesson) => !requested || requested.has(lesson.chapter_id)));
@@ -301,6 +378,7 @@ export class DemoRepository {
   }
 
   async getLessonJob(jobId: string): Promise<LessonBuildJobResponse> {
+    if (this.realLessonJobs.has(jobId)) return bookcourseApi.getLessonJob(jobId);
     await wait();
     const bookId = this.state.book.id;
     const pollCount = (this.lessonJobs.get(jobId) ?? 0) + 1;
@@ -322,55 +400,77 @@ export class DemoRepository {
     };
   }
 
-  async getLessons(_bookId: string) {
+  async getLessons(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getLessons(bookId);
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathLessons);
     return clone(this.state.lessons);
   }
 
-  async getLesson(_bookId: string, lessonId: string) {
+  async getLesson(bookId: string, lessonId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getLesson(bookId, lessonId);
     await wait();
     const lesson = this.state.lessons.find((item) => item.lesson_id === lessonId);
     if (!lesson) throw new Error("课程不存在");
     return clone(lesson);
   }
 
-  async buildFlashcards(_bookId: string, payload: LessonBuildRequest = {}) {
+  async buildFlashcards(bookId: string, payload: LessonBuildRequest = {}) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.buildFlashcards(bookId, payload);
     await wait();
     const requested = payload.chapter_ids?.length ? new Set(payload.chapter_ids) : null;
     return clone(this.state.flashcards.filter((card) => !requested || requested.has(card.chapter_id)));
   }
 
-  async getFlashcards(_bookId: string) {
+  async getFlashcards(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getFlashcards(bookId);
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathFlashcards);
     return clone(this.state.flashcards);
   }
 
-  async buildQuizzes(_bookId: string, payload: LessonBuildRequest = {}) {
+  async buildQuizzes(bookId: string, payload: LessonBuildRequest = {}) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.buildQuizzes(bookId, payload);
     await wait();
     const requested = payload.chapter_ids?.length ? new Set(payload.chapter_ids) : null;
     return clone(this.state.quizzes.filter((quiz) => !requested || requested.has(quiz.chapter_id)));
   }
 
-  async getQuizzes(_bookId: string) {
+  async getQuizzes(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getQuizzes(bookId);
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathQuizzes);
     return clone(this.state.quizzes);
   }
 
-  async getAssets(_bookId: string) {
+  async getAssets(bookId: string) {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getAssets(bookId);
     await wait();
+    if (bookId === demoMathBookId) return clone(demoMathAssets);
     return clone(this.state.assets);
   }
 
   async getChapterFigures(chapterId: string) {
+    if (this.realChapterIds.has(chapterId)) return bookcourseApi.getChapterFigures(chapterId);
     await wait();
     return clone(this.state.assets.filter((asset) => asset.chapter_id === chapterId));
   }
 
-  async generateLessonFigure(_lessonId: string, payload: ImageGenerationRequest): Promise<ImageGenerationJobResponse> {
+  async generateLessonFigure(lessonId: string, payload: ImageGenerationRequest): Promise<ImageGenerationJobResponse> {
+    if (!this.isDemoBook(payload.book_id)) {
+      const job = await bookcourseApi.generateLessonFigure(lessonId, payload);
+      this.realImageJobs.add(job.job_id);
+      return job;
+    }
     return this.generateAsset(payload);
   }
 
   async generateAsset(payload: ImageGenerationRequest): Promise<ImageGenerationJobResponse> {
+    if (!this.isDemoBook(payload.book_id)) {
+      const job = await bookcourseApi.generateAsset(payload);
+      this.realImageJobs.add(job.job_id);
+      return job;
+    }
     await wait();
     const asset: ApiAsset = {
       asset_id: "asset_demo_generated",
@@ -394,11 +494,13 @@ export class DemoRepository {
   }
 
   async getImageGenerationJob(jobId: string): Promise<ImageGenerationJobResponse> {
+    if (this.realImageJobs.has(jobId)) return bookcourseApi.getImageGenerationJob(jobId);
     await wait();
     return { job_id: jobId, book_id: this.state.book.id, status: "done", stage: "completed", progress: 100, asset: null };
   }
 
   async queryRag(payload: RagQuery): Promise<RagResponse> {
+    if (!this.isDemoBook(payload.book_id)) return bookcourseApi.queryRag(payload);
     await wait();
     const key = payload.question.includes("第二次") ? "quiz" : payload.question.includes("例") ? "example" : "default";
     const chunkId = key === "quiz" ? "chunk_c2s1_13" : key === "example" ? "chunk_c2s1_19" : "chunk_c2s1_11";
@@ -415,12 +517,18 @@ export class DemoRepository {
     };
   }
 
-  async submitAssignment(assignmentId: string, _payload: AssignmentSubmitRequest): Promise<AssignmentSubmitResponse> {
+  async submitAssignment(assignmentId: string, payload: AssignmentSubmitRequest): Promise<AssignmentSubmitResponse> {
+    if (!this.isDemoBook(payload.book_id)) {
+      const submission = await bookcourseApi.submitAssignment(assignmentId, payload);
+      this.realAssignmentIds.add(assignmentId);
+      return submission;
+    }
     await wait();
     return { assignment_id: assignmentId, submission_id: "submission_demo_01", status: "submitted" };
   }
 
   async diagnoseAssignment(assignmentId: string, submissionId: string): Promise<DiagnosisResponse> {
+    if (this.realAssignmentIds.has(assignmentId)) return bookcourseApi.diagnoseAssignment(assignmentId, submissionId);
     await wait();
     return {
       assignment_id: assignmentId,
@@ -438,6 +546,7 @@ export class DemoRepository {
   }
 
   async getMistakes(userId: string, bookId = this.state.book.id): Promise<MistakeRecord[]> {
+    if (!this.isDemoBook(bookId)) return bookcourseApi.getMistakes(userId, bookId);
     await wait();
     return [{
       mistake_id: "mistake_demo_01",
@@ -453,17 +562,29 @@ export class DemoRepository {
   }
 
   async createStudyPlan(bookId: string, payload: StudyPlanRequest): Promise<StudyPlan> {
+    if (!this.isDemoBook(bookId)) {
+      const plan = await bookcourseApi.createStudyPlan(bookId, payload);
+      plan.tasks.forEach((task) => this.realTaskIds.add(task.task_id));
+      return plan;
+    }
     await wait();
     this.state.studyPlan = { ...clone(this.state.studyPlan), book_id: bookId, user_id: payload.user_id ?? this.state.studyPlan.user_id };
     return clone(this.state.studyPlan);
   }
 
-  async getStudyPlan(_bookId: string, userId = "local_user") {
+  async getStudyPlan(bookId: string, userId = "local_user") {
+    if (!this.isDemoBook(bookId)) {
+      const plan = await bookcourseApi.getStudyPlan(bookId, userId);
+      plan.tasks.forEach((task) => this.realTaskIds.add(task.task_id));
+      return plan;
+    }
     await wait();
+    if (bookId === demoMathBookId) return { ...clone(demoMathStudyPlan), user_id: userId };
     return { ...clone(this.state.studyPlan), user_id: userId };
   }
 
   async patchStudyTask(taskId: string, payload: StudyTaskUpdate): Promise<StudyTask> {
+    if (this.realTaskIds.has(taskId)) return bookcourseApi.patchStudyTask(taskId, payload);
     await wait();
     const task = this.state.studyPlan.tasks.find((item) => item.task_id === taskId);
     if (!task) throw new Error("学习任务不存在");

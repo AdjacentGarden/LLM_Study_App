@@ -34,6 +34,34 @@ class DocumentParseQualityError(RuntimeError):
     pass
 
 
+def _document_quality_gate_fails(
+    *,
+    page_count: int,
+    document_quality: float,
+    degraded_pages: set[int],
+    missing_pages: list[int],
+) -> bool:
+    """Fail closed while allowing sparse blank/decorative pages in long books.
+
+    Public-domain scans and older born-digital books often contain a handful
+    of blank plates, title leaves, or image-only pages. Rejecting a 292-page
+    book because ten such pages need OCR makes the other 96.6% unusable. We
+    accept the degraded pages only for long, otherwise high-quality documents;
+    those pages remain marked and are excluded by the chunk quality protocol.
+    """
+
+    if missing_pages or page_count <= 0 or document_quality < 0.75:
+        return True
+    if not degraded_pages:
+        return False
+    degraded_ratio = len(degraded_pages) / page_count
+    return not (
+        page_count >= 50
+        and document_quality >= 0.90
+        and degraded_ratio <= 0.05
+    )
+
+
 class _ParserProgressHeartbeat:
     """Keep long MinerU/Paddle operations visible without faking completion."""
 
@@ -212,13 +240,24 @@ def parse_document(
     document_quality = sum(page_scores) / len(page_scores) if page_scores else 0.0
     unrecoverable = [page.page_number for page in parsed.pages if page.parser == "unrecoverable" or page.needs_ocr]
     low_quality = [page.page_number for page in parsed.pages if (page.quality_score or 0.0) < 0.60]
-    if unrecoverable or low_quality or document_quality < 0.75 or report.missing_pages:
+    degraded_pages = set(unrecoverable) | set(low_quality)
+    if _document_quality_gate_fails(
+        page_count=len(parsed.pages),
+        document_quality=document_quality,
+        degraded_pages=degraded_pages,
+        missing_pages=report.missing_pages,
+    ):
         # Do not generate ocr_pending chunks.  The normalized evidence and
         # parser report remain available for diagnosis, while the parse job is
         # correctly marked failed and RAG cannot ingest placeholder prose.
         raise DocumentParseQualityError(
             f"Document quality gate failed (unrecoverable={unrecoverable}, low_quality={low_quality}, score={document_quality:.3f})"
         )
+    if degraded_pages:
+        report.warnings.append(
+            f"degraded_pages_accepted:{','.join(str(page) for page in sorted(degraded_pages))}"
+        )
+        publish_current(lambda: write_parser_report(artifact_path / "parser_report.json", report))
 
     progress("toc_analyzing", 72, "正在识别目录、印刷页码与标题")
     toc_analysis = analyze_toc_structure(book_id, artifact_path, scan.page_count)

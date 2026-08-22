@@ -1,0 +1,33 @@
+{
+  "name": "云径 CloudPath｜BookCourse AI",
+  "short_name": "云径",
+  "description": "把教材转化为可交互、可追溯的 AI 课程。",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f8ff",
+  "theme_color": "#6d63ff",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/cloudpath-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/cloudpath-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/cloudpath-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

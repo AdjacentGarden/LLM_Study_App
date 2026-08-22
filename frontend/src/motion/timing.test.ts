@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  globalEmphasisMotionDurationMs,
+  globalEmphasisMotionFallbackMs,
   globalMotionDurationMs,
   globalMotionFallbackMs,
   localMotionFallbackMs,
@@ -13,6 +15,12 @@ describe("motion timing contract", () => {
     expect(globalMotionDurationMs).toBe(350);
     expect(globalMotionFallbackMs).toBe(450);
     expect(globalMotionFallbackMs).toBeGreaterThan(globalMotionDurationMs);
+  });
+
+  it("gives emphasized global surfaces 450ms with a 550ms Presence fallback", () => {
+    expect(globalEmphasisMotionDurationMs).toBe(450);
+    expect(globalEmphasisMotionFallbackMs).toBe(550);
+    expect(globalEmphasisMotionFallbackMs).toBeGreaterThan(globalEmphasisMotionDurationMs);
   });
 
   it("locks local motion to a 200ms maximum with a 300ms Presence fallback", () => {

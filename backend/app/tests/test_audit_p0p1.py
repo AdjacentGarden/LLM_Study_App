@@ -144,6 +144,7 @@ def test_study_task_owner_enforced():
     from app.schemas.books import Chapter
     from app.services.artifact_store import write_chapters
 
+    write_book_owner("audit_book", USER_A)
     write_chapters(
         "audit_book",
         [
@@ -197,6 +198,7 @@ def test_persisted_state_surives_restart(monkeypatch, tmp_path):
     from app.schemas.books import Chapter
     from app.services.artifact_store import write_chapters
 
+    write_book_owner("persist_book", "persist_user")
     write_chapters(
         "persist_book",
         [
@@ -238,6 +240,7 @@ def test_mistakes_persisted_across_restart(monkeypatch):
     from app.schemas.books import Asset, Chapter, Chunk
     from app.services.artifact_store import write_assets, write_chapters, write_chunks
 
+    write_book_owner("persist_book_m", "persist_user")
     write_chapters(
         "persist_book_m",
         [

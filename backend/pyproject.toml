@@ -2,7 +2,7 @@
 name = "bookcourse-ai-backend"
 version = "0.1.0"
 description = "Cloud parsing and RAG backend for BookCourse AI"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.30.0",
@@ -11,11 +11,13 @@ dependencies = [
   "httpx2>=2.5.0,<3.0.0",
   "pymupdf>=1.24.0",
   "numpy>=1.26.0",
-  "opencv-python-headless>=4.8.0",
+  # PaddleX also imports cv2. Use one compatible distribution/version so the
+  # production environment never contains competing cv2 binary packages.
+  "opencv-contrib-python==4.10.0.84",
   "pillow>=10.0.0",
   # Chunk V2 token counts are part of the persisted protocol. Keep both the
   # high-level loader and Rust tokenizer runtime exact, not range-pinned.
-  "transformers==4.57.6",
+  "transformers==5.5.4",
   "tokenizers==0.22.2",
 ]
 
@@ -25,6 +27,10 @@ test = [
   "httpx2>=2.5.0,<3.0.0",
 ]
 ocr = [
+  # Keep the last broadly mirrored release; 2.9 was not yet available across
+  # the production audit/install mirrors when this lock was cut.
+  "crc32c==2.8",
+  "narwhals==2.24.0",
   "paddleocr==3.7.0",
   "paddlepaddle==3.3.1",
   # The complete PaddleOCR-VL pipeline is provided by PaddleX's OCR extra;
@@ -35,6 +41,11 @@ rag = [
   "jieba>=0.42.1",
   "psycopg[binary]>=3.2.0",
   "pgvector>=0.3.6",
+  # 2.13 contains the security fixes required by the release audit. The uv
+  # source below selects the official CUDA 12.6 build on production Linux and
+  # the CPU build on desktop development hosts, so a lock refresh cannot
+  # silently move the A100 runtime to CUDA 13.
+  "torch==2.13.0",
   "sentence-transformers>=3.0.0",
 ]
 vector-labs = [
@@ -49,3 +60,26 @@ pythonpath = ["."]
 [tool.setuptools.packages.find]
 include = ["app*"]
 exclude = ["data*"]
+
+[tool.uv]
+environments = [
+  "sys_platform == 'darwin'",
+  "sys_platform == 'linux'",
+  "sys_platform == 'win32'",
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cpu", marker = "sys_platform == 'darwin' or sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

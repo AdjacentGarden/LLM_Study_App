@@ -1,0 +1,27 @@
+[Unit]
+Description=BookCourse AI API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bookcourse
+Group=bookcourse
+WorkingDirectory=/srv/bookcourse/backend
+EnvironmentFile=/etc/bookcourse/bookcourse.env
+Environment=HF_HOME=/var/lib/bookcourse/models
+Environment=TRANSFORMERS_CACHE=/var/lib/bookcourse/models
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+ExecStart=/srv/bookcourse/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bookcourse
+
+[Install]
+WantedBy=multi-user.target

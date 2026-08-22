@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 import os
+import secrets
 
 
 # Stage 0 froze the exact BGE-M3 snapshot used by the embedding protocol.
@@ -11,6 +12,8 @@ import os
 BGE_M3_MODEL = "BAAI/bge-m3"
 BGE_M3_REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
 BGE_M3_DIMENSIONS = 1024
+BGE_RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
+BGE_RERANKER_REVISION = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -42,8 +45,27 @@ def _env_float(name: str, default: float, *, minimum: float | None = None) -> fl
     return value
 
 
+def _env_choice(name: str, default: str, choices: set[str]) -> str:
+    value = os.environ.get(name, default).strip().lower()
+    if value not in choices:
+        allowed = ", ".join(sorted(choices))
+        raise ValueError(f"{name} must be one of: {allowed}")
+    return value
+
+
+def _looks_like_placeholder(value: str | None) -> bool:
+    normalized = (value or "").strip().upper()
+    return normalized.startswith("REQUIRED_") or normalized.startswith("REPLACE_")
+
+
 class Settings:
     def __init__(self) -> None:
+        self.environment = os.environ.get("BOOKCOURSE_ENVIRONMENT", "development").strip().lower()
+        if self.environment not in {"development", "test", "production"}:
+            raise ValueError(
+                "BOOKCOURSE_ENVIRONMENT must be one of: development, test, production"
+            )
+        self.docs_enabled = _env_bool("BOOKCOURSE_DOCS_ENABLED", self.environment != "production")
         root = os.environ.get("BOOKCOURSE_STORAGE_ROOT")
         self.storage_root = Path(root) if root else Path.cwd() / "data"
         origins = os.environ.get("BOOKCOURSE_ALLOWED_ORIGINS")
@@ -61,20 +83,39 @@ class Settings:
         )
         self.allow_credentials = _env_bool("BOOKCOURSE_ALLOW_CREDENTIALS", False)
         self.api_key = os.environ.get("BOOKCOURSE_API_KEY")
+        self.trusted_proxy_token = os.environ.get("BOOKCOURSE_TRUSTED_PROXY_TOKEN")
         raw_auth_mode = os.environ.get("BOOKCOURSE_AUTH_MODE", "strict").strip().lower()
         if raw_auth_mode == "api_key":
             raw_auth_mode = "strict"
         if raw_auth_mode not in {"strict", "optional"}:
             raw_auth_mode = "strict"
         self.auth_mode = raw_auth_mode
+        if self.environment == "production" and self.auth_mode != "strict":
+            raise ValueError("BOOKCOURSE_AUTH_MODE must be strict in production")
         self.api_key_required = self.auth_mode == "strict" or bool(self.api_key)
         self.default_user_id = os.environ.get("BOOKCOURSE_DEFAULT_USER_ID", "local_user")
         self.persist_state = _env_bool("BOOKCOURSE_PERSIST_STATE", True)
         self.global_rate_per_minute = _env_int("BOOKCOURSE_GLOBAL_RATE_PER_MINUTE", 120, minimum=1)
         self.write_rate_per_minute = _env_int("BOOKCOURSE_WRITE_RATE_PER_MINUTE", 30, minimum=1)
+        self.rate_limit_max_buckets = _env_int("BOOKCOURSE_RATE_LIMIT_MAX_BUCKETS", 10_000, minimum=100)
+        self.rate_limit_bucket_ttl_seconds = _env_int(
+            "BOOKCOURSE_RATE_LIMIT_BUCKET_TTL_SECONDS",
+            600,
+            minimum=60,
+        )
         self.use_worker = _env_bool("BOOKCOURSE_USE_WORKER", True)
         self.max_upload_bytes = int(os.environ.get("BOOKCOURSE_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
         self.max_pdf_pages = int(os.environ.get("BOOKCOURSE_MAX_PDF_PAGES", "500"))
+        self.community_download_timeout_seconds = _env_float(
+            "BOOKCOURSE_COMMUNITY_DOWNLOAD_TIMEOUT_SECONDS",
+            45.0,
+            minimum=1.0,
+        )
+        self.max_pdf_render_pixels = _env_int(
+            "BOOKCOURSE_MAX_PDF_RENDER_PIXELS",
+            40_000_000,
+            minimum=1,
+        )
         self.max_image_pixels = int(os.environ.get("BOOKCOURSE_MAX_IMAGE_PIXELS", str(40_000_000)))
         self.max_zip_entries = _env_int("BOOKCOURSE_MAX_ZIP_ENTRIES", 10_000, minimum=1)
         self.max_zip_entry_uncompressed_bytes = _env_int(
@@ -117,11 +158,24 @@ class Settings:
         self.image_generation_max_concurrent = int(os.environ.get("BOOKCOURSE_IMAGE_GENERATION_MAX_CONCURRENT", "2"))
         self.image_generation_rate_limit_per_minute = int(os.environ.get("BOOKCOURSE_IMAGE_GENERATION_RATE_LIMIT_PER_MINUTE", "20"))
         self.admin_token = os.environ.get("BOOKCOURSE_ADMIN_TOKEN")
-        self.image_provider = os.environ.get("BOOKCOURSE_IMAGE_PROVIDER", "mock")
+        self.image_provider = _env_choice(
+            "BOOKCOURSE_IMAGE_PROVIDER",
+            "mock",
+            {"mock", "openai_compatible"},
+        )
         self.image_api_url = os.environ.get("BOOKCOURSE_IMAGE_API_URL")
         self.image_api_key = os.environ.get("BOOKCOURSE_IMAGE_API_KEY")
+        self.image_provider_max_response_bytes = _env_int(
+            "BOOKCOURSE_IMAGE_PROVIDER_MAX_RESPONSE_BYTES",
+            20 * 1024 * 1024,
+            minimum=1024,
+        )
         self.database_url = os.environ.get("BOOKCOURSE_DATABASE_URL")
-        self.parser_provider = os.environ.get("BOOKCOURSE_PARSER_PROVIDER", "mineru").strip().lower()
+        self.parser_provider = _env_choice(
+            "BOOKCOURSE_PARSER_PROVIDER",
+            "mineru",
+            {"auto", "pymupdf", "marker", "mineru", "ocr"},
+        )
         self.marker_endpoint = os.environ.get("BOOKCOURSE_MARKER_ENDPOINT")
         self.marker_command = os.environ.get("BOOKCOURSE_MARKER_COMMAND")
         self.mineru_endpoint = os.environ.get("BOOKCOURSE_MINERU_ENDPOINT", "http://127.0.0.1:8001").strip()
@@ -146,7 +200,11 @@ class Settings:
         self.mineru_table_enable = _env_bool("BOOKCOURSE_MINERU_TABLE_ENABLE", True)
         self.mineru_image_analysis = _env_bool("BOOKCOURSE_MINERU_IMAGE_ANALYSIS", True)
         self.mineru_return_images = _env_bool("BOOKCOURSE_MINERU_RETURN_IMAGES", True)
-        self.layout_provider = os.environ.get("BOOKCOURSE_LAYOUT_PROVIDER", "opencv").strip().lower()
+        self.layout_provider = _env_choice(
+            "BOOKCOURSE_LAYOUT_PROVIDER",
+            "opencv",
+            {"opencv", "surya"},
+        )
         # Chunk V2 parameters are frozen by the Stage 0 acceptance protocol.
         # FrozenChunkConfig performs the cross-field invariant checks at the
         # point where the chunker consumes them.
@@ -168,7 +226,11 @@ class Settings:
             minimum=0.0,
         )
         self.chunk_version = os.environ.get("BOOKCOURSE_CHUNK_VERSION", "v2").strip() or "v2"
-        self.embedding_provider = os.environ.get("BOOKCOURSE_EMBEDDING_PROVIDER", "hashing").strip().lower()
+        self.embedding_provider = _env_choice(
+            "BOOKCOURSE_EMBEDDING_PROVIDER",
+            "hashing",
+            {"hashing", "local_hashing", "bge_m3", "bge-m3"},
+        )
         self.bge_m3_model = os.environ.get("BOOKCOURSE_BGE_M3_MODEL", BGE_M3_MODEL).strip() or BGE_M3_MODEL
         configured_revision = os.environ.get("BOOKCOURSE_BGE_M3_REVISION", BGE_M3_REVISION).strip()
         if configured_revision != BGE_M3_REVISION:
@@ -185,19 +247,53 @@ class Settings:
             BGE_M3_DIMENSIONS,
             minimum=1,
         )
-        self.rag_index_provider = os.environ.get("BOOKCOURSE_RAG_INDEX_PROVIDER", "pgvector").strip().lower()
+        self.rag_index_provider = _env_choice(
+            "BOOKCOURSE_RAG_INDEX_PROVIDER",
+            "pgvector",
+            {"artifact", "pgvector", "faiss", "chroma", "milvus"},
+        )
         self.vector_top_k = _env_int("BOOKCOURSE_VECTOR_TOP_K", 80, minimum=1)
         self.bm25_top_k = _env_int("BOOKCOURSE_BM25_TOP_K", 80, minimum=1)
         self.rerank_input_k = _env_int("BOOKCOURSE_RERANK_INPUT_K", 30, minimum=1)
         self.final_context_k = _env_int("BOOKCOURSE_FINAL_CONTEXT_K", 5, minimum=1)
-        self.reranker_provider = os.environ.get("BOOKCOURSE_RERANKER_PROVIDER", "heuristic").strip().lower()
-        self.reranker_model = os.environ.get("BOOKCOURSE_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+        self.reranker_provider = _env_choice(
+            "BOOKCOURSE_RERANKER_PROVIDER",
+            "heuristic",
+            {"heuristic", "bge"},
+        )
+        self.reranker_model = (
+            os.environ.get("BOOKCOURSE_RERANKER_MODEL", BGE_RERANKER_MODEL).strip()
+            or BGE_RERANKER_MODEL
+        )
+        configured_reranker_revision = os.environ.get(
+            "BOOKCOURSE_RERANKER_REVISION",
+            BGE_RERANKER_REVISION,
+        ).strip()
+        if configured_reranker_revision != BGE_RERANKER_REVISION:
+            raise ValueError(
+                "BOOKCOURSE_RERANKER_REVISION must match the frozen revision "
+                f"{BGE_RERANKER_REVISION}"
+            )
+        self.reranker_revision = BGE_RERANKER_REVISION
+        self.reranker_device = (
+            os.environ.get("BOOKCOURSE_RERANKER_DEVICE", "auto").strip().lower()
+            or "auto"
+        )
         self.reranker_fail_open = _env_bool("BOOKCOURSE_RERANKER_FAIL_OPEN", True)
         self.rag_cache_enabled = os.environ.get("BOOKCOURSE_RAG_CACHE_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
         self.rag_cache_max_books = _env_int("BOOKCOURSE_RAG_CACHE_MAX_BOOKS", 8, minimum=1)
         self.rag_cache_ttl_seconds = _env_int("BOOKCOURSE_RAG_CACHE_TTL_SECONDS", 600, minimum=0)
-        self.rag_llm_provider = os.environ.get("BOOKCOURSE_RAG_LLM_PROVIDER", "template")
-        self.llm_provider = os.environ.get("BOOKCOURSE_LLM_PROVIDER", "template")
+        self.rag_answer_cache_max_items = _env_int("BOOKCOURSE_RAG_ANSWER_CACHE_MAX_ITEMS", 256, minimum=1)
+        self.rag_llm_provider = _env_choice(
+            "BOOKCOURSE_RAG_LLM_PROVIDER",
+            "template",
+            {"template", "openai_compatible", "deepseek"},
+        )
+        self.llm_provider = _env_choice(
+            "BOOKCOURSE_LLM_PROVIDER",
+            "template",
+            {"template", "openai_compatible", "deepseek"},
+        )
         self.llm_api_url = os.environ.get("BOOKCOURSE_LLM_API_URL")
         self.llm_api_key = os.environ.get("BOOKCOURSE_LLM_API_KEY")
         self.llm_model = os.environ.get("BOOKCOURSE_LLM_MODEL", "gpt-4.1-mini")
@@ -228,7 +324,11 @@ class Settings:
         self.deepseek_thinking = os.environ.get("BOOKCOURSE_DEEPSEEK_THINKING", "disabled").strip().lower()
         if self.deepseek_thinking not in {"enabled", "disabled"}:
             self.deepseek_thinking = "disabled"
-        self.ocr_provider = os.environ.get("BOOKCOURSE_OCR_PROVIDER", "paddleocr-vl").strip().lower()
+        self.ocr_provider = _env_choice(
+            "BOOKCOURSE_OCR_PROVIDER",
+            "paddleocr-vl",
+            {"mock", "paddle", "paddleocr", "paddleocr-vl", "paddleocr_vl", "paddlevl", "paddle-vl"},
+        )
         self.ocr_language = os.environ.get("BOOKCOURSE_OCR_LANGUAGE", "ch")
         default_ocr_model = (
             "PaddleOCR-VL-1.6"
@@ -288,6 +388,76 @@ class Settings:
         self.preprocess_adaptive_c = int(os.environ.get("BOOKCOURSE_PREPROCESS_ADAPTIVE_C", "11"))
         self.ocr_low_confidence_threshold = float(os.environ.get("BOOKCOURSE_OCR_LOW_CONFIDENCE_THRESHOLD", "0.55"))
         self.ocr_text_confidence_threshold = float(os.environ.get("BOOKCOURSE_OCR_TEXT_CONFIDENCE_THRESHOLD", "0.5"))
+
+        if self.environment == "production":
+            if self.allow_credentials and "*" in self.allowed_origins:
+                raise ValueError(
+                    "Production CORS cannot combine wildcard origins with credentials"
+                )
+            production_provider_errors: list[str] = []
+            if self.parser_provider != "mineru":
+                production_provider_errors.append("PARSER_PROVIDER=mineru")
+            if self.rag_index_provider != "pgvector":
+                production_provider_errors.append("RAG_INDEX_PROVIDER=pgvector")
+            if self.embedding_provider not in {"bge_m3", "bge-m3"}:
+                production_provider_errors.append("EMBEDDING_PROVIDER=bge_m3")
+            if self.reranker_provider != "bge":
+                production_provider_errors.append("RERANKER_PROVIDER=bge")
+            if self.reranker_fail_open:
+                production_provider_errors.append("RERANKER_FAIL_OPEN=false")
+            if not self.embedding_device.startswith("cuda"):
+                production_provider_errors.append("EMBEDDING_DEVICE=cuda:<index>")
+            if not self.reranker_device.startswith("cuda"):
+                production_provider_errors.append("RERANKER_DEVICE=cuda:<index>")
+            if self.llm_provider not in {"deepseek", "openai_compatible"}:
+                production_provider_errors.append("LLM_PROVIDER=deepseek|openai_compatible")
+            if self.rag_llm_provider not in {"deepseek", "openai_compatible"}:
+                production_provider_errors.append("RAG_LLM_PROVIDER=deepseek|openai_compatible")
+            if self.image_provider != "openai_compatible":
+                production_provider_errors.append("IMAGE_PROVIDER=openai_compatible")
+            if production_provider_errors:
+                raise ValueError(
+                    "Production requires real providers: " + ", ".join(production_provider_errors)
+                )
+
+            named_secrets = {
+                "BOOKCOURSE_API_KEY": self.api_key,
+                "BOOKCOURSE_TRUSTED_PROXY_TOKEN": self.trusted_proxy_token,
+            }
+            for name, value in named_secrets.items():
+                if not value or len(value) < 24 or _looks_like_placeholder(value):
+                    raise ValueError(f"{name} must be a non-placeholder secret of at least 24 characters")
+            if secrets.compare_digest(self.api_key or "", self.trusted_proxy_token or ""):
+                raise ValueError("BOOKCOURSE_API_KEY and BOOKCOURSE_TRUSTED_PROXY_TOKEN must be distinct")
+
+            if self.admin_token:
+                if len(self.admin_token) < 24 or _looks_like_placeholder(self.admin_token):
+                    raise ValueError(
+                        "BOOKCOURSE_ADMIN_TOKEN must be a non-placeholder secret of at least 24 characters"
+                    )
+                compared_secrets = {
+                    self.api_key,
+                    self.trusted_proxy_token,
+                    self.deepseek_api_key,
+                    self.llm_api_key,
+                    self.image_api_key,
+                }
+                if any(
+                    candidate and secrets.compare_digest(self.admin_token, candidate)
+                    for candidate in compared_secrets
+                ):
+                    raise ValueError(
+                        "BOOKCOURSE_ADMIN_TOKEN must be distinct from API, proxy, and provider secrets"
+                    )
+
+            if "deepseek" in {self.llm_provider, self.rag_llm_provider}:
+                if not self.deepseek_api_key or _looks_like_placeholder(self.deepseek_api_key):
+                    raise ValueError("BOOKCOURSE_DEEPSEEK_API_KEY must be configured in production")
+            if "openai_compatible" in {self.llm_provider, self.rag_llm_provider}:
+                if not self.llm_api_url or not self.llm_api_key or _looks_like_placeholder(self.llm_api_key):
+                    raise ValueError("OpenAI-compatible LLM endpoint and API key are required in production")
+            if not self.image_api_url or not self.image_api_key or _looks_like_placeholder(self.image_api_key):
+                raise ValueError("Image provider endpoint and API key are required in production")
 
 
 @lru_cache

@@ -15,7 +15,7 @@ export default defineConfig({
   },
   reporter: "list",
   // Keep local WebKit rendering and the shared Vite fixture server deterministic across the two E2E spec files.
-  workers: 4,
+  workers: 1,
   use: {
     baseURL: `http://127.0.0.1:${e2ePort}`,
     trace: "retain-on-failure"

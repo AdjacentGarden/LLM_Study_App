@@ -12,10 +12,9 @@ import { useMotionHistory, useReducedMotion, useStageThreeImageMotion } from "..
 
 const courseReadyHeroSource = "/assets/brand/cloud-mascot-success-transparent-v1.png";
 
-function CourseReadySuccessMark({ bookId, lessonBuildJobId }: { bookId: string; lessonBuildJobId: string | null }) {
+function CourseReadySuccessMark({ motionKey }: { motionKey: string }) {
   const { consume } = useMotionHistory();
   const reducedMotion = useReducedMotion();
-  const motionKey = `course-ready:${bookId}:${lessonBuildJobId ?? "current"}`;
   const [motionState, setMotionState] = useState<"entering" | "idle">("idle");
   const appliedKeyRef = useRef<string | null>(null);
 
@@ -47,7 +46,7 @@ function CourseReadySuccessMark({ bookId, lessonBuildJobId }: { bookId: string; 
   );
 }
 
-function CourseReadyHeroImage() {
+function CourseReadyHeroImage({ statusTitle }: { statusTitle: string }) {
   const imageMotion = useStageThreeImageMotion(courseReadyHeroSource);
   if (imageMotion.state === "failed") {
     return (
@@ -56,7 +55,7 @@ function CourseReadyHeroImage() {
         data-motion-image-source={courseReadyHeroSource}
         data-motion-image-state="failed"
         role="img"
-        aria-label="课程生成成功插图不可用"
+        aria-label={`${statusTitle}插图不可用`}
       >
         <FileText size={42} aria-hidden="true" />
       </span>
@@ -80,17 +79,68 @@ function CourseReadyHeroImage() {
   );
 }
 
+type CourseCompletionScreenProps = {
+  assetCount: number;
+  chapterCount: number;
+  className?: string;
+  courseTitle: string;
+  lessonCount: number;
+  motionKey: string;
+  onEnterStudy: () => void;
+  onViewPlan: () => void;
+  ragChunkCount: number;
+  statusTitle: string;
+};
+
+export function CourseCompletionScreen({
+  assetCount,
+  chapterCount,
+  className,
+  courseTitle,
+  lessonCount,
+  motionKey,
+  onEnterStudy,
+  onViewPlan,
+  ragChunkCount,
+  statusTitle
+}: CourseCompletionScreenProps) {
+  const moduleValues = [
+    ["课程", `${lessonCount}`, `${chapterCount} 个目录项完成编排`],
+    ["RAG 片段", `${ragChunkCount}`, "可用于问答检索"],
+    ["课程插图", `${assetCount}`, "源文件抽取优先"],
+    ["检索链路", "混合", "BM25 + pgvector + reranker"]
+  ];
+
+  return (
+    <div className={`screen-stack centered-flow parse-complete-screen course-ready-screen${className ? ` ${className}` : ""}`}>
+      <div className="course-ready-primary" data-brand-moment="course-ready">
+        <CourseReadyHeroImage key={`${motionKey}:image`} statusTitle={statusTitle} />
+        <div className="course-ready-success-heading">
+          <h1>{statusTitle}</h1>
+          <CourseReadySuccessMark key={motionKey} motionKey={motionKey} />
+        </div>
+        <p role="status" aria-live="polite">已将《{courseTitle}》编排为 {lessonCount} 节 AI 课程。</p>
+      </div>
+      <aside className="course-ready-support" aria-label={`${statusTitle}结果`}>
+        <div className="module-grid">
+          {moduleValues.map(([label, value, helper]) => (
+            <Metric key={label} label={label} value={value} helper={helper} />
+          ))}
+        </div>
+      </aside>
+      <div className="course-ready-actions">
+        <Button onClick={onEnterStudy}>进入学习</Button>
+        <Button variant="secondary" onClick={onViewPlan}>查看学习计划</Button>
+      </div>
+    </div>
+  );
+}
+
 export function CourseReadyScreen() {
   const { generatedLessons, go, lessonBuildJobId, parsedAssets, parsedChapters, parsedChunks, setActiveChapterId, uploadedFile } = useAppContext();
   const courseTitle = uploadedFile?.name ?? "未选择教材";
   const chapterCount = parsedChapters?.length ?? 0;
   const lessonCount = generatedLessons?.length ?? 0;
-  const moduleValues = [
-    ["课程", `${lessonCount}`, `${chapterCount} 个目录项完成编排`],
-    ["RAG 片段", `${parsedChunks?.length ?? 0}`, "可用于问答检索"],
-    ["课程插图", `${parsedAssets?.length ?? 0}`, "源文件抽取优先"],
-    ["检索链路", "混合", "BM25 + pgvector + reranker"]
-  ];
 
   if (!uploadedFile || lessonCount === 0) {
     return (
@@ -105,33 +155,19 @@ export function CourseReadyScreen() {
   }
 
   return (
-    <div className="screen-stack centered-flow parse-complete-screen course-ready-screen">
-      <div className="course-ready-primary" data-brand-moment="course-ready">
-      <CourseReadyHeroImage key={`course-ready-image:${uploadedFile.bookId}:${lessonBuildJobId ?? "current"}`} />
-      <div className="course-ready-success-heading">
-        <h1>生成成功</h1>
-        <CourseReadySuccessMark
-          key={`course-ready:${uploadedFile.bookId}:${lessonBuildJobId ?? "current"}`}
-          bookId={uploadedFile.bookId}
-          lessonBuildJobId={lessonBuildJobId}
-        />
-      </div>
-      <p role="status" aria-live="polite">已将《{courseTitle}》编排为 {lessonCount} 节 AI 课程。</p>
-      </div>
-      <aside className="course-ready-support" aria-label="课程生成结果">
-        <div className="module-grid">
-        {moduleValues.map(([label, value, helper]) => (
-          <Metric key={label} label={label} value={value} helper={helper} />
-        ))}
-        </div>
-      </aside>
-      <div className="course-ready-actions">
-      <Button onClick={() => {
+    <CourseCompletionScreen
+      assetCount={parsedAssets?.length ?? 0}
+      chapterCount={chapterCount}
+      courseTitle={courseTitle}
+      lessonCount={lessonCount}
+      motionKey={`course-ready:${uploadedFile.bookId}:${lessonBuildJobId ?? "current"}`}
+      onEnterStudy={() => {
         setActiveChapterId(generatedLessons?.[0]?.chapter_id ?? null);
         go("study");
-      }}>进入学习</Button>
-      <Button variant="secondary" onClick={() => go("plan")}>查看学习计划</Button>
-      </div>
-    </div>
+      }}
+      onViewPlan={() => go("plan")}
+      ragChunkCount={parsedChunks?.length ?? 0}
+      statusTitle="生成成功"
+    />
   );
 }

@@ -11,6 +11,7 @@ import {
 } from "../components/ui";
 import { useAppContext } from "../context/AppContext";
 import { useLocalMotionItem } from "../motion";
+import { loadSavedStudyNotes } from "./savedStudyNotes";
 
 type LiveNote = {
   id: string;
@@ -20,10 +21,12 @@ type LiveNote = {
 
 export function NotesScreen() {
   const { go, parsedAssets, parsedChunks, uploadedFile } = useAppContext();
+  const [savedNotes] = useState(loadSavedStudyNotes);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [detailRevision, setDetailRevision] = useState(0);
   const noteItems = useMemo<LiveNote[]>(() => uploadedFile
     ? [
+        ...savedNotes,
         ...((parsedChunks ?? []).slice(0, 4).map((chunk) => ({
           id: `chunk:${chunk.chunk_id}`,
           title: `RAG 片段：第 ${chunk.page_start}-${chunk.page_end} 页`,
@@ -35,7 +38,7 @@ export function NotesScreen() {
           body: asset.caption
         })))
       ]
-    : [], [parsedAssets, parsedChunks, uploadedFile]);
+    : [], [parsedAssets, parsedChunks, savedNotes, uploadedFile]);
   const selectedNote = noteItems.find((item) => item.id === selectedNoteId) ?? noteItems[0] ?? null;
   const detailMotion = useLocalMotionItem(
     `notes-detail:${uploadedFile?.bookId ?? "none"}:${selectedNote?.id ?? "empty"}:${detailRevision}`,

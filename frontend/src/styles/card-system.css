@@ -721,6 +721,16 @@ button:disabled {
   -webkit-backdrop-filter: none;
 }
 
+.sheet[data-sheet-type="source"] {
+  border-radius: 28px 28px 0 0;
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .sheet[data-sheet-type="source"] {
+    border-radius: 28px;
+  }
+}
+
 .ai-overlay {
   background-image: none;
 }
@@ -754,6 +764,44 @@ button:disabled {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   box-shadow: none;
+}
+
+/* Keep the assistant context compact: hierarchy comes from type, not nested cards. */
+.ai-overlay-head > div,
+.ai-current-book,
+.ai-current-book-body,
+.ai-topic-row button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ai-overlay-head > div {
+  padding: 0;
+}
+
+.ai-current-book {
+  gap: 4px;
+  padding: 0;
+}
+
+.ai-current-book-body {
+  min-height: 0;
+  gap: 2px;
+  padding: 0;
+  text-align: left;
+}
+
+.ai-topic-row {
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.ai-topic-row button {
+  padding: 4px 0;
+  color: var(--color-primary);
+  font-size: 12px;
 }
 
 @media (max-width: 767px) and (min-height: 600px) and (orientation: portrait) {

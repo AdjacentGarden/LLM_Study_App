@@ -18,26 +18,11 @@ import {
   formatFileSize,
   getFileKind
 } from "./shared";
-import { summarizeParseError } from "./processingState";
 import { startConfirmedCourseParse } from "./uploadFlow";
-
-const uploadedCoverRules = [
-  { keywords: ["生物", "遗传与进化"], source: "/assets/textbook/biology-cover.webp" },
-  { keywords: ["化学"], source: "/assets/book-covers/chemistry-required-2.webp" },
-  { keywords: ["物理"], source: "/assets/book-covers/physics-required-3.webp" },
-  { keywords: ["理论力学"], source: "/assets/book-covers/theoretical-mechanics-1.webp" },
-  { keywords: ["高等数学", "高数"], source: "/assets/book-covers/advanced-mathematics-1.webp" },
-  { keywords: ["数学"], source: "/assets/book-covers/high-school-math-required-2.webp" },
-  { keywords: ["英语"], source: "/assets/book-covers/english-required-3.webp" }
-] as const;
-
-function resolveUploadedCover(fileName: string) {
-  return uploadedCoverRules.find(({ keywords }) => keywords.some((keyword) => fileName.includes(keyword)))?.source ?? null;
-}
 
 export function ParseReadyScreen() {
   const bookcourseRepository = useBookCourseRepository();
-  const { clearLoadedCourse, go, parseJobId, parseJobStatus, uploadedFile, setParseJobId, setParseJobStatus, showToast } = useAppContext();
+  const { clearLoadedCourse, go, parseJobId, parseJobStatus, uploadedFile, setParseJobId, setParseJobStatus } = useAppContext();
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -61,12 +46,10 @@ export function ParseReadyScreen() {
         error: null
       });
       clearLoadedCourse();
-      showToast("后台解析已开始；你可以安全离开，进度会保留");
       go("processing");
     } catch (err) {
       const message = err instanceof Error ? err.message : "解析任务创建失败";
       setParseError(message);
-      showToast(message, "warning");
     } finally {
       setParsing(false);
     }
@@ -89,18 +72,16 @@ export function ParseReadyScreen() {
 
   const fileKind = getFileKind(uploadedFile.name, uploadedFile.contentType);
   const displayTitle = fileTitleBeforeParenthesis(uploadedFile.name);
-  const coverSource = resolveUploadedCover(uploadedFile.name);
   const uploadTime = new Intl.DateTimeFormat("zh-CN", {
     hour: "2-digit",
     minute: "2-digit"
   }).format(uploadedFile.uploadedAt);
   const jobProgress = Math.max(0, Math.min(100, parseJobStatus?.progress ?? (parseJobId ? 5 : 0)));
   const retryable = parseError !== null || parseJobStatus?.status === "failed";
-  const rawErrorMessage = parseError
+  const errorMessage = parseError
     ?? (parseJobStatus?.status === "failed"
       ? parseJobStatus.error ?? parseJobStatus.message ?? "解析失败，请检查文件后重试"
       : null);
-  const errorMessage = rawErrorMessage ? summarizeParseError(rawErrorMessage) : null;
   const primaryActionText = parseJobStatus?.status === "done"
     ? "查看目录"
     : retryable
@@ -114,17 +95,13 @@ export function ParseReadyScreen() {
       <div className="community-detail-workspace parse-ready-workspace">
         <article className="community-detail-overview parse-ready-overview">
           <div className="community-detail-visual parse-ready-visual">
-            {coverSource ? (
-              <img className="community-detail-cover parse-ready-cover-image" src={coverSource} alt="" />
-            ) : (
-              <div className="community-detail-cover-fallback parse-ready-cover" aria-hidden="true">
-                <span className="parse-ready-cover-icon">
-                  <FileText size={56} />
-                </span>
-                <strong>{fileKind}</strong>
-                <span>AI 课程资料</span>
-              </div>
-            )}
+            <div className="community-detail-cover-fallback parse-ready-cover" aria-hidden="true">
+              <span className="parse-ready-cover-icon">
+                <FileText size={56} />
+              </span>
+              <strong>{fileKind}</strong>
+              <span>AI 课程资料</span>
+            </div>
           </div>
 
           <div className="community-detail-summary parse-ready-summary">

@@ -174,18 +174,12 @@ export function HomeBookCarousel({
     const scroller = event.currentTarget;
     const dragDistance = event.clientX - dragState.startX;
     const shouldSwitchBook = commitSelection && Math.abs(dragDistance) >= 24;
-    const tappedOption = !dragState.moved && commitSelection && event.target instanceof Element
-      ? event.target.closest<HTMLButtonElement>(".home-book-option")
-      : null;
-    const tappedBookId = tappedOption?.dataset.bookId ?? null;
     dragStateRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    suppressClickRef.current = dragState.moved || tappedBookId !== null;
-    if (tappedBookId) {
-      onSelectBook(tappedBookId);
-    } else if (shouldSwitchBook) {
+    suppressClickRef.current = dragState.moved;
+    if (shouldSwitchBook) {
       selectByIndex(selectedIndex + (dragDistance < 0 ? 1 : -1));
       window.requestAnimationFrame(() => scroller.classList.remove("is-dragging"));
     } else {
@@ -249,6 +243,7 @@ export function HomeBookCarousel({
           <div
             ref={scrollerRef}
             className={`home-book-carousel ${books.length === 1 ? "is-single" : ""}`}
+            data-mouse-drag-scroll="self"
             role="listbox"
             aria-label="选择教材"
             aria-orientation="horizontal"

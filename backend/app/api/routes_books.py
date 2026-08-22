@@ -6,15 +6,22 @@ from pathlib import Path
 
 import fitz
 
-from app.assignments.service import diagnose_assignment, list_mistakes, submit_assignment
-from app.core.auth import Principal, require_api_key, require_user_match, is_strict_mode
+from app.assignments.service import diagnose_assignment, get_submission, list_mistakes, submit_assignment
+from app.community.catalog import read_community_source_metadata
+from app.core.auth import (
+    Principal,
+    is_strict_mode,
+    require_api_key,
+    require_book_owner_from_path,
+    require_user_match,
+)
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.limits import heavy_task_limiter
 from app.core.worker import task_queue
 from app.document.mineru.exceptions import MinerUProtocolError, MinerUStaleResultError
 from app.document.mineru.models import MinerUClientConfig, MinerUParseOptions, sha256_file
-from app.document.mineru.task_store import MinerUTaskBegin, mineru_task_store
+from app.document.mineru.task_store import MinerUTaskBegin, make_idempotency_key, mineru_task_store
 from app.document.office_preview import render_office_preview
 from app.document.pipeline import parse_document
 from app.document.rebuilder import rebuild_chunks_and_assets
@@ -86,7 +93,10 @@ IMAGE_GENERATION_TASK = "image_generation"
 DELETE_SENTINEL = ".deleting"
 
 
-router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/api",
+    dependencies=[Depends(require_api_key), Depends(require_book_owner_from_path)],
+)
 
 
 def _reserve_heavy_task(task_name: str) -> None:
@@ -146,7 +156,7 @@ def _assert_book_owner(book_id: str, principal: Principal) -> None:
         return
     owner = read_book_owner(book_id)
     if owner is None:
-        return
+        raise AppError("book_owner_missing", "课程缺少有效的所有者元数据", status_code=403, details={"book_id": book_id})
     if principal.is_admin or owner == principal.user_id:
         return
     raise AppError("forbidden_book_owner_mismatch", "无权操作该课程", status_code=403, details={"book_id": book_id})
@@ -195,6 +205,52 @@ def _bound_job_for_generation(reservation: MinerUTaskBegin) -> JobRecord | None:
             status_code=409,
         )
     return job
+
+
+def _parse_cache_artifacts_ready(book_id: str) -> bool:
+    """Require a complete, readable parse publication before reusing a terminal job."""
+    artifacts = artifact_dir(book_id)
+    scan_path = artifacts / "scan_result.json"
+    chapters_path = artifacts / "chapters.json"
+    if not scan_path.exists() or not chapters_path.exists() or get_rag_bundle_state(book_id) != "ready":
+        return False
+    try:
+        scan = ScanResult.model_validate_json(scan_path.read_text(encoding="utf-8"))
+        chapters = read_chapters(book_id)
+    except Exception:
+        return False
+    return scan.page_count > 0 and bool(chapters) and bool(read_chunks(book_id))
+
+
+def _completed_parse_cache_job(book_id: str, original: Path) -> JobRecord | None:
+    """Return the persisted successful job for identical input/options when its artifacts are intact."""
+    try:
+        config = MinerUClientConfig.from_settings()
+        options = MinerUParseOptions.from_settings()
+        current = mineru_task_store.get_current(book_id)
+        if current is None:
+            return None
+        expected_key = make_idempotency_key(
+            book_id,
+            sha256_file(original),
+            options.fingerprint(),
+            config.endpoint,
+        )
+        if (
+            current.idempotency_key != expected_key
+            or current.endpoint != config.endpoint.rstrip("/")
+            or current.worker_outcome != "succeeded"
+            or current.worker_finished_at is None
+            or not current.cloudpath_job_id
+            or not _parse_cache_artifacts_ready(book_id)
+        ):
+            return None
+        job = job_store.get(current.cloudpath_job_id)
+        if job is None or job.status != "done" or job.book_id != book_id:
+            return None
+        return job
+    except (OSError, ValueError, MinerUProtocolError):
+        return None
 
 
 def _job_response(record: JobRecord) -> JobStatusResponse:
@@ -267,6 +323,8 @@ def _course_summary(book_id: str) -> CourseSummary | None:
     assets_path = artifacts / "assets.json"
     bundle_manifest_path = artifacts / ".rag_bundles" / "manifest.json"
     index_status_path = artifacts / "rag_index_status.json"
+    source_metadata_path = resolve_under_root("books", book_id, "_community_source.json")
+    source_metadata = read_community_source_metadata(book_id)
 
     if original is None and not artifacts.exists():
         return None
@@ -280,8 +338,18 @@ def _course_summary(book_id: str) -> CourseSummary | None:
     chunks = read_chunks(book_id) if bundle_state == "ready" else []
     assets = read_assets(book_id) if bundle_state == "ready" else []
     chunk_count = len(chunks)
-    title = scan.filename if scan else original.name if original else book_id
+    title = (
+        str(source_metadata.get("title"))
+        if source_metadata and source_metadata.get("title")
+        else scan.filename if scan else original.name if original else book_id
+    )
     average_confidence = round(sum(chapter.confidence for chapter in chapters) / len(chapters)) if chapters else 0
+    source_page_count = source_metadata.get("page_count") if source_metadata else None
+    community_page_count = (
+        source_page_count
+        if isinstance(source_page_count, int) and not isinstance(source_page_count, bool) and source_page_count > 0
+        else 0
+    )
     try:
         rag_status = read_index_status(book_id)
     except Exception:
@@ -309,7 +377,10 @@ def _course_summary(book_id: str) -> CourseSummary | None:
         title=title,
         filename=original.name if original else scan.filename if scan else None,
         status=status,
-        page_count=scan.page_count if scan else 0,
+        # A verified community PDF is usable before the asynchronous parse has
+        # produced scan_result.json. Preserve its fixed catalog page count so
+        # clients can immediately enable the original-page reader.
+        page_count=scan.page_count if scan else community_page_count,
         chapter_count=len(chapters),
         chunk_count=chunk_count,
         asset_count=len(assets),
@@ -336,9 +407,17 @@ def _course_summary(book_id: str) -> CourseSummary | None:
                     assets_path,
                     bundle_manifest_path,
                     index_status_path,
+                    source_metadata_path,
                 ]
                 if path is not None
             ]
+        ),
+        author=str(source_metadata.get("author")) if source_metadata and source_metadata.get("author") else None,
+        source_catalog_id=str(source_metadata.get("id")) if source_metadata and source_metadata.get("id") else None,
+        cover_url=(
+            f"/api/community/books/{source_metadata.get('id')}/cover"
+            if source_metadata and source_metadata.get("id")
+            else None
         ),
     )
 
@@ -476,6 +555,13 @@ def parse_book(
     if original is None:
         raise AppError("file_missing", "请先上传教材文件", status_code=404)
     _assert_book_owner(book_id, principal)
+    cached_job = _completed_parse_cache_job(book_id, original)
+    if cached_job is not None:
+        cached_job = job_store.update(
+            cached_job.job_id,
+            message="已命中后端解析缓存，无需重复解析",
+        )
+        return ParseJobResponse(book_id=book_id, job_id=cached_job.job_id, status=cached_job.status)
     reservation = _reserve_parse_generation(book_id, original)
     existing_job = _bound_job_for_generation(reservation)
     if existing_job is not None:
@@ -536,16 +622,24 @@ def parse_book(
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
-def get_job(job_id: str) -> JobStatusResponse:
+def get_job(job_id: str, principal: Principal = Depends(require_api_key)) -> JobStatusResponse:
     record = job_store.get(job_id)
     if record is None:
         raise AppError("job_not_found", "任务不存在", status_code=404)
+    _assert_book_owner(record.book_id, principal)
     return _job_response(record)
 
 
 @router.get("/books", response_model=list[CourseSummary])
-def list_courses() -> list[CourseSummary]:
-    summaries = [_course_summary(book_id) for book_id in list_book_ids()]
+def list_courses(principal: Principal = Depends(require_api_key)) -> list[CourseSummary]:
+    visible_book_ids = [
+        book_id
+        for book_id in list_book_ids()
+        if not is_strict_mode()
+        or principal.is_admin
+        or read_book_owner(book_id) == principal.user_id
+    ]
+    summaries = [_course_summary(book_id) for book_id in visible_book_ids]
     courses = [summary for summary in summaries if summary is not None]
     return sorted(courses, key=lambda item: item.updated_at, reverse=True)
 
@@ -732,8 +826,10 @@ def get_chunks(book_id: str) -> list[Chunk]:
 
 
 @router.get("/chunks/{chunk_id}", response_model=Chunk)
-def get_chunk(chunk_id: str) -> Chunk:
+def get_chunk(chunk_id: str, principal: Principal = Depends(require_api_key)) -> Chunk:
     for book_id in list_book_ids():
+        if is_strict_mode() and not principal.is_admin and read_book_owner(book_id) != principal.user_id:
+            continue
         for chunk in read_chunks(book_id):
             if chunk.chunk_id == chunk_id:
                 return chunk
@@ -750,10 +846,25 @@ def get_assets(book_id: str, source_type: str | None = None) -> list[Asset]:
 
 
 @router.get("/chapters/{chapter_id}/figures", response_model=list[AssetPublic])
-def get_chapter_figures(chapter_id: str, book_id: str | None = None, source_type: str | None = None) -> list[Asset]:
+def get_chapter_figures(
+    chapter_id: str,
+    book_id: str | None = None,
+    source_type: str | None = None,
+    principal: Principal = Depends(require_api_key),
+) -> list[Asset]:
     book_ids = [book_id] if book_id else list_book_ids()
     figures: list[Asset] = []
     for candidate_book_id in book_ids:
+        if (
+            is_strict_mode()
+            and not principal.is_admin
+            and read_book_owner(candidate_book_id) != principal.user_id
+        ):
+            # Global queries filter inaccessible books; an explicit book_id
+            # remains fail-closed with the ordinary owner error.
+            if book_id is not None:
+                _assert_book_owner(candidate_book_id, principal)
+            continue
         if not (artifact_dir(candidate_book_id) / "assets.json").exists():
             continue
         figures.extend(
@@ -765,9 +876,14 @@ def get_chapter_figures(chapter_id: str, book_id: str | None = None, source_type
 
 
 @router.get("/assets/{asset_id}", response_model=AssetPublic)
-def get_asset(asset_id: str, book_id: str | None = None) -> Asset:
+def get_asset(
+    asset_id: str,
+    book_id: str | None = None,
+    principal: Principal = Depends(require_api_key),
+) -> Asset:
     if not book_id:
         raise AppError("book_id_required", "查询 asset 必须提供 book_id", status_code=400)
+    _assert_book_owner(book_id, principal)
     return get_book_asset(book_id, asset_id)
 
 
@@ -909,7 +1025,14 @@ def build_book_lessons(
 
 
 @router.get("/lesson-generation/jobs/{job_id}", response_model=LessonBuildJobResponse)
-def get_lesson_generation_job(job_id: str) -> LessonBuildJobResponse:
+def get_lesson_generation_job(
+    job_id: str,
+    principal: Principal = Depends(require_api_key),
+) -> LessonBuildJobResponse:
+    job = lesson_job_store.get(job_id)
+    if job is None:
+        raise AppError("lesson_job_not_found", "课程生成任务不存在", status_code=404)
+    _assert_book_owner(job.book_id, principal)
     return _lesson_job_response(job_id)
 
 
@@ -985,12 +1108,23 @@ def generate_asset(
 
 
 @router.get("/image-generation/jobs/{job_id}", response_model=ImageGenerationJobResponse)
-def get_image_generation_job(job_id: str) -> ImageGenerationJobResponse:
+def get_image_generation_job(
+    job_id: str,
+    principal: Principal = Depends(require_api_key),
+) -> ImageGenerationJobResponse:
+    record = image_job_store.get(job_id)
+    if record is None:
+        raise AppError("image_job_not_found", "图片生成任务不存在", status_code=404)
+    _assert_book_owner(record.book_id, principal)
     return _image_job_response(job_id)
 
 
 @router.post("/rag/query", response_model=RagResponse)
-def rag_query(payload: RagQuery) -> RagResponse:
+def rag_query(
+    payload: RagQuery,
+    principal: Principal = Depends(require_api_key),
+) -> RagResponse:
+    _assert_book_owner(payload.book_id, principal)
     _ensure_artifact(payload.book_id, "chunks.jsonl")
     return answer_query(payload)
 
@@ -1001,6 +1135,7 @@ def submit_assignment_route(
     payload: AssignmentSubmitRequest,
     principal: Principal = Depends(require_api_key),
 ) -> AssignmentSubmitResponse:
+    _assert_book_owner(payload.book_id, principal)
     _ensure_artifact(payload.book_id, "chunks.jsonl")
     resolved = _check_user_payload(payload.user_id, principal)
     if payload.user_id != resolved:
@@ -1009,7 +1144,17 @@ def submit_assignment_route(
 
 
 @router.post("/assignments/{assignment_id}/diagnose", response_model=DiagnosisResponse)
-def diagnose_assignment_route(assignment_id: str, submission_id: str) -> DiagnosisResponse:
+def diagnose_assignment_route(
+    assignment_id: str,
+    submission_id: str,
+    principal: Principal = Depends(require_api_key),
+) -> DiagnosisResponse:
+    submission = get_submission(submission_id)
+    if submission is None:
+        raise AppError("submission_not_found", "submission_id not found", status_code=404)
+    _assert_book_owner(submission.book_id, principal)
+    if is_strict_mode() and not principal.is_admin and submission.user_id != principal.user_id:
+        raise AppError("forbidden_user_mismatch", "无权访问该提交", status_code=403)
     return diagnose_assignment(assignment_id, submission_id)
 
 

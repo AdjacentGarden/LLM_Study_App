@@ -75,6 +75,8 @@ describe("lesson reading content", () => {
 
     expect(sections[0]?.asset?.asset_id).toBe("extracted-1");
     expect(sections[1]?.asset?.asset_id).toBe("ai-1");
+    expect(sections[0]?.assets.map((asset) => asset.asset_id)).toEqual(["extracted-1"]);
+    expect(sections[1]?.assets.map((asset) => asset.asset_id)).toEqual(["ai-1"]);
     expect(new Set(sections.map((section) => section.asset?.asset_id).filter(Boolean)).size).toBe(2);
   });
 

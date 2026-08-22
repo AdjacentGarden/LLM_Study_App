@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import urllib.request
 
+import app.core.ai_runtime as ai_runtime_module
 from app.core.config import get_settings
 from app.rag.llm import DeepSeekRagAnswerAdapter, build_grounded_prompt, get_rag_answer_adapter
 from app.schemas.books import Citation
@@ -37,7 +37,7 @@ def test_deepseek_rag_adapter_uses_v4_flash_payload(monkeypatch) -> None:
         captured["timeout"] = timeout
         return FakeResponse()
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ai_runtime_module._NO_REDIRECT_OPENER, "open", fake_urlopen)
     adapter = DeepSeekRagAnswerAdapter(
         "https://api.deepseek.com/chat/completions",
         "fake-key",

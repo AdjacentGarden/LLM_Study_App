@@ -19,7 +19,7 @@ const fileOrdinalLabels = ["文件一", "文件二", "文件三", "文件四"];
 
 export function UploadScreen() {
   const bookcourseRepository = useBookCourseRepository();
-  const { clearCourseSession, clearLoadedCourse, go, setSelectedUpload, setUploadedFile, showToast } = useAppContext();
+  const { clearCourseSession, clearLoadedCourse, go, setSelectedUpload, setUploadedFile } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -46,12 +46,10 @@ export function UploadScreen() {
       resetCourseGenerationState();
       setUploadedFile(uploadedFile);
       setSelectedUpload(true);
-      showToast(`${selectedFiles.length} 份资料已上传。你可以确认后再开始后台解析`);
       go("parseReady");
     } catch (err) {
       const message = err instanceof Error ? err.message : "文件上传失败";
       setUploadError(message);
-      showToast(message, "warning");
     } finally {
       setUploading(false);
     }

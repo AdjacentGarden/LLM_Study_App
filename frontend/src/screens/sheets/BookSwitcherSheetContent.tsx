@@ -3,7 +3,7 @@ import { BookOpenCheck, Check, ChevronRight, LibraryBig, Plus } from "lucide-rea
 import { Button } from "../../components/ui";
 import { useAppContext } from "../../context/AppContext";
 import { hasCompleteLoadedCourseContext } from "../courseResourceIdentity";
-import { sourcePageImageUrl } from "../shared";
+import { courseCoverImageUrl } from "../shared";
 
 function statusLabel(status: string) {
   if (status === "ready") return "可以学习";
@@ -80,7 +80,7 @@ export function BookSwitcherSheetContent() {
               disabled={Boolean(courseSelectionLoadingId)}
               onClick={() => void chooseCourse(course.book_id, course.status)}
             >
-              <img src={sourcePageImageUrl(course.book_id, 1)} alt="" />
+              <img src={courseCoverImageUrl(course.book_id, course.cover_url)} alt="" />
               <span>
                 <strong>{course.title}</strong>
                 <small>{loading ? "正在打开…" : statusLabel(course.status)}</small>

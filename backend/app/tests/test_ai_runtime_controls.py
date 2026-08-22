@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import threading
 import urllib.error
-import urllib.request
 
 import pytest
 
+import app.core.ai_runtime as ai_runtime_module
 from app.core.ai_runtime import AIProviderRuntime, AIRuntimePolicy
 from app.core.errors import AppError
 
@@ -55,7 +57,7 @@ def test_runtime_retries_transient_http_and_reports_metrics(monkeypatch) -> None
             raise urllib.error.HTTPError(request.full_url, 429, "busy", {}, None)
         return _Response({"ok": True})
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ai_runtime_module._NO_REDIRECT_OPENER, "open", fake_urlopen)
     runtime = AIProviderRuntime("test", _policy())
     result = runtime.post_json(
         api_url="https://example.test/chat",
@@ -81,7 +83,7 @@ def test_runtime_cache_avoids_duplicate_provider_calls(monkeypatch) -> None:
         calls += 1
         return _Response({"answer": "cached"})
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ai_runtime_module._NO_REDIRECT_OPENER, "open", fake_urlopen)
     runtime = AIProviderRuntime("test", _policy())
     kwargs = {
         "api_url": "https://example.test/chat",
@@ -106,7 +108,7 @@ def test_runtime_opens_circuit_after_repeated_failures(monkeypatch) -> None:
         calls += 1
         raise urllib.error.HTTPError(request.full_url, 400, "bad request", {}, None)
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ai_runtime_module._NO_REDIRECT_OPENER, "open", fake_urlopen)
     runtime = AIProviderRuntime("test", _policy(max_retries=0, circuit_failure_threshold=2))
     kwargs = {
         "api_url": "https://example.test/chat",
@@ -126,3 +128,59 @@ def test_runtime_opens_circuit_after_repeated_failures(monkeypatch) -> None:
     assert exc_info.value.code == "test_ai_circuit_open"
     assert calls == 2
     assert runtime.snapshot()["circuit_state"] == "open"
+
+
+def test_runtime_rejects_redirect_without_contacting_target() -> None:
+    target_calls = 0
+
+    class TargetHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            nonlocal target_calls
+            target_calls += 1
+            self.send_response(200)
+            self.end_headers()
+
+        def do_GET(self):
+            nonlocal target_calls
+            target_calls += 1
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return None
+
+    target = ThreadingHTTPServer(("127.0.0.1", 0), TargetHandler)
+
+    class RedirectHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{target.server_port}/stolen")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return None
+
+    redirect = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+    threads = [
+        threading.Thread(target=server.serve_forever, daemon=True)
+        for server in (target, redirect)
+    ]
+    for thread in threads:
+        thread.start()
+    try:
+        runtime = AIProviderRuntime("test", _policy(max_retries=0))
+        with pytest.raises(AppError) as exc_info:
+            runtime.post_json(
+                api_url=f"http://127.0.0.1:{redirect.server_port}/provider",
+                api_key="must-not-leak",
+                payload={"model": "test"},
+                timeout_seconds=1,
+                error_prefix="test_ai",
+            )
+        assert exc_info.value.code == "test_ai_http_error"
+        assert target_calls == 0
+    finally:
+        redirect.shutdown()
+        target.shutdown()
+        redirect.server_close()
+        target.server_close()

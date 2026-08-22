@@ -28,7 +28,7 @@
   "chunking": {
     "tokenizer_model": "BAAI/bge-m3",
     "tokenizer_revision": "5617a9f61b028005a4858fdac845db406aefb181",
-    "transformers_version": "4.57.6",
+    "transformers_version": "5.5.4",
     "tokenizers_version": "0.22.2",
     "target_tokens": 450,
     "max_tokens": 700,

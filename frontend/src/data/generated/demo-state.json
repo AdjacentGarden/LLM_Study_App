@@ -1868,8 +1868,8 @@
     {
       "chapter_id": "frontmatter",
       "level": 1,
-      "source_title": "封面、编者信息、目录与科学家访谈",
-      "ai_title": "教材前置页",
+      "source_title": "第 1 章 遗传因子的发现",
+      "ai_title": "第 1 章 遗传因子的发现",
       "page_start": 1,
       "page_end": 9,
       "printed_page_start": null,
@@ -14735,6 +14735,53 @@
       }
     },
     {
+      "asset_id": "asset_ai_meiosis_fertilization_cycle_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂形成配子并通过受精恢复染色体数目的概览",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11",
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "减数分裂",
+        "配子",
+        "受精作用",
+        "染色体数目稳定"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_overview_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂一次复制、两次分裂的完整过程示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-overview-v2.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-overview-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "减数分裂",
+        "染色体数目减半"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
       "asset_id": "asset_ai_meiosis_homologous_v1",
       "book_id": "book_biology_2",
       "chapter_id": "c2s1",
@@ -14759,6 +14806,30 @@
       "review_status": "approved"
     },
     {
+      "asset_id": "asset_ai_meiosis_separation_compare_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体分离与姐妹染色单体分开的对比示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-separation-compare-v2.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-separation-compare-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "同源染色体",
+        "姐妹染色单体",
+        "减数第一次分裂",
+        "减数第二次分裂"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
       "asset_id": "asset_ai_fertilization_v1",
       "book_id": "book_biology_2",
       "chapter_id": "c2s1",
@@ -14776,6 +14847,100 @@
       "concepts": [
         "受精作用",
         "染色体数目稳定"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_dna_replication_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂前 DNA 复制使染色体形成姐妹染色单体",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-dna-replication-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-dna-replication-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "DNA 复制",
+        "姐妹染色单体",
+        "染色体数目"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_synapsis_crossing_over_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体联会形成四分体并发生交叉互换",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "同源染色体",
+        "联会",
+        "四分体",
+        "交叉互换"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_ii_centromere_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数第二次分裂中着丝点分裂和姐妹染色单体分开",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "减数第二次分裂",
+        "着丝点",
+        "姐妹染色单体"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_fertilization_homolog_pair_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "精卵融合使受精卵恢复成对的同源染色体",
+      "bbox": null,
+      "image_url": "/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "thumbnail_url": "/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "受精作用",
+        "单倍体",
+        "二倍体",
+        "同源染色体"
       ],
       "generation_provider": "openai-imagegen",
       "review_status": "approved"
@@ -16450,7 +16615,7 @@
           "block_id": "block_meiosis_definition",
           "block_type": "explanation",
           "title": "先抓住总结构",
-          "content": "减数分裂发生在形成成熟生殖细胞的过程中。教材明确指出，染色体只复制一次而细胞分裂两次，结果是成熟生殖细胞的染色体数目减半。",
+          "content": "减数分裂发生在有性生殖细胞形成的过程中。进入分裂前的间期，细胞只进行一次 DNA 复制：每条染色体由一条染色单体变为两条姐妹染色单体，但着丝点数和染色体数暂时不变。也就是说，此时变化的是 DNA 含量，而不是染色体数目。\n\n第一次分裂处理的是同源染色体。它们先联会形成四分体，再排列到赤道板两侧并分别移向细胞两极；着丝点不分裂，所以姐妹染色单体仍然连接。分裂结束后，每个子细胞只保留每对同源染色体中的一条，染色体数目由二倍体降为单倍体。\n\n第二次分裂前不再复制 DNA。各条染色体的着丝点分裂，姐妹染色单体分开并成为独立染色体，最终通常形成四个单倍体细胞。判断流程时抓住三句话：复制一次、连续分裂两次、染色体数目在第一次分裂后减半。",
           "citations": [
             {
               "chunk_id": "chunk_c2s1_11",
@@ -16515,7 +16680,8 @@
             "chunk_c2s1_11"
           ],
           "asset_ids": [
-            "mineru_a7e5d24146a9ca0a14b3"
+            "asset_ai_meiosis_dna_replication_v1",
+            "asset_ai_meiosis_overview_v2"
           ],
           "ai_generated": false
         },
@@ -16523,7 +16689,7 @@
           "block_id": "block_homologous",
           "block_type": "diagram",
           "title": "同源染色体先分离",
-          "content": "联会后形成四分体；减数第一次分裂中分离的是同源染色体，而不是姐妹染色单体，这是染色体数目减半的关键。",
+          "content": "同源染色体是一对形态、大小和着丝点位置通常相同的染色体，一条来自父方，一条来自母方；它们控制同一类性状，但携带的等位基因不一定相同。姐妹染色单体则是同一条染色体复制形成的两份拷贝，两者不能混为一谈。\n\n减数第一次分裂前期，同源染色体两两配对，这一过程叫联会。一对已经复制的同源染色体共有四条染色单体，因此构成四分体。四分体中的非姐妹染色单体可以发生对应片段的交叉互换，为配子带来新的基因组合。\n\n减数第一次分裂后期，同源染色体分别移向细胞两极，但着丝点不分裂，姐妹染色单体仍连接在一起。每个子细胞只得到一对同源染色体中的一条，因此染色体数目减半；来自父方或母方的染色体如何组合进入配子，还会进一步增加遗传多样性。",
           "citations": [
             {
               "chunk_id": "chunk_c2s1_13",
@@ -16692,7 +16858,8 @@
             "chunk_c2s1_13"
           ],
           "asset_ids": [
-            "mineru_b6a6a15c934c4270f692"
+            "asset_ai_meiosis_synapsis_crossing_over_v1",
+            "asset_ai_meiosis_homologous_v1"
           ],
           "ai_generated": false
         },
@@ -16700,7 +16867,7 @@
           "block_id": "block_sister",
           "block_type": "comparison",
           "title": "姐妹染色单体随后分开",
-          "content": "减数第二次分裂时，着丝点分裂，姐妹染色单体随之分开。记忆顺序是：第一次分裂看同源染色体，第二次分裂看姐妹染色单体。",
+          "content": "减数第一次分裂结束后，两个子细胞直接进入第二次分裂，中间通常没有 DNA 复制。此时细胞已经是单倍体，因为同源染色体不再成对存在；但每条染色体仍由两条姐妹染色单体组成，所以 DNA 含量还没有降到配子的最终水平。\n\n减数第二次分裂中期，染色体排列在赤道板上；进入后期后，着丝点分裂，纺锤丝牵引姐妹染色单体移向两极。分开的每条染色单体从这一刻起成为一条独立染色体，随后细胞质分裂，通常形成四个单倍体细胞。\n\n区分两次分裂可以依次检查三个线索：第一次分裂有同源染色体联会和分离，着丝点不分裂；第二次分裂没有联会，着丝点发生分裂；染色体数目减半发生在第一次分裂，而姐妹染色单体的分开发生在第二次分裂。",
           "citations": [
             {
               "chunk_id": "chunk_c2s1_13",
@@ -16761,7 +16928,8 @@
             "chunk_c2s1_13"
           ],
           "asset_ids": [
-            "mineru_b6a6a15c934c4270f692"
+            "asset_ai_meiosis_separation_compare_v2",
+            "asset_ai_meiosis_ii_centromere_v1"
           ],
           "ai_generated": false
         },
@@ -16769,7 +16937,7 @@
           "block_id": "block_fertilization",
           "block_type": "application",
           "title": "受精作用恢复数目",
-          "content": "精子和卵细胞相互识别、融合成为受精卵；两套配子染色体会合，使受精卵中的染色体数目恢复到体细胞水平。",
+          "content": "减数分裂形成的精子和卵细胞都是单倍体，各自只含一套染色体。配子中的每条染色体只代表原来同源染色体对中的一条，因此精子和卵细胞分别携带来自亲本的一部分遗传信息。\n\n受精时，精子与卵细胞先相互识别，随后细胞膜和细胞核发生融合。两个单倍体细胞核中的染色体会合，受精卵重新获得成对的同源染色体，染色体数目由单倍体恢复为二倍体；恢复的是染色体组数，并不是把同一条染色体简单复制一遍。\n\n减数分裂负责“减半”，受精作用负责“恢复”，两者交替使同一物种每一代的染色体数目保持相对稳定。同时，交叉互换、非同源染色体的自由组合以及雌雄配子的随机结合，使每个受精卵都可能拥有不同的遗传组合。",
           "citations": [
             {
               "chunk_id": "chunk_c2s1_19",
@@ -16892,8 +17060,8 @@
             "chunk_c2s1_19"
           ],
           "asset_ids": [
-            "mineru_db28492a3c9815f534bb",
-            "mineru_db4fb512f8f72bb7cb6f"
+            "asset_ai_fertilization_homolog_pair_v2",
+            "asset_ai_fertilization_v1"
           ],
           "ai_generated": false
         }
@@ -16929,7 +17097,15 @@
         "mineru_cb243d8828fbe7c87dd4",
         "mineru_c529e476b631ad583b0b",
         "mineru_8bb9e7f0e7acdf5c03da",
-        "mineru_380c46e5fe749422b846"
+        "mineru_380c46e5fe749422b846",
+        "asset_ai_meiosis_dna_replication_v1",
+        "asset_ai_meiosis_overview_v2",
+        "asset_ai_meiosis_synapsis_crossing_over_v1",
+        "asset_ai_meiosis_homologous_v1",
+        "asset_ai_meiosis_separation_compare_v2",
+        "asset_ai_meiosis_ii_centromere_v1",
+        "asset_ai_fertilization_homolog_pair_v2",
+        "asset_ai_fertilization_v1"
       ],
       "warnings": [
         "部分 OCR 文字存在识别噪声；课程讲解使用人工校订表述，引用保留原始 OCR 文本。"

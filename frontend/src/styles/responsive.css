@@ -17,6 +17,20 @@
     --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--home-indicator-height));
   }
 
+  .lesson-knowledge-pager {
+    min-height: max(
+      30rem,
+      calc(
+        100dvh
+        - var(--safe-area-top)
+        - var(--header-block-size)
+        - var(--safe-area-bottom)
+        - var(--space-layout)
+        - var(--space-layout)
+      )
+    );
+  }
+
   .ios-status-bar {
     display: grid;
   }
@@ -206,8 +220,8 @@ body {
 
 /* Stage 3: modal surfaces and the global AI assistant remain within the active viewport. */
 .ai-orb {
-  --ai-orb-left-inset: calc(var(--safe-area-left) + 12px);
-  --ai-orb-right-inset: calc(var(--safe-area-right) + 12px);
+  --ai-orb-left-inset: var(--safe-area-left);
+  --ai-orb-right-inset: var(--safe-area-right);
   min-width: var(--touch-target-min);
   min-height: var(--touch-target-min);
 }
@@ -280,8 +294,8 @@ body {
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  align-content: start;
   gap: 12px;
   padding-right: 2px;
 }
@@ -294,15 +308,14 @@ body {
 
 .ai-message-list {
   max-height: none;
-  min-height: max-content;
   margin-top: 0;
-  overflow-y: visible;
 }
 
-.ai-overlay .ai-dialog-scroll > .ai-mode-row {
-  position: static !important;
-  inset: auto !important;
-  margin-top: 8px;
+.ai-mode-row {
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
 }
 
 .ai-topic-row,
@@ -1188,6 +1201,14 @@ body {
 }
 
 @media (min-width: 768px) and (min-height: 600px) {
+  .ai-orb.ai-orb-mascot,
+  .lesson-ai-entry {
+    width: 4.25rem;
+    height: 4.9375rem;
+    min-width: 4.25rem;
+    min-height: 4.9375rem;
+  }
+
   .home-primary-grid {
     grid-template-columns: minmax(0, 1.1fr) minmax(250px, 0.9fr);
     align-items: stretch;
@@ -1303,6 +1324,28 @@ body {
 
   .source-reader-actions .button {
     width: 100%;
+  }
+}
+
+@media (max-height: 599px) and (orientation: landscape) {
+  .ai-orb.ai-orb-mascot,
+  .lesson-ai-entry {
+    width: 3.3125rem;
+    height: 3.875rem;
+    min-width: 3.3125rem;
+    min-height: 3.875rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lesson-ai-entry[data-side="right"][data-interaction="idle"]:hover {
+    --lesson-ai-entry-hover-x: -3px;
+    filter: drop-shadow(0 4px 4px rgba(32, 38, 58, 0.2));
+  }
+
+  .lesson-ai-entry[data-side="left"][data-interaction="idle"]:hover {
+    --lesson-ai-entry-hover-x: 3px;
+    filter: drop-shadow(0 4px 4px rgba(32, 38, 58, 0.2));
   }
 }
 

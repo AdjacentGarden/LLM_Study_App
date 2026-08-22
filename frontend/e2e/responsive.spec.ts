@@ -68,11 +68,18 @@ async function openLibrary(page: Page) {
 }
 
 async function advanceAssignmentToShortAnswer(page: Page) {
-  await page.locator(".assignment-judgment-options button").first().click();
-  await page.locator(".assignment-primary-action .button").click();
+  const primaryAction = page.locator(".assignment-primary-action .button");
+  const judgment = page.locator(".assignment-judgment-options button").first();
+  await judgment.click();
+  await expect(judgment).toHaveAttribute("aria-pressed", "true");
+  await expect(primaryAction).toBeEnabled();
+  await primaryAction.click();
   await expect(page.locator('.assignment-exercise-card[data-assignment-type="choice"]')).toBeVisible();
-  await page.locator(".assignment-choice-options button").nth(1).click();
-  await page.locator(".assignment-primary-action .button").click();
+  const choice = page.locator(".assignment-choice-options button").nth(1);
+  await choice.click();
+  await expect(choice).toHaveAttribute("aria-pressed", "true");
+  await expect(primaryAction).toBeEnabled();
+  await primaryAction.click();
   await expect(page.locator('.assignment-exercise-card[data-assignment-type="short-answer"]')).toBeVisible();
 }
 
@@ -110,10 +117,35 @@ async function expectShellMode(page: Page, viewport: CssViewport, label: string)
   await expect(nav.locator(".nav-item"), `${label}: four navigation destinations remain present`).toHaveCount(4);
   const bounds = await nav.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    return { height: rect.height, width: rect.width };
+    const shellRect = element.closest(".app-shell")?.getBoundingClientRect();
+    return {
+      bottomInside: Boolean(shellRect && rect.bottom <= shellRect.bottom + 1),
+      leftInside: Boolean(shellRect && rect.left >= shellRect.left - 1),
+      rightInside: Boolean(shellRect && rect.right <= shellRect.right + 1),
+      topInside: Boolean(shellRect && rect.top >= shellRect.top - 1)
+    };
   });
-  expect(bounds.height > bounds.width ? "pad" : "phone", `${label}: navigation orientation follows the layout mode`).toBe(expectedDeviceLayout(viewport));
+  expect(bounds, `${label}: responsive navigation remains inside the shell`).toEqual({
+    bottomInside: true,
+    leftInside: true,
+    rightInside: true,
+    topInside: true
+  });
   await expectNoShellOverflow(page, label);
+}
+
+async function expectOrbClearOfNavigation(page: Page, label: string) {
+  const overlapArea = await page.evaluate(() => {
+    const orb = document.querySelector<HTMLElement>(".ai-orb");
+    const navigation = document.querySelector<HTMLElement>(".primary-nav");
+    if (!orb || !navigation) throw new Error("AI orb or primary navigation is missing");
+    const orbBounds = orb.getBoundingClientRect();
+    const navigationBounds = navigation.getBoundingClientRect();
+    const overlapWidth = Math.max(0, Math.min(orbBounds.right, navigationBounds.right) - Math.max(orbBounds.left, navigationBounds.left));
+    const overlapHeight = Math.max(0, Math.min(orbBounds.bottom, navigationBounds.bottom) - Math.max(orbBounds.top, navigationBounds.top));
+    return overlapWidth * overlapHeight;
+  });
+  expect(overlapArea, `${label}: AI orb must not cover primary navigation`).toBe(0);
 }
 
 async function expectInsideShell(page: Page, locator: Locator, label: string) {
@@ -171,17 +203,24 @@ async function expectStrictHorizontalBounds(page: Page, selectors: string[], lab
 
 async function expectReachable(locator: Locator, label: string) {
   await expect(locator, `${label}: control is visible`).toBeVisible();
-  await locator.scrollIntoViewIfNeeded();
-  await locator.click({ trial: true });
-  const result = await locator.evaluate((element) => {
+  await expect.poll(async () => {
+    try {
+      await locator.scrollIntoViewIfNeeded({ timeout: 1_000 });
+      await locator.click({ trial: true, timeout: 1_000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }, { message: `${label}: control settles and its center is reachable`, timeout: 10_000 }).toBe(true);
+  const stableResult = await locator.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    return {
-      height: rect.height,
-      width: rect.width
-    };
+    return { height: rect.height, width: rect.width };
   });
-  expect(result.height + 0.001, `${label}: touch target height`).toBeGreaterThanOrEqual(44);
-  expect(result.width + 0.001, `${label}: touch target width`).toBeGreaterThanOrEqual(44);
+  // WebKit can report a transformed 44px control a few thousandths below its
+  // layout size at fractional DPRs. A quarter CSS pixel covers rasterization
+  // noise without allowing a materially undersized touch target.
+  expect(stableResult.height + 0.25, `${label}: touch target height`).toBeGreaterThanOrEqual(44);
+  expect(stableResult.width + 0.25, `${label}: touch target width`).toBeGreaterThanOrEqual(44);
 }
 
 async function readStudyBookBarGeometry(page: Page) {
@@ -234,7 +273,7 @@ async function openSourceReader(page: Page) {
   await expect(page.locator(".lesson-screen")).toBeVisible({ timeout: 10_000 });
   await settleScreen(page);
   await page.locator(".lesson-source-link").first().click();
-  await expect(page.locator(".source-reader-screen")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".source-reference-sheet")).toBeVisible({ timeout: 10_000 });
   await settleScreen(page);
 }
 
@@ -248,6 +287,17 @@ async function openLesson(page: Page) {
   await settleScreen(page);
 }
 
+async function advanceLessonToLastPage(page: Page) {
+  const pager = page.locator(".lesson-knowledge-pager");
+  await expect(pager).toBeVisible();
+  const progress = pager.getByRole("progressbar", { name: "章节学习进度" });
+  const pageCount = Number(await progress.getAttribute("aria-valuemax"));
+  await pager.focus();
+  for (let index = 1; index < pageCount; index += 1) await pager.press("ArrowRight");
+  await expect(progress).toHaveAttribute("aria-valuenow", String(pageCount));
+  await expect(page.locator(".lesson-floating-complete .button:visible")).toBeVisible();
+}
+
 async function expectCurrentScreenGeometry(page: Page, screenSelector: string, keySelectors: string[], label: string) {
   await expectStrictHorizontalBounds(page, [
     ".screen-content",
@@ -257,6 +307,34 @@ async function expectCurrentScreenGeometry(page: Page, screenSelector: string, k
     ...keySelectors
   ], label);
   await expectNoShellOverflow(page, label);
+}
+
+async function installRealCommunityCatalogFixture(page: Page) {
+  const base = {
+    catalog_title: "Calculus Made Easy",
+    author: "Silvanus P. Thompson",
+    cover: "/api/community/books/gutenberg_calculus_made_easy/cover",
+    subject: "数学",
+    level: "大学",
+    language: "English",
+    edition: "Second Edition, 1914",
+    page_count: 292,
+    file_size_bytes: 1298365,
+    source_page_url: "https://www.gutenberg.org/ebooks/33283",
+    license_name: "Project Gutenberg License / U.S. public-domain text",
+    license_url: "https://www.gutenberg.org/policy/license",
+    rights_notice: "Project Gutenberg 标注该作品在美国不受版权限制。",
+    description: "服务器保存并导入完整 PDF。",
+    chapters: ["Differentiation", "Integration"],
+    tags: ["真实 PDF", "公共领域"],
+    server_cached: true,
+    imported_book_id: null
+  };
+  await page.route("**/api/community/books", (route) => route.fulfill({ json: [
+    { ...base, id: "gutenberg_calculus_made_easy", title: "Calculus Made Easy" },
+    { ...base, id: "gutenberg_euclid_elements", title: "The Elements of Euclid", catalog_title: "Euclid's Elements", author: "Euclid", page_count: 228 },
+    { ...base, id: "gutenberg_quaternions_physics", title: "Utility of Quaternions in Physics", catalog_title: "Quaternions in Physics", author: "Alexander McAulay", subject: "物理", page_count: 134 }
+  ] }));
 }
 
 async function activateUnobscuredWithKeyboard(control: Locator, label: string) {
@@ -480,6 +558,14 @@ test.describe("current DemoRepository responsive matrix", () => {
   test("keeps AI and ActionSheet surfaces inside the visual app viewport in both orientations", async ({ page }, testInfo) => {
     const project = getResponsiveProject(testInfo.project.name);
     await gotoApp(page);
+    await page.locator(".primary-nav .nav-item").nth(1).click();
+    await expect(page.locator(".community-screen")).toBeVisible();
+    await settleScreen(page);
+    await expectOrbClearOfNavigation(page, `${project.name} community AI trigger`);
+    await page.locator(".primary-nav .nav-item").nth(3).click();
+    await expect(page.locator(".profile-screen")).toBeVisible();
+    await settleScreen(page);
+    await expectOrbClearOfNavigation(page, `${project.name} initial AI trigger`);
     await page.locator(".ai-orb").click();
     const ai = page.locator(".ai-overlay");
     await expect(ai).toHaveAttribute("data-motion-state", "idle");
@@ -502,17 +588,19 @@ test.describe("current DemoRepository responsive matrix", () => {
   test("keeps every current learning destination reachable with strict document, shell, screen, content, and control bounds", async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     const project = getResponsiveProject(testInfo.project.name);
+    await installRealCommunityCatalogFixture(page);
     await openStudy(page);
     await page.setViewportSize(project.pairedViewport);
     await expectShellMode(page, project.pairedViewport, `${project.name} paired current destinations`);
 
     await openSourceReader(page);
-    await expectCurrentScreenGeometry(page, ".source-reader-screen", [
-      ".source-reader-toolbar button",
-      ".source-page-frame",
-      ".source-reader-actions .button"
-    ], `${project.name} SourceReader`);
-    await page.locator(".header-bar .icon-button").click();
+    await expectCurrentScreenGeometry(page, ".source-reference-sheet", [
+      ".sheet",
+      ".source-unified-reader",
+      ".source-page-panel",
+      ".source-reference-sheet .button"
+    ], `${project.name} Source reference sheet`);
+    await page.locator(".sheet-close").click();
     await expect(page.locator(".lesson-screen")).toBeVisible();
     await settleScreen(page);
     await page.locator(".header-bar .icon-button").click();
@@ -528,7 +616,7 @@ test.describe("current DemoRepository responsive matrix", () => {
     await expectCurrentScreenGeometry(page, ".study-plan-screen", [
       ".plan-date-row button",
       ".study-plan-tasks",
-      ".timeline-item"
+      ".study-plan-tasks :is(.timeline-item, .study-plan-empty-state)"
     ], `${project.name} StudyPlan`);
     await page.locator(".header-bar .icon-button").click();
     await expect(page.locator(".book-course-screen")).toBeVisible();
@@ -569,13 +657,11 @@ test.describe("current DemoRepository responsive matrix", () => {
     await expectCurrentScreenGeometry(page, ".lesson-screen", [
       ".lesson-layout",
       ".lesson-reading-column",
-      ".lesson-knowledge-section",
-      ".lesson-inline-figure",
-      ".lesson-source-link",
-      ".concept-card-grid button",
-      ".lesson-floating-complete .button"
+      ".lesson-knowledge-pager",
+      ".lesson-source-link"
     ], `${project.name} Lesson article, concepts, and fixed completion action`);
-    await page.locator(".lesson-floating-complete .button").click();
+    await advanceLessonToLastPage(page);
+    await page.locator(".lesson-floating-complete .button:visible").click();
     await expect(page.locator(".book-course-screen")).toBeVisible();
     await expect(page.locator(".report-screen")).toHaveCount(0);
     await settleScreen(page);
@@ -605,11 +691,11 @@ test.describe("current DemoRepository responsive matrix", () => {
     await page.setViewportSize(project.pairedViewport);
     await setVisualViewport(page, { height: project.pairedViewport.height, offsetTop: 0 });
     await openLesson(page);
+    await advanceLessonToLastPage(page);
     const repeatedLessonSelectors = [
       ".lesson-source-link",
-      ".concept-card-grid button",
-      ".lesson-inline-figure",
-      ".lesson-floating-complete .button"
+      ".lesson-knowledge-pager",
+      ".lesson-floating-complete .button:visible"
     ];
     await expectCurrentScreenGeometry(page, ".lesson-screen", [
       ".lesson-layout",
@@ -618,7 +704,7 @@ test.describe("current DemoRepository responsive matrix", () => {
     ], `${project.name} Lesson paired viewport full-element geometry`);
     await expectAllControlsReachableInVisualViewport(
       page,
-      ".lesson-source-link, .concept-card-grid button, .lesson-floating-complete .button",
+      ".lesson-source-link, .lesson-floating-complete .button:visible",
       `${project.name} Lesson paired visual viewport controls`
     );
 
@@ -637,7 +723,7 @@ test.describe("current DemoRepository responsive matrix", () => {
     ], `${project.name} Lesson shrunken visual viewport full-element geometry`);
     await expectAllControlsReachableInVisualViewport(
       page,
-      ".lesson-source-link, .concept-card-grid button, .lesson-floating-complete .button",
+      ".lesson-source-link, .lesson-floating-complete .button:visible",
       `${project.name} Lesson shrunken visual viewport controls`
     );
     await expectNoShellOverflow(page, `${project.name} Lesson visual viewport cleanup`);

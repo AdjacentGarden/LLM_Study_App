@@ -6,7 +6,18 @@ describe("formal offline textbook assets", () => {
   it("syncs every formal MinerU asset into the demo fixture", () => {
     expect(assets).toHaveLength(267);
     expect(demoState.assets.filter((asset) => asset.source_type === "extracted")).toEqual(assets);
-    expect(demoState.assets.filter((asset) => asset.source_type === "ai_generated")).toHaveLength(2);
+    const aiAssets = demoState.assets.filter((asset) => asset.source_type === "ai_generated");
+    expect(aiAssets).toHaveLength(9);
+    expect(aiAssets.map((asset) => asset.asset_id)).toEqual(expect.arrayContaining([
+      "asset_ai_meiosis_fertilization_cycle_v1",
+      "asset_ai_meiosis_overview_v2",
+      "asset_ai_meiosis_separation_compare_v2",
+      "asset_ai_meiosis_dna_replication_v1",
+      "asset_ai_meiosis_synapsis_crossing_over_v1",
+      "asset_ai_meiosis_ii_centromere_v1",
+      "asset_ai_fertilization_homolog_pair_v2"
+    ]));
+    expect(aiAssets.every((asset) => asset.generation_provider === "openai-imagegen")).toBe(true);
     expect(assets.every((asset) => asset.source_type === "extracted")).toBe(true);
     expect(assets.every((asset) => asset.image_url.startsWith("/assets/textbook/figures/"))).toBe(true);
     expect(assets.every((asset) => asset.thumbnail_url.startsWith("/assets/textbook/figures/"))).toBe(true);
@@ -24,7 +35,7 @@ describe("formal offline textbook assets", () => {
     expect(lesson).toBeDefined();
     expect(lesson?.asset_ids.length).toBeGreaterThan(10);
     expect(lesson?.blocks.some((block) => block.asset_ids.length > 0)).toBe(true);
-    const assetIds = new Set(assets.map((asset) => asset.asset_id));
+    const assetIds = new Set(demoState.assets.map((asset) => asset.asset_id));
     expect(lesson?.asset_ids.every((assetId) => assetIds.has(assetId))).toBe(true);
   });
 });

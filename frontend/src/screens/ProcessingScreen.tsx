@@ -9,8 +9,7 @@ import {
   Card
 } from "../components/ui";
 import { useAppContext } from "../context/AppContext";
-import { useMotionHistory, useReducedMotion } from "../motion";
-import { processingStageIndex, summarizeParseError } from "./processingState";
+import { StateSwapText, useMotionHistory, useReducedMotion } from "../motion";
 
 type StageCompletionSnapshot = {
   completed: boolean[];
@@ -63,13 +62,12 @@ export function ProcessingScreen() {
   const [progress, setProgress] = useState(parseJobId ? 5 : 8);
   const liveProgress = parseJobStatus ? Math.max(0, Math.min(100, parseJobStatus.progress)) : progress;
   const jobMessage = parseJobStatus?.message ?? (parseJobId ? "已提交云端解析任务，正在后台运行" : "");
-  const hasFailed = parseJobStatus?.status === "failed";
-  const parseError = hasFailed ? summarizeParseError(parseJobStatus.error) : null;
+  const parseError = parseJobStatus?.status === "failed" ? parseJobStatus.error ?? "解析失败，请重新上传或检查文件格式" : null;
   const isDone = parseJobStatus?.status === "done";
-  const stages = ["检测文件与页面", "OCR 识别与版面分析", "识别目录与章节", "构建课程内容索引", "准备课程"];
-  const activeStage = hasFailed ? -1 : processingStageIndex(parseJobStatus?.stage, isDone);
+  const stages = ["解析页面与版面", "抽取标题段落图表", "写入 PostgreSQL", "BGE-M3 embedding", "BM25 + pgvector 索引"];
+  const activeStage = liveProgress <= 0 ? -1 : Math.min(stages.length - 1, Math.floor(liveProgress / 22));
   const stageCount = stages.length;
-  const completedStages = stages.map((_, index) => !hasFailed && (index < activeStage || (isDone && index === activeStage)));
+  const completedStages = stages.map((_, index) => index < activeStage || (isDone && index === activeStage));
   const progressBucket = Math.max(0, Math.min(100, Math.floor(liveProgress / 10) * 10));
   const processingStatusText = parseError
     ?? (jobMessage || `已识别 ${parsedChapters?.length ?? 0} 个目录项，正在生成课程结构和检索索引`);
@@ -98,7 +96,7 @@ export function ProcessingScreen() {
     const previous = stageCompletionSnapshotRef.current;
     const currentCompletedStages = Array.from(
       { length: stageCount },
-      (_, index) => !hasFailed && (index < activeStage || (isDone && index === activeStage))
+      (_, index) => index < activeStage || (isDone && index === activeStage)
     );
     stageCompletionSnapshotRef.current = {
       completed: currentCompletedStages,
@@ -128,7 +126,7 @@ export function ProcessingScreen() {
       enteringKeys.forEach((key) => next.add(key));
       return next;
     });
-  }, [activeStage, consume, hasFailed, isDone, parseJobId, reducedMotion, stageCount]);
+  }, [activeStage, consume, isDone, parseJobId, reducedMotion, stageCount]);
 
   useLayoutEffect(() => {
     if (!reducedMotion) return;
@@ -171,7 +169,7 @@ export function ProcessingScreen() {
           {stages.map((stage, index) => {
             const completed = completedStages[index];
             const active = !isDone && index === activeStage;
-            const stageStatus = completed ? "已完成" : active ? "处理中" : hasFailed ? "未完成" : "等待中";
+            const stageStatus = completed ? "已完成" : active ? "处理中" : "等待中";
             return (
             <div
               className={`stage-row ${completed ? "done" : ""} ${active ? "is-processing" : ""}`}
@@ -195,7 +193,7 @@ export function ProcessingScreen() {
           })}
         </div>
         <p className={`processing-status-message ${parseError ? "is-error" : ""}`}>
-          {processingStatusText}
+          <StateSwapText value={processingStatusText} reserveValues={["解析失败，请重新上传或检查文件格式"]} />
         </p>
       </div>
       <p className="motion-visually-hidden" role="status" aria-live="polite" aria-atomic="true">

@@ -167,6 +167,25 @@ def _build_target_lesson(book_id: str, entry: LessonGenerationPlanEntry, adapter
         raise
 
 
+_RETRYABLE_LESSON_RESPONSE_CODES = {
+    "lesson_llm_empty_response",
+    "lesson_llm_invalid_json",
+    "lesson_llm_invalid_schema",
+    "lesson_llm_missing_blocks",
+    "lesson_llm_ungrounded_response",
+}
+
+
+def _build_target_lesson_resilient(book_id: str, entry: LessonGenerationPlanEntry, adapter: object) -> Lesson:
+    """Retry once when a stochastic provider response fails our strict content contract."""
+    try:
+        return _build_target_lesson(book_id, entry, adapter)
+    except AppError as exc:
+        if exc.code not in _RETRYABLE_LESSON_RESPONSE_CODES:
+            raise
+    return _build_target_lesson(book_id, entry, adapter)
+
+
 def _persist_generation_scope(book_id: str, plan: LessonGenerationPlan, generated: list[Lesson]) -> None:
     scope_ids = set(plan.scope_ids)
     existing = read_lessons(book_id)
@@ -195,7 +214,7 @@ def build_lessons(book_id: str, request: LessonBuildRequest) -> list[Lesson]:
             details={"chapter_results": [item.model_dump(mode="json") for item in plan.initial_results()]},
             status_code=409,
         )
-    generated = [_build_target_lesson(book_id, entry, adapter) for entry in plan.targets]
+    generated = [_build_target_lesson_resilient(book_id, entry, adapter) for entry in plan.targets]
     _persist_generation_scope(book_id, plan, generated)
     return generated
 
@@ -249,7 +268,7 @@ def run_lesson_build_job(job_id: str, book_id: str, request: LessonBuildRequest)
                 chapter_results=_ordered_results(plan, results_by_id),
             )
             try:
-                lesson = _build_target_lesson(book_id, entry, adapter)
+                lesson = _build_target_lesson_resilient(book_id, entry, adapter)
             except Exception as exc:
                 error_code = exc.code if isinstance(exc, AppError) else exc.__class__.__name__
                 results_by_id[chapter_id] = LessonBuildChapterResult(

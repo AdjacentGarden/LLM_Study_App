@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -10,8 +11,8 @@ import {
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, SearchX, X } from "lucide-react";
 import { CommunitySearchKeyboard } from "../components/CommunitySearchKeyboard";
-import { communityBooks } from "../data/mockBook";
 import { useAppContext } from "../context/AppContext";
+import { useBookCourseRepository } from "../context/BookCourseRepositoryContext";
 import { useLocalMotionItem } from "../motion";
 import { CommunityCover } from "./CommunityCover";
 import {
@@ -19,9 +20,11 @@ import {
   filterCommunityBooks,
   type CommunityCategory
 } from "./communityCatalog";
+import type { CommunityBookSummary } from "../types/api";
 
 export function CommunityScreen() {
   const { go, selectCommunityBook } = useAppContext();
+  const repository = useBookCourseRepository();
   const discoveryMotion = useLocalMotionItem("community:discovery");
   const searchInputId = useId();
   const categoryMenuId = useId();
@@ -39,10 +42,29 @@ export function CommunityScreen() {
   const [categoryDragging, setCategoryDragging] = useState(false);
   const [searchKeyboardOpen, setSearchKeyboardOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [communityBooks, setCommunityBooks] = useState<CommunityBookSummary[]>([]);
+  const [catalogState, setCatalogState] = useState<"loading" | "ready" | "error">("loading");
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setCatalogState("loading");
+    repository.listCommunityBooks().then((books) => {
+      if (!active) return;
+      setCommunityBooks(books);
+      setCatalogState("ready");
+      setCatalogError(null);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      setCatalogState("error");
+      setCatalogError(error instanceof Error ? error.message : "社区书目暂时无法加载");
+    });
+    return () => { active = false; };
+  }, [repository]);
   const normalizedQuery = query.trim();
   const visibleBooks = useMemo(
     () => filterCommunityBooks(communityBooks, normalizedQuery ? "全部" : selectedCategory, query),
-    [normalizedQuery, query, selectedCategory]
+    [communityBooks, normalizedQuery, query, selectedCategory]
   );
   const resultSummary = normalizedQuery
     ? `“${normalizedQuery}”找到 ${visibleBooks.length} 本书`
@@ -241,6 +263,7 @@ export function CommunityScreen() {
             <div
               ref={categoryListRef}
               className={`community-category-list${categoryDragging ? " is-dragging" : ""}`}
+              data-mouse-drag-scroll="self"
               role="group"
               aria-label="按学科筛选书籍"
               onClickCapture={preventCategoryClickAfterDrag}
@@ -300,25 +323,40 @@ export function CommunityScreen() {
           {resultSummary}
         </p>
 
-        {visibleBooks.length ? (
+        {catalogState === "loading" ? (
+          <div className="community-empty-state" role="status">
+            <div>
+              <h3>正在核对真实书目</h3>
+              <p>书籍会从后端目录加载，不再使用展示用假数据。</p>
+            </div>
+          </div>
+        ) : catalogState === "error" ? (
+          <div className="community-empty-state" role="alert">
+            <SearchX size={24} aria-hidden="true" />
+            <div>
+              <h3>社区书目暂时无法加载</h3>
+              <p>{catalogError}</p>
+            </div>
+          </div>
+        ) : visibleBooks.length ? (
           <div className="community-grid">
             {visibleBooks.map((book) => (
               <button
                 className="community-book-card"
                 type="button"
                 key={book.id}
-                aria-label={`进入课程：${book.catalogTitle}`}
+                aria-label={`进入课程：${book.catalog_title}`}
                 data-community-book-id={book.id}
                 data-community-subject={book.subject}
                 onClick={() => openCommunityBook(book.id)}
               >
                 <CommunityCover source={book.cover} title={book.title} variant="tile" />
                 <span className="community-book-copy">
-                  <strong>{book.catalogTitle}</strong>
+                  <strong>{book.catalog_title}</strong>
                   <span className="community-book-bottom">
                     <span className="community-book-meta">
-                      <small>{book.grade} · {book.version}</small>
-                      <span>{book.learners} 人学习</span>
+                      <small>{book.level} · {book.edition}</small>
+                      <span>{book.imported_book_id ? "已加入我的课程" : book.server_cached ? `${book.page_count} 页 · 服务器已缓存` : `${book.page_count} 页真实 PDF`}</span>
                     </span>
                     <span className="community-book-enter" aria-hidden="true">进入</span>
                   </span>

@@ -105,11 +105,15 @@ def submit_assignment(assignment_id: str, payload: AssignmentSubmitRequest) -> A
     return AssignmentSubmitResponse(assignment_id=assignment_id, submission_id=submission_id, status="submitted")
 
 
-def diagnose_assignment(assignment_id: str, submission_id: str) -> DiagnosisResponse:
+def get_submission(submission_id: str) -> SubmissionRecord | None:
     data = _submissions_kv.get(submission_id)
-    if data is None:
+    return SubmissionRecord.from_dict(data) if data is not None else None
+
+
+def diagnose_assignment(assignment_id: str, submission_id: str) -> DiagnosisResponse:
+    record = get_submission(submission_id)
+    if record is None:
         raise AppError("submission_not_found", "submission_id not found", status_code=404)
-    record = SubmissionRecord.from_dict(data)
     if record.assignment_id != assignment_id:
         raise AppError(
             "assignment_mismatch",

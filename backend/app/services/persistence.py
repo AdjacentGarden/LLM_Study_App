@@ -15,6 +15,10 @@ from app.services.storage import storage_root
 _logger = get_logger("app.persistence")
 
 
+class StateLoadError(RuntimeError):
+    pass
+
+
 def state_dir() -> Path:
     root = storage_root() / "_state"
     root.mkdir(parents=True, exist_ok=True)
@@ -23,6 +27,22 @@ def state_dir() -> Path:
 
 def persistence_enabled() -> bool:
     return get_settings().persist_state
+
+
+def validate_persisted_state() -> list[str]:
+    """Return corrupt state filenames without mutating or replacing them."""
+
+    if not persistence_enabled():
+        return []
+    failures: list[str] = []
+    for path in state_dir().glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("state root must be an object")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            failures.append(path.name)
+    return sorted(failures)
 
 
 def _atomic_write(path: Path, payload: str) -> None:
@@ -89,11 +109,15 @@ class JsonStateStore:
 
     def set(self, key: str, value: Any) -> None:
         with self._lock:
+            if self._load_failed:
+                raise StateLoadError(f"Refusing to overwrite corrupt state store: {self.name}")
             self._data[key] = value
             self._persist_locked()
 
     def remove(self, key: str) -> None:
         with self._lock:
+            if self._load_failed:
+                raise StateLoadError(f"Refusing to overwrite corrupt state store: {self.name}")
             if key in self._data:
                 del self._data[key]
                 self._persist_locked()
@@ -104,6 +128,8 @@ class JsonStateStore:
 
     def update(self, key: str, fn: Callable[[Any | None], Any]) -> Any:
         with self._lock:
+            if self._load_failed:
+                raise StateLoadError(f"Refusing to overwrite corrupt state store: {self.name}")
             current = self._data.get(key)
             updated = fn(current)
             self._data[key] = updated

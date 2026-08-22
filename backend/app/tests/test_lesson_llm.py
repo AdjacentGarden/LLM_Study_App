@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-import urllib.request
 
 import pytest
 
+import app.core.ai_runtime as ai_runtime_module
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.lessons.llm import (
@@ -131,6 +131,31 @@ def test_openai_compatible_adapter_rejects_invalid_json() -> None:
         adapter._lesson_from_response(_source_package(), {"choices": [{"message": {"content": "not json"}}]})
 
 
+def test_openai_compatible_adapter_accepts_relay_markdown_json_wrapper() -> None:
+    adapter = OpenAICompatibleLessonAdapter("http://example.invalid", "secret", "model")
+    content = """Here is the requested JSON:\n```json\n{
+      "title": "Generated lesson",
+      "summary": "Grounded summary",
+      "objectives": ["Understand A"],
+      "key_concepts": ["Concept A"],
+      "blocks": [{
+        "block_type": "explanation",
+        "title": "Explain A",
+        "content": "A grounded explanation.",
+        "source_chunk_ids": ["chunk_001"],
+        "citations": [{"chunk_id": "chunk_001", "page_start": 1, "page_end": 2, "quote": "Concept A"}]
+      }]
+    }\n```"""
+
+    lesson = adapter._lesson_from_response(
+        _source_package(),
+        {"choices": [{"message": {"content": content}}]},
+    )
+
+    assert lesson.title == "Generated lesson"
+    assert lesson.blocks[0].citations[0].chunk_id == "chunk_001"
+
+
 def test_openai_compatible_adapter_requires_configuration(monkeypatch) -> None:
     monkeypatch.setenv("BOOKCOURSE_LLM_PROVIDER", "openai_compatible")
     monkeypatch.delenv("BOOKCOURSE_LLM_API_URL", raising=False)
@@ -193,7 +218,7 @@ def test_deepseek_lesson_adapter_uses_v4_flash_payload(monkeypatch) -> None:
         captured["timeout"] = timeout
         return FakeResponse()
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ai_runtime_module._NO_REDIRECT_OPENER, "open", fake_urlopen)
     adapter = DeepSeekLessonAdapter(
         "https://api.deepseek.com/chat/completions",
         "fake-key",
@@ -208,6 +233,7 @@ def test_deepseek_lesson_adapter_uses_v4_flash_payload(monkeypatch) -> None:
     assert payload["model"] == "deepseek-v4-flash"
     assert payload["thinking"] == {"type": "disabled"}
     assert payload["response_format"] == {"type": "json_object"}
+    assert payload["stream"] is False
     assert captured["timeout"] == 12
     assert lesson.title == "Generated lesson"
 

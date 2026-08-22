@@ -27,10 +27,19 @@ export type Screen =
 
 export type SheetState =
   | { type: "chat" }
-  | { type: "source"; title: string; image: string; page: string }
+  | {
+      type: "source";
+      title: string;
+      image: string;
+      page: string;
+      text?: string;
+      source?: SourcePageTarget;
+    }
   | {
       type: "note";
       concept: string;
+      kind?: "concept" | "selection";
+      quote?: string;
       explanation?: string;
       sourceLabel?: string;
       source?: SourcePageTarget;
@@ -59,7 +68,7 @@ export type UploadedCourseFile = {
    * Missing values are treated as local uploads for compatibility with
    * persisted sessions created before this discriminator was introduced.
    */
-  origin?: "local-upload" | "remote-course";
+  origin?: "local-upload" | "community-import" | "remote-course";
 };
 
 export type SourcePageTarget = {

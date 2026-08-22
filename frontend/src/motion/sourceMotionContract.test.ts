@@ -92,7 +92,7 @@ describe("source motion contract", () => {
   });
 
   it("accepts only the production GSAP file and exact call inventory", () => {
-    expect(productionTypeScriptSources.some((source) => source.sourceText.includes('from "gsap"'))).toBe(true);
+    expect(productionTypeScriptSources.some((source) => /(?:from|import\s*\()\s*["'`]gsap(?:\/|["'`])/.test(source.sourceText))).toBe(false);
     expect(auditGsapMotion(productionTypeScriptSources)).toEqual([]);
   });
 

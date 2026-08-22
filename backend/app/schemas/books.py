@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -169,6 +171,9 @@ class CourseSummary(BaseModel):
     parse_job_message: str | None = None
     parse_job_error: str | None = None
     updated_at: float
+    author: str | None = None
+    source_catalog_id: str | None = None
+    cover_url: str | None = None
 
 
 class Asset(BaseModel):
@@ -392,11 +397,25 @@ class Citation(BaseModel):
     source_metadata: dict = Field(default_factory=dict)
 
 
+class RagHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
 class RagQuery(BaseModel):
     book_id: str
     chapter_id: str | None = None
-    question: str = Field(min_length=1)
-    history: list[dict] = Field(default_factory=list)
+    question: str = Field(min_length=1, max_length=4000)
+    history: list[RagHistoryMessage] = Field(default_factory=list, max_length=12)
+
+
+class RagPerformance(BaseModel):
+    total_ms: float = 0
+    retrieval_ms: float = 0
+    generation_ms: float = 0
+    response_cache_hit: bool = False
+    retrieval_cache: str = "none"
+    retrieved_chunks: int = 0
 
 
 class RagResponse(BaseModel):
@@ -404,6 +423,7 @@ class RagResponse(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     related_assets: list[AssetPublic] = Field(default_factory=list)
     confidence: str
+    performance: RagPerformance | None = None
 
 
 class AssignmentSubmitRequest(BaseModel):

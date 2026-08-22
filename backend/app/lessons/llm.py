@@ -13,6 +13,21 @@ from app.core.errors import AppError
 from app.schemas.books import ChapterSourcePackage, ChapterSourceWindow, Lesson, LessonBlock, LessonCitation
 
 
+def _decode_provider_json_object(content: str) -> dict[str, Any]:
+    """Decode a JSON object even when an OpenAI-compatible relay adds prose or fences."""
+    stripped = content.strip()
+    try:
+        decoded = json.loads(stripped)
+    except json.JSONDecodeError:
+        object_start = stripped.find("{")
+        if object_start < 0:
+            raise
+        decoded, _ = json.JSONDecoder().raw_decode(stripped[object_start:])
+    if not isinstance(decoded, dict):
+        raise ValueError("lesson response must be a JSON object")
+    return decoded
+
+
 class LessonGenerationAdapter(Protocol):
     name: str
 
@@ -303,6 +318,10 @@ class OpenAICompatibleLessonAdapter:
                 {"role": "user", "content": prompt},
             ],
             "response_format": {"type": "json_object"},
+            # OpenAI-compatible relays do not all share the same default.  Some
+            # return an SSE stream unless this is explicit, while the shared
+            # runtime intentionally accepts one bounded JSON document.
+            "stream": False,
             "max_tokens": settings.llm_max_output_tokens,
         }
         payload.update(self.extra_payload)
@@ -320,11 +339,9 @@ class OpenAICompatibleLessonAdapter:
         if not isinstance(content, str) or not content.strip():
             raise AppError("lesson_llm_empty_response", "课程生成大模型返回为空", status_code=502)
         try:
-            generated = json.loads(content)
-        except json.JSONDecodeError as exc:
+            generated = _decode_provider_json_object(content)
+        except (json.JSONDecodeError, ValueError) as exc:
             raise AppError("lesson_llm_invalid_json", "课程生成大模型没有返回合法 JSON", status_code=502) from exc
-        if not isinstance(generated, dict):
-            raise AppError("lesson_llm_invalid_schema", "课程生成结果必须是 JSON 对象", status_code=502)
 
         lesson_id = f"lesson_{source.chapter_id}"
         generated.setdefault("book_id", source.book_id)

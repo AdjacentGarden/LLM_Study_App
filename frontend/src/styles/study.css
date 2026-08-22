@@ -152,11 +152,30 @@
 }
 
 .study-plan-summary {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin-top: 14px;
   padding: 8px 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-large);
   background: var(--color-surface);
+  transition:
+    padding-block var(--motion-duration-local-slow) var(--motion-ease-local-state),
+    background-color var(--motion-duration-local-base) var(--motion-ease-local-state),
+    border-radius var(--motion-duration-local-base) var(--motion-ease-local-state);
+}
+
+.study-plan-details {
+  max-height: 96px;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  transform-origin: top center;
+  transition:
+    max-height var(--motion-duration-local-slow) var(--motion-ease-local-state),
+    opacity var(--motion-duration-local-fast) var(--motion-ease-local-exit),
+    transform var(--motion-duration-local-base) var(--motion-ease-local-state);
 }
 
 .study-plan-heading {
@@ -239,22 +258,105 @@
 }
 
 .study-plan-summary .progress-wrap {
+  position: relative;
+  z-index: 1;
   gap: 4px;
   margin-top: 0;
+  transition: gap var(--motion-duration-local-base) var(--motion-ease-local-state);
 }
 
 .study-plan-summary .progress-wrap > span {
+  max-height: 16px;
+  overflow: hidden;
   color: var(--color-text-muted);
   font-size: 10px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height var(--motion-duration-local-base) var(--motion-ease-local-state),
+    opacity var(--motion-duration-local-fast) var(--motion-ease-local-exit),
+    transform var(--motion-duration-local-fast) var(--motion-ease-local-state);
+}
+
+.study-plan-summary .progress-track {
+  position: relative;
+  isolation: isolate;
+  transform-origin: center;
+}
+
+.study-plan-summary .progress-track::after {
+  position: absolute;
+  z-index: 2;
+  inset: -1px auto -1px 0;
+  width: 30%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-150%) skewX(-18deg);
 }
 
 .study-plan-summary.is-compact {
   padding-block: 10px;
+  background-color: color-mix(in srgb, var(--color-primary-soft) 12%, var(--color-surface));
   filter: drop-shadow(var(--glass-shadow-soft));
 }
 
+.study-plan-summary.is-compact .study-plan-details {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(0px - var(--motion-distance-small)));
+  transition:
+    max-height var(--motion-duration-local-slow) var(--motion-ease-local-state),
+    opacity var(--motion-duration-local-fast) var(--motion-ease-local-exit),
+    transform var(--motion-duration-local-fast) var(--motion-ease-local-exit);
+}
+
+.study-plan-summary.is-compact .progress-wrap {
+  gap: 0;
+}
+
 .study-plan-summary.is-compact .progress-wrap > span {
-  display: none;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-2px);
+}
+
+.study-plan-summary.is-compact .progress-track {
+  animation: study-plan-progress-focus var(--motion-duration-local-slow) var(--motion-ease-local-enter) both;
+}
+
+.study-plan-summary.is-compact .progress-track::after {
+  animation: study-plan-progress-sheen var(--motion-duration-local-slow) var(--motion-ease-local-enter) both;
+}
+
+@keyframes study-plan-progress-focus {
+  from {
+    transform: translateY(1px) scaleX(.94);
+  }
+
+  to {
+    transform: translateY(0) scaleX(1);
+  }
+}
+
+@keyframes study-plan-progress-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-150%) skewX(-18deg);
+  }
+
+  25%,
+  62% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(430%) skewX(-18deg);
+  }
 }
 
 .study-directory {
@@ -288,6 +390,11 @@
     margin-top: 0;
     border-top: 0;
     border-radius: 0 0 var(--radius-large) var(--radius-large);
+  }
+
+  .study-sticky-stack.is-plan-compact + .study-directory .study-chapter.is-expanded {
+    border-inline-color: transparent;
+    box-shadow: none;
   }
 }
 
@@ -936,8 +1043,10 @@
 }
 
 .book-switcher-list {
+  min-height: 0;
   max-height: min(46dvh, 390px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-large);
   background: var(--color-surface);
@@ -1039,6 +1148,14 @@
 
 .book-switcher-actions .button {
   min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .sheet[data-sheet-type="bookSwitcher"] {
+    overflow: hidden;
+    border-bottom: 0;
+    border-radius: 28px 28px 0 0;
+  }
 }
 
 .sr-only {
@@ -1221,6 +1338,18 @@
     gap: 6px 14px;
     margin-top: 8px;
     padding: 10px 14px;
+  }
+
+  .study-plan-details {
+    display: contents;
+    max-height: none;
+    overflow: visible;
+    opacity: 1;
+    transform: none;
+  }
+
+  .study-plan-summary.is-compact .study-plan-details {
+    display: none;
   }
 
   .study-plan-heading {

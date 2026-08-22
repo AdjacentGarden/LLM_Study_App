@@ -51,6 +51,10 @@ export type RuntimeCapabilities = {
   mineru_backend: string;
   mineru_effort: string;
   rag_index_provider: string;
+  rag_answer_cache_enabled?: boolean;
+  rag_answer_cache_ttl_seconds?: number;
+  rag_answer_cache_max_items?: number;
+  rag_answer_cache?: Record<string, unknown>;
   embedding_provider: string;
   reranker_provider: string;
   reranker_fail_open: boolean;
@@ -144,6 +148,9 @@ export type TocAnalysis = {
 export type CourseSummary = {
   book_id: string;
   title: string;
+  author?: string | null;
+  source_catalog_id?: string | null;
+  cover_url?: string | null;
   filename?: string | null;
   status: string;
   page_count: number;
@@ -163,6 +170,56 @@ export type CourseSummary = {
   parse_job_message?: string | null;
   parse_job_error?: string | null;
   updated_at: number;
+};
+
+export type CommunityBookSummary = {
+  id: string;
+  title: string;
+  catalog_title: string;
+  author: string;
+  cover: string;
+  subject: string;
+  level: string;
+  language: string;
+  edition: string;
+  page_count: number;
+  file_size_bytes: number;
+  source_page_url: string;
+  license_name: string;
+  license_url: string;
+  rights_notice: string;
+  description: string;
+  chapters: string[];
+  tags: string[];
+  server_cached: boolean;
+  imported_book_id?: string | null;
+};
+
+export type CommunityImportResponse = {
+  catalog_id: string;
+  book_id: string;
+  filename: string;
+  size_bytes: number;
+  status: string;
+  already_imported: boolean;
+};
+
+export type AssistantHistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AssistantChatRequest = {
+  message: string;
+  history?: AssistantHistoryMessage[];
+  context_title?: string | null;
+  context_description?: string | null;
+};
+
+export type AssistantChatResponse = {
+  answer: string;
+  provider: string;
+  model: string;
 };
 
 export type AssetSourceType = "extracted" | "ai_generated";
@@ -376,6 +433,14 @@ export type RagResponse = {
   citations: Citation[];
   related_assets: ApiAsset[];
   confidence: "low" | "medium" | "high" | string;
+  performance?: {
+    total_ms: number;
+    retrieval_ms: number;
+    generation_ms: number;
+    response_cache_hit: boolean;
+    retrieval_cache: string;
+    retrieved_chunks: number;
+  } | null;
 };
 
 export type AssignmentSubmitRequest = {

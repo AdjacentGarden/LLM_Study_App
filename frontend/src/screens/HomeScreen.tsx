@@ -4,7 +4,6 @@ import { HomeBookCarousel } from "../components/home/HomeBookCarousel";
 import { SelectedBookWorkspace } from "../components/home/SelectedBookWorkspace";
 import type { ChapterToolId } from "../components/study/ChapterToolCards";
 import { useAppContext } from "../context/AppContext";
-import { demoShelfBooks } from "../data/demoShelfBooks";
 import { hasCompleteLoadedCourseContext } from "./courseResourceIdentity";
 import {
   buildHomeBookModels,
@@ -37,7 +36,6 @@ export function HomeScreen() {
     courseSummariesReadyKind,
     courseSummariesRefreshing,
     currentStudyPlan,
-    demoShelfEnabled,
     generatedFlashcards,
     generatedLessons,
     generatedQuizzes,
@@ -65,13 +63,10 @@ export function HomeScreen() {
     parseJobStatus,
     loadedBookId,
     loadedChapterCount: loadedBookId === uploadedFile?.bookId ? parsedChapters?.length ?? 0 : 0,
-    catalogBooks: demoShelfEnabled && courseSummariesLoadState === "ready"
-      ? demoShelfBooks
-      : undefined
+    catalogBooks: undefined
   }), [
     courseSummaries,
     courseSummariesLoadState,
-    demoShelfEnabled,
     loadedBookId,
     parseJobId,
     parseJobStatus,

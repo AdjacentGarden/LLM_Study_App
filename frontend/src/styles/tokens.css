@@ -116,6 +116,7 @@
   --radius-large: 16px;
   --radius-glass: 16px;
   --motion-duration-global: 350ms;
+  --motion-duration-global-emphasis: 450ms;
   --motion-duration-local-fast: 150ms;
   --motion-duration-local-base: 180ms;
   --motion-duration-local-slow: 200ms;

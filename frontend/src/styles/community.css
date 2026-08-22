@@ -1177,22 +1177,21 @@
 }
 
 .community-detail-actions {
-  position: fixed;
+  position: static;
   z-index: 30;
-  bottom: 0;
-  left: 50%;
   width: min(
     calc(100% - var(--safe-area-left) - var(--safe-area-right) - (var(--space-inline) * 2)),
     40rem
   );
   display: grid;
   justify-items: center;
+  margin-inline: auto;
   padding:
     0.75rem
     0
     calc(0.75rem + var(--safe-area-bottom));
   pointer-events: none;
-  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), var(--color-surface) 32%);
 }
 
 .community-detail-actions .button {
@@ -1232,5 +1231,46 @@
   .community-detail-visual .community-detail-cover,
   .community-detail-visual .community-detail-cover-fallback {
     transition: none;
+  }
+}
+
+/* A short landscape viewport cannot fit dense app content and a bottom dock
+   at the same time. Keep one stable four-destination rail across navigation so
+   content remains visible and the selection indicator never changes axes. */
+@media (min-width: 600px) and (max-height: 599px) and (orientation: landscape) {
+  .app-shell {
+    --primary-nav-height: 0px;
+  }
+
+  .app-shell .primary-nav {
+    top: calc(var(--safe-area-top) + var(--space-layout));
+    right: auto;
+    bottom: calc(var(--safe-area-bottom) + var(--space-layout));
+    left: calc(var(--safe-area-left) + var(--space-layout));
+    width: var(--nav-rail-width);
+    height: auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(4, minmax(var(--touch-target-min), auto));
+    align-content: center;
+    gap: 10px;
+    padding: 12px 8px;
+    border-radius: var(--glass-nav-radius);
+  }
+
+  .app-shell .primary-nav .nav-item {
+    width: 100%;
+    min-height: var(--touch-target-min);
+    border-radius: var(--glass-nav-item-radius);
+  }
+
+  .screen-content:not(.without-nav) {
+    padding-right: calc(var(--safe-area-right) + var(--space-inline));
+    padding-bottom: calc(var(--safe-area-bottom) + var(--space-layout));
+    padding-left: calc(var(--safe-area-left) + var(--nav-rail-width) + var(--space-layout) + var(--space-layout));
+  }
+
+  .header-bar {
+    left: calc(var(--safe-area-left) + var(--nav-rail-width) + var(--space-layout) + var(--space-layout));
   }
 }

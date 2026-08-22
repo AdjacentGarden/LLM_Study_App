@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import OrderedDict
+import secrets
 from threading import Lock
 from time import monotonic
 from typing import Callable
@@ -13,16 +14,18 @@ from fastapi.responses import JSONResponse
 
 
 class _Bucket:
-    __slots__ = ("capacity", "refill_per_sec", "tokens", "last_refill")
+    __slots__ = ("capacity", "refill_per_sec", "tokens", "last_refill", "last_seen")
 
     def __init__(self, capacity: float, refill_per_sec: float) -> None:
         self.capacity = float(capacity)
         self.refill_per_sec = float(refill_per_sec)
         self.tokens = float(capacity)
         self.last_refill = monotonic()
+        self.last_seen = self.last_refill
 
     def take(self, now: float) -> bool:
         elapsed = max(0.0, now - self.last_refill)
+        self.last_seen = now
         self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_per_sec)
         self.last_refill = now
         if self.tokens >= 1.0:
@@ -39,7 +42,7 @@ class _Bucket:
 class RateLimiter:
     def __init__(self) -> None:
         self._lock = Lock()
-        self._buckets: dict[tuple[str, str, str], _Bucket] = {}
+        self._buckets: OrderedDict[tuple[str, str, str], _Bucket] = OrderedDict()
         self._capacity_for_global = 0.0
         self._refill_for_global = 0.0
         self._capacity_for_write = 0.0
@@ -53,33 +56,86 @@ class RateLimiter:
 
     def _key(self, request: Request, scope: str) -> tuple[str, str, str]:
         client = request.client.host if request.client else "unknown"
-        user_header = request.headers.get("X-BookCourse-User-Id")
-        return (client, user_header or "", scope)
+        # This middleware runs before authentication. Never partition the
+        # budget by a caller-controlled identity header: rotating that value
+        # would mint a fresh bucket for every request.
+        settings = get_settings()
+        proxy_token = request.headers.get("X-BookCourse-Proxy-Token", "")
+        trusted_client = request.headers.get("X-BookCourse-Client-Id", "").strip()
+        if (
+            settings.environment == "production"
+            and trusted_client
+            and settings.trusted_proxy_token
+            and proxy_token
+            and secrets.compare_digest(proxy_token, settings.trusted_proxy_token)
+        ):
+            # The production edge overwrites this header from its authenticated
+            # session/IP. It is accepted only alongside the unforgeable proxy
+            # token, so users behind one reverse proxy do not share one bucket.
+            return (trusted_client[:256], "trusted_proxy", scope)
+        return (client, "peer", scope)
 
-    def _bucket(self, key: tuple[str, str, str], capacity: float, refill: float) -> _Bucket:
-        with self._lock:
-            bucket = self._buckets.get(key)
-            if bucket is None:
-                bucket = _Bucket(capacity, refill)
-                self._buckets[key] = bucket
+    def _bucket(
+        self,
+        key: tuple[str, str, str],
+        capacity: float,
+        refill: float,
+        *,
+        now: float,
+        max_buckets: int,
+        ttl_seconds: int,
+    ) -> _Bucket:
+        bucket = self._buckets.get(key)
+        if bucket is not None:
+            self._buckets.move_to_end(key)
             return bucket
+        # Remove expired identities before enforcing the hard LRU ceiling.
+        while self._buckets:
+            oldest_key, oldest = next(iter(self._buckets.items()))
+            if now - oldest.last_seen <= ttl_seconds:
+                break
+            self._buckets.pop(oldest_key, None)
+        while len(self._buckets) >= max_buckets:
+            self._buckets.popitem(last=False)
+        bucket = _Bucket(capacity, refill)
+        self._buckets[key] = bucket
+        return bucket
 
     def check(self, request: Request) -> tuple[bool, int]:
         settings = get_settings()
         self.configure(settings.global_rate_per_minute, settings.write_rate_per_minute)
         method = request.method.upper()
-        if method in {"POST", "PATCH", "PUT", "DELETE"}:
-            key = self._key(request, "write")
-            bucket = self._bucket(key, self._capacity_for_write, self._refill_for_write)
-        else:
-            key = self._key(request, "read")
-            bucket = self._bucket(key, self._capacity_for_global, self._refill_for_global)
         now = monotonic()
-        allowed = bucket.take(now)
-        if not allowed:
-            retry_after = max(1, int(bucket.seconds_until_token()) + 1)
-            return False, retry_after
-        return True, 0
+        with self._lock:
+            if method in {"POST", "PATCH", "PUT", "DELETE"}:
+                key = self._key(request, "write")
+                bucket = self._bucket(
+                    key,
+                    self._capacity_for_write,
+                    self._refill_for_write,
+                    now=now,
+                    max_buckets=settings.rate_limit_max_buckets,
+                    ttl_seconds=settings.rate_limit_bucket_ttl_seconds,
+                )
+            else:
+                key = self._key(request, "read")
+                bucket = self._bucket(
+                    key,
+                    self._capacity_for_global,
+                    self._refill_for_global,
+                    now=now,
+                    max_buckets=settings.rate_limit_max_buckets,
+                    ttl_seconds=settings.rate_limit_bucket_ttl_seconds,
+                )
+            allowed = bucket.take(now)
+            if not allowed:
+                retry_after = max(1, int(bucket.seconds_until_token()) + 1)
+                return False, retry_after
+            return True, 0
+
+    def snapshot(self) -> dict[str, int]:
+        with self._lock:
+            return {"bucket_count": len(self._buckets)}
 
 
 rate_limiter = RateLimiter()

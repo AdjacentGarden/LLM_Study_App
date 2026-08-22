@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from hashlib import sha256
 import os
 
 from app.image_generation.service import image_job_store, run_generation_job
 from app.schemas.books import ImageGenerationRequest
 from app.schemas.books import Chunk
 from app.services.artifact_store import read_assets, write_chunks
+from app.services.storage import asset_dir
 
 
 def test_mock_image_generation_creates_ai_asset(monkeypatch, tmp_path) -> None:
@@ -44,8 +46,12 @@ def test_mock_image_generation_creates_ai_asset(monkeypatch, tmp_path) -> None:
     assert result.asset is not None
     assert result.asset.source_type == "ai_generated"
     assert result.asset.source_chunk_ids == ["chunk_001"]
+    generated_path = asset_dir(payload.book_id) / f"{result.asset.asset_id}.png"
+    expected_hash = sha256(generated_path.read_bytes()).hexdigest()
+    assert result.asset.content_hash == expected_hash
     assets = read_assets(payload.book_id)
     assert assets[0].generation_prompt
     assert assets[0].generation_provider == "mock"
+    assert assets[0].content_hash == expected_hash
     get_settings.cache_clear()
     os.environ.pop("BOOKCOURSE_STORAGE_ROOT", None)

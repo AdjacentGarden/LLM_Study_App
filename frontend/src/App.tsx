@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   ActionSheet,
   AppShell,
@@ -6,10 +6,9 @@ import {
   actionSheetAnimationNames,
   type ActionSheetView
 } from "./components/ui";
-import { runtimeConfig } from "./config/runtime";
+import { runtimeConfig, userStorageNamespace } from "./config/runtime";
 import { AppProvider } from "./context/AppContext";
 import type { CourseSummariesLoadState, CourseSummariesReadyKind } from "./context/AppContext";
-import { communityBooks } from "./data/mockBook";
 import { useBookCourseRepository } from "./context/BookCourseRepositoryContext";
 import { globalMotionFallbackMs, ScreenTransition, useMotionPresence } from "./motion";
 import {
@@ -18,11 +17,35 @@ import {
   type NavigationSnapshot
 } from "./motion/navigationMachine";
 import { useReducedMotion } from "./motion/useReducedMotion";
-import { BookSwitcherSheetContent } from "./screens/sheets/BookSwitcherSheetContent";
-import { ChatSheetContent } from "./screens/sheets/ChatSheetContent";
-import { EditChapterSheetContent } from "./screens/sheets/EditChapterSheetContent";
-import { NoteSheetContent } from "./screens/sheets/NoteSheetContent";
-import { SourceSheetContent } from "./screens/sheets/SourceSheetContent";
+import {
+  AssignmentScreen,
+  BookSwitcherSheetContent,
+  ChapterConfirmScreen,
+  ChatSheetContent,
+  CommunityBookScreen,
+  CommunityImportScreen,
+  CommunityScreen,
+  CourseReadyScreen,
+  DiagnosisScreen,
+  EditChapterSheetContent,
+  ExportPreviewScreen,
+  FlashcardScreen,
+  HomeScreen,
+  LessonReportScreen,
+  LessonScreen,
+  LibraryScreen,
+  MistakeBookScreen,
+  NoteSheetContent,
+  NotesScreen,
+  ParseReadyScreen,
+  ProcessingScreen,
+  ProfileScreen,
+  SourceReaderScreen,
+  SourceSheetContent,
+  StudyScreen,
+  StudyPlanScreen,
+  UploadScreen
+} from "./screens";
 import type {
   ApiAsset,
   ApiChapter,
@@ -48,34 +71,17 @@ import {
   type LoadedCourseContext
 } from "./screens/courseResourceIdentity";
 
-const studyLocationsStorageKey = "bookcourse.study-locations.v1";
-
-const HomeScreen = lazy(() => import("./screens/HomeScreen").then((module) => ({ default: module.HomeScreen })));
-const UploadScreen = lazy(() => import("./screens/UploadScreen").then((module) => ({ default: module.UploadScreen })));
-const ParseReadyScreen = lazy(() => import("./screens/ParseReadyScreen").then((module) => ({ default: module.ParseReadyScreen })));
-const ProcessingScreen = lazy(() => import("./screens/ProcessingScreen").then((module) => ({ default: module.ProcessingScreen })));
-const ChapterConfirmScreen = lazy(() => import("./screens/ChapterConfirmScreen").then((module) => ({ default: module.ChapterConfirmScreen })));
-const CourseReadyScreen = lazy(() => import("./screens/CourseReadyScreen").then((module) => ({ default: module.CourseReadyScreen })));
-const LibraryScreen = lazy(() => import("./screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
-const CommunityScreen = lazy(() => import("./screens/CommunityScreen").then((module) => ({ default: module.CommunityScreen })));
-const CommunityBookScreen = lazy(() => import("./screens/CommunityBookScreen").then((module) => ({ default: module.CommunityBookScreen })));
-const CommunityImportScreen = lazy(() => import("./screens/CommunityImportScreen").then((module) => ({ default: module.CommunityImportScreen })));
-const StudyScreen = lazy(() => import("./screens/StudyScreen").then((module) => ({ default: module.StudyScreen })));
-const StudyPlanScreen = lazy(() => import("./screens/StudyPlanScreen").then((module) => ({ default: module.StudyPlanScreen })));
-const FlashcardScreen = lazy(() => import("./screens/FlashcardScreen").then((module) => ({ default: module.FlashcardScreen })));
-const LessonScreen = lazy(() => import("./screens/LessonScreen").then((module) => ({ default: module.LessonScreen })));
-const AssignmentScreen = lazy(() => import("./screens/AssignmentScreen").then((module) => ({ default: module.AssignmentScreen })));
-const DiagnosisScreen = lazy(() => import("./screens/DiagnosisScreen").then((module) => ({ default: module.DiagnosisScreen })));
-const MistakeBookScreen = lazy(() => import("./screens/MistakeBookScreen").then((module) => ({ default: module.MistakeBookScreen })));
-const NotesScreen = lazy(() => import("./screens/NotesScreen").then((module) => ({ default: module.NotesScreen })));
-const SourceReaderScreen = lazy(() => import("./screens/SourceReaderScreen").then((module) => ({ default: module.SourceReaderScreen })));
-const ExportPreviewScreen = lazy(() => import("./screens/ExportPreviewScreen").then((module) => ({ default: module.ExportPreviewScreen })));
-const LessonReportScreen = lazy(() => import("./screens/LessonReportScreen").then((module) => ({ default: module.LessonReportScreen })));
-const ProfileScreen = lazy(() => import("./screens/ProfileScreen").then((module) => ({ default: module.ProfileScreen })));
+function studyLocationsStorageKey() {
+  return `bookcourse.${userStorageNamespace()}.study-locations.v1`;
+}
+const demoParseJobPollIntervalMs = 700;
+const demoParseJobRetryIntervalMs = 1200;
+const parseJobPollIntervalMs = 1500;
+const parseJobRetryIntervalMs = 3000;
 
 function loadStudyLocations(): Record<string, StudyLocation> {
   try {
-    const stored = window.localStorage.getItem(studyLocationsStorageKey);
+    const stored = window.localStorage.getItem(studyLocationsStorageKey());
     if (!stored) return {};
     const parsed = JSON.parse(stored) as Record<string, StudyLocation>;
     return parsed && typeof parsed === "object" ? parsed : {};
@@ -92,9 +98,9 @@ const titles: Record<Screen, { title?: string; subtitle?: string; back?: boolean
   chapterConfirm: { title: "确认目录", subtitle: "核对原书和 AI 课程映射", back: true, hideNav: true },
   courseReady: { title: "生成成功", back: true, hideNav: true },
   library: { title: "我的课程", subtitle: "管理由书生成的 AI 课程" },
-  community: { title: "社区", subtitle: "发现同学分享的优质课程" },
+  community: { title: "社区", subtitle: "发现来源可验证的真实教材" },
   communityBook: { title: "共享课程", back: true, hideNav: true },
-  communityImport: { title: "导入成功", subtitle: "已生成可学习内容", back: true },
+  communityImport: { title: "导入课程", back: true, hideNav: true },
   study: {},
   book: {},
   plan: { title: "学习计划", subtitle: "科学规划，高效学习", back: true, hideNav: true },
@@ -109,6 +115,15 @@ const titles: Record<Screen, { title?: string; subtitle?: string; back?: boolean
   report: { title: "章节报告", subtitle: "完成后调整计划", back: true, hideNav: true },
   profile: { title: "我的", subtitle: "学习数据与偏好" }
 };
+
+const toastQuietScreens = new Set<Screen>([
+  "upload",
+  "parseReady",
+  "processing",
+  "chapterConfirm",
+  "courseReady",
+  "communityImport"
+]);
 
 function getSheetViewKey(view: ActionSheetView) {
   return view.key;
@@ -162,7 +177,7 @@ export default function App() {
   const [courseSummariesReadyKind, setCourseSummariesReadyKind] = useState<CourseSummariesReadyKind>("empty");
   const [courseSummariesError, setCourseSummariesError] = useState<string | null>(null);
   const [courseSummariesRefreshing, setCourseSummariesRefreshing] = useState(false);
-  const [selectedCommunityBookId, setSelectedCommunityBookId] = useState(communityBooks[0]?.id ?? "");
+  const [selectedCommunityBookId, setSelectedCommunityBookId] = useState("");
   const [pendingBookId, setPendingBookId] = useState<string | null>(null);
   const courseSelectionCoordinatorRef = useRef(createCourseSelectionCoordinator());
   const courseSummariesRef = useRef<CourseSummary[]>([]);
@@ -220,6 +235,13 @@ export default function App() {
   const commitNavigation = useCallback((resolve: (current: NavigationSnapshot) => NavigationSnapshot) => {
     const next = resolve(navigationRef.current);
     navigationRef.current = next;
+    if (toastQuietScreens.has(next.screen)) {
+      if (toastTimerRef.current !== undefined) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = undefined;
+      }
+      setToast(null);
+    }
     setNavigation(next);
     return next;
   }, []);
@@ -336,6 +358,7 @@ export default function App() {
   }, []);
 
   const showToast = useCallback((text: string, tone: ToastTone = "success") => {
+    if (toastQuietScreens.has(navigationRef.current.screen)) return;
     if (toastTimerRef.current !== undefined) window.clearTimeout(toastTimerRef.current);
     const id = toastIdRef.current + 1;
     toastIdRef.current = id;
@@ -446,7 +469,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(studyLocationsStorageKey, JSON.stringify(studyLocations));
+      window.localStorage.setItem(studyLocationsStorageKey(), JSON.stringify(studyLocations));
     } catch {
       // Study position persistence is a convenience; an unavailable storage
       // backend must never block the learning flow.
@@ -625,6 +648,13 @@ export default function App() {
       setLoadedBookId(bookId);
     }
 
+    const pollIntervalMs = runtimeConfig.useDemoRepository
+      ? demoParseJobPollIntervalMs
+      : parseJobPollIntervalMs;
+    const retryIntervalMs = runtimeConfig.useDemoRepository
+      ? demoParseJobRetryIntervalMs
+      : parseJobRetryIntervalMs;
+
     async function pollParseJob() {
       try {
         const job = await bookcourseRepository.getJob(activeParseJobId);
@@ -636,7 +666,6 @@ export default function App() {
           if (!isCurrentParseSession()) return;
           completedParseJobRef.current = activeParseJobId;
           void refreshCourses();
-          showToast("后台 OCR/解析完成，课程目录已生成");
           if (navigationRef.current.screen === "parseReady" || navigationRef.current.screen === "processing") {
             replaceScreen("chapterConfirm");
           }
@@ -644,16 +673,13 @@ export default function App() {
         }
 
         if (job.status === "failed") {
-          showToast(job.error ?? "后台 OCR/解析失败，请检查文件后重试", "warning");
           return;
         }
 
-        timer = window.setTimeout(pollParseJob, 2500);
-      } catch (err) {
+        timer = window.setTimeout(pollParseJob, pollIntervalMs);
+      } catch {
         if (!isCurrentParseSession()) return;
-        const message = err instanceof Error ? err.message : "后台解析状态获取失败";
-        showToast(message, "warning");
-        timer = window.setTimeout(pollParseJob, 4000);
+        timer = window.setTimeout(pollParseJob, retryIntervalMs);
       }
     }
 
@@ -662,7 +688,7 @@ export default function App() {
       active = false;
       if (timer) window.clearTimeout(timer);
     };
-  }, [bookcourseRepository, parseJobId, refreshCourses, replaceScreen, showToast, uploadedFile]);
+  }, [bookcourseRepository, parseJobId, refreshCourses, replaceScreen, uploadedFile]);
 
   const sharedProps = useMemo(
     () => ({
@@ -674,7 +700,6 @@ export default function App() {
       showToast,
       selectCourse,
       updateStudyLocation,
-      demoShelfEnabled: runtimeConfig.useDemoRepository,
       selectedUpload,
       setSelectedUpload,
       uploadedFile,
@@ -732,7 +757,6 @@ export default function App() {
       activeChapterId,
       answer,
       back,
-      bookcourseRepository,
       cancelCourseSelection,
       clearCourseSession,
       clearLoadedCourse,
@@ -798,18 +822,35 @@ export default function App() {
         key: `source:${sheet.title}:${sheet.page}`,
         sheet,
         title: "查看原文",
-        content: <SourceSheetContent title={sheet.title} page={sheet.page} image={sheet.image} />
+        content: (
+          <SourceSheetContent
+            title={sheet.title}
+            page={sheet.page}
+            image={sheet.image}
+            text={sheet.text}
+            onCreateNote={(quote) => openSheet({
+              type: "note",
+              kind: "selection",
+              concept: sheet.title,
+              quote,
+              sourceLabel: sheet.page
+            })}
+            onOpenFullSource={sheet.source ? () => openSourcePage(sheet.source!) : undefined}
+          />
+        )
       };
     }
 
     if (sheet.type === "note") {
       return {
-        key: `note:${sheet.concept}`,
+        key: `note:${sheet.kind ?? "concept"}:${sheet.concept}:${sheet.quote?.slice(0, 24) ?? ""}`,
         sheet,
-        title: "核心概念",
+        title: sheet.kind === "selection" ? "摘录笔记" : "核心概念",
         content: (
           <NoteSheetContent
             concept={sheet.concept}
+            kind={sheet.kind}
+            quote={sheet.quote}
             explanation={sheet.explanation}
             sourceLabel={sheet.sourceLabel}
             image={sheet.image}
@@ -856,13 +897,11 @@ export default function App() {
               item.chapter_id === nextChapter.chapter_id ? nextChapter : item
             )) ?? null);
             closeSheet();
-            showToast("本章修改已保存，请继续确认目录");
           }}
           onDelete={(chapterIds) => {
             const removalIds = new Set(chapterIds);
             setParsedChapters((current) => current?.filter((item) => !removalIds.has(item.chapter_id)) ?? null);
             closeSheet();
-            showToast(`已移除 ${chapterIds.length} 个目录项`, "info");
           }}
         />
       )
@@ -871,6 +910,7 @@ export default function App() {
     activeChapterId,
     closeSheet,
     openSheet,
+    openSourcePage,
     parsedChapters,
     parsedScanResult?.page_count,
     sheet,
@@ -979,17 +1019,15 @@ export default function App() {
         onBack={back}
         go={go}
       >
-        <Suspense fallback={<div className="screen-loading-state" role="status" aria-live="polite">正在加载页面…</div>}>
-          <ScreenTransition
-            screenKey={screen}
-            direction={navigation.direction}
-            nonce={navigation.nonce}
-            initial={navigation.nonce === 0}
-            reducedMotion={reducedMotion}
-          >
-            {renderScreen()}
-          </ScreenTransition>
-        </Suspense>
+        <ScreenTransition
+          screenKey={screen}
+          direction={navigation.direction}
+          nonce={navigation.nonce}
+          initial={navigation.nonce === 0}
+          reducedMotion={reducedMotion}
+        >
+          {renderScreen()}
+        </ScreenTransition>
       </AppShell>
     </AppProvider>
   );

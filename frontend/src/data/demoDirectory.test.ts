@@ -14,7 +14,7 @@ type DirectoryEntry = {
 };
 
 const expectedChapterTitles = [
-  "封面、编者信息、目录与科学家访谈",
+  "第 1 章 遗传因子的发现",
   "第 2 章 基因和染色体的关系",
   "第 3 章 基因的本质",
   "第 4 章 基因的表达",

@@ -5,8 +5,8 @@ describe("demo repository boundary", () => {
   it("returns the fixed local course without a network request", async () => {
     const courses = await bookcourseApi.listCourses();
 
-    expect(courses).toHaveLength(1);
-    expect(courses[0]).toMatchObject({
+    expect(courses).toHaveLength(2);
+    expect(courses.find((course) => course.book_id === "book_biology_2")).toMatchObject({
       book_id: "book_biology_2",
       status: "ready",
       rag_index_provider: "local-fixture"
