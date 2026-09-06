@@ -29,6 +29,9 @@ test("two independent visitors: consent, chat, sharing, collection, blocking, ph
   try {
     await pa.goto(baseURL + "/?device=iphone-16");
     await pb.goto(baseURL + "/?device=iphone-16");
+    for (const frame of [fa, fb]) {
+      await frame.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+    }
     await expect(
       fa.getByRole("button", { name: "社区", exact: true }),
     ).toBeEnabled();

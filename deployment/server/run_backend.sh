@@ -119,6 +119,9 @@ source "${SECRET_FILE}"
 if [[ -r "${RUNTIME_ROOT}/config/published-books.env" ]]; then
   source "${RUNTIME_ROOT}/config/published-books.env"
 fi
+if [[ -r "${RUNTIME_ROOT}/config/accounts.env" ]]; then
+  source "${RUNTIME_ROOT}/config/accounts.env"
+fi
 set +a
 
 export APP_ENV="production"

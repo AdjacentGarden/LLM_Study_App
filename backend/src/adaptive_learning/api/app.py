@@ -11,12 +11,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from ..accounts import Accounts
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
@@ -36,6 +37,7 @@ from ..assessment.models import (
 from ..assessment.records import learning_records
 from ..assessment.repository import SessionConflictError, SQLiteAssessmentRepository
 from ..assessment.scoring import OpenAnswerScorer
+from ..community import CommunityRepository
 from ..config import get_settings
 from ..ingestion.chaptering import (
     ChapterReconstructor,
@@ -58,6 +60,7 @@ from ..personalization.review import rating_score, schedule_review
 from ..rag.grounded_qa import GroundedAnswerValidationError
 from ..rag.index import RAGIndexError
 from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
+from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
 from .qa_dependency import build_qa_service, qa_service_ready, require_qa_service
@@ -447,7 +450,7 @@ def get_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
 
 
 @app.post("/api/interviews/start", response_model=InterviewResponse)
-def start_interview(request: StartInterviewRequest) -> InterviewResponse:
+def start_interview(request: StartInterviewRequest, http_request: Request) -> InterviewResponse:
     _book_or_404(request.book_id)
     if request.book_id == "demo_book":
         chapter_titles = ["从局部到整体", "反馈与变化", "边界、延迟与涌现", "用系统方法解决问题"]
@@ -476,6 +479,9 @@ def start_interview(request: StartInterviewRequest) -> InterviewResponse:
         chapter_options=chapter_options,
     )
     assessment_repository.create_session(session)
+    owner=account_repository.request_owner(http_request)
+    if owner:
+        account_repository.repo.claim_session(owner,session.session_id)
     assert session.pending_turn is not None
     return InterviewResponse(
         session_id=session.session_id,
@@ -1033,6 +1039,8 @@ def _mount_frontend() -> None:
         return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
 
 
+account_repository = Accounts(CommunityRepository(settings.data_dir / "state" / "community.sqlite3"))
+app.middleware("http")(learning_guard(account_repository))
 app.include_router(community_router(settings.data_dir, list_published_books,
                                    lambda: job_repository, lambda: assessment_repository))
 _mount_frontend()

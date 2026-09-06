@@ -11,11 +11,13 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..accounts import COOKIE, Accounts
 from ..assessment.models import InterviewSession
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..social import SocialRepository
+from .account_routes import account_router
 from .schemas import BookCatalogItem
 from .social_routes import social_router
 from .user_profile import UserProfileInput, normalize_avatar, public_profile
@@ -51,6 +53,7 @@ def community_router(
     router = APIRouter(prefix="/api", tags=["community"])
     repo = CommunityRepository(data_dir / "state" / "community.sqlite3")
     social = SocialRepository(repo)
+    accounts = Accounts(repo)
     initialized = False
     lock = threading.Lock()
     initial: list[str] = []
@@ -116,7 +119,15 @@ def community_router(
         ):
             raise HTTPException(403, "请在 App 内执行此操作")
         prepare()
+        if request.cookies.get(COOKIE):
+            account_owner = accounts.session_owner(request.cookies[COOKIE])
+            if not account_owner:
+                raise HTTPException(401, "登录已过期，请重新登录")
+            response.headers["Cache-Control"] = "private, no-store"
+            return account_owner
         owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"), initial)
+        if accounts.account(owner):
+            raise HTTPException(401, "请使用邮箱验证码登录")
         response.headers["Cache-Control"] = "private, no-store"
         if new:
             with repo.connect() as db:
@@ -388,4 +399,5 @@ def community_router(
         }
 
     router.include_router(social_router(social, visitor, make_attachment))
+    router.include_router(account_router(accounts, social, visitor, assessments))
     return router

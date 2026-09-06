@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/client";
 import { ApiError } from "./api/transport";
-import { safeGet, safeSet, selectBook, suggestedQuestions, hasAdditionalExplanation } from "./components/bookContext";
+import { captureStorage, selectBook, suggestedQuestions, hasAdditionalExplanation } from "./components/bookContext";
 import { LearningHome } from "./components/LearningHome";
 import { LibraryHub } from "./components/LibraryHub";
 import { SocialPage } from "./components/SocialPage";
+import { AccountControls } from "./components/AccountGate";
 import { CommunityPage } from "./components/CommunityPage";
 import { ProfileDashboard } from "./components/ProfileDashboard";
 import { UserProfilePage, DEFAULT_AVATAR } from "./components/UserProfilePage";
@@ -36,6 +37,7 @@ const eventId = () => `event_${Date.now()}_${Math.random().toString(36).slice(2,
 const depthLabel = { foundation: "基础支架", standard: "结构理解", advanced: "迁移挑战" };
 
 function App() {
+  const {safeGet,safeSet}=useMemo(captureStorage,[]);
   const [books, setBooks] = useState<BookCatalogItem[]>([]);
   const [userProfile,setUserProfile]=useState<UserProfile|null>(null);
   const [initializing, setInitializing] = useState(true);
@@ -54,6 +56,18 @@ function App() {
   const [qaQuestion, setQaQuestion] = useState("");
   const [askedQuestion, setAskedQuestion] = useState("");
   const [qaResult, setQaResult] = useState<QAResult | null>(null);
+  const [qaBookId, setQaBookId] = useState("");
+  const [qaStructure, setQaStructure] = useState<BookStructure | null>(null);
+  const qaBook = books.find(item => item.book_id === qaBookId) ?? book;
+  useEffect(() => {
+    let cancelled = false;
+    setQaResult(null); setAskedQuestion(""); setError("");
+    setQaStructure(null);
+    if (qaBook) void api.structure(qaBook.book_id).then(value => {
+      if (!cancelled) setQaStructure(value);
+    }).catch(() => { /* Generic suggestions remain available. */ });
+    return () => { cancelled = true; };
+  }, [qaBook?.book_id]);
   const [cardIndex, setCardIndex] = useState(0);
   const [cardFlipped, setCardFlipped] = useState(false);
   const [practiceIndex, setPracticeIndex] = useState(0);
@@ -235,9 +249,9 @@ function App() {
   }
 
   async function askQuestion(question = qaQuestion) {
-    if (!book || busy || !question.trim()) return;
+    if (!qaBook || busy || !question.trim()) return;
     setQaQuestion(""); setAskedQuestion(question.trim()); setBusy(true); setError(""); setQaResult(null);
-    try { setQaResult(await api.ask(book.book_id, question.trim())); }
+    try { setQaResult(await api.ask(qaBook.book_id, question.trim())); }
     catch (value) { setError((value as Error).message); setQaQuestion(current => current || question); }
     finally { setBusy(false); }
   }
@@ -263,9 +277,10 @@ function App() {
           {view === "social" && !initializing && <SocialPage books={books} onLibraryChanged={async()=>{setBooks(await api.books());}}/>}
           {view === "interview" && <DiagnosticJourney turn={turn ?? null} profile={profile} selected={selected} confidence={confidence} busy={busy} canSubmit={canSubmit} onSelect={(id) => setSelected((current) => turn?.response_type === "multiple_choice" ? (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]) : [id])} onConfidence={setConfidence} onSubmit={submitInterview} />}
           {view === "course" && course && <CourseView course={course} tab={courseTab} cardIndex={cardIndex} flipped={cardFlipped} practiceIndex={practiceIndex} input={input} confidence={confidence} activity={activity} needsRefresh={courseNeedsRefresh} busy={busy} onTab={(next) => { setCourseTab(next); setActivity(null); }} onFlip={() => { setCardFlipped((value) => !value); startedAt.current = Date.now(); }} onRate={reviewCard} onCard={(index) => { setCardIndex(index); setCardFlipped(false); setActivity(null); }} onPractice={(index) => { setPracticeIndex(index); setActivity(null); setInput(""); }} onInput={setInput} onConfidence={setConfidence} onSubmitPractice={submitPractice} onRefresh={() => openCourse(course.chapter_id)} />}
-          {view === "qa" && !initializing && <TutorChat question={qaQuestion} askedQuestion={askedQuestion} result={qaResult} busy={busy} error={error} bookTitle={book?.title ?? "未选择教材"} suggestions={suggestedQuestions(structure)} available={!!book && online} onQuestion={setQaQuestion} onAsk={askQuestion} />}
+          {view === "qa" && !initializing && <TutorChat question={qaQuestion} askedQuestion={askedQuestion} result={qaResult} busy={busy} error={error} bookTitle={qaBook?.title ?? "书架还没有教材"} books={books} selectedBookId={qaBook?.book_id ?? ""} onBookChange={setQaBookId} currentBookId={book?.book_id} suggestions={suggestedQuestions(qaStructure)} available={!!qaBook && online} onQuestion={setQaQuestion} onAsk={askQuestion} />}
           {view === "profile" && <ProfileDashboard key={session?.session_id??book?.book_id} userProfile={userProfile} onAccount={()=>setView("account")} profile={profile} sessionId={session?.session_id} bookTitle={book?.title??"未选择教材"} completed={completed} reminder={reminder} fontScale={fontScale} onReminder={(value) => { setReminder(value); safeSet("zhiwo.reminder", value); }} onFont={(value) => { setFontScale(value); safeSet("zhiwo.font-scale", String(value)); }} onDiagnose={() => setView(completed ? "home" : session ? "interview" : "home")} />}
           {view === "account" && <UserProfilePage onBusy={setBusy} onSaved={value=>{setUserProfile(value);setView("profile");setNotice("个人资料已保存");}} onBack={()=>setView("profile")}/>}
+          {view === "profile" && <AccountControls/>}
           {view === "profile" && <details className="why-card restart-diagnosis"><summary>重新做一次选择题诊断</summary><p>之前的学习记录仍保留在服务器。开始后，新诊断将成为当前学习进度，重新调整你的章节重点。</p><button className="secondary" disabled={busy || !book} onClick={startInterview}>开始新的诊断</button></details>}
           {error && view !== "qa" && <div className="error-banner" role="alert"><span>{error}</span><button onClick={() => !book ? void loadCatalog() : setError("")}>{!book ? "重新连接" : "知道了"}</button></div>}
         </div>

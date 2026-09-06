@@ -17,11 +17,20 @@ export function suggestedQuestions(structure: BookStructure | null): string[] {
   return ["这本书主要讨论什么问题？", "请结合原文解释一个核心概念。"];
 }
 
+let storagePrefix = "";
+export function setStorageIdentity(id:string,migrateLegacy=false){
+  storagePrefix=`account:${id}:`;
+  if(migrateLegacy)try{const assigned=localStorage.getItem('zhiwo.storage-legacy-owner');if(!assigned||assigned===id){localStorage.setItem('zhiwo.storage-legacy-owner',id);for(const key of Object.keys(localStorage)){if(key.startsWith('zhiwo.')&&key!=='zhiwo.storage-legacy-owner'&&localStorage.getItem(storagePrefix+key)===null)localStorage.setItem(storagePrefix+key,localStorage.getItem(key)!);}}}catch{/* Storage can be disabled. */}
+}
+export function captureStorage(){const prefix=storagePrefix;return {safeGet:(key:string)=>{try{return localStorage.getItem(prefix+key);}catch{return null;}},safeSet:(key:string,value:string|null)=>{try{if(value===null)localStorage.removeItem(prefix+key);else localStorage.setItem(prefix+key,value);}catch{/* Keep old async writes scoped to their original user. */}}};}
+export function savedLearningSessions():string[]{
+  try{return [...new Set(Object.keys(localStorage).filter(key=>key.startsWith(storagePrefix+'zhiwo.active-session')).map(key=>localStorage.getItem(key)!).filter(Boolean))].slice(0,30);}catch{return [];}
+}
 export function safeGet(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try { return localStorage.getItem(storagePrefix+key); } catch { return null; }
 }
 export function safeSet(key: string, value: string | null) {
-  try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* Private mode can disable persistence; in-memory use still works. */ }
+  try { if (value === null) localStorage.removeItem(storagePrefix+key); else localStorage.setItem(storagePrefix+key, value); } catch { /* Private mode can disable persistence; in-memory use still works. */ }
 }
 
 export function hasAdditionalExplanation(title: string, explanation: string): boolean {

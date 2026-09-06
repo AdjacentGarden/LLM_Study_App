@@ -14,22 +14,20 @@
 .shelf-filters button[aria-pressed=true] { background:#332a4c; color:#fff; }
 .shelf-filters button span { margin-left:5px; opacity:.65; }
 .shelf-filters small { margin-left:auto; color:#7b7484; font-size:.65em; }
-.visual-shelf { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:25px 16px; }
-.shelf-volume { min-width:0; animation:volume-in 400ms both; animation-delay:calc(var(--book-order)*35ms); }
-.shelf-cover { position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:auto; aspect-ratio:.78; border:0; border-radius:19px; background:radial-gradient(ellipse at 50% 10%,#f6f1ff,#e4dcef); padding:15px 13px 22px; cursor:pointer; isolation:isolate; perspective:700px; }
-.shelf-tint-1 .shelf-cover { background:linear-gradient(135deg,#e2ede8,#eef2e5); }
-.shelf-tint-2 .shelf-cover { background:linear-gradient(135deg,#f2e4db,#f5edde); }
-.shelf-tint-3 .shelf-cover { background:linear-gradient(135deg,#e2e8f6,#e9eef4); }
+.visual-shelf { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 24px; padding:8px 4px; }
+.shelf-volume { min-width:0; display:flex; flex-direction:column; border-bottom:1px solid #dad6df; padding-bottom:17px; animation:volume-in 400ms both; animation-delay:calc(var(--book-order)*35ms); }
+.shelf-cover { position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:auto; aspect-ratio:.78; border:0; border-radius:12px; background:transparent; padding:13px 9px 23px; cursor:pointer; isolation:isolate; perspective:700px; }
 .shelf-cover > img { width:100%; height:100%; min-height:0; object-fit:contain; filter:drop-shadow(5px 9px 6px #37244d32); border-radius:2px 5px 5px 2px; transform:rotate(var(--cover-tilt,-3deg)); transition:transform 280ms ease,filter 280ms ease; }
-/* Alternate only the resting angle, never override the shared interaction transform. */
-.shelf-volume:nth-child(even) { --cover-tilt:3deg; }
+/* One resting direction for every cover; interaction never changes document flow. */
+.shelf-volume { --cover-tilt:-3deg; }
 .cover-peek { position:absolute; bottom:8px; left:0; right:0; display:flex; justify-content:center; align-items:center; gap:4px; color:#5d516d; font-size:.61em; }
-.reading-ribbon { position:absolute; top:9px; right:9px; padding:5px 9px; border-radius:9px; background:#332b4deb; color:white; box-shadow:0 2px 9px #332b4d19; font-size:.65em; }
-.shelf-caption { width:100%; display:block; border:0; text-align:left; background:transparent; padding:10px 2px 0; cursor:pointer; }
+.reading-ribbon { display:inline-flex; align-items:center; gap:5px; margin:0 0 7px; color:#765997; font-size:11px; font-weight:600; }
+.reading-ribbon::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+.shelf-caption { width:100%; flex:1; display:flex; flex-direction:column; align-items:flex-start; border:0; text-align:left; background:transparent; padding:10px 2px 0; cursor:pointer; }
 .shelf-caption h3 { margin:0; font-size:.88em; line-height:1.6; font-weight:750; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
 .shelf-caption p { font-size:.71em; color:#7c7488; margin:7px 0; }
 .shelf-caption p span { padding:0 6px; }
-.shelf-enter { display:flex; align-items:center; justify-content:space-between; color:#7a579c; font-size:.7em; padding:4px 0; }
+.shelf-enter { display:flex; align-items:center; justify-content:space-between; color:#7a579c; font-size:.7em; padding:4px 0; width:100%; margin-top:auto; }
 .cover-fallback { display:flex; flex-direction:column; gap:15px; align-items:center; color:#8f7ca1; font-size:.72em; padding:20px 0; }
 .shelf-empty,.record-empty { text-align:center; padding:32px 12px; color:#827591; }
 .shelf-empty > svg,.record-empty > svg { padding:12px; box-sizing:content-box; background:#eee7f7; border-radius:22px; }
@@ -90,4 +88,5 @@
 @keyframes sheet-in { from { opacity:0; transform:translateY(24px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media(hover:hover) { .shelf-cover:hover > img { transform:rotate(0deg) translateY(-5px); filter:drop-shadow(7px 12px 8px #37244d42); }.record-shortcut:hover { transform:translateY(-3px); box-shadow:0 7px 18px #46345d12; } }
 .shelf-cover:active > img { transform:scale(.96) rotate(0deg); }
+.shelf-cover:focus-visible > img { transform:rotate(0deg); }
 @media(prefers-reduced-motion:reduce) { .shelf-volume,.detail-sheet[open] { animation:none; }.shelf-cover > img,.record-shortcut { transition:none; } }

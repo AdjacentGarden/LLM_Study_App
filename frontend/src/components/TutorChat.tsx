@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import type { QAResult } from "../types/api";
+import type { BookCatalogItem, QAResult } from "../types/api";
 import { Icon } from "./Icon";
 
-export function TutorChat({ question, askedQuestion, result, busy, error, bookTitle, suggestions, available, onQuestion, onAsk }: {
+export function TutorChat({ question, askedQuestion, result, busy, error, bookTitle, books, selectedBookId, currentBookId, onBookChange, suggestions, available, onQuestion, onAsk }: {
   question:string; askedQuestion:string; result:QAResult|null; busy:boolean;
   error:string; bookTitle:string; suggestions:string[]; available:boolean;
   onQuestion:(value:string)=>void; onAsk:(value?:string)=>void;
+  books:BookCatalogItem[]; selectedBookId:string; currentBookId?:string; onBookChange:(id:string)=>void;
 }) {
   const scroll = useRef<HTMLDivElement>(null);
   const [elapsed, setElapsed] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   useEffect(()=>{setElapsed(0); if(!busy)return; const timer=window.setInterval(()=>setElapsed(value=>value+1),1000);return()=>window.clearInterval(timer);},[busy]);
   useEffect(()=>{scroll.current?.scrollTo({top:0,behavior:"instant"});},[askedQuestion]);
-  return <div className="qa-page tutor-chat"><div className="tutor-context"><Icon name="book" size={16}/><span>{bookTitle}</span></div><div className="qa-scroll" ref={scroll}>
+  return <div className="qa-page tutor-chat"><div className="tutor-context"><Icon name="book" size={19}/><label><small>从这本书寻找答案</small><select aria-label="答疑使用的书籍" title={bookTitle} disabled={busy || !books.length} value={selectedBookId} onChange={event=>{setShowSuggestions(false);onBookChange(event.target.value);}}>{!books.length&&<option value="">请先将书籍加入书架</option>}{books.map(item=><option key={item.book_id} value={item.book_id}>{item.title}{item.book_id===currentBookId?" · 正在学习":""}</option>)}</select></label><span className="tutor-select-arrow" aria-hidden="true">⌄</span></div><div className="qa-scroll" ref={scroll}>
     {!askedQuestion && <section className="tutor-welcome"><img src="/assets/brand/cloud-mascot-parsing.png" alt=""/><span className="kicker">你的教材小助手</span><h2>不懂的地方，<br/>一起想明白。</h2><p>把问题交给我。<br/>我们从教材里的依据开始。</p><div><Icon name="book" size={16}/><span>结合原文 · 附有页码</span></div></section>}
     {askedQuestion && <div className="question-bubble">{askedQuestion}</div>}
     {busy && <div className="thinking-panel" role="status"><div><Icon name="spark"/><b>{elapsed > 30 ? "仍在处理，请稍候…" : "正在查找与核验…"}</b><span className="loading-dots" aria-hidden="true"><i/><i/><i/></span></div><p>会先寻找原文，再检查结论与证据是否一致。</p><small aria-live="off">已等待 {elapsed} 秒</small><span className="skeleton-line"/><span className="skeleton-line"/><span className="skeleton-line short"/></div>}

@@ -8,6 +8,7 @@ tmp/
 *.sqlite3-shm
 *.log
 test-results/
+test-results-*/
 playwright-report/
 .venv/
 node_modules/

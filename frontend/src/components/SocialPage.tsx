@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { socialApi } from "../api/social";
+import { DemoFriends } from "./AccountGate";
 import type { SocialMe, SocialContacts, SocialUser } from "../types/social";
 import type { BookCatalogItem } from "../types/api";
 import { DEFAULT_AVATAR } from "./UserProfilePage";
@@ -152,6 +153,7 @@ export function SocialPage({
     );
   return (
     <div className="social-page">
+      <DemoFriends/>
       <section className="social-intro">
         <span className="kicker">让学习，有来有往</span>
         <h2>遇见一起进步的人</h2>

@@ -48,7 +48,7 @@ export function ShareDialog({books,initialBookId,resource,onClose,onShared}:{boo
     const result=await api.share(payload);onShared(result.status==="already_shared");
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   return <DetailSheet title="把好内容分享出去" onClose={()=>{if(!busy)onClose();}}><form className="community-form" onSubmit={e=>{e.preventDefault();void submit();}}>
-    {!resource&&<div className="community-tabs" role="group" aria-label="分享类型">{([['book','书籍'],['flashcards','闪卡'],['note','笔记']] as const).map(([id,label])=><button type="button" aria-pressed={kind===id} key={id} onClick={()=>{setKind(id);setRights(false);}}>{label}</button>)}</div>}
+    {!resource&&<div className="community-tabs" role="group" aria-label="分享类型">{([['book','书籍'],['note','笔记']] as const).map(([id,label])=><button type="button" aria-pressed={kind===id} key={id} onClick={()=>{setKind(id);setRights(false);}}>{label}</button>)}</div>}
     <label>来源教材<select aria-label="分享来源教材" disabled={!!resource} value={bookId} onChange={e=>{setBookId(e.target.value);setRights(false);}}>{books.map(b=><option key={b.book_id} value={b.book_id}>{b.title}</option>)}</select></label>
     {kind==="book"&&<div className="share-book-info"><Icon name="book"/><p>分享已解析教材。领取者会建立自己的学习画像，不会收到你的作答、笔记或学习进度。</p></div>}
     {kind!=="book"&&<label>分享标题（选填）<input maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="默认使用课程或笔记标题"/></label>}
