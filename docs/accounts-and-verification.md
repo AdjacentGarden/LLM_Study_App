@@ -33,6 +33,14 @@ SMTP_PASSWORD=your-smtp-app-password
 
 也支持 `SMTP_PORT=587`、`SMTP_SECURITY=starttls`。两种模式均验证 TLS 证书。配置后重启 `deployment/server/run_backend.sh restart`，必须用受控真实邮箱测试收信、延迟、重发和过期。正式发布还需检查发信域名认证、退信与额度；未接入图形验证码供应商，当前防滥用为邮件验证码与限流。
 
+私有测试环境也可以连接仅监听回环地址的捕获式 SMTP 服务：设置
+`SMTP_HOST=127.0.0.1`、`SMTP_PORT=1025`、`SMTP_SECURITY=plain` 和
+`SMTP_FROM=cloudpath@test.invalid`，并同时省略 `SMTP_USER` 与
+`SMTP_PASSWORD`。`plain` 模式只能用于同机测试服务，不能用于公网 SMTP。
+服务器上的私有测试邮箱由 `deployment/server/run_mailpit.sh` 管理，SMTP 与
+网页界面分别只监听 `127.0.0.1:1025` 和 `127.0.0.1:8025`；查看邮件时必须
+使用 SSH 隧道，不能直接开放端口。
+
 ## 私有预览演示
 
 `AUTH_DEMO_MODE` 默认 0；4090 私有预览通过 `config/accounts.env` 设置为 1。公开部署前关闭该开关（现存演示会话也会失效）。只有明确允许的 `.test` 邮箱会在页面返回测试验证码，不发送邮件。它们是所有测试者可访问的公共演示身份，不能保存隐私。

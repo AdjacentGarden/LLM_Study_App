@@ -58,7 +58,11 @@ class Accounts:
 
     @staticmethod
     def smtp_ready() -> bool:
-        return all(os.getenv(k) for k in ("SMTP_HOST", "SMTP_FROM", "SMTP_USER", "SMTP_PASSWORD"))
+        if not all(os.getenv(k) for k in ("SMTP_HOST", "SMTP_FROM")):
+            return False
+        # Authenticated relays need both values. A loopback-only test SMTP server
+        # may intentionally use neither.
+        return bool(os.getenv("SMTP_USER")) == bool(os.getenv("SMTP_PASSWORD"))
 
     def digest(self, value: str) -> str:
         return hmac.new(self.key, value.encode(), hashlib.sha256).hexdigest()
@@ -186,18 +190,24 @@ class Accounts:
             f"你的云径邮箱验证码是：{code}\n10 分钟内有效，请勿向他人提供。\n如果不是你本人操作，请忽略这封邮件。"
         )
         host, port = os.environ["SMTP_HOST"], int(os.getenv("SMTP_PORT", "465"))
+        security = os.getenv("SMTP_SECURITY", "ssl").lower()
+        if security not in {"ssl", "starttls", "plain"}:
+            raise ValueError("SMTP_SECURITY must be ssl, starttls, or plain")
         context = ssl.create_default_context()
-        if os.getenv("SMTP_SECURITY", "ssl") == "starttls":
-            with smtplib.SMTP(host, port, timeout=12) as smtp:
+        if security == "ssl":
+            smtp_client: smtplib.SMTP = smtplib.SMTP_SSL(
+                host, port, timeout=12, context=context
+            )
+        else:
+            smtp_client = smtplib.SMTP(host, port, timeout=12)
+        with smtp_client as smtp:
+            if security == "starttls":
                 smtp.ehlo()
                 smtp.starttls(context=context)
                 smtp.ehlo()
+            if os.getenv("SMTP_USER"):
                 smtp.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
-                smtp.send_message(message)
-        else:
-            with smtplib.SMTP_SSL(host, port, timeout=12, context=context) as smtp:
-                smtp.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
-                smtp.send_message(message)
+            smtp.send_message(message)
 
     def complete(
         self,
