@@ -6,7 +6,7 @@ import { SharedContent, ShareDialog } from "./CommunitySharing";
 import { Icon } from "./Icon";
 
 const labels={book:"已解析书籍",flashcards:"知识闪卡",note:"学习笔记"};
-export function CommunityPage({books,onLibraryChanged,onOpenLibrary}:{books:BookCatalogItem[];onLibraryChanged:()=>Promise<void>;onOpenLibrary:()=>void}) {
+export function CommunityPage({books,onLibraryChanged,onOpenLibrary,onSocial}:{onSocial:()=>void;books:BookCatalogItem[];onLibraryChanged:()=>Promise<void>;onOpenLibrary:()=>void}) {
   const [kind,setKind]=useState("all"),[search,setSearch]=useState("");
   const [items,setItems]=useState<CommunityPost[]>([]),[hasMore,setHasMore]=useState(false),[page,setPage]=useState(0);
   const [preview,setPreview]=useState<CommunityPost|null>(null),[sharing,setSharing]=useState(false);
@@ -18,6 +18,7 @@ export function CommunityPage({books,onLibraryChanged,onOpenLibrary}:{books:Book
   async function acquire(){if(!preview||!check)return;setBusy(true);setError("");try{const result=await api.acquire(preview.id);setMessage(result.status==="already_owned"?"已在你的书架中，没有重复加入。":result.kind==="book"?"已加入书架，复用解析结果；你的学习进度独立保存。":"已保存到书架的「闪卡与笔记」。");setPreview(null);await onLibraryChanged();refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   async function withdraw(){if(!preview)return;setBusy(true);setError("");try{await api.withdraw(preview.id);setPreview(null);setMessage("已撤回社区展示，已领取者的副本不受影响。");refresh();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   return <div className="community-page"><section className="community-hero"><span className="kicker">一起读，走得更远</span><h2>让好内容，遇见同路人。</h2><p>分享一本好书、一组闪卡，<br/>或一个刚刚想明白的瞬间。</p><button onClick={()=>setSharing(true)}><Icon name="send" size={17}/>分享我的内容</button><Icon name="community" size={62}/></section>
+    <button className="social-entry" onClick={onSocial}><span className="social-entry-icon"><Icon name="community" size={24}/></span><span><strong>好友与消息</strong><small>找同路人 · 交换学习灵感</small></span><Icon name="arrow" size={18}/></button>
     <label className="shelf-search"><Icon name="book" size={17}/><input aria-label="搜索社区" placeholder="搜索书籍、闪卡或笔记" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}}/>{search&&<button aria-label="清空社区搜索" onClick={()=>{setSearch("");setPage(0);}}>×</button>}</label>
     <div className="community-tabs" role="group" aria-label="社区内容筛选">{[['all','全部'],['book','书籍'],['flashcards','闪卡'],['note','笔记']].map(([id,label])=><button key={id} aria-pressed={kind===id} onClick={()=>{setKind(id);setPage(0);}}>{label}</button>)}</div>
     {message&&<div role="status" className="community-success"><p>{message}</p><button onClick={onOpenLibrary}>去书架看看<Icon name="arrow" size={16}/></button></div>}

@@ -4,6 +4,7 @@ import { ApiError } from "./api/transport";
 import { safeGet, safeSet, selectBook, suggestedQuestions, hasAdditionalExplanation } from "./components/bookContext";
 import { LearningHome } from "./components/LearningHome";
 import { LibraryHub } from "./components/LibraryHub";
+import { SocialPage } from "./components/SocialPage";
 import { CommunityPage } from "./components/CommunityPage";
 import { ProfileDashboard } from "./components/ProfileDashboard";
 import { UserProfilePage, DEFAULT_AVATAR } from "./components/UserProfilePage";
@@ -26,7 +27,7 @@ import type {
   UserProfile,
 } from "./types/api";
 
-type View = "home" | "library" | "community" | "interview" | "course" | "qa" | "profile" | "account";
+type View = "social" | "home" | "library" | "community" | "interview" | "course" | "qa" | "profile" | "account";
 type CourseTab = "guide" | "reading" | "points" | "cards" | "practice";
 
 const SESSION_KEY = "zhiwo.active-session";
@@ -241,7 +242,7 @@ function App() {
     finally { setBusy(false); }
   }
 
-  const title = view === "course" ? course?.chapter_title ?? "个人课程" : view === "interview" ? "学习诊断" : view === "library" ? "我的书架" : view === "community" ? "学习社区" : view === "qa" ? "教材答疑" : view === "profile" ? "我的学习" : view === "account" ? "个人资料" : "知我";
+  const title = view === "social" ? "好友与消息" : view === "course" ? course?.chapter_title ?? "个人课程" : view === "interview" ? "学习诊断" : view === "library" ? "我的书架" : view === "community" ? "学习社区" : view === "qa" ? "教材答疑" : view === "profile" ? "我的学习" : view === "account" ? "个人资料" : "知我";
 
   return (
     <main className="stage" style={{ "--font-scale": fontScale } as React.CSSProperties}>
@@ -253,12 +254,13 @@ function App() {
           {view!=="profile"&&view!=="account"&&<img src={userProfile?.avatar_url??DEFAULT_AVATAR} alt="用户头像" />}
         </header>
 
-        <div ref={contentRef} key={view} inert={busy && !["qa", "interview", "course", "account"].includes(view)} className={`app-content page-transition ${view === "qa" ? "qa-shell" : ""} ${view === "interview" || view === "course" ? "focused-content" : ""}`}>
+        <div ref={contentRef} key={view} inert={busy && !["qa", "interview", "course", "account"].includes(view)} className={`app-content page-transition ${view === "qa" ? "qa-shell" : view === "social" ? "social-shell" : ""} ${view === "interview" || view === "course" ? "focused-content" : ""}`}>
           {!online && <div className="connection-note" role="status">网络已断开，已有内容仍可查看；恢复连接后可继续保存。</div>}
           {initializing && <div className="home-skeleton" role="status" aria-label="正在恢复学习进度"><span className="skeleton-line"/><div/><span className="skeleton-line"/><span className="skeleton-line short"/><p>正在取回你的教材与学习进度…</p></div>}
           {view === "home" && !initializing && <LearningHome book={book} structure={structure} profile={profile} completed={completed} diagnosed={diagnosed} busy={busy || !online} onStart={startInterview} onContinue={() => setView("interview")} onCourse={openCourse} />}
           {view === "library" && !initializing && <LibraryHub books={books} activeBook={book} busy={busy} onOpen={async (id) => { if (id !== book?.book_id) await loadCatalog(id); setView("home"); }} onRemove={async id=>{await api.removeBook(id); const remaining=await api.books(); if(id===book?.book_id)await loadCatalog(remaining[0]?.book_id,false);else setBooks(remaining);}} onRestore={async id=>{await api.restoreBook(id);if(!book)await loadCatalog(id,false);else setBooks(await api.books());}} onCommunity={()=>setView("community")} />}
-          {view === "community" && !initializing && <CommunityPage books={books} onLibraryChanged={async()=>{setBooks(await api.books());}} onOpenLibrary={()=>setView("library")} />}
+          {view === "community" && !initializing && <CommunityPage onSocial={()=>setView("social")} books={books} onLibraryChanged={async()=>{setBooks(await api.books());}} onOpenLibrary={()=>setView("library")} />}
+          {view === "social" && !initializing && <SocialPage books={books} onLibraryChanged={async()=>{setBooks(await api.books());}}/>}
           {view === "interview" && <DiagnosticJourney turn={turn ?? null} profile={profile} selected={selected} confidence={confidence} busy={busy} canSubmit={canSubmit} onSelect={(id) => setSelected((current) => turn?.response_type === "multiple_choice" ? (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]) : [id])} onConfidence={setConfidence} onSubmit={submitInterview} />}
           {view === "course" && course && <CourseView course={course} tab={courseTab} cardIndex={cardIndex} flipped={cardFlipped} practiceIndex={practiceIndex} input={input} confidence={confidence} activity={activity} needsRefresh={courseNeedsRefresh} busy={busy} onTab={(next) => { setCourseTab(next); setActivity(null); }} onFlip={() => { setCardFlipped((value) => !value); startedAt.current = Date.now(); }} onRate={reviewCard} onCard={(index) => { setCardIndex(index); setCardFlipped(false); setActivity(null); }} onPractice={(index) => { setPracticeIndex(index); setActivity(null); setInput(""); }} onInput={setInput} onConfidence={setConfidence} onSubmitPractice={submitPractice} onRefresh={() => openCourse(course.chapter_id)} />}
           {view === "qa" && !initializing && <TutorChat question={qaQuestion} askedQuestion={askedQuestion} result={qaResult} busy={busy} error={error} bookTitle={book?.title ?? "未选择教材"} suggestions={suggestedQuestions(structure)} available={!!book && online} onQuestion={setQaQuestion} onAsk={askQuestion} />}
@@ -270,10 +272,10 @@ function App() {
 
         {notice && <div className="notice-toast" role="status" key={notice}><span aria-hidden="true">✓</span>{notice}</div>}
         {busy && view !== "interview" && view !== "course" && view !== "qa" && view !== "account" && <div className="preparing-overlay" role="status" aria-live="polite"><div><span className="preparing-orb" aria-hidden="true">✦</span><h2>{completed ? "正在编排适合你的内容" : "正在准备选择题诊断"}</h2><p>{completed ? "结合教材、作答和薄弱点，生成有重点的讲解与闪卡。" : "读取书籍章节，准备了解你的学习起点。"}</p><span className="loading-dots" aria-hidden="true"><i/><i/><i/></span><small>请稍候，完成后自动进入</small></div></div>}
-        {view !== "interview" && view !== "course" && view !== "account" && <nav inert={busy || initializing} className="bottom-nav" aria-label="主导航" style={{ "--nav-index": ["home", "library", "community", "qa", "profile"].indexOf(view) } as React.CSSProperties}>
+        {view !== "interview" && view !== "course" && view !== "account" && <nav inert={busy || initializing} className="bottom-nav" aria-label="主导航" style={{ "--nav-index": ["home", "library", "community", "qa", "profile"].indexOf(view === "social" ? "community" : view) } as React.CSSProperties}>
           <NavButton active={view === "home"} icon="home" label="学习" onClick={() => setView("home")} />
           <NavButton active={view === "library"} icon="book" label="书架" onClick={() => setView("library")} />
-          <NavButton active={view === "community"} icon="community" label="社区" onClick={() => setView("community")} />
+          <NavButton active={view === "community" || view === "social"} icon="community" label="社区" onClick={() => setView("community")} />
           <NavButton active={view === "qa"} icon="spark" label="答疑" onClick={() => setView("qa")} />
           <NavButton active={view === "profile"} icon="user" label="我的" onClick={() => setView("profile")} />
         </nav>}

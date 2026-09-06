@@ -7,6 +7,8 @@ tmp/
 *.sqlite3-wal
 *.sqlite3-shm
 *.log
+test-results/
+playwright-report/
 .venv/
 node_modules/
 dist/

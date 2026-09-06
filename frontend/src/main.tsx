@@ -13,6 +13,7 @@ import "./styles/device-preview.css";
 import "./styles/chapter-map.css";
 import "./styles/community.css";
 import "./styles/user-profile.css";
+import "./styles/social.css";
 
 const query = new URLSearchParams(window.location.search);
 const embedded = query.get("embedded") === "1";

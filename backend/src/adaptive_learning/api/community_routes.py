@@ -15,7 +15,9 @@ from ..assessment.models import InterviewSession
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.jobs import SQLiteOCRJobRepository
+from ..social import SocialRepository
 from .schemas import BookCatalogItem
+from .social_routes import social_router
 from .user_profile import UserProfileInput, normalize_avatar, public_profile
 
 
@@ -48,6 +50,7 @@ def community_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api", tags=["community"])
     repo = CommunityRepository(data_dir / "state" / "community.sqlite3")
+    social = SocialRepository(repo)
     initialized = False
     lock = threading.Lock()
     initial: list[str] = []
@@ -116,6 +119,8 @@ def community_router(
         owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"), initial)
         response.headers["Cache-Control"] = "private, no-store"
         if new:
+            with repo.connect() as db:
+                social.ensure(db, owner)
             response.set_cookie(
                 "zhiwo_visitor",
                 token,
@@ -202,8 +207,7 @@ def community_router(
             for course in latest.values()
         ]
 
-    @router.post("/community/share")
-    def share(body: ShareInput, owner: str = Depends(visitor)) -> dict[str, Any]:
+    def prepare_share(body: ShareInput, owner: str) -> tuple[str, dict[str, Any]]:
         owned_book(owner, body.book_id)
         book_asset = repo.asset(body.book_id)
         if book_asset is None:
@@ -247,6 +251,11 @@ def community_router(
             title = title or course.chapter_title + " · 闪卡"
         else:
             raise HTTPException(422, "请先保存笔记，或选择已生成的闪卡")
+        return title, content
+
+    @router.post("/community/share")
+    def share(body: ShareInput, owner: str = Depends(visitor)) -> dict[str, Any]:
+        title, content = prepare_share(body, owner)
         post_id, duplicate = repo.publish(
             owner, body.kind, body.book_id, title, body.description, content
         )
@@ -340,4 +349,43 @@ def community_router(
             headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
         )
 
+    def make_attachment(owner: str, spec: dict[str, Any]) -> dict[str, Any]:
+        kind = spec["kind"]
+        if kind in {"book", "flashcards", "note"}:
+            title, content = prepare_share(ShareInput.model_validate(spec), owner)
+        else:
+            owned_book(owner, spec["book_id"])
+            if not spec.get("session_id") or not spec.get("course_id"):
+                raise HTTPException(422, "请选择自己的章节课程")
+            session = owned_session(owner, spec["session_id"])
+            if session.profile.book_id != spec["book_id"]:
+                raise HTTPException(422, "章节与教材不一致")
+            course = assessments().get_course_for_session(spec["session_id"], spec["course_id"])
+            if not course:
+                raise HTTPException(404, "课程不存在")
+            if kind == "chapter":
+                title = course.chapter_title + " · 章节总结"
+                content = {"body": course.summary}
+            else:
+                title = course.chapter_title + " · 知识点清单"
+                content = {
+                    "body": "\n\n".join(
+                        f"{index + 1}. {point.title}\n{point.explanation}"
+                        for index, point in enumerate(course.knowledge_points)
+                    )
+                }
+        asset = repo.asset(spec["book_id"])
+        if not asset:
+            raise HTTPException(404, "教材不存在")
+        catalog_item = json.loads(asset["catalog"])
+        return {
+            "kind": kind,
+            "book_id": asset["canonical"],
+            "title": title,
+            "content": content,
+            "book_title": catalog_item["title"],
+            "cover_url": catalog_item.get("cover_url"),
+        }
+
+    router.include_router(social_router(social, visitor, make_attachment))
     return router
