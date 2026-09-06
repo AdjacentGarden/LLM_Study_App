@@ -1,0 +1,62 @@
+[project]
+name = "adaptive-book-learning-backend"
+version = "0.1.0"
+description = "高精度教材重建、主动学习者诊断与个性化章节课程服务"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "fsrs>=6,<7",
+  "httpx>=0.27,<1",
+  "numpy>=2.0,<2.3",
+  "pillow>=11,<13",
+  "pydantic>=2.9,<3",
+  "python-dotenv>=1,<2",
+  "python-multipart>=0.0.18,<1",
+  "uvicorn[standard]>=0.30,<1",
+]
+
+[project.optional-dependencies]
+pdf = [
+  "pymupdf>=1.25,<2",
+  "pypdf>=5,<7",
+  "pillow>=11,<13",
+]
+dev = [
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.8,<1",
+  "mypy>=1.13,<2",
+]
+rag = [
+  "torch>=2.5,<3",
+  "transformers>=4.46,<5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/adaptive_learning"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["adaptive_learning"]
+
+[[tool.mypy.overrides]]
+module = ["adaptive_learning.rag.backends"]
+warn_unused_ignores = false
+disable_error_code = ["no-untyped-call"]

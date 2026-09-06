@@ -1,0 +1,13 @@
+.device-preview { height:100dvh; min-height:0; padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; overflow:hidden; background:radial-gradient(ellipse at 15% 15%,#e3deff,transparent 50%),radial-gradient(ellipse at 90% 85%,#dcebe9,transparent 50%),#edf0f7; }
+.device-preview-label { display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; font-size:12px; line-height:20px; color:#7a708d; }
+.device-preview-label strong { color:#463857; font-weight:750; }
+.device-preview-slot { position:relative; flex-shrink:0; }
+.device-preview-frame { position:absolute; top:0; left:0; transform-origin:top left; border:8px solid #171923; border-radius:56px; overflow:hidden; background:#171923; box-shadow:0 22px 60px #28244338,0 0 0 1px #8d8c99; }
+.device-preview-frame iframe { display:block; width:393px; height:852px; max-width:none; border:0; background:#f8f9fc; }
+html[data-preview-device="iphone-16"] .stage { padding:0; min-height:100dvh; }
+html[data-preview-device="iphone-16"] .phone { width:393px; height:852px; border:0; border-radius:0; grid-template-rows:59px 80px minmax(0,1fr); box-shadow:none; }
+html[data-preview-device="iphone-16"] .statusbar { position:relative; padding:9px 26px 0; align-items:center; }
+html[data-preview-device="iphone-16"] .statusbar::after { content:""; position:absolute; width:126px; height:37px; border-radius:24px; left:50%; top:11px; transform:translateX(-50%); background:#08090d; }
+html[data-preview-device="iphone-16"] .home-indicator { display:block; width:134px; height:5px; bottom:8px; }
+html[data-preview-device="iphone-16"] .bottom-nav { bottom:27px; }
+html[data-preview-device="iphone-16"] .phone:has(.bottom-nav)::after { height:112px; }

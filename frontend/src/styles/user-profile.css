@@ -1,0 +1,16 @@
+.identity-card .profile-avatar-entry { width:76px; height:76px; flex:none; border:0; padding:0; background:none; cursor:pointer; border-radius:22px; }
+.identity-card .profile-avatar-entry img { width:76px; height:76px; object-fit:cover; border-radius:22px; border:2px solid #fff; box-shadow:0 4px 16px #62508216; }
+.identity-card>div { min-width:0; }.identity-card .kicker { overflow-wrap:anywhere; }
+.profile-avatar-entry:focus-visible,.avatar-upload:focus-within { outline:3px solid #9b7cc6; outline-offset:4px; }
+.user-profile-page { display:grid; gap:20px; padding-bottom:20px; }
+.user-avatar-editor { display:flex; flex-direction:column; align-items:center; padding:24px 20px; border:1px solid #e7def0; border-radius:25px; background:linear-gradient(150deg,#fff9f1,#f2ecfb); }
+.user-avatar-editor>img { width:106px; height:106px; object-fit:cover; margin:19px 0; border:4px solid #fff; border-radius:32px; box-shadow:0 9px 24px #7050951c; }
+.avatar-upload { position:relative; overflow:hidden; display:grid; place-items:center; cursor:pointer; min-height:44px; padding:8px 23px; background:#fff; border:1px solid #dcd0eb; border-radius:14px; font-size:14px; color:#6d4c94; }
+.avatar-upload input { position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; }.avatar-upload.disabled { opacity:.5; }
+.avatar-reset { border:0; background:none; font-size:12px; color:#8f80a2; min-height:40px; margin-top:4px; }
+.user-details-form { display:grid; gap:22px; border:1px solid #e7e1ed; border-radius:22px; background:#fff; padding:22px 18px; }
+.user-details-form label { display:grid; gap:10px; color:#554764; font-size:15px; font-weight:600; }.user-details-form small { color:#9990a6; font-size:12px; font-weight:400; }
+.user-details-form input,.user-details-form textarea { box-sizing:border-box; width:100%; min-width:0; font:inherit; line-height:1.65; color:#44354f; background:#faf8fc; border:1px solid #e4ddec; border-radius:12px; padding:12px; }
+.user-details-form input:focus,.user-details-form textarea:focus { outline:2px solid #bea2df; outline-offset:2px; }.user-details-form textarea { resize:vertical; }
+.profile-loading { color:#8b7b9e; font-size:14px; padding:24px; }
+@media(hover:hover){.profile-avatar-entry:hover { transform:translateY(-2px); }.avatar-upload:hover { background:#fcfaff; }}

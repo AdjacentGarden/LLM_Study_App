@@ -1,0 +1,149 @@
+[
+  {
+    "id": "meiosis_definition",
+    "question": "什么是减数分裂？它在染色体复制、细胞分裂次数和最终染色体数目上有什么特点？",
+    "expected_pages": [11, 12],
+    "expected_terms": ["染色体只复制一次", "细胞分裂两次", "染色体数目", "减少一半"],
+    "answer_concepts": [["成熟生殖细胞", "生殖细胞"], ["染色体只复制一次"], ["细胞分裂两次", "连续分裂两次"], ["染色体数目减少一半", "染色体数目减半"]],
+    "reference_answer": "减数分裂是有性生殖生物产生成熟生殖细胞时进行的细胞分裂。染色体只复制一次，细胞连续分裂两次，成熟生殖细胞的染色体数目比原始生殖细胞减少一半。"
+  },
+  {
+    "id": "fertilization",
+    "question": "受精作用是什么？它怎样恢复染色体数目并保持亲子代遗传稳定性？",
+    "expected_pages": [19, 20],
+    "expected_terms": ["精子", "卵细胞", "受精卵", "染色体数目", "恢复"],
+    "answer_concepts": [["精子"], ["卵细胞"], ["融合", "结合"], ["受精卵"], ["染色体数目恢复", "恢复为体细胞", "恢复到体细胞", "恢复为受精卵中与亲代一样"]],
+    "reference_answer": "受精作用是卵细胞和精子相互识别并融合形成受精卵的过程。精卵细胞核融合后，受精卵的染色体数目恢复为体细胞的数目，一半来自父方、一半来自母方。"
+  },
+  {
+    "id": "sutton_reasoning",
+    "question": "萨顿为什么推论基因位于染色体上？他的依据是什么？",
+    "expected_pages": [22, 23],
+    "expected_terms": ["基因", "染色体", "平行关系", "类比推理"],
+    "answer_concepts": [["基因和染色体", "基因与染色体"], ["平行关系", "行为存在明显的平行"], ["类比推理", "类比"], ["基因在染色体上", "基因位于染色体上"]],
+    "reference_answer": "萨顿发现基因和染色体在保持完整性、成对存在、形成配子时分离以及非等位基因与非同源染色体自由组合等方面存在明显的平行关系，因此用类比推理提出基因位于染色体上。"
+  },
+  {
+    "id": "morgan_white_eye",
+    "question": "摩尔根的果蝇白眼遗传实验怎样证明控制白眼的基因位于X染色体上？",
+    "expected_pages": [23, 24, 25],
+    "expected_terms": ["果蝇", "白眼", "X染色体", "伴性遗传"],
+    "answer_concepts": [["白眼"], ["遗传和性别相联系", "遗传与性别相联系", "遗传总是与性别相联系", "表现总是与性别相联系", "伴性遗传"], ["位于X染色体", "在X染色体上"], ["Y染色体不含", "Y染色体没有"], ["测交", "进一步验证"]],
+    "reference_answer": "果蝇白眼性状的遗传与性别相关，杂交和测交结果可由白眼基因位于X染色体而Y染色体没有相应等位基因来解释，从而把特定基因与X染色体联系起来。"
+  },
+  {
+    "id": "avery_experiment",
+    "question": "艾弗里的肺炎双球菌转化实验为什么能说明DNA是遗传物质？",
+    "expected_pages": [38, 39],
+    "expected_terms": ["R型", "S型", "DNA", "DNA酶", "转化"],
+    "answer_concepts": [["R型"], ["S型"], ["DNA能使", "DNA使", "DNA才能使"], ["发生转化", "稳定转化"], ["DNA酶", "分解DNA"], ["DNA是遗传物质", "DNA才是遗传物质", "DNA而非蛋白质是遗传物质"]],
+    "reference_answer": "从S型活细菌提取的DNA能使R型细菌发生稳定转化，DNA纯度越高转化越有效；用DNA酶分解DNA后转化不再发生，说明DNA是转化因子和遗传物质。"
+  },
+  {
+    "id": "hershey_chase",
+    "question": "赫尔希和蔡斯为什么分别用35S和32P标记噬菌体？实验结论是什么？",
+    "expected_pages": [39, 40],
+    "expected_terms": ["35", "32", "蛋白质", "DNA", "噬菌体"],
+    "answer_concepts": [["35S", "³⁵S"], ["32P", "³²P"], ["标记蛋白质", "蛋白质含硫", "蛋白质含有硫", "蛋白质中含有硫", "蛋白质分子中含有硫"], ["标记DNA", "DNA含磷", "DNA含有磷", "DNA中含有磷", "磷几乎都存在于DNA"], ["DNA是遗传物质", "DNA才是遗传物质", "DNA才是真正的遗传物质", "DNA是真正的遗传物质", "DNA而非蛋白质是遗传物质"]],
+    "reference_answer": "蛋白质含硫而DNA含磷，实验用35S标记蛋白质、32P标记DNA。侵染后32P主要进入细菌并随子代噬菌体出现，而35S主要留在上清液，说明DNA才是遗传物质。"
+  },
+  {
+    "id": "dna_structure",
+    "question": "DNA双螺旋结构的主要特点是什么？碱基如何配对？",
+    "expected_pages": [42, 43, 44],
+    "expected_terms": ["双螺旋", "脱氧核糖", "磷酸", "碱基", "互补配对"],
+    "answer_concepts": [["两条", "2条"], ["反向平行"], ["双螺旋"], ["脱氧核糖和磷酸", "磷酸和脱氧核糖"], ["A与T", "A和T", "A(腺嘌呤)一定与T"], ["G与C", "G和C", "G(鸟嘌呤)一定与C"]],
+    "reference_answer": "DNA由两条反向平行的脱氧核苷酸链盘旋成双螺旋，脱氧核糖和磷酸排列在外侧，碱基在内侧；A与T、G与C通过氢键互补配对。"
+  },
+  {
+    "id": "dna_replication",
+    "question": "DNA复制为什么称为半保留复制？复制过程需要哪些基本条件？",
+    "expected_pages": [47, 48, 49],
+    "expected_terms": ["半保留", "解旋", "模板", "脱氧核苷酸", "酶"],
+    "answer_concepts": [["半保留复制"], ["保留了原来DNA分子中的一条链", "保留一条母链"], ["模板"], ["原料", "脱氧核苷酸"], ["能量"], ["酶"]],
+    "reference_answer": "复制时DNA双链解开，每条母链分别作为模板合成互补子链，所以两个子代DNA都保留一条母链。过程需要模板、四种脱氧核苷酸、能量和多种酶。"
+  },
+  {
+    "id": "codon_definition",
+    "question": "什么是密码子？密码子位于哪里，它和氨基酸有什么关系？",
+    "expected_pages": [59, 60],
+    "expected_terms": ["mRNA", "三个碱基", "氨基酸", "密码子"],
+    "answer_concepts": [["mRNA"], ["3个相邻的碱基", "三个相邻碱基"], ["决定1个氨基酸", "决定一个氨基酸"], ["密码子"]],
+    "reference_answer": "mRNA上决定一个氨基酸的三个相邻碱基称为一个密码子。密码子按一定次序被核糖体读取，指定相应氨基酸或终止信号。"
+  },
+  {
+    "id": "codon_table_lookup",
+    "question": "根据书中的密码子表，mRNA序列 AUG GAA GCA UGU CCG AGC AAG CCG 对应哪些氨基酸？",
+    "expected_pages": [60],
+    "expected_terms": ["甲硫氨酸", "谷氨酸", "丙氨酸", "半胱氨酸", "脯氨酸", "丝氨酸", "赖氨酸"],
+    "answer_concepts": [["甲硫氨酸"], ["谷氨酸"], ["丙氨酸"], ["半胱氨酸"], ["脯氨酸"], ["丝氨酸"], ["赖氨酸"]],
+    "reference_answer": "依次为甲硫氨酸—谷氨酸—丙氨酸—半胱氨酸—脯氨酸—丝氨酸—赖氨酸—脯氨酸。"
+  },
+  {
+    "id": "central_dogma",
+    "question": "中心法则描述了哪些遗传信息流向？后来有哪些补充？",
+    "expected_pages": [63, 64],
+    "expected_terms": ["DNA", "RNA", "蛋白质", "转录", "翻译", "逆转录"],
+    "answer_concepts": [["DNA复制", "DNA的复制", "DNA的自我复制"], ["转录"], ["翻译"], ["蛋白质"], ["RNA自我复制", "RNA可以自我复制", "RNA进行复制", "RNA流向RNA"], ["逆转录", "RNA流向DNA"]],
+    "reference_answer": "中心法则包括DNA复制、DNA转录为RNA以及RNA翻译为蛋白质。后来发现RNA可以自我复制，某些RNA病毒还能通过逆转录形成DNA。"
+  },
+  {
+    "id": "gene_mutation",
+    "question": "基因突变的本质是什么？通常有哪些碱基对变化形式？",
+    "expected_pages": [75, 76, 77],
+    "expected_terms": ["DNA分子", "碱基对", "增添", "缺失", "替换", "基因结构"],
+    "answer_concepts": [["DNA分子"], ["碱基对"], ["增添"], ["缺失"], ["替换"], ["基因结构的改变", "基因结构改变"]],
+    "reference_answer": "基因突变是DNA分子中发生碱基对的增添、缺失或替换而引起的基因结构改变。"
+  },
+  {
+    "id": "gene_frequency",
+    "question": "哪些因素能够导致种群基因频率发生变化？请重点说明突变、基因重组和自然选择的作用。",
+    "expected_pages": [111, 113],
+    "expected_terms": ["种群", "基因频率", "突变", "基因重组", "自然选择"],
+    "answer_concepts": [["突变"], ["基因重组", "重组"], ["自然选择"], ["基因频率会发生定向改变", "基因频率定向改变"]],
+    "reference_answer": "突变会产生新的等位基因，基因重组能形成多样的基因型，二者为进化提供原材料，但不能决定进化方向。自然选择使有利变异对应的基因频率提高、不利变异对应的基因频率下降，从而使种群基因频率定向改变。"
+  },
+  {
+    "id": "natural_selection",
+    "question": "达尔文自然选择学说的核心内容是什么？",
+    "expected_pages": [105, 106, 123],
+    "expected_terms": ["过度繁殖", "生存斗争", "遗传变异", "适者生存"],
+    "answer_concepts": [["过度繁殖"], ["生存斗争"], ["遗传和变异", "可遗传变异", "变异遗传下去"], ["有利变异的个体", "适者生存"], ["不利变异的个体", "被淘汰"], ["长期的自然选择", "长期自然选择"]],
+    "reference_answer": "生物有过度繁殖倾向，资源有限导致生存斗争；个体存在可遗传变异，具有有利变异的个体更容易生存并留下后代，即适者生存，不适者被淘汰。"
+  },
+  {
+    "id": "out_of_book_photosynthesis",
+    "question": "光合作用的光反应阶段具体产生多少个ATP？",
+    "expected_pages": [],
+    "expected_terms": [],
+    "reference_answer": "本书没有提供可核验的明确答案，应该拒绝基于教材作答。"
+  },
+  {
+    "id": "out_of_book_glycolysis",
+    "question": "糖酵解阶段净生成多少个ATP？",
+    "expected_pages": [],
+    "expected_terms": [],
+    "reference_answer": "本书没有提供可核验的明确答案，应该拒绝基于教材作答。"
+  },
+  {
+    "id": "out_of_book_newton",
+    "question": "牛顿第二定律的公式是什么？",
+    "expected_pages": [],
+    "expected_terms": [],
+    "reference_answer": "本书没有提供可核验的明确答案，应该拒绝基于教材作答。"
+  },
+  {
+    "id": "out_of_book_french_revolution",
+    "question": "法国大革命爆发于哪一年？",
+    "expected_pages": [],
+    "expected_terms": [],
+    "reference_answer": "本书没有提供可核验的明确答案，应该拒绝基于教材作答。"
+  },
+  {
+    "id": "out_of_book_quadratic_function",
+    "question": "二次函数的顶点坐标公式是什么？",
+    "expected_pages": [],
+    "expected_terms": [],
+    "reference_answer": "本书没有提供可核验的明确答案，应该拒绝基于教材作答。"
+  }
+]
