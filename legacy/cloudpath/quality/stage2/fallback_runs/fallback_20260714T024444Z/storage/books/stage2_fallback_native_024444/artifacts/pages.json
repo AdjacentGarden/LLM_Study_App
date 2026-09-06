@@ -1,0 +1,142 @@
+[
+  {
+    "page": 1,
+    "pdf_page_index": 0,
+    "text": "Synthetic Biology Course\nChapter 1  Cell structure\nCells are the basic structural and functional units of life.\nThe plasma membrane regulates transport and communication.\nThis file contains a native selectable text layer.\n",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "pymupdf_p0001_b0001",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Synthetic Biology Course",
+        "bbox": [
+          72.0,
+          58.5,
+          295.41998291015625,
+          85.9800033569336
+        ],
+        "font_size": 20.0,
+        "confidence": null,
+        "low_confidence": false,
+        "heading_level": null,
+        "source_parser": null,
+        "source_block_id": null,
+        "content_format": null,
+        "content_hash": null,
+        "asset_ids": [],
+        "metadata": {}
+      },
+      {
+        "block_id": "pymupdf_p0001_b0002",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Chapter 1  Cell structure",
+        "bbox": [
+          72.0,
+          107.80000305175781,
+          245.39199829101562,
+          129.78399658203125
+        ],
+        "font_size": 16.0,
+        "confidence": null,
+        "low_confidence": false,
+        "heading_level": null,
+        "source_parser": null,
+        "source_block_id": null,
+        "content_format": null,
+        "content_hash": null,
+        "asset_ids": [],
+        "metadata": {}
+      },
+      {
+        "block_id": "pymupdf_p0001_b0003",
+        "page": 1,
+        "type": "paragraph",
+        "text": "Cells are the basic structural and functional units of life.\nThe plasma membrane regulates transport and communication.\nThis file contains a native selectable text layer.",
+        "bbox": [
+          72.0,
+          150.00003051757812,
+          409.46392822265625,
+          201.9371795654297
+        ],
+        "font_size": 12.0,
+        "confidence": null,
+        "low_confidence": false,
+        "heading_level": null,
+        "source_parser": null,
+        "source_block_id": null,
+        "content_format": null,
+        "content_hash": null,
+        "asset_ids": [],
+        "metadata": {}
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": null,
+    "quality_warnings": [],
+    "preprocessed_image_url": null,
+    "layout_regions": [],
+    "parser": "pymupdf",
+    "quality_score": 1.0
+  },
+  {
+    "page": 2,
+    "pdf_page_index": 1,
+    "text": "Chapter 2  Genetics\nDNA stores hereditary information. During transcription, DNA is used as a template\nfor RNA.\n",
+    "needs_ocr": false,
+    "blocks": [
+      {
+        "block_id": "pymupdf_p0002_b0001",
+        "page": 2,
+        "type": "paragraph",
+        "text": "Chapter 2  Genetics",
+        "bbox": [
+          72.0,
+          60.650001525878906,
+          232.07398986816406,
+          85.38200378417969
+        ],
+        "font_size": 18.0,
+        "confidence": null,
+        "low_confidence": false,
+        "heading_level": null,
+        "source_parser": null,
+        "source_block_id": null,
+        "content_format": null,
+        "content_hash": null,
+        "asset_ids": [],
+        "metadata": {}
+      },
+      {
+        "block_id": "pymupdf_p0002_b0002",
+        "page": 2,
+        "type": "paragraph",
+        "text": "DNA stores hereditary information. During transcription, DNA is used as a template\nfor RNA.",
+        "bbox": [
+          72.0,
+          120.0000228881836,
+          512.14794921875,
+          154.2125701904297
+        ],
+        "font_size": 12.0,
+        "confidence": null,
+        "low_confidence": false,
+        "heading_level": null,
+        "source_parser": null,
+        "source_block_id": null,
+        "content_format": null,
+        "content_hash": null,
+        "asset_ids": [],
+        "metadata": {}
+      }
+    ],
+    "ocr_provider": null,
+    "ocr_confidence": null,
+    "quality_warnings": [],
+    "preprocessed_image_url": null,
+    "layout_regions": [],
+    "parser": "pymupdf",
+    "quality_score": 1.0
+  }
+]

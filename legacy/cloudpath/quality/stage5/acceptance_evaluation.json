@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:31:52.834676+00:00",
+  "real_run_id": "run_20260714T111508Z",
+  "check_count": 19,
+  "passed_count": 19,
+  "failed_count": 0,
+  "checks": [
+    {
+      "id": "target_formats_uploadable",
+      "criterion": "全部目标格式可上传",
+      "passed": true,
+      "observed": [
+        "bmp",
+        "docx",
+        "gif",
+        "jp2",
+        "jpeg",
+        "jpg",
+        "pdf",
+        "png",
+        "pptx",
+        "tif",
+        "tiff",
+        "webp",
+        "xlsx"
+      ],
+      "evidence": [
+        "test_stage5_upload_security.py::test_stage5_extension_contract_is_exact",
+        "test_stage5_upload_security.py::test_upload_api_accepts_every_target_format",
+        "real_e2e_probe.json"
+      ]
+    },
+    {
+      "id": "legacy_and_unknown_rejected",
+      "criterion": ".doc/.ppt/.xls 与未知格式明确拒绝",
+      "passed": true,
+      "observed": [
+        ".doc",
+        ".ppt",
+        ".xls",
+        ".exe",
+        ".zip",
+        "no extension"
+      ],
+      "evidence": [
+        "test_stage5_upload_security.py::test_stage5_extension_contract_is_exact"
+      ]
+    },
+    {
+      "id": "encrypted_documents_rejected",
+      "criterion": "加密 PDF 与密码 Office 文件明确拒绝",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_frozen_rejection_matrix[encrypted.pdf]",
+        "test_stage5_upload_security.py::test_compound_file_password_container_is_reported_as_encrypted_office"
+      ]
+    },
+    {
+      "id": "frontend_backend_contract",
+      "criterion": "前端 accept 与后端白名单一致",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_stage5_extension_contract_is_exact",
+        "frontend/src/screens/shared.test.ts",
+        "test_results.json"
+      ]
+    },
+    {
+      "id": "spoofing_rejected",
+      "criterion": "扩展名及 Office 内部类型伪造被拒绝",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_image_extension_spoofing_is_rejected",
+        "test_stage5_upload_security.py::test_office_internal_type_spoofing_is_rejected"
+      ]
+    },
+    {
+      "id": "corrupt_ooxml_rejected",
+      "criterion": "损坏 OOXML 被拒绝",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_frozen_rejection_matrix[spoofed.docx]"
+      ]
+    },
+    {
+      "id": "zip_path_and_ratio",
+      "criterion": "ZIP 路径穿越及超高压缩比被拒绝",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_frozen_rejection_matrix[path_traversal/high_compression_ratio]",
+        "test_stage5_upload_security.py::test_traversal_directory_entry_and_symlink_are_rejected"
+      ]
+    },
+    {
+      "id": "ooxml_active_content_security",
+      "criterion": "OOXML 类型伪造、外部关系、XXE、嵌套包和加密容器被拒绝",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py OOXML adversarial tests"
+      ]
+    },
+    {
+      "id": "upload_byte_limits",
+      "criterion": "上传字节边界与超限行为均有测试",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_upload_byte_limit_accepts_boundary_and_rejects_overflow"
+      ]
+    },
+    {
+      "id": "image_pixel_limits",
+      "criterion": "图片像素边界与超限行为均有测试",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_image_pixel_limit_boundary_and_overflow"
+      ]
+    },
+    {
+      "id": "document_unit_limits",
+      "criterion": "PDF/PPTX/XLSX/DOCX 资源上限均有超限拒绝测试",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_pdf_page_limit_boundary_and_overflow",
+        "test_stage5_upload_security.py::test_pptx_xlsx_and_docx_resource_limits"
+      ]
+    },
+    {
+      "id": "zip_resource_limits",
+      "criterion": "ZIP 条目、单项、总量与压缩比边界均已验证",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_zip_entry_single_total_and_ratio_limits"
+      ]
+    },
+    {
+      "id": "processing_timeouts",
+      "criterion": "MinerU/Office 总时限能终止等待并进入规定错误状态",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_upload_security.py::test_office_validation_timeout_is_a_typed_failure",
+        "backend/app/tests/test_mineru_http_client.py timeout/recovery coverage",
+        "test_results.json backend full suite"
+      ]
+    },
+    {
+      "id": "gif_tiff_frozen_matrix",
+      "criterion": "GIF/TIFF/TIF 行为符合阶段 0 冻结矩阵",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "quality/stage0/acceptance_thresholds.json format_decisions",
+        "test_stage5_upload_security.py GIF/TIFF tests",
+        "real_e2e_probe.json"
+      ]
+    },
+    {
+      "id": "pptx_citation_semantics",
+      "criterion": "PPTX 引用使用幻灯片语义",
+      "passed": true,
+      "observed": "幻灯片 2：ATP production",
+      "evidence": [
+        "test_stage5_office_semantics.py citation test",
+        "real_e2e_probe.json[pptx]"
+      ]
+    },
+    {
+      "id": "xlsx_citation_semantics",
+      "criterion": "XLSX 引用包含工作表或区域",
+      "passed": true,
+      "observed": "工作表 Growth Data（A1:D5）",
+      "evidence": [
+        "test_stage5_office_semantics.py citation test",
+        "real_e2e_probe.json[xlsx]"
+      ]
+    },
+    {
+      "id": "docx_citation_semantics",
+      "criterion": "DOCX 使用标题路径和块序号且不虚构页标签",
+      "passed": true,
+      "observed": "课程：整本文档导读 > 1. Cell membrane · 块 3",
+      "evidence": [
+        "test_stage5_office_semantics.py citation test",
+        "real_e2e_probe.json[docx]"
+      ]
+    },
+    {
+      "id": "office_preview_no_pdf_renderer",
+      "criterion": "Office 无页面图片时不进入 PDF-only 渲染路径",
+      "passed": true,
+      "observed": null,
+      "evidence": [
+        "test_stage5_office_semantics.py preview/fallback tests"
+      ]
+    },
+    {
+      "id": "real_parse_index_query_all_formats",
+      "criterion": "每种目标格式完成真实解析、Chunk V2、索引和 RAG 查询",
+      "passed": true,
+      "observed": {
+        "success_rate": 1.0,
+        "warm_pipeline_p95_seconds": 9.358,
+        "gpu_peak_memory_used_mib": 2304,
+        "gpu_oom_count": 0
+      },
+      "evidence": [
+        "real_e2e_probe.json",
+        "test_stage5_format_e2e.py"
+      ]
+    }
+  ],
+  "failures": [],
+  "passed": true
+}

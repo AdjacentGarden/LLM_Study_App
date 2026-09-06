@@ -1,0 +1,30 @@
+{
+  "book_id": "stage0_image",
+  "filename": "source_diagram.png",
+  "file_type": "png",
+  "page_count": 1,
+  "has_text_layer": false,
+  "needs_ocr": true,
+  "quality_warnings": [
+    {
+      "page": null,
+      "code": "image_input",
+      "message": "image input will be preprocessed and OCRed"
+    },
+    {
+      "page": 1,
+      "code": "too_bright",
+      "message": "image is too bright for reliable OCR"
+    },
+    {
+      "page": 1,
+      "code": "too_bright",
+      "message": "image is too bright for reliable OCR"
+    },
+    {
+      "page": 1,
+      "code": "ocr_mock_provider",
+      "message": "mock OCR provider used; text requires cloud OCR"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "asset_id": "mineru_ffcb19e822138aedcf21",
+    "book_id": "stage5_docx_111508",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 1,
+    "type": "figure",
+    "caption": "Figure 1. Synthetic cell diagram.",
+    "bbox": null,
+    "image_url": "/api/books/stage5_docx_111508/assets/mineru_ffcb19e822138aedcf21/file",
+    "thumbnail_url": "/api/books/stage5_docx_111508/assets/mineru_ffcb19e822138aedcf21/thumbnail",
+    "source_page_image_url": "/api/books/stage5_docx_111508/pages/1/image",
+    "source_chunk_ids": [
+      "stage5_docx_111508_ch_001_v2_94002a6e9653d0109383"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "ready",
+    "source_parser": "mineru",
+    "content_hash": "23f47608715b3981d292a532d04cbbfc7bc858df428f73e9a18027eb058e8ce0",
+    "metadata": {
+      "mineru_image_name": "a2f555e32391803662e3fec9681cb308097b0e901dd9a6f43c9780cdc74242bc.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1200,
+      "height": 800,
+      "source_format": "docx",
+      "source_unit": "document",
+      "index": 1,
+      "label": "文档结构（标题路径 + 块序号）",
+      "has_stable_page": false,
+      "document_block_count": 7,
+      "page_text_parser": "mineru",
+      "mineru_page_text_replaced": false
+    }
+  }
+]

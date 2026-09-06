@@ -1,0 +1,26 @@
+[
+  {
+    "type": "text",
+    "text": "Growth Data",
+    "text_level": 1,
+    "page_idx": 0
+  },
+  {
+    "type": "table",
+    "table_caption": [],
+    "table_body": "<table>\n  <tr>\n    <th colspan=\"3\"><p>Synthetic Plant Growth</p></th>\n    <th><p></p></th>\n  </tr>\n  <tr>\n    <td><p>Day</p></td>\n    <td><p>Control</p></td>\n    <td><p>Treatment</p></td>\n    <td><p>Difference</p></td>\n  </tr>\n  <tr>\n    <td><p>1</p></td>\n    <td><p>2</p></td>\n    <td><p>2.1</p></td>\n    <td><p></p></td>\n  </tr>\n  <tr>\n    <td><p>2</p></td>\n    <td><p>2.8</p></td>\n    <td><p>3.2</p></td>\n    <td><p></p></td>\n  </tr>\n  <tr>\n    <td><p>3</p></td>\n    <td><p>3.5</p></td>\n    <td><p>4.4</p></td>\n    <td><p></p></td>\n  </tr>\n</table>",
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Notes",
+    "text_level": 1,
+    "page_idx": 1
+  },
+  {
+    "type": "table",
+    "table_caption": [],
+    "table_body": "<table>\n  <tr>\n    <th><p>Observation</p></th>\n    <th><p>Leaves remained green in both groups.</p></th>\n  </tr>\n</table>",
+    "page_idx": 1
+  }
+]

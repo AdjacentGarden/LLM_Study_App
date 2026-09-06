@@ -1,0 +1,32 @@
+{
+  "book_id": "stage5_pptx_111508",
+  "filename": "sample.pptx",
+  "file_type": "pptx",
+  "page_count": 2,
+  "has_text_layer": true,
+  "needs_ocr": false,
+  "source_unit": "slide",
+  "source_locations": [
+    {
+      "index": 1,
+      "label": "幻灯片 1：Cellular respiration",
+      "slide_number": 1,
+      "slide_title": "Cellular respiration",
+      "source_format": "pptx"
+    },
+    {
+      "index": 2,
+      "label": "幻灯片 2：ATP production",
+      "slide_number": 2,
+      "slide_title": "ATP production",
+      "source_format": "pptx"
+    }
+  ],
+  "quality_warnings": [
+    {
+      "page": null,
+      "code": "office_logical_locations",
+      "message": "Office source positions use document, slide, or worksheet semantics"
+    }
+  ]
+}

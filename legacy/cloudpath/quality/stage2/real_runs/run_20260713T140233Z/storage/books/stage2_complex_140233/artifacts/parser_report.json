@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "book_id": "stage2_complex_140233",
+  "requested_parser": "mineru",
+  "final_parser": "mineru",
+  "parse_generation": null,
+  "created_at": "2026-07-13T14:02:37.670510+00:00",
+  "source_page_count": 1,
+  "output_page_count": 1,
+  "attempts": [
+    {
+      "parser": "mineru",
+      "scope": "document",
+      "pages": [],
+      "status": "succeeded",
+      "duration_ms": 2039,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.987364
+    }
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "parser": "mineru",
+      "quality_score": 0.987364,
+      "status": "accepted",
+      "warnings": []
+    }
+  ],
+  "missing_pages": [],
+  "warnings": [],
+  "mineru_backend": "pipeline",
+  "mineru_version": "3.4.4"
+}

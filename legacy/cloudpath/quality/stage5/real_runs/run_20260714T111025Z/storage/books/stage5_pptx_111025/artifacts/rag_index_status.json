@@ -1,0 +1,33 @@
+{
+  "book_id": "stage5_pptx_111025",
+  "status": "ready",
+  "configured_provider": "pgvector",
+  "active_provider": "artifact_fallback",
+  "index_generation": null,
+  "build_id": "build_961d49e0da174abdba9374f99954067c",
+  "cause": "parse:legacy",
+  "fallback_reason": "pgvector_dsn_missing",
+  "embedding": {
+    "provider": "hashing",
+    "model": "sha1-feature-hashing",
+    "revision": "algorithm-v1",
+    "version": "v1",
+    "dimension": 1024,
+    "device": "cpu"
+  },
+  "counts": {
+    "input_chunks": 1,
+    "indexable_chunks": 1,
+    "canonical_texts": 1,
+    "embeddings": 0,
+    "indexed_chunks": 1
+  },
+  "error": null,
+  "retryable": false,
+  "timestamps": {
+    "reserved_at": "2026-07-14T11:11:47.230781+00:00",
+    "updated_at": "2026-07-14T11:11:51.313148+00:00",
+    "ready_at": "2026-07-14T11:11:51.313148+00:00"
+  },
+  "schema_version": 1
+}

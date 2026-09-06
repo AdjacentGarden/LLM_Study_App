@@ -1,0 +1,36 @@
+[
+  {
+    "asset_id": "mineru_780609ac4215c0a9e937",
+    "book_id": "stage5_pptx_111508",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 2,
+    "type": "figure",
+    "caption": "",
+    "bbox": null,
+    "image_url": "/api/books/stage5_pptx_111508/assets/mineru_780609ac4215c0a9e937/file",
+    "thumbnail_url": "/api/books/stage5_pptx_111508/assets/mineru_780609ac4215c0a9e937/thumbnail",
+    "source_page_image_url": "/api/books/stage5_pptx_111508/pages/2/image",
+    "source_chunk_ids": [],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "needs_review",
+    "source_parser": "mineru",
+    "content_hash": "23f47608715b3981d292a532d04cbbfc7bc858df428f73e9a18027eb058e8ce0",
+    "metadata": {
+      "mineru_image_name": "a2f555e32391803662e3fec9681cb308097b0e901dd9a6f43c9780cdc74242bc.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1200,
+      "height": 800,
+      "source_format": "pptx",
+      "source_unit": "slide",
+      "index": 2,
+      "label": "幻灯片 2：ATP production",
+      "slide_number": 2,
+      "slide_title": "ATP production",
+      "page_text_parser": "mineru",
+      "mineru_page_text_replaced": false
+    }
+  }
+]

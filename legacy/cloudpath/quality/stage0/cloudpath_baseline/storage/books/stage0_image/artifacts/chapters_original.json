@@ -1,0 +1,14 @@
+[
+  {
+    "chapter_id": "ch_001",
+    "level": 1,
+    "source_title": "整本文档（OCR 低置信度，需复核）",
+    "ai_title": "课程：整本文档导读",
+    "page_start": 1,
+    "page_end": 1,
+    "confidence": 20,
+    "status": "需人工确认",
+    "source": "single_document_fallback",
+    "parent_id": null
+  }
+]

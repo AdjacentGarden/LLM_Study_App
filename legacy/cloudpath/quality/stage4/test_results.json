@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T05:46:50Z",
+  "results": {
+    "backend_without_real_db_opt_in": {
+      "passed": 287,
+      "skipped": 9,
+      "failed": 0,
+      "duration_seconds": 10.27
+    },
+    "backend_with_isolated_pgvector": {
+      "passed": 296,
+      "skipped": 0,
+      "failed": 0,
+      "duration_seconds": 12.06
+    },
+    "pgvector_core_integration": {
+      "passed": 7,
+      "failed": 0
+    },
+    "business_indexing_integration": {
+      "passed": 2,
+      "failed": 0
+    },
+    "embedding_query_cache_contract": {
+      "passed": 10,
+      "failed": 0
+    },
+    "coordinator_contract": {
+      "passed": 8,
+      "failed": 0
+    },
+    "pipeline_hook": {
+      "passed": 1,
+      "failed": 0
+    },
+    "frontend_tests": {
+      "passed": 4,
+      "failed": 0
+    },
+    "frontend_lint": "passed",
+    "frontend_build": "passed"
+  },
+  "database_after_tests": {
+    "rag_index_state_rows": 0,
+    "rag_chunk_vectors_rows": 0
+  }
+}

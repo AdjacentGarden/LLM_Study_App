@@ -1,0 +1,17 @@
+{
+  "book_id": "stage0_mixed",
+  "parser": "pymupdf",
+  "page_count": 2,
+  "warnings": [
+    "mineru:no endpoint or command configured",
+    "marker:no endpoint or command configured"
+  ],
+  "metadata": {
+    "file_type": "pdf",
+    "text_layer": true,
+    "parser_fallbacks": [
+      "mineru:no endpoint or command configured",
+      "marker:no endpoint or command configured"
+    ]
+  }
+}

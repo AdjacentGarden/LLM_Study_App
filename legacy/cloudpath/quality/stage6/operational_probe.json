@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T13:24:00.395205+00:00",
+  "endpoint": "http://127.0.0.1:8001",
+  "mineru_health": {
+    "status": "healthy",
+    "version": "3.4.4",
+    "protocol_version": 2,
+    "queued_tasks": 0,
+    "processing_tasks": 0,
+    "completed_tasks": 72,
+    "failed_tasks": 0,
+    "max_concurrent_requests": 1,
+    "processing_window_size": 64,
+    "task_retention_seconds": 86400,
+    "task_cleanup_interval_seconds": 300
+  },
+  "expected_health": {
+    "status": "healthy",
+    "protocol_version": 2,
+    "max_concurrent_requests": 1,
+    "task_retention_seconds": 86400
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "memory_total_mib": 16376,
+    "memory_used_mib": 2314,
+    "utilization_percent": 1
+  },
+  "failures": [],
+  "passed": true
+}

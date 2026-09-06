@@ -1,0 +1,575 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260714T043219Z",
+  "captured_at": "2026-07-14T04:33:13.103532+00:00",
+  "endpoint": "http://127.0.0.1:8001",
+  "storage": "quality\\stage2\\real_runs\\run_20260714T043219Z\\storage",
+  "scenarios_expected": [
+    "native",
+    "complex",
+    "mixed",
+    "scanned",
+    "image"
+  ],
+  "scenario_results": [
+    {
+      "scenario": "native",
+      "book_id": "stage2_native_043219",
+      "elapsed_seconds": 5.152,
+      "source_page_count": 2,
+      "output_page_count": 2,
+      "source_page_coverage": 1.0,
+      "usable_semantic_page_coverage": 1.0,
+      "semantic_characters_by_page": [
+        220,
+        110
+      ],
+      "parser_by_page": {
+        "1": "mineru",
+        "2": "mineru"
+      },
+      "page_quality_scores": [
+        0.98185,
+        0.987892
+      ],
+      "document_final_parser": "mineru",
+      "attempts": [
+        {
+          "parser": "mineru",
+          "scope": "document",
+          "pages": [],
+          "status": "succeeded",
+          "duration_ms": 2112,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.984871
+        }
+      ],
+      "missing_pages": [],
+      "ocr_pending_blocks": 0,
+      "chunk_count": 2,
+      "empty_chunk_count": 0,
+      "asset_count": 0,
+      "asset_sources": [],
+      "artifacts_present": {
+        "scan_result.json": true,
+        "parser_report.json": true,
+        "pages.json": true,
+        "text_blocks.jsonl": true,
+        "layout_regions.jsonl": true,
+        "mineru_middle.json": true,
+        "mineru_content_list.json": true,
+        "chunks.jsonl": true,
+        "assets.json": true
+      },
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.003
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.008
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 2.125
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 2.13
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 2.135
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 2.135
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 5.152
+        }
+      ]
+    },
+    {
+      "scenario": "complex",
+      "book_id": "stage2_complex_043219",
+      "elapsed_seconds": 3.856,
+      "source_page_count": 1,
+      "output_page_count": 1,
+      "source_page_coverage": 1.0,
+      "usable_semantic_page_coverage": 1.0,
+      "semantic_characters_by_page": [
+        387
+      ],
+      "parser_by_page": {
+        "1": "mineru"
+      },
+      "page_quality_scores": [
+        0.987364
+      ],
+      "document_final_parser": "mineru",
+      "attempts": [
+        {
+          "parser": "mineru",
+          "scope": "document",
+          "pages": [],
+          "status": "succeeded",
+          "duration_ms": 2059,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.987364
+        }
+      ],
+      "missing_pages": [],
+      "ocr_pending_blocks": 0,
+      "chunk_count": 2,
+      "empty_chunk_count": 0,
+      "asset_count": 1,
+      "asset_sources": [
+        "mineru"
+      ],
+      "artifacts_present": {
+        "scan_result.json": true,
+        "parser_report.json": true,
+        "pages.json": true,
+        "text_blocks.jsonl": true,
+        "layout_regions.jsonl": true,
+        "mineru_middle.json": true,
+        "mineru_content_list.json": true,
+        "chunks.jsonl": true,
+        "assets.json": true
+      },
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.003
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.005
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 2.07
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 2.075
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 2.081
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 2.081
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 3.856
+        }
+      ]
+    },
+    {
+      "scenario": "mixed",
+      "book_id": "stage2_mixed_043219",
+      "elapsed_seconds": 23.658,
+      "source_page_count": 2,
+      "output_page_count": 2,
+      "source_page_coverage": 1.0,
+      "usable_semantic_page_coverage": 1.0,
+      "semantic_characters_by_page": [
+        54,
+        49
+      ],
+      "parser_by_page": {
+        "1": "mineru",
+        "2": "ocr"
+      },
+      "page_quality_scores": [
+        0.989815,
+        0.9881467074155807
+      ],
+      "document_final_parser": "mixed",
+      "attempts": [
+        {
+          "parser": "mineru",
+          "scope": "document",
+          "pages": [],
+          "status": "degraded",
+          "duration_ms": 2083,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.989815
+        },
+        {
+          "parser": "pymupdf",
+          "scope": "pages",
+          "pages": [
+            2
+          ],
+          "status": "degraded",
+          "duration_ms": 12,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.0
+        },
+        {
+          "parser": "ocr",
+          "scope": "pages",
+          "pages": [
+            2
+          ],
+          "status": "succeeded",
+          "duration_ms": 19772,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.9881467074155807
+        }
+      ],
+      "missing_pages": [],
+      "ocr_pending_blocks": 0,
+      "chunk_count": 3,
+      "empty_chunk_count": 0,
+      "asset_count": 1,
+      "asset_sources": [
+        "mineru"
+      ],
+      "artifacts_present": {
+        "scan_result.json": true,
+        "parser_report.json": true,
+        "pages.json": true,
+        "text_blocks.jsonl": true,
+        "layout_regions.jsonl": true,
+        "mineru_middle.json": true,
+        "mineru_content_list.json": true,
+        "chunks.jsonl": true,
+        "assets.json": true
+      },
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.003
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.007
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.017
+        },
+        {
+          "stage": "parser_running",
+          "progress": 22,
+          "elapsed_seconds": 8.021
+        },
+        {
+          "stage": "parser_running",
+          "progress": 24,
+          "elapsed_seconds": 12.026
+        },
+        {
+          "stage": "parser_running",
+          "progress": 26,
+          "elapsed_seconds": 16.031
+        },
+        {
+          "stage": "parser_running",
+          "progress": 28,
+          "elapsed_seconds": 20.035
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 21.882
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 21.883
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 21.889
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 21.889
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 23.657
+        }
+      ]
+    },
+    {
+      "scenario": "scanned",
+      "book_id": "stage2_scanned_043219",
+      "elapsed_seconds": 12.334,
+      "source_page_count": 1,
+      "output_page_count": 1,
+      "source_page_coverage": 1.0,
+      "usable_semantic_page_coverage": 1.0,
+      "semantic_characters_by_page": [
+        49
+      ],
+      "parser_by_page": {
+        "1": "ocr"
+      },
+      "page_quality_scores": [
+        0.9881467074155807
+      ],
+      "document_final_parser": "ocr",
+      "attempts": [
+        {
+          "parser": "mineru",
+          "scope": "document",
+          "pages": [],
+          "status": "degraded",
+          "duration_ms": 2045,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.0
+        },
+        {
+          "parser": "pymupdf",
+          "scope": "pages",
+          "pages": [
+            1
+          ],
+          "status": "degraded",
+          "duration_ms": 11,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.0
+        },
+        {
+          "parser": "ocr",
+          "scope": "pages",
+          "pages": [
+            1
+          ],
+          "status": "succeeded",
+          "duration_ms": 8474,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.9881467074155807
+        }
+      ],
+      "missing_pages": [],
+      "ocr_pending_blocks": 0,
+      "chunk_count": 2,
+      "empty_chunk_count": 0,
+      "asset_count": 1,
+      "asset_sources": [
+        "mineru"
+      ],
+      "artifacts_present": {
+        "scan_result.json": true,
+        "parser_report.json": true,
+        "pages.json": true,
+        "text_blocks.jsonl": true,
+        "layout_regions.jsonl": true,
+        "mineru_middle.json": true,
+        "mineru_content_list.json": true,
+        "chunks.jsonl": true,
+        "assets.json": true
+      },
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.003
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.006
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.01
+        },
+        {
+          "stage": "parser_running",
+          "progress": 22,
+          "elapsed_seconds": 8.014
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 10.543
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 10.544
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 10.551
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 10.551
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 12.334
+        }
+      ]
+    },
+    {
+      "scenario": "image",
+      "book_id": "stage2_image_043219",
+      "elapsed_seconds": 8.351,
+      "source_page_count": 1,
+      "output_page_count": 1,
+      "source_page_coverage": 1.0,
+      "usable_semantic_page_coverage": 1.0,
+      "semantic_characters_by_page": [
+        49
+      ],
+      "parser_by_page": {
+        "1": "ocr"
+      },
+      "page_quality_scores": [
+        0.9921059161424637
+      ],
+      "document_final_parser": "ocr",
+      "attempts": [
+        {
+          "parser": "mineru",
+          "scope": "document",
+          "pages": [],
+          "status": "degraded",
+          "duration_ms": 2045,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.0
+        },
+        {
+          "parser": "ocr",
+          "scope": "pages",
+          "pages": [
+            1
+          ],
+          "status": "succeeded",
+          "duration_ms": 4501,
+          "error_code": null,
+          "retryable": null,
+          "detail": null,
+          "quality_score": 0.9921059161424637
+        }
+      ],
+      "missing_pages": [],
+      "ocr_pending_blocks": 0,
+      "chunk_count": 2,
+      "empty_chunk_count": 0,
+      "asset_count": 1,
+      "asset_sources": [
+        "mineru"
+      ],
+      "artifacts_present": {
+        "scan_result.json": true,
+        "parser_report.json": true,
+        "pages.json": true,
+        "text_blocks.jsonl": true,
+        "layout_regions.jsonl": true,
+        "mineru_middle.json": true,
+        "mineru_content_list.json": true,
+        "chunks.jsonl": true,
+        "assets.json": true
+      },
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.003
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.014
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.022
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.567
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.568
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.574
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.574
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.351
+        }
+      ]
+    }
+  ],
+  "failures": [],
+  "valid_fixture_task_success_rate": 1.0,
+  "warm_pipeline_p95_seconds": 21.393,
+  "gpu": {
+    "sample_count": 168,
+    "peak_memory_used_mib": 2401,
+    "peak_utilization_percent": 38,
+    "oom_count": 0
+  },
+  "passed": true
+}

@@ -1,0 +1,44 @@
+# Dependencies
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/build/
+backend/build/
+backend/dist/
+
+# Runtime data
+backend/data/
+frontend/output/
+
+# Python caches and packaging
+**/__pycache__/
+**/.pytest_cache/
+**/.pytest_tmp/
+**/*.egg-info/
+*.py[cod]
+.coverage
+coverage/
+
+# Local virtual environments
+.venv/
+**/.venv/
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# Logs
+*.log
+*.err.log
+
+# Browser test artifacts
+frontend/test-results/
+frontend/playwright-report/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+{
+  "book_id": "stage5_bmp_111508",
+  "status": "ready",
+  "configured_provider": "pgvector",
+  "active_provider": "artifact_fallback",
+  "index_generation": null,
+  "build_id": "build_fbef9b63e7a54726b8ee201a0b8e3c4e",
+  "cause": "parse:legacy",
+  "fallback_reason": "pgvector_dsn_missing",
+  "embedding": {
+    "provider": "hashing",
+    "model": "sha1-feature-hashing",
+    "revision": "algorithm-v1",
+    "version": "v1",
+    "dimension": 1024,
+    "device": "cpu"
+  },
+  "counts": {
+    "input_chunks": 2,
+    "indexable_chunks": 2,
+    "canonical_texts": 2,
+    "embeddings": 0,
+    "indexed_chunks": 2
+  },
+  "error": null,
+  "retryable": false,
+  "timestamps": {
+    "reserved_at": "2026-07-14T11:16:06.490149+00:00",
+    "updated_at": "2026-07-14T11:16:14.663470+00:00",
+    "ready_at": "2026-07-14T11:16:14.663470+00:00"
+  },
+  "schema_version": 1
+}

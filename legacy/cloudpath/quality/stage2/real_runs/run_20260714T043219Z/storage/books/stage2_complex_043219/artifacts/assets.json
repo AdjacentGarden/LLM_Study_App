@@ -1,0 +1,37 @@
+[
+  {
+    "asset_id": "mineru_c9ccbde4c6b4964f62d3",
+    "book_id": "stage2_complex_043219",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 1,
+    "type": "table",
+    "caption": "Formula: P(A and B) = P(A) \\* P(B)",
+    "bbox": [
+      47.6,
+      486.676,
+      519.435,
+      616.344
+    ],
+    "image_url": "/api/books/stage2_complex_043219/assets/mineru_c9ccbde4c6b4964f62d3/file",
+    "thumbnail_url": "/api/books/stage2_complex_043219/assets/mineru_c9ccbde4c6b4964f62d3/thumbnail",
+    "source_page_image_url": null,
+    "source_chunk_ids": [
+      "stage2_complex_043219_ch_001_v2_d966aead206dffd1c26b"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "ready",
+    "source_parser": "mineru",
+    "content_hash": "740088586e5073aeff8701920e96c9fc7657f39cdc41bde63d4e9fa37dcc0a2f",
+    "metadata": {
+      "mineru_image_name": "03df3bd072370f7f3e1e4b726086ef5ee6a2029dc7cd3bfe4e518235ffeb3559.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1312,
+      "height": 362,
+      "page_text_parser": "mineru",
+      "mineru_page_text_replaced": false
+    }
+  }
+]

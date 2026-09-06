@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-07-13",
+  "fixture_manifest": "fixture_manifest.json",
+  "metric_protocol_version": "stage0-v1",
+  "parser_quality": {
+    "valid_fixture_task_success_rate_min": 1.0,
+    "source_page_coverage_min": 1.0,
+    "usable_semantic_page_coverage_min": 1.0,
+    "ocr_pending_ratio_max": 0.0,
+    "invalid_character_ratio_max": 0.01,
+    "document_quality_score_min": 0.75,
+    "page_quality_score_min": 0.6,
+    "usable_semantic_characters_min": 20,
+    "missing_page_count_max": 0
+  },
+  "quality_score_formula": {
+    "version": "quality-v1",
+    "valid_character_score_weight": 0.25,
+    "content_coverage_score_weight": 0.3,
+    "ocr_confidence_score_weight": 0.15,
+    "mapping_completeness_score_weight": 0.2,
+    "deduplication_score_weight": 0.1,
+    "usable_content_definition": "Non-empty text/table/formula content, or image/chart content with a non-empty caption, footnote, OCR text, or analysis. An asset path alone is not usable semantic content.",
+    "native_text_ocr_confidence_default": 1.0,
+    "image_without_semantic_text_ocr_confidence_default": 0.0
+  },
+  "chunking": {
+    "tokenizer_model": "BAAI/bge-m3",
+    "tokenizer_revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "transformers_version": "5.5.4",
+    "tokenizers_version": "0.22.2",
+    "target_tokens": 450,
+    "max_tokens": 700,
+    "min_tokens": 120,
+    "overlap_tokens": 80,
+    "atomic_content_hard_max_tokens": 900,
+    "chunk_quality_threshold": 0.45,
+    "exact_duplicate_ratio_max_frozen_fixtures": 0.0,
+    "exact_duplicate_ratio_max_extended_corpus": 0.01,
+    "overlap_duplicate_token_ratio_max": 0.2,
+    "token_count_includes": [
+      "heading_path",
+      "body",
+      "overlap_text"
+    ],
+    "token_count_excludes": [
+      "metadata_not_sent_to_embedding"
+    ],
+    "short_tail_rule": "Merge a tail below 120 tokens into its predecessor when the merged chunk is at most 700 tokens; otherwise keep it with a short_tail warning.",
+    "atomic_split_rule": "Tables repeat headers when split by rows; formulas split only at surrounding explanation boundaries. No chunk may exceed 900 tokens."
+  },
+  "retrieval": {
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "embedding_dimensions": 1024,
+    "reranker_model": "BAAI/bge-reranker-v2-m3",
+    "reranker_revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+    "frozen_query_count": 8,
+    "recall_at_5_min": 1.0,
+    "citation_page_accuracy_over_all_queries_min": 1.0,
+    "citation_page_accuracy_conditional_on_retrieval_min": 1.0,
+    "query_result_coverage_min": 1.0,
+    "native_text_subset_recall_at_5_min": 1.0
+  },
+  "performance": {
+    "hardware": "NVIDIA GeForce RTX 4070 Ti SUPER 16376 MiB",
+    "mineru_max_concurrent_requests": 1,
+    "warm_mineru_fixture_p95_seconds_max": 10.0,
+    "cold_pipeline_seconds_max": 180.0,
+    "warm_cloudpath_parse_chunk_index_p95_seconds_max": 30.0,
+    "gpu_peak_memory_used_mib_max": 14500,
+    "gpu_oom_count_max": 0,
+    "progress_update_interval_seconds_max": 5
+  },
+  "format_decisions": {
+    "tif_alias": "accept after stage 5 security validation; local MinerU 3.4.4 accepted the synthetic .tif probe",
+    "animated_gif": "reject; MinerU 3.4.4 returned one source page for a two-frame GIF",
+    "multipage_tiff": "reject; MinerU 3.4.4 returned one source page for a two-page TIFF",
+    "single_frame_gif": "accept",
+    "single_page_tiff": "accept",
+    "docx_location": "Use heading path plus paragraph/block ordinal unless MinerU supplies a stable rendered page reference",
+    "mineru_task_retention_seconds": 86400,
+    "mineru_task_cleanup_interval_seconds": 300
+  },
+  "test_baseline": {
+    "backend_total": 117,
+    "backend_passed": 87,
+    "backend_failed": 28,
+    "backend_skipped": 2,
+    "backend_known_failure_group": "Tests reference removed BookCourseAI_frontend_project path instead of frontend",
+    "frontend_test_files_passed": 1,
+    "frontend_tests_passed": 4,
+    "frontend_lint_passed": true,
+    "frontend_build_passed": true,
+    "new_unexplained_test_failures_allowed": 0
+  }
+}

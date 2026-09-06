@@ -1,0 +1,39 @@
+[
+  {
+    "asset_id": "mineru_cbf2bc056824751b3e80",
+    "book_id": "stage5_gif_111508",
+    "chapter_id": "ch_001",
+    "source_type": "mineru",
+    "page": 1,
+    "type": "chart",
+    "caption": "",
+    "bbox": [
+      28.944,
+      28.8,
+      401.76,
+      256.896
+    ],
+    "image_url": "/api/books/stage5_gif_111508/assets/mineru_cbf2bc056824751b3e80/file",
+    "thumbnail_url": "/api/books/stage5_gif_111508/assets/mineru_cbf2bc056824751b3e80/thumbnail",
+    "source_page_image_url": null,
+    "source_chunk_ids": [],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "needs_review",
+    "source_parser": "mineru",
+    "content_hash": "6a018d6ee41ec465c305eaa467a0fcadf61efe01ef63223ab2e0591a0356d135",
+    "metadata": {
+      "mineru_image_name": "e187f46150f4d5d156b517fb4049198a1ac4dbd49ebbaab4b3ae29c98586c48a.jpg",
+      "mime_type": "image/jpeg",
+      "width": 1037,
+      "height": 634,
+      "source_format": "gif",
+      "source_unit": "image",
+      "index": 1,
+      "label": "图片 1",
+      "page_text_parser": "ocr",
+      "mineru_page_text_replaced": true
+    }
+  }
+]

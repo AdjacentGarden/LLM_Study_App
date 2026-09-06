@@ -1,0 +1,25 @@
+{
+  "book_id": "stage5_docx_111025",
+  "filename": "sample.docx",
+  "file_type": "docx",
+  "page_count": 1,
+  "has_text_layer": true,
+  "needs_ocr": false,
+  "source_unit": "document",
+  "source_locations": [
+    {
+      "index": 1,
+      "label": "文档结构（标题路径 + 块序号）",
+      "source_format": "docx",
+      "has_stable_page": false,
+      "document_block_count": 7
+    }
+  ],
+  "quality_warnings": [
+    {
+      "page": null,
+      "code": "office_logical_locations",
+      "message": "Office source positions use document, slide, or worksheet semantics"
+    }
+  ]
+}

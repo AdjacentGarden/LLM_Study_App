@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "pipeline_run_id": "run_20260714T043219Z",
+  "query_count": 8,
+  "results": [
+    {
+      "scenario": "native",
+      "book_id": "stage2_native_043219",
+      "question": "What regulates transport and communication?",
+      "expected_text": "plasma membrane regulates transport",
+      "expected_page": 1,
+      "elapsed_ms": 6.27,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_native_043219_ch_001_v2_85a3c865a80bccbef098",
+          "page_start": 1,
+          "page_end": 1,
+          "content_type": "text",
+          "text": "Cells are the basic structural and functional units of life.\n\nThe plasma membrane regulates transport and communication.\n\nThis file contains a native selectable text layer.",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "native",
+      "book_id": "stage2_native_043219",
+      "question": "What does DNA store?",
+      "expected_text": "dna stores hereditary information",
+      "expected_page": 2,
+      "elapsed_ms": 1.199,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_native_043219_ch_001_v2_83970af8a7957775e093",
+          "page_start": 2,
+          "page_end": 2,
+          "content_type": "text",
+          "text": "DNA stores hereditary information. During transcription, DNA is used as a template for RNA.",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "complex",
+      "book_id": "stage2_complex_043219",
+      "question": "Which process produces haploid cells?",
+      "expected_text": "meiosis contains two divisions",
+      "expected_page": 1,
+      "elapsed_ms": 5.872,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_complex_043219_ch_001_v2_2debd3bbb6083512c1ba",
+          "page_start": 1,
+          "page_end": 1,
+          "content_type": "text",
+          "text": "LEFT COLUMN\n\nMitosis produces genetically similar daughter cells.\n\nProphase is followed by metaphase,\n\nanaphase, and telophase.\n\nRIGHT COLUMN\n\nMeiosis contains two divisions and produces haploid cells.\n\nIndependent assortment increases variation.",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "complex",
+      "book_id": "stage2_complex_043219",
+      "question": "What happens during G2?",
+      "expected_text": "g2 replicated",
+      "expected_page": 1,
+      "elapsed_ms": 1.176,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_complex_043219_ch_001_v2_d966aead206dffd1c26b",
+          "page_start": 1,
+          "page_end": 1,
+          "content_type": "table",
+          "text": "Formula: P(A and B) = P(A) \\* P(B)\nStage | Chromosome state\nG1 unreplicated\nS DNA replication\nG2 replicated",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "scanned",
+      "book_id": "stage2_scanned_043219",
+      "question": "CELL DIAGRAM",
+      "expected_text": "cell diagram",
+      "expected_page": 1,
+      "elapsed_ms": 5.132,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_scanned_043219_ch_001_v2_cdcd94dc4902daee4b9e",
+          "page_start": 1,
+          "page_end": 1,
+          "content_type": "ocr_text",
+          "text": "CELL DIAGRAM",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "mixed",
+      "book_id": "stage2_mixed_043219",
+      "question": "What converts light energy?",
+      "expected_text": "photosynthesis converts light energy",
+      "expected_page": 1,
+      "elapsed_ms": 5.367,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_mixed_043219_ch_001_v2_fece0b5c81eadff48b5d",
+          "page_start": 1,
+          "page_end": 1,
+          "content_type": "text",
+          "text": "Native text page: Photosynthesis converts light energy",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "mixed",
+      "book_id": "stage2_mixed_043219",
+      "question": "CELL DIAGRAM",
+      "expected_text": "cell diagram",
+      "expected_page": 2,
+      "elapsed_ms": 1.251,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_mixed_043219_ch_001_v2_54d9c71e1adf785fcf78",
+          "page_start": 2,
+          "page_end": 2,
+          "content_type": "ocr_text",
+          "text": "CELL DIAGRAM",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "image",
+      "book_id": "stage2_image_043219",
+      "question": "CELL DIAGRAM",
+      "expected_text": "cell diagram",
+      "expected_page": 1,
+      "elapsed_ms": 5.04,
+      "result_count": 1,
+      "relevant_in_top5": true,
+      "first_relevant_rank": 1,
+      "citation_page_correct": true,
+      "top_results": [
+        {
+          "chunk_id": "stage2_image_043219_ch_001_v2_c25ef56c5fd32b8e6a14",
+          "page_start": 1,
+          "page_end": 1,
+          "content_type": "ocr_text",
+          "text": "CELL DIAGRAM",
+          "index_name": "artifact_hashing_fallback"
+        }
+      ]
+    }
+  ],
+  "retrieval_metrics": {
+    "recall_at_5": 1.0,
+    "citation_page_accuracy_over_all_queries": 1.0,
+    "citation_page_accuracy_conditional_on_retrieval": 1.0,
+    "query_result_coverage": 1.0
+  },
+  "passed": true
+}

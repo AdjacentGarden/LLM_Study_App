@@ -1,0 +1,97 @@
+# Complete production reference. Provision the TLS, identity-provider, and
+# secret files described in deploy/README.md before enabling it.
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events { worker_connections 2048; }
+
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  server_tokens off;
+  sendfile on;
+  keepalive_timeout 30;
+  large_client_header_buffers 4 16k;
+
+  map $request_method $bookcourse_write_key {
+    default $binary_remote_addr;
+    GET "";
+    HEAD "";
+    OPTIONS "";
+  }
+  limit_req_zone $binary_remote_addr zone=bookcourse_read:10m rate=10r/s;
+  limit_req_zone $bookcourse_write_key zone=bookcourse_write:10m rate=2r/s;
+  upstream bookcourse_api { server 127.0.0.1:8000; keepalive 32; }
+  upstream bookcourse_identity { server 127.0.0.1:4180; keepalive 8; }
+
+  server {
+    listen 80;
+    server_name bookcourse.example.com;
+    return 308 https://$host$request_uri;
+  }
+
+  server {
+    listen 443 ssl http2;
+    server_name bookcourse.example.com;
+    ssl_certificate /etc/bookcourse/tls/fullchain.pem;
+    ssl_certificate_key /etc/bookcourse/tls/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    include /etc/bookcourse/proxy-secrets.conf;
+    root /srv/bookcourse/frontend/dist;
+    index index.html;
+    # Multipart framing adds a small amount beyond the backend's 100 MiB
+    # payload limit; keep the edge ceiling slightly higher.
+    client_max_body_size 101m;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    location /oauth2/ {
+      proxy_pass http://bookcourse_identity;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header Host $host;
+    }
+
+    location = /_auth {
+      internal;
+      proxy_pass http://bookcourse_identity/verify;
+      proxy_pass_request_body off;
+      proxy_set_header Content-Length "";
+      proxy_set_header X-Original-URI $request_uri;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /api/ {
+      auth_request /_auth;
+      auth_request_set $verified_user $upstream_http_x_verified_user;
+      limit_req zone=bookcourse_read burst=40 nodelay;
+      limit_req zone=bookcourse_write burst=10 nodelay;
+
+      # Every spoofable client value is overwritten or cleared at the edge.
+      proxy_set_header X-BookCourse-User-Id $verified_user;
+      proxy_set_header X-BookCourse-Client-Id $remote_addr;
+      proxy_set_header X-BookCourse-Api-Key $bookcourse_api_key;
+      proxy_set_header X-BookCourse-Proxy-Token $bookcourse_proxy_token;
+      proxy_set_header X-BookCourse-Admin-Token "";
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header Host $host;
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+      proxy_connect_timeout 5s;
+      proxy_send_timeout 300s;
+      proxy_read_timeout 300s;
+      proxy_pass http://bookcourse_api;
+    }
+
+    location / {
+      limit_req zone=bookcourse_read burst=40 nodelay;
+      try_files $uri $uri/ /index.html;
+    }
+  }
+}

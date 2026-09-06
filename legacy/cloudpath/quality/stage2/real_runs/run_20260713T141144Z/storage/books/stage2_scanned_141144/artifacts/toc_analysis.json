@@ -1,0 +1,18 @@
+{
+  "book_id": "stage2_scanned_141144",
+  "status": "toc_not_found",
+  "toc_pages": [],
+  "page_map": [
+    {
+      "pdf_page": 1,
+      "printed_page": 1,
+      "confidence": 25,
+      "source": "pdf_page_fallback",
+      "evidence": "未识别到印刷页码，暂用 PDF 页码"
+    }
+  ],
+  "chapter_evidence": [],
+  "warnings": [
+    "未识别到可靠目录页，后续将退回正文标题规则或整本文档导读"
+  ]
+}

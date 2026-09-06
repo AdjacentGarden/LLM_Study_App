@@ -1,0 +1,55 @@
+[
+  {
+    "page": 1,
+    "pdf_page_index": 0,
+    "text": "",
+    "needs_ocr": true,
+    "blocks": [
+      {
+        "block_id": "p1_ocr_mock_001",
+        "page": 1,
+        "type": "ocr_pending",
+        "text": "OCR pending for page 1. Install PaddleOCR or set BOOKCOURSE_OCR_PROVIDER=paddleocr for Chinese OCR.",
+        "bbox": [
+          95.2,
+          134.72,
+          1094.8,
+          303.12
+        ],
+        "font_size": null,
+        "confidence": 0.01,
+        "low_confidence": true
+      }
+    ],
+    "ocr_provider": "mock",
+    "ocr_confidence": 0.01,
+    "quality_warnings": [
+      {
+        "page": 1,
+        "code": "too_bright",
+        "message": "image is too bright for reliable OCR"
+      },
+      {
+        "page": 1,
+        "code": "ocr_mock_provider",
+        "message": "mock OCR provider used; text requires cloud OCR"
+      }
+    ],
+    "preprocessed_image_url": "/api/books/stage0_scanned/artifacts/preprocessed/page_001.png",
+    "layout_regions": [
+      {
+        "region_id": "p1_layout_001",
+        "page": 1,
+        "type": "figure",
+        "bbox": [
+          80.0,
+          200.0,
+          1110.0,
+          886.0
+        ],
+        "confidence": 0.55,
+        "source": "opencv_layout"
+      }
+    ]
+  }
+]

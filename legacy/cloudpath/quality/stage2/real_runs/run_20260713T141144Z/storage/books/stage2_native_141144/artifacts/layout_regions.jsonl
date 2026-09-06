@@ -1,0 +1,7 @@
+{"region_id":"p001_layout_mineru_title_0532efba893d7717","page":1,"type":"title","bbox":[68.425,61.466,296.905,85.884],"confidence":0.8789999999999999,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}
+{"region_id":"p001_layout_mineru_title_bb0158fa54352815","page":1,"type":"title","bbox":[68.425,109.46,246.925,128.826],"confidence":0.8789999999999999,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}
+{"region_id":"p001_layout_mineru_paragraph_006b4bb65217f16a","page":1,"type":"paragraph","bbox":[67.83,150.718,366.52,166.716],"confidence":0.8789999999999999,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}
+{"region_id":"p001_layout_mineru_paragraph_79dc0b538b2de206","page":1,"type":"paragraph","bbox":[68.425,168.4,409.955,184.398],"confidence":0.8789999999999999,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}
+{"region_id":"p001_layout_mineru_paragraph_cca6bd219aa649f1","page":1,"type":"paragraph","bbox":[68.425,185.24,320.705,201.238],"confidence":0.8789999999999999,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}
+{"region_id":"p002_layout_mineru_title_6081834918a0514d","page":2,"type":"title","bbox":[68.425,63.992,232.645,83.358],"confidence":0.91928,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}
+{"region_id":"p002_layout_mineru_paragraph_7241cfb534ec52b1","page":2,"type":"paragraph","bbox":[67.83,119.564,512.89,153.244],"confidence":0.91928,"source":"mineru","book_id":"stage2_native_141144","parser":"mineru"}

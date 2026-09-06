@@ -1,0 +1,15 @@
+{
+  "book_id": "stage0_image",
+  "parser": "ocr",
+  "page_count": 1,
+  "warnings": [
+    "image_input",
+    "too_bright",
+    "too_bright",
+    "ocr_mock_provider"
+  ],
+  "metadata": {
+    "file_type": "png",
+    "ocr_provider": "mock"
+  }
+}

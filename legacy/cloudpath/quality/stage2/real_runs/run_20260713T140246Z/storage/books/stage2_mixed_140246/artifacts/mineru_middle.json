@@ -1,0 +1,196 @@
+{
+  "pdf_info": [
+    {
+      "preproc_blocks": [
+        {
+          "score": 0.8702,
+          "bbox": [
+            69,
+            78,
+            389,
+            94
+          ],
+          "index": 1,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                78,
+                387,
+                93
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    78,
+                    387,
+                    93
+                  ],
+                  "type": "text",
+                  "content": "Native text page: Photosynthesis converts light energy",
+                  "score": 0.994
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "page_idx": 0,
+      "page_size": [
+        595,
+        842
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "score": 0.8702,
+          "bbox": [
+            69,
+            78,
+            389,
+            94
+          ],
+          "index": 1,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                78,
+                387,
+                93
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    78,
+                    387,
+                    93
+                  ],
+                  "type": "text",
+                  "content": "Native text page: Photosynthesis converts light energy",
+                  "score": 0.994
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            71,
+            78,
+            387,
+            93
+          ]
+        }
+      ]
+    },
+    {
+      "preproc_blocks": [
+        {
+          "type": "chart",
+          "bbox": [
+            79,
+            135,
+            519,
+            406
+          ],
+          "blocks": [
+            {
+              "score": 0.5008,
+              "bbox": [
+                79,
+                135,
+                519,
+                406
+              ],
+              "index": 1,
+              "type": "chart_body",
+              "lines": [
+                {
+                  "bbox": [
+                    79,
+                    135,
+                    519,
+                    406
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        79,
+                        135,
+                        519,
+                        406
+                      ],
+                      "type": "chart",
+                      "image_path": "1a4d51877d69a0659a18a142aa83ae4fb1676678b8c8ee70079fc912e6e55a1d.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "score": 0.5008
+        }
+      ],
+      "page_idx": 1,
+      "page_size": [
+        595,
+        842
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "type": "chart",
+          "bbox": [
+            79,
+            135,
+            519,
+            406
+          ],
+          "blocks": [
+            {
+              "score": 0.5008,
+              "bbox": [
+                79,
+                135,
+                519,
+                406
+              ],
+              "index": 1,
+              "type": "chart_body",
+              "lines": [
+                {
+                  "bbox": [
+                    79,
+                    135,
+                    519,
+                    406
+                  ],
+                  "spans": [
+                    {
+                      "bbox": [
+                        79,
+                        135,
+                        519,
+                        406
+                      ],
+                      "type": "chart",
+                      "image_path": "1a4d51877d69a0659a18a142aa83ae4fb1676678b8c8ee70079fc912e6e55a1d.jpg"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "index": 1,
+          "score": 0.5008
+        }
+      ]
+    }
+  ],
+  "_backend": "pipeline",
+  "_version_name": "3.4.4"
+}

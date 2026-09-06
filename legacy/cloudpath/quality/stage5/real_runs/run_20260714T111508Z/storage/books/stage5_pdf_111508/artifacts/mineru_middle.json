@@ -1,0 +1,578 @@
+{
+  "pdf_info": [
+    {
+      "preproc_blocks": [
+        {
+          "score": 0.5851,
+          "bbox": [
+            69,
+            62,
+            297,
+            86
+          ],
+          "index": 1,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                62,
+                295,
+                84
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    62,
+                    295,
+                    84
+                  ],
+                  "type": "text",
+                  "content": "Synthetic Biology Course",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 1
+        },
+        {
+          "score": 0.4576,
+          "bbox": [
+            69,
+            110,
+            247,
+            129
+          ],
+          "index": 2,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                110,
+                245,
+                129
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    110,
+                    245,
+                    129
+                  ],
+                  "type": "text",
+                  "content": "Chapter 1 Cell structure",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 2
+        },
+        {
+          "score": 0.924,
+          "bbox": [
+            68,
+            151,
+            367,
+            167
+          ],
+          "index": 3,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                72,
+                153,
+                365,
+                164
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    72,
+                    153,
+                    365,
+                    164
+                  ],
+                  "type": "text",
+                  "content": "Cells are the basic structural and functional units of life.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.9148,
+          "bbox": [
+            69,
+            169,
+            410,
+            185
+          ],
+          "index": 4,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                72,
+                171,
+                408,
+                183
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    72,
+                    171,
+                    408,
+                    183
+                  ],
+                  "type": "text",
+                  "content": "The plasma membrane regulates transport and communication.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "score": 0.9085,
+          "bbox": [
+            69,
+            186,
+            321,
+            202
+          ],
+          "index": 5,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                187,
+                318,
+                200
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    187,
+                    318,
+                    200
+                  ],
+                  "type": "text",
+                  "content": "This file contains a native selectable text layer.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "page_idx": 0,
+      "page_size": [
+        595,
+        842
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "score": 0.5851,
+          "bbox": [
+            69,
+            62,
+            297,
+            86
+          ],
+          "index": 1,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                62,
+                295,
+                84
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    62,
+                    295,
+                    84
+                  ],
+                  "type": "text",
+                  "content": "Synthetic Biology Course",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 1
+        },
+        {
+          "score": 0.4576,
+          "bbox": [
+            69,
+            110,
+            247,
+            129
+          ],
+          "index": 2,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                110,
+                245,
+                129
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    110,
+                    245,
+                    129
+                  ],
+                  "type": "text",
+                  "content": "Chapter 1 Cell structure",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 2
+        },
+        {
+          "score": 0.924,
+          "bbox": [
+            68,
+            151,
+            367,
+            167
+          ],
+          "index": 3,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                72,
+                153,
+                365,
+                164
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    72,
+                    153,
+                    365,
+                    164
+                  ],
+                  "type": "text",
+                  "content": "Cells are the basic structural and functional units of life.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            72,
+            153,
+            365,
+            164
+          ]
+        },
+        {
+          "score": 0.9148,
+          "bbox": [
+            69,
+            169,
+            410,
+            185
+          ],
+          "index": 4,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                72,
+                171,
+                408,
+                183
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    72,
+                    171,
+                    408,
+                    183
+                  ],
+                  "type": "text",
+                  "content": "The plasma membrane regulates transport and communication.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            72,
+            171,
+            408,
+            183
+          ]
+        },
+        {
+          "score": 0.9085,
+          "bbox": [
+            69,
+            186,
+            321,
+            202
+          ],
+          "index": 5,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                71,
+                187,
+                318,
+                200
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    71,
+                    187,
+                    318,
+                    200
+                  ],
+                  "type": "text",
+                  "content": "This file contains a native selectable text layer.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            71,
+            187,
+            318,
+            200
+          ]
+        }
+      ]
+    },
+    {
+      "preproc_blocks": [
+        {
+          "score": 0.6424,
+          "bbox": [
+            69,
+            64,
+            233,
+            84
+          ],
+          "index": 1,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                72,
+                64,
+                232,
+                83
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    72,
+                    64,
+                    232,
+                    83
+                  ],
+                  "type": "text",
+                  "content": "Chapter 2 Genetics",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 2
+        },
+        {
+          "score": 0.954,
+          "bbox": [
+            68,
+            120,
+            513,
+            154
+          ],
+          "index": 2,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                70,
+                122,
+                512,
+                136
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    70,
+                    122,
+                    512,
+                    136
+                  ],
+                  "type": "text",
+                  "content": "DNA stores hereditary information. During transcription, DNA is used as a template",
+                  "score": 1.0
+                }
+              ]
+            },
+            {
+              "bbox": [
+                70,
+                140,
+                117,
+                153
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    70,
+                    140,
+                    117,
+                    153
+                  ],
+                  "type": "text",
+                  "content": "for RNA.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "page_idx": 1,
+      "page_size": [
+        595,
+        842
+      ],
+      "discarded_blocks": [],
+      "para_blocks": [
+        {
+          "score": 0.6424,
+          "bbox": [
+            69,
+            64,
+            233,
+            84
+          ],
+          "index": 1,
+          "type": "title",
+          "lines": [
+            {
+              "bbox": [
+                72,
+                64,
+                232,
+                83
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    72,
+                    64,
+                    232,
+                    83
+                  ],
+                  "type": "text",
+                  "content": "Chapter 2 Genetics",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "level": 2
+        },
+        {
+          "score": 0.954,
+          "bbox": [
+            68,
+            120,
+            513,
+            154
+          ],
+          "index": 2,
+          "type": "text",
+          "lines": [
+            {
+              "bbox": [
+                70,
+                122,
+                512,
+                136
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    70,
+                    122,
+                    512,
+                    136
+                  ],
+                  "type": "text",
+                  "content": "DNA stores hereditary information. During transcription, DNA is used as a template",
+                  "score": 1.0
+                }
+              ]
+            },
+            {
+              "bbox": [
+                70,
+                140,
+                117,
+                153
+              ],
+              "spans": [
+                {
+                  "bbox": [
+                    70,
+                    140,
+                    117,
+                    153
+                  ],
+                  "type": "text",
+                  "content": "for RNA.",
+                  "score": 1.0
+                }
+              ]
+            }
+          ],
+          "bbox_fs": [
+            70,
+            122,
+            512,
+            153
+          ]
+        }
+      ]
+    }
+  ],
+  "_backend": "pipeline",
+  "_version_name": "3.4.4"
+}

@@ -1,0 +1,15 @@
+{
+  "book_id": "stage2_scanned_041415",
+  "filename": "scanned.pdf",
+  "file_type": "pdf",
+  "page_count": 1,
+  "has_text_layer": false,
+  "needs_ocr": false,
+  "quality_warnings": [
+    {
+      "page": 1,
+      "code": "missing_text_layer",
+      "message": "page has no readable text layer"
+    }
+  ]
+}

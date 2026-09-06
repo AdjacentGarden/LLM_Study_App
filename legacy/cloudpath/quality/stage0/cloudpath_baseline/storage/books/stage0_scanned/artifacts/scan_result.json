@@ -1,0 +1,20 @@
+{
+  "book_id": "stage0_scanned",
+  "filename": "scanned.pdf",
+  "file_type": "pdf",
+  "page_count": 1,
+  "has_text_layer": false,
+  "needs_ocr": true,
+  "quality_warnings": [
+    {
+      "page": 1,
+      "code": "too_bright",
+      "message": "image is too bright for reliable OCR"
+    },
+    {
+      "page": 1,
+      "code": "ocr_mock_provider",
+      "message": "mock OCR provider used; text requires cloud OCR"
+    }
+  ]
+}

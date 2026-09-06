@@ -1,0 +1,27 @@
+[
+  {
+    "type": "text",
+    "text": "Native text page: Photosynthesis converts light energy",
+    "bbox": [
+      115,
+      92,
+      653,
+      111
+    ],
+    "page_idx": 0
+  },
+  {
+    "type": "chart",
+    "img_path": "images/1a4d51877d69a0659a18a142aa83ae4fb1676678b8c8ee70079fc912e6e55a1d.jpg",
+    "content": "",
+    "chart_caption": [],
+    "chart_footnote": [],
+    "bbox": [
+      132,
+      160,
+      872,
+      482
+    ],
+    "page_idx": 1
+  }
+]

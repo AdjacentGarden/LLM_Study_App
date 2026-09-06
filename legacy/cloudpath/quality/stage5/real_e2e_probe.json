@@ -1,0 +1,2417 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260714T111508Z",
+  "captured_at": "2026-07-14T11:16:42.834911+00:00",
+  "endpoint": "http://127.0.0.1:8001",
+  "storage": "quality\\stage5\\real_runs\\run_20260714T111508Z\\storage",
+  "formats_expected": [
+    "pdf",
+    "png",
+    "jpg",
+    "jpeg",
+    "jp2",
+    "webp",
+    "gif",
+    "bmp",
+    "tif",
+    "tiff",
+    "docx",
+    "pptx",
+    "xlsx"
+  ],
+  "format_results": [
+    {
+      "format": "pdf",
+      "source": "quality\\stage0\\fixtures\\native_text.pdf",
+      "book_id": "stage5_pdf_111508",
+      "elapsed_seconds": 5.054,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_pdf_111508",
+        "filename": "native_text.pdf",
+        "file_type": "pdf",
+        "page_count": 2,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "source_unit": "page",
+        "source_locations": [],
+        "quality_warnings": []
+      },
+      "parser": {
+        "final_parser": "mineru",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "succeeded",
+            "duration_ms": 2111,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.984871
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        220,
+        110
+      ],
+      "chunk_count": 2,
+      "asset_count": 0,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_pdf_111508_ch_001_v2_3116dbe030bca4e2b510",
+        "quote": "Cells are the basic structural and functional units of life.\n\nThe plasma membrane regulates transport and communication.\n\nThis file contains a native selectable text layer.",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "source_format": "pdf",
+          "source_unit": "page",
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 1.265497,
+          "dense_score": 0.079305,
+          "rerank_score": 0.499451,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_pdf_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_6fd90987dd7f437f867c9df0d8042d0b",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:09.272430+00:00",
+          "updated_at": "2026-07-14T11:15:14.296181+00:00",
+          "ready_at": "2026-07-14T11:15:14.295679+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.01
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.015
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 2.132
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 2.137
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 2.145
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 2.145
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 5.023
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 5.034
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "png",
+      "source": "quality\\stage0\\fixtures\\source_diagram.png",
+      "book_id": "stage5_png_111508",
+      "elapsed_seconds": 10.833,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_png_111508",
+        "filename": "source_diagram.png",
+        "file_type": "png",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "png"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2034,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 6986,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9921059161424637
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_png_111508_ch_001_v2_f3f99c681dd2dc555bb5",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_png_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_d17c9b6f35a64d30982b45c8ee5da406",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:14.332373+00:00",
+          "updated_at": "2026-07-14T11:15:25.133927+00:00",
+          "ready_at": "2026-07-14T11:15:25.133927+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.008
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.041
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.041
+        },
+        {
+          "stage": "parser_running",
+          "progress": 22,
+          "elapsed_seconds": 8.044
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 9.067
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 9.068
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 9.076
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 9.076
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 10.798
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 10.81
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "jpg",
+      "source": "quality\\stage0\\fixtures\\sample.jpg",
+      "book_id": "stage5_jpg_111508",
+      "elapsed_seconds": 8.212,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_jpg_111508",
+        "filename": "sample.jpg",
+        "file_type": "jpg",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "jpg"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2034,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4421,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.997077152132988
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_jpg_111508_ch_001_v2_4e95db95d391e9fa477b",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_jpg_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_317e69e60b004e948547af92b834a09f",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:25.172583+00:00",
+          "updated_at": "2026-07-14T11:15:33.354399+00:00",
+          "ready_at": "2026-07-14T11:15:33.354399+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.008
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.015
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.03
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.476
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.478
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.487
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.487
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.179
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.19
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "jpeg",
+      "source": "quality\\stage0\\fixtures\\sample.jpeg",
+      "book_id": "stage5_jpeg_111508",
+      "elapsed_seconds": 8.266,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_jpeg_111508",
+        "filename": "sample.jpeg",
+        "file_type": "jpeg",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "jpeg"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2046,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4413,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.997077152132988
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_jpeg_111508_ch_001_v2_23a1189860b57e140da0",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_jpeg_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_cc33b19d0b9449e3b5bd9bb98f2bcafa",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:33.392603+00:00",
+          "updated_at": "2026-07-14T11:15:41.627096+00:00",
+          "ready_at": "2026-07-14T11:15:41.627096+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.008
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.015
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.024
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.481
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.482
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.491
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.491
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.231
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.243
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "jp2",
+      "source": "quality\\stage0\\fixtures\\sample.jp2",
+      "book_id": "stage5_jp2_111508",
+      "elapsed_seconds": 8.361,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_jp2_111508",
+        "filename": "sample.jp2",
+        "file_type": "jp2",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "jp2"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2068,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4502,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9921059161424637
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_jp2_111508_ch_001_v2_06cfb553cb943e7254f6",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_jp2_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_dd8fb00e2946415092cff33e63513009",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:41.667010+00:00",
+          "updated_at": "2026-07-14T11:15:49.996086+00:00",
+          "ready_at": "2026-07-14T11:15:49.996086+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.009
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.036
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.036
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.612
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.617
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.624
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.624
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.327
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.338
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "webp",
+      "source": "quality\\stage0\\fixtures\\sample.webp",
+      "book_id": "stage5_webp_111508",
+      "elapsed_seconds": 8.225,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_webp_111508",
+        "filename": "sample.webp",
+        "file_type": "webp",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "webp"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2035,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4423,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9979281574487686
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_webp_111508_ch_001_v2_9a2b291a86a011c3ab46",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_webp_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_faf8557f63274574b93645661d8e0233",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:50.034792+00:00",
+          "updated_at": "2026-07-14T11:15:58.229334+00:00",
+          "ready_at": "2026-07-14T11:15:58.229334+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.009
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.016
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.019
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.481
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.482
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.49
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.49
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.192
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.203
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "gif",
+      "source": "quality\\stage5\\real_runs\\run_20260714T111508Z\\generated_inputs\\single.gif",
+      "book_id": "stage5_gif_111508",
+      "elapsed_seconds": 8.216,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_gif_111508",
+        "filename": "single.gif",
+        "file_type": "gif",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "gif"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2031,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4429,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9921268373727798
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_gif_111508_ch_001_v2_0ccd5ed914d5457d4b81",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_gif_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_28bdf7ff88294b618fba5bedc0ca88a0",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:15:58.267034+00:00",
+          "updated_at": "2026-07-14T11:16:06.451442+00:00",
+          "ready_at": "2026-07-14T11:16:06.451442+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.009
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.018
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.027
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.484
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.491
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.499
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.499
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.182
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.193
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "bmp",
+      "source": "quality\\stage0\\fixtures\\sample.bmp",
+      "book_id": "stage5_bmp_111508",
+      "elapsed_seconds": 8.204,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_bmp_111508",
+        "filename": "sample.bmp",
+        "file_type": "bmp",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "bmp"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2061,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4394,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9921059161424637
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_bmp_111508_ch_001_v2_bb9356713a77782472fd",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_bmp_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_fbef9b63e7a54726b8ee201a0b8e3c4e",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:16:06.490149+00:00",
+          "updated_at": "2026-07-14T11:16:14.663470+00:00",
+          "ready_at": "2026-07-14T11:16:14.663470+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.009
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.015
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.018
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.477
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.478
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.487
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.487
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.171
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.182
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "tif",
+      "source": "quality\\stage0\\fixtures\\sample.tif",
+      "book_id": "stage5_tif_111508",
+      "elapsed_seconds": 8.251,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_tif_111508",
+        "filename": "sample.tif",
+        "file_type": "tif",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "tif"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2061,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4435,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9921059161424637
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_tif_111508_ch_001_v2_2a7d3ac32f3aa9205099",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_tif_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_c4ce994f7bd74d1ab155b8ea151ab735",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:16:14.702176+00:00",
+          "updated_at": "2026-07-14T11:16:22.922829+00:00",
+          "ready_at": "2026-07-14T11:16:22.922829+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.01
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.018
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.019
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.52
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.521
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.529
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.529
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.219
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.23
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "tiff",
+      "source": "quality\\stage5\\real_runs\\run_20260714T111508Z\\generated_inputs\\single.tiff",
+      "book_id": "stage5_tiff_111508",
+      "elapsed_seconds": 8.375,
+      "validation": {
+        "passed": true,
+        "office_unit_type": null,
+        "office_unit_count": null
+      },
+      "scan": {
+        "book_id": "stage5_tiff_111508",
+        "filename": "single.tiff",
+        "file_type": "tiff",
+        "page_count": 1,
+        "has_text_layer": false,
+        "needs_ocr": false,
+        "source_unit": "image",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "图片 1",
+            "source_format": "tiff"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "image_input",
+            "message": "image input will be preprocessed and OCRed"
+          },
+          {
+            "page": 1,
+            "code": "too_bright",
+            "message": "image is too bright for reliable OCR"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "ocr",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "degraded",
+            "duration_ms": 2044,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.0
+          },
+          {
+            "parser": "ocr",
+            "scope": "pages",
+            "pages": [
+              1
+            ],
+            "status": "succeeded",
+            "duration_ms": 4509,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.9921059161424637
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        49
+      ],
+      "chunk_count": 2,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_tiff_111508_ch_001_v2_b960e47094f05f58b255",
+        "quote": "CELL DIAGRAM",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "ocr_text",
+        "location_type": "page",
+        "location_label": "第 1 页",
+        "source_metadata": {
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 2.416986,
+          "dense_score": 0.547723,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_tiff_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_2d5e0be27be34b23a6436d19df0f006a",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:16:22.963521+00:00",
+          "updated_at": "2026-07-14T11:16:31.303919+00:00",
+          "ready_at": "2026-07-14T11:16:31.303919+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.012
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.021
+        },
+        {
+          "stage": "parser_running",
+          "progress": 20,
+          "elapsed_seconds": 4.031
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 6.579
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 6.58
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 6.589
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 6.589
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 8.341
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 8.352
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "docx",
+      "source": "quality\\stage0\\fixtures\\sample.docx",
+      "book_id": "stage5_docx_111508",
+      "elapsed_seconds": 3.838,
+      "validation": {
+        "passed": true,
+        "office_unit_type": "document",
+        "office_unit_count": 1
+      },
+      "scan": {
+        "book_id": "stage5_docx_111508",
+        "filename": "sample.docx",
+        "file_type": "docx",
+        "page_count": 1,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "source_unit": "document",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "文档结构（标题路径 + 块序号）",
+            "source_format": "docx",
+            "has_stable_page": false,
+            "document_block_count": 7
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "office_logical_locations",
+            "message": "Office source positions use document, slide, or worksheet semantics"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "mineru",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "succeeded",
+            "duration_ms": 2037,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 1.0
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        241
+      ],
+      "chunk_count": 3,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_docx_111508_ch_001_v2_46344fbbdc4930c1f39d",
+        "quote": "The cell membrane controls exchange between the cell and its environment.",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "text",
+        "location_type": "document",
+        "location_label": "课程：整本文档导读 > 1. Cell membrane · 块 3",
+        "source_metadata": {
+          "source_format": "docx",
+          "source_unit": "document",
+          "has_stable_page": false,
+          "document_block_start": 3,
+          "document_block_end": 3,
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 1.575842,
+          "dense_score": 0.459279,
+          "rerank_score": 0.909575,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_docx_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_0b62c96acf7a4b239edd053360ad1c9e",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 3,
+          "indexable_chunks": 3,
+          "canonical_texts": 3,
+          "embeddings": 0,
+          "indexed_chunks": 3
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:16:31.362731+00:00",
+          "updated_at": "2026-07-14T11:16:35.148075+00:00",
+          "ready_at": "2026-07-14T11:16:35.148075+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.028
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.053
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 2.096
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 2.101
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 2.108
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 2.108
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 3.802
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 3.814
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "pptx",
+      "source": "quality\\stage0\\fixtures\\sample.pptx",
+      "book_id": "stage5_pptx_111508",
+      "elapsed_seconds": 3.858,
+      "validation": {
+        "passed": true,
+        "office_unit_type": "slide",
+        "office_unit_count": 2
+      },
+      "scan": {
+        "book_id": "stage5_pptx_111508",
+        "filename": "sample.pptx",
+        "file_type": "pptx",
+        "page_count": 2,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "source_unit": "slide",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "幻灯片 1：Cellular respiration",
+            "slide_number": 1,
+            "slide_title": "Cellular respiration",
+            "source_format": "pptx"
+          },
+          {
+            "index": 2,
+            "label": "幻灯片 2：ATP production",
+            "slide_number": 2,
+            "slide_title": "ATP production",
+            "source_format": "pptx"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "office_logical_locations",
+            "message": "Office source positions use document, slide, or worksheet semantics"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "mineru",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "succeeded",
+            "duration_ms": 2060,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 0.925
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        46,
+        96
+      ],
+      "chunk_count": 1,
+      "asset_count": 1,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 2,
+        "chunk_id": "stage5_pptx_111508_ch_001_v2_891934f44272e537c00c",
+        "quote": "Slide 2: ATP production\nGlycolysis occurs in the cytoplasm.\n\nSlide 2: ATP production\nThe citric acid cycle occurs in mitochondria.",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "text",
+        "location_type": "slide",
+        "location_label": "幻灯片 2：ATP production",
+        "source_metadata": {
+          "source_format": "pptx",
+          "source_unit": "slide",
+          "slide_number": 2,
+          "slide_title": "ATP production",
+          "page_start": 2,
+          "page_end": 2,
+          "rank": 1,
+          "bm25_score": 1.43841,
+          "dense_score": 0.495434,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_pptx_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_a0f7343280414baca8dd4ddfb770513c",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 1,
+          "indexable_chunks": 1,
+          "canonical_texts": 1,
+          "embeddings": 0,
+          "indexed_chunks": 1
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:16:35.192813+00:00",
+          "updated_at": "2026-07-14T11:16:39.015946+00:00",
+          "ready_at": "2026-07-14T11:16:39.015444+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.012
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.016
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 2.081
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 2.087
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 2.094
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 2.094
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 3.823
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 3.835
+        }
+      ],
+      "passed": true
+    },
+    {
+      "format": "xlsx",
+      "source": "quality\\stage0\\fixtures\\sample.xlsx",
+      "book_id": "stage5_xlsx_111508",
+      "elapsed_seconds": 3.779,
+      "validation": {
+        "passed": true,
+        "office_unit_type": "sheet",
+        "office_unit_count": 2
+      },
+      "scan": {
+        "book_id": "stage5_xlsx_111508",
+        "filename": "sample.xlsx",
+        "file_type": "xlsx",
+        "page_count": 2,
+        "has_text_layer": true,
+        "needs_ocr": false,
+        "source_unit": "sheet",
+        "source_locations": [
+          {
+            "index": 1,
+            "label": "工作表 Growth Data（A1:D5）",
+            "sheet_name": "Growth Data",
+            "cell_range": "A1:D5",
+            "source_format": "xlsx"
+          },
+          {
+            "index": 2,
+            "label": "工作表 Notes（A1:B1）",
+            "sheet_name": "Notes",
+            "cell_range": "A1:B1",
+            "source_format": "xlsx"
+          }
+        ],
+        "quality_warnings": [
+          {
+            "page": null,
+            "code": "office_logical_locations",
+            "message": "Office source positions use document, slide, or worksheet semantics"
+          }
+        ]
+      },
+      "parser": {
+        "final_parser": "mineru",
+        "attempts": [
+          {
+            "parser": "mineru",
+            "scope": "document",
+            "pages": [],
+            "status": "succeeded",
+            "duration_ms": 2040,
+            "error_code": null,
+            "retryable": null,
+            "detail": null,
+            "quality_score": 1.0
+          }
+        ],
+        "missing_pages": []
+      },
+      "semantic_characters_by_unit": [
+        95,
+        55
+      ],
+      "chunk_count": 2,
+      "asset_count": 0,
+      "citation": {
+        "chapter_id": "ch_001",
+        "chapter_title": "整本文档（未识别到清晰目录）",
+        "page": 1,
+        "chunk_id": "stage5_xlsx_111508_ch_001_v2_f5f57c955c36075d3f8a",
+        "quote": "Sheet: Growth Data (A1:D5)\nSynthetic Plant Growth |\nDay | Control | Treatment | Difference\n1 2 2.1\n2 2.8 3.2\n3 3.5 4.4",
+        "score": 0.032787,
+        "retrieval_method": "rrf",
+        "source_type": "table",
+        "location_type": "sheet",
+        "location_label": "工作表 Growth Data（A1:D5）",
+        "source_metadata": {
+          "source_format": "xlsx",
+          "source_unit": "sheet",
+          "sheet_name": "Growth Data",
+          "cell_range": "A1:D5",
+          "page_start": 1,
+          "page_end": 1,
+          "rank": 1,
+          "bm25_score": 4.243443,
+          "dense_score": 0.321807,
+          "rerank_score": 1.0,
+          "index": "artifact_fallback",
+          "index_provider": "artifact",
+          "index_generation": null,
+          "fallback_reason": "pgvector_dsn_missing",
+          "embedding": {
+            "provider": "hashing",
+            "model": "sha1-feature-hashing",
+            "revision": "algorithm-v1",
+            "version": "v1",
+            "dimension": 1024,
+            "device": "cpu"
+          }
+        }
+      },
+      "index": {
+        "book_id": "stage5_xlsx_111508",
+        "status": "ready",
+        "configured_provider": "pgvector",
+        "active_provider": "artifact_fallback",
+        "index_generation": null,
+        "build_id": "build_23843b37c13a430f95aeb516487c93cf",
+        "cause": "parse:legacy",
+        "fallback_reason": "pgvector_dsn_missing",
+        "embedding": {
+          "provider": "hashing",
+          "model": "sha1-feature-hashing",
+          "revision": "algorithm-v1",
+          "version": "v1",
+          "dimension": 1024,
+          "device": "cpu"
+        },
+        "counts": {
+          "input_chunks": 2,
+          "indexable_chunks": 2,
+          "canonical_texts": 2,
+          "embeddings": 0,
+          "indexed_chunks": 2
+        },
+        "error": null,
+        "retryable": false,
+        "timestamps": {
+          "reserved_at": "2026-07-14T11:16:39.057161+00:00",
+          "updated_at": "2026-07-14T11:16:42.806279+00:00",
+          "ready_at": "2026-07-14T11:16:42.806279+00:00"
+        },
+        "schema_version": 1
+      },
+      "office_location_valid": true,
+      "progress": [
+        {
+          "stage": "detecting",
+          "progress": 8,
+          "elapsed_seconds": 0.01
+        },
+        {
+          "stage": "mineru_running",
+          "progress": 18,
+          "elapsed_seconds": 0.012
+        },
+        {
+          "stage": "toc_analyzing",
+          "progress": 72,
+          "elapsed_seconds": 2.057
+        },
+        {
+          "stage": "chapter_generating",
+          "progress": 78,
+          "elapsed_seconds": 2.058
+        },
+        {
+          "stage": "asset_extracting",
+          "progress": 84,
+          "elapsed_seconds": 2.066
+        },
+        {
+          "stage": "rag_chunking",
+          "progress": 90,
+          "elapsed_seconds": 2.066
+        },
+        {
+          "stage": "rag_indexing",
+          "progress": 94,
+          "elapsed_seconds": 3.747
+        },
+        {
+          "stage": "course_ready",
+          "progress": 98,
+          "elapsed_seconds": 3.759
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "format_success_rate": 1.0,
+  "warm_pipeline_p95_seconds": 9.358,
+  "gpu": {
+    "sample_count": 293,
+    "peak_memory_used_mib": 2304,
+    "peak_utilization_percent": 4,
+    "oom_count": 0
+  },
+  "passed": true
+}

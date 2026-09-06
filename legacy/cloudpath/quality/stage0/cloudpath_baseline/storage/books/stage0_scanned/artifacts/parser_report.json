@@ -1,0 +1,13 @@
+{
+  "book_id": "stage0_scanned",
+  "parser": "ocr",
+  "page_count": 1,
+  "warnings": [
+    "too_bright",
+    "ocr_mock_provider"
+  ],
+  "metadata": {
+    "file_type": "pdf",
+    "ocr_provider": "mock"
+  }
+}

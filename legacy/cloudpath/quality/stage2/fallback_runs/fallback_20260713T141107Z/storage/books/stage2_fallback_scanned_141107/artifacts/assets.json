@@ -1,0 +1,60 @@
+[
+  {
+    "asset_id": "img_stage2_fallback_scanned_141107_ch_001_p001_01",
+    "book_id": "stage2_fallback_scanned_141107",
+    "chapter_id": "ch_001",
+    "source_type": "extracted",
+    "page": 1,
+    "type": "figure",
+    "caption": "整本文档（未识别到清晰目录） 内嵌原书插图",
+    "bbox": [
+      40.25,
+      100.0,
+      554.75,
+      443.0
+    ],
+    "image_url": "/api/books/stage2_fallback_scanned_141107/assets/img_stage2_fallback_scanned_141107_ch_001_p001_01/file",
+    "thumbnail_url": "/api/books/stage2_fallback_scanned_141107/assets/img_stage2_fallback_scanned_141107_ch_001_p001_01/thumbnail",
+    "source_page_image_url": "/api/books/stage2_fallback_scanned_141107/assets/img_stage2_fallback_scanned_141107_ch_001_p001_01/source-page",
+    "source_chunk_ids": [
+      "stage2_fallback_scanned_141107_ch_001_d89961a15031",
+      "stage2_fallback_scanned_141107_ch_001_3b91f89849a7"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "ready",
+    "source_parser": null,
+    "content_hash": null,
+    "metadata": {}
+  },
+  {
+    "asset_id": "fig_stage2_fallback_scanned_141107_ch_001_p001_01",
+    "book_id": "stage2_fallback_scanned_141107",
+    "chapter_id": "ch_001",
+    "source_type": "extracted",
+    "page": 1,
+    "type": "figure",
+    "caption": "整本文档（未识别到清晰目录） 相关原书插图候选",
+    "bbox": [
+      71.4,
+      151.56,
+      523.6,
+      378.9
+    ],
+    "image_url": "/api/books/stage2_fallback_scanned_141107/assets/fig_stage2_fallback_scanned_141107_ch_001_p001_01/file",
+    "thumbnail_url": "/api/books/stage2_fallback_scanned_141107/assets/fig_stage2_fallback_scanned_141107_ch_001_p001_01/thumbnail",
+    "source_page_image_url": "/api/books/stage2_fallback_scanned_141107/assets/fig_stage2_fallback_scanned_141107_ch_001_p001_01/source-page",
+    "source_chunk_ids": [
+      "stage2_fallback_scanned_141107_ch_001_d89961a15031",
+      "stage2_fallback_scanned_141107_ch_001_3b91f89849a7"
+    ],
+    "concepts": [],
+    "generation_provider": null,
+    "generation_prompt": null,
+    "review_status": "candidate",
+    "source_parser": null,
+    "content_hash": null,
+    "metadata": {}
+  }
+]

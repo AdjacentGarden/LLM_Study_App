@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-14T05:46:50Z",
+  "check_count": 13,
+  "passed_count": 13,
+  "failed_count": 0,
+  "failures": [],
+  "checks": [
+    {
+      "id": "stage4_01_parse_immediately_searchable",
+      "criterion": "解析完成后无需首次查询即可在 pgvector 检索",
+      "passed": true,
+      "evidence": ["test_stage4_pipeline_index_hook.py", "test_stage4_business_indexing_integration.py"]
+    },
+    {
+      "id": "stage4_02_count_consistency",
+      "criterion": "可索引 chunk 数与数据库向量数一致",
+      "passed": true,
+      "actual": {"quarantined_chunks_excluded": true, "commit_count_verified_in_transaction": true},
+      "evidence": ["test_pgvector_stage4_integration.py", "test_stage4_business_indexing_integration.py"]
+    },
+    {
+      "id": "stage4_03_reparse_replaces_old",
+      "criterion": "重解析后不存在旧 chunk ID 或 embedding",
+      "passed": true,
+      "evidence": ["test_reparse_atomically_removes_old_ids_and_committed_remains_hidden", "test_parse_reparse_chapter_sync_retrieval_and_delete"]
+    },
+    {
+      "id": "stage4_04_chapter_sync",
+      "criterion": "章节调整后索引同步更新",
+      "passed": true,
+      "evidence": ["test_parse_reparse_chapter_sync_retrieval_and_delete", "write_chapters_for_build build CAS"]
+    },
+    {
+      "id": "stage4_05_delete_vectors",
+      "criterion": "删除书籍后向量清零且保留 tombstone",
+      "passed": true,
+      "evidence": ["test_delete_leaves_monotonic_tombstone_and_blocks_late_worker", "test_parse_reparse_chapter_sync_retrieval_and_delete"]
+    },
+    {
+      "id": "stage4_06_db_failure_not_success",
+      "criterion": "数据库写入失败时任务不会报告索引成功",
+      "passed": true,
+      "evidence": ["test_database_failure_marks_task_failed_and_redacts_connection_text", "test_parse_job_does_not_report_done_when_index_publication_fails"]
+    },
+    {
+      "id": "stage4_07_transaction_atomicity",
+      "criterion": "事务失败不留下新旧混合数据",
+      "passed": true,
+      "evidence": ["test_transaction_failure_rolls_back_without_mixing_generations"]
+    },
+    {
+      "id": "stage4_08_stale_generation_rejected",
+      "criterion": "迟到旧任务不能覆盖新索引",
+      "passed": true,
+      "evidence": ["test_late_generation_is_rejected", "test_stale_artifact_identity_cannot_publish_or_embed"]
+    },
+    {
+      "id": "stage4_09_embedding_auditable",
+      "criterion": "model/revision/version/dimension 与查询兼容且可审计",
+      "passed": true,
+      "actual": {"model": "BAAI/bge-m3", "revision": "5617a9f61b028005a4858fdac845db406aefb181", "dimension": 1024, "device": "cuda:0"},
+      "evidence": ["environment_probe.json", "test_stage4_embedding_query_contract.py"]
+    },
+    {
+      "id": "stage4_10_cache_failure_retry",
+      "criterion": "DB committed 后缓存失败保持未就绪并可同 generation 重试",
+      "passed": true,
+      "evidence": ["test_cache_failed_is_unreadable_and_finalize_can_retry", "test_committed_cache_failure_is_unready_then_same_generation_retries"]
+    },
+    {
+      "id": "stage4_11_isolated_data_operations",
+      "criterion": "迁移与删除证据只来自声明的隔离库",
+      "passed": true,
+      "actual": {"host": "127.0.0.1", "port": 55432, "database": "cloudpath_stage4", "shared_or_production_touched": false},
+      "evidence": ["environment_probe.json"]
+    },
+    {
+      "id": "stage4_12_explicit_artifact_fallback",
+      "criterion": "Artifact fallback 显式记录且不冒充 pgvector",
+      "passed": true,
+      "evidence": ["test_missing_dsn_is_explicit_artifact_fallback_and_ready", "test_retrieval_exposes_real_artifact_provider_and_fallback_reason"]
+    },
+    {
+      "id": "stage4_13_bm25_and_vector_new_chunks",
+      "criterion": "BM25 和向量检索都可返回新 chunks",
+      "passed": true,
+      "actual": {"bm25_score_positive": true, "dense_score_positive": true, "provider": "pgvector"},
+      "evidence": ["test_parse_reparse_chapter_sync_retrieval_and_delete"]
+    }
+  ],
+  "post_test_database_counts": {"rag_index_state": 0, "rag_chunk_vectors": 0}
+}

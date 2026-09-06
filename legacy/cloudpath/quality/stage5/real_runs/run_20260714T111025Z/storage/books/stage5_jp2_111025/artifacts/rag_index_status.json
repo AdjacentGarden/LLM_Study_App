@@ -1,0 +1,32 @@
+{
+  "book_id": "stage5_jp2_111025",
+  "status": "building",
+  "configured_provider": "pgvector",
+  "active_provider": "artifact_fallback",
+  "index_generation": null,
+  "build_id": "build_4f870701746c4e9bad0c38da60ace61d",
+  "cause": "parse:legacy",
+  "fallback_reason": "pgvector_dsn_missing",
+  "embedding": {
+    "provider": "hashing",
+    "model": "sha1-feature-hashing",
+    "revision": "algorithm-v1",
+    "version": "v1",
+    "dimension": 1024,
+    "device": "cpu"
+  },
+  "counts": {
+    "input_chunks": 0,
+    "indexable_chunks": 0,
+    "canonical_texts": 0,
+    "embeddings": 0,
+    "indexed_chunks": 0
+  },
+  "error": null,
+  "retryable": false,
+  "timestamps": {
+    "reserved_at": "2026-07-14T11:11:00.129043+00:00",
+    "updated_at": "2026-07-14T11:11:00.129043+00:00"
+  },
+  "schema_version": 1
+}

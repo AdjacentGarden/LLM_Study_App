@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "run_id": "fallback_20260714T024444Z",
+  "captured_at": "2026-07-14T02:45:01.056340+00:00",
+  "offline_endpoint": "http://127.0.0.1:65534",
+  "results": [
+    {
+      "scenario": "native",
+      "book_id": "stage2_fallback_native_024444",
+      "elapsed_seconds": 0.308,
+      "page_parsers": [
+        "pymupdf",
+        "pymupdf"
+      ],
+      "first_attempt": {
+        "parser": "mineru",
+        "scope": "document",
+        "pages": [],
+        "status": "failed",
+        "duration_ms": 262,
+        "error_code": "mineru_timeout",
+        "retryable": true,
+        "detail": "mineru_timeout",
+        "quality_score": null
+      },
+      "ocr_providers": [
+        null,
+        null
+      ],
+      "semantic_characters": [
+        220,
+        110
+      ],
+      "passed": true
+    },
+    {
+      "scenario": "scanned",
+      "book_id": "stage2_fallback_scanned_024444",
+      "elapsed_seconds": 11.108,
+      "page_parsers": [
+        "ocr"
+      ],
+      "first_attempt": {
+        "parser": "mineru",
+        "scope": "document",
+        "pages": [],
+        "status": "failed",
+        "duration_ms": 219,
+        "error_code": "mineru_timeout",
+        "retryable": true,
+        "detail": "mineru_timeout",
+        "quality_score": null
+      },
+      "ocr_providers": [
+        "paddleocr"
+      ],
+      "semantic_characters": [
+        49
+      ],
+      "passed": true
+    },
+    {
+      "scenario": "image",
+      "book_id": "stage2_fallback_image_024444",
+      "elapsed_seconds": 4.843,
+      "page_parsers": [
+        "ocr"
+      ],
+      "first_attempt": {
+        "parser": "mineru",
+        "scope": "document",
+        "pages": [],
+        "status": "failed",
+        "duration_ms": 208,
+        "error_code": "mineru_timeout",
+        "retryable": true,
+        "detail": "mineru_timeout",
+        "quality_score": null
+      },
+      "ocr_providers": [
+        "paddleocr"
+      ],
+      "semantic_characters": [
+        49
+      ],
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "passed": true
+}

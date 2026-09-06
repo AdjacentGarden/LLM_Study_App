@@ -1,0 +1,32 @@
+{
+  "book_id": "stage5_xlsx_111508",
+  "filename": "sample.xlsx",
+  "file_type": "xlsx",
+  "page_count": 2,
+  "has_text_layer": true,
+  "needs_ocr": false,
+  "source_unit": "sheet",
+  "source_locations": [
+    {
+      "index": 1,
+      "label": "工作表 Growth Data（A1:D5）",
+      "sheet_name": "Growth Data",
+      "cell_range": "A1:D5",
+      "source_format": "xlsx"
+    },
+    {
+      "index": 2,
+      "label": "工作表 Notes（A1:B1）",
+      "sheet_name": "Notes",
+      "cell_range": "A1:B1",
+      "source_format": "xlsx"
+    }
+  ],
+  "quality_warnings": [
+    {
+      "page": null,
+      "code": "office_logical_locations",
+      "message": "Office source positions use document, slide, or worksheet semantics"
+    }
+  ]
+}

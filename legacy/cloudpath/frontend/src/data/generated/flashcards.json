@@ -1,0 +1,638 @@
+[
+  {
+    "card_id": "fc_homologous",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "front": "什么是同源染色体？",
+    "back": "形态、大小一般相同，一条来自父方、一条来自母方，并控制同一类性状的一对染色体。",
+    "concept": "同源染色体",
+    "source_chunk_ids": [
+      "chunk_c2s1_13"
+    ],
+    "page_start": 13,
+    "page_end": 13,
+    "due": "today",
+    "mastery": 58,
+    "reason": "来自作业诊断卡点",
+    "printed_page_start": 18,
+    "printed_page_end": 18,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        13
+      ],
+      "printed_pages": [
+        18
+      ],
+      "page_idxs": [
+        12
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        118,
+        122,
+        125,
+        126
+      ],
+      "content_list_entry_sha256": [
+        "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+        "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+        "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+        "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e"
+      ],
+      "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。\n随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。\n在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。\n减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+      "raw_ocr_text_sha256": "23f5aeb661ed0af86a7d61bbb0c1b7c698b9b02834dc08b5e47ee8c145b4f4e9",
+      "page_text_sha256": [
+        "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 118,
+          "content_list_entry_sha256": "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+          "middle_blocks": [
+            {
+              "block_index": 5,
+              "sha256": "00e96c090a2418fc40ce4c0c64b93ddb0c0128d2d27f378e8948622983f66e72"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。",
+          "raw_ocr_text_sha256": "977604597b06d1786c3c11a8d9c526202d021a9f529408515b7475a227d5ae06",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 122,
+          "content_list_entry_sha256": "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+          "middle_blocks": [
+            {
+              "block_index": 9,
+              "sha256": "5a5acf95cd66b9cec758b5de23bd71c0798186bdab7851df0763b3434dbcc121"
+            }
+          ],
+          "raw_ocr_text": "随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。",
+          "raw_ocr_text_sha256": "0d8c3216fd7e699b3ecb07804fb3d457c196d2f606af721d494dc4f0d152e9a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 125,
+          "content_list_entry_sha256": "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+          "middle_blocks": [
+            {
+              "block_index": 12,
+              "sha256": "f485d669afb51f9765c332c45719925217bf661b0e55e3a87c395bd9dbf5f02d"
+            }
+          ],
+          "raw_ocr_text": "在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。",
+          "raw_ocr_text_sha256": "3cc3af51c039bfbe3f44dcc0c4cd233b19e4ae5fb6c8818d1ead3813ea3cf8a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 126,
+          "content_list_entry_sha256": "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e",
+          "middle_blocks": [
+            {
+              "block_index": 13,
+              "sha256": "b01b038ed1ed655a2487952e0e47a1edc2adae7a8af19c0032bf434bba625c48"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+          "raw_ocr_text_sha256": "65ff7f5fd28973dfd15384232bdfa68257b94174321a9f089a4c32fcb3cca528",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        }
+      ]
+    }
+  },
+  {
+    "card_id": "fc_tetrad",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "front": "四分体为什么叫“四”？",
+    "back": "一对同源染色体联会后，每条染色体含两条姐妹染色单体，因此共有四条染色单体。",
+    "concept": "四分体",
+    "source_chunk_ids": [
+      "chunk_c2s1_13"
+    ],
+    "page_start": 13,
+    "page_end": 13,
+    "due": "today",
+    "mastery": 64,
+    "reason": "章节学习生成",
+    "printed_page_start": 18,
+    "printed_page_end": 18,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        13
+      ],
+      "printed_pages": [
+        18
+      ],
+      "page_idxs": [
+        12
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        118,
+        122,
+        125,
+        126
+      ],
+      "content_list_entry_sha256": [
+        "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+        "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+        "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+        "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e"
+      ],
+      "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。\n随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。\n在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。\n减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+      "raw_ocr_text_sha256": "23f5aeb661ed0af86a7d61bbb0c1b7c698b9b02834dc08b5e47ee8c145b4f4e9",
+      "page_text_sha256": [
+        "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 118,
+          "content_list_entry_sha256": "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+          "middle_blocks": [
+            {
+              "block_index": 5,
+              "sha256": "00e96c090a2418fc40ce4c0c64b93ddb0c0128d2d27f378e8948622983f66e72"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。",
+          "raw_ocr_text_sha256": "977604597b06d1786c3c11a8d9c526202d021a9f529408515b7475a227d5ae06",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 122,
+          "content_list_entry_sha256": "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+          "middle_blocks": [
+            {
+              "block_index": 9,
+              "sha256": "5a5acf95cd66b9cec758b5de23bd71c0798186bdab7851df0763b3434dbcc121"
+            }
+          ],
+          "raw_ocr_text": "随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。",
+          "raw_ocr_text_sha256": "0d8c3216fd7e699b3ecb07804fb3d457c196d2f606af721d494dc4f0d152e9a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 125,
+          "content_list_entry_sha256": "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+          "middle_blocks": [
+            {
+              "block_index": 12,
+              "sha256": "f485d669afb51f9765c332c45719925217bf661b0e55e3a87c395bd9dbf5f02d"
+            }
+          ],
+          "raw_ocr_text": "在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。",
+          "raw_ocr_text_sha256": "3cc3af51c039bfbe3f44dcc0c4cd233b19e4ae5fb6c8818d1ead3813ea3cf8a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 126,
+          "content_list_entry_sha256": "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e",
+          "middle_blocks": [
+            {
+              "block_index": 13,
+              "sha256": "b01b038ed1ed655a2487952e0e47a1edc2adae7a8af19c0032bf434bba625c48"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+          "raw_ocr_text_sha256": "65ff7f5fd28973dfd15384232bdfa68257b94174321a9f089a4c32fcb3cca528",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        }
+      ]
+    }
+  },
+  {
+    "card_id": "fc_meiosis_i",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "front": "同源染色体分离发生在哪一次分裂？",
+    "back": "发生在减数第一次分裂后期，这是染色体数目减半的关键步骤。",
+    "concept": "减数第一次分裂",
+    "source_chunk_ids": [
+      "chunk_c2s1_13"
+    ],
+    "page_start": 13,
+    "page_end": 13,
+    "due": "today",
+    "mastery": 52,
+    "reason": "错题自动加入",
+    "printed_page_start": 18,
+    "printed_page_end": 18,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        13
+      ],
+      "printed_pages": [
+        18
+      ],
+      "page_idxs": [
+        12
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        118,
+        122,
+        125,
+        126
+      ],
+      "content_list_entry_sha256": [
+        "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+        "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+        "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+        "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e"
+      ],
+      "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。\n随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。\n在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。\n减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+      "raw_ocr_text_sha256": "23f5aeb661ed0af86a7d61bbb0c1b7c698b9b02834dc08b5e47ee8c145b4f4e9",
+      "page_text_sha256": [
+        "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 118,
+          "content_list_entry_sha256": "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+          "middle_blocks": [
+            {
+              "block_index": 5,
+              "sha256": "00e96c090a2418fc40ce4c0c64b93ddb0c0128d2d27f378e8948622983f66e72"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。",
+          "raw_ocr_text_sha256": "977604597b06d1786c3c11a8d9c526202d021a9f529408515b7475a227d5ae06",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 122,
+          "content_list_entry_sha256": "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+          "middle_blocks": [
+            {
+              "block_index": 9,
+              "sha256": "5a5acf95cd66b9cec758b5de23bd71c0798186bdab7851df0763b3434dbcc121"
+            }
+          ],
+          "raw_ocr_text": "随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。",
+          "raw_ocr_text_sha256": "0d8c3216fd7e699b3ecb07804fb3d457c196d2f606af721d494dc4f0d152e9a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 125,
+          "content_list_entry_sha256": "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+          "middle_blocks": [
+            {
+              "block_index": 12,
+              "sha256": "f485d669afb51f9765c332c45719925217bf661b0e55e3a87c395bd9dbf5f02d"
+            }
+          ],
+          "raw_ocr_text": "在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。",
+          "raw_ocr_text_sha256": "3cc3af51c039bfbe3f44dcc0c4cd233b19e4ae5fb6c8818d1ead3813ea3cf8a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 126,
+          "content_list_entry_sha256": "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e",
+          "middle_blocks": [
+            {
+              "block_index": 13,
+              "sha256": "b01b038ed1ed655a2487952e0e47a1edc2adae7a8af19c0032bf434bba625c48"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+          "raw_ocr_text_sha256": "65ff7f5fd28973dfd15384232bdfa68257b94174321a9f089a4c32fcb3cca528",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        }
+      ]
+    }
+  },
+  {
+    "card_id": "fc_sister",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "front": "姐妹染色单体在什么时候分离？",
+    "back": "姐妹染色单体在减数第二次分裂后期分离，容易和同源染色体分离混淆。",
+    "concept": "姐妹染色单体",
+    "source_chunk_ids": [
+      "chunk_c2s1_13"
+    ],
+    "page_start": 13,
+    "page_end": 13,
+    "due": "today",
+    "mastery": 55,
+    "reason": "来自作业诊断卡点",
+    "printed_page_start": 18,
+    "printed_page_end": 18,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        13
+      ],
+      "printed_pages": [
+        18
+      ],
+      "page_idxs": [
+        12
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        118,
+        122,
+        125,
+        126
+      ],
+      "content_list_entry_sha256": [
+        "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+        "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+        "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+        "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e"
+      ],
+      "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。\n随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。\n在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。\n减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+      "raw_ocr_text_sha256": "23f5aeb661ed0af86a7d61bbb0c1b7c698b9b02834dc08b5e47ee8c145b4f4e9",
+      "page_text_sha256": [
+        "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 118,
+          "content_list_entry_sha256": "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+          "middle_blocks": [
+            {
+              "block_index": 5,
+              "sha256": "00e96c090a2418fc40ce4c0c64b93ddb0c0128d2d27f378e8948622983f66e72"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。",
+          "raw_ocr_text_sha256": "977604597b06d1786c3c11a8d9c526202d021a9f529408515b7475a227d5ae06",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 122,
+          "content_list_entry_sha256": "18405b7c207b4149f50973d3eef1d26da2f052385ff9a7a5da6671b1df8b5584",
+          "middle_blocks": [
+            {
+              "block_index": 9,
+              "sha256": "5a5acf95cd66b9cec758b5de23bd71c0798186bdab7851df0763b3434dbcc121"
+            }
+          ],
+          "raw_ocr_text": "随后，各对同源染色体排列在赤道板上，每条染色体的者丝点都附着在纺锤丝上。不久，在纺锤丝的牵引下，配对的两条同源染色体彼此分离，分别向细胞的两极移动。这样，细胞的每个极只得到各对同源染色体中的一条。在两组染色体到达细胞两极的时候，一个初级精母细胞分裂成了两个次级精母细胞。",
+          "raw_ocr_text_sha256": "0d8c3216fd7e699b3ecb07804fb3d457c196d2f606af721d494dc4f0d152e9a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 125,
+          "content_list_entry_sha256": "aacc7186c38ed45cca75807d7edd125fe3a5da62683f689544e08996f3792102",
+          "middle_blocks": [
+            {
+              "block_index": 12,
+              "sha256": "f485d669afb51f9765c332c45719925217bf661b0e55e3a87c395bd9dbf5f02d"
+            }
+          ],
+          "raw_ocr_text": "在这次分裂过程中，由于同源染色体分离，并分别进入两个子细胞，使得每个次级精母细胞只得到初级精母细胞中染色体总数的一半。因此，减数分裂过程中染色体数目的减半发生在减数第一次分裂。",
+          "raw_ocr_text_sha256": "3cc3af51c039bfbe3f44dcc0c4cd233b19e4ae5fb6c8818d1ead3813ea3cf8a0",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        },
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 126,
+          "content_list_entry_sha256": "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e",
+          "middle_blocks": [
+            {
+              "block_index": 13,
+              "sha256": "b01b038ed1ed655a2487952e0e47a1edc2adae7a8af19c0032bf434bba625c48"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+          "raw_ocr_text_sha256": "65ff7f5fd28973dfd15384232bdfa68257b94174321a9f089a4c32fcb3cca528",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        }
+      ]
+    }
+  },
+  {
+    "card_id": "fc_fertilization",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "front": "受精作用如何维持染色体数目稳定？",
+    "back": "精子和卵细胞结合后，两套配子染色体合并，使受精卵恢复体细胞染色体数目。",
+    "concept": "受精作用",
+    "source_chunk_ids": [
+      "chunk_c2s1_19"
+    ],
+    "page_start": 19,
+    "page_end": 19,
+    "due": "today",
+    "mastery": 70,
+    "reason": "章节学习生成",
+    "printed_page_start": 24,
+    "printed_page_end": 24,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        19
+      ],
+      "printed_pages": [
+        24
+      ],
+      "page_idxs": [
+        18
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        216,
+        216
+      ],
+      "content_list_entry_sha256": [
+        "1f293d8af20c78382def71c0e5c0afd645c2e63529d9dfc3b171e78c8906024a",
+        "1f293d8af20c78382def71c0e5c0afd645c2e63529d9dfc3b171e78c8906024a"
+      ],
+      "raw_ocr_text": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程。在受精作用进行时，通常是精子的头部进人卵细胞（图2一7），尾部留在外面。与此同时。卵细胞的细胞膜会发生复杂的生理反应，以阻止其他精子再进入。精子的头部进人卵细胞后不久，精子的细胞核就与卵细胞的细胞核相融合，使彼此的染色体会合在一起。这样，受精卵中的染色体数目又恢复到体细胞中的数目.其中有一半的染色体来自精子（父方），另一半来自卵细胞（母方）。\n受精作用是卵细胞和精子相互识别、融合成为受精卵的过程。在受精作用进行时，通常是精子的头部进人卵细胞（图2一7），尾部留在外面。与此同时。卵细胞的细胞膜会发生复杂的生理反应，以阻止其他精子再进入。精子的头部进人卵细胞后不久，精子的细胞核就与卵细胞的细胞核相融合，使彼此的染色体会合在一起。这样，受精卵中的染色体数目又恢复到体细胞中的数目.其中有一半的染色体来自精子（父方），另一半来自卵细胞（母方）。",
+      "raw_ocr_text_sha256": "9ed33eefa494502fd3091dd87e283b6800c8ae8e37e58e43f17f5d818b08c398",
+      "page_text_sha256": [
+        "9e7cc568288a814037f8b2a783d1062673a710f00a0f8430911fbccee18cc1f1"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 18,
+          "pdf_page": 19,
+          "printed_page": 24,
+          "content_list_entry_index": 216,
+          "content_list_entry_sha256": "1f293d8af20c78382def71c0e5c0afd645c2e63529d9dfc3b171e78c8906024a",
+          "middle_blocks": [
+            {
+              "block_index": 17,
+              "sha256": "8ea5eec47003aedce056e063677e81f05243fc41434389aaba0ff74230b02d5d"
+            },
+            {
+              "block_index": 18,
+              "sha256": "52c64c67a270ffd3e016eb122452e53a7d0b90b89da69d53985702c490bc2216"
+            }
+          ],
+          "raw_ocr_text": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程。在受精作用进行时，通常是精子的头部进人卵细胞（图2一7），尾部留在外面。与此同时。卵细胞的细胞膜会发生复杂的生理反应，以阻止其他精子再进入。精子的头部进人卵细胞后不久，精子的细胞核就与卵细胞的细胞核相融合，使彼此的染色体会合在一起。这样，受精卵中的染色体数目又恢复到体细胞中的数目.其中有一半的染色体来自精子（父方），另一半来自卵细胞（母方）。",
+          "raw_ocr_text_sha256": "3257d3d968c2cb27fac00215f806be0e526f535ea74cd7b0e41d048efeb428d0",
+          "page_text_sha256": "9e7cc568288a814037f8b2a783d1062673a710f00a0f8430911fbccee18cc1f1"
+        },
+        {
+          "page_idx": 18,
+          "pdf_page": 19,
+          "printed_page": 24,
+          "content_list_entry_index": 216,
+          "content_list_entry_sha256": "1f293d8af20c78382def71c0e5c0afd645c2e63529d9dfc3b171e78c8906024a",
+          "middle_blocks": [
+            {
+              "block_index": 17,
+              "sha256": "8ea5eec47003aedce056e063677e81f05243fc41434389aaba0ff74230b02d5d"
+            },
+            {
+              "block_index": 18,
+              "sha256": "52c64c67a270ffd3e016eb122452e53a7d0b90b89da69d53985702c490bc2216"
+            }
+          ],
+          "raw_ocr_text": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程。在受精作用进行时，通常是精子的头部进人卵细胞（图2一7），尾部留在外面。与此同时。卵细胞的细胞膜会发生复杂的生理反应，以阻止其他精子再进入。精子的头部进人卵细胞后不久，精子的细胞核就与卵细胞的细胞核相融合，使彼此的染色体会合在一起。这样，受精卵中的染色体数目又恢复到体细胞中的数目.其中有一半的染色体来自精子（父方），另一半来自卵细胞（母方）。",
+          "raw_ocr_text_sha256": "3257d3d968c2cb27fac00215f806be0e526f535ea74cd7b0e41d048efeb428d0",
+          "page_text_sha256": "9e7cc568288a814037f8b2a783d1062673a710f00a0f8430911fbccee18cc1f1"
+        }
+      ]
+    }
+  },
+  {
+    "card_id": "fc_one_two",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "front": "“一次复制、两次分裂”是什么意思？",
+    "back": "DNA 只复制一次，但细胞连续分裂两次，因此配子中染色体数目减半。",
+    "concept": "减数分裂过程",
+    "source_chunk_ids": [
+      "chunk_c2s1_11"
+    ],
+    "page_start": 11,
+    "page_end": 11,
+    "due": "today",
+    "mastery": 62,
+    "reason": "章节学习生成",
+    "printed_page_start": 16,
+    "printed_page_end": 16,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        11
+      ],
+      "printed_pages": [
+        16
+      ],
+      "page_idxs": [
+        10
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        106
+      ],
+      "content_list_entry_sha256": [
+        "afa7c5aebbae69fecdd1f00e21573172ba0d5f68f1ff02f216edd096300898c7"
+      ],
+      "raw_ocr_text": "当孟德尔向人们揭示遗传规律的时候，细胞学的研究也取得了可喜的进展。与孟德尔同时代的生物学家魏斯曼(A.Weismann，1834一1914）从理论上预测：在卵细胞和精子成熟的过程中，必然有一个特殊的过程使染色体数目减少一半。受精时，精子和卵细胞融合，恢复正常的染色体数目。这个天才的预见在19世纪80年代被其他科学家的显微镜观察所证实。魏斯曼预言的这个特殊的过程，实际上是特殊方式的有丝分裂，叫做减数分裂。减数分裂（meiosis）是进行有性生殖的生物在产生成熟生殖细胞时，进行的染色体数目减半的细胞分裂。在减数分裂过程中.染色体只复制一次，而细胞分裂两次。减数分裂的结果是，成熟生殖细胞中的染色体数目比原始生殖细胞的减少一半。",
+      "raw_ocr_text_sha256": "e4a29d1b5fe9a439a77b6561b1a38ec0e7158a5212a2d0ab76f19cb7d01de237",
+      "page_text_sha256": [
+        "55bd9f32c0db3c376e75e60ac336f36b3577dc59247c9a0b4fcbdc9b78c8afe1"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 10,
+          "pdf_page": 11,
+          "printed_page": 16,
+          "content_list_entry_index": 106,
+          "content_list_entry_sha256": "afa7c5aebbae69fecdd1f00e21573172ba0d5f68f1ff02f216edd096300898c7",
+          "middle_blocks": [
+            {
+              "block_index": 5,
+              "sha256": "4439736828bc8c7812d6e790ea451fb925625a4883b5fd9eb94b102a3ebde596"
+            },
+            {
+              "block_index": 10,
+              "sha256": "4bb8ea7f84f90b7fce1c5d5f06e2a302220b5d60b4bf1e16b31894df28ebb244"
+            }
+          ],
+          "raw_ocr_text": "当孟德尔向人们揭示遗传规律的时候，细胞学的研究也取得了可喜的进展。与孟德尔同时代的生物学家魏斯曼(A.Weismann，1834一1914）从理论上预测：在卵细胞和精子成熟的过程中，必然有一个特殊的过程使染色体数目减少一半。受精时，精子和卵细胞融合，恢复正常的染色体数目。这个天才的预见在19世纪80年代被其他科学家的显微镜观察所证实。魏斯曼预言的这个特殊的过程，实际上是特殊方式的有丝分裂，叫做减数分裂。减数分裂（meiosis）是进行有性生殖的生物在产生成熟生殖细胞时，进行的染色体数目减半的细胞分裂。在减数分裂过程中.染色体只复制一次，而细胞分裂两次。减数分裂的结果是，成熟生殖细胞中的染色体数目比原始生殖细胞的减少一半。",
+          "raw_ocr_text_sha256": "e4a29d1b5fe9a439a77b6561b1a38ec0e7158a5212a2d0ab76f19cb7d01de237",
+          "page_text_sha256": "55bd9f32c0db3c376e75e60ac336f36b3577dc59247c9a0b4fcbdc9b78c8afe1"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,4 @@
+# PyTorch's official CUDA 12.6 wheel uses the PEP 440 local version
+# 2.13.0+cu126. Vulnerability services index the upstream base release, so
+# audit this exact base version in addition to requirements.lock.
+torch==2.13.0

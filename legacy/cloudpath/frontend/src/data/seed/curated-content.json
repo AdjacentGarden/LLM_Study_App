@@ -1,0 +1,1181 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "content_scope": "人教版高中生物必修 2《遗传与进化》当前 PDF 可用原文目录（源文件缺第 1 章正文）",
+    "fixture_policy": "目录只保留当前 PDF 中实际存在的页面；第 1 章印刷页 1–14 作为源文件缺页处理。"
+  },
+  "book": {
+    "id": "book_biology_2",
+    "title": "生物 必修 2 遗传与进化",
+    "shortTitle": "遗传与进化",
+    "fileName": "人教版高中生物必修2遗传与进化.pdf",
+    "publisher": "人民教育出版社",
+    "pages": 125,
+    "fileSize": "38.8 MB",
+    "chapterCount": 7,
+    "sectionCount": 17,
+    "knowledgePointCount": 96,
+    "progress": 18,
+    "mastery": 68,
+    "planDays": 14,
+    "dailyMinutes": 30,
+    "cover": "/assets/textbook/biology-cover-thumb.webp"
+  },
+  "scan": {
+    "book_id": "book_biology_2",
+    "source_unit": "page"
+  },
+  "chapters": [
+    {
+      "chapter_id": "frontmatter",
+      "level": 1,
+      "source_title": "第 1 章 遗传因子的发现",
+      "ai_title": "第 1 章 遗传因子的发现",
+      "page_start": 1,
+      "page_end": 9,
+      "printed_page_start": null,
+      "printed_page_end": null,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "verified_pdf_page_map",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c2",
+      "level": 1,
+      "source_title": "第 2 章 基因和染色体的关系",
+      "ai_title": "课程 2：把基因放到染色体上理解",
+      "page_start": 10,
+      "page_end": 35,
+      "printed_page_start": 15,
+      "printed_page_end": 40,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c2s1",
+      "level": 2,
+      "source_title": "第 1 节 减数分裂和受精作用",
+      "ai_title": "课程 2.1：同源染色体如何分离",
+      "page_start": 11,
+      "page_end": 21,
+      "printed_page_start": 16,
+      "printed_page_end": 26,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c2"
+    },
+    {
+      "chapter_id": "c2s1a",
+      "level": 3,
+      "source_title": "一 减数分裂",
+      "ai_title": "分目：认识减数分裂",
+      "page_start": 11,
+      "page_end": 17,
+      "printed_page_start": 16,
+      "printed_page_end": 22,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c2s1"
+    },
+    {
+      "chapter_id": "c2s1b",
+      "level": 3,
+      "source_title": "二 受精作用",
+      "ai_title": "分目：理解受精作用",
+      "page_start": 18,
+      "page_end": 21,
+      "printed_page_start": 23,
+      "printed_page_end": 26,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c2s1"
+    },
+    {
+      "chapter_id": "c2s2",
+      "level": 2,
+      "source_title": "第 2 节 基因在染色体上",
+      "ai_title": "课程 2.2：理解基因与染色体的关系",
+      "page_start": 22,
+      "page_end": 26,
+      "printed_page_start": 27,
+      "printed_page_end": 31,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c2"
+    },
+    {
+      "chapter_id": "c2story1",
+      "level": 2,
+      "source_title": "科学家的故事 染色体遗传理论的奠基人——摩尔根",
+      "ai_title": "科学史：认识摩尔根",
+      "page_start": 27,
+      "page_end": 27,
+      "printed_page_start": 32,
+      "printed_page_end": 32,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c2"
+    },
+    {
+      "chapter_id": "c2s3",
+      "level": 2,
+      "source_title": "第 3 节 伴性遗传",
+      "ai_title": "课程 2.3：理解伴性遗传",
+      "page_start": 28,
+      "page_end": 35,
+      "printed_page_start": 33,
+      "printed_page_end": 40,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c2"
+    },
+    {
+      "chapter_id": "c3",
+      "level": 1,
+      "source_title": "第 3 章 基因的本质",
+      "ai_title": "课程 3：理解 DNA 与遗传信息",
+      "page_start": 36,
+      "page_end": 55,
+      "printed_page_start": 41,
+      "printed_page_end": 60,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c3s1",
+      "level": 2,
+      "source_title": "第 1 节 DNA 是主要的遗传物质",
+      "ai_title": "课程 3.1：寻找遗传物质",
+      "page_start": 37,
+      "page_end": 41,
+      "printed_page_start": 42,
+      "printed_page_end": 46,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c3"
+    },
+    {
+      "chapter_id": "c3s2",
+      "level": 2,
+      "source_title": "第 2 节 DNA 分子的结构",
+      "ai_title": "课程 3.2：认识 DNA 双螺旋结构",
+      "page_start": 42,
+      "page_end": 46,
+      "printed_page_start": 47,
+      "printed_page_end": 51,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c3"
+    },
+    {
+      "chapter_id": "c3s3",
+      "level": 2,
+      "source_title": "第 3 节 DNA 的复制",
+      "ai_title": "课程 3.3：理解 DNA 如何复制",
+      "page_start": 47,
+      "page_end": 49,
+      "printed_page_start": 52,
+      "printed_page_end": 54,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c3"
+    },
+    {
+      "chapter_id": "c3s4",
+      "level": 2,
+      "source_title": "第 4 节 基因是有遗传效应的 DNA 片段",
+      "ai_title": "课程 3.4：认识基因的本质",
+      "page_start": 50,
+      "page_end": 52,
+      "printed_page_start": 55,
+      "printed_page_end": 57,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c3"
+    },
+    {
+      "chapter_id": "c3sts1",
+      "level": 2,
+      "source_title": "科学·技术·社会 DNA 指纹技术",
+      "ai_title": "拓展：DNA 指纹技术",
+      "page_start": 53,
+      "page_end": 55,
+      "printed_page_start": 58,
+      "printed_page_end": 60,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c3"
+    },
+    {
+      "chapter_id": "c4",
+      "level": 1,
+      "source_title": "第 4 章 基因的表达",
+      "ai_title": "课程 4：从基因到蛋白质",
+      "page_start": 56,
+      "page_end": 73,
+      "printed_page_start": 61,
+      "printed_page_end": 78,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c4s1",
+      "level": 2,
+      "source_title": "第 1 节 基因指导蛋白质的合成",
+      "ai_title": "课程 4.1：理解蛋白质的合成",
+      "page_start": 57,
+      "page_end": 62,
+      "printed_page_start": 62,
+      "printed_page_end": 67,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c4"
+    },
+    {
+      "chapter_id": "c4s2",
+      "level": 2,
+      "source_title": "第 2 节 基因对性状的控制",
+      "ai_title": "课程 4.2：理解基因如何控制性状",
+      "page_start": 63,
+      "page_end": 66,
+      "printed_page_start": 68,
+      "printed_page_end": 71,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c4"
+    },
+    {
+      "chapter_id": "c4frontier1",
+      "level": 2,
+      "source_title": "科学前沿 生物信息学",
+      "ai_title": "科学前沿：生物信息学",
+      "page_start": 67,
+      "page_end": 67,
+      "printed_page_start": 72,
+      "printed_page_end": 72,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c4"
+    },
+    {
+      "chapter_id": "c4s3",
+      "level": 2,
+      "source_title": "第 3 节 遗传密码的破译（选学）",
+      "ai_title": "课程 4.3：探索遗传密码的破译",
+      "page_start": 68,
+      "page_end": 73,
+      "printed_page_start": 73,
+      "printed_page_end": 78,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c4"
+    },
+    {
+      "chapter_id": "c5",
+      "level": 1,
+      "source_title": "第 5 章 基因突变及其他变异",
+      "ai_title": "课程 5：理解遗传变异",
+      "page_start": 74,
+      "page_end": 91,
+      "printed_page_start": 79,
+      "printed_page_end": 96,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c5s1",
+      "level": 2,
+      "source_title": "第 1 节 基因突变和基因重组",
+      "ai_title": "课程 5.1：认识基因突变与重组",
+      "page_start": 75,
+      "page_end": 79,
+      "printed_page_start": 80,
+      "printed_page_end": 84,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c5"
+    },
+    {
+      "chapter_id": "c5s2",
+      "level": 2,
+      "source_title": "第 2 节 染色体变异",
+      "ai_title": "课程 5.2：认识染色体变异",
+      "page_start": 80,
+      "page_end": 84,
+      "printed_page_start": 85,
+      "printed_page_end": 89,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c5"
+    },
+    {
+      "chapter_id": "c5s3",
+      "level": 2,
+      "source_title": "第 3 节 人类遗传病",
+      "ai_title": "课程 5.3：认识人类遗传病",
+      "page_start": 85,
+      "page_end": 88,
+      "printed_page_start": 90,
+      "printed_page_end": 93,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c5"
+    },
+    {
+      "chapter_id": "c5sts1",
+      "level": 2,
+      "source_title": "科学·技术·社会 基因治疗",
+      "ai_title": "拓展：基因治疗",
+      "page_start": 89,
+      "page_end": 91,
+      "printed_page_start": 94,
+      "printed_page_end": 96,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c5"
+    },
+    {
+      "chapter_id": "c6",
+      "level": 1,
+      "source_title": "第 6 章 从杂交育种到基因工程",
+      "ai_title": "课程 6：从育种走向基因工程",
+      "page_start": 92,
+      "page_end": 103,
+      "printed_page_start": 97,
+      "printed_page_end": 108,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c6s1",
+      "level": 2,
+      "source_title": "第 1 节 杂交育种与诱变育种",
+      "ai_title": "课程 6.1：比较杂交与诱变育种",
+      "page_start": 93,
+      "page_end": 96,
+      "printed_page_start": 98,
+      "printed_page_end": 101,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c6"
+    },
+    {
+      "chapter_id": "c6career1",
+      "level": 3,
+      "source_title": "与生物学有关的职业 育种工作者",
+      "ai_title": "职业拓展：育种工作者",
+      "page_start": 96,
+      "page_end": 96,
+      "printed_page_start": 101,
+      "printed_page_end": 101,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c6s1"
+    },
+    {
+      "chapter_id": "c6s2",
+      "level": 2,
+      "source_title": "第 2 节 基因工程及其应用",
+      "ai_title": "课程 6.2：理解基因工程的应用",
+      "page_start": 97,
+      "page_end": 103,
+      "printed_page_start": 102,
+      "printed_page_end": 108,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c6"
+    },
+    {
+      "chapter_id": "c6career2",
+      "level": 3,
+      "source_title": "与生物学有关的职业 生物技术产业的研发人员",
+      "ai_title": "职业拓展：生物技术产业研发",
+      "page_start": 101,
+      "page_end": 103,
+      "printed_page_start": 106,
+      "printed_page_end": 108,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c6s2"
+    },
+    {
+      "chapter_id": "c7",
+      "level": 1,
+      "source_title": "第 7 章 现代生物进化理论",
+      "ai_title": "课程 7：理解现代生物进化理论",
+      "page_start": 104,
+      "page_end": 125,
+      "printed_page_start": 109,
+      "printed_page_end": 130,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": null
+    },
+    {
+      "chapter_id": "c7s1",
+      "level": 2,
+      "source_title": "第 1 节 现代生物进化理论的由来",
+      "ai_title": "课程 7.1：追溯生物进化理论",
+      "page_start": 105,
+      "page_end": 108,
+      "printed_page_start": 110,
+      "printed_page_end": 113,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7"
+    },
+    {
+      "chapter_id": "c7s2",
+      "level": 2,
+      "source_title": "第 2 节 现代生物进化理论的主要内容",
+      "ai_title": "课程 7.2：理解现代进化理论",
+      "page_start": 109,
+      "page_end": 121,
+      "printed_page_start": 114,
+      "printed_page_end": 126,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7"
+    },
+    {
+      "chapter_id": "c7s2a",
+      "level": 3,
+      "source_title": "一 种群基因频率的改变与生物进化",
+      "ai_title": "分目：基因频率与生物进化",
+      "page_start": 109,
+      "page_end": 113,
+      "printed_page_start": 114,
+      "printed_page_end": 118,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7s2"
+    },
+    {
+      "chapter_id": "c7s2b",
+      "level": 3,
+      "source_title": "二 隔离与物种的形成",
+      "ai_title": "分目：隔离与物种形成",
+      "page_start": 114,
+      "page_end": 116,
+      "printed_page_start": 119,
+      "printed_page_end": 121,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7s2"
+    },
+    {
+      "chapter_id": "c7career1",
+      "level": 3,
+      "source_title": "与生物学有关的职业 化石标本的制作",
+      "ai_title": "职业拓展：化石标本制作",
+      "page_start": 117,
+      "page_end": 117,
+      "printed_page_start": 122,
+      "printed_page_end": 122,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7s2"
+    },
+    {
+      "chapter_id": "c7s2c",
+      "level": 3,
+      "source_title": "三 共同进化与生物多样性的形成",
+      "ai_title": "分目：共同进化与生物多样性",
+      "page_start": 118,
+      "page_end": 121,
+      "printed_page_start": 123,
+      "printed_page_end": 126,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7s2"
+    },
+    {
+      "chapter_id": "c7sts1",
+      "level": 2,
+      "source_title": "科学·技术·社会 理想的“地质时钟”",
+      "ai_title": "拓展：理想的地质时钟",
+      "page_start": 122,
+      "page_end": 125,
+      "printed_page_start": 127,
+      "printed_page_end": 130,
+      "confidence": 100,
+      "status": "已确认",
+      "source": "manual_toc_reference",
+      "parent_id": "c7"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "asset_meiosis_30",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "extracted",
+      "page": 11,
+      "type": "figure",
+      "caption": "减数分裂小节页面（视觉基线页图）",
+      "bbox": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "image_url": "/assets/textbook/biology-lesson-meiosis-1.webp",
+      "thumbnail_url": "/assets/textbook/biology-lesson-meiosis-1.webp",
+      "source_page_image_url": "/assets/textbook/biology-lesson-meiosis-1.webp",
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "同源染色体",
+        "四分体"
+      ],
+      "review_status": "approved",
+      "source_page_pdf": 11,
+      "source_page_printed": 16,
+      "source_origin": "migrated-source-frontend-baseline",
+      "mineru_extracted": false,
+      "authorization_status": "internal-demo-only; verify before distribution",
+      "provenance_note": "该页图来自源前端既有视觉基线，本轮内容引用由 MinerU OCR 重新建立。"
+    },
+    {
+      "asset_id": "asset_meiosis_35",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "extracted",
+      "page": 12,
+      "type": "figure",
+      "caption": "精子形成与减数分裂过程页面（视觉基线页图）",
+      "bbox": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "image_url": "/assets/textbook/biology-lesson-meiosis-2.webp",
+      "thumbnail_url": "/assets/textbook/biology-lesson-meiosis-2.webp",
+      "source_page_image_url": "/assets/textbook/biology-lesson-meiosis-2.webp",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "受精作用"
+      ],
+      "review_status": "approved",
+      "source_page_pdf": 12,
+      "source_page_printed": 17,
+      "source_origin": "migrated-source-frontend-baseline",
+      "mineru_extracted": false,
+      "authorization_status": "internal-demo-only; verify before distribution",
+      "provenance_note": "该页图来自源前端既有视觉基线，本轮内容引用由 MinerU OCR 重新建立。"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_fertilization_cycle_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂形成配子并通过受精恢复染色体数目的概览",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11",
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "减数分裂",
+        "配子",
+        "受精作用",
+        "染色体数目稳定"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_overview_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂一次复制、两次分裂的完整过程示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-overview-v2.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-overview-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "减数分裂",
+        "染色体数目减半"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_homologous_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体联会、交叉互换与分离示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-homologous-separation-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-homologous-separation-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "减数分裂",
+        "同源染色体",
+        "联会",
+        "四分体"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_separation_compare_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体分离与姐妹染色单体分开的对比示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-separation-compare-v2.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-separation-compare-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "同源染色体",
+        "姐妹染色单体",
+        "减数第一次分裂",
+        "减数第二次分裂"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_fertilization_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "受精作用使染色体数目恢复为二倍体示意",
+      "bbox": null,
+      "image_url": "/assets/lesson/fertilization-diploid-restoration-v1.webp",
+      "thumbnail_url": "/assets/lesson/fertilization-diploid-restoration-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "受精作用",
+        "染色体数目稳定"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_dna_replication_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数分裂前 DNA 复制使染色体形成姐妹染色单体",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-dna-replication-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-dna-replication-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "concepts": [
+        "DNA 复制",
+        "姐妹染色单体",
+        "染色体数目"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_synapsis_crossing_over_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "同源染色体联会形成四分体并发生交叉互换",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "同源染色体",
+        "联会",
+        "四分体",
+        "交叉互换"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_meiosis_ii_centromere_v1",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "减数第二次分裂中着丝点分裂和姐妹染色单体分开",
+      "bbox": null,
+      "image_url": "/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "thumbnail_url": "/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "concepts": [
+        "减数第二次分裂",
+        "着丝点",
+        "姐妹染色单体"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    },
+    {
+      "asset_id": "asset_ai_fertilization_homolog_pair_v2",
+      "book_id": "book_biology_2",
+      "chapter_id": "c2s1",
+      "source_type": "ai_generated",
+      "page": null,
+      "type": "diagram",
+      "caption": "精卵融合使受精卵恢复成对的同源染色体",
+      "bbox": null,
+      "image_url": "/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "thumbnail_url": "/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "source_page_image_url": null,
+      "source_chunk_ids": [
+        "chunk_c2s1_19"
+      ],
+      "concepts": [
+        "受精作用",
+        "单倍体",
+        "二倍体",
+        "同源染色体"
+      ],
+      "generation_provider": "openai-imagegen",
+      "review_status": "approved"
+    }
+  ],
+  "flashcards": [
+    {
+      "card_id": "fc_homologous",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "front": "什么是同源染色体？",
+      "back": "形态、大小一般相同，一条来自父方、一条来自母方，并控制同一类性状的一对染色体。",
+      "concept": "同源染色体",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "page_start": 13,
+      "page_end": 13,
+      "due": "today",
+      "mastery": 58,
+      "reason": "来自作业诊断卡点",
+      "printed_page_start": 18,
+      "printed_page_end": 18
+    },
+    {
+      "card_id": "fc_tetrad",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "front": "四分体为什么叫“四”？",
+      "back": "一对同源染色体联会后，每条染色体含两条姐妹染色单体，因此共有四条染色单体。",
+      "concept": "四分体",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "page_start": 13,
+      "page_end": 13,
+      "due": "today",
+      "mastery": 64,
+      "reason": "章节学习生成",
+      "printed_page_start": 18,
+      "printed_page_end": 18
+    },
+    {
+      "card_id": "fc_meiosis_i",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "front": "同源染色体分离发生在哪一次分裂？",
+      "back": "发生在减数第一次分裂后期，这是染色体数目减半的关键步骤。",
+      "concept": "减数第一次分裂",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "page_start": 13,
+      "page_end": 13,
+      "due": "today",
+      "mastery": 52,
+      "reason": "错题自动加入",
+      "printed_page_start": 18,
+      "printed_page_end": 18
+    },
+    {
+      "card_id": "fc_sister",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "front": "姐妹染色单体在什么时候分离？",
+      "back": "姐妹染色单体在减数第二次分裂后期分离，容易和同源染色体分离混淆。",
+      "concept": "姐妹染色单体",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "page_start": 13,
+      "page_end": 13,
+      "due": "today",
+      "mastery": 55,
+      "reason": "来自作业诊断卡点",
+      "printed_page_start": 18,
+      "printed_page_end": 18
+    },
+    {
+      "card_id": "fc_fertilization",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "front": "受精作用如何维持染色体数目稳定？",
+      "back": "精子和卵细胞结合后，两套配子染色体合并，使受精卵恢复体细胞染色体数目。",
+      "concept": "受精作用",
+      "source_chunk_ids": [
+        "chunk_c2s1_19"
+      ],
+      "page_start": 19,
+      "page_end": 19,
+      "due": "today",
+      "mastery": 70,
+      "reason": "章节学习生成",
+      "printed_page_start": 24,
+      "printed_page_end": 24
+    },
+    {
+      "card_id": "fc_one_two",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "front": "“一次复制、两次分裂”是什么意思？",
+      "back": "DNA 只复制一次，但细胞连续分裂两次，因此配子中染色体数目减半。",
+      "concept": "减数分裂过程",
+      "source_chunk_ids": [
+        "chunk_c2s1_11"
+      ],
+      "page_start": 11,
+      "page_end": 11,
+      "due": "today",
+      "mastery": 62,
+      "reason": "章节学习生成",
+      "printed_page_start": 16,
+      "printed_page_end": 16
+    }
+  ],
+  "quizzes": [
+    {
+      "question_id": "quiz_meiosis_01",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "prompt": "同源染色体分离发生在减数分裂的哪个阶段？",
+      "choices": [
+        "减数第一次分裂后期",
+        "减数第二次分裂后期",
+        "有丝分裂后期",
+        "受精作用后"
+      ],
+      "answer": "减数第一次分裂后期",
+      "explanation": "减数第一次分裂后期分离同源染色体，姐妹染色单体在第二次分裂后期分离。",
+      "concept": "减数第一次分裂",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "page_start": 13,
+      "page_end": 13,
+      "printed_page_start": 18,
+      "printed_page_end": 18
+    },
+    {
+      "question_id": "quiz_meiosis_02",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "prompt": "四分体由什么形成？",
+      "choices": [
+        "两条非同源染色体",
+        "一对联会的同源染色体",
+        "两个配子",
+        "一条染色体和一个基因"
+      ],
+      "answer": "一对联会的同源染色体",
+      "explanation": "联会发生在同源染色体之间，每条染色体含两条姐妹染色单体，共形成四分体。",
+      "concept": "四分体",
+      "source_chunk_ids": [
+        "chunk_c2s1_13"
+      ],
+      "page_start": 13,
+      "page_end": 13,
+      "printed_page_start": 18,
+      "printed_page_end": 18
+    },
+    {
+      "question_id": "quiz_meiosis_03",
+      "book_id": "book_biology_2",
+      "lesson_id": "lesson_meiosis",
+      "chapter_id": "c2s1",
+      "prompt": "受精作用对染色体数目的作用是什么？",
+      "choices": [
+        "使染色体数目减半",
+        "使染色体数目恢复到体细胞水平",
+        "使染色体全部复制",
+        "使同源染色体消失"
+      ],
+      "answer": "使染色体数目恢复到体细胞水平",
+      "explanation": "配子结合后，两套单倍体染色体重新组合，受精卵恢复体细胞染色体数目。",
+      "concept": "受精作用",
+      "source_chunk_ids": [
+        "chunk_c2s1_19"
+      ],
+      "page_start": 19,
+      "page_end": 19,
+      "printed_page_start": 24,
+      "printed_page_end": 24
+    }
+  ],
+  "studyPlan": {
+    "user_id": "local_user",
+    "book_id": "book_biology_2",
+    "days": 14,
+    "daily_minutes": 30,
+    "tasks": [
+      {
+        "task_id": "task_05",
+        "user_id": "local_user",
+        "day": 5,
+        "title": "减数分裂和受精作用",
+        "chapter_id": "c2s1",
+        "task_type": "课程 + 图示讲解",
+        "minutes": 30,
+        "lesson_id": "lesson_meiosis",
+        "review_target": null,
+        "status": "in_progress",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_06",
+        "user_id": "local_user",
+        "day": 6,
+        "title": "同源染色体薄弱点",
+        "chapter_id": "c2s1",
+        "task_type": "闪卡复习 + 再练",
+        "minutes": 18,
+        "lesson_id": "lesson_meiosis",
+        "review_target": "同源染色体、减数第一次分裂",
+        "status": "pending",
+        "score": null,
+        "weak_points": [
+          "同源染色体与姐妹染色单体"
+        ]
+      },
+      {
+        "task_id": "task_07",
+        "user_id": "local_user",
+        "day": 7,
+        "title": "伴性遗传",
+        "chapter_id": "c2s3",
+        "task_type": "课程 + 练习",
+        "minutes": 30,
+        "lesson_id": null,
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_08",
+        "user_id": "local_user",
+        "day": 8,
+        "title": "DNA 结构",
+        "chapter_id": "c3s2",
+        "task_type": "课程 + 闪卡",
+        "minutes": 30,
+        "lesson_id": null,
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_09",
+        "user_id": "local_user",
+        "day": 9,
+        "title": "DNA 复制",
+        "chapter_id": "c3s3",
+        "task_type": "课程 + 练习",
+        "minutes": 30,
+        "lesson_id": null,
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_10",
+        "user_id": "local_user",
+        "day": 10,
+        "title": "基因表达",
+        "chapter_id": "c4s1",
+        "task_type": "图示讲解",
+        "minutes": 25,
+        "lesson_id": null,
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_11",
+        "user_id": "local_user",
+        "day": 11,
+        "title": "综合错题回顾",
+        "task_type": "诊断练习",
+        "minutes": 30,
+        "lesson_id": null,
+        "review_target": "历史卡点",
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_12",
+        "user_id": "local_user",
+        "day": 12,
+        "title": "遗传规律综合题",
+        "task_type": "限时练习",
+        "minutes": 35,
+        "lesson_id": null,
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_13",
+        "user_id": "local_user",
+        "day": 13,
+        "title": "章节闪卡总复习",
+        "task_type": "闪卡复习",
+        "minutes": 20,
+        "lesson_id": "lesson_meiosis",
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      },
+      {
+        "task_id": "task_14",
+        "user_id": "local_user",
+        "day": 14,
+        "title": "学习成果报告",
+        "task_type": "总结与调整",
+        "minutes": 15,
+        "lesson_id": null,
+        "review_target": null,
+        "status": "pending",
+        "score": null,
+        "weak_points": []
+      }
+    ]
+  },
+  "assignment": {
+    "assignment_id": "assignment_c2s1",
+    "title": "判断同源染色体分离发生在哪个时期",
+    "source": "《遗传与进化》第 2 章第 1 节 · 教材第 18 页（PDF 第 13 页）",
+    "question": "同源染色体分离发生在减数分裂的哪个阶段？请说明它与染色体数目减半的关系。",
+    "initialAnswer": "减数第二次分裂后期",
+    "correctIdea": "同源染色体分离发生在减数第一次分裂后期，这一步让每个子细胞只获得每对同源染色体中的一条。"
+  },
+  "diagnosis": {
+    "result": "你的答案把同源染色体和姐妹染色单体混在了一起。减数第二次分裂后期分离的是姐妹染色单体，而同源染色体分离发生在减数第一次分裂后期。",
+    "stuck_point": "没有区分同源染色体分离与姐妹染色单体分离。",
+    "knowledge_points": [
+      "同源染色体",
+      "减数第一次分裂",
+      "姐妹染色单体"
+    ],
+    "review_page": "教材第 18 页（PDF 第 13 页）· 同源染色体分离",
+    "hint": "先问自己：分离的是一对同源染色体，还是复制后连在一起的两条姐妹染色单体。"
+  },
+  "aiReplies": {
+    "default": "同源染色体可以理解成一对来源不同、形态相似、控制同一类性状的染色体。在减数第一次分裂后期，它们被拉向细胞两极，因此配子里只保留每对同源染色体中的一条。",
+    "example": "如果体细胞里有一对 1 号同源染色体，一条来自父方，一条来自母方。减数第一次分裂后，两个子细胞会各拿到其中一条，这就是染色体数目减半的关键。",
+    "quiz": "练习：在减数第二次分裂后期，分离的对象是什么？A. 同源染色体 B. 姐妹染色单体 C. 四分体 D. 等位基因"
+  }
+}

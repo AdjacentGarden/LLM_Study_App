@@ -1,0 +1,28 @@
+{
+  "book_id": "stage5_jpeg_111508",
+  "filename": "sample.jpeg",
+  "file_type": "jpeg",
+  "page_count": 1,
+  "has_text_layer": false,
+  "needs_ocr": false,
+  "source_unit": "image",
+  "source_locations": [
+    {
+      "index": 1,
+      "label": "图片 1",
+      "source_format": "jpeg"
+    }
+  ],
+  "quality_warnings": [
+    {
+      "page": null,
+      "code": "image_input",
+      "message": "image input will be preprocessed and OCRed"
+    },
+    {
+      "page": 1,
+      "code": "too_bright",
+      "message": "image is too bright for reliable OCR"
+    }
+  ]
+}

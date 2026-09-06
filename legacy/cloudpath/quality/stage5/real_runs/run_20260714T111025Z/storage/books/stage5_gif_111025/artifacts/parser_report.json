@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "book_id": "stage5_gif_111025",
+  "requested_parser": "mineru",
+  "final_parser": "unrecoverable",
+  "parse_generation": null,
+  "created_at": "2026-07-14T11:11:17.026724+00:00",
+  "source_page_count": 1,
+  "output_page_count": 1,
+  "attempts": [
+    {
+      "parser": "mineru",
+      "scope": "document",
+      "pages": [],
+      "status": "degraded",
+      "duration_ms": 2040,
+      "error_code": null,
+      "retryable": null,
+      "detail": null,
+      "quality_score": 0.0
+    },
+    {
+      "parser": "ocr",
+      "scope": "pages",
+      "pages": [
+        1
+      ],
+      "status": "failed",
+      "duration_ms": 0,
+      "error_code": "ocr_failed",
+      "retryable": false,
+      "detail": "ValueError",
+      "quality_score": null
+    }
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "parser": "unrecoverable",
+      "quality_score": 0.0,
+      "status": "unrecoverable",
+      "warnings": [
+        "page_unrecoverable"
+      ]
+    }
+  ],
+  "missing_pages": [],
+  "warnings": [
+    "mineru_page_quality_rejected",
+    "page_1:mineru_quality_fallback",
+    "page_1:unrecoverable"
+  ],
+  "mineru_backend": "pipeline",
+  "mineru_version": "3.4.4"
+}
