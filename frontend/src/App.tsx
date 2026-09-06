@@ -256,15 +256,15 @@ function App() {
     finally { setBusy(false); }
   }
 
-  const title = view === "social" ? "好友与消息" : view === "course" ? course?.chapter_title ?? "个人课程" : view === "interview" ? "学习诊断" : view === "library" ? "我的书架" : view === "community" ? "学习社区" : view === "qa" ? "教材答疑" : view === "profile" ? "我的学习" : view === "account" ? "个人资料" : "知我";
+  const title = view === "social" ? "好友与消息" : view === "course" ? course?.chapter_title ?? "个人课程" : view === "interview" ? "学习诊断" : view === "library" ? "我的书架" : view === "community" ? "学习社区" : view === "qa" ? "教材答疑" : view === "profile" ? "我的学习" : view === "account" ? "个人资料" : "云径";
 
   return (
     <main className="stage" style={{ "--font-scale": fontScale } as React.CSSProperties}>
-      <section className="phone" aria-label="知我手机端模拟界面">
+      <section className="phone" aria-label="云径手机端模拟界面">
         <div className="statusbar"><span>9:41</span><span>●●● 100%</span></div>
         <header className={`app-header ${view === "interview" || view === "course" || view === "account" ? "context-header" : "root-header"}`}>
           {(view === "interview" || view === "course" || view === "account") && <button disabled={busy} className="icon-button" aria-label="返回" onClick={() => setView(view==="account"?"profile":"home")}><Icon name="back"/></button>}
-          <div><p>知我 · 个性化读书课</p><h1>{title}</h1></div>
+          <div><p>云径 · 个性化读书课</p><h1>{title}</h1></div>
           {view!=="profile"&&view!=="account"&&<img src={userProfile?.avatar_url??DEFAULT_AVATAR} alt="用户头像" />}
         </header>
 

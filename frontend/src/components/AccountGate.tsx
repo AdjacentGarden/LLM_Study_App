@@ -291,7 +291,7 @@ function RegisterPage({
         </div>
         <div className="auth-scroll">
           <header className="auth-hero">
-            <span className="auth-brand">✦ 知我</span>
+            <span className="auth-brand">✦ 云径</span>
             <div className="auth-orbit" aria-hidden="true">
               <Icon name="book" size={42} />
               <i>✧</i>

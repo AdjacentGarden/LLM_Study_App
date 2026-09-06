@@ -179,11 +179,11 @@ class Accounts:
     @staticmethod
     def _email(email: str, code: str) -> None:
         message = EmailMessage()
-        message["Subject"] = "知我 · 邮箱验证码"
+        message["Subject"] = "云径 · 邮箱验证码"
         message["From"] = os.environ["SMTP_FROM"]
         message["To"] = email
         message.set_content(
-            f"你的知我邮箱验证码是：{code}\n10 分钟内有效，请勿向他人提供。\n如果不是你本人操作，请忽略这封邮件。"
+            f"你的云径邮箱验证码是：{code}\n10 分钟内有效，请勿向他人提供。\n如果不是你本人操作，请忽略这封邮件。"
         )
         host, port = os.environ["SMTP_HOST"], int(os.getenv("SMTP_PORT", "465"))
         context = ssl.create_default_context()

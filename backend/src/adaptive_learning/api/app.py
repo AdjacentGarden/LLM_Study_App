@@ -172,7 +172,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Adaptive Book Learning API",
+    title="云径 CloudPath API",
     version="0.1.0",
     description="高精度文档重建、主动学习者诊断与个性化章节课程服务",
     lifespan=lifespan,
