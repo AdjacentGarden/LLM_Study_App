@@ -38,7 +38,10 @@ def replace_assignments(original: str, updates: dict[str, str]) -> str:
 
 def main() -> None:
     email = input("QQ email: ").strip().lower()
-    if not re.fullmatch(r"[1-9][0-9]{4,11}@qq\.com", email):
+    if (
+        not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,63}@qq\.com", email)
+        or ".." in email
+    ):
         raise SystemExit("invalid QQ email address")
     app_password = getpass.getpass("QQ SMTP authorization code: ").strip()
     if not app_password:
