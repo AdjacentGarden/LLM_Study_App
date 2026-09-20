@@ -159,6 +159,16 @@ const notePhase: Record<string, string> = {
   repairing: "正在校正整理格式…",
   checking: "正在复核整理结果…",
 };
+const mediaProgress: Record<
+  string,
+  { value: number; step: string; detail: string }
+> = {
+  queued: { value: 8, step: "已加入队列", detail: "马上开始分析教材内容" },
+  planning: { value: 28, step: "正在设计画面", detail: "先核对教材，再决定画面如何表达" },
+  submitting: { value: 52, step: "正在交给 MiniMax", detail: "生成请求已经安全提交" },
+  polling: { value: 70, step: "MiniMax 正在生成短片", detail: "可以先去阅读，回来后会自动出现" },
+  reviewing: { value: 90, step: "正在检查画面", detail: "逐项核对对象、关系和教学准确性" },
+};
 
 function StudioDialog({
   opening,
@@ -386,6 +396,15 @@ function StudioDialog({
                       ? "生成一张图解"
                       : "生成 6 秒短片"}
                 </button>
+                {jobs
+                  .filter(
+                    (job) =>
+                      job.kind === mode && pendingStudio(job),
+                  )
+                  .slice(0, 1)
+                  .map((job) => (
+                    <MediaJobProgress job={job} compact key={job.id} />
+                  ))}
                 {caps && !caps[mode] && (
                   <p role="status">
                     {caps.media_notice ||
@@ -518,7 +537,10 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
         </strong>
         <small role="status">{(pendingStudio(job) && notePhase[job.result.phase ?? ""]) || statusText[job.status] || job.status}</small>
       </div>
-      {pendingStudio(job) && <p>你可以继续阅读，完成后回到这里查看。</p>}
+      {pendingStudio(job) && ["image", "video"].includes(job.kind) && (
+        <MediaJobProgress job={job} />
+      )}
+      {pendingStudio(job) && !["image", "video"].includes(job.kind) && <p>你可以继续阅读，完成后回到这里查看。</p>}
       {pendingStudio(job) && r.transcript && (
         <details open>
           <summary>已转成文字，正在对照教材</summary>
@@ -527,7 +549,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
       )}
       {job.error && <p className="studio-error">{job.error}</p>}
       {r.visual_scope && <p className="studio-focus">这次看懂：{r.visual_scope}</p>}
-      {job.asset_url && job.kind === "image" && <span className="studio-eyebrow">{r.visual_mode === "diagram" ? "教材关系图" : "辅助插画"}</span>}
+      {job.asset_url && job.kind === "image" && <span className="studio-eyebrow">{r.visual_mode === "diagram" ? "教材彩色概念图" : "AI 辅助插画"}</span>}
       {job.asset_url &&
         (job.kind === "image" ? (
           <StudyImage src={job.asset_url} title={r.title ?? "AI 辅助图解"} />
@@ -563,6 +585,29 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
       )}
       {onNote && <button onClick={onNote}>打开对应笔记 →</button>}
     </article>
+  );
+}
+function MediaJobProgress({ job, compact = false }: { job: StudioJob; compact?: boolean }) {
+  const phase = mediaProgress[job.status] ?? mediaProgress.queued;
+  return (
+    <div className={`studio-job-progress ${compact ? "is-compact" : ""}`} role="status" aria-live="polite">
+      <span className="studio-progress-spinner" aria-hidden="true" />
+      <div>
+        <strong>{phase.step}</strong>
+        <small>{phase.detail}</small>
+        <div
+          className="studio-progress-track"
+          role="progressbar"
+          aria-label={job.kind === "video" ? "短片生成进度" : "图解生成进度"}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={phase.value}
+          aria-valuetext={phase.step}
+        >
+          <i style={{ width: `${phase.value}%` }} />
+        </div>
+      </div>
+    </div>
   );
 }
 function StudyImage({ src, title }: { src: string; title: string }) {

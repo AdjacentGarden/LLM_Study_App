@@ -437,6 +437,87 @@ test("media controls submit once, keep context, and show a failed task without a
   await c.close();
 });
 
+test("media progress remains visible and completed work returns after visiting another book", async ({
+  browser,
+  baseURL,
+}) => {
+  const c = await browser.newContext({ viewport: { width: 402, height: 874 } });
+  const page = await c.newPage();
+  const books = await (await c.request.get(baseURL + "/api/library")).json();
+  test.skip(books.length < 2, "Requires two shelf books to verify switching away and back.");
+  let jobs: any[] = [];
+  await page.route("**/api/studio/capabilities", (route) =>
+    route.fulfill({
+      json: {
+        image: true,
+        video: true,
+        notes_ai: true,
+        voice_notes: true,
+        draft_scope: "media-resume-test",
+      },
+    }),
+  );
+  await page.route("**/api/studio/jobs?*", (route) => {
+    const bookId = new URL(route.request().url()).searchParams.get("book_id");
+    return route.fulfill({ json: { items: jobs.filter((job) => job.book_id === bookId) } });
+  });
+  await page.route("**/api/studio/media", (route) => {
+    const data = route.request().postDataJSON();
+    const job = {
+      id: "persisted_media_job",
+      book_id: data.book_id,
+      kind: "image",
+      status: "planning",
+      error: "",
+      created: Date.now() / 1000,
+      result: { title: "跨页面生成测试" },
+      excerpt: data.excerpt,
+      chapter_title: "",
+      asset_url: null,
+    };
+    jobs = [job];
+    return route.fulfill({ json: job });
+  });
+  await page.goto(baseURL + "/?embedded=1");
+  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: "图解", exact: true }).click();
+  await page.getByLabel("选中的内容").fill("选中的教材测试文本");
+  await page.getByRole("button", { name: "生成一张图解" }).click();
+  await expect(page.getByRole("progressbar", { name: "图解生成进度" }).first()).toBeVisible();
+  await expect(page.getByText("正在设计画面").first()).toBeVisible();
+  await page.getByRole("button", { name: "关闭学习工作台" }).click();
+
+  await page.getByRole("button", { name: "书架", exact: true }).click();
+  await page.locator(".shelf-caption").filter({ hasText: books[1].title }).click();
+  await page.getByRole("button", { name: "书架", exact: true }).click();
+  await expect(
+    page
+      .locator(".shelf-caption")
+      .filter({ hasText: books[1].title })
+      .getByText("正在阅读"),
+  ).toBeVisible();
+  jobs = [
+    {
+      ...jobs[0],
+      status: "succeeded",
+      result: {
+        title: "跨页面生成测试",
+        visual_mode: "illustration",
+        explanation: "离开页面后仍由服务器继续生成。",
+      },
+      asset_url:
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='220'%3E%3Crect width='320' height='220' rx='24' fill='%237655c9'/%3E%3Ccircle cx='160' cy='110' r='58' fill='%2355d6b3'/%3E%3C/svg%3E",
+    },
+  ];
+  await page.locator(".shelf-caption").filter({ hasText: books[0].title }).click();
+  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: "图解", exact: true }).click();
+  await expect(page.getByRole("img", { name: "跨页面生成测试" })).toBeVisible();
+  await expect(page.getByText("离开页面后仍由服务器继续生成。")).toBeVisible();
+  await c.close();
+});
+
 test("saving failure keeps ink and blocks closing until retry succeeds", async ({
   browser,
   baseURL,

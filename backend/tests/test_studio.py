@@ -401,6 +401,8 @@ def test_media_plan_generation_review_private_asset(setup, monkeypatch):
     assert value["status"] == "succeeded"
     assert "visual_prompt" not in value["result"]
     assert len(called) == 1 and called[0]["n"] == 1 and not called[0]["prompt_optimizer"]
+    assert "Colorful modern educational illustration" in called[0]["prompt"]
+    assert "no wireframe-only look" in called[0]["prompt"]
     asset = a.get(value["asset_url"])
     assert asset.status_code == 200 and asset.headers["cache-control"] == "private, no-store"
     assert b.get(value["asset_url"]).status_code == 404
@@ -818,6 +820,8 @@ def test_diagram_uses_no_paid_media_and_is_still_reviewed(setup, monkeypatch):
     )
     image = Image.open(io.BytesIO(a.get(value["asset_url"]).content))
     assert image.size == (1152, 864)
+    pixels = list(image.resize((96, 72)).getdata())
+    assert sum(max(pixel) - min(pixel) > 25 for pixel in pixels) > 300
 
 
 def test_diagram_labels_fit_maximum_lengths():
@@ -915,6 +919,7 @@ def test_video_reuses_first_frame_without_extra_generation(setup, monkeypatch):
         calls.append(path)
         assert payload["first_frame_image"].startswith("data:image/jpeg;base64,")
         assert payload["duration"] == 6
+        assert "Colorful modern educational illustration" in payload["prompt"]
         return {"task_id": "12345"}
 
     monkeypatch.setattr(s, "minimax", provider)

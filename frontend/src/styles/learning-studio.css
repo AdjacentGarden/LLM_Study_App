@@ -429,7 +429,76 @@
   overflow-wrap: anywhere;
 }
 .studio-job.is-working {
-  border-style: dashed;
+  border-color: #cfc0e3;
+  box-shadow: 0 8px 26px rgb(78 52 112 / 8%);
+}
+.studio-job-progress {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 4px;
+  padding: 13px;
+  border: 1px solid #e2d9ed;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #faf7ff, #f3faf8);
+}
+.studio-job-progress.is-compact {
+  margin-top: 12px;
+  text-align: left;
+}
+.studio-job-progress > div {
+  min-width: 0;
+}
+.studio-job-progress strong,
+.studio-job-progress small {
+  display: block;
+}
+.studio-job-progress strong {
+  color: #4d3c67;
+  font-size: 13px;
+}
+.studio-job-progress small {
+  margin-top: 3px;
+  color: #84788f;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.studio-progress-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e4dbef;
+  border-top-color: #7853b6;
+  border-right-color: #46a999;
+  border-radius: 50%;
+  animation: studio-spin .9s linear infinite;
+}
+.studio-progress-track {
+  position: relative;
+  height: 7px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: #e9e4ed;
+  overflow: hidden;
+}
+.studio-progress-track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7655c9, #45b6a2, #68aee8);
+  transition: width .45s ease;
+}
+.studio-progress-track i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 70%) 50%, transparent 80%);
+  animation: studio-progress-shine 1.4s ease-in-out infinite;
+}
+@keyframes studio-spin { to { transform: rotate(360deg); } }
+@keyframes studio-progress-shine {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
 }
 .ink-back {
   border: 0;
@@ -747,6 +816,8 @@
   .learning-studio-entry,
   .studio-segments button,
   .studio-primary,
+  .studio-progress-spinner,
+  .studio-progress-track i::after,
   .voice-note.is-recording .voice-orb,
   .voice-note.is-recording .voice-orb i {
     animation: none;
