@@ -19,9 +19,10 @@ export async function request<T>(path: string, init: RequestInit = {}, timeoutMs
   if (init.signal?.aborted) abort();
   const timer = setTimeout(abort, timeoutMs);
   try {
+    const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
     const response = await fetch(path, {
       ...init, signal: controller.signal,
-      headers: { "Content-Type": "application/json", ...init.headers },
+      headers: { ...(multipart ? {} : { "Content-Type": "application/json" }), ...init.headers },
     });
     const value: unknown = await response.json().catch(() => null);
     if (!response.ok) {

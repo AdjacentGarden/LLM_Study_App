@@ -18,8 +18,10 @@ from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..social import SocialRepository
 from .account_routes import account_router
+from .retention_routes import retention_router
 from .schemas import BookCatalogItem
 from .social_routes import social_router
+from .studio_routes import studio_router
 from .user_profile import UserProfileInput, normalize_avatar, public_profile
 
 
@@ -158,6 +160,60 @@ def community_router(
     @router.get("/library", response_model=list[BookCatalogItem])
     def library(owner: str = Depends(visitor)) -> list[dict[str, Any]]:
         return repo.library(owner)
+
+    @router.post("/library/books/{book_id}/claim", response_model=BookCatalogItem)
+    def claim_uploaded_book(
+        book_id: str, owner: str = Depends(visitor)
+    ) -> dict[str, Any]:
+        """Attach a fully structured private upload to the current user's shelf."""
+        if not repo.owns_upload(owner, book_id):
+            raise HTTPException(403, "这不是当前账号上传的教材")
+        stored = jobs().get_book(book_id)
+        structure = jobs().get_structure(book_id)
+        source_hash = jobs().source_fingerprint(book_id)
+        if stored is None or structure is None or not source_hash:
+            raise HTTPException(409, "这本书仍在解析，请稍后再试")
+        catalog = {
+            "book_id": book_id,
+            "title": structure.title.removesuffix(".pdf"),
+            "status": stored.status,
+            "page_count": structure.source_page_count,
+            "chapter_count": len(structure.chapters),
+            "summary": structure.summary,
+            "diagnostics_ready": bool(
+                assessments().get_bank(book_id, expected_fingerprint=None)
+            ),
+            "cover_url": None,
+        }
+        pages_path = stored.file_path.parent / "ocr" / "normalized" / "pages.jsonl"
+        normalized_text: list[str] = []
+        try:
+            for line in pages_path.read_text(encoding="utf-8").splitlines():
+                page = json.loads(line)
+                normalized_text.append(
+                    str(page.get("cleaned_text") or page.get("raw_text") or "")
+                )
+        except (OSError, ValueError, TypeError):
+            normalized_text = []
+        canonical = repo.register_asset(
+            catalog, source_hash, text_fingerprint("\n".join(normalized_text))
+        )
+        repo.add_book(owner, canonical)
+        published.add(canonical)
+        canonical_asset = repo.asset(canonical)
+        if canonical_asset is None:
+            raise HTTPException(500, "教材加入书架失败")
+        return json.loads(canonical_asset["catalog"])
+
+    @router.post("/library/books/{book_id}/bind-upload")
+    def bind_uploaded_book(
+        book_id: str, owner: str = Depends(visitor)
+    ) -> dict[str, bool]:
+        if jobs().get_book(book_id) is None:
+            raise HTTPException(404, "上传任务不存在")
+        if not repo.bind_upload(owner, book_id):
+            raise HTTPException(403, "这本教材已经属于另一个账号")
+        return {"ok": True}
 
     @router.post("/library/books/{book_id}/remove")
     def remove_book(book_id: str, owner: str = Depends(visitor)) -> dict[str, Any]:
@@ -399,5 +455,7 @@ def community_router(
         }
 
     router.include_router(social_router(social, visitor, make_attachment))
+    router.include_router(retention_router(repo, visitor, owned_book, owned_session, assessments))
+    router.include_router(studio_router(data_dir, visitor, owned_book))
     router.include_router(account_router(accounts, social, visitor, assessments))
     return router

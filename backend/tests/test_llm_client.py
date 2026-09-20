@@ -120,6 +120,12 @@ def test_bad_model_output_becomes_controlled_error(monkeypatch, content):
         _client(max_retries=0).structured(system="s",user="u")
 
 
+def test_reasoning_prelude_is_not_exposed_as_json_content() -> None:
+    assert OpenAICompatibleClient._parse_object(
+        '<think>internal reasoning that must stay hidden</think>\n{"ok": true}'
+    ) == {"ok": True}
+
+
 def test_connection_client_is_reused_and_can_be_closed(monkeypatch):
     client=_client(max_retries=0)
     instances=[]

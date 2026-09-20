@@ -30,6 +30,7 @@ test('email signup/login, public demo friends, cross-device chat and session rev
      await f.getByRole('textbox',{name:'注册登录邮箱'}).fill(emails[index]);
      await code(page,f);
      if(!existing){
+       await f.getByRole('button',{name:'下一步 · 学习偏好',exact:true}).click();
        await f.getByRole('textbox',{name:'注册昵称'}).fill(['小林 · 演示','默默 · 演示','阿辰 · 演示'][index]);
        await f.getByLabel('学习阶段',{exact:true}).selectOption(['university','high','working'][index]);
        await f.getByRole('button',{name:['自然科学','语言学习','工程技术'][index],exact:true}).click();

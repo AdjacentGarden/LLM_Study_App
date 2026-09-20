@@ -9,6 +9,7 @@ tmp/
 *.log
 test-results/
 test-results-*/
+test-artifacts/
 playwright-report/
 .venv/
 node_modules/

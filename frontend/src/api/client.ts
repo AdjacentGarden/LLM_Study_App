@@ -10,6 +10,7 @@ import type {
   QAResult,
   Turn,
   UserProfile, UserProfileUpdate,
+  UploadResponse, BookStatus,
 } from "../types/api";
 
 import { request } from "./transport";
@@ -18,6 +19,14 @@ const post = <T>(path: string, body?: object) =>
   request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
 
 export const api = {
+  uploadBook:(file:File)=>{const body=new FormData();body.append("file",file);return request<UploadResponse>("/api/books",{method:"POST",body},600_000);},
+  bindUpload:(bookId:string)=>post<{ok:boolean}>(`/api/library/books/${bookId}/bind-upload`),
+  processBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process`),
+  retryBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process/retry`),
+  bookStatus:(bookId:string)=>request<BookStatus>(`/api/books/${bookId}/status`,{},30_000),
+  buildStructure:(bookId:string)=>post<BookStructure>(`/api/books/${bookId}/structure`),
+  buildDiagnostics:(bookId:string)=>post<{ready:boolean}>(`/api/books/${bookId}/diagnostics`),
+  claimBook:(bookId:string)=>post<BookCatalogItem>(`/api/library/books/${bookId}/claim`),
   userProfile:()=>request<UserProfile>("/api/user/profile"),
   saveUserProfile:(body:UserProfileUpdate)=>post<UserProfile>("/api/user/profile",body),
   learningRecords:(sessionId:string)=>request<LearningRecords>(`/api/interviews/${sessionId}/learning-records`),

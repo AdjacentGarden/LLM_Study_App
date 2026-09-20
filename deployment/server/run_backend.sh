@@ -122,6 +122,9 @@ fi
 if [[ -r "${RUNTIME_ROOT}/config/accounts.env" ]]; then
   source "${RUNTIME_ROOT}/config/accounts.env"
 fi
+if [[ -r "${RUNTIME_ROOT}/secrets/learning-studio.env" ]]; then
+  source "${RUNTIME_ROOT}/secrets/learning-studio.env"
+fi
 set +a
 
 export APP_ENV="production"
@@ -142,10 +145,14 @@ export PUBLISHED_BOOK_IDS="${PUBLISHED_BOOK_IDS:-biology-required-2}"
 export RAG_INDEX_DIR="${RUNTIME_ROOT}/rag-eval/index"
 export RAG_EMBEDDING_MODEL_PATH="${RUNTIME_ROOT}/rag-eval/models/bge-small-zh-v1.5"
 export RAG_RERANKER_MODEL_PATH="${RUNTIME_ROOT}/rag-eval/models/bge-reranker-base"
-export RAG_DEVICE="cuda"
+export RAG_DEVICE="${RAG_DEVICE:-auto}"
 export RAG_REFUSAL_SCORE_THRESHOLD="0"
 export RAG_TOP_PAGES="5"
 export RAG_MAX_EVIDENCE="10"
+export VOICE_ASR_PYTHON="${VOICE_ASR_PYTHON:-/usr/bin/python3}"
+export VOICE_ASR_PYTHONPATH="${VOICE_ASR_PYTHONPATH:-${RUNTIME_ROOT}/studio-runtime/asr-lib}"
+export VOICE_ASR_MODEL="${VOICE_ASR_MODEL:-${RUNTIME_ROOT}/models/faster-whisper-small}"
+export VOICE_ASR_SCRIPT="${VOICE_ASR_SCRIPT:-${APP_ROOT}/deployment/server/transcribe_voice_note.py}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 export PYTHONPATH="${APP_ROOT}/backend/src:${RUNTIME_ROOT}/runtime-patches/lib/python3.12/site-packages:${RUNTIME_ROOT}/runtime/lib/python3.12/site-packages"
@@ -160,6 +167,10 @@ fi
 
 mkdir -p "${RUNTIME_ROOT}/data" "${RUNTIME_ROOT}/logs" "${RUNTIME_ROOT}/run"
 cd "${APP_ROOT}"
+
+# Keep enough headroom for concurrent uploads, model sockets and SQLite WAL files.
+# Repositories still close every connection explicitly; this is only a production guardrail.
+ulimit -n 65536 2>/dev/null || true
 
 exec /home/zhenghang/download/enter/bin/python -m uvicorn \
   adaptive_learning.api.app:app \

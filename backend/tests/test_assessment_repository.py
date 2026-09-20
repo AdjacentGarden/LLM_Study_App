@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import UTC, datetime
 
 import pytest
@@ -12,6 +13,14 @@ from adaptive_learning.assessment.repository import (
     SessionConflictError,
     SQLiteAssessmentRepository,
 )
+
+
+def test_repository_context_closes_connection(tmp_path) -> None:
+    repository = SQLiteAssessmentRepository(tmp_path / "assessment.sqlite3")
+    with repository._connect() as connection:
+        connection.execute("SELECT 1")
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
 
 
 def item() -> DiagnosticItem:

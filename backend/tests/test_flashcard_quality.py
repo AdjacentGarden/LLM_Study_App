@@ -1,5 +1,6 @@
 import importlib
 import json
+import sqlite3
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
@@ -18,6 +19,14 @@ from adaptive_learning.personalization.flashcard_quality import (
 )
 from adaptive_learning.personalization.generator import ChapterCourseCompiler
 from adaptive_learning.personalization.policy import PersonalizationPolicy
+
+
+def test_quality_cache_context_closes_connection(tmp_path) -> None:
+    gate = FlashcardQualityGate(None, tmp_path / "quality.sqlite3", "test")
+    with gate._connect() as connection:
+        connection.execute("SELECT 1")
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
 
 
 def course():

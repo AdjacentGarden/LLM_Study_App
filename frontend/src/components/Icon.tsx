@@ -1,5 +1,6 @@
-export type IconName = "home" | "book" | "spark" | "user" | "arrow" | "back" | "cards" | "check" | "send" | "clock" | "community";
+export type IconName = "home" | "book" | "spark" | "user" | "arrow" | "back" | "cards" | "check" | "send" | "clock" | "community" | "upload";
 const paths: Record<IconName, string> = {
+  upload: "M12 16V4m-5 5 5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5",
   community: "M16 21v-2a5 5 0 0 0-10 0v2M15 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM18 4a3 3 0 0 1 0 6m1 4a4 4 0 0 1 3 4v2",
   home: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z",
   book: "M12 5v16M3 4h5a4 4 0 0 1 4 2 4 4 0 0 1 4-2h5v15h-5a5 5 0 0 0-4 2 5 5 0 0 0-4-2H3z",

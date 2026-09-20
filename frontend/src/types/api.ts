@@ -75,6 +75,26 @@ export interface BookCatalogItem {
   summary: string;
 }
 
+export interface UploadResponse {
+  book_id: string;
+  filename: string;
+  status: string;
+  next: string;
+}
+
+export interface BookStatus {
+  book_id: string;
+  status: string;
+  progress: number;
+  current_step: string;
+  quality_score: number | null;
+  needs_human_review: boolean;
+  attempts: number;
+  max_attempts: number;
+  page_count: number | null;
+  retryable: boolean;
+}
+
 export interface LearningRecords {
   book_id:string;
   knowledge:Array<{id:string;title:string;chapter:string;mastery:number;evidence_count:number;pages:number[]}>;

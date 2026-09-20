@@ -12,7 +12,8 @@ import sys
 import threading
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -77,16 +78,23 @@ class SQLiteOCRJobRepository:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.database_path, timeout=30, isolation_level=None)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys=ON")
         connection.execute("PRAGMA busy_timeout=30000")
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def source_fingerprint(self, book_id: str) -> str | None:
         with self._connect() as connection:
-            row = connection.execute("SELECT source_sha256 FROM books WHERE book_id=?", (book_id,)).fetchone()
+            row = connection.execute(
+                "SELECT source_sha256 FROM books WHERE book_id=?", (book_id,)
+            ).fetchone()
         return str(row[0]) if row else None
 
     def _initialize(self) -> None:
@@ -757,7 +765,25 @@ class OCRWorker:
         if self._thread:
             self._thread.join(timeout=timeout)
 
+    def is_alive(self) -> bool:
+        return bool(self._thread and self._thread.is_alive())
+
     def _run(self) -> None:
+        database_unavailable = False
         while not self._stop.is_set():
-            if not self.process_once():
+            try:
+                worked = self.process_once()
+                if database_unavailable:
+                    logger.info("OCR job database is available again")
+                    database_unavailable = False
+            except sqlite3.Error as error:
+                if not database_unavailable:
+                    logger.warning(
+                        "OCR job database temporarily unavailable; retrying",
+                        extra={"error_type": type(error).__name__},
+                    )
+                    database_unavailable = True
+                self._stop.wait(max(1.0, self.poll_interval))
+                continue
+            if not worked:
                 self._stop.wait(self.poll_interval)

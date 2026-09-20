@@ -13,6 +13,7 @@ from adaptive_learning.assessment.models import InterviewSession, LearnerProfile
 from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
 from adaptive_learning.community import CommunityRepository, text_fingerprint
 from adaptive_learning.ingestion.jobs import SQLiteOCRJobRepository
+from adaptive_learning.ingestion.models import BookStructure, ChapterDraft
 from adaptive_learning.personalization.generator import ChapterCourseCompiler
 from adaptive_learning.personalization.policy import PersonalizationPolicy
 
@@ -131,6 +132,50 @@ def test_concurrent_acquisition_inserts_once(community):
     assert sum(result["status"] == "added" for result in results) == 1
     assert len(repo.library(owner)) == 6
     assert next(p for p in feed(a) if p["id"] == post["id"])["downloads"] == 1
+
+
+def test_structured_private_upload_can_be_claimed_by_current_user(community, tmp_path):
+    a, b, _, _ = community
+    # Use the fixture repository captured by the router rather than the app-global queue.
+    jobs_path = tmp_path / "jobs.sqlite3"
+    jobs = SQLiteOCRJobRepository(jobs_path)
+    source = tmp_path / "private.pdf"
+    source.write_bytes(b"%PDF-1.7\nprivate")
+    jobs.register_book(
+        book_id="private-book",
+        original_name="我的新书.pdf",
+        file_path=source,
+        source_sha256="private-hash",
+    )
+    jobs.save_structure(
+        "private-book",
+        BookStructure(
+            title="我的新书",
+            summary="这是用户上传教材的摘要。",
+            source_page_count=12,
+            chapters=[
+                ChapterDraft(
+                    chapter_id="chapter-1",
+                    order=1,
+                    title="第一章",
+                    start_page=1,
+                    end_page=12,
+                    summary="章节摘要",
+                    knowledge_points=["知识点"],
+                    source_block_ids=["block-1"],
+                )
+            ],
+        ),
+    )
+    assert a.post("/api/library/books/private-book/bind-upload").status_code == 200
+    assert b.post("/api/library/books/private-book/bind-upload").status_code == 403
+    assert b.post("/api/library/books/private-book/claim").status_code == 403
+    claimed = a.post("/api/library/books/private-book/claim")
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["title"] == "我的新书"
+    assert any(book["book_id"] == "private-book" for book in a.get("/api/library").json())
+    assert not any(book["book_id"] == "private-book" for book in b.get("/api/library").json())
+    assert a.post("/api/library/books/private-book/claim").status_code == 200
 
 
 def test_restore_only_previously_owned_books(community):

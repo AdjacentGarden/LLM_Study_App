@@ -1,7 +1,12 @@
 import httpx
 import pytest
 
-from adaptive_learning.llm.client import LLMConfig, LLMError, LLMTimeoutError, OpenAICompatibleClient
+from adaptive_learning.llm.client import (
+    LLMConfig,
+    LLMError,
+    LLMTimeoutError,
+    OpenAICompatibleClient,
+)
 
 
 def test_upstream_timeout_is_identifiable(monkeypatch):
@@ -34,6 +39,31 @@ def test_responses_native_protocol_and_usage(monkeypatch, model):
     assert options['json']['reasoning']['effort']=='low'
     assert options['json']['input'][1]['content'][1]['type']=='input_image'
     assert client.usage_totals()=={'responses':1,'input_tokens':100,'output_tokens':10,'cached_input_tokens':30}
+    client.close()
+
+
+def test_pucoding_gpt_catalogue_uses_responses_protocol(monkeypatch):
+    calls = []
+    payload = {
+            'status': 'completed',
+            'output': [{'type': 'message', 'content': [
+                {'type': 'output_text', 'text': '{"ok":true}'},
+            ]}],
+            'usage': {},
+        }
+    class FakeSDKResponse:
+        def model_dump(self, **kwargs):
+            return payload
+    client = OpenAICompatibleClient(
+        LLMConfig('https://pucoding.com/v1', 'test', 'gpt-5.6-terra')
+    )
+    def create(**kwargs):
+        calls.append(kwargs)
+        return FakeSDKResponse()
+    monkeypatch.setattr(client._responses_sdk.responses, 'create', create)
+    assert client.structured(system='JSON only', user='question') == {'ok': True}
+    assert calls[0]['model'] == 'gpt-5.6-terra'
+    assert calls[0]['input'][0]['role'] == 'system'
     client.close()
 
 

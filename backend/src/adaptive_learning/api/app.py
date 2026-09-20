@@ -129,7 +129,8 @@ personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
 flashcard_quality = FlashcardQualityGate(
     OpenAICompatibleClient(replace(assessment_llm.config, timeout_seconds=120))
-    if assessment_llm is not None else None,
+    if assessment_llm is not None
+    else None,
     settings.data_dir / "state" / "flashcard_quality.sqlite3",
     f"{settings.text_base_url}|{settings.text_model}",
 )
@@ -147,6 +148,8 @@ def _reviewed_course(bundle: ChapterLearningBundle) -> ChapterLearningBundle:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    from ..studio import get_studio
+
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     _install_demo_book()
     recovered = job_repository.recover_expired()
@@ -164,9 +167,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         build_qa_service().warmup()
     if settings.ocr_worker_enabled:
         ocr_worker.start()
+    get_studio(settings.data_dir).start()
     try:
         yield
     finally:
+        get_studio(settings.data_dir).stop()
         if settings.ocr_worker_enabled:
             ocr_worker.stop()
 
@@ -189,11 +194,17 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health() -> dict[str, object]:
+    from ..studio import get_studio
+
+    studio_worker_alive = get_studio(settings.data_dir).is_alive()
+    ocr_worker_alive = ocr_worker.is_alive()
     return {
-        "ok": True,
+        "ok": studio_worker_alive and (not settings.ocr_worker_enabled or ocr_worker_alive),
         "service": "adaptive-book-learning",
         "version": app.version,
         "ocr_worker_enabled": settings.ocr_worker_enabled,
+        "ocr_worker_alive": ocr_worker_alive,
+        "studio_worker_alive": studio_worker_alive,
     }
 
 
@@ -294,8 +305,11 @@ def list_published_books() -> list[BookCatalogItem]:
                 chapter_count=len(structure.chapters),
                 summary=structure.summary,
                 diagnostics_ready=bool(_items_for_book(book_id)),
-                cover_url=(f"/api/books/{book_id}/cover" if
-                           (settings.data_dir / "covers" / f"{book_id}.jpg").is_file() else None),
+                cover_url=(
+                    f"/api/books/{book_id}/cover"
+                    if (settings.data_dir / "covers" / f"{book_id}.jpg").is_file()
+                    else None
+                ),
             )
         )
     return result
@@ -308,14 +322,19 @@ def book_cover(book_id: str) -> FileResponse:
     path = settings.data_dir / "covers" / f"{book_id}.jpg"
     if not path.is_file():
         raise HTTPException(status_code=404, detail="封面尚未生成")
-    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control":"public, max-age=86400"})
+    return FileResponse(
+        path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 @app.get("/api/interviews/{session_id}/learning-records")
 def get_learning_records(session_id: str) -> dict[str, object]:
     session = _session_or_404(session_id)
-    return learning_records(session, _items_for_book(session.profile.book_id),
-                            assessment_repository.courses_for_session(session_id))
+    return learning_records(
+        session,
+        _items_for_book(session.profile.book_id),
+        assessment_repository.courses_for_session(session_id),
+    )
 
 
 @app.post("/api/books/{book_id}/process", response_model=BookStatusResponse)
@@ -363,10 +382,14 @@ def answer_book_question(
     try:
         return qa_service.answer(request.question)
     except QABusyError as error:
-        raise HTTPException(status_code=503, detail="当前提问较多，请稍后重试", headers={"Retry-After": "5"}) from error
+        raise HTTPException(
+            status_code=503, detail="当前提问较多，请稍后重试", headers={"Retry-After": "5"}
+        ) from error
     except LLMTimeoutError as error:
         logger.warning("grounded QA model timed out", exc_info=error)
-        raise HTTPException(status_code=504, detail="回答模型响应超时，请稍后重试；你的问题已保留。") from error
+        raise HTTPException(
+            status_code=504, detail="回答模型响应超时，请稍后重试；你的问题已保留。"
+        ) from error
     except LLMError as error:
         logger.warning("grounded QA model call failed", exc_info=error)
         raise HTTPException(status_code=502, detail="回答模型暂时不可用") from error
@@ -479,9 +502,9 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
         chapter_options=chapter_options,
     )
     assessment_repository.create_session(session)
-    owner=account_repository.request_owner(http_request)
+    owner = account_repository.request_owner(http_request)
     if owner:
-        account_repository.repo.claim_session(owner,session.session_id)
+        account_repository.repo.claim_session(owner, session.session_id)
     assert session.pending_turn is not None
     return InterviewResponse(
         session_id=session.session_id,
@@ -1039,8 +1062,16 @@ def _mount_frontend() -> None:
         return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
 
 
-account_repository = Accounts(CommunityRepository(settings.data_dir / "state" / "community.sqlite3"))
+account_repository = Accounts(
+    CommunityRepository(settings.data_dir / "state" / "community.sqlite3")
+)
 app.middleware("http")(learning_guard(account_repository))
-app.include_router(community_router(settings.data_dir, list_published_books,
-                                   lambda: job_repository, lambda: assessment_repository))
+app.include_router(
+    community_router(
+        settings.data_dir,
+        list_published_books,
+        lambda: job_repository,
+        lambda: assessment_repository,
+    )
+)
 _mount_frontend()

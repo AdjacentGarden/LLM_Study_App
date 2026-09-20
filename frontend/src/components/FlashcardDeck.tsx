@@ -3,9 +3,12 @@ import type { CourseActivity, Flashcard } from "../types/api";
 import { FlashcardFace } from "./FlashcardFace";
 import { Icon } from "./Icon";
 import { nextCardIndex } from "./cardGesture";
+import { StudioMediaActions } from "./LearningStudio";
+import type { Anchor } from "../api/learningStudio";
 
-export function FlashcardDeck({ cards, index, flipped, busy, activity, onFlip, onCard, onRate }: {
+export function FlashcardDeck({ cards, index, flipped, busy, activity, studioAnchor, onFlip, onCard, onRate }: {
   cards: Flashcard[]; index: number; flipped: boolean; busy: boolean; activity: CourseActivity | null;
+  studioAnchor?: Anchor;
   onFlip: () => void; onCard: (index: number) => void; onRate: (rating: "again" | "hard" | "good" | "easy") => void;
 }) {
   const direction = useRef(1);
@@ -28,6 +31,14 @@ export function FlashcardDeck({ cards, index, flipped, busy, activity, onFlip, o
       <FlashcardFace card={card} flipped={flipped} busy={busy} onFlip={onFlip} onSwipe={delta=>move(nextCardIndex(index,delta,cards.length))}/>
     </div>
     <p className="deck-reason"><Icon name="spark" size={15}/>{card.reason_for_user}</p>
+    {studioAnchor && <StudioMediaActions
+      label="把这张闪卡变成"
+      anchor={{
+        ...studioAnchor,
+        excerpt: `问题：${card.front}\n答案：${card.back}`.slice(0, 3000),
+        pages: [...new Set(card.citations.map(c=>c.page_number))],
+      }}
+    />}
     {flipped && <div className="recall-controls"><p>刚才，你记得多少？</p><div className="recall-options">{([
       ["again","再学一次","还没记住"],["hard","有点模糊","需要提示"],["good","基本记得","再巩固下"],["easy","很有把握","轻松想起"],
     ] as const).map(([id,label,hint])=><button key={id} className={`recall-${id}`} disabled={busy} onClick={()=>onRate(id)}><b>{label}</b><small>{hint}</small></button>)}</div></div>}

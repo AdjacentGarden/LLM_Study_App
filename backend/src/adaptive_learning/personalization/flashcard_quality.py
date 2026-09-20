@@ -7,6 +7,8 @@ import re
 import sqlite3
 import threading
 import unicodedata
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -91,8 +93,14 @@ class FlashcardQualityGate:
                 review_json TEXT NOT NULL, quality_version TEXT NOT NULL,
                 reviewed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
 
-    def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.database_path, timeout=30)
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.database_path, timeout=30)
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def ensure(self, bundle: ChapterLearningBundle) -> ChapterLearningBundle:
         # Serialize overlapping chapter/depth requests, not unrelated cached courses.

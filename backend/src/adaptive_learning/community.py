@@ -64,6 +64,8 @@ class CommunityRepository:
                     PRIMARY KEY(owner, post_id));
                 CREATE TABLE IF NOT EXISTS session_owners (
                     session_id TEXT PRIMARY KEY, owner TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS upload_owners (
+                    book_id TEXT PRIMARY KEY, owner TEXT NOT NULL, created REAL NOT NULL);
             """)
 
     @contextmanager
@@ -144,6 +146,38 @@ class CommunityRepository:
                 ).fetchone()
                 is not None
             )
+
+    def add_book(self, owner: str, canonical: str) -> bool:
+        """Add a parsed canonical asset to one user's shelf without publishing it."""
+        with self.connect() as db:
+            inserted = db.execute(
+                "INSERT OR IGNORE INTO library_books VALUES (?,?,?)",
+                (owner, canonical, time.time()),
+            ).rowcount
+            db.execute(
+                "DELETE FROM removed_books WHERE owner=? AND canonical=?",
+                (owner, canonical),
+            )
+        return bool(inserted)
+
+    def bind_upload(self, owner: str, book_id: str) -> bool:
+        """Bind a private upload once; account switching must not transfer ownership."""
+        with self.connect() as db:
+            db.execute(
+                "INSERT OR IGNORE INTO upload_owners VALUES (?,?,?)",
+                (book_id, owner, time.time()),
+            )
+            row = db.execute(
+                "SELECT owner FROM upload_owners WHERE book_id=?", (book_id,)
+            ).fetchone()
+        return bool(row and row["owner"] == owner)
+
+    def owns_upload(self, owner: str, book_id: str) -> bool:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT owner FROM upload_owners WHERE book_id=?", (book_id,)
+            ).fetchone()
+        return bool(row and row["owner"] == owner)
 
     def remove_book(self, owner: str, book_id: str) -> None:
         with self.connect() as db:

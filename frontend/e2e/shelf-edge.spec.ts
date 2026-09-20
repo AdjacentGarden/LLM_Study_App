@@ -6,7 +6,15 @@ test('touch preview works without hover; empty library cannot submit QA',async({
   const p=await c.newPage();const f=p.frameLocator('iframe');
   try{
     await p.goto(baseURL+'/?device=iphone-16');await f.getByRole('button',{name:'暂时体验，稍后注册'}).tap();
+    await f.getByRole('button',{name:/上传一本书/}).tap();
+    await expect(f.getByRole('dialog',{name:'上传一本新书'})).toBeVisible();
+    const submit=f.getByRole('button',{name:/上传并开始解析/});
+    await expect(submit).toBeDisabled();
+    await f.getByLabel('选择要上传的 PDF').setInputFiles({name:'入口测试.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.7\nfixture')});
+    await expect(submit).toBeEnabled();
+    await f.locator('.sheet-close').tap();
     await f.getByRole('button',{name:'书架',exact:true}).tap();
+    await expect(f.getByRole('button',{name:/上传一本书/})).toHaveCount(0);
     await f.locator('.shelf-cover').first().tap();
     await expect(f.getByRole('dialog')).toBeVisible();
     await f.locator('.sheet-close').tap();

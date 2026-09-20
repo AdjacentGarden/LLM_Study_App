@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -24,6 +25,14 @@ from adaptive_learning.ingestion.models import BookStructure, ChapterDraft
 
 def make_repository(tmp_path: Path) -> SQLiteOCRJobRepository:
     return SQLiteOCRJobRepository(tmp_path / "state" / "jobs.sqlite3")
+
+
+def test_repository_context_closes_connection(tmp_path: Path) -> None:
+    repository = make_repository(tmp_path)
+    with repository._connect() as connection:
+        connection.execute("SELECT 1")
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
 
 
 def register(repo: SQLiteOCRJobRepository, tmp_path: Path, book_id: str = "book_1") -> None:
@@ -61,6 +70,29 @@ def test_enqueue_is_idempotent_and_persists_across_repository_restart(tmp_path: 
     assert restarted is not None
     assert restarted.status == "queued"
     assert restarted.source_path == tmp_path / "book_1.pdf"
+
+
+def test_ocr_worker_survives_transient_database_failure(tmp_path: Path, monkeypatch) -> None:
+    class UnusedRunner:
+        def run(self, job: OCRJob, heartbeat: object) -> OCRRunResult:
+            raise AssertionError("no job should run")
+
+    repository = make_repository(tmp_path)
+    worker = OCRWorker(repository=repository, runner=UnusedRunner(), poll_interval=0.01)
+    attempts = 0
+
+    def flaky_claim_next(**_: object) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise sqlite3.OperationalError("temporary data disk interruption")
+        worker._stop.set()
+        return None
+
+    monkeypatch.setattr(repository, "claim_next", flaky_claim_next)
+    monkeypatch.setattr(worker._stop, "wait", lambda _: False)
+    worker._run()
+    assert attempts == 2
 
 
 def test_only_one_concurrent_worker_can_claim_a_job(tmp_path: Path) -> None:

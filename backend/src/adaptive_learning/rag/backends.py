@@ -14,13 +14,22 @@ from .index import RAGIndexError
 _MIB = 1024 * 1024
 
 
-def resolve_device(requested: str) -> str:
+def resolve_device(requested: str, minimum_mib: int = 0) -> str:
     if requested != "auto":
         return requested
     try:
         import torch  # type: ignore[import-not-found]
 
-        return "cuda" if torch.cuda.is_available() else "cpu"
+        if not torch.cuda.is_available():
+            return "cpu"
+        if minimum_mib:
+            try:
+                free_bytes, _ = torch.cuda.mem_get_info(torch.device("cuda"))
+                if free_bytes < minimum_mib * _MIB:
+                    return "cpu"
+            except RuntimeError:
+                return "cpu"
+        return "cuda"
     except ImportError:
         return "cpu"
 
@@ -41,7 +50,7 @@ def _require_free_gpu_memory(torch: Any, device: str, minimum_mib: int) -> None:
 class TransformerQueryEncoder:
     def __init__(self, model_path: Path, *, device: str = "auto") -> None:
         self.model_path = model_path
-        self.device = resolve_device(device)
+        self.device = resolve_device(device, 512)
         self._tokenizer: Any | None = None
         self._model: Any | None = None
         self._lock = threading.Lock()
@@ -113,7 +122,7 @@ class TransformerQueryEncoder:
 class TransformerPairReranker:
     def __init__(self, model_path: Path, *, device: str = "auto") -> None:
         self.model_path = model_path
-        self.device = resolve_device(device)
+        self.device = resolve_device(device, 2048)
         self._tokenizer: Any | None = None
         self._model: Any | None = None
         self._lock = threading.Lock()

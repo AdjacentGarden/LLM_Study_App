@@ -16,11 +16,20 @@ import "./styles/community.css";
 import "./styles/user-profile.css";
 import "./styles/social.css";
 import "./styles/accounts.css";
+import "./styles/learning-return.css";
+import "./styles/learning-studio.css";
+import "./styles/calm-redesign.css";
 
 const query = new URLSearchParams(window.location.search);
 const embedded = query.get("embedded") === "1";
-if (embedded) document.documentElement.dataset.previewDevice = "iphone-16";
-const simulate = !embedded && (query.get("device") === "iphone-16" || window.innerWidth > 470);
+const requestedDevice = query.get("device");
+if (embedded)
+  document.documentElement.dataset.previewDevice =
+    requestedDevice === "iphone-17" ? "iphone-17" : "iphone-16";
+const simulate =
+  !embedded &&
+  (["iphone-16", "iphone-17"].includes(requestedDevice ?? "") ||
+    window.innerWidth > 470);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

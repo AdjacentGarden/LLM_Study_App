@@ -1,4 +1,16 @@
 .shelf-page { display:grid; gap:12px; padding-bottom:10px; }
+.library-upload-entry { width:100%; min-height:68px; display:flex; align-items:center; gap:13px; padding:11px 14px; border:1px solid #ded4eb; border-radius:20px; background:linear-gradient(120deg,#fff,#f5effc); color:#4e3d63; text-align:left; box-shadow:0 8px 24px #59406f0b; transition:transform .2s,box-shadow .2s; }
+.home-start-choice { display:grid; gap:12px; padding:16px; border:1px solid #e3dcf0; border-radius:24px; background:linear-gradient(145deg,#ffffff 0%,#faf8ff 72%,#f1ebff 100%); box-shadow:0 12px 30px #43305d0c; }
+.home-start-choice>div { display:grid; gap:4px; padding-inline:2px; }
+.home-start-choice>div>strong { color:#252b3d; font-size:.9em; line-height:1.55; }
+.home-start-choice .library-upload-entry { min-height:74px; border-color:#d6c8ef; background:linear-gradient(115deg,#f4edff,#fff 66%); box-shadow:0 9px 22px #6d4c9b12; }
+.library-upload-entry>span:nth-child(2) { min-width:0; flex:1; display:grid; gap:5px; }.library-upload-entry strong { font-size:.86em; }.library-upload-entry small { display:block; color:#81768d; font-size:.68em; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }.library-upload-entry>svg { color:#9a82b6; }
+.upload-entry-icon { width:42px; height:42px; flex:none; display:grid; place-items:center; border-radius:14px; background:#8561ae; color:#fff; box-shadow:0 6px 14px #76549c2e; }
+.book-upload-flow { display:grid; gap:18px; }.upload-copy { text-align:center; }.upload-copy h3 { margin:0 0 8px; font-size:1.05em; }.upload-copy p { margin:0; color:#7e728a; font-size:.8em; line-height:1.8; }
+.upload-orbit { width:86px; height:86px; margin:2px auto 0; position:relative; display:grid; place-items:center; border-radius:50%; background:conic-gradient(#8561ae var(--upload-progress,0%),#e9e2f1 0); }.upload-orbit::after { content:""; position:absolute; inset:6px; border-radius:50%; background:#faf8fc; }.upload-orbit span { position:relative; z-index:1; color:#76549d; }.upload-orbit i { display:none; }
+.book-file-picker { position:relative; display:flex; align-items:center; gap:13px; padding:17px 15px; border:1px dashed #cdbdde; border-radius:18px; background:#fff; color:#76579a; cursor:pointer; }.book-file-picker>span { min-width:0; display:grid; gap:6px; }.book-file-picker strong { color:#4d4059; font-size:.86em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }.book-file-picker small { color:#8f8398; font-size:.69em; line-height:1.6; }.book-file-picker input { position:absolute; inset:0; width:100%; opacity:0; cursor:pointer; }
+.upload-progress { display:grid; grid-template-columns:1fr auto; align-items:center; gap:9px; }.upload-progress::before { content:""; grid-column:1; grid-row:1; height:7px; border-radius:9px; background:#eae4f0; }.upload-progress>span { grid-column:1; grid-row:1; height:7px; border-radius:9px; background:linear-gradient(90deg,#9c7ec1,#7652a3); transition:width .35s; z-index:1; }.upload-progress b { font-size:.72em; color:#76579a; }.upload-progress small { grid-column:1/-1; text-align:center; color:#8b8095; font-size:.68em; line-height:1.6; }
+.upload-recovery { display:flex; gap:10px; }.upload-recovery button { flex:1; min-height:48px; border-radius:14px; }
 .shelf-intro { padding:5px 2px; }
 .shelf-intro .kicker { display:none; }
 .shelf-intro > div { display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -87,6 +99,7 @@
 @keyframes volume-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 @keyframes sheet-in { from { opacity:0; transform:translateY(24px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media(hover:hover) { .shelf-cover:hover > img { transform:rotate(0deg) translateY(-5px); filter:drop-shadow(7px 12px 8px #37244d42); }.record-shortcut:hover { transform:translateY(-3px); box-shadow:0 7px 18px #46345d12; } }
+@media(hover:hover) { .library-upload-entry:hover { transform:translateY(-2px); box-shadow:0 12px 28px #59406f18; } }
 .shelf-cover:active > img { transform:scale(.96) rotate(0deg); }
 .shelf-cover:focus-visible > img { transform:rotate(0deg); }
 @media(prefers-reduced-motion:reduce) { .shelf-volume,.detail-sheet[open] { animation:none; }.shelf-cover > img,.record-shortcut { transition:none; } }

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 
 class LLMError(RuntimeError):
@@ -63,6 +64,16 @@ class OpenAICompatibleClient:
             limits=httpx.Limits(max_connections=8, max_keepalive_connections=4),
             proxy=config.proxy_url,
         )
+        self._responses_sdk = (
+            OpenAI(
+                api_key=config.api_key,
+                base_url=config.base_url,
+                http_client=self._http,
+                max_retries=0,
+            )
+            if "pucoding.com" in config.base_url.rstrip("/")
+            else None
+        )
 
     def close(self) -> None:
         self._http.close()
@@ -113,7 +124,13 @@ class OpenAICompatibleClient:
         endpoint = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.config.api_key}"}
         anthropic = self.config.model.startswith("claude-")
-        responses = self.config.model.startswith("grok-")
+        # PUCODING exposes its current GPT/Codex catalogue through the Responses
+        # API only. Keep ordinary OpenAI-compatible relays on chat/completions,
+        # while routing this gateway (and native Grok response models) correctly.
+        responses = self.config.model.startswith("grok-") or (
+            "pucoding.com" in base_url
+            and self.config.model.startswith(("gpt-", "codex-"))
+        )
         if anthropic:
             endpoint = f"{base_url}/messages"
             headers.update({"x-api-key": self.config.api_key, "anthropic-version": "2023-06-01"})
@@ -154,6 +171,7 @@ class OpenAICompatibleClient:
                 for mime, data in images
             ] + [{"type": "text", "text": user}]
         last_error: Exception | None = None
+        upstream_detail = ""
         for attempt in range(self.config.max_retries + 1):
             until = _deadline.get()
             remaining = (
@@ -164,16 +182,26 @@ class OpenAICompatibleClient:
             if remaining <= 0:
                 raise LLMTimeoutError("model time budget exceeded")
             try:
-                response = self._http.post(
-                    endpoint,
-                    headers=headers,
-                    json=payload,
-                    timeout=httpx.Timeout(
-                        remaining, connect=min(10, remaining), pool=min(10, remaining)
-                    ),
+                timeout = httpx.Timeout(
+                    remaining, connect=min(10, remaining), pool=min(10, remaining)
                 )
-                response.raise_for_status()
-                body = response.json()
+                if responses and self._responses_sdk is not None:
+                    # This gateway explicitly accepts the official OpenAI SDK for
+                    # Responses calls. Its result is normalised back to the same
+                    # dictionary contract used by the other compatible providers.
+                    sdk_response = self._responses_sdk.responses.create(
+                        **payload, timeout=timeout  # type: ignore[arg-type]
+                    )
+                    body = sdk_response.model_dump(mode="json")
+                else:
+                    response = self._http.post(
+                        endpoint,
+                        headers=headers,
+                        json=payload,
+                        timeout=timeout,
+                    )
+                    response.raise_for_status()
+                    body = response.json()
                 self._record_usage(body)
                 if anthropic:
                     if body.get("stop_reason") in {"max_tokens", "refusal"}:
@@ -194,10 +222,29 @@ class OpenAICompatibleClient:
             except httpx.HTTPStatusError as error:
                 last_error = error
                 status = error.response.status_code
+                try:
+                    raw_error = error.response.json().get("error", {})
+                    message = raw_error.get("message", "") if isinstance(raw_error, dict) else ""
+                    if isinstance(message, str):
+                        upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
+                except (ValueError, AttributeError, TypeError):
+                    upstream_detail = ""
+                retryable = status == 429 or status >= 500
+                if not retryable or attempt >= self.config.max_retries:
+                    break
+            except APIStatusError as error:
+                last_error = error
+                status = error.status_code
+                raw_error = error.body.get("error", error.body) if isinstance(error.body, dict) else {}
+                message = raw_error.get("message", "") if isinstance(raw_error, dict) else ""
+                if isinstance(message, str):
+                    upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
                 retryable = status == 429 or status >= 500
                 if not retryable or attempt >= self.config.max_retries:
                     break
             except (
+                APITimeoutError,
+                APIConnectionError,
                 httpx.TimeoutException,
                 httpx.NetworkError,
                 httpx.RemoteProtocolError,
@@ -213,15 +260,21 @@ class OpenAICompatibleClient:
                     break
             time.sleep(0.25 * (attempt + 1))
         assert last_error is not None
-        if isinstance(last_error, httpx.TimeoutException):
+        if isinstance(last_error, (httpx.TimeoutException, APITimeoutError)):
             raise LLMTimeoutError("model request timed out") from last_error
-        raise LLMError(f"structured model call failed: {type(last_error).__name__}") from last_error
+        detail = f" ({upstream_detail})" if upstream_detail else ""
+        raise LLMError(
+            f"structured model call failed: {type(last_error).__name__}{detail}"
+        ) from last_error
 
     @staticmethod
     def _parse_object(content: str) -> dict[str, Any]:
         if not isinstance(content, str) or not content.strip():
             raise ValueError("model returned empty or non-text content")
         text = content.strip()
+        # Reasoning-capable gateways may expose a private-thought prelude even when
+        # JSON mode is requested. It is never returned to callers or treated as data.
+        text = re.sub(r"^<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
         fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
         if fenced:
             text = fenced.group(1)
