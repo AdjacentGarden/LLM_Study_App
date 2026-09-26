@@ -163,11 +163,11 @@ const mediaProgress: Record<
   string,
   { value: number; step: string; detail: string }
 > = {
-  queued: { value: 8, step: "已加入队列", detail: "马上开始分析教材内容" },
-  planning: { value: 28, step: "正在设计画面", detail: "先核对教材，再决定画面如何表达" },
-  submitting: { value: 52, step: "正在交给 MiniMax", detail: "生成请求已经安全提交" },
-  polling: { value: 70, step: "MiniMax 正在生成短片", detail: "可以先去阅读，回来后会自动出现" },
-  reviewing: { value: 90, step: "正在检查画面", detail: "逐项核对对象、关系和教学准确性" },
+  queued: { value: 8, step: "已加入队列", detail: "即将对照教材设计画面" },
+  planning: { value: 28, step: "正在设计画面", detail: "核对教材事实，选择可靠的呈现方式" },
+  submitting: { value: 52, step: "正在生成画面", detail: "正在处理生成请求，请勿重复提交" },
+  polling: { value: 70, step: "正在制作短片", detail: "可以先去阅读，回来后会自动出现" },
+  reviewing: { value: 90, step: "正在检查画面", detail: "核对知识关系与实际成品" },
 };
 
 function StudioDialog({
@@ -589,11 +589,12 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
 }
 function MediaJobProgress({ job, compact = false }: { job: StudioJob; compact?: boolean }) {
   const phase = mediaProgress[job.status] ?? mediaProgress.queued;
+  const step = job.status === "submitting" && job.kind === "video" ? "正在启动短片生成" : phase.step;
   return (
     <div className={`studio-job-progress ${compact ? "is-compact" : ""}`} role="status" aria-live="polite">
       <span className="studio-progress-spinner" aria-hidden="true" />
       <div>
-        <strong>{phase.step}</strong>
+        <strong>{step}</strong>
         <small>{phase.detail}</small>
         <div
           className="studio-progress-track"
@@ -602,10 +603,11 @@ function MediaJobProgress({ job, compact = false }: { job: StudioJob; compact?: 
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={phase.value}
-          aria-valuetext={phase.step}
+          aria-valuetext={`${step}，阶段进度，不代表预计剩余时间`}
         >
           <i style={{ width: `${phase.value}%` }} />
         </div>
+        {!compact && <small className="studio-progress-footnote">阶段进度 · 离开后任务仍会在后台继续</small>}
       </div>
     </div>
   );

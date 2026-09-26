@@ -8,13 +8,27 @@ CONNECT requests to TCP 443 are accepted; regular HTTP requests are rejected.
 from __future__ import annotations
 
 import argparse
-import selectors
 import socket
 import socketserver
+import threading
 
 
 class ConnectHandler(socketserver.BaseRequestHandler):
-    timeout = 20
+    timeout = 180
+
+    @staticmethod
+    def relay(source: socket.socket, destination: socket.socket) -> None:
+        """Copy one direction with blocking backpressure and a bounded idle timeout."""
+        try:
+            while block := source.recv(65_536):
+                destination.sendall(block)
+        except (OSError, TimeoutError):
+            pass
+        finally:
+            try:
+                destination.shutdown(socket.SHUT_WR)
+            except OSError:
+                pass
 
     def handle(self) -> None:
         self.request.settimeout(self.timeout)
@@ -30,7 +44,9 @@ class ConnectHandler(socketserver.BaseRequestHandler):
             host, port_text = authority.rsplit(":", 1)
             port = int(port_text)
         except (UnicodeDecodeError, ValueError):
-            self.request.sendall(b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n")
+            self.request.sendall(
+                b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
+            )
             return
         if method != "CONNECT" or port != 443 or not host or len(host) > 253:
             self.request.sendall(b"HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n")
@@ -38,28 +54,21 @@ class ConnectHandler(socketserver.BaseRequestHandler):
         try:
             upstream = socket.create_connection((host, port), timeout=self.timeout)
         except OSError:
-            self.request.sendall(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")
+            self.request.sendall(
+                b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n"
+            )
             return
         with upstream:
             self.request.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
-            self.request.setblocking(False)
-            upstream.setblocking(False)
-            selector = selectors.DefaultSelector()
-            selector.register(self.request, selectors.EVENT_READ, upstream)
-            selector.register(upstream, selectors.EVENT_READ, self.request)
-            with selector:
-                while True:
-                    events = selector.select(timeout=60)
-                    if not events:
-                        return
-                    for key, _ in events:
-                        try:
-                            data = key.fileobj.recv(65_536)
-                            if not data:
-                                return
-                            key.data.sendall(data)
-                        except (BlockingIOError, BrokenPipeError, ConnectionResetError):
-                            return
+            upstream.settimeout(self.timeout)
+            outgoing = threading.Thread(
+                target=self.relay,
+                args=(self.request, upstream),
+                daemon=True,
+            )
+            outgoing.start()
+            self.relay(upstream, self.request)
+            outgoing.join(timeout=1)
 
 
 class ThreadedServer(socketserver.ThreadingTCPServer):

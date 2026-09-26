@@ -408,6 +408,76 @@ def test_media_plan_generation_review_private_asset(setup, monkeypatch):
     assert b.get(value["asset_url"]).status_code == 404
 
 
+def test_malformed_media_plan_is_repaired_once_before_factual_review(setup, monkeypatch):
+    a, _, studio = setup
+    evidence = [{"page": 1, "text": "函数调用自身，需要终止条件。"}]
+    draft = {
+        "title": "理解递归",
+        "explanation": "函数调用自身，需要终止条件。",
+        "points": ["需要终止条件"],
+        "visual_prompt": "A clear colorful educational illustration of nested boxes.",
+        "caution": "辅助示意",
+        "supported": True,
+        # A provider omitted this required field; no paid request may start yet.
+    }
+    repaired = {**draft, "video_suitable": False}
+    responses = iter([draft, repaired, {"passed": True, "reason": "教材事实正确"}])
+    prompts = []
+    calls = []
+
+    def llm(prompt, images=None):
+        prompts.append(prompt)
+        return next(responses)
+
+    monkeypatch.setattr(studio, "llm", llm)
+    monkeypatch.setattr(studio, "evidence", lambda *args: evidence)
+    image = io.BytesIO()
+    Image.new("RGB", (64, 64), "#8bcab7").save(image, "PNG")
+
+    def minimax(path, payload):
+        calls.append((path, payload))
+        return {"data": {"image_base64": [base64.b64encode(image.getvalue()).decode()]}}
+
+    monkeypatch.setattr(studio, "minimax", minimax)
+    key = a.post("/api/studio/media", json=media()).json()["id"]
+    run(studio, a, key)
+    assert "video_suitable" in prompts[1]
+    assert prompts[2].startswith("审核以下教学方案")
+    assert len(calls) == 1
+    assert a.get("/api/studio/jobs/" + key).json()["status"] == "reviewing"
+
+
+def test_malformed_media_plan_never_skips_factual_review(setup, monkeypatch):
+    a, _, studio = setup
+    draft = {
+        "title": "理解递归",
+        "explanation": "函数调用自身，需要终止条件。",
+        "points": ["需要终止条件"],
+        "visual_prompt": "A clear colorful educational illustration of nested boxes.",
+        "caution": "辅助示意",
+        "supported": True,
+    }
+    repaired = {**draft, "video_suitable": False}
+    responses = iter(
+        [
+            draft,
+            repaired,
+            {"passed": False, "reason": "教材事实不符"},
+            {**repaired, "supported": False},
+        ]
+    )
+    monkeypatch.setattr(studio, "llm", lambda *args: next(responses))
+    monkeypatch.setattr(
+        studio, "evidence", lambda *args: [{"page": 1, "text": "函数调用自身，需要终止条件。"}]
+    )
+    calls = []
+    monkeypatch.setattr(studio, "minimax", lambda *args: calls.append(args))
+    key = a.post("/api/studio/media", json=media()).json()["id"]
+    run(studio, a, key)
+    assert a.get("/api/studio/jobs/" + key).json()["status"] == "failed"
+    assert calls == []
+
+
 def test_ink_render_and_note_analysis_confirmation_accept_undo(setup, monkeypatch):
     a, b, s = setup
     a.post("/api/studio/notes", json=note())

@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import HTTPException
 from PIL import Image, ImageDraw
+from pydantic import ValidationError
 
 from .community import CommunityRepository
 from .config import get_settings
@@ -614,6 +615,8 @@ class Studio:
             max_tokens = 600
         elif not images and prompt.startswith("根据审核意见最小修改教学方案"):
             max_tokens = 1400
+        elif not images and prompt.startswith("修复上一份教学画面方案"):
+            max_tokens = 1800
         try:
             # Some Responses gateways validate JSON mode against user input only.
             return client.structured(
@@ -624,6 +627,33 @@ class Studio:
             )
         finally:
             client.close()
+
+    def teaching_plan(self, prompt: str, context: str) -> TeachingPlan:
+        """Repair a malformed planner response once, before any paid media request.
+
+        This only repairs the JSON contract. The independent factual review below
+        still decides whether the plan may be rendered or sent to MiniMax.
+        """
+        draft = self.llm(prompt)
+        try:
+            return TeachingPlan.model_validate(draft)
+        except ValidationError as error:
+            fields = sorted({str(item["loc"][0]) for item in error.errors() if item["loc"]})
+            corrected = self.llm(
+                "修复上一份教学画面方案的JSON结构，不要放宽教材事实要求。"
+                "只返回一个完整对象，字段为title,visual_scope,explanation,points,visual_prompt,"
+                "caution,supported,video_suitable,visual_checks,visual_mode,diagram_facts。"
+                "visual_mode只能是illustration或diagram；diagram_facts最多4项，每项都有subject、"
+                "relation、object；diagram模式至少1项，illustration模式为空数组。"
+                "若教材证据不能支持草稿中的对象或关系，应删除无依据细节；无法可靠修复时supported=false。"
+                "不得凭空补全知识事实。需修复的字段："
+                + ",".join(fields[:12])
+                + "\n教材上下文："
+                + context
+                + "\n原草稿："
+                + json.dumps(draft, ensure_ascii=False)[:8000]
+            )
+            return TeachingPlan.model_validate(corrected)
 
     def evidence(self, data: dict[str, Any], query: str) -> list[dict[str, Any]]:
         from .api.qa_dependency import build_book_qa_service
@@ -714,22 +744,21 @@ class Studio:
             },
             ensure_ascii=False,
         )
-        plan = TeachingPlan.model_validate(
-            self.llm(
-                "基于教材证据为选中段落规划一个辅助视觉讲解。证据不支持时supported=false。严格公式推导、精确计数、复杂算法不要交给视频，video_suitable=false。"
-                + (
-                    "本次生成一张静态图。英文prompt只能描述最终可见的单一画面，不得出现animate、运动过程、镜头、帧或时长要求。主体居中、大而清晰，占画面主要部分。"
-                    if kind == "image"
-                    else "本次生成6秒短片。英文prompt只描写一个清晰动作，保持主体和构图稳定，不做变形过渡、不添加新物体。"
-                )
-                + "必须保留复合名词的中心词与真实对象类别：外形比喻不等于真实生物或物体；不要依据修饰词臆造器物造型。视觉提示具体写出材质、支架或操作方式等能区分对象类别的特征，但只能使用证据支持的特征；无法确认就省略该细节。不要以caution为虚构事实开脱，宁可画更少的内容。"
-                "只选能直观看懂的一个核心关系，不用大场景、炫光、玄幻风格、装饰文字。具体实物用简洁写实教育插画；抽象概念用明确标注在讲解中的类比，不伪装真实结构。需要精确计数/公式/标注才能讲清的画面不可依赖自由生图。"
-                "按内容选择visual_mode：illustration用于自然场景、物品外观、文学意象；diagram用于生物/化学微观结构、器械连接、物理机制、算法、逻辑或数量关系，这些严禁自由生图。diagram是文字关系图，不是实物结构图；提供diagram_facts数组1-4项，每项subject(最多36字),relation(最多20字),object(最多36字)，完整且精确地表达教材关系。diagram的visual_checks核对这些关系而不是要求分子形状；video_suitable=false。illustration的diagram_facts为空数组。"
-                "illustration最多1-2个主体，提示词优先正面描述能看见的物体特征，不堆砌否定词。工艺品的主体名词必须是器物本身，先说明材质与构造再说明外形；不能把外形修饰词当成主体。可选择正常工艺品形制作为示意，并在caution中说明具体外形为辅助设计，不宣称书中或历史实物必然如此。"
-                "illustration必须使用丰富但协调的色彩、清晰实体形状、分层空间和有意义的图形化视觉线索，不能只画线框、空框、流程框或纯文字卡片；图形线索不得新增教材事实。"
-                "返回title,visual_scope(用中文明确这一张图/短片只解释选段中哪一个问题；讲解和检查点都限定于这个范围),explanation,points(1-5条短说明),visual_prompt(英文，至多1000字符；不要文字、符号、数字，只画直观示意，不增加无依据细节),visual_checks(1-5条可从画面直接验证的关键对象/关系和必须避免的误解),caution(类比局限),supported(bool),video_suitable(bool)。\n"
-                + context
+        plan = self.teaching_plan(
+            "基于教材证据为选中段落规划一个辅助视觉讲解。证据不支持时supported=false。严格公式推导、精确计数、复杂算法不要交给视频，video_suitable=false。"
+            + (
+                "本次生成一张静态图。英文prompt只能描述最终可见的单一画面，不得出现animate、运动过程、镜头、帧或时长要求。主体居中、大而清晰，占画面主要部分。"
+                if kind == "image"
+                else "本次生成6秒短片。英文prompt只描写一个清晰动作，保持主体和构图稳定，不做变形过渡、不添加新物体。"
             )
+            + "必须保留复合名词的中心词与真实对象类别：外形比喻不等于真实生物或物体；不要依据修饰词臆造器物造型。视觉提示具体写出材质、支架或操作方式等能区分对象类别的特征，但只能使用证据支持的特征；无法确认就省略该细节。不要以caution为虚构事实开脱，宁可画更少的内容。"
+            "只选能直观看懂的一个核心关系，不用大场景、炫光、玄幻风格、装饰文字。具体实物用简洁写实教育插画；抽象概念用明确标注在讲解中的类比，不伪装真实结构。需要精确计数/公式/标注才能讲清的画面不可依赖自由生图。"
+            "按内容选择visual_mode：illustration用于自然场景、物品外观、文学意象；diagram用于生物/化学微观结构、器械连接、物理机制、算法、逻辑或数量关系，这些严禁自由生图。diagram是文字关系图，不是实物结构图；提供diagram_facts数组1-4项，每项subject(最多36字),relation(最多20字),object(最多36字)，完整且精确地表达教材关系。diagram的visual_checks核对这些关系而不是要求分子形状；video_suitable=false。illustration的diagram_facts为空数组。"
+            "illustration最多1-2个主体，提示词优先正面描述能看见的物体特征，不堆砌否定词。工艺品的主体名词必须是器物本身，先说明材质与构造再说明外形；不能把外形修饰词当成主体。可选择正常工艺品形制作为示意，并在caution中说明具体外形为辅助设计，不宣称书中或历史实物必然如此。"
+            "illustration必须使用丰富但协调的色彩、清晰实体形状、分层空间和有意义的图形化视觉线索，不能只画线框、空框、流程框或纯文字卡片；图形线索不得新增教材事实。"
+            "返回title,visual_scope(用中文明确这一张图/短片只解释选段中哪一个问题；讲解和检查点都限定于这个范围),explanation,points(1-5条短说明),visual_prompt(英文，至多1000字符；不要文字、符号、数字，只画直观示意，不增加无依据细节),visual_checks(1-5条可从画面直接验证的关键对象/关系和必须避免的误解),caution(类比局限),supported(bool),video_suitable(bool)。\n"
+            + context,
+            context,
         )
         if not plan.supported or (
             kind == "video" and (not plan.video_suitable or plan.visual_mode == "diagram")

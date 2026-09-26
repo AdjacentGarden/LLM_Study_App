@@ -464,6 +464,10 @@
   font-size: 11px;
   line-height: 1.45;
 }
+.studio-job-progress .studio-progress-footnote {
+  margin-top: 8px;
+  color: #6f637d;
+}
 .studio-progress-spinner {
   width: 28px;
   height: 28px;
