@@ -20,13 +20,13 @@ export function ChapterMap({chapters, profile, completed, busy, onCourse}: {
     (event.currentTarget.parentElement?.querySelectorAll("button")[Number(next)] as HTMLButtonElement)?.focus();
   }
   return <section className="learning-atlas" aria-label="章节学习地图">
-    <div className="atlas-heading"><div><span>CHAPTER JOURNEY</span><h2>把每一步，学扎实。</h2></div><span className="atlas-total">{chapters.length}<small>章节</small></span></div>
+    <div className="atlas-heading"><div><h2>章节</h2></div><span className="atlas-total">{chapters.length}<small>章</small></span></div>
     {completed && <div className="atlas-switch" role="tablist" aria-label="章节筛选" style={{"--selected-tab":Number(focusOnly)} as CSSProperties}>
       <i aria-hidden="true"/>
       <button id="atlas-all" role="tab" aria-selected={!focusOnly} aria-controls="atlas-panel" tabIndex={focusOnly?-1:0} onKeyDown={keyboard} onClick={()=>select(false)}><Icon name="book" size={16}/>全部章节<span>{chapters.length}</span></button>
       <button id="atlas-priority" role="tab" aria-selected={focusOnly} aria-controls="atlas-panel" tabIndex={focusOnly?0:-1} onKeyDown={keyboard} onClick={()=>select(true)}><Icon name="spark" size={16}/>优先巩固<span>{priority.length}</span></button>
     </div>}
-    <p className="atlas-caption" role="status">{!completed?"先看看各章讲什么，完成诊断后解锁专属课程。":focusOnly?"按掌握估计排序，先从最需要巩固的地方开始。":"沿着书的脉络前进，轻触章节展开学习入口。"}</p>
+    <p className="atlas-caption" role="status">{!completed?"完成诊断后生成章节优先级。":focusOnly?"按掌握估计排序。":"选择章节查看学习内容。"}</p>
     <div id="atlas-panel" role={completed?"tabpanel":undefined} aria-labelledby={completed?(focusOnly?"atlas-priority":"atlas-all"):undefined} className="atlas-paper">
       <div className="atlas-rows" key={String(focusOnly)}>{shown.map((chapter,index)=>{
         const mastery=chapterEstimate(profile,chapter.chapter_id);
@@ -40,14 +40,14 @@ export function ChapterMap({chapters, profile, completed, busy, onCourse}: {
             <span className="atlas-end">{percent!==null&&<small>{percent}<em>%</em></small>}<svg className="atlas-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
           </button>
           <div className="atlas-expand" id={`chapter-preview-${chapter.chapter_id}`} aria-hidden={!open} inert={!open}><div><div className="atlas-preview">
-            <span className="atlas-preview-label"><Icon name="book" size={14}/>这一章，你会遇见</span>
+            <span className="atlas-preview-label"><Icon name="book" size={14}/>章节概览</span>
             <p className="atlas-preview-text">{chapter.summary||"展开这章的课程，查看讲解、知识点与学习闪卡。"}</p>
             <p className="atlas-evidence">{mastery===null?"尚无足够作答证据，暂不判断掌握程度。":`掌握估计 ${percent}% · 基于 ${profile?.chapter_mastery[chapter.chapter_id]?.evidence_count??0} 条学习证据`}</p>
-            {completed?<div className="atlas-actions"><button disabled={busy} onClick={()=>onCourse(chapter.chapter_id,"guide")}>进入学习<Icon name="arrow" size={17}/></button><button disabled={busy} onClick={()=>onCourse(chapter.chapter_id,"cards")}><Icon name="cards" size={17}/>练习闪卡</button></div>:<small className="atlas-locked">完成上方选择题诊断后，为你定制这一章。</small>}
+            {completed?<div className="atlas-actions"><button disabled={busy} onClick={()=>onCourse(chapter.chapter_id,"guide")}>学习<Icon name="arrow" size={17}/></button><button disabled={busy} onClick={()=>onCourse(chapter.chapter_id,"cards")}><Icon name="cards" size={17}/>闪卡</button></div>:<small className="atlas-locked">完成诊断后解锁</small>}
           </div></div></div>
         </article>;
       })}</div>
-      {!shown.length&&<div className="atlas-empty"><Icon name="check" size={28}/><h3>{focusOnly?"这一站，先不急着补课":"章节正在准备"}</h3><p>{focusOnly?"目前没有掌握估计低于 75% 的章节。尚未诊断的章节不算作已掌握，可以回到全部章节继续探索。":"教材结构就绪后，会在这里展示。"}</p>{focusOnly&&<button onClick={()=>select(false)}>查看全部章节<Icon name="arrow" size={16}/></button>}</div>}
+      {!shown.length&&<div className="atlas-empty"><Icon name="check" size={28}/><h3>{focusOnly?"暂无优先巩固章节":"章节准备中"}</h3><p>{focusOnly?"当前没有需要优先巩固的章节。":"准备完成后显示章节。"}</p>{focusOnly&&<button onClick={()=>select(false)}>全部章节<Icon name="arrow" size={16}/></button>}</div>}
     </div>
     <p className="atlas-footnote"><span/>圆环表示掌握估计，不代表章节已完成</p>
   </section>;

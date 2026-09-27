@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/client";
 import { ApiError } from "./api/transport";
 import {
@@ -10,11 +10,10 @@ import {
 import { LearningHome } from "./components/LearningHome";
 import { LibraryHub } from "./components/LibraryHub";
 import { BookUpload } from "./components/BookUpload";
-import { SocialPage } from "./components/SocialPage";
 import { AccountControls } from "./components/AccountGate";
 import { CommunityPage } from "./components/CommunityPage";
 import { ProfileDashboard } from "./components/ProfileDashboard";
-import { UserProfilePage, DEFAULT_AVATAR } from "./components/UserProfilePage";
+import { UserProfilePage } from "./components/UserProfilePage";
 import { DiagnosticJourney } from "./components/DiagnosticJourney";
 import { FlashcardDeck } from "./components/FlashcardDeck";
 import { PracticeFeedback } from "./components/PracticeFeedback";
@@ -31,7 +30,7 @@ import {
   StudioProvider,
   StudioEntry,
   StudyPassage,
-} from "./components/LearningStudio";
+} from "./components/StudioShell";
 import type { Anchor } from "./api/learningStudio";
 import { useAnimatedView } from "./components/useAnimatedView";
 import type {
@@ -57,6 +56,11 @@ type View =
   | "profile"
   | "account";
 type CourseTab = "guide" | "reading" | "points" | "cards" | "practice";
+
+const SocialPage = lazy(() =>
+  import("./components/SocialPage").then(module => ({ default: module.SocialPage })),
+);
+const preloadSocial = () => { void import("./components/SocialPage"); };
 
 const SESSION_KEY = "zhiwo.active-session";
 const ACTIVE_BOOK_KEY = "zhiwo.active-book";
@@ -131,7 +135,7 @@ function App() {
     safeGet("zhiwo.reminder") || "20:30",
   );
   const [fontScale, setFontScale] = useState(
-    Math.min(1.2, Math.max(0.9, Number(safeGet("zhiwo.font-scale")) || 1)),
+    Math.min(2, Math.max(1, Number(safeGet("zhiwo.font-scale")) || 1)),
   );
   const [online, setOnline] = useState(navigator.onLine);
   const boot = useRef(0);
@@ -485,12 +489,12 @@ function App() {
                   ? "我的学习"
                   : view === "account"
                     ? "个人资料"
-                    : "云径";
+                    : "学习";
 
   return (
     <StudioProvider>
       <main
-        className="stage"
+        className={`stage${fontScale >= 1.35 ? " is-large-type" : ""}`}
         style={{ "--font-scale": fontScale } as React.CSSProperties}
       >
         <section className="phone" aria-label="云径手机端模拟界面">
@@ -517,12 +521,6 @@ function App() {
               <p>云径 · 个性化读书课</p>
               <h1>{title}</h1>
             </div>
-            {view !== "profile" && view !== "account" && (
-              <img
-                src={userProfile?.avatar_url ?? DEFAULT_AVATAR}
-                alt="用户头像"
-              />
-            )}
           </header>
 
           <div
@@ -535,7 +533,7 @@ function App() {
           >
             {!online && (
               <div className="connection-note" role="status">
-                网络已断开，已有内容仍可查看；恢复连接后可继续保存。
+                当前离线，部分功能暂不可用。
               </div>
             )}
             {initializing && (
@@ -548,7 +546,7 @@ function App() {
                 <div />
                 <span className="skeleton-line" />
                 <span className="skeleton-line short" />
-                <p>正在取回你的教材与学习进度…</p>
+                <p>正在加载…</p>
               </div>
             )}
             {view === "home" && !initializing && (
@@ -627,7 +625,10 @@ function App() {
             )}
             {view === "community" && !initializing && (
               <CommunityPage
-                onSocial={() => setView("social")}
+                onSocial={() => {
+                  preloadSocial();
+                  setView("social");
+                }}
                 books={books}
                 onLibraryChanged={async () => {
                   setBooks(await api.books());
@@ -636,12 +637,14 @@ function App() {
               />
             )}
             {view === "social" && !initializing && (
-              <SocialPage
-                books={books}
-                onLibraryChanged={async () => {
-                  setBooks(await api.books());
-                }}
-              />
+              <Suspense fallback={<div className="view-loading" role="status">正在打开…</div>}>
+                <SocialPage
+                  books={books}
+                  onLibraryChanged={async () => {
+                    setBooks(await api.books());
+                  }}
+                />
+              </Suspense>
             )}
             {view === "interview" && (
               <DiagnosticJourney
@@ -802,7 +805,7 @@ function App() {
               <details className="why-card restart-diagnosis">
                 <summary>重新做一次选择题诊断</summary>
                 <p>
-                  之前的学习记录仍保留在服务器。开始后，新诊断将成为当前学习进度，重新调整你的章节重点。
+                  开始后将重新评估学习重点。
                 </p>
                 <button
                   className="secondary"
@@ -845,20 +848,18 @@ function App() {
                   <span className="preparing-orb" aria-hidden="true">
                     ✦
                   </span>
-                  <h2>
-                    {completed ? "正在编排适合你的内容" : "正在准备选择题诊断"}
-                  </h2>
+                  <h2>{completed ? "正在生成学习内容" : "正在准备诊断"}</h2>
                   <p>
                     {completed
-                      ? "结合教材、作答和薄弱点，生成有重点的讲解与闪卡。"
-                      : "读取书籍章节，准备了解你的学习起点。"}
+                      ? "正在生成讲解、练习与闪卡。"
+                      : "正在读取章节与诊断题。"}
                   </p>
                   <span className="loading-dots" aria-hidden="true">
                     <i />
                     <i />
                     <i />
                   </span>
-                  <small>请稍候，完成后自动进入</small>
+                  <small>完成后自动进入</small>
                 </div>
               </div>
             )}
@@ -1130,7 +1131,7 @@ function CourseView({
               disabled={busy || !input.trim()}
               onClick={onSubmitPractice}
             >
-              {busy ? "正在核验…" : "提交并核验"}
+              {busy ? "正在批改…" : "提交答案"}
             </button>
             {activity && <PracticeFeedback evidence={activity.evidence} />}
             <div className="practice-nav">

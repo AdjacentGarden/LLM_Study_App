@@ -39,7 +39,7 @@ test("existing MiniMax results persist, rejected assets stay private and success
     await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
     await page.getByRole("button", { name: "书架", exact: true }).click();
     await page.locator(".shelf-caption").filter({ hasText: title }).click();
-    await page.getByRole("button", { name: /把理解，写下来/ }).click();
+    await page.getByRole("button", { name: /学习笔记/ }).click();
     await page.getByRole("button", { name: "图解", exact: true }).click();
     if (result.jobs.some((j: any) => j.kind === "image" && j.status === "succeeded")) {
     const image = page.locator(".studio-job img").first();
@@ -69,7 +69,7 @@ test("existing MiniMax results persist, rejected assets stay private and success
     }
     if (result.jobs.some((j: any) => j.kind === "video" && j.status === "succeeded")) {
       await page.getByRole("button", { name: "短片", exact: true }).click();
-      const video = page.getByLabel("AI 短片讲解");
+      const video = page.getByLabel("短片讲解");
       await video.scrollIntoViewIfNeeded();
       await expect.poll(() => video.evaluate((e: HTMLVideoElement) => e.readyState)).toBeGreaterThan(0);
       const duration = await video.evaluate((e: HTMLVideoElement) => e.duration);

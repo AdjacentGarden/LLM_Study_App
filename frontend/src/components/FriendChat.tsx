@@ -150,9 +150,7 @@ export function FriendChat({
       received([result]);
     } catch (e) {
       if (alive.current)
-        setFailure(
-          (e as Error).message + " · 发送结果未确认，重试不会重复发送。",
-        );
+        setFailure("发送结果未确认，请重试。");
     } finally {
       if (alive.current) setSending(false);
     }

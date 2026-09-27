@@ -24,12 +24,11 @@ export function MemoryInvitation() {
           <Icon name="clock" size={21} />
         </span>
         <div>
-          <span className="kicker">不只今天记得</span>
-          <h3>学过的，我们一起再回忆。</h3>
+          <h3>复习计划</h3>
         </div>
       </div>
       <p className="return-description">
-        学完第一组闪卡，留下你的回忆感受。之后回到这里，就能看到适合你的复习安排。
+        完成闪卡后生成复习安排。
       </p>
     </section>
   );
@@ -77,7 +76,7 @@ export function RememberQuestion({
         <Icon name={saved ? "check" : "book"} size={16} />
         {busy ? "正在记下…" : saved ? "已放入待解疑问" : label}
       </button>
-      {saved && <small role="status">回到相关章节或到期时，再一起看看。</small>}
+      {saved && <small role="status">已保存，可在相关章节中继续处理。</small>}
       {error && <p role="alert">{error}</p>}
     </div>
   );
@@ -173,13 +172,12 @@ export function DoubtReturn({
           <Icon name="book" size={20} />
         </span>
         <div>
-          <span className="kicker">让疑问，慢慢有答案</span>
           <h3>
             {related.length
               ? chapterId
-                ? "这里有你之前的疑问"
-                : "有个问题，值得再看看"
-              : "你的待解疑问"}
+                ? "本章待解问题"
+                : "待处理问题"
+              : "问题记录"}
           </h3>
         </div>
         <span className="return-count">{open.length}</span>
@@ -392,11 +390,10 @@ export function MemoryReturn({
           <Icon name="clock" size={21} />
         </span>
         <div>
-          <span className="kicker">不只今天记得</span>
           <h3>
             {data?.due_count
-              ? `${data.due_count} 张卡，今天再想一遍`
-              : "把学过的，留在记忆里"}
+              ? `${data.due_count} 张待复习`
+              : "复习计划"}
           </h3>
         </div>
       </div>
@@ -406,16 +403,16 @@ export function MemoryReturn({
           <p className="return-description">
             {data.reviewed_count
               ? data.due_count
-                ? "先不看答案，试着回忆。几分钟就好。"
-                : `今天没有到期卡片，下次是 ${date(data.items[0].due_at)}。`
-              : "在章节闪卡中记录一次回忆感受，这里就会安排后续复习。"}
+                ? "按计划完成本次闪卡复习。"
+                : `暂无到期卡片，下次复习：${date(data.items[0].due_at)}。`
+              : "完成章节闪卡后自动生成复习计划。"}
           </p>
           {!active && data.due_count > 0 && (
             <button
               className="return-primary"
               onClick={() => start(data.items.find((i) => i.due)!)}
             >
-              开始今天的回忆 <Icon name="arrow" size={17} />
+              开始复习 <Icon name="arrow" size={17} />
             </button>
           )}
           {active && (

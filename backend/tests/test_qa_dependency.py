@@ -38,7 +38,10 @@ def test_multi_book_routing_reuses_models_and_isolates_indexes(monkeypatch: Any,
     manifest.write_text(json.dumps({"cpp":str(tmp_path / "cpp"),"english":str(tmp_path / "english")}))
     monkeypatch.setenv("RAG_BOOK_INDEX_MANIFEST", str(manifest))
     settings = SimpleNamespace(rag_book_id="biology", published_book_ids=("biology","cpp","english"),
-                               rag_top_pages=5, rag_max_evidence=10)
+                               rag_top_pages=5, rag_max_evidence=10,
+                               rag_retrieval_budget_ms=2500,
+                               rag_use_evidence_planner=False,
+                               rag_use_semantic_review=True)
     monkeypatch.setattr(qa_dependency, "get_settings", lambda: settings)
     encoder, reranker, generator = object(), object(), object()
     primary = SimpleNamespace(index=SimpleNamespace(encoder=encoder,reranker=reranker),generator=generator)

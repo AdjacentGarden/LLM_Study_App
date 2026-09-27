@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   studioApi,
   studioId,
@@ -17,168 +10,47 @@ import {
   type StudioJob,
   type StudioCaps,
 } from "../api/learningStudio";
-
-type Opening = { anchor: Anchor; mode: "image" | "video" | "notes" };
-const StudioContext = createContext<(opening: Opening) => void>(() => {});
-export function StudioProvider({ children }: { children: ReactNode }) {
-  const [opening, setOpening] = useState<Opening | null>(null);
-  return (
-    <StudioContext.Provider value={setOpening}>
-      {children}
-      {opening && (
-        <StudioDialog
-          key={opening.anchor.book_id}
-          opening={opening}
-          onClose={() => setOpening(null)}
-        />
-      )}
-    </StudioContext.Provider>
-  );
-}
-export function StudioEntry({ anchor }: { anchor: Anchor }) {
-  const open = useContext(StudioContext);
-  return (
-    <button
-      className="learning-studio-entry"
-      onClick={() => open({ anchor, mode: "notes" })}
-    >
-      <span className="studio-entry-icon" aria-hidden="true">
-        ✎
-      </span>
-      <span>
-        <strong>把理解，写下来</strong>
-        <small>手写或语音笔记 · 图解与短片收藏</small>
-      </span>
-      <span aria-hidden="true">↗</span>
-    </button>
-  );
-}
-export function StudioMediaActions({
-  anchor,
-  label = "换个方式理解",
-}: {
-  anchor: Anchor;
-  label?: string;
-}) {
-  const open = useContext(StudioContext);
-  const ready = (anchor.excerpt ?? "").trim().length >= 4;
-  return (
-    <div className="studio-media-actions" aria-label={label}>
-      <span>{label}</span>
-      <div>
-        <button
-          type="button"
-          disabled={!ready}
-          onClick={() => open({ anchor, mode: "image" })}
-        >
-          ▧ 生成图解
-        </button>
-        <button
-          type="button"
-          disabled={!ready}
-          onClick={() => open({ anchor, mode: "video" })}
-        >
-          ▷ 生成短片
-        </button>
-      </div>
-    </div>
-  );
-}
-export function StudyPassage({
-  anchor,
-  text,
-}: {
-  anchor: Anchor;
-  text: string;
-}) {
-  const open = useContext(StudioContext),
-    ref = useRef<HTMLParagraphElement>(null);
-  const [selected, setSelected] = useState("");
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    function capture() {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const s = window.getSelection();
-        if (
-          s &&
-          ref.current?.contains(s.anchorNode) &&
-          ref.current.contains(s.focusNode)
-        ) {
-          const t = s.toString().trim();
-          setSelected(t.length >= 4 ? t.slice(0, 3000) : "");
-        }
-      }, 120);
-    }
-    document.addEventListener("selectionchange", capture);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("selectionchange", capture);
-    };
-  }, []);
-  const act = (mode: Opening["mode"]) =>
-    open({
-      anchor: { ...anchor, excerpt: selected || text.slice(0, 3000) },
-      mode,
-    });
-  return (
-    <>
-      <p className="studio-selectable" ref={ref}>
-        {text}
-      </p>
-      <div className="passage-tools" aria-label="选段学习工具">
-        <small>
-          {selected ? `已选 ${selected.length} 字` : "长按选段，换个方式理解"}
-        </small>
-        <div>
-          <button onClick={() => act("image")}>▧ 看图理解</button>
-          <button onClick={() => act("video")}>▷ 看短片</button>
-          <button onClick={() => act("notes")}>✎ 记笔记</button>
-        </div>
-      </div>
-    </>
-  );
-}
+import type { StudioOpening } from "./StudioShell";
 const statusText: Record<string, string> = {
-  queued: "已排队",
-  planning: "正在对照教材",
-  submitting: "正在生成画面",
-  polling: "短片制作中",
-  reviewing: "正在检查内容",
+  queued: "准备中",
+  planning: "正在准备",
+  submitting: "正在生成",
+  polling: "正在生成",
+  reviewing: "即将完成",
   succeeded: "已完成",
   failed: "未完成",
-  uncertain: "等待核对，未重复提交",
-  needs_confirmation: "有字迹需要你确认",
+  uncertain: "请确认后继续",
+  needs_confirmation: "请确认内容",
 };
 const notePhase: Record<string, string> = {
-  transcribing: "正在把语音转成文字…",
-  recognizing: "正在识别笔迹…",
-  verifying: "正在核对识别文字…",
-  retrieving: "正在查找教材依据…",
-  improving: "正在检查并补全…",
-  repairing: "正在校正整理格式…",
-  checking: "正在复核整理结果…",
+  transcribing: "正在整理录音…",
+  recognizing: "正在整理笔迹…",
+  verifying: "正在整理笔记…",
+  retrieving: "正在完善笔记…",
+  improving: "正在完善笔记…",
+  repairing: "正在完善笔记…",
+  checking: "即将完成…",
 };
 const mediaProgress: Record<
   string,
   { value: number; step: string; detail: string }
 > = {
-  queued: { value: 8, step: "已加入队列", detail: "即将对照教材设计画面" },
-  planning: { value: 28, step: "正在设计画面", detail: "核对教材事实，选择可靠的呈现方式" },
-  submitting: { value: 52, step: "正在生成画面", detail: "正在处理生成请求，请勿重复提交" },
-  polling: { value: 70, step: "正在制作短片", detail: "可以先去阅读，回来后会自动出现" },
-  reviewing: { value: 90, step: "正在检查画面", detail: "核对知识关系与实际成品" },
+  queued: { value: 8, step: "准备中", detail: "即将开始生成" },
+  planning: { value: 28, step: "正在准备", detail: "正在整理教材内容" },
+  submitting: { value: 52, step: "正在生成", detail: "请稍候" },
+  polling: { value: 70, step: "正在生成短片", detail: "可以稍后回来查看" },
+  reviewing: { value: 90, step: "即将完成", detail: "正在完成最后处理" },
 };
 
-function StudioDialog({
+export function StudioDialog({
   opening,
   onClose,
 }: {
-  opening: Opening;
+  opening: StudioOpening;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [mode, setMode] = useState<Opening["mode"]>(opening.mode),
+  const [mode, setMode] = useState<StudioOpening["mode"]>(opening.mode),
     [caps, setCaps] = useState<StudioCaps | null>(null),
     [jobs, setJobs] = useState<StudioJob[]>([]),
     [notes, setNotes] = useState<InkNote[]>([]),
@@ -192,15 +64,14 @@ function StudioDialog({
     requestId = useRef(studioId()),
     mounted = useRef(true),
     editorClose = useRef<(() => Promise<boolean>) | null>(null);
-  const refresh = async () => {
-    const [j, n] = await Promise.all([
+  const syncStudio = async () => {
+    const [jobPage, notePage] = await Promise.all([
       studioApi.jobs(opening.anchor.book_id),
       studioApi.notes(opening.anchor.book_id),
     ]);
-    if (mounted.current) {
-      setJobs(j.items);
-      setNotes(n.items);
-    }
+    if (!mounted.current) return;
+    setJobs(jobPage.items);
+    setNotes(notePage.items);
   };
   useEffect(() => {
     mounted.current = true;
@@ -211,15 +82,53 @@ function StudioDialog({
         if (mounted.current) setCaps(c);
       })
       .catch((e) => setError(e.message));
-    void refresh().catch((e) => setError(e.message));
-    const timer = setInterval(() => {
-      void refresh().catch(() => {});
-    }, 2000);
+    void syncStudio()
+      .catch((e) => setError(e.message));
     return () => {
       mounted.current = false;
-      clearInterval(timer);
     };
   }, []);
+
+  const hasPendingJobs = jobs.some(pendingStudio);
+  useEffect(() => {
+    if (!hasPendingJobs) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const poll = async () => {
+      if (cancelled || document.hidden) return;
+      try {
+        const page = await studioApi.jobs(opening.anchor.book_id);
+        if (cancelled || !mounted.current) return;
+        setJobs(page.items);
+        if (!page.items.some(pendingStudio)) {
+          const notePage = await studioApi.notes(opening.anchor.book_id);
+          if (!cancelled && mounted.current) setNotes(notePage.items);
+          return;
+        }
+      } catch {
+        // A later poll can recover without replacing the user's current view.
+      }
+      if (!cancelled && !document.hidden) timer = setTimeout(poll, 3000);
+    };
+
+    const resume = () => {
+      if (document.hidden || cancelled) {
+        if (timer) clearTimeout(timer);
+        timer = undefined;
+        return;
+      }
+      if (!timer) timer = setTimeout(poll, 250);
+    };
+
+    if (!document.hidden) timer = setTimeout(poll, 3000);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [hasPendingJobs, opening.anchor.book_id]);
   async function close() {
     if (editorClose.current && !(await editorClose.current())) return;
     onClose();
@@ -301,8 +210,8 @@ function StudioDialog({
     >
       <header className="studio-heading">
         <div>
-          <small>云径 · 理解工作台</small>
-          <h2>{note ? "留下你的思路" : "换个方式，读懂它"}</h2>
+          <small>学习工作台</small>
+          <h2>{note ? "学习笔记" : mode === "video" ? "生成短片" : "生成图解"}</h2>
         </div>
         <button aria-label="关闭学习工作台" onClick={() => void close()}>
           ×
@@ -333,7 +242,7 @@ function StudioDialog({
             </nav>
             {mode !== "notes" && (
               <section className="studio-compose">
-                <span className="studio-eyebrow">只讲清楚一个问题</span>
+                <span className="studio-eyebrow">生成设置</span>
                 <label>
                   选中的内容
                   <textarea
@@ -344,7 +253,7 @@ function StudioDialog({
                       setSelection(e.target.value);
                       requestId.current = studioId();
                     }}
-                    placeholder="从章节原文中长按选择一小段文字，也可以在这里填入你想理解的教材内容。"
+                    placeholder="选择或输入教材内容"
                   />
                 </label>
                 <div className="studio-options">
@@ -378,10 +287,9 @@ function StudioDialog({
                   </label>
                 </div>
                 <p className="studio-disclosure">
-                  生成时会将选段与必要的教材上下文交给 AI 处理。
                   {mode === "video"
-                    ? "短片约 6 秒，一次只讲一个变化。"
-                    : "知识关系会整理成清晰的关系图，适合场景展示的内容会生成辅助插画。"}
+                    ? "根据所选内容生成约 6 秒短片。"
+                    : "根据所选内容生成知识图解。"}
                 </p>
                 <button
                   className="studio-primary"
@@ -411,17 +319,15 @@ function StudioDialog({
                       "此方式暂未就绪，可以先记笔记或稍后再来。"}
                   </p>
                 )}
-                <small>按需生成 · 已生成的内容会保留在这里</small>
+                <small>生成结果将自动保存</small>
               </section>
             )}
             {mode === "notes" && (
               <section className="studio-notes-list">
                 <div className="ink-invitation">
                   <span aria-hidden="true">✎</span>
-                  <h3>你的思路，值得留下</h3>
-                  <p>
-                    写下来，或直接说出来。AI 会转成文字，再结合教材检查与补全。
-                  </p>
+                  <h3>新建笔记</h3>
+                  <p>支持手写或语音输入，完成后自动识别并结合教材整理。</p>
                   <div className="note-create-choices">
                     <button aria-label="新建手写笔记" className="studio-primary" onClick={() => newNote("ink")}>
                       ✎ 手写笔记
@@ -440,7 +346,7 @@ function StudioDialog({
                     <span>✎</span>
                     <span>
                       <strong>{n.title}</strong>
-                      <small>未同步草稿 · 点击恢复并保存</small>
+                      <small>未完成草稿 · 点击继续</small>
                     </span>
                     <span>›</span>
                   </button>
@@ -499,7 +405,9 @@ function StudioDialog({
             jobs={jobs}
             onSaved={(n) => {
               setNote(n);
-              void refresh().catch(e => { if(mounted.current) setError(e.message); });
+              void syncStudio().catch((e: unknown) => {
+                if (mounted.current) setError((e as Error).message);
+              });
             }}
             onJob={(j) =>
               setJobs((old) => [j, ...old.filter((x) => x.id !== j.id)])
@@ -507,7 +415,9 @@ function StudioDialog({
             closeRef={editorClose}
             onBack={() => {
               setNote(null);
-              void refresh().catch(e => { if(mounted.current) setError(e.message); });
+              void syncStudio().catch((e: unknown) => {
+                if (mounted.current) setError((e as Error).message);
+              });
             }}
           />
         )}
@@ -543,23 +453,23 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
       {pendingStudio(job) && !["image", "video"].includes(job.kind) && <p>你可以继续阅读，完成后回到这里查看。</p>}
       {pendingStudio(job) && r.transcript && (
         <details open>
-          <summary>已转成文字，正在对照教材</summary>
+          <summary>文字内容</summary>
           <p className="ink-polished">{r.transcript}</p>
         </details>
       )}
       {job.error && <p className="studio-error">{job.error}</p>}
       {r.visual_scope && <p className="studio-focus">这次看懂：{r.visual_scope}</p>}
-      {job.asset_url && job.kind === "image" && <span className="studio-eyebrow">{r.visual_mode === "diagram" ? "教材彩色概念图" : "AI 辅助插画"}</span>}
+      {job.asset_url && job.kind === "image" && <span className="studio-eyebrow">{r.visual_mode === "diagram" ? "知识图解" : "辅助插画"}</span>}
       {job.asset_url &&
         (job.kind === "image" ? (
-          <StudyImage src={job.asset_url} title={r.title ?? "AI 辅助图解"} />
+          <StudyImage src={job.asset_url} title={r.title ?? "知识图解"} />
         ) : (
           <video
             src={job.asset_url}
             controls
             playsInline
             preload="metadata"
-            aria-label="AI 短片讲解"
+            aria-label="短片讲解"
           />
         ))}
       {r.explanation && <p>{r.explanation}</p>}
@@ -589,7 +499,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
 }
 function MediaJobProgress({ job, compact = false }: { job: StudioJob; compact?: boolean }) {
   const phase = mediaProgress[job.status] ?? mediaProgress.queued;
-  const step = job.status === "submitting" && job.kind === "video" ? "正在启动短片生成" : phase.step;
+  const step = job.status === "submitting" && job.kind === "video" ? "正在生成短片" : phase.step;
   return (
     <div className={`studio-job-progress ${compact ? "is-compact" : ""}`} role="status" aria-live="polite">
       <span className="studio-progress-spinner" aria-hidden="true" />
@@ -607,7 +517,7 @@ function MediaJobProgress({ job, compact = false }: { job: StudioJob; compact?: 
         >
           <i style={{ width: `${phase.value}%` }} />
         </div>
-        {!compact && <small className="studio-progress-footnote">阶段进度 · 离开后任务仍会在后台继续</small>}
+        {!compact && <small className="studio-progress-footnote">离开页面不影响生成</small>}
       </div>
     </div>
   );
@@ -701,9 +611,9 @@ function InkEditor({
     [redo, setRedo] = useState<InkStroke[]>([]),
     [message, setMessage] = useState(
       dirty.current
-        ? "已恢复未保存草稿"
+        ? "已载入草稿"
         : initial.revision > 0
-          ? "已从云端恢复"
+          ? "已载入"
           : "尚未保存",
     ),
     [error, setError] = useState(""),
@@ -863,7 +773,7 @@ function InkEditor({
       sessionStorage.setItem(draftKey, JSON.stringify(n));
       setMessage("草稿已暂存");
     } catch {
-      setMessage("草稿尚未同步，请勿关闭页面");
+      setMessage("暂存失败，请先不要关闭页面");
     }
     setError("");
   }
@@ -905,7 +815,7 @@ function InkEditor({
       let saved = await studioApi.save(snapshot);
       const audio = audioBlobRef.current;
       if ((snapshot.input_mode ?? "ink") === "voice" && audio) {
-        setMessage("正在安全保存录音…");
+        setMessage("正在保存录音…");
         saved = await studioApi.audio(saved, audio, audioDurationRef.current);
         audioBlobRef.current = null;
       }
@@ -1261,13 +1171,11 @@ function InkEditor({
           </>}
         </section>
         <section className="ink-assistant">
-          <span className="studio-eyebrow">与你一起完善，而不是替你重写</span>
-          <h3>{voice ? "说完，剩下的交给我" : "写完，剩下的交给我"}</h3>
-          <p>{voice ? "一键保存录音、转成文字，再结合教材检查与补全。" : "一键保存笔迹，自动识别、核对，再结合教材检查与补全。"}</p>
+          <span className="studio-eyebrow">智能整理</span>
+          <h3>完成后自动整理</h3>
+          <p>{voice ? "将录音整理为完整笔记。" : "将手写内容整理为完整笔记。"}</p>
           <p className="studio-disclosure">
-            {voice
-              ? "点击完成会先在服务器内转写录音，再将逐字稿和必要教材片段交给 AI 整理。原录音和逐字稿都会保留；只有听不清时才请你确认。"
-              : "点击完成会将笔记图像和必要教材片段交给 AI 处理。原笔迹不会被覆盖；仅在字迹仍不清楚时请你确认。"}
+            原始内容保持不变；遇到不清楚的部分时会请你确认。
           </p>
           <button
             className="studio-primary"
@@ -1276,7 +1184,7 @@ function InkEditor({
           >
             {working ? (notePhase[relevant.find(pendingStudio)?.result.phase ?? ""] || "正在准备整理…") : busy ? "正在保存…" : "完成并整理"}
           </button>
-          {!(voice ? voiceEnabled : enabled) && <small>AI 暂未就绪，仍可正常保存{voice ? "语音" : "手写"}笔记。</small>}
+          {!(voice ? voiceEnabled : enabled) && <small>智能整理暂不可用，仍可保存{voice ? "语音" : "手写"}笔记。</small>}
           {recognition && !improvement && !working && (
             <div className="ink-recognition">
               <label>
@@ -1313,11 +1221,11 @@ function InkEditor({
           )}
           {improvement && (
             <div className="ink-feedback">
-              <h3>{improvement.result.provisional ? "先看整理草稿" : "给你的修改建议"}</h3>
+              <h3>{improvement.result.provisional ? "整理结果" : "完善建议"}</h3>
               <small role={improvement.result.provisional ? "status" : undefined}>
                 {improvement.result.provisional
-                  ? "内容已生成，正在对照教材做最后复核；你可以先阅读。"
-                  : "整理结果已保存，原笔迹保持不变。"}
+                  ? "内容仍在完善，你可以先阅读。"
+                  : "已保存，原笔迹保持不变。"}
               </small>
               <details>
                 <summary>查看识别文字</summary>
@@ -1347,7 +1255,7 @@ function InkEditor({
                 onClick={() => void accept(accepted !== improvement.id)}
               >
                 {improvement.result.provisional
-                  ? "复核完成后可以保留"
+                  ? "整理完成后可以保留"
                   : accepted === improvement.id
                   ? "撤回这个整理版"
                   : "保留整理版（原笔迹不变）"}

@@ -94,6 +94,21 @@ def test_exact_identifiers_keep_table_evidence_available(tmp_path: Path) -> None
     assert any(item.page_number == 3 for item in result.evidence)
 
 
+def test_fast_search_preserves_relevant_evidence_without_neural_models(
+    tmp_path: Path,
+) -> None:
+    index_dir = tmp_path / "index"
+    _write_index(index_dir)
+    index = _load(index_dir)
+
+    result = index.search_fast("减数分裂有什么特点？", top_pages=2, max_evidence=2)
+
+    assert result.score > 0
+    assert result.lexical_support
+    assert result.pages[0] == 1
+    assert "染色体只复制一次" in result.evidence[0].text
+
+
 def test_index_rejects_duplicate_chunk_ids(tmp_path: Path) -> None:
     index_dir = tmp_path / "index"
     _write_index(index_dir, duplicate=True)

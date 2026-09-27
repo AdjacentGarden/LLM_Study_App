@@ -15,8 +15,8 @@ export function FlashcardFace({ card, flipped, busy, onFlip, onSwipe }: { card: 
     onClick={()=>{if(swiped.current){swiped.current=false;return;}onFlip();}}
     aria-label={flipped ? "闪卡答案，点击返回题目" : "闪卡题目，点击翻面查看答案"} aria-pressed={flipped}>
     <span className="flip-card-inner">
-      <span className="flip-face flip-front" aria-hidden={flipped}><span className="flash-eyebrow">先在心里回答</span><span className="flash-text">{card.front}</span><span className="flash-hint">轻触翻面 ↻</span></span>
-      <span className="flip-face flip-back" aria-hidden={!flipped}><span className="flash-eyebrow">看看你的理解</span><span className="flash-text">{card.back}</span><span className="flash-hint">来源：教材第 {pages} 页 · 轻触返回</span></span>
+      <span className="flip-face flip-front" aria-hidden={flipped}><span className="flash-eyebrow">问题</span><span className="flash-text">{card.front}</span><span className="flash-hint">点击查看答案</span></span>
+      <span className="flip-face flip-back" aria-hidden={!flipped}><span className="flash-eyebrow">答案</span><span className="flash-text">{card.back}</span><span className="flash-hint">教材第 {pages} 页 · 点击返回</span></span>
     </span>
   </button>;
 }

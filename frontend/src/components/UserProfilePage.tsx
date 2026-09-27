@@ -3,7 +3,7 @@ import { socialApi } from "../api/social";
 import { api } from "../api/client";
 import type { UserProfile } from "../types/api";
 
-export const DEFAULT_AVATAR="/assets/brand/profile-avatar-student-v2.png";
+export const DEFAULT_AVATAR="/assets/brand/profile-avatar-editorial-v3.webp";
 export function UserProfilePage({onSaved,onBack,onBusy}:{onSaved:(value:UserProfile)=>void;onBack:()=>void;onBusy:(value:boolean)=>void}) {
   const [saved,setSaved]=useState<UserProfile|null>(null),[nickname,setNickname]=useState(""),[age,setAge]=useState(""),[bio,setBio]=useState("");
   const [image,setImage]=useState<string|null>(null),[reset,setReset]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[reading,setReading]=useState(false),[error,setError]=useState("");

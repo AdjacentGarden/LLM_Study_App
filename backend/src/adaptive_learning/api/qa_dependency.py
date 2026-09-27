@@ -52,8 +52,11 @@ def _create_qa_service() -> TextbookQAService:
     generator = GroundedAnswerGenerator(
         client,
         refusal_score_threshold=settings.rag_refusal_score_threshold,
-        use_evidence_planner=True,
-        use_semantic_review=True,
+        # The answer prompt already receives the complete bounded evidence set.
+        # A separate pre-answer planner added another network/model round trip without
+        # improving deterministic citation checks, so production keeps it opt-in.
+        use_evidence_planner=settings.rag_use_evidence_planner,
+        use_semantic_review=settings.rag_use_semantic_review,
     )
     return TextbookQAService(
         book_id=settings.rag_book_id,
@@ -61,6 +64,7 @@ def _create_qa_service() -> TextbookQAService:
         generator=generator,
         top_pages=settings.rag_top_pages,
         max_evidence=settings.rag_max_evidence,
+        retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
     )
 
 
@@ -104,6 +108,7 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
         service = TextbookQAService(
             book_id=book_id, index=index, generator=primary.generator,
             top_pages=settings.rag_top_pages, max_evidence=settings.rag_max_evidence,
+            retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
         )
         _book_services[book_id] = service
         while len(_book_services) > 4:

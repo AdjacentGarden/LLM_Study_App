@@ -29,7 +29,7 @@ export async function request<T>(path: string, init: RequestInit = {}, timeoutMs
       const detail = value && typeof value === "object" && "detail" in value ? value.detail : null;
       throw new ApiError(errorMessage(detail, response.status), response.status);
     }
-    if (value === null) throw new ApiError("服务器返回的内容不完整，请重试。", response.status);
+    if (value === null) throw new ApiError("内容加载失败，请重试。", response.status);
     return value as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;

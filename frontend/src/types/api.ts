@@ -171,6 +171,9 @@ export interface CourseActivity { duplicate: boolean; evidence: EvidenceResult; 
 
 export interface QAResult {
   semantic_checked?: boolean;
+  retrieval_duration_ms: number;
+  generation_duration_ms: number;
+  cache_hit?: boolean;
   status: "supported" | "insufficient";
   answer: string;
   confidence: number;

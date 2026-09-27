@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import queue
 import threading
 import time
 from collections import OrderedDict
@@ -16,7 +17,7 @@ from .grounded_qa import (
     GroundedAnswerGenerator,
     VerifiedClaim,
 )
-from .index import PersistentRAGIndex
+from .index import PersistentRAGIndex, RetrievalResult
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +53,21 @@ class TextbookQAService:
         cache_size: int = 64,
         max_concurrent: int = 3,
         wait_seconds: float = 150,
+        retrieval_budget_seconds: float = 2.5,
+        retrieval_cache_seconds: float = 900,
+        retrieval_cache_size: int = 128,
     ) -> None:
         if not book_id.strip():
             raise ValueError("book_id must not be empty")
-        if cache_seconds < 0 or cache_size < 0 or max_concurrent < 1 or wait_seconds <= 0:
+        if (
+            cache_seconds < 0
+            or cache_size < 0
+            or max_concurrent < 1
+            or wait_seconds <= 0
+            or not 0 < retrieval_budget_seconds < 3
+            or retrieval_cache_seconds < 0
+            or retrieval_cache_size < 0
+        ):
             raise ValueError("invalid QA resource limits")
         self.book_id = book_id
         self.index = index
@@ -65,9 +77,18 @@ class TextbookQAService:
         self._ready = False
         self.cache_seconds, self.cache_size = cache_seconds, cache_size
         self.max_concurrent, self.wait_seconds = max_concurrent, wait_seconds
+        self.retrieval_budget_seconds = retrieval_budget_seconds
+        self.retrieval_cache_seconds = retrieval_cache_seconds
+        self.retrieval_cache_size = retrieval_cache_size
         # Service/index scoped; never shared across books or model configurations.
         self._cache: OrderedDict[str, tuple[float, TextbookQAResult]] = OrderedDict()
         self._inflight: dict[str, Future[TextbookQAResult]] = {}
+        self._retrieval_cache: OrderedDict[
+            str, tuple[float, RetrievalResult]
+        ] = OrderedDict()
+        # At most one full neural retrieval may outlive its latency budget per book.
+        # Further requests immediately use the lexical circuit breaker instead of queuing.
+        self._retrieval_slot = threading.BoundedSemaphore(1)
         self._lock = threading.Lock()
 
     @property
@@ -132,16 +153,16 @@ class TextbookQAService:
 
     def _answer(self, question: str) -> TextbookQAResult:
         retrieval_started = time.monotonic()
-        retrieval = self.index.search(
-            question,
-            top_pages=self.top_pages,
-            max_evidence=self.max_evidence,
-        )
+        retrieval, retrieval_mode = self._retrieve(question)
         self._ready = True
         retrieval_duration_ms = round((time.monotonic() - retrieval_started) * 1000)
         logger.info(
             "textbook retrieval completed",
-            extra={"duration_ms": retrieval_duration_ms, "evidence_count": len(retrieval.evidence)},
+            extra={
+                "duration_ms": retrieval_duration_ms,
+                "evidence_count": len(retrieval.evidence),
+                "retrieval_mode": retrieval_mode,
+            },
         )
         evidence = [
             EvidenceChunk(
@@ -179,3 +200,88 @@ class TextbookQAService:
             generation_duration_ms=generation_duration_ms,
             semantic_checked=generated.semantic_checked,
         )
+
+    def _retrieve(self, question: str) -> tuple[RetrievalResult, str]:
+        now = time.monotonic()
+        with self._lock:
+            for expired in [
+                q for q, (until, _) in self._retrieval_cache.items() if until <= now
+            ]:
+                del self._retrieval_cache[expired]
+            cached = self._retrieval_cache.get(question)
+            if cached is not None:
+                self._retrieval_cache.move_to_end(question)
+                return cached[1], "cache"
+
+        if not self._retrieval_slot.acquire(blocking=False):
+            return self._fast_retrieve(question), "lexical-busy"
+
+        completed: queue.Queue[
+            tuple[RetrievalResult | None, BaseException | None]
+        ] = queue.Queue(maxsize=1)
+
+        def run() -> None:
+            try:
+                result = self.index.search(
+                    question,
+                    top_pages=self.top_pages,
+                    max_evidence=self.max_evidence,
+                )
+                self._remember_retrieval(question, result)
+                completed.put((result, None))
+            except BaseException as error:
+                completed.put((None, error))
+            finally:
+                self._retrieval_slot.release()
+
+        threading.Thread(
+            target=run,
+            name=f"rag-retrieval-{self.book_id}",
+            daemon=True,
+        ).start()
+        try:
+            result, error = completed.get(timeout=self.retrieval_budget_seconds)
+        except queue.Empty:
+            logger.warning(
+                "neural retrieval exceeded latency budget; using lexical fallback",
+                extra={"budget_ms": round(self.retrieval_budget_seconds * 1000)},
+            )
+            return self._fast_retrieve(question), "lexical-timeout"
+        if error is not None:
+            raise error
+        return result, "hybrid"
+
+    def _fast_retrieve(self, question: str) -> RetrievalResult:
+        fast = getattr(self.index, "search_fast", None)
+        if fast is None:
+            # Test doubles and legacy indexes do not need a fallback because their normal
+            # search returns synchronously.  This branch is only reached under contention.
+            return self.index.search(
+                question,
+                top_pages=self.top_pages,
+                max_evidence=self.max_evidence,
+            )
+        result = fast(
+            question,
+            top_pages=self.top_pages,
+            max_evidence=self.max_evidence,
+        )
+        self._remember_retrieval(question, result)
+        return result
+
+    def _remember_retrieval(self, question: str, result: RetrievalResult) -> None:
+        if (
+            not self.retrieval_cache_size
+            or not self.retrieval_cache_seconds
+            or not result.evidence
+            or (result.score <= 0 and not result.lexical_support)
+        ):
+            return
+        with self._lock:
+            self._retrieval_cache[question] = (
+                time.monotonic() + self.retrieval_cache_seconds,
+                result,
+            )
+            self._retrieval_cache.move_to_end(question)
+            while len(self._retrieval_cache) > self.retrieval_cache_size:
+                self._retrieval_cache.popitem(last=False)

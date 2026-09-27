@@ -50,7 +50,7 @@ export function ShareDialog({books,initialBookId,resource,onClose,onShared}:{boo
   return <DetailSheet title="把好内容分享出去" onClose={()=>{if(!busy)onClose();}}><form className="community-form" onSubmit={e=>{e.preventDefault();void submit();}}>
     {!resource&&<div className="community-tabs" role="group" aria-label="分享类型">{([['book','书籍'],['note','笔记']] as const).map(([id,label])=><button type="button" aria-pressed={kind===id} key={id} onClick={()=>{setKind(id);setRights(false);}}>{label}</button>)}</div>}
     <label>来源教材<select aria-label="分享来源教材" disabled={!!resource} value={bookId} onChange={e=>{setBookId(e.target.value);setRights(false);}}>{books.map(b=><option key={b.book_id} value={b.book_id}>{b.title}</option>)}</select></label>
-    {kind==="book"&&<div className="share-book-info"><Icon name="book"/><p>分享已解析教材。领取者会建立自己的学习画像，不会收到你的作答、笔记或学习进度。</p></div>}
+    {kind==="book"&&<div className="share-book-info"><Icon name="book"/><p>只分享教材内容，不包含你的作答、笔记和学习进度。</p></div>}
     {kind!=="book"&&<label>分享标题（选填）<input maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="默认使用课程或笔记标题"/></label>}
     {loading&&<p role="status">正在读取可分享内容…</p>}
     {kind==="flashcards"&&!resource&&!loading&&<>{!candidates.length?<p className="community-fineprint">还没有生成过课程闪卡。请先进入这本书的一章生成课程，再来分享。</p>:<><label>选择章节<select aria-label="分享闪卡章节" value={courseId} onChange={e=>{setCourseId(e.target.value);setCardIds(candidates.find(c=>c.course_id===e.target.value)?.cards.map(c=>c.id!)??[]);}}>{candidates.map(c=><option key={c.course_id} value={c.course_id}>{c.title}</option>)}</select></label><p className="community-fineprint">选择要分享的闪卡（{cardIds.length} 张），只分享题面、答案和教材页码。</p><div className="share-card-options">{selectedCourse?.cards.map(c=><label key={c.id}><input type="checkbox" checked={cardIds.includes(c.id!)} onChange={e=>setCardIds(e.target.checked?[...cardIds,c.id!]:cardIds.filter(id=>id!==c.id))}/><span>{c.front}<small>{c.back}</small></span></label>)}</div></>}</>}
@@ -58,7 +58,7 @@ export function ShareDialog({books,initialBookId,resource,onClose,onShared}:{boo
     {resource&&<div className="share-note-preview">{resource.content.body??`${resource.content.cards?.length??0} 张闪卡，仅分享卡片正文。`}</div>}
     <label>推荐语（选填）<textarea rows={2} maxLength={500} value={description} onChange={e=>setDescription(e.target.value)} placeholder="它适合谁？有什么值得学习的地方？"/></label>
     <label className="rights-confirm"><input type="checkbox" checked={rights} onChange={e=>setRights(e.target.checked)}/><span>我确认有权分享这些内容，且不包含个人隐私信息。</span></label>
-    <p className="community-fineprint">其他用户可免费保存分享快照。你可撤回社区展示，但已被领取的副本会保留。</p>
+    <p className="community-fineprint">其他用户可以保存这份内容。撤回后，已保存的内容仍会保留。</p>
     {error&&<p className="community-error" role="alert">{error}</p>}
     <button className="primary" disabled={busy||loading||!rights||!available||!bookId}>{busy?"正在发布…":"确认分享到社区"}</button>
   </form></DetailSheet>;

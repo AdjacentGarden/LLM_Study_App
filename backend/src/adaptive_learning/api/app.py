@@ -3,6 +3,7 @@ from __future__ import annotations
 import faulthandler
 import logging
 import os
+import re
 import shutil
 import signal
 from collections.abc import AsyncIterator
@@ -231,37 +232,12 @@ def rag_health() -> dict[str, object]:
     }
 
 
-@app.get("/api/demo")
-def demo() -> dict[str, object]:
-    book = store.book("demo_book")
-    return {
-        "book": {
-            "book_id": book.book_id,
-            "title": "理解复杂系统",
-            "page_count": 186,
-            "status": "ready",
-            "quality_score": 0.94,
-            "chapters": [
-                {"id": "ch_1", "title": "从局部到整体", "summary": "认识系统、要素与关系。"},
-                {"id": "ch_2", "title": "反馈与变化", "summary": "理解正反馈、负反馈和动态行为。"},
-                {"id": "ch_3", "title": "边界、延迟与涌现", "summary": "识别直觉容易失效的地方。"},
-                {"id": "ch_4", "title": "用系统方法解决问题", "summary": "把概念迁移到真实问题。"},
-            ],
-        },
-        "processing": [
-            {"label": "页面识别与版面还原", "state": "done", "detail": "186/186 页"},
-            {"label": "双模型校对与质量门控", "state": "done", "detail": "94% 可直接使用"},
-            {"label": "章节结构与摘要", "state": "done", "detail": "识别 4 章"},
-        ],
-    }
-
-
 @app.post("/api/books", response_model=UploadResponse)
 async def upload_book(file: Annotated[UploadFile, File()]) -> UploadResponse:
     suffix = Path(file.filename or "book.pdf").suffix.lower()
     if suffix != ".pdf":
         raise HTTPException(
-            status_code=415, detail="当前框架仅接受 PDF；Office/EPUB 适配器在下一阶段启用"
+            status_code=415, detail="目前仅支持上传 PDF 文件。"
         )
     book_id = new_book_id()
     target_dir = settings.data_dir / "books" / book_id
@@ -358,9 +334,9 @@ def retry_process_book(book_id: str) -> BookStatusResponse:
     book = _book_or_404(book_id)
     current = job_repository.get_job(book_id)
     if current is None:
-        raise HTTPException(status_code=409, detail="该书尚未提交 OCR 任务")
+        raise HTTPException(status_code=409, detail="该书尚未开始处理。")
     if current.status not in {"failed", "ocr_review_required"}:
-        raise HTTPException(status_code=409, detail="当前 OCR 状态不允许手动重试")
+        raise HTTPException(status_code=409, detail="当前状态不支持重新处理。")
     job = job_repository.enqueue(
         book_id=book_id,
         output_dir=settings.data_dir / "books" / book_id / "ocr",
@@ -388,11 +364,11 @@ def answer_book_question(
     except LLMTimeoutError as error:
         logger.warning("grounded QA model timed out", exc_info=error)
         raise HTTPException(
-            status_code=504, detail="回答模型响应超时，请稍后重试；你的问题已保留。"
+            status_code=504, detail="回答服务响应较慢，请稍后重试；你的问题已保留。"
         ) from error
     except LLMError as error:
         logger.warning("grounded QA model call failed", exc_info=error)
-        raise HTTPException(status_code=502, detail="回答模型暂时不可用") from error
+        raise HTTPException(status_code=502, detail="回答服务暂时不可用，请稍后重试。") from error
     except GroundedAnswerValidationError as error:
         logger.warning("grounded QA evidence validation failed", exc_info=error)
         raise HTTPException(status_code=502, detail="回答未通过教材证据校验") from error
@@ -414,7 +390,7 @@ def generate_book_structure(
     book = _book_or_404(book_id)
     job = job_repository.get_job(book_id)
     if job is None or job.status != "ocr_ready":
-        raise HTTPException(status_code=409, detail="书籍 OCR 尚未通过质量门控")
+        raise HTTPException(status_code=409, detail="书籍内容尚未准备完成。")
     pages_path = job.output_dir / "normalized" / "pages.jsonl"
     try:
         pages = load_normalized_pages(pages_path)
@@ -449,7 +425,7 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     ):
         return _bank_response(book_id, existing)
     if item_generator is None:
-        raise HTTPException(status_code=503, detail="诊断题生成模型尚未配置")
+        raise HTTPException(status_code=503, detail="诊断内容暂时不可用，请稍后重试。")
     try:
         items = item_generator.generate(structure)
         assessment_repository.save_bank(
@@ -704,7 +680,7 @@ def answer_course_practice(
     elif open_answer_scorer is not None:
         evidence = open_answer_scorer.score(diagnostic, response)
     else:
-        raise HTTPException(status_code=503, detail="开放练习评分模型尚未配置")
+        raise HTTPException(status_code=503, detail="练习评分暂时不可用，请稍后重试。")
     if evidence.scoring_confidence > 0:
         engine.update_profile(session.profile, diagnostic, response, evidence)
     stale = profile_fingerprint(session.profile) != bundle.profile_fingerprint
@@ -1038,6 +1014,19 @@ def _install_demo_book() -> None:
     )
 
 
+class FrontendStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: dict):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            fingerprinted = re.search(r"-[A-Za-z0-9_-]{8,}\.(?:css|js)$", path)
+            response.headers["Cache-Control"] = (
+                "public, max-age=31536000, immutable"
+                if fingerprinted
+                else "public, max-age=604800"
+            )
+        return response
+
+
 def _mount_frontend() -> None:
     configured = os.getenv("FRONTEND_DIST_DIR", "").strip()
     if not configured:
@@ -1049,7 +1038,7 @@ def _mount_frontend() -> None:
         logger.warning("frontend dist is incomplete: %s", frontend_dist)
         return
 
-    app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+    app.mount("/assets", FrontendStaticFiles(directory=assets_dir), name="frontend-assets")
 
     @app.get("/", include_in_schema=False)
     def frontend_index() -> FileResponse:

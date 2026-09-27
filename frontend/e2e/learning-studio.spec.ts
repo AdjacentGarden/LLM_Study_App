@@ -47,12 +47,13 @@ test("chapter, section and flashcard all carry usable visual learning context", 
     (route) => route.fulfill({ json: course }),
   );
   await page.goto(baseURL + "/?embedded=1");
-  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  const guestEntry = page.getByRole("button", { name: "暂时体验，稍后注册" });
+  if (await guestEntry.isVisible()) await guestEntry.click();
   const chapter = page.locator(".atlas-row").filter({ hasText: course.chapter_title }).first();
   await chapter.locator(".atlas-trigger").click();
   await chapter.getByRole("button", { name: "进入学习", exact: true }).click();
 
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "图解", exact: true }).click();
   await expect(page.getByLabel("选中的内容")).toHaveValue(
     new RegExp(course.chapter_title),
@@ -92,7 +93,7 @@ test("server notebook works when browser session storage is disabled", async ({
   );
   await page.goto(baseURL + "/?embedded=1");
   await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
   await page.getByRole("textbox", { name: "笔记标题" }).fill("无本地存储测试");
   await page.getByRole("button", { name: "保存笔记", exact: true }).click();
@@ -120,7 +121,7 @@ test("private digital ink saves, undo redo, reload and narrow layout", async ({
   await page.goto(baseURL + "/?embedded=1");
   const skip = page.getByRole("button", { name: "暂时体验，稍后注册" });
   await skip.click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
   await page.getByRole("textbox", { name: "笔记标题" }).fill("笔画保存测试");
   const canvas = page.getByLabel("手写笔记画布");
@@ -220,7 +221,7 @@ test("private digital ink saves, undo redo, reload and narrow layout", async ({
   await page.getByRole("button", { name: "关闭学习工作台" }).click();
   await page.reload();
   await skip.click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: /笔画保存测试/ }).click();
   await expect(page.getByRole("textbox", { name: "笔记标题" })).toHaveValue(
     "笔画保存测试",
@@ -261,7 +262,7 @@ test("real handwriting recognition and grounded improvement on 4090", async ({
   await page.goto(baseURL + "/?embedded=1");
   const skip = page.getByRole("button", { name: "暂时体验，稍后注册" });
   await skip.click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
   await page
     .getByRole("textbox", { name: "笔记标题" })
@@ -313,7 +314,7 @@ test("real handwriting recognition and grounded improvement on 4090", async ({
   await page.getByRole("button", { name: "完成并整理", exact: true }).click();
   const confirmation = page.getByLabel("核对识别文字");
   const provisional = page.getByText(
-    "内容已生成，正在对照教材做最后复核；你可以先阅读。",
+    "内容仍在完善，你可以先阅读。",
   );
   await expect(confirmation.or(provisional).first()).toBeVisible({
     timeout: 180000,
@@ -412,7 +413,7 @@ test("media controls submit once, keep context, and show a failed task without a
   });
   await page.goto(baseURL + "/?embedded=1");
   await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "图解", exact: true }).click();
   await page.getByLabel("选中的内容").fill("选中的教材测试文本");
   await page.getByRole("button", { name: "生成一张图解" }).click();
@@ -480,12 +481,12 @@ test("media progress remains visible and completed work returns after visiting a
   });
   await page.goto(baseURL + "/?embedded=1");
   await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "图解", exact: true }).click();
   await page.getByLabel("选中的内容").fill("选中的教材测试文本");
   await page.getByRole("button", { name: "生成一张图解" }).click();
   await expect(page.getByRole("progressbar", { name: "图解生成进度" }).first()).toBeVisible();
-  await expect(page.getByText("正在设计画面").first()).toBeVisible();
+  await expect(page.getByText("正在准备").first()).toBeVisible();
   await page.getByRole("button", { name: "关闭学习工作台" }).click();
 
   await page.getByRole("button", { name: "书架", exact: true }).click();
@@ -511,7 +512,7 @@ test("media progress remains visible and completed work returns after visiting a
     },
   ];
   await page.locator(".shelf-caption").filter({ hasText: books[0].title }).click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "图解", exact: true }).click();
   await expect(page.getByRole("img", { name: "跨页面生成测试" })).toBeVisible();
   await expect(page.getByText("离开页面后仍由服务器继续生成。")).toBeVisible();
@@ -532,7 +533,7 @@ test("saving failure keeps ink and blocks closing until retry succeeds", async (
   );
   await page.goto(baseURL + "/?embedded=1");
   await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
   await page.getByRole("textbox", { name: "笔记标题" }).fill("断网草稿");
   await page.getByRole("button", { name: "保存笔记", exact: true }).click();
@@ -561,7 +562,7 @@ test("voice note can import, preview and save private audio on a phone", async (
   const page = await context.newPage();
   await page.goto(baseURL + "/?embedded=1");
   await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建语音笔记" }).click();
   await expect(page.getByRole("button", { name: "开始录音" })).toBeVisible();
   const title = `语音保存测试-${Date.now()}`;
@@ -593,7 +594,7 @@ test("voice note can import, preview and save private audio on a phone", async (
   await expect(page.locator(".ink-save")).toContainText("录音已保存");
   await page.getByRole("button", { name: "关闭学习工作台" }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("button", { name: /把理解，写下来/ }).click();
+  await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: new RegExp(title) }).click();
   await expect(page.getByLabel("语音笔记录音")).toHaveAttribute(
     "src",

@@ -258,7 +258,7 @@ class SQLiteOCRJobRepository:
             for row in expired:
                 exhausted = int(row["attempts"]) >= int(row["max_attempts"])
                 status = "failed" if exhausted else "queued"
-                step = "OCR 工作进程中断，等待手动重试" if exhausted else "检测到中断，正在自动恢复"
+                step = "内容处理已暂停，请重新尝试" if exhausted else "正在恢复内容处理"
                 connection.execute(
                     """
                     UPDATE ocr_jobs SET status=?, current_step=?, available_at=?,
@@ -362,7 +362,7 @@ class SQLiteOCRJobRepository:
     ) -> None:
         timestamp = time.time() if now is None else now
         status = "ocr_review_required" if result.needs_human_review else "ocr_ready"
-        step = "OCR 完成，存在需复核页面" if result.needs_human_review else "OCR 文本已通过质量门控"
+        step = "内容整理完成，少量页面待确认" if result.needs_human_review else "内容整理完成"
         payload = json.dumps(
             {
                 "quality_score": result.quality_score,
@@ -415,7 +415,7 @@ class SQLiteOCRJobRepository:
                 raise JobStateError("OCR job lease is no longer owned by this worker")
             exhausted = int(row["attempts"]) >= int(row["max_attempts"])
             status = "failed" if exhausted else "retry_wait"
-            step = "OCR 处理失败，可重新尝试" if exhausted else "OCR 暂时失败，等待自动重试"
+            step = "内容处理未完成，请重新尝试" if exhausted else "内容处理暂时中断，正在重试"
             available_at = timestamp if exhausted else timestamp + max(0, retry_delay_seconds)
             connection.execute(
                 """

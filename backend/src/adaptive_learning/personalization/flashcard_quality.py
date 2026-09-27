@@ -181,7 +181,7 @@ class FlashcardQualityGate:
 
     def _repair_and_review(self, inputs: list[dict[str, Any]]) -> dict[str, CorrectedCard]:
         if self.client is None:
-            raise FlashcardQualityError("闪卡审校模型尚未配置")
+            raise FlashcardQualityError("闪卡整理服务暂时不可用")
         expected = {str(item["id"]) for item in inputs}
         feedback: object = []
         approved: dict[str, CorrectedCard] = {}
@@ -225,7 +225,7 @@ class FlashcardQualityGate:
                              verdict.model_dump_json(), QUALITY_VERSION))
                 return approved
             except LLMError as error:
-                raise FlashcardQualityError("闪卡审校模型暂时不可用，请稍后重试") from error
+                raise FlashcardQualityError("闪卡整理服务暂时不可用，请稍后重试") from error
             except (KeyError, TypeError, ValueError, FlashcardQualityError) as error:
                 feedback = [{"issue": str(error)[:500]}]
         raise FlashcardQualityError("闪卡未通过完整性、文字及原文一致性审校，请重试", feedback)

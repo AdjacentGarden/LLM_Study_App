@@ -337,7 +337,7 @@ class CommunityRepository:
             item = dict(row)
             item["mine"] = item.pop("owner") == owner
             item["author"] = (
-                "体验书库" if row["owner"] == "curated" else f"书友 {str(row['owner'])[:4]}"
+                "云径书库" if row["owner"] == "curated" else f"书友 {str(row['owner'])[:4]}"
             )
             item["in_library"] = bool(
                 item.pop("book_owned") if item["kind"] == "book" else item.pop("resource_owned")

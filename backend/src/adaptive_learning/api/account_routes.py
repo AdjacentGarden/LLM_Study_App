@@ -169,7 +169,7 @@ def account_router(
     @router.post("/demo-friends")
     def demo_friends(owner: str = Depends(visitor)) -> dict[str, Any]:
         if not accounts.demo_enabled():
-            raise HTTPException(404, "演示体验已关闭")
+            raise HTTPException(404, "该功能不可用")
         result = []
         with accounts.repo.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -198,7 +198,7 @@ def account_router(
                 peer,
                 social.me(owner)["user_id"],
                 "demo-welcome-" + owner,
-                "[演示账号] 你好！这是一条测试欢迎消息。你可以在另一个窗口登录这个账号，测试双向聊天和资料分享。",
+                "你好，欢迎来到云径。你可以在这里发送消息和分享学习资料。",
                 None,
             )
         return {"friends": result, "count": len(result)}

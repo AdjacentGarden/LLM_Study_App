@@ -59,6 +59,9 @@ class Settings:
     rag_refusal_score_threshold: float
     rag_top_pages: int
     rag_max_evidence: int
+    rag_retrieval_budget_ms: int
+    rag_use_evidence_planner: bool
+    rag_use_semantic_review: bool
     assessment_min_items: int
     assessment_max_items: int
     assessment_stop_uncertainty: float
@@ -135,6 +138,9 @@ def get_settings() -> Settings:
         rag_refusal_score_threshold=_float("RAG_REFUSAL_SCORE_THRESHOLD", 0),
         rag_top_pages=_int("RAG_TOP_PAGES", 5),
         rag_max_evidence=_int("RAG_MAX_EVIDENCE", 10),
+        rag_retrieval_budget_ms=_int("RAG_RETRIEVAL_BUDGET_MS", 2500),
+        rag_use_evidence_planner=_bool("RAG_USE_EVIDENCE_PLANNER", False),
+        rag_use_semantic_review=_bool("RAG_USE_SEMANTIC_REVIEW", True),
         assessment_min_items=_int("ASSESSMENT_MIN_ITEMS", 5),
         assessment_max_items=_int("ASSESSMENT_MAX_ITEMS", 12),
         assessment_stop_uncertainty=_float("ASSESSMENT_STOP_UNCERTAINTY", 0.035),

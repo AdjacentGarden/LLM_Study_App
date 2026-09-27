@@ -19,6 +19,8 @@ import "./styles/accounts.css";
 import "./styles/learning-return.css";
 import "./styles/learning-studio.css";
 import "./styles/calm-redesign.css";
+import "./styles/editorial-redesign.css";
+import "./styles/formal-product.css";
 
 const query = new URLSearchParams(window.location.search);
 const embedded = query.get("embedded") === "1";

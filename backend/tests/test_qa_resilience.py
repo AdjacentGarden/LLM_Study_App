@@ -1,12 +1,26 @@
-from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-
-from adaptive_learning.rag.service import QABusyError, TextbookQAService
-from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
 from test_qa_service import FakeClient, FakeIndex
+
+from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
+from adaptive_learning.rag.service import QABusyError, TextbookQAService
+
+
+class SlowIndex(FakeIndex):
+    def __init__(self) -> None:
+        super().__init__(3)
+        self.fast_calls = 0
+
+    def search(self, question: str, **kwargs):
+        time.sleep(0.08)
+        return super().search(question, **kwargs)
+
+    def search_fast(self, question: str, **kwargs):
+        self.fast_calls += 1
+        return super().search(question, **kwargs)
 
 
 def service(**kwargs):
@@ -93,6 +107,24 @@ def test_book_services_never_share_answers():
     first.answer("same")
     second.answer("same")
     assert a.calls == b.calls == 1
+
+
+def test_slow_neural_retrieval_falls_back_within_the_latency_budget():
+    index = SlowIndex()
+    qa = TextbookQAService(
+        book_id="test-book",
+        index=index,  # type: ignore[arg-type]
+        generator=GroundedAnswerGenerator(FakeClient()),  # type: ignore[arg-type]
+        retrieval_budget_seconds=0.02,
+    )
+
+    started = time.monotonic()
+    result = qa.answer("减数分裂有什么特点？")
+    elapsed = time.monotonic() - started
+
+    assert result.status == "supported"
+    assert index.fast_calls == 1
+    assert elapsed < 0.07
 
 
 @pytest.mark.parametrize("question", ["", "   ", "x" * 2001])

@@ -40,7 +40,7 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
       throw new Error(`Unexpected API ${path}`);
     });
     await page.goto(url + "__studio-test");
-    await page.getByRole("button", { name: /把理解，写下来/ }).click();
+    await page.getByRole("button", { name: /学习笔记/ }).click();
     await page.getByRole("button", { name: "新建手写笔记" }).click();
     const complete = page.getByRole("button", { name: "完成并整理", exact: true });
     await expect(complete).toBeDisabled();
@@ -70,8 +70,8 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
             suggestions: [],
           },
         };
-        await expect(page.getByText("内容已生成，正在对照教材做最后复核；你可以先阅读。")).toBeVisible();
-        await expect(page.getByRole("button", { name: "复核完成后可以保留" })).toBeDisabled();
+        await expect(page.getByText("内容仍在完善，你可以先阅读。")).toBeVisible();
+        await expect(page.getByRole("button", { name: "整理完成后可以保留" })).toBeDisabled();
       }
       jobs[0] = { ...jobs[0], status: scenario === "unclear" ? "needs_confirmation" : "succeeded", result: scenario === "unclear" ? { transcript: "[待确认]", uncertain: ["第二行"] } : { transcript: "函数", summary: "仅为关键词，不推断掌握情况。", polished: "函数需要终止条件。", suggestions: [] } };
       if (scenario === "unclear") {

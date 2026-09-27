@@ -72,6 +72,10 @@ export function RegisterPage({
     setCode("");
     try {
       const result = await accountsApi.code(email.trim(), mode);
+      if (result.delivery !== "email") {
+        setError("邮箱验证服务暂时不可用，请稍后再试。");
+        return;
+      }
       const t = Date.now();
       setNow(t);
       setChallenge(result);
@@ -136,7 +140,7 @@ export function RegisterPage({
               <Icon name="book" size={22} />
               云径<span>CloudPath</span>
             </span>
-            <span className="auth-brand-note">每一步，都更懂你</span>
+            <span className="auth-brand-note">个性化教材学习</span>
           </div>
           <header className="auth-hero">
             <div className="auth-art" aria-hidden="true">
@@ -148,24 +152,24 @@ export function RegisterPage({
             </div>
             <span className="auth-eyebrow">
               {mode === "login"
-                ? "继续你的阅读旅程"
+                ? "ACCOUNT"
                 : step === 1
-                  ? "一本书，无数种起点"
-                  : "为你的学习留一点线索"}
+                  ? "CREATE ACCOUNT"
+                  : "LEARNING PROFILE"}
             </span>
             <h1 tabIndex={-1} ref={heading}>
               {mode === "login"
-                ? "欢迎回来。"
+                ? "登录"
                 : step === 1
-                  ? "从这里，\n读懂更多。"
-                  : "开启你的学习节奏。"}
+                  ? "注册账号"
+                  : "学习偏好"}
             </h1>
             <p>
               {mode === "login"
-                ? "用邮箱验证码登录，接着上次的进度。"
+                ? "使用邮箱验证码登录。"
                 : step === 1
-                  ? "建立一个账号，让理解和收获一路相随。"
-                  : "告诉我们一点背景，学习内容会更适合你。"}
+                  ? "填写邮箱和昵称以创建账号。"
+                  : "用于调整内容难度与学习重点。"}
             </p>
           </header>
           {showEmail && (
@@ -271,32 +275,13 @@ export function RegisterPage({
                     </div>
                   </label>
                   {challenge && (
-                    <div
-                      className={
-                        challenge.delivery === "demo"
-                          ? "auth-demo-code"
-                          : "auth-code-note"
-                      }
-                      role="status"
-                    >
-                      {challenge.delivery === "demo" ? (
-                        <>
-                          仅供预览的测试验证码：
-                          <strong>{challenge.demo_code}</strong>
-                          <small>
-                            不会发送邮件；这是公共演示账号，请勿保存隐私。
-                          </small>
-                        </>
-                      ) : (
-                        <>
-                          <b>请查收邮箱验证码</b>
-                          <span>
-                            {challenge.message.replace(/[。！!]+$/, "")}。有效期{" "}
-                            {Math.ceil(challenge.expires_in / 60)}
-                            分钟，也可以查看垃圾邮件。
-                          </span>
-                        </>
-                      )}
+                    <div className="auth-code-note" role="status">
+                      <b>请查收邮箱验证码</b>
+                      <span>
+                        {challenge.message.replace(/[。！!]+$/, "")}。有效期{" "}
+                        {Math.ceil(challenge.expires_in / 60)}
+                        分钟，也可以查看垃圾邮件。
+                      </span>
                     </div>
                   )}
                   {!challenge && (
@@ -403,51 +388,15 @@ export function RegisterPage({
                     />
                     <span>
                       我了解：邮箱用于登录；学习阶段与兴趣保存在账号中，不向好友公开。
-                      {challenge?.delivery === "demo" &&
-                        "演示账号不适合保存隐私。"}
                     </span>
                   </label>
                 </>
               )}
             </div>
           </form>
-          {state.demo_available && step === 1 && (
-            <details className="auth-demo-options">
-              <summary>使用演示账号测试聊天</summary>
-              <p>这些是公共测试账号，不是真人。请选择后再获取测试验证码。</p>
-              {state.demo_users.map((user) => (
-                <button
-                  key={user.email}
-                  disabled={busy}
-                  onClick={() => {
-                    setMode("login");
-                    setStep(1);
-                    setEmail(user.email);
-                    reset();
-                    scroll.current?.scrollTo({ top: 0, behavior: "instant" });
-                  }}
-                >
-                  <strong>{user.nickname}</strong>
-                  <span>{user.email}</span>
-                </button>
-              ))}
-              <button
-                disabled={busy}
-                onClick={() => {
-                  setMode("register");
-                  setEmail("reader@zhiwo.test");
-                  setNickname("阅读体验者 · 演示");
-                  reset();
-                  scroll.current?.scrollTo({ top: 0, behavior: "instant" });
-                }}
-              >
-                试注册一个新的演示账号
-              </button>
-            </details>
-          )}
           {!state.email_available && (
             <p className="auth-service-note">
-              当前是受控预览，真实邮箱邮件发送尚未开通。
+              邮箱验证服务暂时不可用，请稍后再试。
             </p>
           )}
         </div>
@@ -519,7 +468,7 @@ export function RegisterPage({
             disabled={busy}
             onClick={onContinue}
           >
-            {state.legacy_profile ? "返回当前学习空间" : "暂时体验，稍后注册"}
+            {state.legacy_profile ? "返回学习空间" : "暂不登录"}
           </button>
         </footer>
         <div className="home-indicator" />

@@ -44,7 +44,7 @@ test('shelf direction, community zoom, two categories, keyboard and reduced moti
     await expect(frame.locator('.community-post.book')).toHaveCount(0);
     await tabs.getByRole('button',{name:'书籍',exact:true}).click();
     await expect(frame.locator('.community-post.book').first()).toBeVisible();
-    await frame.getByRole('button',{name:'分享我的内容'}).click();
+    await frame.getByRole('button',{name:'分享书籍或笔记'}).click();
     await expect(frame.getByRole('group',{name:'分享类型'}).getByRole('button')).toHaveText(['书籍','笔记']);
     await page.keyboard.press('Escape');
     await page.emulateMedia({reducedMotion:'reduce'});

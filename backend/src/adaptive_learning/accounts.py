@@ -117,14 +117,14 @@ class Accounts:
     def send_code(self, owner: str, email: str, purpose: str, ip: str) -> dict[str, Any]:
         demo = self.demo_enabled() and email in DEMO_EMAILS
         if email.endswith(".test") and not demo:
-            raise HTTPException(422, "请选择列表中的演示邮箱")
+            raise HTTPException(422, "请使用有效的邮箱地址")
         if not demo and not self.smtp_ready():
-            raise HTTPException(503, "真实邮箱验证暂未开通，请先使用演示账号体验")
+            raise HTTPException(503, "邮箱验证服务暂时不可用，请稍后再试")
         if purpose == "register" and self.account(owner):
             raise HTTPException(409, "请先退出当前账号，再注册新账号")
         if demo and purpose == "register" and self.has_profile(owner):
             raise HTTPException(
-                409, "演示邮箱不能绑定已有资料。请使用真实邮箱，或在新的测试窗口注册"
+                409, "当前资料无法绑定该账号，请更换邮箱"
             )
         challenge, code, now = (
             secrets.token_urlsafe(24),
@@ -246,7 +246,7 @@ class Accounts:
                 elif not registration and not found:
                     failure = (400, "无法登录，请先注册或重新获取验证码")
                 elif row["email"] in DEMO_EMAILS and not self.demo_enabled():
-                    failure = (403, "演示登录已关闭")
+                    failure = (403, "此账号暂时无法登录")
                 elif (
                     registration
                     and db.execute("SELECT 1 FROM accounts WHERE owner=?", (owner,)).fetchone()
@@ -260,13 +260,13 @@ class Accounts:
                         (owner, owner),
                     ).fetchone()
                 ):
-                    failure = (409, "不能将已有资料绑定到公开演示账号")
+                    failure = (409, "当前资料无法绑定该账号")
                 else:
                     target = owner if registration else str(found[0])
                     if registration:
                         demo = row["email"] in DEMO_EMAILS
                         if demo and not self.demo_enabled():
-                            failure = (403, "演示注册已关闭")
+                            failure = (403, "此账号暂时无法注册")
                         else:
                             db.execute(
                                 "INSERT INTO accounts VALUES(?,?,?,?,?,?,?)",

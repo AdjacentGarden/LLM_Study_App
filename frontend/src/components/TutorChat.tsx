@@ -36,18 +36,8 @@ export function TutorChat({
   onBookChange: (id: string) => void;
 }) {
   const scroll = useRef<HTMLDivElement>(null);
-  const [elapsed, setElapsed] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [answerExpanded, setAnswerExpanded] = useState(false);
-  useEffect(() => {
-    setElapsed(0);
-    if (!busy) return;
-    const timer = window.setInterval(
-      () => setElapsed((value) => value + 1),
-      1000,
-    );
-    return () => window.clearInterval(timer);
-  }, [busy]);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0, behavior: "instant" });
     setAnswerExpanded(false);
@@ -84,22 +74,8 @@ export function TutorChat({
       <div className="qa-scroll" ref={scroll}>
         {!askedQuestion && (
           <section className="tutor-welcome">
-            <img src="/assets/brand/cloud-mascot-parsing.png" alt="" />
-            <span className="kicker">你的教材小助手</span>
-            <h2>
-              不懂的地方，
-              <br />
-              一起想明白。
-            </h2>
-            <p>
-              把问题交给我。
-              <br />
-              我们从教材里的依据开始。
-            </p>
-            <div>
-              <Icon name="book" size={16} />
-              <span>结合原文 · 附有页码</span>
-            </div>
+            <h2>输入问题</h2>
+            <p>回答将附原文页码。</p>
           </section>
         )}
         {askedQuestion && (
@@ -109,15 +85,14 @@ export function TutorChat({
           <div className="thinking-panel" role="status">
             <div>
               <Icon name="spark" />
-              <b>{elapsed > 30 ? "仍在处理，请稍候…" : "正在查找与核验…"}</b>
+              <b>正在回答</b>
               <span className="loading-dots" aria-hidden="true">
                 <i />
                 <i />
                 <i />
               </span>
             </div>
-            <p>会先寻找原文，再检查结论与证据是否一致。</p>
-            <small aria-live="off">已等待 {elapsed} 秒</small>
+            <p>正在查找教材内容并整理答案。</p>
             <span className="skeleton-line" />
             <span className="skeleton-line" />
             <span className="skeleton-line short" />
@@ -139,7 +114,7 @@ export function TutorChat({
           <section className="tutor-response">
             <div className="response-label">
               <Icon name="spark" size={18} />
-              <b>一起看这个问题</b>
+              <b>回答</b>
             </div>
             <div className="qa-answer">
               {result.status === "supported" ? (
@@ -156,7 +131,7 @@ export function TutorChat({
                         aria-expanded={answerExpanded}
                         onClick={() => setAnswerExpanded((value) => !value)}
                       >
-                        <span><Icon name="spark" size={15}/>{answerExpanded ? "收起深入解释" : "继续理解原因与细节"}</span>
+                        <span><Icon name="spark" size={15}/>{answerExpanded ? "收起" : "展开详细解释"}</span>
                         <span aria-hidden="true">{answerExpanded ? "−" : "+"}</span>
                       </button>
                       {answerExpanded && <div className="answer-depth-body">
@@ -193,10 +168,8 @@ export function TutorChat({
               />
               <span>
                 {result.status === "supported"
-                  ? result.semantic_checked
-                    ? "已检查结论与原文的一致性"
-                    : "附有可核验的教材原文"
-                  : "证据不够时，不猜测答案"}
+                  ? "已附教材依据"
+                  : "暂未找到充分依据"}
               </span>
             </div>
             {result.claims.length > 0 && (
@@ -230,7 +203,7 @@ export function TutorChat({
           onClick={() => setShowSuggestions((value) => !value)}
         >
           <Icon name="spark" size={14} />
-          {showSuggestions ? "收起推荐问题" : "不知道怎么问？看看灵感"}
+          {showSuggestions ? "收起推荐" : "推荐问题"}
           <span>{showSuggestions ? "−" : "+"}</span>
         </button>
         {showSuggestions && (
@@ -266,7 +239,7 @@ export function TutorChat({
                 if (!busy && available && question.trim()) onAsk();
               }
             }}
-            placeholder="哪里没理解？问问我…"
+            placeholder="输入问题"
             rows={2}
           />
           <button

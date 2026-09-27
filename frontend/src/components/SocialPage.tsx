@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { socialApi } from "../api/social";
-import { DemoFriends } from "./AccountGate";
 import type { SocialMe, SocialContacts, SocialUser } from "../types/social";
 import type { BookCatalogItem } from "../types/api";
 import { DEFAULT_AVATAR } from "./UserProfilePage";
@@ -153,11 +152,9 @@ export function SocialPage({
     );
   return (
     <div className="social-page">
-      <DemoFriends/>
       <section className="social-intro">
-        <span className="kicker">让学习，有来有往</span>
-        <h2>遇见一起进步的人</h2>
-        <p>交流一个新发现，交换一份好资料。</p>
+        <h2>好友与消息</h2>
+        <p>查找用户、发送消息和分享学习资料。</p>
         {me && (
           <div className="social-my-id">
             <span>我的 ID</span>
@@ -171,7 +168,7 @@ export function SocialPage({
         >
           <div>
             <strong>
-              {me.discoverable ? "好友可以找到你" : "开启你的学习社交圈"}
+              {me.discoverable ? "允许用户查找" : "用户查找已关闭"}
             </strong>
             <p>
               {me.discoverable

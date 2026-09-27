@@ -432,3 +432,66 @@ class PersistentRAGIndex:
             evidence=evidence,
             lexical_support=lexical_support,
         )
+
+    def search_fast(
+        self,
+        question: str,
+        *,
+        top_pages: int = 5,
+        max_evidence: int = 10,
+        per_page: int = 3,
+    ) -> RetrievalResult:
+        """Return a bounded lexical result when neural retrieval misses its latency budget.
+
+        This path deliberately avoids the shared transformer encoder and reranker.  It is
+        not the normal quality path: it is a circuit breaker that keeps a busy or unhealthy
+        GPU from delaying every answer.  Exact identifiers and definitions are protected so
+        the fallback remains useful for textbook questions instead of becoming a raw keyword
+        search.
+        """
+        question = question.strip()
+        if not question:
+            raise ValueError("question must not be empty")
+        if top_pages < 1 or max_evidence < 1 or per_page < 1:
+            raise ValueError("retrieval limits must be positive")
+
+        bm25_scores = self.bm25.scores(question)
+        bm25_ranking = _ranks(bm25_scores)
+        definitions = _definition_ranking(question, self.chunks)
+        locators = _locator_ranking(question, self.chunks)
+        exact = _exact_term_ranking(question, self.chunks)
+        protected = list(dict.fromkeys([*locators, *definitions, *exact, *bm25_ranking]))
+        pages = _unique_pages(protected, self.chunks, limit=top_pages)
+        evidence_indexes = _evidence_indexes(
+            protected,
+            pages,
+            self.chunks,
+            per_page=per_page,
+            total=max_evidence,
+        )
+        evidence = self._expanded_evidence(evidence_indexes)
+        top_score = max(bm25_scores, default=0.0)
+        stopwords = set(
+            "a an the in on of to and or is are was were be as by for from with "
+            "why how what where does do did according textbook describe book".split()
+        )
+        anchors = set(re.findall(r"[a-z][a-z0-9_]{2,}", question.lower())) - stopwords
+        lexical_support = bool(top_score > 0) or (
+            len(anchors) >= 2
+            and any(
+                len(
+                    anchors
+                    & set(re.findall(r"[a-z][a-z0-9_]{2,}", item.text.lower()))
+                )
+                / len(anchors)
+                >= 0.75
+                for item in evidence
+            )
+        )
+        return RetrievalResult(
+            question=question,
+            score=float(top_score),
+            pages=tuple(self.chunks[index].page_number for index in pages),
+            evidence=evidence,
+            lexical_support=lexical_support,
+        )

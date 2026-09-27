@@ -316,7 +316,7 @@ class GroundedAnswerGenerator:
                 status=draft.status,
                 answer="教材证据不足，无法给出可核验的回答。",
                 confidence=min(draft.confidence, 0.49),
-                insufficiency_reason=draft.insufficiency_reason or "模型判断证据不足。",
+                insufficiency_reason=draft.insufficiency_reason or "当前教材依据不足。",
             )
 
         if not draft.claims:

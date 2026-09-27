@@ -633,6 +633,51 @@ def test_complete_runs_independent_vision_reads_concurrently(setup, monkeypatch)
     assert preview["polished"] == "函数"
 
 
+def test_recognition_normalizes_harmless_gateway_shape_drift(setup):
+    _, _, studio = setup
+    value = studio.recognition(
+        {
+            "output": {
+                "recognized_text": "DNA",
+                "uncertain": " 末尾字母较浅 ",
+                "confidence": 0.91,
+            },
+            "usage": {"tokens": 12},
+        }
+    )
+    assert value.transcript == "DNA"
+    assert value.uncertain == ["末尾字母较浅"]
+    assert studio.recognition({"transcript": "DNA", "uncertain": None}).uncertain == []
+
+
+def test_complete_keeps_valid_read_when_independent_shape_is_invalid(setup, monkeypatch):
+    a, _, studio = setup
+    a.post("/api/studio/notes", json=note())
+
+    def llm(prompt, images=None):
+        if images and prompt.startswith("独立逐笔识别"):
+            return {"message": "gateway returned an incomplete object"}
+        if images:
+            return {"transcript": "函数", "uncertain": [], "confidence": 0.99}
+        raise AssertionError("uncertain recognition must stop before textbook improvement")
+
+    monkeypatch.setattr(studio, "llm", llm)
+    key = a.post(
+        "/api/studio/notes/note_123456/analyze",
+        json={
+            "action": "complete",
+            "request_id": "shape_fallback_111",
+            "revision": 1,
+            "consent": True,
+        },
+    ).json()["id"]
+    run(studio, a, key)
+    job = a.get("/api/studio/jobs/" + key).json()
+    assert job["status"] == "needs_confirmation"
+    assert job["result"]["transcript"] == "函数"
+    assert job["result"]["uncertain"] == ["独立复核结果无法核验，请确认转写文字"]
+
+
 def test_complete_repairs_malformed_improvement_without_repeating_vision(setup, monkeypatch):
     a, _, s = setup
     a.post("/api/studio/notes", json=note())
