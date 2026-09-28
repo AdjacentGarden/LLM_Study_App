@@ -1,4 +1,5 @@
 import importlib
+import hashlib
 import json
 import sqlite3
 from datetime import UTC, datetime
@@ -7,6 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from adaptive_learning.assessment.models import InterviewPhase, InterviewSession, LearnerProfile
 from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
@@ -16,6 +18,7 @@ from adaptive_learning.personalization.flashcard_quality import (
     CorrectedCard,
     FlashcardQualityError,
     FlashcardQualityGate,
+    Verdict,
 )
 from adaptive_learning.personalization.generator import ChapterCourseCompiler
 from adaptive_learning.personalization.policy import PersonalizationPolicy
@@ -92,6 +95,44 @@ def test_repair_and_separate_review_preserve_sources_ids_and_personalization(tmp
     other.flashcards[0].reason_for_user = "针对你的薄弱点"
     assert gate.ensure(other).flashcards[0].card_id == "other-user-card"
     assert client.calls == 2
+
+
+def test_previous_review_cache_is_migrated_when_it_meets_new_mobile_contract(tmp_path):
+    bundle = course()
+    card = bundle.flashcards[0]
+    point = bundle.knowledge_points[0]
+    data = {
+        "chapter": bundle.chapter_title,
+        "depth": bundle.decision.depth.value,
+        "knowledge_point": point.explanation,
+        "evidence": [citation.model_dump() for citation in card.citations],
+    }
+    legacy_key = hashlib.sha256(json.dumps(
+        ["evidence-repair-review-v3", "test-model", data],
+        ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    old_card = CorrectedCard(
+        id=legacy_key,
+        front="摩尔根的果蝇实验说明了什么？",
+        back="果蝇实验证明白眼基因与X染色体相关。",
+    )
+    old_verdict = Verdict(id=legacy_key, accepted=True, issues=[])
+    database = tmp_path / "migrate.db"
+    gate = FlashcardQualityGate(FakeClient(), database, "test-model")
+    with gate._connect() as conn:
+        conn.execute(
+            "INSERT INTO reviewed_flashcards "
+            "(cache_key,card_json,review_json,quality_version) VALUES (?,?,?,?)",
+            (legacy_key, old_card.model_dump_json(), old_verdict.model_dump_json(),
+             "evidence-repair-review-v3"),
+        )
+    reviewed = gate.ensure(bundle)
+    assert reviewed.flashcards[0].front == old_card.front
+    assert gate.client.calls == 0
+    with gate._connect() as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM reviewed_flashcards WHERE quality_version=?",
+            ("evidence-repair-review-v4-mobile-copy",),
+        ).fetchone()[0] == 1
 
 
 @pytest.mark.parametrize("mode", ["missing", "duplicate", "control", "reject", "outage", "string_bool"])
@@ -175,6 +216,17 @@ def test_ocr_lost_chromosome_notation_requires_model_repair_not_guessing():
         FlashcardQualityGate._validate_notation(card, data)
     card.back = "用芦花雌鸡与非芦花雄鸡杂交，后代雄鸡为芦花，雌鸡为非芦花。"
     FlashcardQualityGate._validate_notation(card, data)
+
+
+def test_mobile_flashcard_contract_rejects_report_length_copy():
+    with pytest.raises(ValidationError):
+        CorrectedCard(id="long", front="这是一个问题吗？", back="很长的答案。" * 80)
+
+
+def test_flashcard_contract_rejects_broken_chinese_spacing_and_punctuation():
+    card = CorrectedCard(id="broken", front="基因 表达是什么？", back="这是一个异常答案。。")
+    with pytest.raises(FlashcardQualityError, match="异常空格|重复标点"):
+        FlashcardQualityGate._validate_text(card)
 
 
 def test_existing_course_get_is_reviewed_and_persisted_without_new_version(tmp_path, monkeypatch):

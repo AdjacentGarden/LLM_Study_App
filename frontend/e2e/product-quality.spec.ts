@@ -9,7 +9,7 @@ test("release baseline keeps type, focus and touch targets usable", async ({ bro
   const frame = page.frameLocator('iframe[title="iPhone 17 App 模拟屏幕"]');
   try {
     await page.goto(`${baseURL}/?device=iphone-17&release=standards-v12-20260927`);
-    await frame.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+    await frame.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
 
     await expect(frame.locator('.bottom-nav [aria-current="page"]')).toHaveCount(1);
     const undersized = await frame.locator("button:visible").evaluateAll(buttons => buttons.flatMap(button => {

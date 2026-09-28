@@ -509,6 +509,72 @@ button:active:not(:disabled) { transform: scale(.98); }
   outline: 3px solid var(--formal-blue);
   outline-offset: 2px;
 }
+
+/* Generated copy is formatted once across summaries, answers, notes and media.
+   Wording is never truncated; long legacy text is recovered into readable blocks. */
+.generated-text {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.generated-text > p {
+  margin: 0;
+  text-indent: 2em;
+}
+.generated-text > :is(ol, ul) {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.45em;
+}
+.generated-text li {
+  padding-left: .2em;
+  line-height: 1.85;
+}
+.content-card > .generated-text,
+.strategy-card > .generated-text,
+.point-card > .generated-text {
+  color: var(--formal-body);
+  font-size: 1em;
+  line-height: 1.95;
+}
+.answer-paragraph {
+  margin: 16px 0;
+}
+.answer-paragraph > p {
+  color: inherit;
+  line-height: inherit;
+  text-indent: 0;
+}
+.answer-paragraph > p + p {
+  margin-top: 12px;
+}
+.answer-lead > p:first-child {
+  font-size: 1em;
+  font-weight: 650;
+}
+.ink-polished.generated-text > p {
+  margin: 0;
+}
+.ink-polished.generated-text > p + p {
+  margin-top: 10px;
+}
+.preview-summary.generated-text {
+  gap: 11px;
+}
+.preview-summary.generated-text > p {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  line-height: 1.9;
+}
+.flash-copy-paragraph {
+  display: block;
+}
+.flash-copy-paragraph + .flash-copy-paragraph {
+  margin-top: 12px;
+}
 .phone :where(small, .kicker, .privacy-note, .atlas-caption, .atlas-footnote, .atlas-evidence, .composer-note, .community-section-title > span) {
   font-size: max(.7em, 11px) !important;
 }

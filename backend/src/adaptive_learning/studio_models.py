@@ -87,7 +87,7 @@ class DiagramFact(Strict):
 
 class TeachingPlan(Strict):
     title: str = Field(min_length=1, max_length=100)
-    explanation: str = Field(min_length=1, max_length=2000)
+    explanation: str = Field(min_length=1, max_length=700)
     points: list[str] = Field(min_length=1, max_length=5)
     visual_prompt: str = Field(min_length=10, max_length=1200)
     caution: str = Field(max_length=500)
@@ -102,6 +102,8 @@ class TeachingPlan(Strict):
     def has_diagram(self) -> TeachingPlan:
         if self.visual_mode == "diagram" and not self.diagram_facts:
             raise ValueError("diagram facts required")
+        if any(len(item) > 120 for item in [*self.points, *self.visual_checks]):
+            raise ValueError("teaching points and visual checks must stay concise")
         return self
 
 
@@ -133,16 +135,16 @@ class Recognition(Strict):
 
 
 class Suggestion(Strict):
-    original: str = Field(max_length=2000)
+    original: str = Field(max_length=1200)
     kind: Literal["需核对", "缺少条件", "可以补充"]
-    suggestion: str = Field(min_length=1, max_length=2000)
+    suggestion: str = Field(min_length=1, max_length=500)
     evidence: str = Field(max_length=2500)
     page: int = Field(ge=1, le=100000)
 
 
 class Improvement(Strict):
-    summary: str = Field(min_length=1, max_length=1000)
-    suggestions: list[Suggestion] = Field(max_length=12)
+    summary: str = Field(min_length=1, max_length=300)
+    suggestions: list[Suggestion] = Field(max_length=4)
     polished: str = Field(min_length=1, max_length=16000)
 
 

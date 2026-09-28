@@ -12,6 +12,7 @@ _GRADING_SYSTEM = """你是学习诊断评分器，不是聊天助手。请严�
 3. 逐条返回 matched_rubric 与 missing_rubric；误解必须引用用户回答中的依据。
 4. scoring_confidence 表示你对评分的把握，不是用户答案质量。
 5. 题意不清、回答过短或存在多种合理解释时，needs_follow_up=true，禁止假装确定。
+6. 面向手机反馈：matched_rubric、missing_rubric 和 misconception_candidates 各最多6项，每项只写一个要点、通常15-80字、最多160字；follow_up_question只问一个问题、最多140字。不写评分过程、Markdown标题或客套话。
 只返回 JSON：
 {"score":0到1,"scoring_confidence":0到1,"matched_rubric":[],"missing_rubric":[],"misconception_candidates":[],"needs_follow_up":true或false,"follow_up_question":""}
 """
@@ -59,4 +60,7 @@ def _bounded(value: object) -> float:
 def _strings(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
-    return [str(item).strip() for item in value if str(item).strip()][:20]
+    result = [str(item).strip() for item in value if str(item).strip()]
+    if any(len(item) > 160 for item in result[:6]):
+        raise ValueError("feedback item is too long")
+    return result[:6]

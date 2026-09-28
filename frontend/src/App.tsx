@@ -19,6 +19,7 @@ import { FlashcardDeck } from "./components/FlashcardDeck";
 import { PracticeFeedback } from "./components/PracticeFeedback";
 import { Icon, type IconName } from "./components/Icon";
 import { TutorChat } from "./components/TutorChat";
+import { GeneratedText } from "./components/GeneratedText";
 import {
   DoubtReturn,
   MemoryReturn,
@@ -1009,7 +1010,7 @@ function CourseView({
             <ContentCard title="本章总结" content={course.summary} />
             <section className="strategy-card">
               <span className="kicker">为什么这样编排</span>
-              <p>{course.decision.explanation}</p>
+              <GeneratedText value={course.decision.explanation} />
               <div>
                 {course.decision.scaffolds.map((item) => (
                   <b key={item}>{item}</b>
@@ -1072,7 +1073,7 @@ function CourseView({
                 </div>
                 <h3>{point.title}</h3>
                 {hasAdditionalExplanation(point.title, point.explanation) && (
-                  <p>{point.explanation}</p>
+                  <GeneratedText value={point.explanation} />
                 )}
                 <small>第 {formatPages(point.citations)} 页</small>
               </section>
@@ -1162,7 +1163,7 @@ function ContentCard({ title, content }: { title: string; content: string }) {
     <section className="content-card">
       <span className="kicker">个性化内容</span>
       <h2>{title}</h2>
-      <p>{content}</p>
+      <GeneratedText value={content} />
     </section>
   );
 }

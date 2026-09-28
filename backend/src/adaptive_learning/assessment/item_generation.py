@@ -5,7 +5,7 @@ import json
 import re
 from collections.abc import Iterable
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from ..ingestion.models import BookStructure, ChapterDraft, SourceQuote
 from ..llm.client import LLMError, OpenAICompatibleClient
@@ -21,6 +21,7 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 6. 题干必须能让用户仅通过选择作答，不得要求说明理由；difficulty 取 -2 到 2，estimated_seconds 取 20 到 90。
 7. 同章题目应覆盖基础辨认、概念理解和情境应用的不同层次；难度必须与推理负担一致，不得为制造梯度而虚标难度。情境应用仍只能使用 evidence 支持的事实。
 8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
+9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
 只返回 JSON：
 {"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["..."],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """
@@ -38,13 +39,19 @@ _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证�
 class ItemDraft(BaseModel):
     knowledge_point_id: str
     type: str
-    prompt: str = Field(min_length=5, max_length=600)
+    prompt: str = Field(min_length=5, max_length=140)
     options: list[str] = Field(default_factory=list, max_length=4)
     correct_index: int | None = None
-    expected_answer: str = Field(min_length=1, max_length=1200)
+    expected_answer: str = Field(min_length=1, max_length=240)
     rubric: list[str] = Field(default_factory=list, max_length=6)
     difficulty: float = Field(ge=-2, le=2)
     estimated_seconds: int = Field(ge=20, le=180)
+
+    @model_validator(mode="after")
+    def mobile_readable_options(self) -> ItemDraft:
+        if any(len(option.strip()) > 180 for option in self.options):
+            raise ValueError("choice options must not exceed 180 characters")
+        return self
 
 
 class ItemBatchDraft(BaseModel):

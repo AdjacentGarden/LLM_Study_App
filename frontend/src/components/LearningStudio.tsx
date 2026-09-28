@@ -11,6 +11,7 @@ import {
   type StudioCaps,
 } from "../api/learningStudio";
 import type { StudioOpening } from "./StudioShell";
+import { GeneratedText } from "./GeneratedText";
 const statusText: Record<string, string> = {
   queued: "准备中",
   planning: "正在准备",
@@ -454,7 +455,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
       {pendingStudio(job) && r.transcript && (
         <details open>
           <summary>文字内容</summary>
-          <p className="ink-polished">{r.transcript}</p>
+          <GeneratedText value={r.transcript} className="ink-polished" />
         </details>
       )}
       {job.error && <p className="studio-error">{job.error}</p>}
@@ -472,7 +473,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
             aria-label="短片讲解"
           />
         ))}
-      {r.explanation && <p>{r.explanation}</p>}
+      {r.explanation && <GeneratedText value={r.explanation} />}
       {r.points && (
         <ol>
           {r.points.map((p, i) => (
@@ -1229,9 +1230,9 @@ function InkEditor({
               </small>
               <details>
                 <summary>查看识别文字</summary>
-                <p className="ink-polished">{improvement.result.transcript}</p>
+                <GeneratedText value={improvement.result.transcript ?? ""} className="ink-polished" />
               </details>
-              <p>{improvement.result.summary}</p>
+              <GeneratedText value={improvement.result.summary ?? ""} />
               {improvement.result.suggestions?.map((s, i) => (
                 <article key={i}>
                   <b>{s.kind}</b>
@@ -1245,9 +1246,7 @@ function InkEditor({
               ))}
               <details open>
                 <summary>整理后的复习页</summary>
-                <div className="ink-polished">
-                  {improvement.result.polished}
-                </div>
+                <GeneratedText value={improvement.result.polished ?? ""} className="ink-polished" />
               </details>
               <button
                 className="studio-primary"
@@ -1265,7 +1264,7 @@ function InkEditor({
           {!improvement && initial.edition && (
             <details>
               <summary>已保存的整理版（历史版本）</summary>
-              <p className="ink-polished">{initial.edition.polished}</p>
+              <GeneratedText value={initial.edition.polished ?? ""} className="ink-polished" />
             </details>
           )}
           {relevant

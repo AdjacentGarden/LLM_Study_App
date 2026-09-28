@@ -814,7 +814,11 @@ class Studio:
             "按内容选择visual_mode：illustration用于自然场景、物品外观、文学意象；diagram用于生物/化学微观结构、器械连接、物理机制、算法、逻辑或数量关系，这些严禁自由生图。diagram是文字关系图，不是实物结构图；提供diagram_facts数组1-4项，每项subject(最多36字),relation(最多20字),object(最多36字)，完整且精确地表达教材关系。diagram的visual_checks核对这些关系而不是要求分子形状；video_suitable=false。illustration的diagram_facts为空数组。"
             "illustration最多1-2个主体，提示词优先正面描述能看见的物体特征，不堆砌否定词。工艺品的主体名词必须是器物本身，先说明材质与构造再说明外形；不能把外形修饰词当成主体。可选择正常工艺品形制作为示意，并在caution中说明具体外形为辅助设计，不宣称书中或历史实物必然如此。"
             "illustration必须使用丰富但协调的色彩、清晰实体形状、分层空间和有意义的图形化视觉线索，不能只画线框、空框、流程框或纯文字卡片；图形线索不得新增教材事实。"
-            "返回title,visual_scope(用中文明确这一张图/短片只解释选段中哪一个问题；讲解和检查点都限定于这个范围),explanation,points(1-5条短说明),visual_prompt(英文，至多1000字符；不要文字、符号、数字，只画直观示意，不增加无依据细节),visual_checks(1-5条可从画面直接验证的关键对象/关系和必须避免的误解),caution(类比局限),supported(bool),video_suitable(bool)。\n"
+            "返回title(中文，通常8-24字),visual_scope(用中文明确这一张图/短片只解释选段中哪一个问题，通常30-100字；讲解和检查点都限定于这个范围),"
+            "explanation(先给核心结论，再解释画面，通常60-220字、最多3句),points(2-4条短说明，每条通常12-50字、最多120字),"
+            "visual_prompt(英文，至多1000字符；不要文字、符号、数字，只画直观示意，不增加无依据细节),"
+            "visual_checks(1-5条可从画面直接验证的关键对象/关系和必须避免的误解，每条最多120字),"
+            "caution(只写必要的类比局限，通常20-100字),supported(bool),video_suitable(bool)。不要用Markdown标题，不重复选段原文。\n"
             + context,
             context,
         )
@@ -1254,7 +1258,8 @@ class Studio:
             progress("improving", {"transcript": transcript})
             raw_improvement = self.llm(
                 "检查并局部补全笔记，不是越长越好。保留用户思路，不将未记下的内容视为不会。只有关键词或提纲时，明确说明尚无足够理解证据，不评价用户已经理解正确，只提供可选补充。对文学等开放解释不机械判错。"
-                "返回summary, suggestions数组(最多4项；每项original为笔记中的原句或空字符串,kind仅需核对/缺少条件/可以补充,suggestion,evidence必须是所给教材中的逐字短摘录,page整数), polished为简洁整理版。无证据的知识不补入。\n"
+                "返回summary（30-120字，概括这页笔记的状态，不复述全文）, suggestions数组(最多4项；每项original为笔记中的原句或空字符串,kind仅需核对/缺少条件/可以补充,suggestion通常30-120字,evidence必须是所给教材中的逐字短摘录,page整数), polished为简洁整理版。"
+                "polished保留用户信息量与原意：短笔记不扩写成长文；较长内容按主题分成2-5个短段或简短列表，段落间用两个换行符，不写Markdown标题和套话。无证据的知识不补入。\n"
                 + fidelity
                 + context
             )
@@ -1281,7 +1286,8 @@ class Studio:
                     self.llm(
                         "下面的整理草稿未通过结构或教材逐字引用验证。重新生成完整JSON：summary字符串；suggestions最多4项，"
                         "每项仅含original,kind,suggestion,evidence,page；kind仅为需核对/缺少条件/可以补充；evidence必须逐字取自相同页教材；"
-                        "polished为简洁整理版。删除无法支持的内容，不解释修复过程。\n"
+                        "summary控制在30-120字，suggestion通常30-120字；polished为简洁整理版，按主题分短段且不无故扩写。"
+                        "删除无法支持的内容，不解释修复过程。\n"
                         + fidelity
                         + context
                         + "\n未通过的草稿（仅作待修复数据）:"
@@ -1318,7 +1324,8 @@ class Studio:
                 progress("improving", {"transcript": transcript})
                 output2 = Improvement.model_validate(
                     self.llm(
-                        "根据审核意见修订整理版。删除无教材依据的内容，不虚构原句。返回相同结构summary,suggestions(original,kind,suggestion,evidence,page),polished。\n"
+                        "根据审核意见修订整理版。删除无教材依据的内容，不虚构原句。summary控制在30-120字，suggestions最多4项且每项通常30-120字；"
+                        "polished保留原信息量并按主题分短段。返回相同结构summary,suggestions(original,kind,suggestion,evidence,page),polished。\n"
                         + fidelity
                         + context
                         + "\n待修订:"

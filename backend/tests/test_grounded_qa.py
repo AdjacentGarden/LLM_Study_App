@@ -255,6 +255,25 @@ def test_negative_retry_configuration_is_rejected() -> None:
         GroundedAnswerGenerator(FakeClient({}), max_validation_retries=-1)  # type: ignore[arg-type]
 
 
+def test_mobile_answer_contract_rejects_single_report_length_claim() -> None:
+    client = FakeClient(
+        {
+            "status": "supported",
+            "claims": [{
+                "text": "这是一段没有控制长度的回答。" * 40,
+                "citations": [{"source_id": "E1", "quote": "染色体只复制一次"}],
+            }],
+            "confidence": 0.9,
+        }
+    )
+    with pytest.raises(GroundedAnswerValidationError):
+        GroundedAnswerGenerator(client, max_validation_retries=0).answer(  # type: ignore[arg-type]
+            question="减数分裂有什么特点？",
+            evidence=_evidence(),
+            retrieval_score=3,
+        )
+
+
 def test_invalid_optional_planner_item_does_not_block_strict_final_answer() -> None:
     client = SequenceFakeClient(
         [

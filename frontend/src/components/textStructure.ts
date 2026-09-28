@@ -57,3 +57,69 @@ export function splitReadableParagraphs(value: string): string[] {
     .filter(Boolean)
     .flatMap(balanceBlock);
 }
+
+export type GeneratedTextBlock =
+  | { kind: "paragraph"; text: string }
+  | { kind: "ordered-list" | "unordered-list"; items: string[] };
+
+const LIST_ITEM = /^\s*(?:(\d+)[.)、]|[-*•])\s+(.+)$/;
+
+/**
+ * Present model output as product copy: preserve wording, recover paragraphs and
+ * real lists, and hide accidental Markdown heading markers. No content is cut.
+ */
+export function structureGeneratedText(value: string): GeneratedTextBlock[] {
+  const normalized = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u200b\u200c\u200d\ufeff]/g, "")
+    .trim();
+  if (!normalized) return [];
+
+  const blocks: GeneratedTextBlock[] = [];
+  let prose: string[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+
+  const flushProse = () => {
+    if (!prose.length) return;
+    const cleaned = prose
+      .join("\n")
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+      .trim();
+    blocks.push(
+      ...splitReadableParagraphs(cleaned).map((text) => ({
+        kind: "paragraph" as const,
+        text,
+      })),
+    );
+    prose = [];
+  };
+  const flushList = () => {
+    if (!list) return;
+    blocks.push({
+      kind: list.ordered ? "ordered-list" : "unordered-list",
+      items: list.items,
+    });
+    list = null;
+  };
+
+  for (const line of normalized.split("\n")) {
+    const item = line.match(LIST_ITEM);
+    if (item) {
+      flushProse();
+      const ordered = Boolean(item[1]);
+      if (list && list.ordered !== ordered) flushList();
+      list ??= { ordered, items: [] };
+      list.items.push(item[2].trim());
+      continue;
+    }
+    flushList();
+    if (!line.trim()) {
+      flushProse();
+      continue;
+    }
+    prose.push(line);
+  }
+  flushList();
+  flushProse();
+  return blocks;
+}

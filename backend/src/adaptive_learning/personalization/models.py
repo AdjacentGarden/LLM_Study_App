@@ -20,8 +20,8 @@ class SourceCitation(BaseModel):
 
 class KnowledgePoint(BaseModel):
     point_id: str
-    title: str
-    explanation: str
+    title: str = Field(min_length=1, max_length=180)
+    explanation: str = Field(min_length=1, max_length=300)
     importance: str
     mastery: float = Field(ge=0, le=1)
     state: str
@@ -30,30 +30,30 @@ class KnowledgePoint(BaseModel):
 
 class Flashcard(BaseModel):
     card_id: str
-    front: str
-    back: str
-    reason_for_user: str
+    front: str = Field(min_length=1, max_length=120)
+    back: str = Field(min_length=1, max_length=360)
+    reason_for_user: str = Field(min_length=1, max_length=180)
     point_id: str = ""
     citations: list[SourceCitation] = Field(default_factory=list)
     source: SourceCitation | None = None
 
 
 class LessonSection(BaseModel):
-    title: str
-    content: str
-    purpose: str
+    title: str = Field(min_length=1, max_length=180)
+    content: str = Field(min_length=1, max_length=1200)
+    purpose: str = Field(min_length=1, max_length=240)
     citations: list[SourceCitation] = Field(default_factory=list)
 
 
 class PracticeItem(BaseModel):
     item_id: str
     point_id: str
-    prompt: str
+    prompt: str = Field(min_length=1, max_length=180)
     response_type: str = "explanation"
     options: list[str] = Field(default_factory=list)
     correct_option_ids: list[str] = Field(default_factory=list)
-    expected_answer: str
-    rubric: list[str] = Field(default_factory=list)
+    expected_answer: str = Field(min_length=1, max_length=360)
+    rubric: list[str] = Field(default_factory=list, max_length=6)
     difficulty: float = Field(ge=-3, le=3)
     estimated_seconds: int = Field(ge=10, le=600)
     citations: list[SourceCitation] = Field(min_length=1)
@@ -87,7 +87,7 @@ class PersonalizationDecision(BaseModel):
     emphasis: list[str] = Field(default_factory=list)
     scaffolds: list[str] = Field(default_factory=list)
     exercise_difficulty: float = Field(ge=0, le=1)
-    explanation: str
+    explanation: str = Field(min_length=1, max_length=600)
 
 
 class ChapterLearningBundle(BaseModel):
@@ -96,8 +96,8 @@ class ChapterLearningBundle(BaseModel):
     chapter_id: str
     chapter_title: str
     decision: PersonalizationDecision
-    opening: str
-    summary: str
+    opening: str = Field(min_length=1, max_length=300)
+    summary: str = Field(min_length=1, max_length=680)
     original_reading: list[LessonSection]
     knowledge_points: list[KnowledgePoint]
     flashcards: list[Flashcard]

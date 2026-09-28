@@ -57,7 +57,7 @@ def test_timeout_is_reported_separately_from_configuration_failure() -> None:
         with TestClient(app) as client:
             response = client.post('/api/books/biology-required-2/qa',json={'question':'test'})
         assert response.status_code == 504
-        assert '超时' in response.json()['detail']
+        assert response.json()['detail'] == '回答服务响应较慢，请稍后重试；你的问题已保留。'
     finally:
         app.dependency_overrides.clear()
 
@@ -106,7 +106,7 @@ def test_grounded_qa_endpoint_maps_model_failure_to_bad_gateway() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 502
-    assert response.json()["detail"] == "回答模型暂时不可用"
+    assert response.json()["detail"] == "回答服务暂时不可用，请稍后重试。"
 
 
 def test_grounded_qa_endpoint_reports_unavailable_dependency() -> None:

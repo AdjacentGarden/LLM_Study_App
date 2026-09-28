@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { BookCatalogItem } from "../types/api";
 import { DetailSheet } from "./DetailSheet";
 import { Icon } from "./Icon";
+import { GeneratedText } from "./GeneratedText";
 
 function Cover({book, eager=false}:{book:BookCatalogItem;eager?:boolean}) {
   const [failed,setFailed]=useState(false);
@@ -22,6 +23,6 @@ export function LibraryShelf({books,activeBook,busy,onOpen}:{books:BookCatalogIt
       <button className="shelf-caption" disabled={busy} title={book.title} onClick={()=>onOpen(book.book_id)}><h3>{book.title}</h3><p>{book.page_count} 页<span>·</span>{book.chapter_count} 章</p>{book.book_id===activeBook?.book_id&&<span className="reading-ribbon">正在阅读</span>}<span className="shelf-enter">继续阅读 <Icon name="arrow" size={15}/></span></button>
     </article>)}</div>
     {!shown.length&&<div className="shelf-empty"><Icon name="book" size={42}/><h3>暂时没有找到这本书</h3><p>试试更短的书名，或查看全部教材。</p><button className="secondary" onClick={()=>{setSearch("");setCurrentOnly(false);}}>显示全部教材</button></div>}
-    {preview&&<DetailSheet title="教材详情" onClose={()=>setPreview(null)}><div className="book-preview-cover"><Cover book={preview} eager/></div><h3 className="preview-book-title">{preview.title}</h3><div className="preview-facts"><span>{preview.page_count} 页</span><span>{preview.chapter_count} 章</span></div><p className="preview-summary">{preview.summary}</p>{preview.diagnostics_ready===false&&<p className="connection-note">部分学习内容正在准备，章节与答疑已可使用。</p>}<button className="primary sheet-primary" disabled={busy} onClick={()=>{setPreview(null);onOpen(preview.book_id);}}>打开教材 <Icon name="arrow"/></button></DetailSheet>}
+    {preview&&<DetailSheet title="教材详情" onClose={()=>setPreview(null)}><div className="book-preview-cover"><Cover book={preview} eager/></div><h3 className="preview-book-title">{preview.title}</h3><div className="preview-facts"><span>{preview.page_count} 页</span><span>{preview.chapter_count} 章</span></div><GeneratedText value={preview.summary} className="preview-summary"/>{preview.diagnostics_ready===false&&<p className="connection-note">部分学习内容正在准备，章节与答疑已可使用。</p>}<button className="primary sheet-primary" disabled={busy} onClick={()=>{setPreview(null);onOpen(preview.book_id);}}>打开教材 <Icon name="arrow"/></button></DetailSheet>}
   </div>;
 }

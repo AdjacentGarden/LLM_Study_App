@@ -42,15 +42,18 @@ _TOC_LABEL = re.compile(r"^\s*(目录|目次|contents?|table\s+of\s+contents)(?:
 _CHAPTER_SUMMARY_SYSTEM = """你是书籍章节摘要器。输入只包含同一章的带页码原文。
 规则：
 1. 只总结输入原文明确表达的内容，不使用外部知识。
-2. summary 用 2-4 句概括本章主线，不超过2000字；knowledge_points 给出 3-12 个本章核心点，每项 text 不超过300字，每项 evidence_ids 为1-6个编号。每项只聚焦一个可独立学习的概念，不合并多个不相关问题。
-3. 顶层 evidence_ids 选择2-12个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要超出接口的数量上限。
-4. 不输出小节层级，不输出 chunk id。
-5. 只返回 JSON：
+2. summary 面向手机阅读，用 2-4 个短段概括本章主线，每段 1-2 句；总长通常 120-360 字，最长 520 字。段落之间用两个换行符分隔，不写标题、不用 Markdown、不重复章名。
+3. knowledge_points 给出 3-12 个本章核心点。每项 text 应是一条可独立理解的完整陈述，通常 18-90 字，最长 180 字；保留必要条件与完整术语，但不要把定义、历史、例子和应用堆在同一项。每项 evidence_ids 为1-6个编号。
+4. 顶层 evidence_ids 选择2-12个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要超出接口的数量上限。
+5. 不输出小节层级，不输出 chunk id，不出现连续重复标点、词中异常空格或 OCR 残缺片段。
+6. 只返回 JSON：
 {"summary":"...","evidence_ids":["P1E1","P1E2"],"knowledge_points":[{"text":"概念一","evidence_ids":["P1E1"]},{"text":"概念二","evidence_ids":["P1E2"]},{"text":"概念三","evidence_ids":["P1E1","P1E2"]}]}
 """
 
 _BOOK_SUMMARY_SYSTEM = """你是整书摘要器。输入是已经核验的章节摘要。
-只能综合输入摘要，不补充外部知识。用 3-6 句说明全书主线，并返回实际使用的 chapter_ids。
+只能综合输入摘要，不补充外部知识。面向手机阅读，用 3-5 个短段说明全书主线，每段 1-2 句，
+总长通常 180-480 字，最长 680 字；段落之间用两个换行符分隔。不写标题、不重复书名、不逐章机械罗列。
+返回实际使用且不重复的 chapter_ids。
 只返回 JSON：{"summary":"...","chapter_ids":["chapter_..."]}。
 """
 
@@ -71,18 +74,18 @@ class ChapterCandidate:
 
 
 class KnowledgePointDraft(BaseModel):
-    text: str = Field(min_length=1, max_length=300)
+    text: str = Field(min_length=1, max_length=180)
     evidence_ids: list[str] = Field(min_length=1, max_length=6)
 
 
 class ChapterSummaryDraft(BaseModel):
-    summary: str = Field(min_length=1, max_length=2000)
+    summary: str = Field(min_length=1, max_length=520)
     knowledge_points: list[KnowledgePointDraft] = Field(min_length=3, max_length=20)
     evidence_ids: list[str] = Field(min_length=2, max_length=12)
 
 
 class BookSummaryDraft(BaseModel):
-    summary: str = Field(min_length=1, max_length=3000)
+    summary: str = Field(min_length=1, max_length=680)
     chapter_ids: list[str] = Field(min_length=1)
 
 
@@ -351,7 +354,7 @@ class ChapterReconstructor:
                     system=_CHAPTER_SUMMARY_SYSTEM,
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
-                    max_tokens=1800,
+                    max_tokens=1200,
                 )
                 draft = ChapterSummaryDraft.model_validate(result)
                 evidence: list[SourceQuote] = []
@@ -414,7 +417,7 @@ class ChapterReconstructor:
                 ensure_ascii=False,
             ),
             temperature=0,
-            max_tokens=1200,
+            max_tokens=900,
         )
         try:
             draft = BookSummaryDraft.model_validate(raw)

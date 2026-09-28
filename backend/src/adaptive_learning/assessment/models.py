@@ -116,11 +116,11 @@ class AssessmentResponse(BaseModel):
 class ScoredEvidence(BaseModel):
     score: float = Field(ge=0, le=1)
     scoring_confidence: float = Field(ge=0, le=1)
-    misconception_candidates: list[str] = Field(default_factory=list)
-    matched_rubric: list[str] = Field(default_factory=list)
-    missing_rubric: list[str] = Field(default_factory=list)
+    misconception_candidates: list[str] = Field(default_factory=list, max_length=6)
+    matched_rubric: list[str] = Field(default_factory=list, max_length=6)
+    missing_rubric: list[str] = Field(default_factory=list, max_length=6)
     needs_follow_up: bool = False
-    follow_up_question: str | None = None
+    follow_up_question: str | None = Field(default=None, max_length=140)
 
 
 class ProfileEvidence(BaseModel):

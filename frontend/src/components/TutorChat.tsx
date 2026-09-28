@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BookCatalogItem, QAResult } from "../types/api";
 import { Icon } from "./Icon";
+import { GeneratedText } from "./GeneratedText";
 
 export function TutorChat({
   question,
@@ -120,9 +121,11 @@ export function TutorChat({
               {result.status === "supported" ? (
                 <>
                   {result.claims.slice(0, 1).map((claim) => (
-                    <p key={claim.text} className="answer-paragraph answer-lead">
-                      {claim.text}
-                    </p>
+                    <GeneratedText
+                      key={claim.text}
+                      value={claim.text}
+                      className="answer-paragraph answer-lead"
+                    />
                   ))}
                   {result.claims.length > 1 && (
                     <div className={`answer-depth ${answerExpanded ? "is-open" : ""}`}>
@@ -136,13 +139,11 @@ export function TutorChat({
                       </button>
                       {answerExpanded && <div className="answer-depth-body">
                         {result.claims.slice(1).map((claim, index) => (
-                          <p
+                          <GeneratedText
                             key={`${claim.text}-${index}`}
+                            value={claim.text}
                             className="answer-paragraph"
-                            style={{"--paragraph-order": Math.min(index, 4)} as React.CSSProperties}
-                          >
-                            {claim.text}
-                          </p>
+                          />
                         ))}
                       </div>}
                     </div>
