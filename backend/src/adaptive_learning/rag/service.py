@@ -38,6 +38,8 @@ class TextbookQAResult(BaseModel):
     generation_duration_ms: int = Field(ge=0)
     semantic_checked: bool = False
     cache_hit: bool = False
+    stage_duration_ms: dict[str, int] = Field(default_factory=dict)
+    generation_attempts: int = 0
 
 
 class TextbookQAService:
@@ -52,7 +54,8 @@ class TextbookQAService:
         cache_seconds: float = 300,
         cache_size: int = 64,
         max_concurrent: int = 3,
-        wait_seconds: float = 150,
+        wait_seconds: float = 50,
+        generation_budget_seconds: float = 45,
         retrieval_budget_seconds: float = 2.5,
         retrieval_cache_seconds: float = 900,
         retrieval_cache_size: int = 128,
@@ -64,6 +67,7 @@ class TextbookQAService:
             or cache_size < 0
             or max_concurrent < 1
             or wait_seconds <= 0
+            or generation_budget_seconds <= 0
             or not 0 < retrieval_budget_seconds < 3
             or retrieval_cache_seconds < 0
             or retrieval_cache_size < 0
@@ -77,6 +81,7 @@ class TextbookQAService:
         self._ready = False
         self.cache_seconds, self.cache_size = cache_seconds, cache_size
         self.max_concurrent, self.wait_seconds = max_concurrent, wait_seconds
+        self.generation_budget_seconds = generation_budget_seconds
         self.retrieval_budget_seconds = retrieval_budget_seconds
         self.retrieval_cache_seconds = retrieval_cache_seconds
         self.retrieval_cache_size = retrieval_cache_size
@@ -84,7 +89,7 @@ class TextbookQAService:
         self._cache: OrderedDict[str, tuple[float, TextbookQAResult]] = OrderedDict()
         self._inflight: dict[str, Future[TextbookQAResult]] = {}
         self._retrieval_cache: OrderedDict[
-            str, tuple[float, RetrievalResult]
+            str, tuple[float, RetrievalResult, bool]
         ] = OrderedDict()
         # At most one full neural retrieval may outlive its latency budget per book.
         # Further requests immediately use the lexical circuit breaker instead of queuing.
@@ -114,6 +119,8 @@ class TextbookQAService:
                 result = cached[1].model_copy(deep=True)
                 result.cache_hit = True
                 result.retrieval_duration_ms = result.generation_duration_ms = 0
+                result.stage_duration_ms = {}
+                result.generation_attempts = 0
                 return result
             future = self._inflight.get(key)
             owner = future is None
@@ -173,7 +180,7 @@ class TextbookQAService:
             for position, item in enumerate(retrieval.evidence, start=1)
         ]
         generation_started = time.monotonic()
-        with model_time_budget(120):
+        with model_time_budget(self.generation_budget_seconds):
             generated = self.generator.answer(
                 question=question,
                 evidence=evidence,
@@ -199,13 +206,15 @@ class TextbookQAService:
             retrieval_duration_ms=retrieval_duration_ms,
             generation_duration_ms=generation_duration_ms,
             semantic_checked=generated.semantic_checked,
+            stage_duration_ms=generated.stage_duration_ms,
+            generation_attempts=generated.generation_attempts,
         )
 
     def _retrieve(self, question: str) -> tuple[RetrievalResult, str]:
         now = time.monotonic()
         with self._lock:
             for expired in [
-                q for q, (until, _) in self._retrieval_cache.items() if until <= now
+                q for q, (until, _, _) in self._retrieval_cache.items() if until <= now
             ]:
                 del self._retrieval_cache[expired]
             cached = self._retrieval_cache.get(question)
@@ -249,6 +258,7 @@ class TextbookQAService:
             return self._fast_retrieve(question), "lexical-timeout"
         if error is not None:
             raise error
+        assert result is not None
         return result, "hybrid"
 
     def _fast_retrieve(self, question: str) -> RetrievalResult:
@@ -266,10 +276,10 @@ class TextbookQAService:
             top_pages=self.top_pages,
             max_evidence=self.max_evidence,
         )
-        self._remember_retrieval(question, result)
+        self._remember_retrieval(question, result, degraded=True)
         return result
 
-    def _remember_retrieval(self, question: str, result: RetrievalResult) -> None:
+    def _remember_retrieval(self, question: str, result: RetrievalResult, *, degraded: bool = False) -> None:
         if (
             not self.retrieval_cache_size
             or not self.retrieval_cache_seconds
@@ -278,9 +288,13 @@ class TextbookQAService:
         ):
             return
         with self._lock:
+            existing = self._retrieval_cache.get(question)
+            if degraded and existing and existing[0] > time.monotonic() and not existing[2]:
+                return  # A late fallback must never overwrite a full neural result.
             self._retrieval_cache[question] = (
-                time.monotonic() + self.retrieval_cache_seconds,
+                time.monotonic() + min(self.retrieval_cache_seconds, 5 if degraded else self.retrieval_cache_seconds),
                 result,
+                degraded,
             )
             self._retrieval_cache.move_to_end(question)
             while len(self._retrieval_cache) > self.retrieval_cache_size:

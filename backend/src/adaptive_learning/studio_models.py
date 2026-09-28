@@ -100,6 +100,8 @@ class TeachingPlan(Strict):
 
     @model_validator(mode="after")
     def has_diagram(self) -> TeachingPlan:
+        if self.supported and (not self.visual_scope.strip() or not self.visual_checks or any(not item.strip() for item in self.visual_checks)):
+            raise ValueError("supported teaching plans require a visual scope and nonempty visual checks")
         if self.visual_mode == "diagram" and not self.diagram_facts:
             raise ValueError("diagram facts required")
         if any(len(item) > 120 for item in [*self.points, *self.visual_checks]):

@@ -205,6 +205,8 @@ def _protected_pages(
     limit: int,
 ) -> list[int]:
     result = _unique_pages(primary, chunks, limit=primary_pages)
+    if len(result) >= limit:
+        return result[:limit]
     seen = {chunks[index].page_number for index in result}
     for index in supplement:
         page = chunks[index].page_number
@@ -265,7 +267,9 @@ class PersistentRAGIndex:
             if chunk.granularity == 'parent':
                 self._page_parents.setdefault(chunk.page_number, []).append(chunk)
 
-    def _expanded_evidence(self, indexes: Sequence[int]) -> tuple[RetrievedEvidence, ...]:
+    def _expanded_evidence(
+        self, indexes: Sequence[int], *, neighbor_scores: Sequence[float] = ()
+    ) -> tuple[RetrievedEvidence, ...]:
         """Small retrieval children locate passages; bounded parent windows supply intact context."""
         result: list[RetrievedEvidence] = []
         seen: set[str] = set()
@@ -285,6 +289,8 @@ class PersistentRAGIndex:
                     neighbor = position + offset
                     if 0 <= neighbor < len(parents):
                         candidate = parents[neighbor]
+                        if candidate.chunk_id in seen:
+                            continue
                         if sum(len(c.text) for c in window) + len(candidate.text) + 2 <= 2800:
                             if offset == 1:
                                 window.append(candidate)
@@ -301,6 +307,29 @@ class PersistentRAGIndex:
             seen.update(chunk.chunk_id for chunk in window)
             result.append(RetrievedEvidence('+'.join(c.chunk_id for c in window),
                 parent.page_number, text, 'parent_window'))
+        # A sentence or comparison can continue across a page break. Keep adjacent
+        # source blocks separate: combining pages would give quotations a false page.
+        candidates: dict[str, IndexedChunk] = {}
+        for item in result:
+            for offset in (-1, 1):
+                adjacent = self._page_parents.get(item.page_number + offset, [])
+                if adjacent:
+                    candidate = adjacent[-1] if offset == -1 else adjacent[0]
+                    if candidate.chunk_id not in seen and len(candidate.text) <= 2800:
+                        candidates[candidate.chunk_id] = candidate
+        scores = {chunk.chunk_id: float(score)
+                  for chunk, score in zip(self.chunks, neighbor_scores, strict=False)}
+        added = 0
+        for candidate in sorted(candidates.values(),
+                                key=lambda c: scores.get(c.chunk_id, 0), reverse=True):
+            if len(candidate.text) > budget:
+                continue
+            if added == 2:
+                break
+            result.append(RetrievedEvidence(candidate.chunk_id, candidate.page_number,
+                                            candidate.text, 'adjacent_page'))
+            budget -= len(candidate.text)
+            added += 1
         return tuple(result)
 
     @classmethod
@@ -406,7 +435,7 @@ class PersistentRAGIndex:
         locators = _locator_ranking(question, self.chunks)
         if definitions or locators:
             pages = _protected_pages([*locators, *definitions], [*fused, *bm25_ranking], self.chunks,
-                                     primary_pages=min(2, top_pages), limit=top_pages)
+                                     primary_pages=min(3, top_pages), limit=top_pages)
         evidence_ranking = list(
             dict.fromkeys([*locators, *definitions, *_exact_term_ranking(question, self.chunks), *bm25_ranking, *reranked])
         )
@@ -418,7 +447,7 @@ class PersistentRAGIndex:
             total=max_evidence,
         )
         score = float(reranked_pairs[0][1]) if reranked_pairs else float("-inf")
-        evidence = self._expanded_evidence(evidence_indexes)
+        evidence = self._expanded_evidence(evidence_indexes, neighbor_scores=bm25_scores)
         stopwords = set('a an the in on of to and or is are was were be as by for from with why how what where does do did according textbook describe book'.split())
         anchors = set(re.findall(r'[a-z][a-z0-9_]{2,}', question.lower())) - stopwords
         lexical_support = len(anchors) >= 2 and any(
@@ -469,7 +498,7 @@ class PersistentRAGIndex:
             per_page=per_page,
             total=max_evidence,
         )
-        evidence = self._expanded_evidence(evidence_indexes)
+        evidence = self._expanded_evidence(evidence_indexes, neighbor_scores=bm25_scores)
         top_score = max(bm25_scores, default=0.0)
         stopwords = set(
             "a an the in on of to and or is are was were be as by for from with "

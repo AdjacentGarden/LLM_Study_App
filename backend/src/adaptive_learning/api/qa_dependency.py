@@ -45,7 +45,8 @@ def _create_qa_service() -> TextbookQAService:
             base_url=settings.text_base_url,
             api_key=settings.text_api_key,
             model=settings.text_model,
-            timeout_seconds=120,
+            timeout_seconds=25,
+            max_retries=0,
             proxy_url=settings.llm_https_proxy,
         )
     )

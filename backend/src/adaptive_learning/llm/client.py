@@ -5,7 +5,9 @@ import json
 import re
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -19,8 +21,49 @@ class LLMError(RuntimeError):
     pass
 
 
+class LLMRefusalError(LLMError):
+    """The provider explicitly refused the content, not an authentication failure."""
+
+
 class LLMTimeoutError(LLMError):
     """An upstream timeout or the shared generation deadline was exhausted."""
+
+
+# A timed-out synchronous transport can still be draining a socket. Keep its slot
+# until it exits so deadlines never create an unbounded pool of abandoned calls.
+_transport_slots = threading.BoundedSemaphore(8)
+
+
+def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | None) -> dict[str, Any]:
+    if until is None:
+        return call()
+    remaining = until - time.monotonic()
+    if remaining <= 0 or not _transport_slots.acquire(timeout=max(0, remaining)):
+        raise LLMTimeoutError("model time budget exceeded")
+    if time.monotonic() >= until:
+        _transport_slots.release()
+        raise LLMTimeoutError("model time budget exceeded")
+    future: Future[dict[str, Any]] = Future()
+
+    def run() -> None:
+        try:
+            if time.monotonic() >= until:
+                raise LLMTimeoutError("model time budget exceeded")
+            future.set_result(call())
+        except BaseException as error:
+            future.set_exception(error)
+        finally:
+            _transport_slots.release()
+
+    try:
+        threading.Thread(target=run, name="bounded-model-request", daemon=True).start()
+    except BaseException:
+        _transport_slots.release()
+        raise
+    try:
+        return future.result(timeout=max(0, until - time.monotonic()))
+    except FutureTimeout as error:
+        raise LLMTimeoutError("model time budget exceeded") from error
 
 
 _deadline: ContextVar[float | None] = ContextVar("model_deadline", default=None)
@@ -185,31 +228,44 @@ class OpenAICompatibleClient:
                 timeout = httpx.Timeout(
                     remaining, connect=min(10, remaining), pool=min(10, remaining)
                 )
-                if responses and self._responses_sdk is not None:
-                    # This gateway explicitly accepts the official OpenAI SDK for
-                    # Responses calls. Its result is normalised back to the same
-                    # dictionary contract used by the other compatible providers.
-                    sdk_response = self._responses_sdk.responses.create(
-                        **payload, timeout=timeout  # type: ignore[arg-type]
-                    )
-                    body = sdk_response.model_dump(mode="json")
-                else:
-                    response = self._http.post(
-                        endpoint,
-                        headers=headers,
-                        json=payload,
-                        timeout=timeout,
-                    )
-                    response.raise_for_status()
-                    body = response.json()
+                def send(timeout: httpx.Timeout = timeout) -> dict[str, Any]:
+                    if responses and self._responses_sdk is not None:
+                        # This gateway explicitly accepts the official OpenAI SDK for
+                        # Responses calls. Its result is normalised back to the same
+                        # dictionary contract used by the other compatible providers.
+                        sdk_response = self._responses_sdk.responses.create(
+                            **payload, timeout=timeout  # type: ignore[arg-type]
+                        )
+                        return sdk_response.model_dump(mode="json")
+                    else:
+                        response = self._http.post(
+                            endpoint,
+                            headers=headers,
+                            json=payload,
+                            timeout=timeout,
+                        )
+                        response.raise_for_status()
+                        return response.json()
+
+                body = _request_before_deadline(send, until)
+                if until is not None and time.monotonic() >= until:
+                    raise LLMTimeoutError("model time budget exceeded")
                 self._record_usage(body)
                 if anthropic:
-                    if body.get("stop_reason") in {"max_tokens", "refusal"}:
+                    if body.get("stop_reason") == "refusal":
+                        raise LLMRefusalError("model refused the request")
+                    if body.get("stop_reason") == "max_tokens":
                         raise ValueError("model output is incomplete or refused")
                     content = "".join(
                         part["text"] for part in body["content"] if part.get("type") == "text"
                     )
                 elif responses:
+                    if any(
+                        part.get("type") == "refusal"
+                        for item in body.get("output", []) if item.get("type") == "message"
+                        for part in item.get("content", [])
+                    ):
+                        raise LLMRefusalError("model refused the request")
                     if body.get("status") != "completed" or body.get("error"):
                         raise ValueError("model response is incomplete or failed")
                     content = "".join(
@@ -217,11 +273,15 @@ class OpenAICompatibleClient:
                         for part in item.get("content", []) if part.get("type") == "output_text"
                     )
                 else:
-                    content = body["choices"][0]["message"]["content"]
+                    choice = body["choices"][0]
+                    if choice.get("finish_reason") == "content_filter" or choice["message"].get("refusal"):
+                        raise LLMRefusalError("model refused the request")
+                    content = choice["message"]["content"]
                 return self._parse_object(content)
             except httpx.HTTPStatusError as error:
                 last_error = error
                 status = error.response.status_code
+                raw_error = {}
                 try:
                     raw_error = error.response.json().get("error", {})
                     message = raw_error.get("message", "") if isinstance(raw_error, dict) else ""
@@ -229,6 +289,8 @@ class OpenAICompatibleClient:
                         upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
                 except (ValueError, AttributeError, TypeError):
                     upstream_detail = ""
+                if status in {400, 403, 422} and self._content_refusal(raw_error):
+                    raise LLMRefusalError("provider declined this content") from error
                 retryable = status == 429 or status >= 500
                 if not retryable or attempt >= self.config.max_retries:
                     break
@@ -239,6 +301,8 @@ class OpenAICompatibleClient:
                 message = raw_error.get("message", "") if isinstance(raw_error, dict) else ""
                 if isinstance(message, str):
                     upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
+                if status in {400, 403, 422} and self._content_refusal(raw_error):
+                    raise LLMRefusalError("provider declined this content") from error
                 retryable = status == 429 or status >= 500
                 if not retryable or attempt >= self.config.max_retries:
                     break
@@ -258,7 +322,12 @@ class OpenAICompatibleClient:
                 last_error = error
                 if attempt >= self.config.max_retries:
                     break
-            time.sleep(0.25 * (attempt + 1))
+            delay = 0.25 * (attempt + 1)
+            if until is not None:
+                remaining = until - time.monotonic()
+                if remaining <= delay:
+                    raise LLMTimeoutError("model time budget exceeded") from last_error
+            time.sleep(delay)
         assert last_error is not None
         if isinstance(last_error, (httpx.TimeoutException, APITimeoutError)):
             raise LLMTimeoutError("model request timed out") from last_error
@@ -266,6 +335,19 @@ class OpenAICompatibleClient:
         raise LLMError(
             f"structured model call failed: {type(last_error).__name__}{detail}"
         ) from last_error
+
+    @staticmethod
+    def _content_refusal(error: object) -> bool:
+        if not isinstance(error, dict):
+            return False
+        code = str(error.get("code", "")).lower()
+        if code in {"content_filter", "content_policy_violation", "safety_violation", "moderation_blocked"}:
+            return True
+        message = str(error.get("message", "")).lower()
+        return any(marker in message for marker in (
+            "content policy", "content safety", "content filter", "safety policy",
+            "内容安全", "内容审核", "内容政策",
+        ))
 
     @staticmethod
     def _parse_object(content: str) -> dict[str, Any]:

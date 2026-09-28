@@ -48,7 +48,13 @@ from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRun
 from ..ingestion.models import BookStructure
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
-from ..llm.client import LLMConfig, LLMError, LLMTimeoutError, OpenAICompatibleClient
+from ..llm.client import (
+    LLMConfig,
+    LLMError,
+    LLMRefusalError,
+    LLMTimeoutError,
+    OpenAICompatibleClient,
+)
 from ..personalization.flashcard_quality import FlashcardQualityError, FlashcardQualityGate
 from ..personalization.generator import (
     ChapterCourseCompiler,
@@ -141,7 +147,7 @@ def _reviewed_course(bundle: ChapterLearningBundle) -> ChapterLearningBundle:
     try:
         reviewed = flashcard_quality.ensure(bundle)
     except FlashcardQualityError as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        raise HTTPException(status_code=503, detail="学习内容暂未整理完成，请稍后重试。") from error
     if reviewed != bundle:
         assessment_repository.update_reviewed_course(reviewed)
     return reviewed
@@ -227,8 +233,8 @@ def rag_health() -> dict[str, object]:
         "book_id": settings.rag_book_id,
         "answer_model": settings.text_model,
         "answer_provider": settings.llm_provider,
-        "evidence_planner": True,
-        "semantic_review": True,
+        "evidence_planner": settings.rag_use_evidence_planner,
+        "semantic_review": settings.rag_use_semantic_review,
     }
 
 
@@ -360,6 +366,10 @@ def answer_book_question(
     except QABusyError as error:
         raise HTTPException(
             status_code=503, detail="当前提问较多，请稍后重试", headers={"Retry-After": "5"}
+        ) from error
+    except LLMRefusalError as error:
+        raise HTTPException(
+            status_code=422, detail="这个问题暂时无法回答，请换一种表述或询问教材中的具体内容。"
         ) from error
     except LLMTimeoutError as error:
         logger.warning("grounded QA model timed out", exc_info=error)

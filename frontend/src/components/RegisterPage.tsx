@@ -35,7 +35,8 @@ export function RegisterPage({
     [emailTouched, setEmailTouched] = useState(false);
   const scroll = useRef<HTMLDivElement>(null),
     codeInput = useRef<HTMLInputElement>(null),
-    heading = useRef<HTMLHeadingElement>(null);
+    heading = useRef<HTMLHeadingElement>(null),
+    focusCode = useRef(false);
   const busy = action !== null,
     cooldown = Math.max(0, Math.ceil((retryAt - now) / 1000));
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -52,7 +53,14 @@ export function RegisterPage({
     scroll.current?.scrollTo({ top: 0, behavior: "instant" });
     heading.current?.focus({ preventScroll: true });
   }, [step, mode]);
+  useEffect(() => {
+    if (action === null && showEmail && focusCode.current) {
+      focusCode.current = false;
+      codeInput.current?.focus();
+    }
+  }, [action, step, mode, challenge, showEmail]);
   function reset() {
+    focusCode.current = false;
     setChallenge(null);
     setCode("");
     setExpiresAt(0);
@@ -82,6 +90,7 @@ export function RegisterPage({
       setCode("");
       setRetryAt(t + result.retry_after * 1000);
       setExpiresAt(t + result.expires_in * 1000);
+      focusCode.current = true;
     } catch (e) {
       setError((e as Error).message);
       if (e instanceof ApiError && e.status === 429) {
@@ -90,7 +99,6 @@ export function RegisterPage({
       }
     } finally {
       setAction(null);
-      requestAnimationFrame(() => codeInput.current?.focus());
     }
   }
   async function submit() {
@@ -117,8 +125,8 @@ export function RegisterPage({
     } catch (e) {
       setError((e as Error).message);
       if (e instanceof ApiError && [400, 403, 409].includes(e.status)) {
+        focusCode.current = true;
         setStep(1);
-        requestAnimationFrame(() => codeInput.current?.focus());
       }
     } finally {
       setAction(null);
@@ -425,6 +433,7 @@ export function RegisterPage({
                 className="auth-back"
                 disabled={busy}
                 onClick={() => {
+                  focusCode.current = true;
                   setStep(1);
                   setError("");
                 }}

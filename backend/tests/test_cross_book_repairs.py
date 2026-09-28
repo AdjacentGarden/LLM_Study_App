@@ -100,3 +100,33 @@ def test_lexical_match_with_semantic_review_still_requires_exact_citations():
         retrieval_score=-1, lexical_support=True)
     assert result.status == 'supported' and result.semantic_checked
     assert client.calls == 2
+
+
+def test_adjacent_page_context_preserves_page_ids_and_prefers_relevant_edges():
+    chunks = [IndexedChunk('p1', 1, 'An unrelated introduction.', 'parent'),
+              IndexedChunk('p2', 2, 'The earlier page ends with a comparison of material A', 'parent'),
+              IndexedChunk('p3', 3, 'and material B. The complete distinction follows.', 'parent'),
+              IndexedChunk('p4', 4, 'Other context.', 'parent'),
+              IndexedChunk('p5', 5, 'Another selected topic.', 'parent'),
+              IndexedChunk('p6', 6, 'Less relevant context.', 'parent')]
+    index = object.__new__(PersistentRAGIndex)
+    index.chunks = chunks
+    index._by_id = {c.chunk_id: c for c in chunks}
+    index._page_parents = {c.page_number: [c] for c in chunks}
+    evidence = index._expanded_evidence([2, 4], neighbor_scores=[0, 9, 10, 2, 5, 1])
+    assert [(e.page_number, e.text) for e in evidence] == [
+        (3, chunks[2].text), (5, chunks[4].text), (2, chunks[1].text), (4, chunks[3].text)]
+    assert len({e.chunk_id for e in evidence}) == len(evidence)
+
+
+def test_adjacent_page_context_never_truncates_or_exceeds_global_budget():
+    chunks = [IndexedChunk('selected', 2, 'x' * 17500, 'parent'),
+              IndexedChunk('previous', 1, 'y' * 600, 'parent'),
+              IndexedChunk('following', 3, 'z' * 3000, 'parent')]
+    index = object.__new__(PersistentRAGIndex)
+    index.chunks = chunks
+    index._by_id = {c.chunk_id: c for c in chunks}
+    index._page_parents = {c.page_number: [c] for c in chunks}
+    evidence = index._expanded_evidence([0])
+    assert len(evidence) == 1 and evidence[0].text == chunks[0].text
+    assert sum(len(e.text) for e in evidence) <= 18000

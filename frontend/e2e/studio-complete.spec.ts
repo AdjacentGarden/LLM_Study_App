@@ -56,7 +56,7 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
       await expect(page.getByRole("alert")).toContainText("测试保存失败");
       expect(actions).toEqual([]);
     } else {
-      await expect(page.getByRole("button", { name: "正在核对识别文字…", exact: true })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "正在整理笔记…", exact: true })).toBeDisabled();
       expect(actions).toEqual(["complete"]);
       if (scenario === "success") {
         jobs[0] = {
@@ -82,7 +82,7 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
         await resume.click();
         expect(actions).toEqual(["complete", "improve"]);
       } else {
-        await expect(page.getByText("整理结果已保存，原笔迹保持不变。")).toBeVisible();
+        await expect(page.getByText("已保存，原笔迹保持不变。")).toBeVisible();
         await expect(page.getByLabel("核对识别文字")).toHaveCount(0);
         await expect(page.getByText("函数需要终止条件。")).toBeVisible();
         await page.screenshot({ path: info.outputPath("one-click-result.png") });

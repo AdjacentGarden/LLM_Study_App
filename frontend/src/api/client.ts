@@ -107,6 +107,6 @@ export const api = {
     cardId: string,
     body: object,
   ) => post<CourseActivity>(`/api/interviews/${sessionId}/courses/${courseId}/flashcards/${cardId}`, body),
-  ask: (bookId: string, question: string) =>
-    post<QAResult>(`/api/books/${bookId}/qa`, { question }),
+  ask: (bookId: string, question: string, signal?: AbortSignal) =>
+    request<QAResult>(`/api/books/${bookId}/qa`, { method: "POST", body: JSON.stringify({ question }), signal }, 55_000),
 };

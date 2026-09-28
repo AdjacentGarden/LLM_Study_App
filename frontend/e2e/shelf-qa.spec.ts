@@ -8,7 +8,7 @@ test('shelf direction, community zoom, two categories, keyboard and reduced moti
   const frame=page.frameLocator('iframe[title="iPhone 16 App 模拟屏幕"]');
   try{
     await page.goto(baseURL+'/?device=iphone-16');
-    await frame.getByRole('button',{name:'暂时体验，稍后注册'}).click();
+    await frame.getByRole('button',{name:/暂不登录|返回学习空间/}).click();
     await frame.getByRole('button',{name:'书架',exact:true}).click();
     const covers=frame.locator('.shelf-cover');
     await expect(covers).toHaveCount(5);
@@ -65,7 +65,7 @@ test('QA book selection routes correctly without changing the learning book; err
     await route.fulfill({status:fail?502:200,contentType:'application/json',body:JSON.stringify(fail?{detail:'测试：回答服务暂时不可用'}:{status:'supported',answer:'测试答案',confidence:.9,evidence_pages:[10],insufficiency_reason:null,claims:[{text:'测试答案，来自所选书籍。',citations:[{page_number:10,quote:'测试原文',chunk_id:'test'}]}]})});
   });
   try{
-    await page.goto(baseURL+'/?device=iphone-16');await frame.getByRole('button',{name:'暂时体验，稍后注册'}).click();
+    await page.goto(baseURL+'/?device=iphone-16');await frame.getByRole('button',{name:/暂不登录|返回学习空间/}).click();
     await frame.getByRole('button',{name:'答疑',exact:true}).click();
     const select=frame.getByRole('combobox',{name:'答疑使用的书籍'});
     const first=await select.inputValue();
@@ -98,7 +98,7 @@ test('live selected-book RAG returns supported citations for two subjects',async
   const context=await browser.newContext();const page=await context.newPage();const frame=page.frameLocator('iframe');
   const results:unknown[]=[];
   try{
-    await page.goto(baseURL+'/?device=iphone-16');await frame.getByRole('button',{name:'暂时体验，稍后注册'}).click();
+    await page.goto(baseURL+'/?device=iphone-16');await frame.getByRole('button',{name:/暂不登录|返回学习空间/}).click();
     await frame.getByRole('button',{name:'答疑',exact:true}).click();
     const select=frame.getByRole('combobox',{name:'答疑使用的书籍'});
     for(const [id,question] of [['biology-required-2','摩尔根的果蝇实验如何证明基因在染色体上？'],['996d1581e1f6','C++ 中构造函数和析构函数分别有什么作用？']]){

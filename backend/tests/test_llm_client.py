@@ -154,3 +154,115 @@ def test_nested_time_budgets_do_not_extend_deadline(monkeypatch):
     with model_time_budget(2):
         client.structured(system="s",user="u")
     assert 0 < captured["timeout"].read <= 2
+
+
+def test_deadline_returns_before_blocked_transport_and_discards_late_result(monkeypatch):
+    import threading
+    import time
+    from adaptive_learning.llm.client import LLMTimeoutError
+    release = threading.Event()
+    completed = threading.Event()
+    calls = []
+    def post(*args, **kwargs):
+        calls.append(1)
+        try:
+            release.wait(2)
+            return FakeResponse(content='{"late": true}')
+        finally:
+            completed.set()
+    monkeypatch.setattr(httpx.Client, "post", post)
+    client = _client(max_retries=3)
+    start = time.monotonic()
+    try:
+        with model_time_budget(.04), pytest.raises(LLMTimeoutError):
+            client.structured(system="s", user="u")
+        assert time.monotonic() - start < .3
+        assert len(calls) == 1  # Timeout does not replay a potentially billed request.
+    finally:
+        release.set()
+        assert completed.wait(1)
+        client.close()
+
+
+@pytest.mark.parametrize("model,body", [
+    ("claude-test", {"stop_reason": "refusal", "content": []}),
+    ("grok-test", {"status": "completed", "output": [{"type": "message", "content": [{"type": "refusal", "refusal": "no"}]}]}),
+    ("test-model", {"choices": [{"finish_reason": "content_filter", "message": {"content": None}}]}),
+    ("test-model", {"choices": [{"message": {"content": None, "refusal": "no"}}]}),
+])
+def test_refusals_are_never_retried(monkeypatch, model, body):
+    from adaptive_learning.llm.client import LLMRefusalError
+    calls = []
+    class Response(FakeResponse):
+        def json(self):
+            return body
+    monkeypatch.setattr(httpx.Client, "post", lambda *a, **k: calls.append(1) or Response())
+    client = OpenAICompatibleClient(LLMConfig("https://example.test/v1", "test-key", model, max_retries=3))
+    try:
+        with pytest.raises(LLMRefusalError):
+            client.structured(system="s", user="u")
+        assert len(calls) == 1
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("code,expected_refusal", [("content_policy_violation", True), ("invalid_api_key", False)])
+def test_http_403_content_refusal_is_not_confused_with_auth(monkeypatch, code, expected_refusal):
+    from adaptive_learning.llm.client import LLMRefusalError
+    class Response(FakeResponse):
+        def json(self):
+            return {"error": {"code": code, "message": "request rejected"}}
+    calls = []
+    monkeypatch.setattr(httpx.Client, "post", lambda *a, **k: calls.append(1) or Response(status=403))
+    client = _client(max_retries=3)
+    try:
+        with pytest.raises(LLMError) as caught:
+            client.structured(system="s", user="u")
+        assert isinstance(caught.value, LLMRefusalError) == expected_refusal
+        assert len(calls) == 1
+    finally:
+        client.close()
+
+
+def test_expired_slot_admission_does_not_send_or_leak(monkeypatch):
+    import time
+    import adaptive_learning.llm.client as module
+    calls = []
+    class DelayedSlot:
+        def acquire(self, **kwargs):
+            time.sleep(.02)
+            return True
+        def release(self):
+            calls.append("released")
+    monkeypatch.setattr(module, "_transport_slots", DelayedSlot())
+    with pytest.raises(module.LLMTimeoutError):
+        module._request_before_deadline(lambda: calls.append("sent") or {}, time.monotonic() + .005)
+    assert calls == ["released"]
+
+
+def test_abandoned_transports_are_bounded_and_slots_recover(monkeypatch):
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    import adaptive_learning.llm.client as module
+    slot = threading.BoundedSemaphore(2)
+    release = threading.Event()
+    calls = []
+    monkeypatch.setattr(module, "_transport_slots", slot)
+    def send():
+        calls.append(1)
+        release.wait(2)
+        return {}
+    def request():
+        with pytest.raises(module.LLMTimeoutError):
+            module._request_before_deadline(send, time.monotonic() + .04)
+    try:
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            list(pool.map(lambda _: request(), range(5)))
+        assert len(calls) == 2
+    finally:
+        release.set()
+    assert slot.acquire(timeout=1)
+    assert slot.acquire(timeout=1)
+    slot.release(); slot.release()
+    assert module._request_before_deadline(lambda: {"ok": True}, time.monotonic() + 1) == {"ok": True}

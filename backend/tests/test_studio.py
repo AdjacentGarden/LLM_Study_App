@@ -373,6 +373,8 @@ def test_media_plan_generation_review_private_asset(setup, monkeypatch):
     evidence = [{"page": 1, "text": "函数调用自身，需要终止条件。"}]
     plan = {
         "title": "理解递归",
+        "visual_scope": "展示函数的自身调用与终止条件",
+        "visual_checks": ["画面明确表达有限的自身嵌套"],
         "explanation": "函数调用自身，需要终止条件。",
         "points": ["需要终止条件"],
         "visual_prompt": "An illustration with nested boxes, no text.",
@@ -413,6 +415,8 @@ def test_malformed_media_plan_is_repaired_once_before_factual_review(setup, monk
     evidence = [{"page": 1, "text": "函数调用自身，需要终止条件。"}]
     draft = {
         "title": "理解递归",
+        "visual_scope": "展示函数的自身调用与终止条件",
+        "visual_checks": ["画面明确表达有限的自身嵌套"],
         "explanation": "函数调用自身，需要终止条件。",
         "points": ["需要终止条件"],
         "visual_prompt": "A clear colorful educational illustration of nested boxes.",
@@ -451,6 +455,8 @@ def test_malformed_media_plan_never_skips_factual_review(setup, monkeypatch):
     a, _, studio = setup
     draft = {
         "title": "理解递归",
+        "visual_scope": "展示函数的自身调用与终止条件",
+        "visual_checks": ["画面明确表达有限的自身嵌套"],
         "explanation": "函数调用自身，需要终止条件。",
         "points": ["需要终止条件"],
         "visual_prompt": "A clear colorful educational illustration of nested boxes.",
@@ -829,6 +835,8 @@ def test_video_unsuitable_is_rejected_before_paid_call(setup, monkeypatch):
         "llm",
         lambda *args: {
             "title": "计算",
+            "visual_scope": "精确计算关系",
+            "visual_checks": ["计算关系完整"],
             "explanation": "精确计算",
             "points": ["精确计算"],
             "visual_prompt": "Do not generate this video.",
@@ -902,6 +910,7 @@ def diagram_plan():
     return {
         "title": "DNA 内外结构关系",
         "visual_scope": "区分外侧骨架与内侧碱基",
+        "visual_checks": ["骨架在外，碱基在内"],
         "explanation": "骨架在外，碱基在内。",
         "points": ["骨架在外侧"],
         "visual_prompt": "Render a source-grounded relationship diagram.",
@@ -1017,6 +1026,8 @@ def test_video_reuses_first_frame_without_extra_generation(setup, monkeypatch):
         [
             {
                 "title": "理解递归",
+        "visual_scope": "展示函数的自身调用与终止条件",
+        "visual_checks": ["画面明确表达有限的自身嵌套"],
                 "explanation": "类比理解",
                 "points": ["嵌套"],
                 "visual_prompt": "Nested boxes opening gently.",
@@ -1102,3 +1113,62 @@ def test_foreign_or_invented_note_citation_fails_closed(setup, monkeypatch):
     with pytest.raises(ValueError, match="unsupported suggestion"):
         run(s, a, key)
     assert a.get("/api/studio/jobs/" + key).json()["status"] != "succeeded"
+
+
+def test_media_review_timeout_reuses_asset_and_is_bounded(setup):
+    from adaptive_learning.llm.client import LLMTimeoutError
+    a, _, studio = setup
+    key = a.post("/api/studio/media", json=media()).json()["id"]
+    owner, _, _ = studio.repo.visitor(a.cookies.get("zhiwo_visitor"), [])
+    asset = studio.assets / f"{key}.jpg"
+    Image.new("RGB", (32, 32), "white").save(asset)
+    studio.update(key, status="reviewing", result=json.dumps({"title": "示意"}))
+    assert studio.retry_media_review(studio.job(owner, key), LLMTimeoutError("timeout"))
+    row = studio.job(owner, key)
+    assert row["status"] == "reviewing" and asset.exists()
+    assert json.loads(row["result"])["_review_retries"] == 1
+    assert "_review_retries" not in studio.public_job(row)["result"]
+    assert not studio.retry_media_review(row, LLMTimeoutError("timeout"))
+    assert not studio.retry_media_review(row, ValueError("bad content"))
+    studio.update(key, status="submitting")
+    assert not studio.retry_media_review(studio.job(owner, key), LLMTimeoutError("timeout"))
+
+
+def test_failed_media_feedback_is_scoped_to_owner_and_exact_selection(setup):
+    a, b, studio = setup
+    first = a.post("/api/studio/media", json=media()).json()["id"]
+    studio.update(first, status="failed", result=json.dumps({"_diagnostic": {
+        "stage": "media_review", "observations": "实体类别错误", "reason": "器物画成生物",
+    }}))
+    retry = a.post("/api/studio/media", json=media(request_id="retry_123456")).json()["id"]
+    owner, _, _ = studio.repo.visitor(a.cookies.get("zhiwo_visitor"), [])
+    assert studio.previous_media_feedback(studio.job(owner, retry))["observations"] == "实体类别错误"
+    other = a.post("/api/studio/media", json=media(excerpt="这是另一个选段的教材内容。", request_id="other_123456")).json()["id"]
+    assert studio.previous_media_feedback(studio.job(owner, other)) is None
+    outsider = b.post("/api/studio/media", json=media(request_id="outside_123456")).json()["id"]
+    second_owner, _, _ = studio.repo.visitor(b.cookies.get("zhiwo_visitor"), [])
+    assert studio.previous_media_feedback(studio.job(second_owner, outsider)) is None
+
+
+@pytest.mark.parametrize("fields", [{"visual_scope": ""}, {"visual_checks": []}, {"visual_checks": [" "]}])
+def test_new_supported_media_plans_require_quality_scope(fields):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        TeachingPlan.model_validate({**diagram_plan(), **fields})
+
+
+def test_visual_review_uses_original_goal_and_never_generator_prompt(setup, monkeypatch):
+    a, _, studio = setup
+    key = a.post("/api/studio/media", json=media(excerpt="鱼灯与龙灯是动物造型的灯彩。", goal="意思")).json()["id"]
+    owner, _, _ = studio.repo.visitor(a.cookies.get("zhiwo_visitor"), [])
+    Image.new("RGB", (32, 32), "white").save(studio.assets / f"{key}.jpg")
+    studio.update(key, status="reviewing", result=json.dumps({"title": "灯彩", "visual_prompt": "PRIVATE_GENERATOR_PROMPT", "evidence": []}))
+    def review(prompt, images):
+        assert '"original_selection": "鱼灯与龙灯是动物造型的灯彩。"' in prompt
+        assert '"learning_goal": "意思"' in prompt
+        assert "PRIVATE_GENERATOR_PROMPT" not in prompt
+        return visual_review(objects_correct=False)
+    monkeypatch.setattr(studio, "llm", review)
+    run(studio, a, key)
+    job = studio.public_job(studio.job(owner, key))
+    assert job["status"] == "failed" and job["asset_url"] is None

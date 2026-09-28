@@ -92,9 +92,23 @@ function App() {
   const [error, setError] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [qaQuestion, setQaQuestion] = useState("");
+  const [qaBusy, setQaBusy] = useState(false);
+  const [qaError, setQaError] = useState("");
+  const qaRequest = useRef<AbortController | null>(null);
+  function stopAnswer() {
+    qaRequest.current?.abort();
+    qaRequest.current = null;
+    setQaBusy(false);
+    setQaQuestion(current => current || askedQuestion);
+  }
+  useEffect(() => () => { qaRequest.current?.abort(); qaRequest.current = null; }, []);
   const [returnRevision, setReturnRevision] = useState(0);
   const returnsChanged = () => setReturnRevision((v) => v + 1);
   function revisitDoubt(doubt: Doubt) {
+    qaRequest.current?.abort();
+    qaRequest.current = null;
+    setQaBusy(false);
+    setQaError("");
     setQaBookId(doubt.book_id);
     setQaResult(null);
     setAskedQuestion("");
@@ -110,9 +124,12 @@ function App() {
   const qaBook = books.find((item) => item.book_id === qaBookId) ?? book;
   useEffect(() => {
     let cancelled = false;
+    qaRequest.current?.abort();
+    qaRequest.current = null;
+    setQaBusy(false);
     setQaResult(null);
     setAskedQuestion("");
-    setError("");
+    setQaError("");
     setQaStructure(null);
     if (qaBook)
       void api
@@ -185,9 +202,6 @@ function App() {
       setStructure(chapters);
       setSession(matching);
       setCourse(null);
-      setQaResult(null);
-      setAskedQuestion("");
-      setQaQuestion("");
       safeSet(SESSION_KEY, matching?.session_id ?? null);
       safeSet(ACTIVE_BOOK_KEY, active?.book_id ?? null);
       if (matching)
@@ -457,19 +471,27 @@ function App() {
   }
 
   async function askQuestion(question = qaQuestion) {
-    if (!qaBook || busy || !question.trim()) return;
+    if (!qaBook || busy || qaRequest.current || !question.trim()) return;
+    const controller = new AbortController();
+    qaRequest.current = controller;
     setQaQuestion("");
     setAskedQuestion(question.trim());
-    setBusy(true);
-    setError("");
+    setQaBusy(true);
+    setQaError("");
     setQaResult(null);
     try {
-      setQaResult(await api.ask(qaBook.book_id, question.trim()));
+      const result = await api.ask(qaBook.book_id, question.trim(), controller.signal);
+      if (qaRequest.current === controller) setQaResult(result);
     } catch (value) {
-      setError((value as Error).message);
-      setQaQuestion((current) => current || question);
+      if (qaRequest.current === controller && !controller.signal.aborted) {
+        setQaError((value as Error).message);
+        setQaQuestion((current) => current || question);
+      }
     } finally {
-      setBusy(false);
+      if (qaRequest.current === controller) {
+        qaRequest.current = null;
+        setQaBusy(false);
+      }
     }
   }
 
@@ -723,8 +745,8 @@ function App() {
                 question={qaQuestion}
                 askedQuestion={askedQuestion}
                 result={qaResult}
-                busy={busy}
-                error={error}
+                busy={qaBusy}
+                error={qaError}
                 bookTitle={qaBook?.title ?? "书架还没有教材"}
                 books={books}
                 selectedBookId={qaBook?.book_id ?? ""}
@@ -734,11 +756,12 @@ function App() {
                 available={!!qaBook && online}
                 onQuestion={setQaQuestion}
                 onAsk={askQuestion}
+                onStop={stopAnswer}
                 followUp={
                   askedQuestion &&
-                  !busy &&
+                  !qaBusy &&
                   qaBook &&
-                  (qaResult || error) && (
+                  (qaResult || qaError) && (
                     <RememberQuestion
                       key={`${qaBook.book_id}:${askedQuestion}`}
                       draft={{

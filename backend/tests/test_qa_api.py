@@ -133,3 +133,19 @@ def test_overload_is_retryable_not_internal_error():
         assert response.status_code==503 and response.headers["retry-after"]=="5"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_content_refusal_returns_actionable_message_without_provider_details():
+    from adaptive_learning.llm.client import LLMRefusalError
+    class Refused(FakeQAService):
+        def answer(self, question):
+            raise LLMRefusalError("private provider diagnostic")
+    app.dependency_overrides[require_qa_service] = Refused
+    try:
+        with TestClient(app) as client:
+            response = client.post("/api/books/biology-required-2/qa", json={"question": "test"})
+        assert response.status_code == 422
+        assert "换一种表述" in response.json()["detail"]
+        assert "private" not in response.text
+    finally:
+        app.dependency_overrides.clear()

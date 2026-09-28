@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { StudioProvider, StudioEntry } from "../../src/components/LearningStudio";
+import { StudioProvider, StudioEntry } from "../../src/components/StudioShell";
 import "../../src/styles/learning-studio.css";
 
 createRoot(document.getElementById("root")!).render(

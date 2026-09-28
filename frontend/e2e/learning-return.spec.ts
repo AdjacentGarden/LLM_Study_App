@@ -49,7 +49,7 @@ test("4090 memory return and durable private doubts close the loop", async ({
     );
     await page.goto(baseURL + "/?device=iphone-16&release=return-e2e");
     const f = page.frameLocator("iframe");
-    const skip = f.getByRole("button", { name: "暂时体验，稍后注册" });
+    const skip = f.getByRole("button", { name: /暂不登录|返回学习空间/ });
     if (await skip.isVisible()) await skip.click();
     const memory = f.getByRole("region", { name: "长期记忆回访" });
     await expect(memory).toContainText("1 张卡，今天再想一遍");
@@ -239,7 +239,7 @@ test("doubt save failure is visible, retry persists once, and narrow layout rema
         : r.continue();
     });
     await page.goto(baseURL + "/?embedded=1");
-    await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+    await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
     await page.getByRole("button", { name: "答疑", exact: true }).click();
     await page
       .getByRole("textbox", { name: "向教材小助手提问" })

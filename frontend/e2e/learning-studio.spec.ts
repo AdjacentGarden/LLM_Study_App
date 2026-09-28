@@ -47,7 +47,7 @@ test("chapter, section and flashcard all carry usable visual learning context", 
     (route) => route.fulfill({ json: course }),
   );
   await page.goto(baseURL + "/?embedded=1");
-  const guestEntry = page.getByRole("button", { name: "暂时体验，稍后注册" });
+  const guestEntry = page.getByRole("button", { name: /暂不登录|返回学习空间/ });
   if (await guestEntry.isVisible()) await guestEntry.click();
   const chapter = page.locator(".atlas-row").filter({ hasText: course.chapter_title }).first();
   await chapter.locator(".atlas-trigger").click();
@@ -92,7 +92,7 @@ test("server notebook works when browser session storage is disabled", async ({
     }),
   );
   await page.goto(baseURL + "/?embedded=1");
-  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
   await page.getByRole("textbox", { name: "笔记标题" }).fill("无本地存储测试");
@@ -119,7 +119,7 @@ test("private digital ink saves, undo redo, reload and narrow layout", async ({
     await context.request.get(baseURL + "/api/library")
   ).json();
   await page.goto(baseURL + "/?embedded=1");
-  const skip = page.getByRole("button", { name: "暂时体验，稍后注册" });
+  const skip = page.getByRole("button", { name: /暂不登录|返回学习空间/ });
   await skip.click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
@@ -260,7 +260,7 @@ test("real handwriting recognition and grounded improvement on 4090", async ({
     { id: who.user_id, book: book.book_id },
   );
   await page.goto(baseURL + "/?embedded=1");
-  const skip = page.getByRole("button", { name: "暂时体验，稍后注册" });
+  const skip = page.getByRole("button", { name: /暂不登录|返回学习空间/ });
   await skip.click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
@@ -412,7 +412,7 @@ test("media controls submit once, keep context, and show a failed task without a
     return r.fulfill({ json: jobs[0] });
   });
   await page.goto(baseURL + "/?embedded=1");
-  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "图解", exact: true }).click();
   await page.getByLabel("选中的内容").fill("选中的教材测试文本");
@@ -480,7 +480,7 @@ test("media progress remains visible and completed work returns after visiting a
     return route.fulfill({ json: job });
   });
   await page.goto(baseURL + "/?embedded=1");
-  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "图解", exact: true }).click();
   await page.getByLabel("选中的内容").fill("选中的教材测试文本");
@@ -532,7 +532,7 @@ test("saving failure keeps ink and blocks closing until retry succeeds", async (
       : r.continue(),
   );
   await page.goto(baseURL + "/?embedded=1");
-  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建手写笔记" }).click();
   await page.getByRole("textbox", { name: "笔记标题" }).fill("断网草稿");
@@ -561,7 +561,7 @@ test("voice note can import, preview and save private audio on a phone", async (
   });
   const page = await context.newPage();
   await page.goto(baseURL + "/?embedded=1");
-  await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+  await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
   await page.getByRole("button", { name: /学习笔记/ }).click();
   await page.getByRole("button", { name: "新建语音笔记" }).click();
   await expect(page.getByRole("button", { name: "开始录音" })).toBeVisible();

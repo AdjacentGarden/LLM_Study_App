@@ -18,6 +18,7 @@ export function TutorChat({
   available,
   onQuestion,
   onAsk,
+  onStop,
   followUp,
 }: {
   question: string;
@@ -30,6 +31,7 @@ export function TutorChat({
   available: boolean;
   onQuestion: (value: string) => void;
   onAsk: (value?: string) => void;
+  onStop: () => void;
   followUp?: React.ReactNode;
   books: BookCatalogItem[];
   selectedBookId: string;
@@ -93,7 +95,8 @@ export function TutorChat({
                 <i />
               </span>
             </div>
-            <p>正在查找教材内容并整理答案。</p>
+            <p>你可以继续浏览，回答会保留在这里。</p>
+            <button className="qa-stop" onClick={onStop}>停止等待</button>
             <span className="skeleton-line" />
             <span className="skeleton-line" />
             <span className="skeleton-line short" />
@@ -105,7 +108,7 @@ export function TutorChat({
             <p>{error}</p>
             <button
               disabled={!available}
-              onClick={() => onAsk(askedQuestion || question)}
+              onClick={() => onAsk(question.trim() || askedQuestion)}
             >
               重新提问 <Icon name="arrow" size={16} />
             </button>

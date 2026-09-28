@@ -58,6 +58,8 @@ export function StudioDialog({
     [note, setNote] = useState<InkNote | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
+    [loadFailed, setLoadFailed] = useState(false),
+    [reloading, setReloading] = useState(false),
     [goal, setGoal] = useState("意思"),
     [level, setLevel] = useState("标准");
   const [selection, setSelection] = useState(opening.anchor.excerpt ?? "");
@@ -74,20 +76,24 @@ export function StudioDialog({
     setJobs(jobPage.items);
     setNotes(notePage.items);
   };
+  async function loadStudio() {
+    setReloading(true);
+    const results = await Promise.allSettled([
+      studioApi.caps().then(value => { if (mounted.current) setCaps(value); }),
+      studioApi.jobs(opening.anchor.book_id).then(value => { if (mounted.current) setJobs(value.items); }),
+      studioApi.notes(opening.anchor.book_id).then(value => { if (mounted.current) setNotes(value.items); }),
+    ]);
+    if (!mounted.current) return;
+    const failed = results.some(result => result.status === "rejected");
+    setLoadFailed(failed);
+    setError(failed ? "部分内容未能加载，请重新加载。" : "");
+    setReloading(false);
+  }
   useEffect(() => {
     mounted.current = true;
     dialog.current?.showModal();
-    void studioApi
-      .caps()
-      .then((c) => {
-        if (mounted.current) setCaps(c);
-      })
-      .catch((e) => setError(e.message));
-    void syncStudio()
-      .catch((e) => setError(e.message));
-    return () => {
-      mounted.current = false;
-    };
+    void loadStudio();
+    return () => { mounted.current = false; };
   }, []);
 
   const hasPendingJobs = jobs.some(pendingStudio);
@@ -101,12 +107,15 @@ export function StudioDialog({
       try {
         const page = await studioApi.jobs(opening.anchor.book_id);
         if (cancelled || !mounted.current) return;
-        setJobs(page.items);
         if (!page.items.some(pendingStudio)) {
           const notePage = await studioApi.notes(opening.anchor.book_id);
-          if (!cancelled && mounted.current) setNotes(notePage.items);
+          if (!cancelled && mounted.current) {
+            setNotes(notePage.items);
+            setJobs(page.items);
+          }
           return;
         }
+        setJobs(page.items);
       } catch {
         // A later poll can recover without replacing the user's current view.
       }
@@ -422,6 +431,7 @@ export function StudioDialog({
             }}
           />
         )}
+        {loadFailed && <button disabled={reloading} onClick={() => void loadStudio()}>{reloading ? "正在加载" : "重新加载"}</button>}
         {error && (
           <p role="alert" className="studio-error">
             {error}
@@ -465,13 +475,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
         (job.kind === "image" ? (
           <StudyImage src={job.asset_url} title={r.title ?? "知识图解"} />
         ) : (
-          <video
-            src={job.asset_url}
-            controls
-            playsInline
-            preload="metadata"
-            aria-label="短片讲解"
-          />
+          <StudyVideo src={job.asset_url} />
         ))}
       {r.explanation && <GeneratedText value={r.explanation} />}
       {r.points && (
@@ -523,7 +527,21 @@ function MediaJobProgress({ job, compact = false }: { job: StudioJob; compact?: 
     </div>
   );
 }
+function StudyVideo({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  return <>
+    <video key={`${src}:${attempt}`} src={src} controls playsInline preload="metadata"
+      aria-label="短片讲解" onError={() => setFailed(true)} onLoadedData={() => setFailed(false)} />
+    {failed && <div className="studio-asset-error" role="alert"><p>短片未能加载</p>
+      <button onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>重新加载短片</button></div>}
+  </>;
+}
+
 function StudyImage({ src, title }: { src: string; title: string }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const imageSrc = attempt ? `${src}${src.includes("?") ? "&" : "?"}reload=${attempt}` : src;
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -533,9 +551,10 @@ function StudyImage({ src, title }: { src: string; title: string }) {
   }, [open]);
   return <>
     <button className="studio-image-open" aria-label="查看图解大图" onClick={() => { setZoom(1); setOpen(true); }}>
-      <img loading="lazy" src={src} alt={title} />
+      <img loading="lazy" src={imageSrc} alt={title} onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
       <span>轻触放大，细看每个关系</span>
     </button>
+    {failed && <div className="studio-asset-error" role="alert"><p>图片未能加载</p><button onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>重新加载图片</button></div>}
     <dialog ref={dialog} className="studio-image-dialog" aria-label="图解大图"
       onCancel={e => { e.preventDefault(); e.stopPropagation(); setOpen(false); }} onClose={() => setOpen(false)}>
       {open && <>
@@ -545,8 +564,9 @@ function StudyImage({ src, title }: { src: string; title: string }) {
           <output aria-label="图解缩放比例">{zoom * 100}%</output>
           <button disabled={zoom >= 3} onClick={() => setZoom(z => Math.min(3, z + 0.5))}>放大</button>
         </div>
+        {failed && <div className="studio-asset-error" role="alert"><p>图片未能加载</p><button onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>重新加载大图</button></div>}
         <div className="studio-image-scroll" tabIndex={0} aria-label="可滚动的大图区域">
-          <img src={src} alt={title} style={{ width: `${zoom * 100}%`, maxWidth: "none" }} />
+          <img src={imageSrc} alt={title} onError={() => setFailed(true)} style={{ width: `${zoom * 100}%`, maxWidth: "none" }} />
         </div>
       </>}
     </dialog>

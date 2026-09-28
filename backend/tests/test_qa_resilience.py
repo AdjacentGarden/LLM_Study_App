@@ -133,3 +133,17 @@ def test_service_validates_inputs(question):
     with pytest.raises(ValueError):
         qa.answer(question)
     assert client.calls == 0
+
+
+def test_fallback_cache_never_overwrites_full_retrieval_and_expires_quickly():
+    qa, _ = service()
+    full = qa.index.search("question", top_pages=1, max_evidence=1)
+    qa._remember_retrieval("question", full)
+    full_entry = qa._retrieval_cache["question"]
+    fallback = qa.index.search("fallback", top_pages=1, max_evidence=1)
+    qa._remember_retrieval("question", fallback, degraded=True)
+    assert qa._retrieval_cache["question"] == full_entry
+    qa._remember_retrieval("other", fallback, degraded=True)
+    assert qa._retrieval_cache["other"][0] - time.monotonic() <= 5
+    qa._remember_retrieval("other", full)
+    assert qa._retrieval_cache["other"][2] is False

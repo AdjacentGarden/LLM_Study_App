@@ -36,7 +36,7 @@ test("existing MiniMax results persist, rejected assets stay private and success
   }
   for (let pass = 0; pass < 2; pass++) {
     await page.goto(baseURL + "/?embedded=1");
-    await page.getByRole("button", { name: "暂时体验，稍后注册" }).click();
+    await page.getByRole("button", { name: /暂不登录|返回学习空间/ }).click();
     await page.getByRole("button", { name: "书架", exact: true }).click();
     await page.locator(".shelf-caption").filter({ hasText: title }).click();
     await page.getByRole("button", { name: /学习笔记/ }).click();

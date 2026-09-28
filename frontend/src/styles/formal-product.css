@@ -545,7 +545,7 @@ button:active:not(:disabled) { transform: scale(.98); }
 .answer-paragraph > p {
   color: inherit;
   line-height: inherit;
-  text-indent: 0;
+  text-indent: 2em;
 }
 .answer-paragraph > p + p {
   margin-top: 12px;
@@ -664,3 +664,16 @@ button:active:not(:disabled) { transform: scale(.98); }
 .stage.is-large-type :where(.community-tabs, .record-tabs, .studio-segments) {
   overflow-x: auto;
 }
+
+/* Recovery actions sit next to the content that needs them. */
+.qa-stop, .studio-asset-error button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--line, #d9dee5);
+  border-radius: 12px;
+  background: #fff;
+  color: #245da8;
+  font: inherit;
+}
+.studio-asset-error { padding: 12px 0; }
+.studio-asset-error p { margin: 0 0 8px; }

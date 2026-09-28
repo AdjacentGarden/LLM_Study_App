@@ -147,3 +147,92 @@ def test_whitespace_cannot_bypass_citation_or_claim_validation(claim, quote):
             evidence=[EvidenceChunk(source_id="E1", page_number=1, text="真实的原文")],
             retrieval_score=3,
         )
+
+
+def test_review_receives_context_that_prevents_cropped_condition_bypass():
+    import json
+    text = "在忽略空气阻力时，不同质量的物体同时落地。"
+    calls = []
+    class Client:
+        def structured(self, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                return draft("不同质量的物体总是同时落地。", "不同质量的物体同时落地。")
+            data = json.loads(kwargs["user"])
+            assert data["source_context"] == [{"source_id": "E1", "page_number": 1, "text": text}]
+            return verdict(False)
+    with pytest.raises(GroundedAnswerValidationError):
+        GroundedAnswerGenerator(Client(), use_semantic_review=True, max_validation_retries=0).answer(
+            question="不同质量的物体是否总是同时落地？", evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)], retrieval_score=3,
+        )
+    assert len(calls) == 2
+
+
+def test_review_timeout_never_publishes_or_regenerates_unverified_answer():
+    from adaptive_learning.llm.client import LLMTimeoutError
+    calls = []
+    class Client:
+        def structured(self, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                return draft("二分查找要求有序。", "二分查找要求有序。")
+            raise LLMTimeoutError("review deadline")
+    with pytest.raises(LLMTimeoutError):
+        GroundedAnswerGenerator(Client(), use_semantic_review=True).answer(
+            question="二分查找的条件？", evidence=[EvidenceChunk(source_id="E1", page_number=1, text="二分查找要求有序。")], retrieval_score=3,
+        )
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize('stitched', [False, True])
+def test_cross_page_evidence_requires_separate_exact_quotes(stitched):
+    first = '比较中A使用材料甲，而B使用'
+    second = '材料乙，因此两者的材料不同。'
+    citations = ([{'source_id': 'E1', 'quote': first + second}] if stitched else [
+        {'source_id': 'E1', 'quote': first}, {'source_id': 'E2', 'quote': second}])
+    client = SequenceFakeClient([{
+        'status': 'supported', 'confidence': .9,
+        'claims': [{'text': 'A使用材料甲，B使用材料乙。', 'citations': citations}],
+    }, verdict()])
+    generator = GroundedAnswerGenerator(client, use_semantic_review=True, max_validation_retries=0)
+    kwargs = dict(question='A和B材料有什么区别？', retrieval_score=3, evidence=[
+        EvidenceChunk(source_id='E1', page_number=5, text=first),
+        EvidenceChunk(source_id='E2', page_number=6, text=second),
+    ])
+    if stitched:
+        with pytest.raises(GroundedAnswerValidationError):
+            generator.answer(**kwargs)
+        assert client.calls == 1
+    else:
+        answer = generator.answer(**kwargs)
+        assert answer.semantic_checked
+        assert [c.page_number for c in answer.claims[0].citations] == [5, 6]
+
+
+def test_verified_code_quote_retains_original_whitespace_for_semantic_review():
+    import json
+    text = 'const: immutable interface.\n\tconstexpr: compile-time evaluation.'
+    calls = []
+    class Client:
+        def structured(self, **kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                return draft('The two terms have different roles.', text.replace('\n\t', ' '))
+            claim = json.loads(kwargs['user'])['claims'][0]
+            assert claim['citations'][0]['quote'] == text
+            return verdict()
+    answer = GroundedAnswerGenerator(Client(), use_semantic_review=True).answer(
+        question='What are their roles?', retrieval_score=3,
+        evidence=[EvidenceChunk(source_id='E1', page_number=2, text=text)])
+    assert answer.claims[0].citations[0].quote == text
+    assert answer.generation_attempts == 1
+
+
+def test_same_wording_on_different_pages_is_not_dropped():
+    value = draft('A supported conclusion.', 'same words')
+    value['claims'][0]['citations'].append({'source_id': 'E2', 'quote': 'same words'})
+    answer = GroundedAnswerGenerator(SequenceFakeClient([value])).answer(
+        question='Explain', retrieval_score=3, evidence=[
+            EvidenceChunk(source_id='E1', page_number=2, text='same words'),
+            EvidenceChunk(source_id='E2', page_number=3, text='same words')])
+    assert [c.page_number for c in answer.claims[0].citations] == [2, 3]
