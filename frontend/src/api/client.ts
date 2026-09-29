@@ -18,31 +18,13 @@ import { request } from "./transport";
 const post = <T>(path: string, body?: object) =>
   request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
 
-const structureCache = new Map<string, Promise<BookStructure>>();
-function structure(bookId: string) {
-  const existing = structureCache.get(bookId);
-  if (existing) return existing;
-  const pending = request<BookStructure>(`/api/books/${bookId}/structure`).catch(error => {
-    structureCache.delete(bookId);
-    throw error;
-  });
-  structureCache.set(bookId, pending);
-  return pending;
-}
-
-async function buildStructure(bookId: string) {
-  const value = await post<BookStructure>(`/api/books/${bookId}/structure`);
-  structureCache.set(bookId, Promise.resolve(value));
-  return value;
-}
-
 export const api = {
   uploadBook:(file:File)=>{const body=new FormData();body.append("file",file);return request<UploadResponse>("/api/books",{method:"POST",body},600_000);},
   bindUpload:(bookId:string)=>post<{ok:boolean}>(`/api/library/books/${bookId}/bind-upload`),
   processBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process`),
   retryBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process/retry`),
   bookStatus:(bookId:string)=>request<BookStatus>(`/api/books/${bookId}/status`,{},30_000),
-  buildStructure,
+  buildStructure:(bookId:string)=>post<BookStructure>(`/api/books/${bookId}/structure`),
   buildDiagnostics:(bookId:string)=>post<{ready:boolean}>(`/api/books/${bookId}/diagnostics`),
   claimBook:(bookId:string)=>post<BookCatalogItem>(`/api/library/books/${bookId}/claim`),
   userProfile:()=>request<UserProfile>("/api/user/profile"),
@@ -60,10 +42,10 @@ export const api = {
   checkShared:(id:string)=>request<{already_owned:boolean;similar_titles:string[];book_id:string;method:string}>(`/api/community/${id}/check`),
   acquire:(id:string)=>post<{status:"added"|"already_owned";book_id:string;kind:string;resource_id:string|null}>(`/api/community/${id}/acquire`),
   withdraw:(id:string)=>post<{ok:boolean}>(`/api/community/${id}/withdraw`),
-  structure,
-  start: (bookId: string) =>
+  structure: (bookId: string) => request<BookStructure>(`/api/books/${bookId}/structure`),
+  start: (bookId: string, userId?: string) =>
     post<InterviewResponse>("/api/interviews/start", {
-      user_id: `web_${Math.random().toString(36).slice(2, 10)}`,
+      user_id: userId ?? `web_${Math.random().toString(36).slice(2, 10)}`,
       book_id: bookId,
     }),
   resume: (sessionId: string) => request<InterviewResponse>(`/api/interviews/${sessionId}`),
@@ -107,6 +89,6 @@ export const api = {
     cardId: string,
     body: object,
   ) => post<CourseActivity>(`/api/interviews/${sessionId}/courses/${courseId}/flashcards/${cardId}`, body),
-  ask: (bookId: string, question: string, signal?: AbortSignal) =>
-    request<QAResult>(`/api/books/${bookId}/qa`, { method: "POST", body: JSON.stringify({ question }), signal }, 55_000),
+  ask: (bookId: string, question: string) =>
+    post<QAResult>(`/api/books/${bookId}/qa`, { question }),
 };

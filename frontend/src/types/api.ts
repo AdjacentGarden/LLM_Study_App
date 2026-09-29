@@ -133,6 +133,10 @@ export interface Chapter {
   summary: string;
   knowledge_points: string[];
   evidence: Citation[];
+  parent_id?: string | null;
+  level?: number | null;
+  heading_block_id?: string | null;
+  has_supplementary_content?: boolean | null;
 }
 
 export interface BookStructure {
@@ -143,10 +147,18 @@ export interface BookStructure {
 }
 
 export interface CourseCitation extends Citation { block_id?: string }
-export interface LessonSection { title: string; content: string; purpose: string; citations: CourseCitation[] }
+export interface CourseMedia {
+  asset_id: string;
+  kind: "image" | "video";
+  caption: string;
+  url: string;
+  source_kind: string;
+  page_number?: number | null;
+}
+export interface LessonSection { title: string; content: string; purpose: string; citations: CourseCitation[]; media?: CourseMedia[] }
 export interface CourseKnowledgePoint { point_id: string; title: string; explanation: string; importance: string; mastery: number; state: string; citations: CourseCitation[] }
 export interface Flashcard { card_id: string; point_id: string; front: string; back: string; reason_for_user: string; citations: CourseCitation[] }
-export interface PublicPracticeItem { item_id: string; point_id: string; prompt: string; response_type: string; options: string[]; estimated_seconds: number }
+export interface PublicPracticeItem { item_id: string; point_id: string; prompt: string; response_type: string; options: string[]; estimated_seconds: number; citations?: CourseCitation[] }
 export interface Course {
   course_id: string;
   version: number;
@@ -171,9 +183,6 @@ export interface CourseActivity { duplicate: boolean; evidence: EvidenceResult; 
 
 export interface QAResult {
   semantic_checked?: boolean;
-  retrieval_duration_ms: number;
-  generation_duration_ms: number;
-  cache_hit?: boolean;
   status: "supported" | "insufficient";
   answer: string;
   confidence: number;

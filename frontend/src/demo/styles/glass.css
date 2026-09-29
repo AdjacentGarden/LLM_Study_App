@@ -1,0 +1,168 @@
+/*
+ * Compatibility layer for the previous glass-* class names. Content surfaces
+ * are deliberately flat; only real overlays retain the compact elevation.
+ */
+.glass-surface,
+.glass-button,
+.glass-pill {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-surface::before,
+.glass-surface::after,
+.glass-button::before,
+.glass-button::after,
+.glass-pill::before,
+.glass-pill::after,
+.glass-sheet::before,
+.glass-sheet::after {
+  content: none;
+}
+
+.glass-sheet {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--glass-nav-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-nav {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 248, 255, 0.72)),
+    rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 28px rgba(63, 84, 126, 0.16),
+    0 24px 48px rgba(103, 122, 174, 0.16);
+  backdrop-filter: blur(20px) saturate(1.42) brightness(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.42) brightness(1.05);
+}
+
+.glass-nav::before,
+.glass-nav::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.glass-nav::before {
+  inset: 1px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), transparent 30%),
+    linear-gradient(315deg, rgba(142, 122, 255, 0.12), transparent 42%);
+  opacity: 0.86;
+}
+
+.glass-nav::after {
+  left: 10%;
+  right: 10%;
+  top: 4px;
+  height: 38%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0));
+  opacity: 0.76;
+}
+
+.glass-nav[data-lg-variant="prominent"] {
+  background: var(--glass-nav-surface);
+  border: 1px solid var(--glass-nav-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-nav-highlight),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.24),
+    var(--glass-nav-shadow);
+  backdrop-filter: blur(var(--glass-nav-blur)) saturate(var(--glass-nav-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-nav-blur)) saturate(var(--glass-nav-saturate));
+}
+
+.glass-nav[data-lg-variant="prominent"]::before {
+  inset: 1px 1px auto;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.08) 58%, transparent);
+  opacity: 0.46;
+}
+
+.glass-nav[data-lg-variant="prominent"]::after {
+  top: 0;
+  right: auto;
+  bottom: 0;
+  left: -42%;
+  width: 34%;
+  height: auto;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  opacity: 0;
+  transform: skewX(-18deg) translateX(-20%);
+  transition:
+    opacity var(--motion-duration-local-slow) var(--motion-ease-local-state),
+    transform var(--motion-duration-local-slow) var(--motion-ease-local-state);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glass-nav[data-lg-variant="prominent"]:hover::after {
+    opacity: 0.42;
+    transform: skewX(-18deg) translateX(320%);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-surface,
+  .glass-button,
+  .glass-pill,
+  .glass-sheet {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    box-shadow: none;
+  }
+
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.94);
+    border-color: var(--color-border);
+    box-shadow: var(--glass-shadow-soft);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-nav[data-lg-variant="prominent"] {
+    background: var(--glass-nav-surface-opaque);
+    border-color: var(--glass-nav-border-strong);
+    box-shadow: var(--glass-nav-shadow-opaque);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-nav[data-lg-variant="prominent"] {
+    background: var(--glass-nav-surface-opaque);
+    border-color: var(--glass-nav-border-strong);
+    box-shadow: var(--glass-nav-shadow-opaque);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-nav[data-lg-variant="prominent"]::before,
+  .glass-nav[data-lg-variant="prominent"]::after {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-nav[data-lg-variant="prominent"]::after {
+    opacity: 0;
+    transform: none;
+    transition: none;
+  }
+}

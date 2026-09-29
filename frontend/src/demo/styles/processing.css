@@ -1,0 +1,178 @@
+/* The Processing workspace mirrors the focused reference composition: one
+   calm brand animation, a compact stage panel, one status line, and one exit. */
+.screen-content[data-screen="processing"] {
+  background: var(--color-surface);
+}
+
+.processing-flow-screen {
+  --processing-sprite-frame-count: 8;
+  --processing-row-height: 3rem;
+  width: min(100%, 44rem);
+  min-height: calc(100dvh - 9rem);
+  margin-inline: auto;
+  gap: 0;
+}
+
+.processing-flow-screen .processing-flow-primary,
+.processing-flow-screen .processing-flow-support,
+.processing-flow-screen .processing-flow-actions {
+  display: grid;
+  grid-column: 1;
+  min-width: 0;
+}
+
+.processing-animation-stage {
+  min-height: clamp(13rem, 26vh, 16rem);
+  display: grid;
+  place-items: start center;
+}
+
+.processing-sprite-viewport {
+  width: clamp(10.5rem, 46vw, 13rem);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  contain: paint;
+  transform: translateY(-2.5rem);
+}
+
+.processing-sprite-strip {
+  width: calc(var(--processing-sprite-frame-count) * 100%);
+  max-width: none;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  transform: translate3d(0, 0, 0);
+  animation: processing-cloud-sprite-loading var(--motion-duration-loading) var(--motion-ease-sprite) infinite;
+}
+
+@keyframes processing-cloud-sprite-loading {
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
+.processing-flow-screen .stage-list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.875rem;
+  background: #f4f7fb;
+}
+
+.processing-flow-screen .stage-row {
+  min-height: var(--processing-row-height);
+  grid-template-columns: 1.875rem minmax(0, 1fr) auto;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.processing-flow-screen .stage-row > span {
+  width: 1.875rem;
+  height: 1.875rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.processing-flow-screen .stage-row > strong {
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.processing-flow-screen .stage-row .stage-status {
+  justify-self: end;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.processing-flow-screen .stage-row.done .stage-status {
+  color: var(--color-mint);
+}
+
+.processing-flow-screen .stage-row.is-processing {
+  border-color: var(--color-primary-light);
+  background: #faf7ff;
+}
+
+.processing-flow-screen .stage-row.is-processing > span,
+.processing-flow-screen .stage-row.is-processing .stage-status {
+  color: var(--color-primary-pressed);
+}
+
+.processing-flow-screen .processing-status-message {
+  min-width: 0;
+  margin: 1rem 0 0;
+  padding-inline: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.processing-flow-screen .processing-status-message.is-error {
+  color: var(--color-danger);
+}
+
+.processing-flow-screen .processing-flow-actions {
+  gap: 0.625rem;
+  margin-top: 0;
+  padding: clamp(1.5rem, 4vh, 2.5rem) 0 0;
+}
+
+.processing-flow-screen .processing-flow-actions .button-secondary {
+  width: 100%;
+  min-height: 3.5rem;
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-pressed);
+}
+
+@media (max-width: 359px) {
+  .processing-animation-stage {
+    min-height: 14rem;
+  }
+
+  .processing-flow-screen .stage-row {
+    grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding-inline: 0.625rem;
+  }
+
+  .processing-flow-screen .stage-row > span {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .processing-flow-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0;
+  }
+
+  .processing-flow-screen .processing-flow-support,
+  .processing-flow-screen .processing-flow-actions {
+    grid-row: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .processing-sprite-strip {
+    transform: translate3d(0, 0, 0);
+    animation: none;
+  }
+}

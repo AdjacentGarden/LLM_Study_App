@@ -1,7 +1,5 @@
 import {
-  Suspense,
   createContext,
-  lazy,
   useContext,
   useEffect,
   useRef,
@@ -12,10 +10,7 @@ import { accountsApi, type AccountState } from "../api/accounts";
 import { safeSet, setStorageIdentity } from "./bookContext";
 import { ApiError } from "../api/transport";
 import { Icon } from "./Icon";
-
-const RegisterPage = lazy(() =>
-  import("./RegisterPage").then(module => ({ default: module.RegisterPage })),
-);
+import { RegisterPage } from "./RegisterPage";
 
 const AccountContext = createContext<{
   state: AccountState;
@@ -118,17 +113,15 @@ export function AccountGate({ children }: { children: ReactNode }) {
     );
   if (screen)
     return (
-      <Suspense fallback={<main className="stage"><section className="phone auth-phone"><div className="auth-loading" role="status">正在打开…</div></section></main>}>
-        <RegisterPage
-          state={state}
-          onContinue={() => setScreen(false)}
-          onSuccess={(value) => {
-            initial = Promise.resolve(value);
-            accept(value);
-            channel.current?.postMessage("changed");
-          }}
-        />
-      </Suspense>
+      <RegisterPage
+        state={state}
+        onContinue={() => setScreen(false)}
+        onSuccess={(value) => {
+          initial = Promise.resolve(value);
+          accept(value);
+          channel.current?.postMessage("changed");
+        }}
+      />
     );
   return (
     <AccountContext.Provider
@@ -159,6 +152,9 @@ export function AccountControls() {
           </small>
         </span>
       </div>
+      {context.state.account?.is_demo && (
+        <p className="auth-demo-label">公开演示账号，请勿存入私人资料</p>
+      )}
       <button
         type="button"
         disabled={busy}
@@ -179,5 +175,47 @@ export function AccountControls() {
       </button>
       {error && <p role="alert">{error}</p>}
     </section>
+  );
+}
+
+/** Current authenticated identity for account-scoped page state. */
+export function useAccount() {
+  const context = useContext(AccountContext);
+  if (!context) throw new Error("AccountGate is required for this page");
+  return context;
+}
+
+export function DemoFriends() {
+  const context = useContext(AccountContext);
+  const [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState("");
+  if (!context?.state.demo_available) return null;
+  return (
+    <aside className="demo-friends">
+      <strong>找几位演示伙伴试一试</strong>
+      <p>
+        小林、默默和阿辰都是测试账号，不是真人。添加后可互发消息、分享资料。
+      </p>
+      <button
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void accountsApi
+            .demoFriends()
+            .then((r) =>
+              setNotice(
+                r.count
+                  ? `已添加 ${r.count} 位演示好友，进入「消息」或「好友」查看。`
+                  : "演示账号还在准备中。",
+              ),
+            )
+            .catch((e) => setNotice(e.message))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? "正在添加…" : "添加演示好友"}
+      </button>
+      {notice && <p role="status">{notice}</p>}
+    </aside>
   );
 }

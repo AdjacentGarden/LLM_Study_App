@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,11 +39,21 @@ class Flashcard(BaseModel):
     source: SourceCitation | None = None
 
 
+class LessonMedia(BaseModel):
+    asset_id: str
+    kind: Literal["image", "video"]
+    caption: str = ""
+    url: str
+    source_kind: str = ""
+    page_number: int | None = Field(default=None, ge=1)
+
+
 class LessonSection(BaseModel):
     title: str = Field(min_length=1, max_length=180)
     content: str = Field(min_length=1, max_length=1200)
     purpose: str = Field(min_length=1, max_length=240)
     citations: list[SourceCitation] = Field(default_factory=list)
+    media: list[LessonMedia] = Field(default_factory=list)
 
 
 class PracticeItem(BaseModel):
@@ -66,6 +77,7 @@ class PublicPracticeItem(BaseModel):
     response_type: str
     options: list[str]
     estimated_seconds: int
+    citations: list[SourceCitation] = Field(default_factory=list)
 
     @classmethod
     def from_private(cls, item: PracticeItem) -> PublicPracticeItem:
@@ -76,6 +88,7 @@ class PublicPracticeItem(BaseModel):
             response_type=item.response_type,
             options=item.options,
             estimated_seconds=item.estimated_seconds,
+            citations=item.citations,
         )
 
 

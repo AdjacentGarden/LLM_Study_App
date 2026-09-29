@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -97,6 +99,17 @@ def get_settings() -> Settings:
         if part.strip()
     )
 
+    data_dir = Path(os.getenv("APP_DATA_DIR", "./data")).resolve()
+    registry = data_dir / "imported_books.json"
+    if registry.is_file():
+        imported = json.loads(registry.read_text(encoding="utf-8"))
+        if not isinstance(imported, list) or any(
+            not isinstance(item, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", item)
+            for item in imported
+        ):
+            raise ValueError("imported_books.json must contain valid book IDs")
+        published_book_ids = tuple(dict.fromkeys((*published_book_ids, *imported)))
+
     def optional_path(name: str) -> Path | None:
         value = os.getenv(name, "").strip()
         return Path(value).resolve() if value else None
@@ -105,7 +118,7 @@ def get_settings() -> Settings:
         app_env=os.getenv("APP_ENV", "development"),
         app_host=os.getenv("APP_HOST", "0.0.0.0"),
         app_port=_int("APP_PORT", 8100),
-        data_dir=Path(os.getenv("APP_DATA_DIR", "./data")).resolve(),
+        data_dir=data_dir,
         cors_origins=origins,
         primary_extractor=os.getenv("DOCUMENT_PRIMARY_EXTRACTOR", "mineru"),
         mineru_command=os.getenv("MINERU_COMMAND", "mineru"),

@@ -40,8 +40,8 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
       throw new Error(`Unexpected API ${path}`);
     });
     await page.goto(url + "__studio-test");
-    await page.getByRole("button", { name: /学习笔记/ }).click();
-    await page.getByRole("button", { name: "新建手写笔记" }).click();
+    await page.getByRole("button", { name: /把理解，写下来/ }).click();
+    await page.getByRole("button", { name: "新建空白手写笔记" }).click();
     const complete = page.getByRole("button", { name: "完成并整理", exact: true });
     await expect(complete).toBeDisabled();
     const canvas = page.getByLabel("手写笔记画布");
@@ -56,7 +56,7 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
       await expect(page.getByRole("alert")).toContainText("测试保存失败");
       expect(actions).toEqual([]);
     } else {
-      await expect(page.getByRole("button", { name: "正在整理笔记…", exact: true })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "正在核对识别文字…", exact: true })).toBeDisabled();
       expect(actions).toEqual(["complete"]);
       if (scenario === "success") {
         jobs[0] = {
@@ -70,8 +70,8 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
             suggestions: [],
           },
         };
-        await expect(page.getByText("内容仍在完善，你可以先阅读。")).toBeVisible();
-        await expect(page.getByRole("button", { name: "整理完成后可以保留" })).toBeDisabled();
+        await expect(page.getByText("内容已生成，正在对照教材做最后复核；你可以先阅读。")).toBeVisible();
+        await expect(page.getByRole("button", { name: "复核完成后可以保留" })).toBeDisabled();
       }
       jobs[0] = { ...jobs[0], status: scenario === "unclear" ? "needs_confirmation" : "succeeded", result: scenario === "unclear" ? { transcript: "[待确认]", uncertain: ["第二行"] } : { transcript: "函数", summary: "仅为关键词，不推断掌握情况。", polished: "函数需要终止条件。", suggestions: [] } };
       if (scenario === "unclear") {
@@ -82,7 +82,7 @@ for (const scenario of ["success", "unclear", "save-error"] as const) {
         await resume.click();
         expect(actions).toEqual(["complete", "improve"]);
       } else {
-        await expect(page.getByText("已保存，原笔迹保持不变。")).toBeVisible();
+        await expect(page.getByText("整理结果已保存，原笔迹保持不变。")).toBeVisible();
         await expect(page.getByLabel("核对识别文字")).toHaveCount(0);
         await expect(page.getByText("函数需要终止条件。")).toBeVisible();
         await page.screenshot({ path: info.outputPath("one-click-result.png") });

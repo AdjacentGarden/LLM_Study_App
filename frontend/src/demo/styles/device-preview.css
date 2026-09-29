@@ -1,0 +1,496 @@
+.device-preview-studio {
+  --device-preview-surface: rgba(255, 255, 255, 0.84);
+  --device-preview-border: rgba(116, 139, 185, 0.2);
+  /* The studio is the viewport. Only the canvas area can scroll when output
+     is oversized; the control rail and summary stay anchored. */
+  height: 100dvh;
+  min-height: 0;
+  max-height: 100dvh;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(256px, 296px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  color: #20263a;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.96), transparent 30%),
+    radial-gradient(circle at 90% 12%, rgba(211, 226, 255, 0.74), transparent 30%),
+    linear-gradient(160deg, #edf4ff 0%, #f8fbff 52%, #e9f1ff 100%);
+}
+
+.device-preview-studio[data-preview-chrome="0"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.device-preview-toolbar {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px clamp(16px, 3vw, 36px) 16px;
+  border-right: 1px solid var(--device-preview-border);
+  background: var(--device-preview-surface);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+}
+
+.device-preview-toolbar-heading,
+.device-preview-control-groups,
+.device-preview-toggle-row,
+.device-preview-output-summary {
+  display: flex;
+  align-items: center;
+}
+
+.device-preview-toolbar-heading {
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.device-preview-eyebrow {
+  margin: 0 0 2px;
+  color: #7281a0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.device-preview-toolbar h1 {
+  margin: 0;
+  font-size: clamp(20px, 2.2vw, 28px);
+  line-height: 1.1;
+}
+
+.device-preview-control-groups {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.device-preview-control-group {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid var(--device-preview-border);
+  border-radius: 14px;
+  background: rgba(244, 248, 255, 0.7);
+}
+
+.device-preview-control-group legend {
+  padding: 0 7px;
+  color: #6e7d9a;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.device-preview-toggle-row {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.device-preview-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #42516f;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.1;
+  transition:
+    color var(--motion-duration-local-fast) var(--motion-ease-local-state),
+    background-color var(--motion-duration-local-fast) var(--motion-ease-local-state),
+    border-color var(--motion-duration-local-fast) var(--motion-ease-local-state);
+}
+
+.device-preview-toggle[aria-pressed="true"] {
+  color: #4d3fc1;
+  border-color: rgba(127, 116, 255, 0.34);
+  background: rgba(236, 234, 255, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
+.device-preview-toggle:hover {
+  background: rgba(228, 237, 255, 0.9);
+}
+
+.device-preview-toggle:focus-visible {
+  outline: 3px solid rgba(95, 51, 225, 0.52);
+  outline-offset: 2px;
+}
+
+.device-preview-output-summary {
+  grid-column: 2;
+  grid-row: 1;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  min-height: 42px;
+  padding: 8px clamp(16px, 3vw, 36px);
+  color: #62718d;
+  border-bottom: 1px solid rgba(116, 139, 185, 0.12);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.device-preview-output-summary span {
+  white-space: nowrap;
+}
+
+.device-preview-canvas-area {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  overscroll-behavior: contain;
+}
+
+.device-preview-studio:not([data-preview-quality="fit"]) .device-preview-canvas-area {
+  place-items: start;
+}
+
+.device-preview-studio[data-preview-chrome="0"] .device-preview-canvas-area {
+  grid-column: 1;
+  grid-row: 1;
+  padding: 0;
+}
+
+.device-preview-canvas {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.9), transparent 44%),
+    linear-gradient(180deg, #dce9ff 0%, #eef5ff 58%, #d8e6ff 100%);
+  box-shadow: 0 24px 64px rgba(67, 91, 145, 0.22), 0 0 0 1px rgba(116, 139, 185, 0.18);
+}
+
+.device-preview-studio[data-preview-quality="fit"] .device-preview-canvas {
+  border-radius: 34px;
+}
+
+.device-preview-studio[data-preview-chrome="0"] .device-preview-canvas,
+.device-preview-studio[data-preview-chrome="0"] .device-preview-frame {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.device-preview-frame {
+  position: absolute;
+  transform-origin: top left;
+  overflow: hidden;
+  border-radius: 30px;
+  background: #f8fcff;
+  box-shadow: 0 0 0 1px rgba(35, 50, 84, 0.24), 0 18px 42px rgba(37, 54, 96, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.58);
+}
+
+.device-preview-studio[data-preview-quality="4k"] .device-preview-frame,
+.device-preview-studio[data-preview-quality="retina-3x"] .device-preview-frame,
+.device-preview-studio[data-preview-quality="hd-2x"] .device-preview-frame {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.device-preview-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f8fcff;
+}
+
+.device-preview-screen-clip {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* iPhone 17 Pro device presentation. The bezel is an overlay around the
+   existing logical frame, so its 16px visual bleed never participates in
+   output sizing or iframe viewport calculations. The Figma component's raw
+   46px/40px layer radii are covered by its bezel PNG; pixel-fitting the final
+   composite yields a 77px shell and a 61px visible screen opening. */
+.device-preview-canvas--iphone-17-pro {
+  overflow: visible;
+}
+
+.device-preview-frame--iphone-17-pro {
+  --iphone-shell-visible-inset: 16px;
+  --iphone-shell-radius: 77px;
+  --iphone-black-bezel-radius: 71px;
+  --iphone-screen-radius: 61px;
+  --iphone-metal-ring: 6px;
+  --iphone-black-bezel: 10px;
+  --iphone-island-width: 126px;
+  --iphone-island-height: 37px;
+  --iphone-island-radius: 18.5px;
+  --iphone-island-top: 14px;
+  --iphone-control-thickness: 4px;
+  --iphone-control-protrusion: 3px;
+  overflow: visible;
+  isolation: isolate;
+  border-radius: var(--iphone-screen-radius);
+  background: #090b12;
+  box-shadow:
+    0 0 0 1px rgba(15, 20, 30, 0.86),
+    0 18px 42px rgba(37, 54, 96, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.device-preview-bezel {
+  position: absolute;
+  z-index: 0;
+  /* Silver sub-image: 450×920 around the 402×874 logical screen. */
+  /* The raster source has transparent padding; this is the visible shell
+     inset after that padding has been removed from the logical screen. */
+  inset: calc(-1 * var(--iphone-shell-visible-inset));
+  overflow: hidden;
+  border: 1px solid rgba(94, 102, 112, 0.78);
+  border-radius: var(--iphone-shell-radius);
+  background:
+    linear-gradient(112deg, #aeb7c4 0%, #f4f7fa 11%, #8994a3 25%, #e7ebef 42%, #8d98a7 61%, #f7f9fb 80%, #a4afbd 100%);
+  box-shadow:
+    0 0 0 2px rgba(246, 249, 252, 0.7),
+    0 13px 30px rgba(50, 64, 86, 0.28),
+    inset 0 0 0 2px rgba(30, 40, 52, 0.36),
+    inset 0 2px 3px rgba(255, 255, 255, 0.72),
+    inset 0 -2px 4px rgba(46, 56, 70, 0.52);
+  pointer-events: none;
+}
+
+.device-preview-bezel::before {
+  content: "";
+  position: absolute;
+  inset: var(--iphone-metal-ring);
+  border: 1px solid rgba(17, 23, 32, 0.74);
+  border-radius: var(--iphone-black-bezel-radius);
+  background: #090b12;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 0 16px rgba(0, 0, 0, 0.72);
+}
+
+/* Apple dimensional drawing (150 mm product height) mapped to the 906px
+   visible shell: Action 6.90 mm, volume 11.20 mm and Side 17.70 mm. Camera
+   Control is recessed and intentionally omitted from the front-view shell. */
+.device-preview-hardware-controls {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.device-preview-hardware-control {
+  position: absolute;
+  display: block;
+  width: var(--iphone-control-thickness);
+  border: 1px solid rgba(72, 80, 90, 0.82);
+  border-radius: 2px;
+  background: linear-gradient(90deg, #78838e 0%, #f1f4f6 42%, #a3adb7 68%, #626d78 100%);
+  box-shadow:
+    0 0 0 1px rgba(241, 245, 248, 0.5),
+    inset 1px 0 1px rgba(255, 255, 255, 0.72),
+    inset -1px 0 1px rgba(38, 45, 54, 0.46);
+  pointer-events: none;
+}
+
+.device-preview-hardware-control--action,
+.device-preview-hardware-control--volume-up,
+.device-preview-hardware-control--volume-down {
+  left: calc(-1 * (var(--iphone-shell-visible-inset) + var(--iphone-control-protrusion)));
+}
+
+.device-preview-hardware-control--action {
+  top: 170px;
+  height: 42px;
+}
+
+.device-preview-hardware-control--volume-up {
+  top: 243px;
+  height: 68px;
+}
+
+.device-preview-hardware-control--volume-down {
+  top: 329px;
+  height: 68px;
+}
+
+.device-preview-hardware-control--side {
+  right: calc(-1 * (var(--iphone-shell-visible-inset) + var(--iphone-control-protrusion)));
+}
+
+.device-preview-hardware-control--side {
+  top: 266px;
+  height: 107px;
+}
+
+.device-preview-frame--iphone-17-pro > .device-preview-screen-clip {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--iphone-screen-radius);
+  clip-path: inset(0 round var(--iphone-screen-radius));
+}
+
+.device-preview-frame--iphone-17-pro > .device-preview-screen-clip > .device-preview-iframe {
+  position: relative;
+  z-index: 1;
+  border-radius: inherit;
+  clip-path: none;
+}
+
+.device-preview-dynamic-island {
+  position: absolute;
+  z-index: 2;
+  top: var(--iphone-island-top);
+  left: 50%;
+  width: var(--iphone-island-width);
+  height: var(--iphone-island-height);
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: var(--iphone-island-radius);
+  background: #000000;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* The left sensor area and right camera lens are intentionally decorative:
+   they preserve the Figma island silhouette without adding interactive DOM. */
+.device-preview-dynamic-island::before,
+.device-preview-dynamic-island::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.device-preview-dynamic-island::before {
+  top: 6px;
+  left: 8px;
+  width: 42px;
+  height: 23px;
+  border-radius: 999px;
+  background: #020203;
+  box-shadow: none;
+}
+
+.device-preview-dynamic-island::after {
+  top: 9px;
+  right: 9px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 46%, rgba(70, 64, 158, 0.68) 0 7%, #0a0d1b 12%, #020307 48%, #000000 76%);
+  box-shadow: none;
+}
+
+/* A chrome-free canvas is an exact export surface. Do not let the decorative
+   bezel or island extend beyond that surface, even though the normal studio
+   preview deliberately shows the Figma-style outer bleed. */
+.device-preview-studio[data-preview-chrome="0"] .device-preview-canvas--iphone-17-pro {
+  overflow: hidden;
+}
+
+.device-preview-studio[data-preview-chrome="0"] .device-preview-frame--iphone-17-pro {
+  overflow: hidden;
+  border-radius: 0;
+  background: #f8fcff;
+  box-shadow: none;
+}
+
+.device-preview-studio[data-preview-chrome="0"] .device-preview-frame--iphone-17-pro > .device-preview-screen-clip {
+  border-radius: 0;
+  clip-path: none;
+}
+
+.device-preview-studio[data-preview-chrome="0"] .device-preview-bezel,
+.device-preview-studio[data-preview-chrome="0"] .device-preview-hardware-controls,
+.device-preview-studio[data-preview-chrome="0"] .device-preview-dynamic-island {
+  display: none;
+}
+
+.device-preview-status-announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 560px) {
+  .device-preview-studio {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .device-preview-toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    gap: 12px;
+    padding: 14px 12px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--device-preview-border);
+  }
+
+  .device-preview-toolbar-heading {
+    align-items: flex-start;
+  }
+
+  .device-preview-control-groups {
+    flex-direction: row;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .device-preview-control-group {
+    width: auto;
+    flex: 1 1 180px;
+  }
+
+  .device-preview-output-summary {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .device-preview-canvas-area {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .device-preview-studio[data-preview-chrome="0"] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .device-preview-studio[data-preview-chrome="0"] .device-preview-canvas-area {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .device-preview-canvas-area {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device-preview-toggle {
+    transition: none;
+  }
+}

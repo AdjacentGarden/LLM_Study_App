@@ -3,7 +3,7 @@ import type { CourseActivity, Flashcard } from "../types/api";
 import { FlashcardFace } from "./FlashcardFace";
 import { Icon } from "./Icon";
 import { nextCardIndex } from "./cardGesture";
-import { StudioMediaActions } from "./StudioShell";
+import { StudioMediaActions } from "./LearningStudio";
 import type { Anchor } from "../api/learningStudio";
 
 export function FlashcardDeck({ cards, index, flipped, busy, activity, studioAnchor, onFlip, onCard, onRate }: {
