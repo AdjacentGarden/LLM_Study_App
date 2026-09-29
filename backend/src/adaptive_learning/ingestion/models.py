@@ -76,6 +76,12 @@ class ChapterDraft(BaseModel):
     source_block_ids: list[str]
     evidence: list[SourceQuote] = Field(default_factory=list)
     knowledge_point_evidence: dict[str, list[SourceQuote]] = Field(default_factory=dict)
+    # Absent on existing structures. A real OCR section is another entry in the
+    # flat chapters array, linked to its containing chapter by parent_id.
+    parent_id: str | None = None
+    level: int | None = Field(default=None, ge=1)
+    heading_block_id: str | None = None
+    has_supplementary_content: bool | None = None
 
 
 class BookStructure(BaseModel):

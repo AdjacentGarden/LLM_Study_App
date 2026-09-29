@@ -111,6 +111,8 @@ def test_public_course_never_contains_practice_answer_keys() -> None:
     serialized = public.model_dump_json()
 
     assert len(public.practice_items) == 3
+    for private_item, public_item in zip(private.practice_items, public.practice_items):
+        assert public_item.citations == private_item.citations
     assert "expected_answer" not in serialized
     assert "correct_option_ids" not in serialized
     assert '"rubric"' not in serialized

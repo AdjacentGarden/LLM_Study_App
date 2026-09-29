@@ -37,6 +37,16 @@ _ENGLISH_PART = re.compile(
     r"(.{0,80}?)\s*$",
     re.IGNORECASE,
 )
+_CHINESE_SECTION = re.compile(
+    r"^\s*(第\s*([一二三四五六七八九十百千万零〇两0-9]+)\s*节)\s*(.{0,80}?)\s*$",
+    re.IGNORECASE,
+)
+_ENGLISH_SECTION = re.compile(
+    r"^\s*((?:section|lesson)\s+([0-9]+(?:\.[0-9]+)?|[ivxlcdm]+))"
+    r"\s*(?:[:.\-—]\s*|\s*)(.{0,80}?)\s*$",
+    re.IGNORECASE,
+)
+_NUMBERED_SECTION = re.compile(r"^\s*((\d+)[.．](\d+))\s+(.{1,80}?)\s*$")
 _TOC_LABEL = re.compile(r"^\s*(目录|目次|contents?|table\s+of\s+contents)(?:\s+[ivxlcdm0-9]+)?\s*$", re.I)
 
 _CHAPTER_SUMMARY_SYSTEM = """你是书籍章节摘要器。输入只包含同一章的带页码原文。
@@ -71,6 +81,15 @@ class ChapterCandidate:
     block_id: str
     score: float
     toc_page: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SectionCandidate:
+    key: str
+    title: str
+    page_number: int
+    block_id: str
+    numeric_major: str | None = None
 
 
 class KnowledgePointDraft(BaseModel):
@@ -140,6 +159,23 @@ def _heading(text: str) -> tuple[str, str, str] | None:
         prefix, ordinal, suffix = english_part.groups()
         title = _normalized(f"{prefix} {suffix}".strip())
         return "part", _normalized(ordinal).lower(), title
+    return None
+
+
+def _section_heading(text: str) -> tuple[str, str, str | None] | None:
+    line = _normalized(text.splitlines()[0] if text.strip() else "")
+    chinese = _CHINESE_SECTION.fullmatch(line)
+    if chinese:
+        prefix, ordinal, suffix = chinese.groups()
+        return f"chinese:{ordinal}", _normalized(f"{prefix} {suffix}"), None
+    english = _ENGLISH_SECTION.fullmatch(line)
+    if english:
+        prefix, ordinal, suffix = english.groups()
+        return f"english:{ordinal.lower()}", _normalized(f"{prefix} {suffix}"), None
+    numbered = _NUMBERED_SECTION.fullmatch(line)
+    if numbered:
+        prefix, major, minor, suffix = numbered.groups()
+        return f"numbered:{major}.{minor}", _normalized(f"{prefix} {suffix}"), major
     return None
 
 
@@ -323,6 +359,15 @@ class ChapterReconstructor:
             book_summary = self._summarize_book(chapters)
         else:
             book_summary = ""
+        # Keep root summaries and learning IDs intact. A section is added only
+        # when an actual body heading survives the same TOC/header exclusions.
+        if not used_fallback:
+            toc_pages = _toc_pages(pages)
+            chapters = [
+                item
+                for chapter in chapters
+                for item in [chapter, *self._sections_for_chapter(chapter, pages, toc_pages)]
+            ]
         return BookStructure(
             title=fallback_title.strip() or "未命名书籍",
             summary=book_summary,
@@ -336,6 +381,140 @@ class ChapterReconstructor:
     ) -> tuple[str, list[ChapterDraft]]:
         structure = self.reconstruct_book(pages, fallback_title)
         return structure.title, structure.chapters
+
+    @staticmethod
+    def _sections_for_chapter(
+        chapter: ChapterDraft, pages: list[PageExtraction], toc_pages: set[int]
+    ) -> list[ChapterDraft]:
+        chapter_pages = [
+            page for page in pages if chapter.start_page <= page.page_number <= chapter.end_page
+        ]
+        blocks = [
+            block for page in chapter_pages for block in page.blocks
+        ]
+        positions = {block.block_id: index for index, block in enumerate(blocks)}
+        opener = positions.get(chapter.source_block_ids[0]) if chapter.source_block_ids else None
+        parsed_chapter = _heading(chapter.title)
+        chapter_ordinal = parsed_chapter[1] if parsed_chapter else ""
+        candidates: list[SectionCandidate] = []
+        seen: set[str] = set()
+        for page in chapter_pages:
+            if page.page_number in toc_pages:
+                continue
+            for index, block in enumerate(page.blocks):
+                block_type = block.block_type.lower()
+                if block_type in {"header", "footer", "page_number"}:
+                    continue
+                parsed = _section_heading(block.text)
+                if (parsed is None and block_type in {"title", "heading"}
+                    and block.metadata.get("text_level") == 2):
+                    # MinerU's explicit second-level heading is evidence even
+                    # when a book does not print "Section 1.1" in its title.
+                    line = _normalized(block.text.splitlines()[0])
+                    if (2 <= len(line) <= 80
+                        and re.search(r"[A-Za-z\u4e00-\u9fff]", line)
+                        and not re.search(r"[=+×÷∑^。！？!?]", line)):
+                        parsed = f"heading:{block.block_id}", line, None
+                if parsed is None:
+                    continue
+                key, title, numeric_major = parsed
+                if not (block_type in {"title", "heading"}
+                        or block.metadata.get("text_level") in {1, 2}):
+                    continue
+                # Decimal labels such as 2.1 must agree with Chapter 2; a
+                # numbered exercise under another chapter is not a section.
+                if numeric_major is not None and (
+                    block_type not in {"title", "heading"}
+                    or chapter_ordinal != numeric_major
+                ):
+                    continue
+                position = positions[block.block_id]
+                if page.page_number == chapter.start_page and opener is not None and position <= opener:
+                    continue
+                if key in seen:
+                    continue
+                seen.add(key)
+                if re.fullmatch(r"第\s*\S+\s*节|(?:section|lesson)\s+\S+", title, re.I):
+                    for following in page.blocks[index + 1:index + 3]:
+                        following_type = following.block_type.lower()
+                        if (following_type in {"title", "heading"}
+                            or following.metadata.get("text_level") in {1, 2}) and (
+                            not _heading(following.text)
+                            and not _section_heading(following.text)
+                            and 1 < len(_normalized(following.text)) <= 80
+                        ):
+                            title = f"{title} {_normalized(following.text)}"
+                            break
+                candidates.append(
+                    SectionCandidate(key, title[:100], page.page_number, block.block_id,
+                                     numeric_major)
+                )
+        if not candidates:
+            return []
+        candidates.sort(key=lambda candidate: positions[candidate.block_id])
+        source_blocks = {
+            page.page_number: [
+                (block.block_id, _normalized(block.text)) for block in page.blocks
+                if block.block_type.lower() not in {"header", "footer", "page_number"}
+            ]
+            for page in chapter_pages
+        }
+
+        def quote_belongs(quote: SourceQuote, ids: set[str]) -> bool:
+            text = _normalized(quote.quote)
+            matches = {
+                block_id for block_id, content in source_blocks.get(quote.page_number, [])
+                if text and text in content
+            }
+            # Identical text repeated across sections is ambiguous: never
+            # attribute it to one child by page number alone.
+            return bool(matches) and matches <= ids
+
+        sections: list[ChapterDraft] = []
+        for index, marker in enumerate(candidates):
+            start = positions[marker.block_id]
+            following = candidates[index + 1] if index + 1 < len(candidates) else None
+            stop = positions[following.block_id] if following else len(blocks)
+            span = [
+                block for block in blocks[start:stop]
+                if block.block_type.lower() not in {"header", "footer", "page_number"}
+            ]
+            ids = {block.block_id for block in span}
+            if following is None:
+                end_page = chapter.end_page
+            elif any(block.page_number == following.page_number for block in span):
+                end_page = following.page_number
+            else:
+                end_page = max(marker.page_number, following.page_number - 1)
+            point_evidence = {
+                label: matching
+                for label, quotes in chapter.knowledge_point_evidence.items()
+                if (matching := [quote for quote in quotes if quote_belongs(quote, ids)])
+            }
+            sections.append(
+                ChapterDraft(
+                    chapter_id="section_" + hashlib.sha256(
+                        f"{chapter.chapter_id}:{marker.block_id}:{marker.title}".encode()
+                    ).hexdigest()[:16],
+                    order=index + 1,
+                    title=marker.title,
+                    start_page=marker.page_number,
+                    end_page=end_page,
+                    summary="",
+                    knowledge_points=[
+                        label for label in chapter.knowledge_points if label in point_evidence
+                    ],
+                    source_block_ids=[block.block_id for block in span],
+                    evidence=[
+                        quote for quote in chapter.evidence if quote_belongs(quote, ids)
+                    ],
+                    knowledge_point_evidence=point_evidence,
+                    parent_id=chapter.chapter_id,
+                    level=2,
+                    heading_block_id=marker.block_id,
+                )
+            )
+        return sections
 
     def _summarize(self, chapter: ChapterDraft, pages: list[PageExtraction]) -> ChapterDraft:
         assert self.client is not None

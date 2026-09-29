@@ -56,6 +56,9 @@ class NoteInput(Anchor):
     revision: int = Field(ge=0)
     title: str = Field(min_length=1, max_length=120)
     input_mode: Literal["ink", "voice"] = "ink"
+    surface: Literal["blank", "source_page"] = "blank"
+    source_page_number: int | None = Field(default=None, ge=1, le=100000)
+    source_pdf_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     strokes: list[Stroke] = Field(default_factory=list, max_length=1500)
     # These are server-owned fields. They are present in the shared response shape,
     # but save_note always preserves or resets them instead of trusting the client.
@@ -68,6 +71,21 @@ class NoteInput(Anchor):
     def bounded_points(self) -> NoteInput:
         if sum(len(s.points) for s in self.strokes) > 60000:
             raise ValueError("note is full; create another page")
+        if self.surface == "source_page":
+            if (
+                not self.id.startswith("source_")
+                or self.input_mode != "ink"
+                or self.source_page_number is None
+                or self.source_pdf_sha256 is None
+                or self.pages != [self.source_page_number]
+            ):
+                raise ValueError("source-page note must belong to one PDF page")
+        elif (
+            self.id.startswith("source_")
+            or self.source_page_number is not None
+            or self.source_pdf_sha256 is not None
+        ):
+            raise ValueError("blank notes cannot claim a PDF page")
         return self
 
 

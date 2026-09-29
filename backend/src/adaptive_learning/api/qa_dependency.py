@@ -94,7 +94,12 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
         manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
         index_path = Path(manifest[book_id])
     except (OSError, ValueError, KeyError, TypeError) as error:
-        raise QAConfigurationError("Book index manifest is missing or invalid") from error
+        # Locally imported books carry their own server-format index. The
+        # published registry above still controls which book IDs are eligible.
+        candidate = settings.data_dir / "books" / book_id / "rag-index"
+        if not (candidate / "index_manifest.json").is_file():
+            raise QAConfigurationError("Book index manifest is missing or invalid") from error
+        index_path = candidate
     # Keep one GPU model pair for all books; only document indexes and answer
     # caches are book-specific. Bound the number of resident CPU indexes.
     primary = build_qa_service()

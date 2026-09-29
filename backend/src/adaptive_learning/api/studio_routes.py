@@ -11,8 +11,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import Field
 
+from ..community import CommunityRepository
+from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..studio import get_studio
 from ..studio_models import MediaInput, NoteAction, NoteInput, Strict
+from .source_routes import (
+    _actual_pdf_hash,
+    _PageOutOfRange,
+    _pdf_page,
+    _raise_page_error,
+    _source_book,
+    _UnreadablePDF,
+)
 
 
 class Accept(Strict):
@@ -22,7 +32,11 @@ class Accept(Strict):
 
 
 def studio_router(
-    data_dir: Path, visitor: Callable[..., str], owned_book: Callable[[str, str], None]
+    data_dir: Path,
+    visitor: Callable[..., str],
+    owned_book: Callable[[str, str], None],
+    repo: CommunityRepository | None = None,
+    job_repository: Callable[[], SQLiteOCRJobRepository] | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["learning-studio"])
     studio = get_studio(data_dir)
@@ -30,6 +44,28 @@ def studio_router(
         db.execute(
             "CREATE TABLE IF NOT EXISTS studio_note_editions (job_id TEXT PRIMARY KEY,owner TEXT NOT NULL,note_id TEXT NOT NULL,accepted INTEGER NOT NULL,updated REAL NOT NULL)"
         )
+
+    def source_identity(owner: str, book_id: str, page_number: int) -> tuple[str, str]:
+        if repo is None or job_repository is None:
+            raise HTTPException(503, "原文标注暂不可用")
+        repository = job_repository()
+        stored = _source_book(owner, book_id, repo, repository)
+        try:
+            _pdf_page(stored.file_path, page_number)
+        except (_PageOutOfRange, _UnreadablePDF) as error:
+            _raise_page_error(error)
+        source_sha = repository.source_fingerprint(stored.book_id)
+        if not source_sha:
+            raise HTTPException(409, "原文尚未准备好")
+        try:
+            if _actual_pdf_hash(stored.file_path) != source_sha:
+                raise HTTPException(409, "教材原文已变更，请重新解析后再标注")
+        except OSError as error:
+            raise HTTPException(404, "原始 PDF 文件不可用") from error
+        identity = hashlib.sha256(
+            f"{owner}\0{book_id}\0{source_sha}\0{page_number}".encode()
+        ).hexdigest()
+        return f"source_{identity[:48]}", source_sha
 
     @router.get("/studio/capabilities")
     def capabilities(owner: str = Depends(visitor)) -> dict[str, Any]:
@@ -59,9 +95,49 @@ def studio_router(
             ]
         }
 
+    @router.get("/studio/source-page")
+    def source_page_note(
+        book_id: str, page_number: int, owner: str = Depends(visitor)
+    ) -> dict[str, Any]:
+        if page_number < 1:
+            raise HTTPException(422, "PDF 页码无效")
+        key, source_sha = source_identity(owner, book_id, page_number)
+        try:
+            saved = studio.note(owner, key)
+            if (
+                saved.get("surface") != "source_page"
+                or saved.get("source_page_number") != page_number
+                or saved.get("source_pdf_sha256") != source_sha
+            ):
+                raise HTTPException(409, "原文页笔记身份不匹配，请联系管理员")
+            return saved
+        except HTTPException as error:
+            if error.status_code != 404:
+                raise
+        return {
+            "id": key,
+            "revision": 0,
+            "book_id": book_id,
+            "chapter_id": "",
+            "chapter_title": "",
+            "excerpt": "",
+            "pages": [page_number],
+            "title": f"PDF 第 {page_number} 页 · 原文标注",
+            "input_mode": "ink",
+            "surface": "source_page",
+            "source_page_number": page_number,
+            "source_pdf_sha256": source_sha,
+            "strokes": [],
+        }
+
     @router.post("/studio/notes")
     def save(data: NoteInput, owner: str = Depends(visitor)) -> dict[str, Any]:
         owned_book(owner, data.book_id)
+        if data.surface == "source_page":
+            assert data.source_page_number is not None
+            key, source_sha = source_identity(owner, data.book_id, data.source_page_number)
+            if data.id != key or data.source_pdf_sha256 != source_sha:
+                raise HTTPException(409, "教材原文已变更，请重新打开这一页")
         return studio.save_note(owner, data)
 
     @router.get("/studio/notes/{key}")
