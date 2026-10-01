@@ -503,13 +503,13 @@ function App() {
         : view === "interview"
           ? "学习诊断"
           : view === "library"
-            ? "我的书架"
+            ? "书架"
             : view === "community"
-              ? "学习社区"
+              ? "社区"
               : view === "qa"
-                ? "教材答疑"
+                ? "答疑"
                 : view === "profile"
-                  ? "我的学习"
+                  ? "我的"
                   : view === "account"
                     ? "个人资料"
                     : "学习";
@@ -541,7 +541,6 @@ function App() {
               </button>
             )}
             <div>
-              <p>云径 · 个性化读书课</p>
               <h1>{title}</h1>
             </div>
           </header>
@@ -827,7 +826,7 @@ function App() {
             {view === "profile" && <AccountControls />}
             {view === "profile" && (
               <details className="why-card restart-diagnosis">
-                <summary>重新做一次选择题诊断</summary>
+                <summary>重新评估基础</summary>
                 <p>
                   开始后将重新评估学习重点。
                 </p>
@@ -1008,7 +1007,7 @@ function CourseView({
       </section>
       {needsRefresh && (
         <button className="refresh-banner" disabled={busy} onClick={onRefresh}>
-          学习结果已更新画像 · 点击刷新本章编排 ↻
+          更新本章学习内容 ↻
         </button>
       )}
       {returnPanel}
@@ -1031,15 +1030,15 @@ function CourseView({
         {tab === "guide" && (
           <div className="content-stack">
             <ContentCard title="本章总结" content={course.summary} />
-            <section className="strategy-card">
-              <span className="kicker">为什么这样编排</span>
+            <details className="strategy-card">
+              <summary>学习建议</summary>
               <GeneratedText value={course.decision.explanation} />
               <div>
                 {course.decision.scaffolds.map((item) => (
                   <b key={item}>{item}</b>
                 ))}
               </div>
-            </section>
+            </details>
             {course.worked_examples.map((item) => (
               <ReadingCard key={item.title} item={item} />
             ))}
@@ -1075,7 +1074,7 @@ function CourseView({
                         .slice(0, 30),
                     }}
                     onSaved={onRemembered}
-                    label="这段还没懂，留待回访"
+                    label="保存疑问"
                   />
                 }
               />

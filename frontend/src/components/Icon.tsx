@@ -1,5 +1,7 @@
-export type IconName = "home" | "book" | "spark" | "user" | "arrow" | "back" | "cards" | "check" | "send" | "clock" | "community" | "upload";
+export type IconName = "home" | "book" | "spark" | "user" | "arrow" | "back" | "cards" | "check" | "send" | "clock" | "community" | "upload" | "edit" | "mic";
 const paths: Record<IconName, string> = {
+  edit: "m15 4 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14zM4 20h16",
+  mic: "M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8",
   upload: "M12 16V4m-5 5 5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5",
   community: "M16 21v-2a5 5 0 0 0-10 0v2M15 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM18 4a3 3 0 0 1 0 6m1 4a4 4 0 0 1 3 4v2",
   home: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z",

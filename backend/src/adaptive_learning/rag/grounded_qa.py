@@ -220,7 +220,7 @@ class GroundedAnswerGenerator:
                 with model_time_budget(self.draft_budget_seconds):
                     raw = self.client.structured(
                         system=_SYSTEM,
-                        user=json.dumps(payload, ensure_ascii=False),
+                        user=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
                         temperature=0,
                         max_tokens=700 if concise else 1400,
                     )
@@ -256,18 +256,27 @@ class GroundedAnswerGenerator:
         raise AssertionError("unreachable")
 
     def _review(self, question: str, answer: GroundedAnswer, evidence: list[EvidenceChunk]) -> None:
+        # Review each citation in its complete retrieved passage, including all
+        # passages on either neighbouring page for cross-page conditions. Sending
+        # distant, uncited pages again adds tokens without supporting these claims.
+        cited_pages = {citation.page_number for claim in answer.claims for citation in claim.citations}
+        context = [
+            item for item in evidence
+            if any(abs(item.page_number - page) <= 1 for page in cited_pages)
+        ]
         raw = self.client.structured(
             system=_REVIEW_SYSTEM,
             user=json.dumps(
                 {
                     "question": question,
-                    "source_context": [item.model_dump(mode="json") for item in evidence],
+                    "source_context": [item.model_dump(mode="json") for item in context],
                     "claims": [
                         {"claim_index": i, **claim.model_dump(mode="json")}
                         for i, claim in enumerate(answer.claims)
                     ],
                 },
                 ensure_ascii=False,
+                separators=(",", ":"),
             ),
             temperature=0,
             max_tokens=max(512, len(answer.claims) * 150),

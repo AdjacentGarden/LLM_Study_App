@@ -26,7 +26,7 @@ export function ChapterMap({chapters, profile, completed, busy, onCourse}: {
       <button id="atlas-all" role="tab" aria-selected={!focusOnly} aria-controls="atlas-panel" tabIndex={focusOnly?-1:0} onKeyDown={keyboard} onClick={()=>select(false)}><Icon name="book" size={16}/>全部章节<span>{chapters.length}</span></button>
       <button id="atlas-priority" role="tab" aria-selected={focusOnly} aria-controls="atlas-panel" tabIndex={focusOnly?0:-1} onKeyDown={keyboard} onClick={()=>select(true)}><Icon name="spark" size={16}/>优先巩固<span>{priority.length}</span></button>
     </div>}
-    <p className="atlas-caption" role="status">{!completed?"完成诊断后生成章节优先级。":focusOnly?"按掌握估计排序。":"选择章节查看学习内容。"}</p>
+
     <div id="atlas-panel" role={completed?"tabpanel":undefined} aria-labelledby={completed?(focusOnly?"atlas-priority":"atlas-all"):undefined} className="atlas-paper">
       <div className="atlas-rows" key={String(focusOnly)}>{shown.map((chapter,index)=>{
         const mastery=chapterEstimate(profile,chapter.chapter_id);
@@ -35,8 +35,8 @@ export function ChapterMap({chapters, profile, completed, busy, onCourse}: {
         const tone=mastery===null?"unknown":mastery<.5?"foundation":mastery<.75?"practice":"ready";
         return <article key={chapter.chapter_id} className={`atlas-row ${tone} ${open?"is-open":""}`} style={{"--row-order":Math.min(index,6)} as CSSProperties}>
           <button className="atlas-trigger" aria-expanded={open} aria-controls={`chapter-preview-${chapter.chapter_id}`} onClick={()=>setExpanded(open?null:chapter.chapter_id)}>
-            <span className="atlas-marker"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19"/><circle cx="22" cy="22" r="19" pathLength="100" strokeDasharray={`${percent??0} 100`}/></svg><span>{String(chapter.order).padStart(2,"0")}</span></span>
-            <span className="atlas-copy"><strong>{chapter.title}</strong><span>第 {chapter.start_page}–{chapter.end_page} 页 <i/> {masteryLabel(mastery)}</span></span>
+            <span className="atlas-marker"><span>{String(chapter.order).padStart(2,"0")}</span></span>
+            <span className="atlas-copy"><strong>{chapter.title}</strong><span>第 {chapter.start_page}–{chapter.end_page} 页 {mastery !== null && <> · {masteryLabel(mastery)}</>}</span></span>
             <span className="atlas-end">{percent!==null&&<small>{percent}<em>%</em></small>}<svg className="atlas-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
           </button>
           <div className="atlas-expand" id={`chapter-preview-${chapter.chapter_id}`} aria-hidden={!open} inert={!open}><div><div className="atlas-preview">
@@ -49,6 +49,6 @@ export function ChapterMap({chapters, profile, completed, busy, onCourse}: {
       })}</div>
       {!shown.length&&<div className="atlas-empty"><Icon name="check" size={28}/><h3>{focusOnly?"暂无优先巩固章节":"章节准备中"}</h3><p>{focusOnly?"当前没有需要优先巩固的章节。":"准备完成后显示章节。"}</p>{focusOnly&&<button onClick={()=>select(false)}>全部章节<Icon name="arrow" size={16}/></button>}</div>}
     </div>
-    <p className="atlas-footnote"><span/>圆环表示掌握估计，不代表章节已完成</p>
+
   </section>;
 }

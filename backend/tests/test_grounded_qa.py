@@ -1,4 +1,5 @@
 from typing import Any
+import json
 
 import pytest
 
@@ -40,6 +41,32 @@ def _evidence() -> list[EvidenceChunk]:
             text="减数分裂过程中，染色体只复制一次，而细胞分裂两次。",
         )
     ]
+
+
+def test_review_keeps_full_cited_and_neighbouring_passages():
+    from adaptive_learning.rag.grounded_qa import GroundedAnswer, VerifiedClaim, VerifiedCitation
+
+    class ReviewClient:
+        payload: dict = {}
+
+        def structured(self, **kwargs):
+            self.payload = json.loads(kwargs["user"])
+            return {"relevant": True, "reviews": [
+                {"claim_index": 0, "supported": True, "reason": "包含完整条件"}
+            ]}
+
+    evidence = [EvidenceChunk(source_id=f"E{i}", page_number=p, text=t) for i, (p, t) in enumerate([
+        (10, "仅在满足前页条件时，"), (11, "并非所有情形都成立。结论仅适用于此例。"),
+        (11, "同页另一段：仍需检查例外。"), (12, "下一页说明例外情形。"),
+        (80, "另一章的不相关内容。"),
+    ])]
+    answer = GroundedAnswer(status="supported", answer="结论仅适用于此例。", confidence=.9,
+                            claims=[VerifiedClaim(text="结论仅适用于此例。", citations=[
+                                VerifiedCitation(page_number=11, quote="结论仅适用于此例。")])])
+    client = ReviewClient()
+    GroundedAnswerGenerator(client)._review("哪些情形成立？", answer, evidence)
+    assert client.payload["source_context"] == [e.model_dump() for e in evidence[:4]]
+    assert "并非所有情形" in client.payload["source_context"][1]["text"]
 
 
 def test_slow_optional_planner_does_not_skip_answer_review() -> None:

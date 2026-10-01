@@ -104,7 +104,7 @@ class OpenAICompatibleClient:
         self._usage = {"responses": 0, "input_tokens": 0, "output_tokens": 0, "cached_input_tokens": 0}
         self._http = httpx.Client(
             timeout=httpx.Timeout(config.timeout_seconds, connect=10, pool=10),
-            limits=httpx.Limits(max_connections=8, max_keepalive_connections=4),
+            limits=httpx.Limits(max_connections=8, max_keepalive_connections=8, keepalive_expiry=60),
             proxy=config.proxy_url,
         )
         self._responses_sdk = (

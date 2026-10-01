@@ -3,6 +3,7 @@ import { prioritizeChapters } from "./learningPlan";
 import { Icon } from "./Icon";
 import { ChapterMap } from "./ChapterMap";
 import { splitReadableParagraphs } from "./textStructure";
+import { BookCover } from "./LibraryShelf";
 
 interface Props {
   children?: React.ReactNode;
@@ -39,10 +40,7 @@ export function LearningHome({
   return (
     <div className="page-stack home-studio">
       <section className="home-start-choice" aria-label="开始学习">
-        <div>
-          <span className="kicker">导入教材</span>
-          <strong>{book ? "PDF 或扫描版" : "导入后自动解析章节"}</strong>
-        </div>
+        <h2>{book ? "正在学习" : "我的教材"}</h2>
         {uploadEntry}
       </section>
       {book?.diagnostics_ready === false && !profile && (
@@ -51,46 +49,15 @@ export function LearningHome({
         </p>
       )}
       <section className="focus-session">
-        <div className="session-label">
-          <span>
-            <Icon name="spark" size={16} />
-            {completed ? "推荐章节" : "学习诊断"}
-          </span>
-          <span>
-            <Icon name="clock" size={14} />
-            {profile?.constraints.minutes_per_day ?? 30} 分钟/天
-          </span>
-        </div>
-        <div className="session-focus-heading">
-          <h2>
-            {first
-              ? first.chapter.title
-              : completed
-                ? "章节学习"
-                : "完成基础评估"}
-          </h2>
-        </div>
-        <p>
-          {first
-            ? "建议优先学习"
-            : "通过选择题生成章节优先级与内容难度。"}
-        </p>
-        {first && (
-          <div className="session-mastery">
-            <div>
-              <span>掌握估计</span>
-              <b>
-                {Math.round((first.mastery ?? 0) * 100)}
-                <small>%</small>
-              </b>
-            </div>
-            <div className="mastery-track">
-              <i
-                style={{ width: `${Math.round((first.mastery ?? 0) * 100)}%` }}
-              />
-            </div>
+        <div className="reading-book">
+          {book && <div className="reading-book-cover"><BookCover book={book} eager /></div>}
+          <div className="reading-book-copy">
+            <h2>{book?.title ?? "从一本书开始"}</h2>
+            <p>{book ? `${book.chapter_count} 章 · ${book.page_count} 页` : "上传 PDF，开始学习"}</p>
+            {book && <span className="reading-book-status"><span />{completed ? "个性化课程" : "待评估基础"}</span>}
           </div>
-        )}
+        </div>
+        {first && <p className="next-chapter"><span>接下来</span>{first.chapter.title}</p>}
         {first ? (
           <div className="session-actions">
             <button

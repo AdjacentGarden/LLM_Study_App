@@ -12,6 +12,7 @@ import {
 } from "../api/learningStudio";
 import type { StudioOpening } from "./StudioShell";
 import { GeneratedText } from "./GeneratedText";
+import { Icon } from "./Icon";
 const statusText: Record<string, string> = {
   queued: "准备中",
   planning: "正在准备",
@@ -220,8 +221,7 @@ export function StudioDialog({
     >
       <header className="studio-heading">
         <div>
-          <small>学习工作台</small>
-          <h2>{note ? "学习笔记" : mode === "video" ? "生成短片" : "生成图解"}</h2>
+          <h2>{note || mode === "notes" ? "学习笔记" : mode === "video" ? "生成短片" : "生成图解"}</h2>
         </div>
         <button aria-label="关闭学习工作台" onClick={() => void close()}>
           ×
@@ -335,15 +335,15 @@ export function StudioDialog({
             {mode === "notes" && (
               <section className="studio-notes-list">
                 <div className="ink-invitation">
-                  <span aria-hidden="true">✎</span>
+                  <span aria-hidden="true"><Icon name="edit" size={28}/></span>
                   <h3>新建笔记</h3>
-                  <p>支持手写或语音输入，完成后自动识别并结合教材整理。</p>
+                  <p>选择一种记录方式</p>
                   <div className="note-create-choices">
                     <button aria-label="新建手写笔记" className="studio-primary" onClick={() => newNote("ink")}>
-                      ✎ 手写笔记
+                      <Icon name="edit" size={18}/> 手写笔记
                     </button>
                     <button aria-label="新建语音笔记" className="studio-secondary" onClick={() => newNote("voice")}>
-                      ◉ 语音笔记
+                      <Icon name="mic" size={18}/> 语音笔记
                     </button>
                   </div>
                 </div>
@@ -1186,15 +1186,13 @@ function InkEditor({
               保存笔记
             </button>
           </div>
-          <small className="ink-hint">
+          <details className="ink-hint"><summary>画布操作</summary>
             手写笔或手指都可以写；选择“移动”后可平移画布。擦除会移除点中的整条笔画。
-          </small>
+          </details>
           </>}
         </section>
         <section className="ink-assistant">
-          <span className="studio-eyebrow">智能整理</span>
-          <h3>完成后自动整理</h3>
-          <p>{voice ? "将录音整理为完整笔记。" : "将手写内容整理为完整笔记。"}</p>
+          <h3>整理笔记</h3>
           <p className="studio-disclosure">
             原始内容保持不变；遇到不清楚的部分时会请你确认。
           </p>

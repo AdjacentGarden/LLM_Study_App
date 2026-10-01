@@ -152,10 +152,10 @@ export function AccountControls() {
         <Icon name="user" />
         <span>
           <strong>
-            {context.state.account ? "邮箱账号" : "让学习记录跟着你"}
+            {context.state.account ? "邮箱账号" : "账号"}
           </strong>
           <small>
-            {context.state.account?.email ?? "绑定邮箱，下次换设备也能继续"}
+            {context.state.account?.email ?? "未登录"}
           </small>
         </span>
       </div>

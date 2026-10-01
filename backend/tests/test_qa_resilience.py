@@ -54,6 +54,19 @@ def test_cache_expires_and_does_not_cache_refusals():
     assert qa.answer("unrelated").status == "supported"
 
 
+def test_default_cache_survives_reading_break_but_expires(monkeypatch):
+    qa, client = service()
+    qa.answer("Q1")
+    before = time.monotonic()
+    with monkeypatch.context() as clock:
+        clock.setattr(time, "monotonic", lambda: before + 600)
+        assert qa.answer("Q1").cache_hit
+    with monkeypatch.context() as clock:
+        clock.setattr(time, "monotonic", lambda: before + 1801)
+        assert not qa.answer("Q1").cache_hit
+    assert client.calls == 2
+
+
 def test_simultaneous_identical_questions_generate_once():
     qa, client = service()
     entered, release = threading.Event(), threading.Event()

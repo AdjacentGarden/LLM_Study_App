@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Anchor } from "../api/learningStudio";
+import { Icon } from "./Icon";
 
 export type StudioOpening = { anchor: Anchor; mode: "image" | "video" | "notes" };
 
@@ -45,8 +46,8 @@ export function StudioEntry({ anchor }: { anchor: Anchor }) {
       onTouchStart={warmStudio}
       onClick={() => open({ anchor, mode: "notes" })}
     >
-      <span className="studio-entry-icon" aria-hidden="true">✎</span>
-      <span><strong>学习笔记</strong><small>手写、语音与生成内容</small></span>
+      <span className="studio-entry-icon"><Icon name="edit" size={22}/></span>
+      <span><strong>学习笔记</strong></span>
       <span aria-hidden="true">↗</span>
     </button>
   );

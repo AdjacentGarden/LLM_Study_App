@@ -50,7 +50,7 @@ export function TutorChat({
       <div className="tutor-context">
         <Icon name="book" size={19} />
         <label>
-          <small>回答范围</small>
+
           <select
             aria-label="答疑使用的书籍"
             title={bookTitle}
@@ -77,8 +77,9 @@ export function TutorChat({
       <div className="qa-scroll" ref={scroll}>
         {!askedQuestion && (
           <section className="tutor-welcome">
-            <h2>输入问题</h2>
-            <p>回答将附原文页码。</p>
+            <span className="tutor-emblem"><Icon name="book" size={32}/></span>
+            <h2>哪里还没读懂？</h2>
+            <p>从书中找答案</p>
           </section>
         )}
         {askedQuestion && (
@@ -95,8 +96,8 @@ export function TutorChat({
                 <i />
               </span>
             </div>
-            <p>你可以继续浏览，回答会保留在这里。</p>
-            <button className="qa-stop" onClick={onStop}>停止等待</button>
+
+            <button className="qa-stop" onClick={onStop}>停止</button>
             <span className="skeleton-line" />
             <span className="skeleton-line" />
             <span className="skeleton-line short" />
@@ -104,7 +105,7 @@ export function TutorChat({
         )}
         {error && !busy && (
           <section className="qa-error" role="alert">
-            <b>这次还没能回答</b>
+            <b>暂时无法回答</b>
             <p>{error}</p>
             <button
               disabled={!available}
