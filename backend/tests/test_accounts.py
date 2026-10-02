@@ -256,6 +256,9 @@ def test_csrf_registration_and_logout(community):
         ("/api/auth/logout", {}),
     ]:
         assert a.post(path, json=body, headers={"Origin": "https://evil.test"}).status_code == 403
+    assert a.post(
+        "/api/auth/logout", headers={"Origin": "http://frontend.test"}
+    ).status_code == 200
 
 
 def test_learning_guard_and_account_session_listing(community):
@@ -267,7 +270,13 @@ def test_learning_guard_and_account_session_listing(community):
     state = a.get("/api/auth/me").json()
     assert state["learning_sessions"]["book-0"] == session.session_id
     app = FastAPI()
-    app.middleware("http")(learning_guard(Accounts(repo)))
+    app.middleware("http")(
+        learning_guard(Accounts(repo), ("http://frontend.test",))
+    )
+
+    @app.post("/api/interviews/start")
+    def start():
+        return {"started": True}
 
     @app.get("/api/interviews/{sid}")
     def private(sid: str):
@@ -277,6 +286,12 @@ def test_learning_guard_and_account_session_listing(community):
         assert client.get("/api/interviews/" + session.session_id).status_code == 403
         client.cookies.update(a.cookies)
         assert client.get("/api/interviews/" + session.session_id).status_code == 200
+        assert client.post(
+            "/api/interviews/start", headers={"Origin": "http://frontend.test"}
+        ).status_code == 200
+        assert client.post(
+            "/api/interviews/start", headers={"Origin": "https://evil.test"}
+        ).status_code == 403
         assert (
             client.get(
                 "/api/interviews/" + session.session_id, headers={"Origin": "http://elsewhere"}

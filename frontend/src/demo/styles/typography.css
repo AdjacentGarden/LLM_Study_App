@@ -1,0 +1,259 @@
+@font-face {
+  font-family: "Noto Sans SC";
+  src: url("/assets/fonts/NotoSansSC-400.woff") format("woff");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans SC";
+  src: url("/assets/fonts/NotoSansSC-700.woff") format("woff");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* One typeface and four text sizes for the app, including compact previews.
+   The source-page OCR layer represents printed document geometry, not UI text. */
+.app-shell,
+.app-shell :where(*) {
+  font-family: var(--font-app) !important;
+  font-size: var(--type-body) !important;
+  line-height: 1.4 !important;
+}
+
+.app-shell {
+  --header-block-size: 68px;
+}
+
+.app-shell .header-glass {
+  height: var(--header-block-size);
+}
+
+.app-shell .screen-content.with-header {
+  padding-top: calc(var(--safe-area-top) + var(--header-block-size) + var(--space-layout) + var(--space-layout));
+}
+
+.app-shell :is(p, li, input, textarea, select) {
+  font-weight: 400 !important;
+}
+
+.app-shell :is(h1, h1 *, .home-welcome-title) {
+  font-size: var(--type-title) !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+.app-shell :is(h2, h2 *, .screen-title) {
+  font-size: var(--type-subtitle) !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+.app-shell :is(h3, h3 *, h4, h4 *, h5, h5 *, h6, h6 *, strong, b) {
+  font-size: var(--type-body) !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+}
+
+.app-shell :is(
+  small,
+  figcaption,
+  caption,
+  .header-title p,
+  .eyebrow,
+  .helper-text,
+  .nav-label,
+  .nav-brand-name,
+  .nav-course-title,
+  .nav-context-link,
+  .nav-context-link *,
+  .flashcard-hero span,
+  .flashcard-hero p,
+  .flashcard-progress,
+  .flashcard-progress *,
+  .memory-card-mastery,
+  .memory-card-source-row,
+  .memory-card-source-row *,
+  .memory-card-tap-hint,
+  .assignment-exercise-kicker,
+  .assignment-progress-heading small,
+  .assignment-exercise-instruction,
+  .assignment-source-button,
+  .home-book-cover-kicker,
+  .home-book-cover-mark,
+  .study-tool-copy small,
+  .home-workspace-label,
+  .home-workspace-course,
+  .home-workspace-pages,
+  .home-chapter-tools-heading span,
+  .home-book-selection-summary > span,
+  .study-assignment-preview,
+  .study-assignment-preview *,
+  .study-flashcard-preview,
+  .study-flashcard-preview *,
+  .study-future-preview small,
+  .community-book-meta > span,
+  .community-book-enter,
+  [class*="-meta"],
+  [class*="-caption"],
+  [class*="-hint"]
+) {
+  font-size: var(--type-caption) !important;
+  line-height: 1.35 !important;
+}
+
+/* Dense book and tool tiles need a little more room at the new text scale. */
+.app-shell .home-book-workspace.is-ready[data-loaded="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell .home-book-workspace.is-ready[data-loaded="true"] .home-workspace-actions,
+.app-shell .home-book-workspace.is-ready[data-loaded="true"] .home-chapter-tools {
+  grid-column: 1;
+}
+
+.app-shell .home-book-workspace.is-ready[data-loaded="true"] .home-workspace-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app-shell .home-book-workspace.is-ready[data-loaded="true"] .home-workspace-actions button {
+  white-space: nowrap;
+}
+
+.app-shell .home-book-workspace .study-tool-card {
+  height: 194px;
+  min-height: 194px;
+  flex-basis: clamp(174px, 52%, 210px);
+}
+
+.app-shell .home-book-workspace .study-tool-cover {
+  height: 118px;
+  min-height: 118px;
+}
+
+.app-shell .home-book-workspace .study-tool-card-footer {
+  height: 76px;
+  min-height: 76px;
+}
+
+.app-shell .home-book-workspace .study-assignment-preview {
+  height: 106px;
+  min-height: 106px;
+}
+
+.app-shell .home-book-workspace .study-flashcard-preview {
+  height: 92px;
+  margin-bottom: 12px;
+}
+
+.app-shell .study-tool-card {
+  min-height: 210px;
+}
+
+.app-shell .study-tool-cover {
+  min-height: 130px;
+}
+
+.app-shell .study-tool-card-footer {
+  min-height: 80px;
+}
+
+.app-shell .study-tool-copy strong {
+  white-space: normal;
+}
+
+.app-shell .study-plan-details {
+  max-height: 170px;
+}
+
+.app-shell .study-plan-summary:not(.is-compact) .progress-wrap > span {
+  max-height: 32px;
+}
+
+.app-shell .parse-ready-summary .parse-info-grid .metric-card strong {
+  font-size: var(--type-body) !important;
+  line-height: 1.25 !important;
+}
+
+.app-shell .parse-ready-summary .parse-info-grid .metric-card span {
+  font-size: var(--type-caption) !important;
+  line-height: 1.35 !important;
+}
+
+@media (max-width: 719px) and (min-height: 741px) and (orientation: portrait) {
+  .app-shell .parse-ready-visual .community-detail-cover,
+  .app-shell .parse-ready-visual .community-detail-cover-fallback {
+    width: min(54%, 15rem);
+  }
+
+  .app-shell .parse-ready-summary {
+    padding-top: clamp(9rem, 18dvh, 10rem);
+  }
+}
+
+@media (max-width: 719px) and (max-height: 740px) and (orientation: portrait) {
+  .app-shell .parse-ready-visual .community-detail-cover,
+  .app-shell .parse-ready-visual .community-detail-cover-fallback {
+    top: 0;
+    width: min(34%, 7rem);
+  }
+
+  .app-shell .parse-ready-summary {
+    min-height: 0;
+    padding-top: 2rem;
+    padding-bottom: 0;
+  }
+
+  .app-shell .parse-ready-summary .parse-info-grid {
+    margin-top: 0.5rem;
+  }
+
+  .app-shell .community-detail-actions.parse-ready-actions {
+    padding-top: 0.5rem;
+    padding-bottom: var(--safe-area-bottom);
+  }
+
+  .app-shell .parse-ready-actions .button {
+    min-height: 3rem;
+    padding-block: 0.5rem;
+  }
+}
+
+@media (max-width: 380px) and (orientation: portrait) {
+  .app-shell .home-topline {
+    flex-wrap: wrap;
+  }
+
+  .app-shell .home-topline > div {
+    flex: 1 0 100%;
+  }
+
+  .app-shell .home-import-course-action {
+    margin-left: auto;
+  }
+}
+
+.app-shell :is(.metric-card strong, .report-score-ring strong) {
+  font-size: var(--type-subtitle) !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+/* Simulated system text uses the same family and the auxiliary UI size. */
+.app-shell .ios-status-bar__time {
+  font-size: var(--type-caption) !important;
+  line-height: 1.2 !important;
+}
+
+/* Preserve the selectable OCR overlay's alignment to its scanned page. */
+.app-shell .source-page-text-layer,
+.app-shell .source-page-text-layer * {
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+.app-shell .source-page-text-layer {
+  font-size: clamp(4px, 1.05vw, 6px) !important;
+}

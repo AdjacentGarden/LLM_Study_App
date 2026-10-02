@@ -45,7 +45,13 @@ def community(tmp_path, monkeypatch):
         )
     app = FastAPI()
     app.include_router(
-        community_router(tmp_path, lambda: entries, lambda: jobs, lambda: assessments)
+        community_router(
+            tmp_path,
+            lambda: entries,
+            lambda: jobs,
+            lambda: assessments,
+            ("http://frontend.test",),
+        )
     )
     repo = CommunityRepository(tmp_path / "state" / "community.sqlite3")
     with TestClient(app) as a, TestClient(app) as b:
@@ -95,6 +101,24 @@ def test_default_five_and_five_cookie_and_persistence(community):
         assert token not in str([tuple(r) for r in db.execute("SELECT * FROM visitors")])
 
 
+def test_existing_visitor_receives_new_defaults_without_restoring_removed_books(tmp_path):
+    repo = CommunityRepository(tmp_path / "community.sqlite3")
+    first = {"book_id": "first", "title": "第一本教材"}
+    later = {"book_id": "later", "title": "后来发布的教材"}
+    repo.register_asset(first, "hash-first", None)
+    owner, token, new = repo.visitor(None, ["first"])
+    assert new
+    repo.remove_book(owner, "first")
+    repo.register_asset(later, "hash-later", None)
+
+    resumed_owner, resumed_token, resumed_new = repo.visitor(token, ["first", "later"])
+
+    assert (resumed_owner, resumed_token, resumed_new) == (owner, token, False)
+    assert [book["book_id"] for book in repo.library(owner)] == ["later"]
+    repo.add_library_defaults("account-owner", ["later"])
+    assert [book["book_id"] for book in repo.library("account-owner")] == ["later"]
+
+
 def test_acquisition_is_isolated_idempotent_and_no_assessment_copy(community):
     a, b, _, assessments = community
     post = feed(a)[0]
@@ -120,7 +144,7 @@ def test_all_five_books_acquired_and_removed_without_reseeding(community):
         assert repo.asset(post["book_id"]) is not None
     assert len(a.get("/api/library").json()) == 5
     a.post("/api/library/books/book-0/remove")
-    assert len(a.get("/api/library").json()) == 4  # Defaults apply only to new visitors.
+    assert len(a.get("/api/library").json()) == 4  # Explicit removals are never reseeded.
 
 
 def test_concurrent_acquisition_inserts_once(community):
@@ -359,6 +383,12 @@ def test_csrf_filter_search_unknown_and_pagination(community):
     assert (
         a.post(
             "/api/library/books/book-0/remove", headers={"Origin": "http://testserver"}
+        ).status_code
+        == 200
+    )
+    assert (
+        a.post(
+            "/api/library/books/book-1/remove", headers={"Origin": "http://frontend.test"}
         ).status_code
         == 200
     )

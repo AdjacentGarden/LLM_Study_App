@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from adaptive_learning.ingestion.ocr_job import (
@@ -6,6 +7,7 @@ from adaptive_learning.ingestion.ocr_job import (
     infer_log_duration,
     load_pages,
     mineru_subprocess_environment,
+    rapidocr_blocks,
 )
 
 
@@ -100,8 +102,48 @@ def test_mineru_environment_bypasses_proxy_for_loopback(monkeypatch) -> None:
     monkeypatch.setenv("NO_PROXY", "internal.example")
     monkeypatch.setenv("no_proxy", "stale.example")
 
+    # Windows environment names are case-insensitive; preserve the effective
+    # configured value instead of assuming two distinct NO_PROXY variables.
+    configured_host = os.environ["NO_PROXY"]
     environment = mineru_subprocess_environment()
 
     assert environment["NO_PROXY"] == environment["no_proxy"]
     entries = set(environment["NO_PROXY"].split(","))
-    assert {"internal.example", "localhost", "127.0.0.1", "::1"} <= entries
+    assert {configured_host, "localhost", "127.0.0.1", "::1"} <= entries
+
+
+def test_rapidocr_blocks_preserve_lines_and_mark_large_chapter_headings() -> None:
+    blocks = rapidocr_blocks(
+        page_index=4,
+        page_height=1600,
+        texts=["第九章", "静电场及其应用", "这是教材正文。"],
+        boxes=[
+            [[300, 120], [520, 120], [520, 190], [300, 190]],
+            [[300, 220], [720, 220], [720, 285], [300, 285]],
+            [[120, 500], [900, 500], [900, 530], [120, 530]],
+        ],
+        scores=[0.99, 0.98, 0.97],
+    )
+
+    assert [block["page_idx"] for block in blocks] == [4, 4, 4]
+    assert blocks[0]["type"] == "title"
+    assert blocks[0]["text_level"] == 1
+    assert blocks[1]["type"] == "title"
+    assert blocks[2]["type"] == "text"
+
+
+def test_rapidocr_blocks_preserve_empty_visual_page_boundary() -> None:
+    blocks = rapidocr_blocks(
+        page_index=2, page_height=1600, texts=[], boxes=[], scores=[]
+    )
+
+    assert blocks == [
+        {
+            "page_idx": 2,
+            "type": "image",
+            "text": "",
+            "bbox": None,
+            "score": None,
+            "text_level": None,
+        }
+    ]

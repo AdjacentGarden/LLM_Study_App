@@ -181,3 +181,10 @@ export function AccountControls() {
     </section>
   );
 }
+
+/** Current authenticated identity for account-scoped page state. */
+export function useAccount() {
+  const context = useContext(AccountContext);
+  if (!context) throw new Error("AccountGate is required for this page");
+  return context;
+}

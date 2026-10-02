@@ -111,6 +111,8 @@ def test_public_course_never_contains_practice_answer_keys() -> None:
     serialized = public.model_dump_json()
 
     assert len(public.practice_items) == 3
+    for private_item, public_item in zip(private.practice_items, public.practice_items):
+        assert public_item.citations == private_item.citations
     assert "expected_answer" not in serialized
     assert "correct_option_ids" not in serialized
     assert '"rubric"' not in serialized
@@ -158,3 +160,28 @@ def test_compiler_rejects_chapter_without_evidence_backed_points() -> None:
         assert "evidence-backed" in str(error)
     else:
         raise AssertionError("course compiler accepted an ungrounded chapter")
+
+
+def test_blank_section_summary_uses_bounded_verified_quotes() -> None:
+    value = chapter(1)
+    value.summary = " \n\t "
+    label = value.knowledge_points[0]
+    quote = "Verified local section evidence. " * 14
+    other_quote = "Another verified fact from this section. " * 12
+    value.knowledge_point_evidence = {
+        label: [
+            SourceQuote(page_number=1, quote=quote),
+            SourceQuote(page_number=1, quote=other_quote),
+        ]
+    }
+    profile = LearnerProfile(user_id="u", book_id="b")
+
+    bundle = ChapterCourseCompiler().compile(
+        chapter=value,
+        profile=profile,
+        decision=PersonalizationPolicy().decide(profile, value.chapter_id),
+    )
+
+    assert bundle.summary == f"{quote.strip()} {other_quote.strip()}"[:680]
+    assert bundle.knowledge_points[0].citations[0].quote == quote
+    assert bundle.original_reading[0].content == quote

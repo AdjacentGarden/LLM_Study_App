@@ -1,0 +1,187 @@
+.settings-screen {
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+  gap: 16px;
+}
+
+.settings-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.settings-card h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.settings-card p,
+.settings-logout-section > p {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
+.settings-account-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-account-card > div {
+  min-width: 0;
+}
+
+.settings-account-card p {
+  margin-top: 4px;
+}
+
+.settings-account-icon,
+.settings-logout-icon {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.settings-preferences {
+  margin: 12px 0 0;
+}
+
+.settings-preferences > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.settings-preferences dt {
+  color: var(--color-text-secondary);
+}
+
+.settings-preferences dd {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.settings-logout-section {
+  padding-top: 8px;
+}
+
+.settings-logout-button {
+  width: 100%;
+  min-height: var(--touch-target-primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-danger);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-logout-button > span {
+  flex: 1;
+}
+
+.settings-logout-button:hover {
+  background: var(--color-surface-soft);
+}
+
+.settings-logout-section > p {
+  padding-inline: 4px;
+  text-align: center;
+}
+
+.settings-logout-dialog {
+  position: fixed;
+  width: min(400px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 24px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+}
+
+.settings-logout-dialog::backdrop {
+  background: var(--scrim-modal);
+}
+
+.settings-logout-icon {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.settings-logout-dialog h2 {
+  margin: 18px 0 10px;
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.settings-logout-dialog p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.settings-logout-dialog .settings-logout-error {
+  margin-top: 12px;
+  color: var(--color-danger);
+}
+
+.settings-logout-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.settings-logout-actions button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-logout-actions .settings-logout-confirm {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-on-primary);
+}
+
+.settings-logout-button:focus-visible,
+.settings-logout-actions button:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}

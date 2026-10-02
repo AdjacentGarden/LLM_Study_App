@@ -11,6 +11,7 @@ import time
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 from .quality import evaluate_text_quality
@@ -20,6 +21,9 @@ _LOG_TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)")
 _VLM_REFUSAL = re.compile(
     r"^(?:\[unreadable\]|the image is too .+|i (?:cannot|can't|am unable to) .+)$",
     re.IGNORECASE,
+)
+_CHAPTER_MARKER = re.compile(
+    r"^第\s*[一二三四五六七八九十百千万零〇两0-9]+\s*[章篇部](?:\s+.*)?$"
 )
 
 
@@ -228,6 +232,122 @@ def mineru_subprocess_environment() -> dict[str, str]:
     return environment
 
 
+def rapidocr_blocks(
+    *,
+    page_index: int,
+    page_height: int,
+    texts: list[str],
+    boxes: list[Any],
+    scores: list[float],
+) -> list[dict[str, Any]]:
+    """Convert RapidOCR line output into the stable MinerU-compatible block contract."""
+    bounds: list[list[float]] = []
+    heights: list[float] = []
+    for box in boxes:
+        points = list(box)
+        xs = [float(point[0]) for point in points]
+        ys = [float(point[1]) for point in points]
+        bound = [min(xs), min(ys), max(xs), max(ys)]
+        bounds.append(bound)
+        heights.append(max(1.0, bound[3] - bound[1]))
+    typical_height = median(heights) if heights else 1.0
+    blocks: list[dict[str, Any]] = []
+    previous_was_chapter_marker = False
+    for index, text in enumerate(texts):
+        cleaned = str(text).strip()
+        if not cleaned:
+            continue
+        bbox = bounds[index] if index < len(bounds) else None
+        score = float(scores[index]) if index < len(scores) else None
+        compact = re.sub(r"\s+", "", cleaned)
+        is_marker = bool(_CHAPTER_MARKER.fullmatch(cleaned.splitlines()[0].strip()))
+        follows_chapter_marker = bool(
+            previous_was_chapter_marker
+            and bbox
+            and bbox[1] <= page_height * 0.5
+            and len(compact) <= 80
+        )
+        is_large_top_line = bool(
+            bbox
+            and bbox[1] <= page_height * 0.45
+            and bbox[3] - bbox[1] >= typical_height * 1.3
+            and len(compact) <= 80
+        )
+        is_heading = is_marker or follows_chapter_marker or is_large_top_line
+        blocks.append(
+            {
+                "page_idx": page_index,
+                "type": "title" if is_heading else "text",
+                "text": cleaned,
+                "bbox": bbox,
+                "score": score,
+                "text_level": 1 if is_heading else None,
+            }
+        )
+        previous_was_chapter_marker = is_marker
+    # Preserve the page boundary even when a cover, illustration, or blank page has no text.
+    if not blocks:
+        blocks.append(
+            {
+                "page_idx": page_index,
+                "type": "image",
+                "text": "",
+                "bbox": None,
+                "score": None,
+                "text_level": None,
+            }
+        )
+    return blocks
+
+
+def run_rapidocr(source: Path, raw_dir: Path) -> tuple[float, Path]:
+    """OCR a scanned PDF locally with RapidOCR and emit auditable normalized inputs."""
+    try:
+        import pymupdf
+        from rapidocr import RapidOCR
+    except ImportError as error:
+        raise RuntimeError(
+            'RapidOCR backend requires pip install -e ".[pdf,local-ocr]"'
+        ) from error
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    log_path = raw_dir.parent / "rapidocr.log"
+    content_path = raw_dir / f"{source.stem}_content_list.json"
+    markdown_path = raw_dir / f"{source.stem}.md"
+    engine = RapidOCR()
+    content: list[dict[str, Any]] = []
+    markdown_pages: list[str] = []
+    started = time.monotonic()
+    with pymupdf.open(source) as document, log_path.open("w", encoding="utf-8") as log:
+        page_count = len(document)
+        for page_index, page in enumerate(document):
+            pixmap = page.get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
+            result = engine(pixmap.tobytes("png"))
+            blocks = rapidocr_blocks(
+                page_index=page_index,
+                page_height=pixmap.height,
+                texts=list(result.txts) if result.txts is not None else [],
+                boxes=list(result.boxes) if result.boxes is not None else [],
+                scores=(
+                    [float(score) for score in result.scores]
+                    if result.scores is not None
+                    else []
+                ),
+            )
+            content.extend(blocks)
+            text = "\n".join(str(block["text"]) for block in blocks if block["text"])
+            markdown_pages.append(f"<!-- PDF page {page_index + 1} -->\n\n{text}")
+            if page_index == 0 or (page_index + 1) % 10 == 0 or page_index + 1 == page_count:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                log.write(f"{timestamp} | OCR page {page_index + 1}/{page_count}\n")
+                log.flush()
+    content_path.write_text(
+        json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    markdown_path.write_text("\n\n".join(markdown_pages) + "\n", encoding="utf-8")
+    return time.monotonic() - started, log_path
+
+
 def run_mineru(source: Path, raw_dir: Path, backend: str, language: str) -> tuple[float, Path]:
     raw_dir.mkdir(parents=True, exist_ok=True)
     log_path = raw_dir.parent / "mineru.log"
@@ -374,6 +494,8 @@ def main() -> None:
     if args.skip_run:
         log_path = output / "mineru.log"
         duration = infer_log_duration(log_path)
+    elif args.backend == "rapidocr":
+        duration, log_path = run_rapidocr(source, raw_dir)
     else:
         duration, log_path = run_mineru(source, raw_dir, args.backend, args.language)
     report = write_report(

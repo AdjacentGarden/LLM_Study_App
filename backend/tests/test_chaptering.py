@@ -214,6 +214,8 @@ def test_load_normalized_pages_preserves_heading_metadata(tmp_path: Path) -> Non
 
 def test_real_biology_artifact_has_six_verified_body_chapters() -> None:
     artifact = Path(__file__).parents[2] / "artifacts" / "ocr" / "biology-20260829" / "pages.jsonl"
+    if not artifact.is_file():
+        pytest.skip("Optional full-book biology OCR artifact not installed")
     pages = load_normalized_pages(artifact)
 
     chapters, fallback = ChapterBoundaryDetector().detect(pages)

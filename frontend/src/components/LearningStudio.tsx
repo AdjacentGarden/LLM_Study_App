@@ -10,9 +10,11 @@ import {
   type StudioJob,
   type StudioCaps,
 } from "../api/learningStudio";
+import { drawInk } from "./inkDrawing";
 import type { StudioOpening } from "./StudioShell";
 import { GeneratedText } from "./GeneratedText";
 import { Icon } from "./Icon";
+export { StudioProvider, StudioEntry, StudioMediaActions, StudyPassage } from "./StudioShell";
 const statusText: Record<string, string> = {
   queued: "准备中",
   planning: "正在准备",
@@ -339,15 +341,16 @@ export function StudioDialog({
                   <h3>新建笔记</h3>
                   <p>选择一种记录方式</p>
                   <div className="note-create-choices">
-                    <button aria-label="新建手写笔记" className="studio-primary" onClick={() => newNote("ink")}>
-                      <Icon name="edit" size={18}/> 手写笔记
+                    <button aria-label="新建空白手写笔记" className="studio-primary" onClick={() => newNote("ink")}>
+                      <Icon name="edit" size={18}/> 空白笔记
                     </button>
                     <button aria-label="新建语音笔记" className="studio-secondary" onClick={() => newNote("voice")}>
                       <Icon name="mic" size={18}/> 语音笔记
                     </button>
                   </div>
                 </div>
-                {unsynced.map((n) => (
+                <small>写在教材原页上的笔迹，请到对应 PDF 页继续查看和编辑。</small>
+                {unsynced.filter(n => n.surface !== "source_page").map((n) => (
                   <button
                     className="studio-note-row"
                     key={n.id}
@@ -361,7 +364,7 @@ export function StudioDialog({
                     <span>›</span>
                   </button>
                 ))}
-                {notes.map((n) => (
+                {notes.filter(n => n.surface !== "source_page").map((n) => (
                   <button
                     className="studio-note-row"
                     key={n.id}
@@ -757,30 +760,7 @@ function InkEditor({
     };
   }
   function draw(extra?: InkStroke) {
-    const ctx = canvas.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, 1000, 1400);
-    for (const s of [...latest.current.strokes, ...(extra ? [extra] : [])]) {
-      ctx.strokeStyle = s.color;
-      ctx.fillStyle = s.color;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      s.points.forEach((p, i) => {
-        const w = Math.max(2, s.width * (0.6 + p.p * 0.8));
-        if (i) {
-          const a = s.points[i - 1];
-          ctx.lineWidth = w;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(p.x, p.y);
-          ctx.stroke();
-        } else {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, w / 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-    }
+    drawInk(canvas.current, latest.current.strokes, extra);
   }
   useEffect(() => {
     draw();

@@ -61,9 +61,9 @@ export const api = {
   acquire:(id:string)=>post<{status:"added"|"already_owned";book_id:string;kind:string;resource_id:string|null}>(`/api/community/${id}/acquire`),
   withdraw:(id:string)=>post<{ok:boolean}>(`/api/community/${id}/withdraw`),
   structure,
-  start: (bookId: string) =>
+  start: (bookId: string, userId?: string) =>
     post<InterviewResponse>("/api/interviews/start", {
-      user_id: `web_${Math.random().toString(36).slice(2, 10)}`,
+      user_id: userId ?? `web_${Math.random().toString(36).slice(2, 10)}`,
       book_id: bookId,
     }),
   resume: (sessionId: string) => request<InterviewResponse>(`/api/interviews/${sessionId}`),

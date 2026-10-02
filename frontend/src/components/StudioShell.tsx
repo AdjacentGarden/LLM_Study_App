@@ -67,7 +67,7 @@ export function StudioMediaActions({ anchor, label = "辅助学习" }: { anchor:
   );
 }
 
-export function StudyPassage({ anchor, text }: { anchor: Anchor; text: string }) {
+export function StudyPassage({ anchor, text, onWriteSource }: { anchor: Anchor; text: string; onWriteSource?: () => void }) {
   const open = useContext(StudioContext);
   const ref = useRef<HTMLParagraphElement>(null);
   const [selected, setSelected] = useState("");
@@ -101,7 +101,7 @@ export function StudyPassage({ anchor, text }: { anchor: Anchor; text: string })
         <div>
           <button onFocus={warmStudio} onClick={() => act("image")}>▧ 看图理解</button>
           <button onFocus={warmStudio} onClick={() => act("video")}>▷ 看短片</button>
-          <button onFocus={warmStudio} onClick={() => act("notes")}>✎ 记笔记</button>
+          <button onFocus={warmStudio} onClick={() => onWriteSource ? onWriteSource() : act("notes")}>✎ 记笔记</button>
         </div>
       </div>
     </>

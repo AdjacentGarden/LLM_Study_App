@@ -6,21 +6,24 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..accounts import COOKIE, Accounts
-from ..assessment.models import InterviewSession
+from ..assessment.item_generation import structure_fingerprint
+from ..assessment.models import InterviewSession, ResponseType
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..social import SocialRepository
 from .account_routes import account_router
+from .imported_assets_routes import imported_assets_router
+from .origin import trusted_write_origin
 from .retention_routes import retention_router
 from .schemas import BookCatalogItem
 from .social_routes import social_router
+from .source_routes import source_router
 from .studio_routes import studio_router
 from .user_profile import UserProfileInput, normalize_avatar, public_profile
 
@@ -51,6 +54,7 @@ def community_router(
     catalog: Callable[[], list[BookCatalogItem]],
     jobs: Callable[[], SQLiteOCRJobRepository],
     assessments: Callable[[], SQLiteAssessmentRepository],
+    allowed_origins: tuple[str, ...] = (),
 ) -> APIRouter:
     router = APIRouter(prefix="/api", tags=["community"])
     repo = CommunityRepository(data_dir / "state" / "community.sqlite3")
@@ -113,11 +117,9 @@ def community_router(
 
     def visitor(request: Request, response: Response) -> str:
         # Cookie-authenticated writes must not be triggered from another website.
-        origin = request.headers.get("origin")
         if (
             request.method not in {"GET", "HEAD"}
-            and origin
-            and urlsplit(origin).netloc != request.headers.get("host")
+            and not trusted_write_origin(request, allowed_origins)
         ):
             raise HTTPException(403, "请在 App 内执行此操作")
         prepare()
@@ -125,6 +127,7 @@ def community_router(
             account_owner = accounts.session_owner(request.cookies[COOKIE])
             if not account_owner:
                 raise HTTPException(401, "登录已过期，请重新登录")
+            repo.add_library_defaults(account_owner, initial)
             response.headers["Cache-Control"] = "private, no-store"
             return account_owner
         owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"), initial)
@@ -144,9 +147,21 @@ def community_router(
             )
         return owner
 
+    router.include_router(imported_assets_router(repo, data_dir, visitor, jobs))
+
     def owned_book(owner: str, book_id: str) -> None:
-        if book_id not in published or not repo.owns(owner, book_id):
+        # ``published`` is rebuilt from configured books on process startup;
+        # privately claimed uploads live only in the persistent asset/shelf
+        # tables. The shelf join also accepts legitimate canonical aliases.
+        if repo.asset(book_id) is None or not repo.owns(owner, book_id):
             raise HTTPException(403, "请先将这本书加入自己的书架")
+
+    def owned_studio_book(owner: str, book_id: str) -> None:
+        # Private demo uploads are owner-bound before they enter the legacy shelf.
+        # Studio may use them without publishing or claiming a shared asset.
+        if repo.owns_upload(owner, book_id):
+            return
+        owned_book(owner, book_id)
 
     def owned_session(owner: str, session_id: str) -> InterviewSession:
         session = assessments().get_session(session_id)
@@ -159,7 +174,25 @@ def community_router(
 
     @router.get("/library", response_model=list[BookCatalogItem])
     def library(owner: str = Depends(visitor)) -> list[dict[str, Any]]:
-        return repo.library(owner)
+        books = repo.library(owner)
+        job_repo = jobs()
+        assessment_repo = assessments()
+        for book in books:
+            # Asset metadata was captured when the book was claimed. A bank can be
+            # generated later, or invalidated when the canonical structure changes.
+            book_id = book["book_id"]
+            structure = job_repo.get_structure(book_id)
+            bank = (
+                assessment_repo.get_bank(
+                    book_id, expected_fingerprint=structure_fingerprint(structure)
+                )
+                if structure is not None
+                else None
+            )
+            book["diagnostics_ready"] = any(
+                item.response_type == ResponseType.SINGLE_CHOICE for item in bank or []
+            )
+        return books
 
     @router.post("/library/books/{book_id}/claim", response_model=BookCatalogItem)
     def claim_uploaded_book(
@@ -178,7 +211,7 @@ def community_router(
             "title": structure.title.removesuffix(".pdf"),
             "status": stored.status,
             "page_count": structure.source_page_count,
-            "chapter_count": len(structure.chapters),
+            "chapter_count": sum(1 for chapter in structure.chapters if not chapter.parent_id),
             "summary": structure.summary,
             "diagnostics_ready": bool(
                 assessments().get_bank(book_id, expected_fingerprint=None)
@@ -455,7 +488,10 @@ def community_router(
         }
 
     router.include_router(social_router(social, visitor, make_attachment))
+    router.include_router(source_router(repo, jobs, visitor))
     router.include_router(retention_router(repo, visitor, owned_book, owned_session, assessments))
-    router.include_router(studio_router(data_dir, visitor, owned_book))
-    router.include_router(account_router(accounts, social, visitor, assessments))
+    router.include_router(studio_router(data_dir, visitor, owned_studio_book, repo, jobs))
+    router.include_router(
+        account_router(accounts, social, visitor, assessments, allowed_origins)
+    )
     return router
