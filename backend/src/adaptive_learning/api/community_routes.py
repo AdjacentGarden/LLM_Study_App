@@ -156,6 +156,13 @@ def community_router(
         if repo.asset(book_id) is None or not repo.owns(owner, book_id):
             raise HTTPException(403, "请先将这本书加入自己的书架")
 
+    def owned_studio_book(owner: str, book_id: str) -> None:
+        # Private demo uploads are owner-bound before they enter the legacy shelf.
+        # Studio may use them without publishing or claiming a shared asset.
+        if repo.owns_upload(owner, book_id):
+            return
+        owned_book(owner, book_id)
+
     def owned_session(owner: str, session_id: str) -> InterviewSession:
         session = assessments().get_session(session_id)
         if session is None:
@@ -483,7 +490,7 @@ def community_router(
     router.include_router(social_router(social, visitor, make_attachment))
     router.include_router(source_router(repo, jobs, visitor))
     router.include_router(retention_router(repo, visitor, owned_book, owned_session, assessments))
-    router.include_router(studio_router(data_dir, visitor, owned_book, repo, jobs))
+    router.include_router(studio_router(data_dir, visitor, owned_studio_book, repo, jobs))
     router.include_router(
         account_router(accounts, social, visitor, assessments, allowed_origins)
     )

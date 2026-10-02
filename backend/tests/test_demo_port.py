@@ -11,7 +11,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from adaptive_learning.accounts import COOKIE, Accounts
+from adaptive_learning.api.community_routes import community_router
 from adaptive_learning.api.demo_port_routes import demo_port_router
+from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
 from adaptive_learning.community import CommunityRepository
 from adaptive_learning.demo_port import DemoPortStore, empty_course_state, extract_source
 from adaptive_learning.ingestion.jobs import SQLiteOCRJobRepository
@@ -24,6 +26,8 @@ def api(tmp_path):
     jobs = SQLiteOCRJobRepository(tmp_path / "state" / "jobs.sqlite3")
     app = FastAPI()
     app.include_router(demo_port_router(tmp_path, accounts, jobs))
+    assessments = SQLiteAssessmentRepository(tmp_path / "state" / "assessments.sqlite3")
+    app.include_router(community_router(tmp_path, lambda: [], lambda: jobs, lambda: assessments))
     clients = []
     for owner in ("alice", "bob"):
         token = "session-" + owner
@@ -782,3 +786,36 @@ def test_async_diagnostics_reuses_existing_generator_and_persists_bank(api, monk
     assert len(calls) == 1
     bank = SQLiteAssessmentRepository(root / "state" / "assessments.sqlite3").get_bank(book_id)
     assert bank[0].item_id == "real-bank-item"
+
+
+def test_private_demo_upload_supports_studio_without_legacy_shelf_claim(api):
+    root, alice, bob = api
+    book_id = upload(alice)
+    repo = CommunityRepository(root / "state" / "community.sqlite3")
+    assert repo.owns_upload("alice", book_id)
+    assert repo.asset(book_id) is None
+    assert not repo.owns("alice", book_id)
+    for route in ("jobs", "notes"):
+        response = alice.get(f"/api/studio/{route}", params={"book_id": book_id})
+        assert response.status_code == 200, response.text
+        assert response.json()["items"] == []
+        assert bob.get(f"/api/studio/{route}", params={"book_id": book_id}).status_code == 403
+    note = {
+        "id": "private-upload-note",
+        "book_id": book_id,
+        "revision": 0,
+        "title": "My blank note",
+        "surface": "blank",
+        "strokes": [],
+    }
+    created = alice.post("/api/studio/notes", json=note)
+    assert created.status_code == 200, created.text
+    assert created.json()["revision"] == 1
+    assert alice.get("/api/studio/notes/private-upload-note").json()["book_id"] == book_id
+    listed = alice.get("/api/studio/notes", params={"book_id": book_id}).json()["items"]
+    assert [item["id"] for item in listed] == [note["id"]]
+    assert bob.post("/api/studio/notes", json=note).status_code == 403
+    assert bob.get("/api/studio/notes/private-upload-note").status_code == 404
+    # Studio access does not silently grant the legacy shelf/community permission.
+    assert alice.post("/api/library/notes", json={"book_id": book_id, "title": "Legacy", "body": "Private"}).status_code == 403
+    assert repo.asset(book_id) is None

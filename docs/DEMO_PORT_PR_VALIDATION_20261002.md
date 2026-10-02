@@ -12,6 +12,7 @@ The migration includes the complete runtime and TypeScript source closure, requi
 
 - The default frontend uses `demo/DemoDirectEntry` and the original Demo pages/styles. Courses, uploaded materials, directory edits, notes, reports, credits and PDF exports use account-scoped server data. The fixture repository does not seed real accounts.
 - Settings logout calls the real account API, blocks duplicate/pending dismissal, displays failure with retry, and restores the original account's data after a new login.
+- Privately uploaded Demo materials can use Studio before a legacy shelf claim. A dedicated Studio ownership callback accepts only uploads bound to the current account; community sharing, shelf notes and retention keep their existing checks. Integration tests and real HTTP checks verify owner read/write success and reject a different account.
 - Existing account, social, learner-profile and Studio tools remain available. Their heavy pages load on demand through the upstream lightweight Studio shell and React Suspense.
 - The retained profile font control applies and persists a bounded 100–200% size locally to those tools. The surrounding Demo page layout keeps its existing defaults.
 - Reconstructed child sections can lack an independent summary. The compiler now falls back to deduplicated verbatim quotations from the selected section evidence, bounded to 680 characters. Same-page section tests verify that another section and the parent summary do not leak into the result.
@@ -27,11 +28,12 @@ The migration includes the complete runtime and TypeScript source closure, requi
 | `npm run build` | TypeScript and Vite passed; heavy tools emitted as separate chunks |
 | `npm run test:demo` | 55 files, **360 passed** |
 | `npm run test:unit` | **34 passed**, no skips |
-| Full `backend/tests` | **464 passed, 7 skipped**, 99.38 seconds |
+| Full `backend/tests` | **465 passed, 7 skipped**, 110.78 seconds |
 | Ruff on the summary compiler and touched portability tests | Passed |
 | Original Chromium direct-port scenario | **1 passed**, 12.8-second scenario |
 | Updated Chromium settings scenario | **1 passed**, approximately 1.3 minutes |
 | Independent tools browser check | Social, account, profile and Studio lazy pages opened; no page errors |
+| Private-upload Studio HTTP check | Owner list/create/read: 200; other account lists/create: 403, private note read: 404 |
 | Independent font/layout browser check | Computed text size 20px to 40px, persisted after remount; no horizontal overflow at 402/820/1440px |
 
 Both end-to-end scenarios used separate fresh backend data directories, the real local HTTP API and the committed small input fixtures. They cover onboarding, two material types, course persistence, directory confirmation, source annotations and refresh, actual PDF download, report empty states, unavailable-provider feedback without credit loss, social access and A-to-B-to-A account isolation. The settings scenario additionally covers cancel, pending-state dismissal prevention, simulated HTTP 503 with retained identity, successful real logout, refresh and real login after the OTP cooldown.
