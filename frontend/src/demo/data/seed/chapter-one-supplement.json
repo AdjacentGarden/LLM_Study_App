@@ -1,0 +1,44 @@
+[
+  {
+    "chapter_id": "c1",
+    "level": 1,
+    "source_title": "第 1 章 遗传因子的发现",
+    "ai_title": "课程 1：从豌豆杂交理解遗传规律",
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": 1,
+    "printed_page_end": 14,
+    "confidence": 62,
+    "status": "AI 补充·待原文核验",
+    "source": "toc+ai_supplement_missing_source_pdf",
+    "parent_id": null
+  },
+  {
+    "chapter_id": "c1s1",
+    "level": 2,
+    "source_title": "第 1 节 孟德尔的豌豆杂交实验（一）",
+    "ai_title": "课程 1.1：从一对相对性状理解分离定律",
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": 2,
+    "printed_page_end": 8,
+    "confidence": 62,
+    "status": "AI 补充·待原文核验",
+    "source": "toc+ai_supplement_missing_source_pdf",
+    "parent_id": "c1"
+  },
+  {
+    "chapter_id": "c1s2",
+    "level": 2,
+    "source_title": "第 2 节 孟德尔的豌豆杂交实验（二）",
+    "ai_title": "课程 1.2：从两对相对性状理解自由组合",
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": 9,
+    "printed_page_end": 14,
+    "confidence": 62,
+    "status": "AI 补充·待原文核验",
+    "source": "toc+ai_supplement_missing_source_pdf",
+    "parent_id": "c1"
+  }
+]

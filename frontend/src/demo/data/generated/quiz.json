@@ -1,0 +1,1854 @@
+[
+  {
+    "question_id": "quiz_c1s1_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_one",
+    "chapter_id": "c1s1",
+    "prompt": "在完全显性的情况下，F1 中没有表现出的隐性性状所对应的遗传因子已经消失。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "隐性遗传因子仍存在于杂合子中，只是其性状被显性因子的作用掩盖。",
+    "concept": "显性与隐性",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [],
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": null,
+    "printed_page_end": null,
+    "source_kind": "ai_supplement",
+    "source_quote": null
+  },
+  {
+    "question_id": "quiz_c1s1_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_one",
+    "chapter_id": "c1s1",
+    "prompt": "鉴定一株高茎豌豆是 AA 还是 Aa，最合适的方法是？",
+    "choices": [
+      "让它与 AA 杂交",
+      "让它与 aa 测交",
+      "观察植株高度",
+      "让它与另一株高茎杂交"
+    ],
+    "answer": "让它与 aa 测交",
+    "explanation": "隐性纯合亲本只产生含 a 的配子，后代表现能直接反映待测个体产生的配子类型。",
+    "concept": "测交",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [],
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": null,
+    "printed_page_end": null,
+    "source_kind": "ai_supplement",
+    "source_quote": null
+  },
+  {
+    "question_id": "quiz_c1s1_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_one",
+    "chapter_id": "c1s1",
+    "prompt": "请用遗传因子假说解释 F2 为什么会出现约 3∶1 的性状分离比。",
+    "choices": [],
+    "answer": "F1 为 Aa，形成配子时 A 与 a 分离并等概率进入配子；雌雄配子随机结合产生 AA、Aa、Aa、aa，基因型比为 1∶2∶1，完全显性时表现型比约为 3∶1。",
+    "explanation": "答案应依次写出 F1 基因型、配子分离、随机结合和完全显性下的表现型统计。",
+    "concept": "分离定律",
+    "question_type": "short-answer",
+    "instruction": "按“F1 基因型—配子—后代基因型—表现型”的顺序说明。",
+    "source_chunk_ids": [],
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": null,
+    "printed_page_end": null,
+    "source_kind": "ai_supplement",
+    "source_quote": null
+  },
+  {
+    "question_id": "quiz_c1s2_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_two",
+    "chapter_id": "c1s2",
+    "prompt": "自由组合定律意味着同一条染色体上的任意两个基因都能彼此独立地进入配子。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "基础自由组合模型针对非同源染色体上的非等位基因，同一染色体上的基因不一定独立遗传。",
+    "concept": "自由组合的适用范围",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [],
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": null,
+    "printed_page_end": null,
+    "source_kind": "ai_supplement",
+    "source_quote": null
+  },
+  {
+    "question_id": "quiz_c1s2_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_two",
+    "chapter_id": "c1s2",
+    "prompt": "在两对基因独立遗传时，AaBb 个体产生的配子种类是？",
+    "choices": [
+      "AB、ab",
+      "Aa、Bb",
+      "AB、Ab、aB、ab",
+      "A、a、B、b"
+    ],
+    "answer": "AB、Ab、aB、ab",
+    "explanation": "A/a 与 B/b 分别分离并自由组合，形成四种配子。",
+    "concept": "配子类型",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [],
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": null,
+    "printed_page_end": null,
+    "source_kind": "ai_supplement",
+    "source_quote": null
+  },
+  {
+    "question_id": "quiz_c1s2_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_two",
+    "chapter_id": "c1s2",
+    "prompt": "为什么分析双因子杂交时可以先分别处理每一对基因，再合并概率？",
+    "choices": [],
+    "answer": "每一对等位基因先按分离定律处理；当两对非等位基因独立遗传时，两事件可分别求概率，再用乘法定理合并，例如 A_B_ 为 3/4×3/4=9/16。",
+    "explanation": "应说明分离定律、独立遗传条件和概率乘法三层关系。",
+    "concept": "概率法",
+    "question_type": "short-answer",
+    "instruction": "结合 AaBb 自交举一个概率计算例子。",
+    "source_chunk_ids": [],
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": null,
+    "printed_page_end": null,
+    "source_kind": "ai_supplement",
+    "source_quote": null
+  },
+  {
+    "question_id": "quiz_c2s1_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "prompt": "同源染色体在减数第一次分裂后期彼此分离。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "正确",
+    "explanation": "减数第一次分裂分离同源染色体，第二次分裂才分离姐妹染色单体。",
+    "concept": "同源染色体分离",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "chunk_c2s1_13"
+    ],
+    "page_start": 13,
+    "page_end": 13,
+    "printed_page_start": 18,
+    "printed_page_end": 18,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        13
+      ],
+      "printed_pages": [
+        18
+      ],
+      "page_idxs": [
+        12
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        118
+      ],
+      "content_list_entry_sha256": [
+        "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446"
+      ],
+      "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。",
+      "raw_ocr_text_sha256": "977604597b06d1786c3c11a8d9c526202d021a9f529408515b7475a227d5ae06",
+      "page_text_sha256": [
+        "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 118,
+          "content_list_entry_sha256": "f244945e237f26dec27f1e7c3d718c6bd7e795af3f814654ae0ee6086920e446",
+          "middle_blocks": [
+            {
+              "block_index": 5,
+              "sha256": "00e96c090a2418fc40ce4c0c64b93ddb0c0128d2d27f378e8948622983f66e72"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂期开始不久，初级精母细胞中原来分散的染色体进行两两配对。配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体。同源染色体两两配对的现象叫做联会。由于每条染色体都含有两条姐妹染色单体，因此，联会后的每对同源染色体含有四条染色单体，叫做四分体。四分体中的非姐妹染色单体之间经常发生缠绕，并交换一部分片段（图2-3）。",
+          "raw_ocr_text_sha256": "977604597b06d1786c3c11a8d9c526202d021a9f529408515b7475a227d5ae06",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        }
+      ]
+    },
+    "source_kind": "textbook",
+    "source_quote": "配对的两条染色体，形状和大小一般都相同，一条来自父方，一条来自母方，叫做同源染色体"
+  },
+  {
+    "question_id": "quiz_c2s1_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "prompt": "减数第一次分裂与第二次分裂之间通常发生什么？",
+    "choices": [
+      "DNA 再复制一次",
+      "同源染色体再次联会",
+      "通常不再进行 DNA 复制",
+      "染色体数目恢复为二倍体"
+    ],
+    "answer": "通常不再进行 DNA 复制",
+    "explanation": "两次分裂之间通常没有间期或间期很短，染色体不再复制。",
+    "concept": "两次分裂的衔接",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "chunk_c2s1_13"
+    ],
+    "page_start": 13,
+    "page_end": 13,
+    "printed_page_start": 18,
+    "printed_page_end": 18,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        13
+      ],
+      "printed_pages": [
+        18
+      ],
+      "page_idxs": [
+        12
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        126
+      ],
+      "content_list_entry_sha256": [
+        "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e"
+      ],
+      "raw_ocr_text": "减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+      "raw_ocr_text_sha256": "65ff7f5fd28973dfd15384232bdfa68257b94174321a9f089a4c32fcb3cca528",
+      "page_text_sha256": [
+        "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 12,
+          "pdf_page": 13,
+          "printed_page": 18,
+          "content_list_entry_index": 126,
+          "content_list_entry_sha256": "89437373a52993f6a45fa93ecf225968588acdf51775782a3a3616077843ff6e",
+          "middle_blocks": [
+            {
+              "block_index": 13,
+              "sha256": "b01b038ed1ed655a2487952e0e47a1edc2adae7a8af19c0032bf434bba625c48"
+            }
+          ],
+          "raw_ocr_text": "减数第一次分裂与减数第二次分裂之间通常没有间期。或者间期时间很短，染色体不再复制。在减数第二次分裂过程中，每条染色体的着丝点分裂，两条姐妹染色单体也随之分开，成为两条染色体。在纺锤丝的牵引下，这两条染色体分别向细胞的两极移动，并且随着细胞的分裂进人两个子细胞。这样，在减数第一次分裂中形成的两个次级精母细胞，经过减数第二次分裂，就形成了四个精细胞。与初级精母细胞相比，每个精细胞都含有数目减半的染色体。",
+          "raw_ocr_text_sha256": "65ff7f5fd28973dfd15384232bdfa68257b94174321a9f089a4c32fcb3cca528",
+          "page_text_sha256": "4e0a9643cffa2ac018918d99617ebc45ef53d8dc3400b190353f61493b313643"
+        }
+      ]
+    },
+    "source_kind": "textbook",
+    "source_quote": "两条姐妹染色单体也随之分开"
+  },
+  {
+    "question_id": "quiz_c2s1_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_meiosis",
+    "chapter_id": "c2s1",
+    "prompt": "请说明减数分裂与受精作用怎样共同维持生物前后代染色体数目的恒定。",
+    "choices": [],
+    "answer": "减数分裂使配子中的染色体数减半；受精时雌雄配子融合，两套单倍体染色体在受精卵中会合，使染色体数恢复到体细胞水平。",
+    "explanation": "应同时写出减数分裂的减半作用和受精作用的恢复作用。",
+    "concept": "染色体数目稳定",
+    "question_type": "short-answer",
+    "instruction": "按“配子形成—配子融合—受精卵”的顺序回答。",
+    "source_chunk_ids": [
+      "chunk_c2s1_19"
+    ],
+    "page_start": 19,
+    "page_end": 19,
+    "printed_page_start": 24,
+    "printed_page_end": 24,
+    "source_metadata": {
+      "parser": "mineru",
+      "parser_version": "1.3.12",
+      "source_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+      "source_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        19
+      ],
+      "printed_pages": [
+        24
+      ],
+      "page_idxs": [
+        18
+      ],
+      "content_list_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_content_list.json",
+      "middle_file": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心/ocr/人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心_middle.json",
+      "content_list_entry_indices": [
+        216
+      ],
+      "content_list_entry_sha256": [
+        "1f293d8af20c78382def71c0e5c0afd645c2e63529d9dfc3b171e78c8906024a"
+      ],
+      "raw_ocr_text": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程。在受精作用进行时，通常是精子的头部进人卵细胞（图2一7），尾部留在外面。与此同时。卵细胞的细胞膜会发生复杂的生理反应，以阻止其他精子再进入。精子的头部进人卵细胞后不久，精子的细胞核就与卵细胞的细胞核相融合，使彼此的染色体会合在一起。这样，受精卵中的染色体数目又恢复到体细胞中的数目.其中有一半的染色体来自精子（父方），另一半来自卵细胞（母方）。",
+      "raw_ocr_text_sha256": "3257d3d968c2cb27fac00215f806be0e526f535ea74cd7b0e41d048efeb428d0",
+      "page_text_sha256": [
+        "9e7cc568288a814037f8b2a783d1062673a710f00a0f8430911fbccee18cc1f1"
+      ],
+      "source_entries": [
+        {
+          "page_idx": 18,
+          "pdf_page": 19,
+          "printed_page": 24,
+          "content_list_entry_index": 216,
+          "content_list_entry_sha256": "1f293d8af20c78382def71c0e5c0afd645c2e63529d9dfc3b171e78c8906024a",
+          "middle_blocks": [
+            {
+              "block_index": 17,
+              "sha256": "8ea5eec47003aedce056e063677e81f05243fc41434389aaba0ff74230b02d5d"
+            },
+            {
+              "block_index": 18,
+              "sha256": "52c64c67a270ffd3e016eb122452e53a7d0b90b89da69d53985702c490bc2216"
+            }
+          ],
+          "raw_ocr_text": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程。在受精作用进行时，通常是精子的头部进人卵细胞（图2一7），尾部留在外面。与此同时。卵细胞的细胞膜会发生复杂的生理反应，以阻止其他精子再进入。精子的头部进人卵细胞后不久，精子的细胞核就与卵细胞的细胞核相融合，使彼此的染色体会合在一起。这样，受精卵中的染色体数目又恢复到体细胞中的数目.其中有一半的染色体来自精子（父方），另一半来自卵细胞（母方）。",
+          "raw_ocr_text_sha256": "3257d3d968c2cb27fac00215f806be0e526f535ea74cd7b0e41d048efeb428d0",
+          "page_text_sha256": "9e7cc568288a814037f8b2a783d1062673a710f00a0f8430911fbccee18cc1f1"
+        }
+      ]
+    },
+    "source_kind": "textbook",
+    "source_quote": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程"
+  },
+  {
+    "question_id": "quiz_c2s2_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_chromosome",
+    "chapter_id": "c2s2",
+    "prompt": "萨顿通过类比基因与染色体的平行行为，直接完成了对基因位于染色体上的实验证明。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "萨顿提出的是有解释力的假说，类比本身不能代替后续实验验证。",
+    "concept": "类比推理",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_13ae80e897cd0ac181e4"
+    ],
+    "page_start": 22,
+    "page_end": 23,
+    "printed_page_start": 27,
+    "printed_page_end": 28,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        22,
+        23
+      ],
+      "printed_pages": [
+        27,
+        28
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 17,
+      "source_entry_sha256": "450809b4f2611751e115835dbe34ad98e82db12a8c07f019eee9e7168f9e50d2"
+    },
+    "source_kind": "textbook",
+    "source_quote": "类比推理得出的结论并不具有逻辑的必然性"
+  },
+  {
+    "question_id": "quiz_c2s2_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_chromosome",
+    "chapter_id": "c2s2",
+    "prompt": "摩尔根果蝇杂交实验中，哪一现象成为把白眼基因与 X 染色体联系起来的突破口？",
+    "choices": [
+      "白眼与性别相关",
+      "果蝇后代数量少",
+      "红眼不能遗传",
+      "所有雌蝇都是白眼"
+    ],
+    "answer": "白眼与性别相关",
+    "explanation": "白眼的出现与性别相关，使其遗传方式能与性染色体传递规律对应。",
+    "concept": "果蝇白眼遗传",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_6f111bc647abccce99a4"
+    ],
+    "page_start": 24,
+    "page_end": 25,
+    "printed_page_start": 29,
+    "printed_page_end": 30,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        24,
+        25
+      ],
+      "printed_pages": [
+        29,
+        30
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 9,
+      "source_entry_sha256": "3bc934e07a62ced72857fc3fa72dcc4513c90b49b9a0cd3facaf64b9b896c7f4"
+    },
+    "source_kind": "textbook",
+    "source_quote": "用实验证明了基因在染色体上"
+  },
+  {
+    "question_id": "quiz_c2s2_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_chromosome",
+    "chapter_id": "c2s2",
+    "prompt": "请用染色体行为解释孟德尔分离定律。",
+    "choices": [],
+    "answer": "一对等位基因位于一对同源染色体的同一位置；杂合体形成配子时，同源染色体在减数第一次分裂中分离，等位基因随之进入不同配子。",
+    "explanation": "要把等位基因的位置、同源染色体分离和配子形成连成因果链。",
+    "concept": "分离定律的细胞学基础",
+    "question_type": "short-answer",
+    "instruction": "说明等位基因位于哪里，以及何时随什么结构分离。",
+    "source_chunk_ids": [
+      "rag_5b670315035928e27f6e"
+    ],
+    "page_start": 25,
+    "page_end": 25,
+    "printed_page_start": 30,
+    "printed_page_end": 30,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        25,
+        25
+      ],
+      "printed_pages": [
+        30,
+        30
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 11,
+      "source_entry_sha256": "c3f0b86f08093d1c1b534eb7b0e93c384614881ed1dd0b3f1dea62ae2deadf93"
+    },
+    "source_kind": "textbook",
+    "source_quote": "基因在染色休上呈线性排列"
+  },
+  {
+    "question_id": "quiz_c2s3_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_sex_linked_inheritance",
+    "chapter_id": "c2s3",
+    "prompt": "男性的 X 染色体遗传给所有女儿，而不会直接遗传给儿子。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "正确",
+    "explanation": "父亲给女儿 X、给儿子 Y，因此父亲的 X 不直接传给儿子。",
+    "concept": "X 染色体传递",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_d1e78dfec65a12f0817a"
+    ],
+    "page_start": 29,
+    "page_end": 30,
+    "printed_page_start": 34,
+    "printed_page_end": 35,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        29,
+        30
+      ],
+      "printed_pages": [
+        34,
+        35
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 15,
+      "source_entry_sha256": "c8701f47477162a8016f222d48218b77d1f3586b9c5e8ee15ccd726f624283d4"
+    },
+    "source_kind": "textbook",
+    "source_quote": "儿子有1/2正常,1/2为红绿色盲"
+  },
+  {
+    "question_id": "quiz_c2s3_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_sex_linked_inheritance",
+    "chapter_id": "c2s3",
+    "prompt": "在红绿色盲的经典 X 连锁隐性模型中，男性 XᵇY 的表现是？",
+    "choices": [
+      "正常且不是携带者",
+      "正常携带者",
+      "表现色盲",
+      "仅把色盲基因传给儿子"
+    ],
+    "answer": "表现色盲",
+    "explanation": "Y 染色体上没有相应正常等位基因，Xᵇ 的隐性作用会直接表现。",
+    "concept": "红绿色盲",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_613ba5fa5827524c7166"
+    ],
+    "page_start": 28,
+    "page_end": 29,
+    "printed_page_start": 33,
+    "printed_page_end": 34,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        28,
+        29
+      ],
+      "printed_pages": [
+        33,
+        34
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 19,
+      "source_entry_sha256": "a1b89404d392ba0dd8aadc8ef86cabb95566f8f1eae8b55fe216a61998d2aa72"
+    },
+    "source_kind": "textbook",
+    "source_quote": "X染色体携带着许多基因"
+  },
+  {
+    "question_id": "quiz_c2s3_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_sex_linked_inheritance",
+    "chapter_id": "c2s3",
+    "prompt": "为什么 X 连锁隐性性状会呈现男性患者较多和交叉传递的特点？",
+    "choices": [],
+    "answer": "男性只有一条 X，携带隐性等位基因即可患病；父亲把 X 给女儿而不给儿子，女性携带者又可把该 X 传给儿子，因此常出现男性较多及父女、母子方向的交叉传递。",
+    "explanation": "应从男女 X 染色体数量和父母向子女的性染色体传递规则解释。",
+    "concept": "伴性遗传特点",
+    "question_type": "short-answer",
+    "instruction": "结合男性只有一条 X 和父亲 X 的去向回答。",
+    "source_chunk_ids": [
+      "rag_b0a205c877552d962ba0"
+    ],
+    "page_start": 31,
+    "page_end": 32,
+    "printed_page_start": 36,
+    "printed_page_end": 37,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        31,
+        32
+      ],
+      "printed_pages": [
+        36,
+        37
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 16,
+      "source_entry_sha256": "f8c0fda4212a7be8351cf4e64e277497a9761717fd5bf35eb994d302c7e6d843"
+    },
+    "source_kind": "textbook",
+    "source_quote": "雌鸡都是非芦花鸡(b)"
+  },
+  {
+    "question_id": "quiz_c3s1_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_genetic_material",
+    "chapter_id": "c3s1",
+    "prompt": "格里菲思的肺炎双球菌转化实验已经直接证明 DNA 是转化因子。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "该实验只证明死 S 型中存在转化物质，不能确定这种物质就是 DNA。",
+    "concept": "转化实验结论",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_2a3ef8ce38556f4b3c56"
+    ],
+    "page_start": 38,
+    "page_end": 38,
+    "printed_page_start": 43,
+    "printed_page_end": 43,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        38,
+        38
+      ],
+      "printed_pages": [
+        43,
+        43
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 5,
+      "source_entry_sha256": "1dfe790765c605e2636648583baf06ca68034ca6bf65bfaac40438d07a24d9eb"
+    },
+    "source_kind": "textbook",
+    "source_quote": "只有加入DNA,R型细菌才能够转化为S型细菌"
+  },
+  {
+    "question_id": "quiz_c3s1_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_genetic_material",
+    "chapter_id": "c3s1",
+    "prompt": "赫尔希和蔡斯用 ³²P 标记噬菌体的哪一成分？",
+    "choices": [
+      "蛋白质外壳",
+      "DNA",
+      "脂质",
+      "多糖"
+    ],
+    "answer": "DNA",
+    "explanation": "DNA 含磷，蛋白质外壳的特征标记使用含硫的 ³⁵S。",
+    "concept": "同位素标记",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_6cb1ed9e3f2f3fde7d60"
+    ],
+    "page_start": 40,
+    "page_end": 41,
+    "printed_page_start": 45,
+    "printed_page_end": 46,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        40,
+        41
+      ],
+      "printed_pages": [
+        45,
+        46
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 11,
+      "source_entry_sha256": "ef6eca0f726d183548cefce8ed068bf943df49fbbbcbdd22a49555ac95fdbc27"
+    },
+    "source_kind": "textbook",
+    "source_quote": "DNA进人到细菌的细胞中,而蛋白质外壳仍留在外面"
+  },
+  {
+    "question_id": "quiz_c3s1_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_genetic_material",
+    "chapter_id": "c3s1",
+    "prompt": "为什么教材表述为“DNA 是主要的遗传物质”，而不是“所有生物的遗传物质都是 DNA”？",
+    "choices": [],
+    "answer": "细菌、真核生物和多数病毒以 DNA 为遗传物质，但少数病毒以 RNA 为遗传物质，因此“主要”既概括普遍情况，也保留例外。",
+    "explanation": "答案要同时说明多数生物的普遍性与 RNA 病毒的例外。",
+    "concept": "遗传物质的范围",
+    "question_type": "short-answer",
+    "instruction": "从普遍情况和例外两方面回答。",
+    "source_chunk_ids": [
+      "rag_3bf96c0adfa4b46800ac"
+    ],
+    "page_start": 41,
+    "page_end": 41,
+    "printed_page_start": 46,
+    "printed_page_end": 46,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        41,
+        41
+      ],
+      "printed_pages": [
+        46,
+        46
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 18,
+      "source_entry_sha256": "e6d7d36c88a9167e9a80ed9f0114069fb8207c83ec9c365e687483d1f2217f07"
+    },
+    "source_kind": "textbook",
+    "source_quote": "绝大多数生物的遗传物质是DNA"
+  },
+  {
+    "question_id": "quiz_c3s2_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_structure",
+    "chapter_id": "c3s2",
+    "prompt": "DNA 分子中 A 与 T 配对、G 与 C 配对，体现碱基互补配对原则。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "正确",
+    "explanation": "互补配对关系正是 A—T、G—C。",
+    "concept": "碱基互补配对",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_67314ab8a2c59f757cb8"
+    ],
+    "page_start": 43,
+    "page_end": 44,
+    "printed_page_start": 48,
+    "printed_page_end": 49,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        43,
+        44
+      ],
+      "printed_pages": [
+        48,
+        49
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 11,
+      "source_entry_sha256": "6d7a2c5c4bc1675aeed8cd843d1113ed5976c703d762431b88184cff42e0702f"
+    },
+    "source_kind": "textbook",
+    "source_quote": "A与T配对,G与C配对"
+  },
+  {
+    "question_id": "quiz_c3s2_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_structure",
+    "chapter_id": "c3s2",
+    "prompt": "DNA 双螺旋结构中位于外侧、构成基本骨架的是？",
+    "choices": [
+      "碱基对",
+      "磷酸与脱氧核糖交替连接",
+      "氨基酸链",
+      "核糖与尿嘧啶"
+    ],
+    "answer": "磷酸与脱氧核糖交替连接",
+    "explanation": "磷酸和脱氧核糖构成外侧骨架，碱基对位于内侧。",
+    "concept": "DNA 骨架",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_9b48c1d0a506ffde2f9b"
+    ],
+    "page_start": 44,
+    "page_end": 45,
+    "printed_page_start": 49,
+    "printed_page_end": 50,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        44,
+        45
+      ],
+      "printed_pages": [
+        49,
+        50
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 21,
+      "source_entry_sha256": "c84ab4a332e6b68cbb9ecb89146b1c3ff344b7c82e7cb343743b765e15e268fa"
+    },
+    "source_kind": "textbook",
+    "source_quote": "两条链按反向平行方式盘旋成双螺旋结构"
+  },
+  {
+    "question_id": "quiz_c3s2_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_structure",
+    "chapter_id": "c3s2",
+    "prompt": "请从 DNA 的共同结构和可变部分解释其稳定性与多样性。",
+    "choices": [],
+    "answer": "磷酸—脱氧核糖骨架及特定互补配对方式在各处基本一致，使结构稳定；四种碱基的排列顺序可广泛变化，使 DNA 能储存多样遗传信息。",
+    "explanation": "应分别指出稳定性来自共同框架，多样性来自碱基序列变化。",
+    "concept": "结构与功能",
+    "question_type": "short-answer",
+    "instruction": "分别说明哪一部分较稳定、哪一部分可以变化。",
+    "source_chunk_ids": [
+      "rag_098453a8c3af11026b66"
+    ],
+    "page_start": 45,
+    "page_end": 46,
+    "printed_page_start": 50,
+    "printed_page_end": 51,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        45,
+        46
+      ],
+      "printed_pages": [
+        50,
+        51
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 36,
+      "source_entry_sha256": "c682a60e74042f341c002ccce21cb7daf205c1c65261e2c574acc034b3151516"
+    },
+    "source_kind": "textbook",
+    "source_quote": "DNA只含有4种脱氧核苷酸"
+  },
+  {
+    "question_id": "quiz_c3s3_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_replication",
+    "chapter_id": "c3s3",
+    "prompt": "DNA 半保留复制后，每个子代 DNA 都由一条旧链和一条新链组成。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "正确",
+    "explanation": "这正是半保留复制模型的含义。",
+    "concept": "半保留复制",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_2e7e59c9be7c9c1fee52"
+    ],
+    "page_start": 47,
+    "page_end": 48,
+    "printed_page_start": 52,
+    "printed_page_end": 53,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        47,
+        48
+      ],
+      "printed_pages": [
+        52,
+        53
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 5,
+      "source_entry_sha256": "21769d33f917670c0f3cb7f438d004a32783428b074eab0d91d434bcb871a0e2"
+    },
+    "source_kind": "textbook",
+    "source_quote": "在不同时刻收集大肠杆菌并提取DNA"
+  },
+  {
+    "question_id": "quiz_c3s3_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_replication",
+    "chapter_id": "c3s3",
+    "prompt": "DNA 复制时，新链碱基排列顺序主要由什么决定？",
+    "choices": [
+      "细胞大小",
+      "模板链碱基顺序",
+      "染色体条数",
+      "蛋白质种类"
+    ],
+    "answer": "模板链碱基顺序",
+    "explanation": "游离脱氧核苷酸按互补配对原则与模板链对应。",
+    "concept": "模板与互补配对",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_250b3bfd28ddb76122e0"
+    ],
+    "page_start": 48,
+    "page_end": 49,
+    "printed_page_start": 53,
+    "printed_page_end": 54,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        48,
+        49
+      ],
+      "printed_pages": [
+        53,
+        54
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 8,
+      "source_entry_sha256": "f77419731e16ceb5994222f109d4ee725cc8b061d1024e388ff81d692460d65e"
+    },
+    "source_kind": "textbook",
+    "source_quote": "DNA的复制是指以亲代DNA为模板合成子代DNA的过程"
+  },
+  {
+    "question_id": "quiz_c3s3_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_replication",
+    "chapter_id": "c3s3",
+    "prompt": "请说明 DNA 的结构特点怎样保证复制的准确性。",
+    "choices": [],
+    "answer": "DNA 两条链互补，每条旧链都可作为模板；新核苷酸按 A—T、G—C 的互补配对规则加入，使新链序列由模板链限定，从而通常准确传递遗传信息。",
+    "explanation": "应把双链互补、模板作用和碱基配对规则联系起来。",
+    "concept": "复制准确性",
+    "question_type": "short-answer",
+    "instruction": "从模板链和碱基互补配对两方面回答。",
+    "source_chunk_ids": [
+      "rag_93aed9e316d5f0882998"
+    ],
+    "page_start": 49,
+    "page_end": 49,
+    "printed_page_start": 54,
+    "printed_page_end": 54,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        49,
+        49
+      ],
+      "printed_pages": [
+        54,
+        54
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 10,
+      "source_entry_sha256": "77f4658213a4caa3d28a43124f646c8f645e14af20ed2bb7f18c10112a3812d2"
+    },
+    "source_kind": "textbook",
+    "source_quote": "DNA分子的复制是一个边解旋边复制的过程"
+  },
+  {
+    "question_id": "quiz_c3s4_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_dna_segment",
+    "chapter_id": "c3s4",
+    "prompt": "基因就是整个 DNA 分子，因此一个 DNA 分子只能控制一种性状。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "基因是 DNA 上具有特定遗传效应的片段，一个 DNA 分子通常含有多个基因。",
+    "concept": "基因与 DNA",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_87e3c59499b0c36b47c2"
+    ],
+    "page_start": 50,
+    "page_end": 51,
+    "printed_page_start": 55,
+    "printed_page_end": 56,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        50,
+        51
+      ],
+      "printed_pages": [
+        55,
+        56
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 18,
+      "source_entry_sha256": "b6e6265a8c4c9e5630eeb476d952c4c03fb4ae21428d6a69fb3db8f85912fd5a"
+    },
+    "source_kind": "textbook",
+    "source_quote": "每个基因的平均长度约为1000个碱基对"
+  },
+  {
+    "question_id": "quiz_c3s4_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_dna_segment",
+    "chapter_id": "c3s4",
+    "prompt": "判断一段 DNA 是否可称为基因，关键依据是它是否？",
+    "choices": [
+      "足够长",
+      "位于染色体末端",
+      "具有特定遗传效应",
+      "含有相同数量的四种碱基"
+    ],
+    "answer": "具有特定遗传效应",
+    "explanation": "基因的界定强调特定遗传效应，而非单纯的长度或位置。",
+    "concept": "基因定义",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_682af57a9050fbd8a7cc"
+    ],
+    "page_start": 51,
+    "page_end": 51,
+    "printed_page_start": 56,
+    "printed_page_end": 56,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        51,
+        51
+      ],
+      "printed_pages": [
+        56,
+        56
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 13,
+      "source_entry_sha256": "b16ecdbb0db12b14ca69efc69ffa4ac3f83bb44cff0a0cd9b9ed1a3faf06eac2"
+    },
+    "source_kind": "textbook",
+    "source_quote": "构成基因的碱基数占碱基总数的比例不超过2%"
+  },
+  {
+    "question_id": "quiz_c3s4_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_dna_segment",
+    "chapter_id": "c3s4",
+    "prompt": "DNA 为什么具有足够大的遗传信息容量，并能体现特异性？",
+    "choices": [],
+    "answer": "DNA 由四种碱基构成，长度为 n 时理论排列可达 4ⁿ 种，因而容量巨大；不同 DNA 或基因具有特定碱基排列顺序，因而又具有特异性。",
+    "explanation": "应从序列组合数量和特定排列顺序两方面回答。",
+    "concept": "多样性与特异性",
+    "question_type": "short-answer",
+    "instruction": "可结合 4ⁿ 的序列组合模型说明。",
+    "source_chunk_ids": [
+      "rag_1dfdd4be05b5580dd078"
+    ],
+    "page_start": 52,
+    "page_end": 52,
+    "printed_page_start": 57,
+    "printed_page_end": 57,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        52,
+        52
+      ],
+      "printed_pages": [
+        57,
+        57
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 10,
+      "source_entry_sha256": "ee111c9dd620edd453ead0159d52aa8a67746bc39160fddf4072f3761dc56b25"
+    },
+    "source_kind": "textbook",
+    "source_quote": "遗传信息蕴藏在4种碱基的排列顺序之中"
+  },
+  {
+    "question_id": "quiz_c4s1_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_protein_synthesis",
+    "chapter_id": "c4s1",
+    "prompt": "翻译是把 mRNA 的碱基序列信息转换为蛋白质氨基酸序列的过程。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "正确",
+    "explanation": "翻译完成从核酸的碱基语言到蛋白质的氨基酸语言的转换。",
+    "concept": "翻译",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_cb753f19a37ec5bae2e9"
+    ],
+    "page_start": 58,
+    "page_end": 59,
+    "printed_page_start": 63,
+    "printed_page_end": 64,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        58,
+        59
+      ],
+      "printed_pages": [
+        63,
+        64
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 17,
+      "source_entry_sha256": "588f8529bcfbfcd3e65e7ef614069de38b0415e22422d1252b5d87f2c55450d0"
+    },
+    "source_kind": "textbook",
+    "source_quote": "翻译实质上是将mRNA中的碱基序列翻译为蛋白质的氮基酸序列。"
+  },
+  {
+    "question_id": "quiz_c4s1_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_protein_synthesis",
+    "chapter_id": "c4s1",
+    "prompt": "在翻译过程中，负责识别密码子并携带相应氨基酸的是？",
+    "choices": [
+      "DNA",
+      "mRNA",
+      "tRNA",
+      "核糖"
+    ],
+    "answer": "tRNA",
+    "explanation": "tRNA 通过反密码子与密码子配对，并携带特定氨基酸进入核糖体。",
+    "concept": "tRNA",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_920945918903290df0e2"
+    ],
+    "page_start": 59,
+    "page_end": 60,
+    "printed_page_start": 64,
+    "printed_page_end": 65,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        59,
+        60
+      ],
+      "printed_pages": [
+        64,
+        65
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 16,
+      "source_entry_sha256": "b497ee5a28d5ad308bc7671b4e4fe92c595256c509eaaeff9c1f7b6deed92350"
+    },
+    "source_kind": "textbook",
+    "source_quote": "mRNA上3个相邻的碱基决定1个氨基酸。"
+  },
+  {
+    "question_id": "quiz_c4s1_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_protein_synthesis",
+    "chapter_id": "c4s1",
+    "prompt": "请按信息流动顺序说明基因指导蛋白质合成的过程。",
+    "choices": [],
+    "answer": "细胞核中以 DNA 一条链为模板转录形成 mRNA；mRNA 进入细胞质并与核糖体结合；核糖体依次读取密码子，tRNA 运来相应氨基酸并连接成多肽链。",
+    "explanation": "答案应依次包含转录、mRNA 转运、密码子读取和氨基酸装配。",
+    "concept": "转录与翻译",
+    "question_type": "short-answer",
+    "instruction": "按“DNA—mRNA—核糖体—多肽”的顺序回答。",
+    "source_chunk_ids": [
+      "rag_63d4b114229ecc07c26d"
+    ],
+    "page_start": 61,
+    "page_end": 62,
+    "printed_page_start": 66,
+    "printed_page_end": 67,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        61,
+        62
+      ],
+      "printed_pages": [
+        66,
+        67
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 16,
+      "source_entry_sha256": "e5eb6c186c02916bb92a9754e4b6d399643fe3487e9f6a5822073dcecd67f8e6"
+    },
+    "source_kind": "textbook",
+    "source_quote": "一个mRNA分子上可以相继结合多个核糖体,同时进行多条肽链的合成"
+  },
+  {
+    "question_id": "quiz_c4s2_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_trait_control",
+    "chapter_id": "c4s2",
+    "prompt": "中心法则中的常见主线包括 DNA 经转录形成 RNA、RNA 经翻译指导蛋白质合成。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "正确",
+    "explanation": "DNA → RNA → 蛋白质分别对应转录和翻译。",
+    "concept": "中心法则",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_94b82da8a36ce5963027"
+    ],
+    "page_start": 64,
+    "page_end": 64,
+    "printed_page_start": 69,
+    "printed_page_end": 69,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        64,
+        64
+      ],
+      "printed_pages": [
+        69,
+        69
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 9,
+      "source_entry_sha256": "0cf0a85040856be01c0d9cc466362a19e8afbf2837c99d72158576509b4b1ba4"
+    },
+    "source_kind": "textbook",
+    "source_quote": "补充了遗传信息从RNA流向RNA以及从RNA流向DNA这两条途径"
+  },
+  {
+    "question_id": "quiz_c4s2_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_trait_control",
+    "chapter_id": "c4s2",
+    "prompt": "“基因改变—酶活性变化—代谢过程改变—性状变化”属于基因控制性状的哪条路径？",
+    "choices": [
+      "通过酶影响代谢",
+      "通过染色体数目直接影响",
+      "通过复制产生配子",
+      "通过环境完全决定"
+    ],
+    "answer": "通过酶影响代谢",
+    "explanation": "酶是代谢反应的重要催化者，基因通过影响酶进而间接影响性状。",
+    "concept": "间接控制性状",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_12776e5a52d21f0dc09e"
+    ],
+    "page_start": 64,
+    "page_end": 65,
+    "printed_page_start": 69,
+    "printed_page_end": 70,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        64,
+        65
+      ],
+      "printed_pages": [
+        69,
+        70
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 9,
+      "source_entry_sha256": "1291d7e59329fe004df90fdc2c992f7424bf032c60e8f6e43c58385b37110c9b"
+    },
+    "source_kind": "textbook",
+    "source_quote": "基因通过控制酶的合成来控制代谢过程,进而控制生物体的性状。"
+  },
+  {
+    "question_id": "quiz_c4s2_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_trait_control",
+    "chapter_id": "c4s2",
+    "prompt": "为什么“一个基因决定一个性状”不能概括所有生物性状？",
+    "choices": [],
+    "answer": "有些性状由多个基因共同影响，同一基因也可能参与多个过程；不同基因产物会形成调控网络，环境还会影响基因表达和最终表现，因此性状通常是基因与环境共同作用的结果。",
+    "explanation": "应覆盖多基因、一因多效或网络调控，以及环境影响。",
+    "concept": "性状形成",
+    "question_type": "short-answer",
+    "instruction": "从基因网络和环境两个层面说明。",
+    "source_chunk_ids": [
+      "rag_8ed4901d38eaf65c9f4d"
+    ],
+    "page_start": 65,
+    "page_end": 65,
+    "printed_page_start": 70,
+    "printed_page_end": 70,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        65,
+        65
+      ],
+      "printed_pages": [
+        70,
+        70
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 6,
+      "source_entry_sha256": "4efee78ce8330a020cfbd5ee169d4f6b5ff2256c068d334fa65f9b3611e503f1"
+    },
+    "source_kind": "textbook",
+    "source_quote": "基因与基因、基因与基因产物、基因与环境之间存在着复杂的相互作用"
+  },
+  {
+    "question_id": "quiz_c4s3_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_genetic_code_deciphering",
+    "chapter_id": "c4s3",
+    "prompt": "删除三个碱基一定完全不影响蛋白质，只因为遗传密码是三联体。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "删除三个碱基通常不改变后续阅读框，但会丢失一个氨基酸或改变局部序列，仍可能影响蛋白质。",
+    "concept": "移码",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_3986f104c7d4f969188b"
+    ],
+    "page_start": 68,
+    "page_end": 69,
+    "printed_page_start": 73,
+    "printed_page_end": 74,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        68,
+        69
+      ],
+      "printed_pages": [
+        73,
+        74
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 15,
+      "source_entry_sha256": "af6b653a944b7edfe5d8853bf29c1a811ca305bcd2b55a998ebff090575872b9"
+    },
+    "source_kind": "textbook",
+    "source_quote": "增加或者删除三个碱基时,却合成了具有正常功能的蛋白质。"
+  },
+  {
+    "question_id": "quiz_c4s3_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_genetic_code_deciphering",
+    "chapter_id": "c4s3",
+    "prompt": "移码实验主要支持遗传密码以什么方式读取？",
+    "choices": [
+      "一个碱基一组",
+      "两个碱基一组",
+      "三个碱基一组",
+      "任意长度一组"
+    ],
+    "answer": "三个碱基一组",
+    "explanation": "增删 1、2 个碱基破坏阅读，而增删 3 个可恢复阅读框，支持三联体读取。",
+    "concept": "三联体",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_9ba73d062c8e8861a6ba"
+    ],
+    "page_start": 69,
+    "page_end": 70,
+    "printed_page_start": 74,
+    "printed_page_end": 75,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        69,
+        70
+      ],
+      "printed_pages": [
+        74,
+        75
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 16,
+      "source_entry_sha256": "72443958ee2dc97eaaf473d3f4004d1771c0a5bf641f721b3b62222939e3e6ce"
+    },
+    "source_kind": "textbook",
+    "source_quote": "遗传密码从一个固定的起点开始,以非重叠的方式阅读"
+  },
+  {
+    "question_id": "quiz_c4s3_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_genetic_code_deciphering",
+    "chapter_id": "c4s3",
+    "prompt": "比较移码实验和 poly-U 体外合成实验各自解决了什么问题。",
+    "choices": [],
+    "answer": "移码实验通过增删碱基造成的功能变化，证明遗传信息按三联体、固定阅读框连续读取；poly-U 体外合成实验则把特定三联体 UUU 与具体氨基酸苯丙氨酸对应起来。",
+    "explanation": "要区分“怎样读取”和“具体密码子对应什么氨基酸”。",
+    "concept": "密码破译证据",
+    "question_type": "short-answer",
+    "instruction": "分别写出两个实验的自变量和所得结论。",
+    "source_chunk_ids": [
+      "rag_31c3182c7940debaa6b9"
+    ],
+    "page_start": 70,
+    "page_end": 71,
+    "printed_page_start": 75,
+    "printed_page_end": 76,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        70,
+        71
+      ],
+      "printed_pages": [
+        75,
+        76
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 16,
+      "source_entry_sha256": "8beae94baeeb485842ea8ada342729614c31ea849b2131114d3a2e8a0b45e2cf"
+    },
+    "source_kind": "textbook",
+    "source_quote": "与苯丙氨酸对应的密码子应该是UUU。"
+  },
+  {
+    "question_id": "quiz_c5s1_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_mutation_recombination",
+    "chapter_id": "c5s1",
+    "prompt": "基因突变的方向可以由生物体根据环境需要主动决定。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "基因突变具有随机性和不定向性，环境可筛选变异但不会按需要定向产生突变。",
+    "concept": "突变不定向性",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_e1356b86daff7a3892fe"
+    ],
+    "page_start": 76,
+    "page_end": 77,
+    "printed_page_start": 81,
+    "printed_page_end": 82,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        76,
+        77
+      ],
+      "printed_pages": [
+        81,
+        82
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 10,
+      "source_entry_sha256": "c0049f4afc3ddddc7fea171730f9bc77e9a3a722bf621fc81713d37f56dd97da"
+    },
+    "source_kind": "textbook",
+    "source_quote": "易诱发生物发生基因突变并提高突变频率的因素可分为三类:物理因素、化学因素和生物因素。"
+  },
+  {
+    "question_id": "quiz_c5s1_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_mutation_recombination",
+    "chapter_id": "c5s1",
+    "prompt": "下列哪一项属于基因重组而不是基因突变？",
+    "choices": [
+      "DNA 中一个碱基对被替换",
+      "DNA 中增加一个碱基对",
+      "有性生殖中亲本已有基因形成新组合",
+      "DNA 中缺失两个碱基对"
+    ],
+    "answer": "有性生殖中亲本已有基因形成新组合",
+    "explanation": "基因重组改变已有基因的组合，另外三项都直接改变 DNA 碱基序列。",
+    "concept": "突变与重组",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_766ab568ad6739c9d7a1"
+    ],
+    "page_start": 78,
+    "page_end": 78,
+    "printed_page_start": 83,
+    "printed_page_end": 83,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        78,
+        78
+      ],
+      "printed_pages": [
+        83,
+        83
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 11,
+      "source_entry_sha256": "505900ef1a4186b86477571a07fe11a20b4fe7b1264a89230ee2cc5f4d41ea97"
+    },
+    "source_kind": "textbook",
+    "source_quote": "基因重组(gene recombination) 是指在生物体进行有性生殖的过程中,控制不同性状的基因的重新组合。"
+  },
+  {
+    "question_id": "quiz_c5s1_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_mutation_recombination",
+    "chapter_id": "c5s1",
+    "prompt": "自然突变频率很低，为什么基因突变仍是生物变异和进化的重要来源？",
+    "choices": [],
+    "answer": "种群中个体和基因数量巨大，DNA 复制事件很多，即使单个基因突变概率低，整体仍可产生多种突变；其中可遗传变异经环境选择后能参与进化。",
+    "explanation": "要区分单次低概率与种群尺度累积，并指出可遗传性。",
+    "concept": "突变与进化",
+    "question_type": "short-answer",
+    "instruction": "从个体数量、复制事件和遗传三个角度说明。",
+    "source_chunk_ids": [
+      "rag_766ab568ad6739c9d7a1"
+    ],
+    "page_start": 78,
+    "page_end": 78,
+    "printed_page_start": 83,
+    "printed_page_end": 83,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        78,
+        78
+      ],
+      "printed_pages": [
+        83,
+        83
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 11,
+      "source_entry_sha256": "505900ef1a4186b86477571a07fe11a20b4fe7b1264a89230ee2cc5f4d41ea97"
+    },
+    "source_kind": "textbook",
+    "source_quote": "基因重组(gene recombination) 是指在生物体进行有性生殖的过程中,控制不同性状的基因的重新组合。"
+  },
+  {
+    "question_id": "quiz_c5s2_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_chromosomal_variation",
+    "chapter_id": "c5s2",
+    "prompt": "染色体易位是某一片段在同一条染色体内方向颠倒。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "片段在同一染色体内颠倒是倒位；易位通常指片段移到非同源染色体上。",
+    "concept": "结构变异类型",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_f54508a47f98a2800215"
+    ],
+    "page_start": 80,
+    "page_end": 81,
+    "printed_page_start": 85,
+    "printed_page_end": 86,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        80,
+        81
+      ],
+      "printed_pages": [
+        85,
+        86
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 22,
+      "source_entry_sha256": "df703fc228fc120f363801383a5092969bc31f08e840cee26663fa311baac094"
+    },
+    "source_kind": "textbook",
+    "source_quote": "上述染色体结构的改变,都会使排列在染色体上的基因的数目或排列顺序发生改变,从而导致性状的变异。"
+  },
+  {
+    "question_id": "quiz_c5s2_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_chromosomal_variation",
+    "chapter_id": "c5s2",
+    "prompt": "下列哪一项属于整套染色体组数目的变异？",
+    "choices": [
+      "某号染色体多一条",
+      "一个片段发生倒位",
+      "二倍体形成四倍体",
+      "一个基因缺失碱基"
+    ],
+    "answer": "二倍体形成四倍体",
+    "explanation": "二倍体到四倍体是染色体组整套加倍，其他选项分别是个别染色体、结构或基因层面改变。",
+    "concept": "染色体组",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_8298f24a91c7cb368502"
+    ],
+    "page_start": 82,
+    "page_end": 82,
+    "printed_page_start": 87,
+    "printed_page_end": 87,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        82,
+        82
+      ],
+      "printed_pages": [
+        87,
+        87
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 7,
+      "source_entry_sha256": "19550faabb45d8bbf9bd413dda2648db5d3abf12720d5c6ee3a6ee985485a519"
+    },
+    "source_kind": "textbook",
+    "source_quote": "当秋水仙素作用于正在分裂的细胞时,能够抑制纺锤体的形成,导致染色体不能移向细胞两极,从而引起细胞内染色体数目加倍。"
+  },
+  {
+    "question_id": "quiz_c5s2_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_chromosomal_variation",
+    "chapter_id": "c5s2",
+    "prompt": "请说明单倍体育种为什么能够较快获得稳定遗传的纯合材料。",
+    "choices": [],
+    "answer": "单倍体由配子发育而来，每个位点只有一个等位基因；对其染色体加倍后，同一等位基因成对，个体在各位点迅速成为纯合，因此无需多代自交筛选。",
+    "explanation": "应连接“配子来源—单倍体—染色体加倍—纯合”四步。",
+    "concept": "单倍体育种",
+    "question_type": "short-answer",
+    "instruction": "按育种流程说明染色体组和基因型的变化。",
+    "source_chunk_ids": [
+      "rag_0d5d21c83d61c2b8cc6f"
+    ],
+    "page_start": 82,
+    "page_end": 83,
+    "printed_page_start": 87,
+    "printed_page_end": 88,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        82,
+        83
+      ],
+      "printed_pages": [
+        87,
+        88
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 12,
+      "source_entry_sha256": "5abb3257d9241d800bad4016525d34264f9386c887606c714aa0b16221aaa7da"
+    },
+    "source_kind": "textbook",
+    "source_quote": "利用单倍体植株培育新品种却能明显缩短育种年限。"
+  },
+  {
+    "question_id": "quiz_c5s3_01",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_human_genetic_disease",
+    "chapter_id": "c5s3",
+    "prompt": "21 三体综合征是由 21 号染色体上某一个基因发生碱基替换引起的单基因遗传病。",
+    "choices": [
+      "正确",
+      "错误"
+    ],
+    "answer": "错误",
+    "explanation": "其典型原因是细胞中多一条 21 号染色体，属于染色体数目异常。",
+    "concept": "21 三体综合征",
+    "question_type": "judgment",
+    "instruction": "判断这句话是否正确",
+    "source_chunk_ids": [
+      "rag_980f2ca24cf6683125f1"
+    ],
+    "page_start": 85,
+    "page_end": 86,
+    "printed_page_start": 90,
+    "printed_page_end": 91,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        85,
+        86
+      ],
+      "printed_pages": [
+        90,
+        91
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 16,
+      "source_entry_sha256": "97d04e8fdc1245e745ba76a6553d312ae202255a067f07830fd9670e0c5b36bd"
+    },
+    "source_kind": "textbook",
+    "source_quote": "如果减数分裂时21号染色体不能正常分离,就可能形成21三体综合征。"
+  },
+  {
+    "question_id": "quiz_c5s3_02",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_human_genetic_disease",
+    "chapter_id": "c5s3",
+    "prompt": "下列哪项最符合遗传咨询和产前诊断的合理原则？",
+    "choices": [
+      "替家庭强制作出决定",
+      "只提供一个确定结论",
+      "提供风险信息并支持知情决策",
+      "公开个人遗传信息"
+    ],
+    "answer": "提供风险信息并支持知情决策",
+    "explanation": "遗传服务应提供科学信息，同时尊重隐私、自主决定和个人权利。",
+    "concept": "遗传服务伦理",
+    "question_type": "choice",
+    "instruction": "选择一个最准确的答案",
+    "source_chunk_ids": [
+      "rag_e44dc4a42b26123283fc"
+    ],
+    "page_start": 87,
+    "page_end": 87,
+    "printed_page_start": 92,
+    "printed_page_end": 92,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        87,
+        87
+      ],
+      "printed_pages": [
+        92,
+        92
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 15,
+      "source_entry_sha256": "7e821dfa3415c5cbf9d08ae2250474fbaaec32b34bb1b952c3091ffcaae2f9cf"
+    },
+    "source_kind": "textbook",
+    "source_quote": "产前诊断是在胎儿出生前,医生用专门的检测手段"
+  },
+  {
+    "question_id": "quiz_c5s3_03",
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_human_genetic_disease",
+    "chapter_id": "c5s3",
+    "prompt": "人类基因组计划为什么既有重要科学价值，也需要重视伦理边界？",
+    "choices": [],
+    "answer": "基因组序列为研究基因结构、功能和疾病机制提供基础数据，可促进诊断和医学研究；但遗传信息涉及隐私、歧视风险和个人自主权，采集、使用与共享都需知情同意和规范保护。",
+    "explanation": "答案要同时陈述研究与医学价值，以及隐私、公平和自主方面的风险。",
+    "concept": "基因组与伦理",
+    "question_type": "short-answer",
+    "instruction": "从科学价值和个人权利两个方面回答。",
+    "source_chunk_ids": [
+      "rag_2462d783964e5f23c274"
+    ],
+    "page_start": 87,
+    "page_end": 88,
+    "printed_page_start": 92,
+    "printed_page_end": 93,
+    "source_metadata": {
+      "parser": "mineru",
+      "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+      "pdf_pages": [
+        87,
+        88
+      ],
+      "printed_pages": [
+        92,
+        93
+      ],
+      "ocr_status": [
+        "mineru_content_list"
+      ],
+      "source_entry_count": 15,
+      "source_entry_sha256": "74fbc337cbbf4db27b8043d651fdaa41106adcb0bc7f72ebe38df265b4676e89"
+    },
+    "source_kind": "textbook",
+    "source_quote": "人类基因组计划正式启动于1990年,目的是测定人类基因组的全部DNA序列,解读其中包含的遗传信息。"
+  }
+]

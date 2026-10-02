@@ -25,3 +25,7 @@ storage/
 *.db
 *.tsbuildinfo
 .DS_Store
+
+# Frontend source fixtures are code, not runtime data.
+!frontend/src/demo/data/
+!frontend/src/demo/data/**

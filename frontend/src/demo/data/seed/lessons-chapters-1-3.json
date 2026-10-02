@@ -1,0 +1,1082 @@
+[
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_one",
+    "chapter_id": "c1s1",
+    "title": "孟德尔的豌豆杂交实验（一）",
+    "source_title": "第 1 章 第 1 节 孟德尔的豌豆杂交实验（一）",
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": 2,
+    "printed_page_end": 8,
+    "lesson_kind": "lesson",
+    "status": "supplemental_draft",
+    "confidence": 58,
+    "objectives": [
+      "说明孟德尔选择豌豆并设计人工杂交实验的关键思路",
+      "根据一对相对性状杂交结果区分显性、隐性与性状分离",
+      "用遗传因子的分离和测交解释 3∶1 与 1∶1 的现象"
+    ],
+    "key_concepts": [
+      "豌豆杂交",
+      "相对性状",
+      "显性性状",
+      "隐性性状",
+      "遗传因子",
+      "性状分离",
+      "测交",
+      "分离定律"
+    ],
+    "summary": "孟德尔以豌豆的一对相对性状为切口，把复杂遗传现象拆成可计数的后代比例：F1 只表现一个亲本性状，F2 又出现另一个性状且接近 3∶1；用成对遗传因子在形成配子时分离的假说，并用测交检验，便能把现象转化为分离定律。",
+    "blocks": [
+      {
+        "block_id": "block_mendel_pea_one_design",
+        "block_type": "explanation",
+        "title": "先看孟德尔怎样把问题做小",
+        "content": "孟德尔研究的不是“孩子像谁”这样笼统的问题，而是一次只追踪一对能够清楚区分的相对性状，例如高茎与矮茎、圆粒与皱粒。豌豆具有稳定、易辨认的性状，能自花传粉形成纯种，也便于在花未成熟时去雄并人工授粉，因此能控制亲本而不是被偶然授粉干扰。\n\n实验开始前，要把“纯合亲本”与“表现相同的植株”分开理解。能连续自交多代、后代始终表现同一性状的品系才适合作为亲本；这样当后代出现新的组合时，才能把差异归因于杂交，而不是亲本本来就不稳定。\n\n这一设计给学习者的提示是：遗传实验首先要控制变量、建立可比较的亲本，再记录足够多的后代。把性状分开统计并保留世代信息，后面的比例才有解释价值；若把许多性状混在一起观察，规律就很容易被淹没。 ",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_mendel_pea_one_ratio",
+        "block_type": "diagram",
+        "title": "一对相对性状给出的第一个信号",
+        "content": "用高茎纯种和矮茎纯种杂交时，子一代 F1 通常全表现为高茎；在这一代看不见的矮茎性状，并没有消失。让 F1 自交后，子二代 F2 会再次出现高茎和矮茎，而且在样本足够大时，表现型数量常接近 3∶1。\n\n在这组结果中，F1 中表现出来的性状称为显性性状，未表现而在 F2 重现的性状称为隐性性状。显性并不表示“更强、更常见或更有利”，它只描述同一对遗传因子共同存在时，哪一种性状在表现型上被观察到。\n\n“F2 出现 3∶1”是统计规律，不要求每一小组后代都恰好是三个高茎、一个矮茎。解题时应先确认观察的是哪一代、统计的是表现型还是基因型；把随机波动和理论比例混为一谈，是遗传图解中最常见的错误之一。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_mendel_pea_one_hypothesis",
+        "block_type": "comparison",
+        "title": "用成对因子解释“消失又出现”",
+        "content": "孟德尔把控制一对相对性状的遗传因子设想为成对存在：每个个体从父本和母本各得到一个。以 A 表示显性因子、a 表示隐性因子，纯合高茎可写作 AA，纯合矮茎可写作 aa；二者杂交所得 F1 为 Aa，因 A 的作用表现为高茎。\n\n关键发生在形成配子时：Aa 中的两个遗传因子彼此分离，每个配子只得到 A 或 a 中的一个，而且两类配子机会相等。F1 自交时，雌雄配子随机结合，可形成 AA、Aa、Aa、aa 四种组合，因此基因型比例为 1∶2∶1，表现型比例便为 3∶1。\n\n这套解释同时说明了两个层次：显性与隐性决定杂合子“看起来是什么”，分离决定亲本携带的信息如何进入配子。遇到一对相对性状问题时，先写出亲本基因型，再列配子，最后由配子组合判断基因型和表现型，推理会比直接背比例可靠得多。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_mendel_pea_one_testcross",
+        "block_type": "application",
+        "title": "测交让假说接受检验",
+        "content": "仅凭高茎外表不能判断其基因型是 AA 还是 Aa，因为显性性状会掩盖隐性因子。要识别一个显性个体是否携带隐性因子，可以让它与隐性纯合个体 aa 杂交；这种用隐性纯合亲本检验未知显性个体基因型的方法叫测交。\n\n如果被测的高茎个体是 AA，它只产生 A 配子，与 aa 杂交的后代会全为 Aa，表现高茎；如果它是 Aa，则会产生 A 和 a 两类配子，测交后代在样本足够大时高茎和矮茎接近 1∶1。测交的价值在于让原本被显性性状遮住的信息在后代中显现。\n\n分离定律可以概括为：在杂合子的细胞中，控制同一性状的一对遗传因子彼此独立；在形成配子时，二者分离并分别进入不同配子。它适用于一对等位基因的基本模型，实际题目还应留意样本量、致死、连锁或环境影响等额外条件。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [],
+    "asset_ids": [],
+    "warnings": [
+      "当前源 PDF 缺少第 1 章正文；本课程为基于通行高中生物知识的 AI 补充草稿，待教材原文可用后须逐段教材源文本核验。",
+      "目录可确认原书范围为第 2–8 页；page_start/page_end 的 0–0 表示当前没有可定位的 PDF 正文页，不能把 PDF 第 1–9 页的封面、前言与目录作为本节正文证据。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_mendel_pea_two",
+    "chapter_id": "c1s2",
+    "title": "孟德尔的豌豆杂交实验（二）",
+    "source_title": "第 1 章 第 2 节 孟德尔的豌豆杂交实验（二）",
+    "page_start": 0,
+    "page_end": 0,
+    "printed_page_start": 9,
+    "printed_page_end": 14,
+    "lesson_kind": "lesson",
+    "status": "supplemental_draft",
+    "confidence": 56,
+    "objectives": [
+      "描述两对相对性状杂交中 F1 与 F2 的典型表现型比例",
+      "用分离定律与配子组合解释自由组合的推导过程",
+      "判断自由组合定律的适用条件并用概率完成基础遗传计算"
+    ],
+    "key_concepts": [
+      "两对相对性状",
+      "双因子杂交",
+      "非等位基因",
+      "自由组合",
+      "配子",
+      "9∶3∶3∶1",
+      "乘法定理",
+      "测交"
+    ],
+    "summary": "两对性状杂交不是把四种表现型机械地背成 9∶3∶3∶1，而是把每一对等位基因先按分离定律处理，再把不同对基因形成配子的组合看作相互独立的事件；在适用条件满足时，独立事件的乘法法则便能推出自由组合的结果。",
+    "blocks": [
+      {
+        "block_id": "block_mendel_pea_two_problem",
+        "block_type": "explanation",
+        "title": "两对性状把新问题带到眼前",
+        "content": "孟德尔在一对性状实验的基础上，继续让具有两对相对性状差异的纯种豌豆杂交，例如黄色圆粒与绿色皱粒。F1 往往都表现为两种显性性状；当 F1 自交时，F2 不只出现亲本型组合，还会出现新的性状组合，这说明不同性状并不总是以亲本的方式捆绑传递。\n\n在典型的双因子杂交中，F2 的四类表现型接近 9∶3∶3∶1。这个比例包含四类信息：两种显性性状同时出现、第一对显性而第二对隐性、第一对隐性而第二对显性、两种隐性同时出现；它比“一对性状的 3∶1”更能检验不同遗传因子之间的关系。\n\n观察到 9∶3∶3∶1 后，不应直接断言所有基因都独立遗传。这个比例是特定杂交组合、样本较大且各类配子和合子存活机会相近时的理论预期；实验设计和后续检验的任务，是排除其他导致比例偏离的原因。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_mendel_pea_two_decompose",
+        "block_type": "diagram",
+        "title": "把双因子杂交拆成两个单因子问题",
+        "content": "设两对等位基因为 A/a 和 B/b，纯合亲本 AABB 与 aabb 杂交可得到 F1：AaBb。先只看 A/a，Aa 形成配子时 A 与 a 分离；再只看 B/b，Bb 形成配子时 B 与 b 分离。每一对仍遵循一对性状杂交中已经建立的分离规律。\n\n如果 A/a 与 B/b 的分离互不影响，AaBb 就能形成 AB、Ab、aB、ab 四种配子，且各自概率相等。用“每种配子各占 1/4”而不是只记住四个字母，能够帮助你理解：配子的多样性来自不同对遗传因子的重新组合，而不是一个配子同时带有两份同一等位基因。\n\n雌雄 F1 各产生四类配子后，随机结合可用棋盘格或概率乘法计算。两对性状分别得到 3∶1，再把相应概率相乘，就能推出 9∶3∶3∶1；因此复杂比例的可靠来源是拆分、计算、再合并。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_mendel_pea_two_law",
+        "block_type": "comparison",
+        "title": "自由组合并不是“任意基因都能自由组合”",
+        "content": "自由组合定律说的是：控制不同性状的遗传因子在形成配子时可以自由组合。以基础模型表述，就是非同源染色体上的非等位基因，在减数分裂中因不同同源染色体对的分离而可独立地进入配子；它和“同一对等位基因彼此分离”共同构成双因子杂交的推理基础。\n\n分离定律与自由组合定律的对象不同。前者关注同一对等位基因 A 与 a 如何进入不同配子，后者关注 A/a 这一对和 B/b 这一对之间如何搭配；两者不是互相替代的关系，而是先保证每对分开，再讨论不同对如何组合。\n\n适用时要检查条件：如果两基因位于同一条染色体且距离较近，可能存在连锁，配子比例不会是四种完全相等；如果存在致死、互作或选择，观察到的表现型比例也会变化。基础题先按独立遗传计算，题干给出额外信息时再调整模型。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_mendel_pea_two_probability",
+        "block_type": "application",
+        "title": "用概率和测交把结论落到题目上",
+        "content": "双因子题最稳妥的算法是先分别处理每一对基因，再合并概率。例如 AaBb 自交时，得到 A_ 的概率为 3/4，得到 B_ 的概率也为 3/4；若两对独立，A_B_ 的概率就是 3/4×3/4=9/16。其他三类表现型也可用同一方法推出。\n\n测交同样可以检验双因子杂合体。AaBb 与 aabb 杂交时，若两对基因独立，前者的四类配子与隐性亲本配子结合，后代四种表现型理论上接近 1∶1∶1∶1。这个结果直接反映被测个体产生的配子种类和比例。\n\n做题时先明确符号代表的性状及显隐性，再写亲本、配子和所求事件；若问“至少一个”或“恰好一个”，可用补集或分类求和，不要把不同事件的概率随意相加。概率是对大量后代趋势的表达，不能保证单个家庭或小样本严格符合理论比例。",
+        "citations": [],
+        "source_chunk_ids": [],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [],
+    "asset_ids": [],
+    "warnings": [
+      "当前源 PDF 缺少第 1 章正文；本课程为基于通行高中生物知识的 AI 补充草稿，待教材原文可用后须逐段教材源文本核验。",
+      "目录可确认原书范围为第 9–14 页；page_start/page_end 的 0–0 表示当前没有可定位的 PDF 正文页，不能把 PDF 第 1–9 页的封面、前言与目录作为本节正文证据。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_chromosome",
+    "chapter_id": "c2s2",
+    "title": "基因在染色体上",
+    "source_title": "第 2 章 第 2 节 基因在染色体上",
+    "page_start": 22,
+    "page_end": 26,
+    "printed_page_start": 27,
+    "printed_page_end": 31,
+    "lesson_kind": "lesson",
+    "status": "generated",
+    "confidence": 92,
+    "objectives": [
+      "概括萨顿提出基因在染色体上假说的平行关系证据",
+      "说明摩尔根果蝇实验如何把特定基因与 X 染色体联系起来",
+      "用染色体行为解释分离定律和自由组合定律的现代含义"
+    ],
+    "key_concepts": [
+      "基因",
+      "染色体",
+      "萨顿假说",
+      "类比推理",
+      "摩尔根",
+      "果蝇",
+      "等位基因",
+      "线性排列"
+    ],
+    "summary": "本节把孟德尔看不见的遗传因子放回可观察的染色体行为中：萨顿先以平行关系提出假说，摩尔根再用果蝇杂交把白眼基因与 X 染色体建立实验证据；由此可以把等位基因随同源染色体分离、非等位基因随非同源染色体自由组合连成一个机制链。",
+    "blocks": [
+      {
+        "block_id": "block_gene_chromosome_parallel",
+        "block_type": "explanation",
+        "title": "先把两套“分离行为”对照起来",
+        "content": "孟德尔提出遗传因子时还看不见基因所在的位置；细胞学研究则显示，染色体在配子形成和受精中有规律地成对、分离和恢复。萨顿观察到等位基因的分离与减数分裂中同源染色体的分离很相似，于是提出基因由染色体携带、从亲代传给子代的假说。\n\n这种平行关系至少包括：体细胞中基因和染色体都成对存在，配子中各只保留其中一个；成对成员分别来自父方和母方；不同对的基因可自由组合，不同非同源染色体在减数分裂中也有相应的组合方式。平行并不等于两个事物完全相同，而是为“基因在染色体上”提供了一个可检验的解释框架。\n\n读这一部分时要分清“假说”和“证据”的层级。萨顿的工作让人提出合理推测，却还没有把某一个具体基因定位到某一条具体染色体；科学结论仍需能排除替代解释的实验，因此后续果蝇实验格外关键。",
+        "citations": [
+          {
+            "chunk_id": "rag_02223450f7d59e811841",
+            "page_start": 22,
+            "page_end": 22,
+            "printed_page_start": 27,
+            "printed_page_end": 27,
+            "quote": "基因就在染色体上",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [22, 22],
+              "printed_pages": [27, 27],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 14,
+              "source_entry_sha256": "7badb07f4d0f2d2b6002deb865f133f8fd5f899b3f5424b881810d173f62dfc7"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_02223450f7d59e811841"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_gene_chromosome_reasoning",
+        "block_type": "comparison",
+        "title": "类比能提出假说，不能代替验证",
+        "content": "萨顿的推理属于类比推理：把不可直接观察的基因行为，与可在显微镜下观察的染色体行为作比较。两者在成对存在、父母来源、配子形成时分离等方面的相似性，使“基因位于染色体上”成为一个有解释力的假说。\n\n类比的优势是能在证据尚不完整时提出值得研究的问题，局限是相似行为可能由不同原因造成。科学推理不能因为解释听起来顺畅就停止；要进一步问：能否找到一个明确性状，把控制它的基因与一条确定染色体一一对应，并用可重复的结果支撑这种对应？\n\n因此，学习科学史不只是在记科学家的名字。面对任何结论，都可检查它处于“观察”“假说”“预测”还是“实验检验”的哪一步；把这些步骤分开，才能理解为什么后来摩尔根的实验使染色体遗传理论从合理猜想走向有力证据。",
+        "citations": [
+          {
+            "chunk_id": "rag_13ae80e897cd0ac181e4",
+            "page_start": 22,
+            "page_end": 23,
+            "printed_page_start": 27,
+            "printed_page_end": 28,
+            "quote": "类比推理得出的结论并不具有逻辑的必然性",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [22, 23],
+              "printed_pages": [27, 28],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 17,
+              "source_entry_sha256": "450809b4f2611751e115835dbe34ad98e82db12a8c07f019eee9e7168f9e50d2"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_13ae80e897cd0ac181e4"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_gene_chromosome_morgan",
+        "block_type": "diagram",
+        "title": "果蝇白眼把基因钉到 X 染色体上",
+        "content": "摩尔根选择果蝇作为材料，因为它易饲养、世代短、后代多，便于得到可靠的比例。红眼与白眼的杂交结果表明这是一对等位基因控制的性状，但白眼的出现还与性别相关，这个额外现象为检验染色体理论提供了突破口。\n\n果蝇雌性为 XX、雄性为 XY；若白眼基因位于 X 染色体、Y 染色体没有相应等位基因，就能解释雄果蝇只要从母方得到白眼基因便会表现白眼，以及不同杂交方向后代性别和眼色的差异。这个模型不仅能解释已有数据，还能对测交等后续结果作出预测。\n\n实验结果支持预测后，结论的力度发生了变化：研究者不再只是说“基因和染色体行为相似”，而是把白眼这个特定基因与 X 染色体这条特定染色体联系起来。基因在染色体上的位置由此获得实验证明，也为后来理解伴性遗传铺路。",
+        "citations": [
+          {
+            "chunk_id": "rag_6f111bc647abccce99a4",
+            "page_start": 24,
+            "page_end": 25,
+            "printed_page_start": 29,
+            "printed_page_end": 30,
+            "quote": "用实验证明了基因在染色体上",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [24, 25],
+              "printed_pages": [29, 30],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 9,
+              "source_entry_sha256": "3bc934e07a62ced72857fc3fa72dcc4513c90b49b9a0cd3facaf64b9b896c7f4"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_6f111bc647abccce99a4"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_gene_chromosome_modern",
+        "block_type": "application",
+        "title": "把孟德尔规律翻译成染色体语言",
+        "content": "现代解释中，一对遗传因子对应于一对同源染色体同一位置上的等位基因。杂合体形成配子时，同源染色体在减数第一次分裂中分离，等位基因随之进入不同配子；这就是分离定律的细胞学基础，而不是基因在细胞中凭空“分开”。\n\n不同对的遗传因子可对应非同源染色体上的非等位基因。减数分裂时，各对同源染色体的取向和分离相互独立，于是不同非等位基因的组合也会产生多种可能；这为自由组合定律提供了机制解释，但基础模型需要满足基因不连锁等条件。\n\n基因数量通常远多于染色体数目，所以不能把“一个基因在一条染色体上”误读成“一条染色体只有一个基因”。同一条染色体可含多个基因，基因在染色体上呈线性排列；定位和遗传图谱研究正是进一步询问这些基因相对位置的方法。",
+        "citations": [
+          {
+            "chunk_id": "rag_5b670315035928e27f6e",
+            "page_start": 25,
+            "page_end": 25,
+            "printed_page_start": 30,
+            "printed_page_end": 30,
+            "quote": "基因在染色休上呈线性排列",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [25, 25],
+              "printed_pages": [30, 30],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 11,
+              "source_entry_sha256": "c3f0b86f08093d1c1b534eb7b0e93c384614881ed1dd0b3f1dea62ae2deadf93"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_5b670315035928e27f6e"],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [
+      "rag_02223450f7d59e811841",
+      "rag_13ae80e897cd0ac181e4",
+      "rag_6f111bc647abccce99a4",
+      "rag_5b670315035928e27f6e"
+    ],
+    "asset_ids": [],
+    "warnings": [
+      "教材原文来自 MinerU OCR；短引文保留 OCR 字形，课程正文为 AI 整理讲解，建议结合原文复核。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_sex_linked_inheritance",
+    "chapter_id": "c2s3",
+    "title": "伴性遗传",
+    "source_title": "第 2 章 第 3 节 伴性遗传",
+    "page_start": 28,
+    "page_end": 35,
+    "printed_page_start": 33,
+    "printed_page_end": 40,
+    "lesson_kind": "lesson",
+    "status": "generated",
+    "confidence": 92,
+    "objectives": [
+      "定义伴性遗传并说明性染色体差异为何会改变遗传表现",
+      "用 X 连锁隐性遗传解释红绿色盲的典型传递方式",
+      "比较 X 连锁隐性、X 连锁显性及鸡的伴性遗传应用"
+    ],
+    "key_concepts": [
+      "伴性遗传",
+      "性染色体",
+      "X 染色体",
+      "Y 染色体",
+      "红绿色盲",
+      "携带者",
+      "交叉遗传",
+      "伴性遗传应用"
+    ],
+    "summary": "伴性遗传的关键不在于“性别决定一切”，而在于控制性状的基因位于性染色体上；由于 X 与 Y 携带基因不同，X 连锁隐性性状在男性中更易直接表现，X 连锁显性性状则可呈现不同的亲子传递模式。先写性染色体，再写等位基因，遗传图解才不会倒置。",
+    "blocks": [
+      {
+        "block_id": "block_sex_linked_definition",
+        "block_type": "explanation",
+        "title": "性状为何会和性别一起出现",
+        "content": "如果控制某一性状的基因位于性染色体上，这个性状的遗传表现就会与性别相关，称为伴性遗传。它不是说性染色体上的每个基因都“只控制性别”，而是说雌雄个体拥有的性染色体组合不同，使同一等位基因在两性中的表现和传递机会不同。\n\n以人类和果蝇常见的 XY 型性别决定为例，女性或雌性通常有两条 X 染色体，男性或雄性有一条 X 和一条 Y。X 染色体携带较多基因，Y 染色体所带基因较少；因此 X 上某些基因在 Y 上没有相应等位基因，男性对这些基因只有一个等位基因可供表现。\n\n学习伴性遗传的第一步是把“常染色体上的基因”和“性染色体上的基因”分开。随后再判断致病或性状等位基因是显性还是隐性；仅凭“男性多”或“女性多”不能取代基因型推导，但它能提示我们优先考虑哪一种遗传模型。",
+        "citations": [
+          {
+            "chunk_id": "rag_f42f80a109a143076e3c",
+            "page_start": 28,
+            "page_end": 28,
+            "printed_page_start": 33,
+            "printed_page_end": 33,
+            "quote": "这种现象叫做伴性遗传",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [28, 28],
+              "printed_pages": [33, 33],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 13,
+              "source_entry_sha256": "fad0aaf89672940dec961b75a824bc3096d60efbe3efd43323125bf1daaa92b2"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_f42f80a109a143076e3c"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_sex_linked_x_recessive",
+        "block_type": "diagram",
+        "title": "红绿色盲为什么常见于男性",
+        "content": "红绿色盲的经典模型是 X 连锁隐性遗传。用 Xᴮ 表示正常色觉等位基因、Xᵇ 表示色盲等位基因：女性须为 XᵇXᵇ 才表现色盲，XᴮXᵇ 通常表现正常但为携带者；男性为 XᵇY 时，由于 Y 上没有相应正常等位基因，便直接表现色盲。\n\n家系图中的传递方向由性染色体决定。父亲把 X 染色体给女儿、把 Y 染色体给儿子，因此男性的 X 连锁隐性等位基因不会直接传给儿子；儿子的 X 染色体来自母亲。若女性携带者与正常男性婚配，儿子有一半概率正常、一半概率色盲，女儿则有一半概率成为携带者。\n\n做图解时一定把基因符号写在 X 上，而不是把 b 单独写成“男性基因”。先列母亲可能产生的 Xᴮ、Xᵇ 配子，再列父亲的 Xᴮ、Y 配子，最后按子代性别分类；这样既能得到概率，也能避免把“患者”“携带者”和“基因型”混为一谈。",
+        "citations": [
+          {
+            "chunk_id": "rag_613ba5fa5827524c7166",
+            "page_start": 28,
+            "page_end": 29,
+            "printed_page_start": 33,
+            "printed_page_end": 34,
+            "quote": "X染色体携带着许多基因",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [28, 29],
+              "printed_pages": [33, 34],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 19,
+              "source_entry_sha256": "a1b89404d392ba0dd8aadc8ef86cabb95566f8f1eae8b55fe216a61998d2aa72"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_613ba5fa5827524c7166"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_sex_linked_patterns",
+        "block_type": "comparison",
+        "title": "比较 X 连锁隐性与 X 连锁显性",
+        "content": "X 连锁隐性性状的一个典型特点是男性患者相对较多，因为男性只需携带一个隐性等位基因便会表现。男性患者把自己的 X 染色体给所有女儿、不给儿子；若女儿从母亲处也得到隐性等位基因才会患病，否则可成为携带者，这就形成常说的隔代或交叉传递现象。\n\nX 连锁显性性状的判断恰好要看显性等位基因。男性患者与正常女性婚配时，父亲的患病 X 会传给所有女儿，女儿通常均表现该性状；儿子从父亲得到 Y 而不受这条 X 的直接影响。女性有两条 X，因此 X 连锁显性性状在女性中可能更常见，但具体比例仍要根据母亲基因型推导。\n\n比较时不要只背“男传女、女传子”这样的口号。真正稳定的规则是：父亲给女儿 X、给儿子 Y；母亲给每个子女一条 X；显隐性决定得到等位基因后是否表现。把这三条规则联用，任何给定婚配都能按步骤计算。",
+        "citations": [
+          {
+            "chunk_id": "rag_d1e78dfec65a12f0817a",
+            "page_start": 29,
+            "page_end": 30,
+            "printed_page_start": 34,
+            "printed_page_end": 35,
+            "quote": "儿子有1/2正常,1/2为红绿色盲",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [29, 30],
+              "printed_pages": [34, 35],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 15,
+              "source_entry_sha256": "c8701f47477162a8016f222d48218b77d1f3586b9c5e8ee15ccd726f624283d4"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_d1e78dfec65a12f0817a"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_sex_linked_application",
+        "block_type": "application",
+        "title": "伴性遗传也能服务生产判断",
+        "content": "伴性遗传不仅用于解释人类家系，也可用于生产中的早期雌雄鉴别。鸡的性别决定方式与人类不同：雌鸡为异型性染色体，雄鸡为同型性染色体；若选择合适的羽毛性状进行杂交，雏鸡刚孵化时便可借外表特征区分雌雄。\n\n教材中的芦花鸡例子说明了这一思路：将芦花雌鸡与非芦花雄鸡交配，F1 的雄鸡和雌鸡会表现出可区分的羽毛特征。生产者于是能在早期进行分群，按照目标保留更多产蛋所需的雌鸡；这里利用的是遗传规律带来的预测性，不是单纯观察成年后性别。\n\n应用题要同时检查三个层面：该物种采用何种性别决定方式、性状基因位于哪条性染色体、等位基因的显隐性如何。把人类的 XY 模型不加转换地套到鸟类 ZW 模型上会得到相反结论，因此先写出雌雄的性染色体组成再作遗传图解。",
+        "citations": [
+          {
+            "chunk_id": "rag_b0a205c877552d962ba0",
+            "page_start": 31,
+            "page_end": 32,
+            "printed_page_start": 36,
+            "printed_page_end": 37,
+            "quote": "雌鸡都是非芦花鸡(b)",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [31, 32],
+              "printed_pages": [36, 37],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 16,
+              "source_entry_sha256": "f8c0fda4212a7be8351cf4e64e277497a9761717fd5bf35eb994d302c7e6d843"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_b0a205c877552d962ba0"],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [
+      "rag_f42f80a109a143076e3c",
+      "rag_613ba5fa5827524c7166",
+      "rag_d1e78dfec65a12f0817a",
+      "rag_b0a205c877552d962ba0"
+    ],
+    "asset_ids": [],
+    "warnings": [
+      "教材原文来自 MinerU OCR；短引文保留 OCR 字形，课程正文为 AI 整理讲解，建议结合原文复核。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_genetic_material",
+    "chapter_id": "c3s1",
+    "title": "DNA 是主要的遗传物质",
+    "source_title": "第 3 章 第 1 节 DNA 是主要的遗传物质",
+    "page_start": 37,
+    "page_end": 41,
+    "printed_page_start": 42,
+    "printed_page_end": 46,
+    "lesson_kind": "lesson",
+    "status": "generated",
+    "confidence": 93,
+    "objectives": [
+      "说明格里菲思、艾弗里实验在研究问题上的递进关系",
+      "解释赫尔希和蔡斯如何用同位素标记区分 DNA 与蛋白质的去向",
+      "准确表述 DNA 是主要遗传物质而非所有生物唯一遗传物质"
+    ],
+    "key_concepts": [
+      "遗传物质",
+      "肺炎双球菌转化",
+      "转化因子",
+      "艾弗里",
+      "噬菌体",
+      "同位素标记",
+      "DNA",
+      "RNA"
+    ],
+    "summary": "DNA 被确立为遗传物质并非靠一句结论，而是靠逐步排除：格里菲思发现可遗传的转化，艾弗里证明 DNA 是转化所需成分，赫尔希和蔡斯再以放射性标记显示进入细菌并指导子代形成的是 DNA。绝大多数生物以 DNA 为遗传物质，少数 RNA 病毒则以 RNA 为遗传物质。",
+    "blocks": [
+      {
+        "block_id": "block_dna_material_question",
+        "block_type": "explanation",
+        "title": "遗传物质候选者为什么曾是蛋白质",
+        "content": "20 世纪中叶，人们已知染色体主要由 DNA 和蛋白质组成，于是问题被聚焦为：哪一种物质真正储存并传递遗传信息。蛋白质由多种氨基酸按多样方式排列，早期研究者因此认为它似乎更有能力承载复杂信息；DNA 的结构当时尚未被充分理解。\n\n一个物质若是遗传物质，至少应能在亲代与子代之间稳定传递，并能指导与该物种相同的性状或结构形成。仅仅发现某物质“存在于染色体中”还不够，因为伴随存在不等于负责遗传；实验必须设法把候选物质分开，观察哪一种是必不可少的。\n\n这一节的实验都围绕同一个逻辑：控制其他条件，只改变或追踪一种候选物质，然后看遗传结果是否仍能发生。理解这个逻辑比孤立记住实验结论更重要，它也是阅读任何“某物质决定某现象”实验时应检查的证据标准。",
+        "citations": [
+          {
+            "chunk_id": "rag_fc2a29bb181f26cd0fa2",
+            "page_start": 37,
+            "page_end": 38,
+            "printed_page_start": 42,
+            "printed_page_end": 43,
+            "quote": "染色体主要是由蛋白质和DNA组成的",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [37, 38],
+              "printed_pages": [42, 43],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 16,
+              "source_entry_sha256": "8b87ce94c83341bab65961b1a94caf39728f8403027fd6fa59f7c88267a1df60"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_fc2a29bb181f26cd0fa2"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_material_transformation",
+        "block_type": "diagram",
+        "title": "从“转化现象”走到 DNA 的作用",
+        "content": "格里菲思以肺炎双球菌研究感染现象：有荚膜的 S 型细菌有毒，无荚膜的 R 型细菌无毒。活 R 型与被加热杀死的 S 型混合后，小鼠死亡，且可分离出活 S 型细菌；这表明死 S 型中有某种物质使 R 型发生了可遗传的转化，但该实验还不能确认这种物质是什么。\n\n艾弗里及同事进一步从 S 型细菌中分离 DNA、蛋白质、多糖等成分，分别加入 R 型细菌培养体系。只有 DNA 能使 R 型转化为 S 型；若用 DNA 酶破坏 DNA，转化不再发生。这里的关键是“分别处理、比较结果、再用特异性酶验证必要性”。\n\n因此，艾弗里实验的结论不是“DNA 和蛋白质都参与转化”，而是 DNA 才是使 R 型细菌产生稳定遗传变化的物质。它把格里菲思发现的现象转化为分子层面的因果证据，也显示科学研究常由一个实验提出问题、由下一个实验缩小解释范围。",
+        "citations": [
+          {
+            "chunk_id": "rag_2a3ef8ce38556f4b3c56",
+            "page_start": 38,
+            "page_end": 38,
+            "printed_page_start": 43,
+            "printed_page_end": 43,
+            "quote": "只有加入DNA,R型细菌才能够转化为S型细菌",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [38, 38],
+              "printed_pages": [43, 43],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 5,
+              "source_entry_sha256": "1dfe790765c605e2636648583baf06ca68034ca6bf65bfaac40438d07a24d9eb"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_2a3ef8ce38556f4b3c56"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_material_phage",
+        "block_type": "comparison",
+        "title": "同位素标记把 DNA 和蛋白质分开追踪",
+        "content": "噬菌体的结构简单，外壳主要是蛋白质，内部含 DNA；它感染大肠杆菌后能利用细菌物质增殖。赫尔希和蔡斯利用蛋白质含硫、DNA 含磷这一化学差异，分别用放射性硫标记蛋白质、用放射性磷标记 DNA，使两种候选物质在后续实验中可被单独追踪。\n\n让标记噬菌体短时间感染细菌后，搅拌可使留在细胞表面的噬菌体外壳脱落，离心可把细菌沉淀与较轻的外壳颗粒分开。若某种标记主要留在沉淀，说明该物质进入了细菌；若主要在上清液，则说明它多留在细胞外。\n\n结果显示 DNA 标记进入细菌，并可在子代噬菌体中检出；蛋白质标记主要留在外面。实验并非只看到“DNA 在”，而是把进入细胞、指导子代形成和遗传传递连成证据链，因此能有力支持 DNA 是噬菌体的遗传物质。",
+        "citations": [
+          {
+            "chunk_id": "rag_6cb1ed9e3f2f3fde7d60",
+            "page_start": 40,
+            "page_end": 41,
+            "printed_page_start": 45,
+            "printed_page_end": 46,
+            "quote": "DNA进人到细菌的细胞中,而蛋白质外壳仍留在外面",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [40, 41],
+              "printed_pages": [45, 46],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 11,
+              "source_entry_sha256": "ef6eca0f726d183548cefce8ed068bf943df49fbbbcbdd22a49555ac95fdbc27"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_6cb1ed9e3f2f3fde7d60"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_material_scope",
+        "block_type": "application",
+        "title": "“主要”两个字限定了结论范围",
+        "content": "细菌、真核生物以及多数病毒以 DNA 作为遗传物质，因此在生物学中说 DNA 是主要的遗传物质。DNA 具有稳定储存信息、准确复制并在细胞或病毒增殖时被传递的能力，这些性质与前面实验的结果相互印证。\n\n但“主要”不等于“唯一”。有些病毒不含 DNA，只含蛋白质和 RNA；在这些病毒中，能使宿主获得感染性的遗传物质是 RNA。准确表述应是：绝大多数生物的遗传物质是 DNA，少数 RNA 病毒的遗传物质是 RNA。\n\n判断题中常见的陷阱是把“染色体”“DNA”“遗传物质”直接画等号。对有细胞结构的生物而言，DNA 是遗传物质，染色体是 DNA 与蛋白质等形成的结构；对病毒要看它究竟含 DNA 还是 RNA。先识别对象，结论才不会过度泛化。",
+        "citations": [
+          {
+            "chunk_id": "rag_3bf96c0adfa4b46800ac",
+            "page_start": 41,
+            "page_end": 41,
+            "printed_page_start": 46,
+            "printed_page_end": 46,
+            "quote": "绝大多数生物的遗传物质是DNA",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [41, 41],
+              "printed_pages": [46, 46],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 18,
+              "source_entry_sha256": "e6d7d36c88a9167e9a80ed9f0114069fb8207c83ec9c365e687483d1f2217f07"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_3bf96c0adfa4b46800ac"],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [
+      "rag_fc2a29bb181f26cd0fa2",
+      "rag_2a3ef8ce38556f4b3c56",
+      "rag_6cb1ed9e3f2f3fde7d60",
+      "rag_3bf96c0adfa4b46800ac"
+    ],
+    "asset_ids": [],
+    "warnings": [
+      "教材原文来自 MinerU OCR；短引文保留 OCR 字形，课程正文为 AI 整理讲解，建议结合原文复核。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_structure",
+    "chapter_id": "c3s2",
+    "title": "DNA 分子的结构",
+    "source_title": "第 3 章 第 2 节 DNA 分子的结构",
+    "page_start": 42,
+    "page_end": 46,
+    "printed_page_start": 47,
+    "printed_page_end": 51,
+    "lesson_kind": "lesson",
+    "status": "generated",
+    "confidence": 94,
+    "objectives": [
+      "说出 DNA 的组成单位及双螺旋结构的三个主要特点",
+      "运用碱基互补配对原则判断双链 DNA 中碱基数量关系",
+      "解释 DNA 结构如何兼顾稳定性、信息储存和准确复制的可能性"
+    ],
+    "key_concepts": [
+      "脱氧核苷酸",
+      "双螺旋",
+      "反向平行",
+      "磷酸-脱氧核糖骨架",
+      "碱基对",
+      "氢键",
+      "碱基互补配对",
+      "A-T、G-C"
+    ],
+    "summary": "DNA 是由四种脱氧核苷酸连接成的两条反向平行长链：外侧的磷酸—脱氧核糖交替构成骨架，内侧碱基按 A—T、G—C 配对并以氢键相连。固定骨架带来稳定性，可变碱基顺序承载信息，而互补配对又为复制提供模板。",
+    "blocks": [
+      {
+        "block_id": "block_dna_structure_units",
+        "block_type": "explanation",
+        "title": "先把 DNA 拆回它的基本单位",
+        "content": "DNA 是由许多脱氧核苷酸连接而成的长链。每个脱氧核苷酸包含三部分：磷酸、脱氧核糖和一种含氮碱基；碱基有四种，分别记作 A、T、G、C。四种单位的共同部分相同，区别主要来自碱基。\n\n理解“DNA 只有四种基本单位”时，不要误以为 DNA 的信息只有四种。就像有限的字母能够排列成大量不同句子，脱氧核苷酸的数量和排列顺序可以变化，因而一条长 DNA 链可携带极其丰富的信息；信息的关键是顺序，而不是仅仅知道有哪些部件。\n\n构建模型时，可把脱氧核糖看作连接中心：它一端与磷酸相连，另一端与碱基相连，相邻核苷酸再通过磷酸—脱氧核糖连接形成一条链。先分清“一个核苷酸内部的连接”和“核苷酸之间形成长链的连接”，后面理解骨架会更清楚。",
+        "citations": [
+          {
+            "chunk_id": "rag_2a7864978f3ade008eb9",
+            "page_start": 42,
+            "page_end": 43,
+            "printed_page_start": 47,
+            "printed_page_end": 48,
+            "quote": "DNA分子是以4种脱氧核苷酸为单位连接而成的长链",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [42, 43],
+              "printed_pages": [47, 48],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 16,
+              "source_entry_sha256": "0f36fc7b2e6b131447f313b2d2f54a0eb4c409acf686c987631269042029d431"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_2a7864978f3ade008eb9"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_structure_pairing",
+        "block_type": "diagram",
+        "title": "从数据约束推出碱基配对",
+        "content": "沃森和克里克构建 DNA 模型时，既利用了 X 射线衍射资料，也重视化学结构和碱基数量的约束。查哥夫发现 DNA 中 A 的量总是等于 T 的量、G 的量总是等于 C 的量；这一规律提示碱基之间并不是随意排列，而可能存在成对关系。\n\n当 A 与 T 配对、G 与 C 配对时，两类碱基对具有相近的形状和直径，能够排列成稳定、宽度一致的双链结构。两条链之间的碱基通过氢键相连，既能使两条链保持在一起，又不像链内的共价连接那样难以在复制时打开。\n\n“互补”描述的是一一对应的配对规则，不是四种碱基在整条 DNA 中各占相等比例。双链 DNA 中必有 A=T、G=C，但 A+T 不一定等于 G+C；题目给出其中一个碱基数量时，要先用互补关系求其配对碱基，再结合总数求其余部分。",
+        "citations": [
+          {
+            "chunk_id": "rag_67314ab8a2c59f757cb8",
+            "page_start": 43,
+            "page_end": 44,
+            "printed_page_start": 48,
+            "printed_page_end": 49,
+            "quote": "A与T配对,G与C配对",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [43, 44],
+              "printed_pages": [48, 49],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 11,
+              "source_entry_sha256": "6d7a2c5c4bc1675aeed8cd843d1113ed5976c703d762431b88184cff42e0702f"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_67314ab8a2c59f757cb8"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_structure_spatial",
+        "block_type": "comparison",
+        "title": "用三个位置关系记住双螺旋",
+        "content": "DNA 双螺旋的第一点是“两条链、反向平行、盘旋成螺旋”。反向平行意味着两条链的方向相反，不是两根同向的绳子并排放置；在模型和图中可用两端不同的方向标记帮助判断，而不能只看图形是否像梯子。\n\n第二点是“骨架在外、碱基在内”。脱氧核糖和磷酸交替连接构成外侧基本骨架，碱基伸向内部。固定的外侧骨架让结构具有稳定的总体形态，内侧碱基既受配对规则约束，又能通过不同顺序形成信息差异。\n\n第三点是“碱基按互补规则成对”。A—T、G—C 的氢键把两条反向平行链连接成完整分子。答结构题时按“链数和空间方向—骨架位置—碱基配对”三层组织，比把名词零散列出更容易得到完整表述。",
+        "citations": [
+          {
+            "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+            "page_start": 44,
+            "page_end": 45,
+            "printed_page_start": 49,
+            "printed_page_end": 50,
+            "quote": "两条链按反向平行方式盘旋成双螺旋结构",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [44, 45],
+              "printed_pages": [49, 50],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 21,
+              "source_entry_sha256": "c84ab4a332e6b68cbb9ecb89146b1c3ff344b7c82e7cb343743b765e15e268fa"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_9b48c1d0a506ffde2f9b"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_structure_information",
+        "block_type": "application",
+        "title": "同一结构怎样同时稳定又能储存信息",
+        "content": "DNA 的骨架在所有位置都遵循相同的连接方式，因此整体结构比较稳定；四种碱基的排列顺序却可以变化，因此不同 DNA 分子能够储存不同遗传信息。稳定性与多样性并不矛盾：前者来自共同的结构框架，后者来自框架内部的序列变化。\n\n双链互补配对还给复制提供了精确模板。若一条链的碱基顺序已知，另一条链可按 A—T、G—C 规则确定；当双链在复制时局部解开，每条旧链都能指导形成一条互补新链。下一节的半保留复制正是从这项结构特征出发。\n\n应用到计算时，先确认题目讨论的是双链 DNA 还是单链。双链中 A 与 T、G 与 C 相等，且 A+G=T+C；单链不必满足这些等式。对于“有多少个脱氧核苷酸”一类题，含 n 个碱基对的双链 DNA 含有 2n 个脱氧核苷酸。",
+        "citations": [
+          {
+            "chunk_id": "rag_098453a8c3af11026b66",
+            "page_start": 45,
+            "page_end": 46,
+            "printed_page_start": 50,
+            "printed_page_end": 51,
+            "quote": "DNA只含有4种脱氧核苷酸",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [45, 46],
+              "printed_pages": [50, 51],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 36,
+              "source_entry_sha256": "c682a60e74042f341c002ccce21cb7daf205c1c65261e2c574acc034b3151516"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_098453a8c3af11026b66"],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [
+      "rag_2a7864978f3ade008eb9",
+      "rag_67314ab8a2c59f757cb8",
+      "rag_9b48c1d0a506ffde2f9b",
+      "rag_098453a8c3af11026b66"
+    ],
+    "asset_ids": [],
+    "warnings": [
+      "教材原文来自 MinerU OCR；短引文保留 OCR 字形，课程正文为 AI 整理讲解，建议结合原文复核。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_dna_replication",
+    "chapter_id": "c3s3",
+    "title": "DNA 的复制",
+    "source_title": "第 3 章 第 3 节 DNA 的复制",
+    "page_start": 47,
+    "page_end": 49,
+    "printed_page_start": 52,
+    "printed_page_end": 54,
+    "lesson_kind": "lesson",
+    "status": "generated",
+    "confidence": 94,
+    "objectives": [
+      "说明 DNA 半保留复制假说与双螺旋互补配对之间的关系",
+      "概述同位素示踪实验如何检验半保留复制",
+      "按顺序描述 DNA 复制的条件、过程与遗传学意义"
+    ],
+    "key_concepts": [
+      "DNA 复制",
+      "半保留复制",
+      "模板链",
+      "碱基互补配对",
+      "同位素示踪",
+      "解旋",
+      "DNA 聚合酶",
+      "遗传信息连续性"
+    ],
+    "summary": "DNA 复制的核心是“每条旧链作模板”：双螺旋局部解开后，游离脱氧核苷酸按互补配对原则形成新链，每个子代 DNA 都含一条亲代链和一条新合成链。半保留复制既由同位素示踪得到证实，也解释了遗传信息如何在细胞分裂前被准确传递。",
+    "blocks": [
+      {
+        "block_id": "block_dna_replication_hypothesis",
+        "block_type": "explanation",
+        "title": "从双螺旋结构自然提出复制方式",
+        "content": "DNA 的两条链靠互补碱基配对相连，因此如果两条链暂时分开，每一条旧链上的碱基顺序都能规定一条新链的碱基顺序。沃森和克里克据此提出：DNA 复制时双螺旋解开，两条单链分别作为模板，游离脱氧核苷酸按互补规则配对并形成新链。\n\n复制完成后，每个新 DNA 分子都保留原 DNA 的一条链，另一条是新合成的链，这种方式称为半保留复制。“半保留”保留的是每个子代分子中的一条旧单链，不是保留半个碱基、也不是一个子代分子全旧另一个全新。\n\n结构提供的是合理假说，不是最终证据。全保留复制和分散复制等模型也曾被提出；要区分它们，必须让亲代与新合成 DNA 带有可区分标记，并观察经过不同复制代数后 DNA 的密度或位置变化。",
+        "citations": [
+          {
+            "chunk_id": "rag_eefee743a9bb75bd4704",
+            "page_start": 47,
+            "page_end": 47,
+            "printed_page_start": 52,
+            "printed_page_end": 52,
+            "quote": "这种复制方式被称做半保留复制",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [47, 47],
+              "printed_pages": [52, 52],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 14,
+              "source_entry_sha256": "3d9d1952894f1510f415f8f9db222b7105dbdb5fd51a830de67f9d1052df5cd6"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_eefee743a9bb75bd4704"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_replication_evidence",
+        "block_type": "diagram",
+        "title": "用密度标记追踪旧链与新链",
+        "content": "检验复制方式的实验思路是先让大肠杆菌在含重氮同位素的培养基中繁殖，使其 DNA 都带有较高密度的标记；再转移到含轻氮的培养基中继续培养。此后新合成的 DNA 链会带轻标记，而原有链仍带重标记，亲代与子代成分便可被区分。\n\n研究者在不同复制时刻收集细菌、提取 DNA 并进行离心，通过 DNA 带在离心管中的位置判断密度。复制一代后若只出现一条中等密度带，能排除全保留模型；继续复制后出现中等密度带和轻密度带，符合每个分子初次均含一条旧链、随后轻链比例增加的半保留预期。\n\n读实验图时先问“重标记在哪里、轻标记在哪里、取样是在第几代”，再判断每条带代表的双链组成。不要把离心带的数目简单等同于 DNA 分子数；带的位置反映的是 DNA 分子的密度类型，样品中同一类型的许多分子会聚成同一条带。",
+        "citations": [
+          {
+            "chunk_id": "rag_2e7e59c9be7c9c1fee52",
+            "page_start": 47,
+            "page_end": 48,
+            "printed_page_start": 52,
+            "printed_page_end": 53,
+            "quote": "在不同时刻收集大肠杆菌并提取DNA",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [47, 48],
+              "printed_pages": [52, 53],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 5,
+              "source_entry_sha256": "21769d33f917670c0f3cb7f438d004a32783428b074eab0d91d434bcb871a0e2"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_2e7e59c9be7c9c1fee52"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_replication_process",
+        "block_type": "comparison",
+        "title": "把复制过程读成一条连续流程",
+        "content": "DNA 复制发生在细胞有丝分裂的间期和减数第一次分裂前的间期，通常伴随染色体复制。复制开始时，在能量和解旋酶等作用下，DNA 双链局部解开，原先两条互补链暴露出来；这里的“解旋”是为模板读取创造条件，并不表示 DNA 被完全破坏。\n\n随后，每一段母链分别作为模板，DNA 聚合酶等酶利用细胞中游离的四种脱氧核苷酸为原料，按 A—T、G—C 的规则合成互补子链。随着模板继续解开，子链持续延伸，并与对应的模板链重新盘绕成双螺旋；过程的本质是边解旋、边配对、边延伸。\n\n复制结束后，一个 DNA 分子形成两个遗传信息相同的 DNA 分子，每个都由一条母链和一条子链组成。答流程题可依次写“解旋—以母链为模板—互补配对合成子链—形成两个 DNA 分子”，并补全模板、原料、能量和酶等必要条件。",
+        "citations": [
+          {
+            "chunk_id": "rag_250b3bfd28ddb76122e0",
+            "page_start": 48,
+            "page_end": 49,
+            "printed_page_start": 53,
+            "printed_page_end": 54,
+            "quote": "DNA的复制是指以亲代DNA为模板合成子代DNA的过程",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [48, 49],
+              "printed_pages": [53, 54],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 8,
+              "source_entry_sha256": "f77419731e16ceb5994222f109d4ee725cc8b061d1024e388ff81d692460d65e"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_250b3bfd28ddb76122e0"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_dna_replication_meaning",
+        "block_type": "application",
+        "title": "准确复制怎样保证遗传信息连续",
+        "content": "DNA 的双螺旋使每一条旧链都能作为精确模板，碱基互补配对使新链的序列由模板链限定。这解释了为什么复制后的两个 DNA 分子通常具有相同遗传信息，也解释了细胞分裂后子细胞为何能获得与亲代细胞一致的遗传信息基础。\n\n复制需要模板、原料、能量和酶等基本条件，缺少其中任何一类都不能完成正常复制。不要把 DNA 聚合酶与 DNA 连接酶、解旋酶混为一谈：在基础表述中，解旋酶帮助打开双链，DNA 聚合酶催化子链延伸，其他酶在更完整的复制体系中各有分工。\n\n互补配对能显著提高准确性，却不意味着绝不出错。极低频率的复制错误可能形成突变；多数错误可被校正，少数保留下来既可能影响生物功能，也可能为遗传变异提供来源。因此，“准确传递”和“发生变异”并不是相互排斥的两个命题。",
+        "citations": [
+          {
+            "chunk_id": "rag_93aed9e316d5f0882998",
+            "page_start": 49,
+            "page_end": 49,
+            "printed_page_start": 54,
+            "printed_page_end": 54,
+            "quote": "DNA分子的复制是一个边解旋边复制的过程",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [49, 49],
+              "printed_pages": [54, 54],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 10,
+              "source_entry_sha256": "77f4658213a4caa3d28a43124f646c8f645e14af20ed2bb7f18c10112a3812d2"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_93aed9e316d5f0882998"],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [
+      "rag_eefee743a9bb75bd4704",
+      "rag_2e7e59c9be7c9c1fee52",
+      "rag_250b3bfd28ddb76122e0",
+      "rag_93aed9e316d5f0882998"
+    ],
+    "asset_ids": [],
+    "warnings": [
+      "教材原文来自 MinerU OCR；短引文保留 OCR 字形，课程正文为 AI 整理讲解，建议结合原文复核。"
+    ]
+  },
+  {
+    "book_id": "book_biology_2",
+    "lesson_id": "lesson_gene_dna_segment",
+    "chapter_id": "c3s4",
+    "title": "基因是有遗传效应的 DNA 片段",
+    "source_title": "第 3 章 第 4 节 基因是有遗传效应的 DNA 片段",
+    "page_start": 50,
+    "page_end": 52,
+    "printed_page_start": 55,
+    "printed_page_end": 57,
+    "lesson_kind": "lesson",
+    "status": "generated",
+    "confidence": 93,
+    "objectives": [
+      "从 DNA 与基因数量、转基因等实例概括基因的定义",
+      "解释脱氧核苷酸序列如何构成遗传信息的多样性和特异性",
+      "区分“一个 DNA 分子”“一个基因”和“有遗传效应的 DNA 片段”"
+    ],
+    "key_concepts": [
+      "基因",
+      "DNA 片段",
+      "遗传效应",
+      "脱氧核苷酸序列",
+      "遗传信息",
+      "DNA 多样性",
+      "DNA 特异性",
+      "转基因"
+    ],
+    "summary": "基因不是整条 DNA 分子的同义词：一条 DNA 上可分布多个基因，每个基因是具有特定遗传效应的 DNA 片段。DNA 的磷酸—脱氧核糖骨架相对稳定，而四种碱基的特定排列顺序储存遗传信息；序列的可变性带来多样性，特定性带来个体和物种的可识别差异。",
+    "blocks": [
+      {
+        "block_id": "block_gene_dna_segment_scale",
+        "block_type": "explanation",
+        "title": "先分清 DNA 分子与基因不是同一个尺度",
+        "content": "一个 DNA 分子可以很长，并在其上分布许多个基因；因此“有一个 DNA 分子”不等于“只有一个基因”。以细菌为例，细胞可有一条很长的 DNA 分子，而同一分子上包含数千个功能不同的基因，基因只是其中承担特定遗传作用的片段。\n\n同样，基因数也不等于 DNA 总碱基数。DNA 中有的序列属于基因，有的序列不构成基因；因此比较“某生物有多少条染色体”“多少个 DNA 分子”“多少个基因”时，不能期待它们一一相等。先明确题目讨论的是分子、片段还是遗传效应，才不会在数量关系上混淆。\n\n基因与 DNA 的关系可用“书与章节”作不完全类比：DNA 像承载大量文字的长载体，基因像其中能产生特定信息作用的段落。这个类比只用于理解层级，真正的定义仍必须回到生物学：基因是有遗传效应的 DNA 片段。",
+        "citations": [
+          {
+            "chunk_id": "rag_87e3c59499b0c36b47c2",
+            "page_start": 50,
+            "page_end": 51,
+            "printed_page_start": 55,
+            "printed_page_end": 56,
+            "quote": "每个基因的平均长度约为1000个碱基对",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [50, 51],
+              "printed_pages": [55, 56],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 18,
+              "source_entry_sha256": "b6e6265a8c4c9e5630eeb476d952c4c03fb4ae21428d6a69fb3db8f85912fd5a"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_87e3c59499b0c36b47c2"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_gene_dna_segment_effect",
+        "block_type": "diagram",
+        "title": "用遗传效应给“基因”下定义",
+        "content": "要判断一段 DNA 是否是基因，不能只看它有多长或位于哪条染色体，而要看它是否具有特定遗传效应。海蜇绿色荧光蛋白基因转入小鼠后，小鼠在相应条件下能够产生绿色荧光，这类转基因结果说明一段特定 DNA 片段携带的信息能够影响可观察到的性状或产物。\n\n“有遗传效应”强调的是该 DNA 片段所包含的信息能够在生物体中发挥特定作用，并可在遗传过程中传递。不同基因可影响不同的性状或生物学过程；同一性状也可能受多个基因和环境共同影响，所以不能把“一个性状”机械地等同于“一个基因”。\n\n人类基因组中构成基因的碱基只占 DNA 碱基总数的一部分，也提醒我们不要把整条 DNA 都叫成一个基因。准确说法是：DNA 是遗传信息的主要载体，基因是 DNA 上具有特定遗传效应的片段；这一层级关系要在概念题中完整保留。",
+        "citations": [
+          {
+            "chunk_id": "rag_682af57a9050fbd8a7cc",
+            "page_start": 51,
+            "page_end": 51,
+            "printed_page_start": 56,
+            "printed_page_end": 56,
+            "quote": "构成基因的碱基数占碱基总数的比例不超过2%",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [51, 51],
+              "printed_pages": [56, 56],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 13,
+              "source_entry_sha256": "b16ecdbb0db12b14ca69efc69ffa4ac3f83bb44cff0a0cd9b9ed1a3faf06eac2"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_682af57a9050fbd8a7cc"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_gene_dna_segment_information",
+        "block_type": "comparison",
+        "title": "遗传信息藏在可变的碱基顺序中",
+        "content": "DNA 分子的基本骨架由脱氧核糖和磷酸交替连接，从头到尾的结构形式相对稳定；真正能产生巨大差异的是内侧四种碱基的排列顺序。不同的基因具有不同的脱氧核苷酸序列，正是这些特定序列使它们携带不同的遗传信息并产生不同遗传效应。\n\n四种碱基按不同顺序排列可形成极多种序列，因而 DNA 具有多样性；对某一个 DNA 分子或某个基因而言，其碱基排列顺序又是特定的，因而具有特异性。多样性说明“可能有多少不同信息”，特异性说明“这个个体或片段为什么可被区分”，两者是同一序列系统的两个方面。\n\n不要把 DNA 的碱基“种类”与“排列顺序”混淆。所有 DNA 都只有 A、T、G、C 四种碱基，但不同生物、不同个体和不同基因之间的信息差异主要来自数量与顺序；这也为 DNA 指纹等识别技术提供了分子层面的依据。",
+        "citations": [
+          {
+            "chunk_id": "rag_38be4fab7d12caacb610",
+            "page_start": 51,
+            "page_end": 52,
+            "printed_page_start": 56,
+            "printed_page_end": 57,
+            "quote": "每一个基因都是特定的DNA片段",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [51, 52],
+              "printed_pages": [56, 57],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 16,
+              "source_entry_sha256": "17194f60d5c9bf500c56ba584b56da28ce8e62c3f2ac31f6f6c57e92b83c55f9"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_38be4fab7d12caacb610"],
+        "asset_ids": [],
+        "ai_generated": true
+      },
+      {
+        "block_id": "block_gene_dna_segment_application",
+        "block_type": "application",
+        "title": "从序列组合理解信息容量与身份识别",
+        "content": "如果一个位置有四种碱基可选，长度为 n 的序列在理想化模型中就有 4ⁿ 种可能排列；长度每增加一点，可能的排列数便以倍数增长。教材用简化情境帮助理解：少量碱基对已可构成很多序列，更长的 DNA 片段当然足以容纳丰富的遗传信息。\n\n真实生物的 DNA 序列并不是完全随机的。许多序列因功能、复制、调控或进化限制而被保留，有些序列会重复；所以“组合数巨大”说明 DNA 有足够的信息容量，并不表示每一种随机序列都会成为有功能的基因。基因仍需满足“具有遗传效应”这一限定。\n\n在身份识别等应用中，利用的正是 DNA 序列在个体间的多样性和特异性。解释这类技术时，正确逻辑是：不同个体在某些 DNA 片段的碱基序列或长度上存在差异，检测这些差异可提供鉴别依据；不能把它说成只要看到四种碱基就能区分个体。",
+        "citations": [
+          {
+            "chunk_id": "rag_1dfdd4be05b5580dd078",
+            "page_start": 52,
+            "page_end": 52,
+            "printed_page_start": 57,
+            "printed_page_end": 57,
+            "quote": "遗传信息蕴藏在4种碱基的排列顺序之中",
+            "source_metadata": {
+              "parser": "mineru",
+              "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+              "pdf_pages": [52, 52],
+              "printed_pages": [57, 57],
+              "ocr_status": ["mineru_content_list"],
+              "source_entry_count": 10,
+              "source_entry_sha256": "ee111c9dd620edd453ead0159d52aa8a67746bc39160fddf4072f3761dc56b25"
+            }
+          }
+        ],
+        "source_chunk_ids": ["rag_1dfdd4be05b5580dd078"],
+        "asset_ids": [],
+        "ai_generated": true
+      }
+    ],
+    "source_chunk_ids": [
+      "rag_87e3c59499b0c36b47c2",
+      "rag_682af57a9050fbd8a7cc",
+      "rag_38be4fab7d12caacb610",
+      "rag_1dfdd4be05b5580dd078"
+    ],
+    "asset_ids": [],
+    "warnings": [
+      "教材原文来自 MinerU OCR；短引文保留 OCR 字形，课程正文为 AI 整理讲解，建议结合原文复核。"
+    ]
+  }
+]

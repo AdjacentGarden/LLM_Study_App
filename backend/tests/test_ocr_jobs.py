@@ -311,6 +311,7 @@ def test_progress_estimate_moves_early_and_never_claims_completion() -> None:
     assert 0.939 <= values[-1] <= 0.94
 
 
+@pytest.mark.skipif(not hasattr(os, "killpg"), reason="POSIX process-group termination requires os.killpg")
 def test_process_tree_termination_includes_child_with_its_own_session(tmp_path: Path) -> None:
     child_pid_file = tmp_path / "child.pid"
     script = (

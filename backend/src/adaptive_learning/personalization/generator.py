@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from ..assessment.item_generation import stable_knowledge_point_id
 from ..assessment.models import LearnerProfile, MasteryPosterior
 from ..ingestion.models import ChapterDraft, SourceQuote
+from .imported_content import ImportedTeachingUnit
 from .models import (
     ChapterLearningBundle,
     Flashcard,
@@ -36,9 +37,18 @@ def profile_fingerprint(profile: LearnerProfile) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def chapter_fingerprint(chapter: ChapterDraft) -> str:
+def chapter_fingerprint(
+    chapter: ChapterDraft, imported_content_hash: str | None = None
+) -> str:
     # Invalidate compiled drafts when teaching-text semantics change.
-    return hashlib.sha256(("complete-titles-v2:" + chapter.model_dump_json()).encode()).hexdigest()
+    # Keep the exact old payload for persisted flat chapters: newly optional
+    # hierarchy fields must not invalidate an existing course when absent.
+    optional = {"parent_id", "level", "heading_block_id", "has_supplementary_content"}
+    absent = {field for field in optional if getattr(chapter, field) is None}
+    payload = chapter.model_dump_json(exclude=absent)
+    if imported_content_hash:
+        payload += f":imported-teaching-v1:{imported_content_hash}"
+    return hashlib.sha256(("complete-titles-v2:" + payload).encode()).hexdigest()
 
 
 class ChapterCourseCompiler:
@@ -52,6 +62,7 @@ class ChapterCourseCompiler:
         decision: PersonalizationDecision,
         version: int = 1,
         instance_key: str = "",
+        imported: ImportedTeachingUnit | None = None,
     ) -> ChapterLearningBundle:
         if version < 1:
             raise ValueError("course version must be positive")
@@ -59,7 +70,9 @@ class ChapterCourseCompiler:
         if not candidates:
             raise ValueError("chapter has no evidence-backed knowledge points")
         selected = candidates[: self._point_limit(profile, decision.depth, len(candidates))]
-        source_hash = chapter_fingerprint(chapter)
+        source_hash = chapter_fingerprint(
+            chapter, imported.content_hash if imported is not None else None
+        )
         profile_hash = profile_fingerprint(profile)
         course_digest = hashlib.sha256(
             f"{instance_key}:{chapter.chapter_id}:{source_hash}:{profile_hash}".encode()
@@ -75,6 +88,10 @@ class ChapterCourseCompiler:
 
         for index, (point_id, label, quotes, posterior) in enumerate(selected, start=1):
             citations = [_citation(quote) for quote in quotes]
+            if imported is not None:
+                for context_label, context in imported.point_contexts:
+                    if context_label == label and context not in citations:
+                        citations.append(context)
             knowledge_points.append(
                 KnowledgePoint(
                     point_id=point_id,
@@ -149,12 +166,91 @@ class ChapterCourseCompiler:
             TeachingDepth.ADVANCED: 6,
         }[decision.depth]
         reading = reading[:reading_limit]
+        if imported is not None:
+            selected_ids = {point.point_id for point in knowledge_points}
+            generated_card_reason = {card.point_id: card.reason_for_user for card in flashcards}
+            imported_cards: list[Flashcard] = []
+            imported_card_points: set[str] = set()
+            seen_card_ids: set[str] = set()
+            for card in imported.cards:
+                point_id = stable_knowledge_point_id(chapter.chapter_id, card.point_label)
+                if point_id not in selected_ids or card.source_id in seen_card_ids:
+                    continue
+                seen_card_ids.add(card.source_id)
+                imported_card_points.add(point_id)
+                card_key = hashlib.sha256(card.source_id.encode()).hexdigest()[:12]
+                imported_cards.append(
+                    Flashcard(
+                        card_id=f"card_{course_digest}_import_{card_key}",
+                        point_id=point_id,
+                        front=card.front,
+                        back=card.back,
+                        # Current learner state determines the reason; Demo due/mastery
+                        # fields never become this learner's learning history.
+                        reason_for_user=generated_card_reason.get(point_id, "复习本节知识点。"),
+                        citations=[
+                            card.citation,
+                            *([card.context] if card.context is not None else []),
+                        ],
+                        source=card.citation,
+                    )
+                )
+            flashcards = imported_cards + [
+                card for card in flashcards if card.point_id not in imported_card_points
+            ]
+
+            imported_practices: list[PracticeItem] = []
+            imported_practice_points: set[str] = set()
+            seen_question_ids: set[str] = set()
+            for question in imported.questions:
+                point_id = stable_knowledge_point_id(chapter.chapter_id, question.point_label)
+                if point_id not in selected_ids or question.source_id in seen_question_ids:
+                    continue
+                seen_question_ids.add(question.source_id)
+                imported_practice_points.add(point_id)
+                question_key = hashlib.sha256(question.source_id.encode()).hexdigest()[:12]
+                imported_practices.append(
+                    PracticeItem(
+                        item_id=f"practice_{course_digest}_import_{question_key}",
+                        point_id=point_id,
+                        prompt=question.prompt,
+                        response_type=question.response_type,
+                        options=list(question.options),
+                        correct_option_ids=list(question.correct_option_ids),
+                        expected_answer=question.answer,
+                        rubric=list(question.rubric),
+                        difficulty={
+                            TeachingDepth.FOUNDATION: -0.5,
+                            TeachingDepth.STANDARD: 0.2,
+                            TeachingDepth.ADVANCED: 0.9,
+                        }[decision.depth],
+                        estimated_seconds=45 if question.options else 90,
+                        citations=[question.citation],
+                    )
+                )
+            practices = imported_practices + [
+                item for item in practices if item.point_id not in imported_practice_points
+            ]
+            # Lead with the imported lesson, then keep the underlying verbatim
+            # extracts available for checking each cited claim.
+            reading = [*imported.sections, *reading]
         estimated = max(
             5,
             round(sum(len(section.content) for section in reading) / 300)
             + round(len(flashcards) * 0.7)
             + round(len(practices) * 1.5),
         )
+        # Sections partition verified parent evidence without inventing their own
+        # generated summary. Build a bounded excerpt from this course's local
+        # quotations when the chapter summary is absent.
+        summary = chapter.summary.strip()
+        if not summary:
+            summary = " ".join(dict.fromkeys(
+                quote.quote.strip()
+                for _, _, quotes, _ in selected
+                for quote in quotes
+                if quote.quote.strip()
+            ))[:680]
         warnings = []
         if len(selected) < len(chapter.knowledge_points):
             warnings.append(
@@ -167,7 +263,7 @@ class ChapterCourseCompiler:
             chapter_title=chapter.title,
             decision=decision,
             opening=_opening(profile, decision, len(selected)),
-            summary=chapter.summary,
+            summary=summary,
             original_reading=reading,
             knowledge_points=knowledge_points,
             flashcards=flashcards,

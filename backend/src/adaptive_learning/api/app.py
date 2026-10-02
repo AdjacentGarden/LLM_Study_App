@@ -45,7 +45,7 @@ from ..ingestion.chaptering import (
     load_normalized_pages,
 )
 from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRunner
-from ..ingestion.models import BookStructure
+from ..ingestion.models import BookStructure, ChapterDraft
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
 from ..llm.client import (
@@ -61,15 +61,18 @@ from ..personalization.generator import (
     chapter_fingerprint,
     profile_fingerprint,
 )
+from ..personalization.imported_content import ImportedTeachingUnit, load_imported_teaching
 from ..personalization.models import ChapterLearningBundle, PublicChapterLearningBundle
 from ..personalization.policy import PersonalizationPolicy
 from ..personalization.review import rating_score, schedule_review
 from ..rag.grounded_qa import GroundedAnswerValidationError
 from ..rag.index import RAGIndexError
 from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
+from ..study_workspace import StudyWorkspace
 from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
+from .demo_port_routes import demo_port_router
 from .qa_dependency import build_qa_service, qa_service_ready, require_qa_service
 from .schemas import (
     BookCatalogItem,
@@ -89,6 +92,7 @@ from .schemas import (
     UploadResponse,
 )
 from .store import BookRecord, MemoryStore
+from .study_workspace_routes import study_workspace_router
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +134,10 @@ if assessment_llm is not None:
         assessment_llm,
         minimum_confidence=settings.open_answer_min_confidence,
     )
-    item_generator = DiagnosticItemGenerator(assessment_llm)
+    item_generator = DiagnosticItemGenerator(
+        assessment_llm,
+        allow_grounded_answer_rewrite=True,
+    )
 orchestrator = InterviewOrchestrator(engine, open_answer_scorer)
 personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
@@ -151,6 +158,19 @@ def _reviewed_course(bundle: ChapterLearningBundle) -> ChapterLearningBundle:
     if reviewed != bundle:
         assessment_repository.update_reviewed_course(reviewed)
     return reviewed
+
+
+def _imported_teaching(book_id: str, chapter: ChapterDraft) -> ImportedTeachingUnit | None:
+    if not book_id or book_id in {".", ".."} or "/" in book_id or "\\" in book_id:
+        return None
+    if not (settings.data_dir / "books" / book_id / "imported" / "teaching.json").is_file():
+        return None
+    return load_imported_teaching(
+        settings.data_dir,
+        book_id,
+        chapter,
+        job_repository.source_fingerprint(book_id),
+    )
 
 
 @asynccontextmanager
@@ -284,7 +304,7 @@ def list_published_books() -> list[BookCatalogItem]:
                 title=structure.title.removesuffix(".pdf"),
                 status=stored.status,
                 page_count=structure.source_page_count,
-                chapter_count=len(structure.chapters),
+                chapter_count=sum(1 for chapter in structure.chapters if not chapter.parent_id),
                 summary=structure.summary,
                 diagnostics_ready=bool(_items_for_book(book_id)),
                 cover_url=(
@@ -471,10 +491,11 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
         structure = job_repository.get_structure(request.book_id)
         if structure is None:
             raise HTTPException(status_code=409, detail="书籍尚未完成重建")
-        chapter_titles = [chapter.title for chapter in structure.chapters]
+        chapter_titles = [chapter.title for chapter in structure.chapters if not chapter.parent_id]
         book_title = structure.title
         chapter_options = [
-            {"id": chapter.chapter_id, "label": chapter.title} for chapter in structure.chapters
+            {"id": chapter.chapter_id, "label": chapter.title}
+            for chapter in structure.chapters if not chapter.parent_id
         ]
     items = _items_for_book(request.book_id)
     if not items:
@@ -601,9 +622,14 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
     )
     if chapter is None:
         raise HTTPException(status_code=404, detail="未找到该章节")
+    imported = _imported_teaching(session.profile.book_id, chapter)
     latest = assessment_repository.get_latest_course(session_id, chapter_id)
     current_profile_hash = profile_fingerprint(session.profile)
-    current_source_hash = chapter_fingerprint(chapter)
+    current_source_hash = (
+        chapter_fingerprint(chapter, imported.content_hash)
+        if imported is not None
+        else chapter_fingerprint(chapter)
+    )
     if (
         latest is not None
         and latest.profile_fingerprint == current_profile_hash
@@ -619,6 +645,7 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
             decision=decision,
             version=version,
             instance_key=session_id,
+            imported=imported,
         )
         bundle = _reviewed_course(bundle)
         inserted = assessment_repository.save_course(session_id, bundle)
@@ -634,10 +661,25 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
 
 @app.get("/api/interviews/{session_id}/courses/{chapter_id}", response_model=CourseResponse)
 def get_course(session_id: str, chapter_id: str) -> PublicChapterLearningBundle:
-    _session_or_404(session_id)
+    session = _session_or_404(session_id)
     bundle = assessment_repository.get_latest_course(session_id, chapter_id)
     if bundle is None:
         raise HTTPException(status_code=404, detail="该章尚未生成个人课程")
+    structure = job_repository.get_structure(session.profile.book_id)
+    chapter = (
+        next((item for item in structure.chapters if item.chapter_id == chapter_id), None)
+        if structure is not None
+        else None
+    )
+    if chapter is not None:
+        imported = _imported_teaching(session.profile.book_id, chapter)
+        current_source_hash = (
+            chapter_fingerprint(chapter, imported.content_hash)
+            if imported is not None
+            else chapter_fingerprint(chapter)
+        )
+        if bundle.source_fingerprint != current_source_hash:
+            raise HTTPException(status_code=404, detail="课程来源已更新，请重新生成")
     return PublicChapterLearningBundle.from_private(_reviewed_course(bundle))
 
 
@@ -1064,13 +1106,27 @@ def _mount_frontend() -> None:
 account_repository = Accounts(
     CommunityRepository(settings.data_dir / "state" / "community.sqlite3")
 )
-app.middleware("http")(learning_guard(account_repository))
+app.include_router(demo_port_router(settings.data_dir, account_repository, job_repository, settings.cors_origins))
+app.middleware("http")(learning_guard(account_repository, settings.cors_origins))
 app.include_router(
     community_router(
         settings.data_dir,
         list_published_books,
         lambda: job_repository,
         lambda: assessment_repository,
+        settings.cors_origins,
+    )
+)
+app.include_router(
+    study_workspace_router(
+        StudyWorkspace(
+            settings.data_dir / "state" / "study_workspace.sqlite3",
+            assessment_repository,
+            job_repository,
+            account_repository.repo,
+        ),
+        account_repository,
+        settings.cors_origins,
     )
 )
 _mount_frontend()

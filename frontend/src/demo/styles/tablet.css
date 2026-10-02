@@ -1,0 +1,678 @@
+/* The pad uses a fixed navigation rail and the same reading order as the phone.
+   Keep these overrides after screen styles so page-specific desktop grids do not
+   turn the content area into a second master/detail layout. */
+.nav-topbar,
+.nav-study-context {
+  display: none;
+}
+
+@media (min-width: 720px) and (min-height: 600px) {
+  .app-shell[data-device-layout="pad"] {
+    /* Two thirds of the original 88px tablet rail. */
+    --nav-rail-width: 58.6667px;
+  }
+
+  .app-shell[data-device-layout="pad"][data-nav-expanded="true"]:has(> .primary-nav) {
+    --nav-rail-width: clamp(208px, 22vw, 232px);
+  }
+
+  .app-shell[data-device-layout="pad"][data-embedded-preview="true"] {
+    --status-bar-height: 24px;
+    --safe-area-top: var(--status-bar-height);
+  }
+
+  .app-shell[data-device-layout="pad"][data-embedded-preview="true"] .ios-status-bar {
+    display: grid;
+    height: var(--status-bar-height);
+    padding: 1px 24px;
+    background: transparent;
+  }
+
+  .primary-nav.glass-nav[data-lg-variant="prominent"] {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    left: 0;
+    width: calc(var(--safe-area-left) + var(--nav-rail-width));
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 7px 20px calc(var(--safe-area-left) + 7px);
+    border: 0;
+    border-right: 1px solid #29292b;
+    border-radius: 0;
+    background: #19191b;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .app-shell[data-device-layout="pad"][data-embedded-preview="true"] .primary-nav.glass-nav[data-lg-variant="prominent"] {
+    top: var(--status-bar-height);
+    height: calc(100% - var(--status-bar-height));
+  }
+
+  .app-shell[data-device-layout="pad"][data-runtime-platform="android"] .primary-nav.glass-nav[data-lg-variant="prominent"] {
+    top: var(--safe-area-top);
+    height: calc(100% - var(--safe-area-top));
+    padding-bottom: calc(20px + var(--safe-area-bottom));
+  }
+
+  .primary-nav.glass-nav::before,
+  .primary-nav.glass-nav::after {
+    content: none;
+  }
+
+  .primary-nav .nav-topbar {
+    width: 44px;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .primary-nav .nav-brand {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #f8f8f8;
+  }
+
+  .primary-nav .nav-brand-mark {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .primary-nav .nav-brand-mark img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .primary-nav .nav-brand-name {
+    display: none;
+    overflow: hidden;
+    color: #f8f8f8;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .primary-nav .nav-expand-toggle {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    color: #aaaab0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .primary-nav .nav-expand-toggle:hover,
+  .primary-nav .nav-expand-toggle:focus-visible {
+    color: #fff;
+    background: #303033;
+  }
+
+  .primary-nav .nav-expand-toggle:focus-visible,
+  .primary-nav .nav-course-switch:focus-visible,
+  .primary-nav .nav-context-link:focus-visible {
+    outline: 2px solid #ded7ff;
+    outline-offset: 1px;
+  }
+
+  .primary-nav .nav-selection {
+    border: 0;
+    border-radius: 17px;
+    background: #353538;
+    box-shadow: none;
+  }
+
+  .primary-nav .nav-item {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    flex: 0 0 44px;
+    gap: 0;
+    border: 0;
+    border-radius: 14px;
+    color: #a6a6aa;
+    background: transparent;
+    text-shadow: none;
+  }
+
+  .primary-nav .nav-item[data-nav-index="3"] {
+    margin-top: auto;
+  }
+
+  .primary-nav .nav-item.active {
+    border: 0;
+    color: #fff;
+    background: transparent;
+  }
+
+  .primary-nav .nav-icon,
+  .primary-nav .nav-icon svg {
+    width: 25px;
+    height: 25px;
+  }
+
+  .primary-nav .nav-label {
+    display: none;
+  }
+
+  .primary-nav .nav-item:focus-visible {
+    outline-color: #ded7ff;
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav.glass-nav[data-lg-variant="prominent"] {
+    align-items: stretch;
+    padding-right: 8px;
+    padding-left: calc(var(--safe-area-left) + 8px);
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-topbar {
+    width: 100%;
+    min-height: 44px;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-brand-name {
+    display: block;
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-item {
+    width: 100%;
+    height: 44px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    padding-inline: 10px;
+    text-align: left;
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-icon,
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-label {
+    min-width: 0;
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .app-shell[data-nav-expanded="true"] .primary-nav .nav-study-context {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+    margin-block: 1px 5px;
+    padding: 6px;
+    border: 1px solid #2a2a2d;
+    border-radius: 14px;
+    background: #202022;
+  }
+
+  .primary-nav .nav-course-row {
+    min-width: 0;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 4px;
+    border-radius: 10px;
+    background: #303033;
+  }
+
+  .primary-nav .nav-course-mark {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    color: #3e3461;
+    background: #f4ead8;
+  }
+
+  .primary-nav .nav-course-title {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    color: #f4f4f5;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .primary-nav .nav-course-switch {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    color: #dddde0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .primary-nav .nav-course-switch:hover {
+    color: #fff;
+    background: #404044;
+  }
+
+  .primary-nav .nav-study-links {
+    display: grid;
+    gap: 1px;
+  }
+
+  .primary-nav .nav-context-link {
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 9px;
+    color: #aaaab0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .primary-nav .nav-context-link:hover {
+    color: #fff;
+    background: #303033;
+  }
+
+  .primary-nav .nav-context-link span {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .screen-content {
+    padding-left: calc(var(--safe-area-left) + var(--nav-rail-width) + var(--space-inline));
+  }
+
+  .screen-content.without-nav {
+    /* Focused screens no longer reserve the rail. Set both sides together so
+       screen-specific padding cannot leave only one side inset. */
+    padding-inline:
+      calc(var(--safe-area-left) + var(--space-inline))
+      calc(var(--safe-area-right) + var(--space-inline));
+  }
+
+  .screen-content.without-nav:is(
+    [data-screen="upload"],
+    [data-screen="parseReady"],
+    [data-screen="communityBook"]
+  ) {
+    /* These flows deliberately draw their surface across the full viewport. */
+    padding-inline: 0;
+  }
+
+  .flashcard-workspace {
+    width: min(100%, 680px);
+    margin-inline: auto;
+    container-type: inline-size;
+  }
+
+  .screen-content[data-screen="flashcards"] .memory-card-trigger.memory-reveal {
+    height: clamp(420px, 118cqw, 800px);
+  }
+
+  .header-bar,
+  .app-shell[data-active-screen="lesson"] .header-bar {
+    left: calc(var(--safe-area-left) + var(--nav-rail-width) + var(--space-inline));
+  }
+
+  /* Focused pages have no navigation rail. Keep their title centered on the
+     viewport and their shared back control at the outer left inset. */
+  .app-shell:has(> .screen-content.without-nav) .header-bar {
+    right: 0;
+    left: 0;
+    padding-inline:
+      calc(var(--safe-area-left) + var(--space-inline))
+      calc(var(--safe-area-right) + var(--space-inline));
+  }
+
+  .app-shell:has(> .screen-content[data-screen="communityBook"]) .header-bar::before {
+    right: 0;
+    left: 0;
+  }
+
+  /* The discovery title stays over the scrolling cards and joins the sticky controls. */
+  .app-shell:has(> .screen-content[data-screen="community"]) .header-bar {
+    right: 0;
+    left: calc(var(--safe-area-left) + var(--nav-rail-width));
+    padding-inline: var(--space-inline) calc(var(--safe-area-right) + var(--space-inline));
+    isolation: isolate;
+  }
+
+  .app-shell:has(> .screen-content[data-screen="community"]) .header-bar::before {
+    position: absolute;
+    z-index: -1;
+    top: calc(0px - var(--safe-area-top) - var(--space-layout));
+    right: 0;
+    bottom: calc(0px - var(--space-layout));
+    left: 0;
+    pointer-events: none;
+    background: var(--color-bg);
+    content: "";
+  }
+
+  /* Home keeps the phone's book -> chapter tools -> study actions sequence. */
+  .home-dashboard {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .home-dashboard > * {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .home-book-workspace {
+    margin-top: 0;
+  }
+
+  .home-workspace-loading-tools > div,
+  .home-book-workspace .study-tool-grid {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+  }
+
+  .home-workspace-loading-tools > div > span {
+    flex: 0 0 clamp(132px, 44%, 154px);
+  }
+
+  .home-book-workspace .study-tool-card {
+    flex: 0 0 clamp(132px, 44%, 154px);
+  }
+
+  .home-global-action {
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+  }
+
+  .home-global-action-arrow,
+  .home-global-action small {
+    position: absolute;
+  }
+
+  .home-global-action small {
+    width: 1px;
+    height: 1px;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  /* Top-level screen panels use one column; controls inside a panel retain
+     their phone layout, including horizontal card scrollers and date rows. */
+  :is(
+    .upload-flow-screen,
+    .parse-flow-screen,
+    .processing-flow-screen,
+    .course-ready-screen,
+    .home-primary-grid,
+    .library-course-grid,
+    .course-summary-skeleton-grid,
+    .book-course-overview,
+    .lesson-layout,
+    .source-reader-workspace,
+    .study-plan-workspace,
+    .assignment-workspace,
+    .diagnosis-workspace,
+    .mistake-overview,
+    .mistake-workspace,
+    .mistake-review-workspace,
+    .notes-workspace,
+    .report-workspace,
+    .profile-workspace,
+    .community-detail-workspace,
+    .community-import-workspace,
+    .export-workspace
+  ) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upload-flow-screen > *,
+  .parse-flow-screen > *,
+  .processing-flow-screen > *,
+  .course-ready-screen > *,
+  .mistake-overview > *,
+  .mistake-workspace > *,
+  .notes-workspace > *,
+  .community-detail-workspace > *,
+  .community-import-workspace > *,
+  .export-workspace > * {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .study-screen {
+    width: min(100%, var(--reading-max-width));
+    display: block;
+  }
+
+  .study-sticky-stack {
+    display: block;
+  }
+
+  .study-book-bar,
+  .study-plan-summary,
+  .study-directory {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .study-book-bar,
+  .study-plan-summary {
+    position: relative;
+    top: auto;
+  }
+
+  .study-directory {
+    padding-top: 12px;
+  }
+
+  .library-course-grid,
+  .course-summary-skeleton-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .screen-content .community-screen .community-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .community-category-rail,
+  .community-category-menu {
+    width: calc(100cqw + var(--space-inline) + var(--space-inline));
+    margin-left: calc(0px - var(--space-inline));
+  }
+
+  .community-discovery-controls::before {
+    left: calc(0px - var(--space-inline));
+    right: auto;
+    width: calc(100cqw + var(--space-inline) + var(--space-inline));
+  }
+
+  .community-category-list {
+    padding-left: var(--space-inline);
+  }
+
+  .community-category-menu {
+    padding-inline: var(--space-inline);
+  }
+
+  .screen-content .community-screen .community-book-card {
+    grid-template-areas: "visual" "copy";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .community-book-visual {
+    min-height: 0;
+  }
+
+  /* Parse confirmation is one decision, so size its cover and summary to the
+     available height. */
+  .screen-content.with-header.without-nav[data-screen="parseReady"] {
+    --parse-ready-cover-width: clamp(8rem, calc(48dvh - 160px), 20rem);
+    --parse-ready-cover-height: clamp(10.666rem, calc(64dvh - 213.333px), 26.666rem);
+    --parse-ready-visual-block: clamp(9rem, 24dvh, 17rem);
+  }
+
+  .app-shell[data-embedded-preview="true"] .screen-content.with-header.without-nav[data-screen="parseReady"] {
+    /* Keep the cover's 3:4 ratio within the preview's available height. */
+    --parse-ready-cover-width: clamp(7rem, calc(48dvh - 178px), 20rem);
+    --parse-ready-cover-height: clamp(9.333rem, calc(64dvh - 237.333px), 26.666rem);
+  }
+
+  .parse-ready-visual .community-detail-cover,
+  .parse-ready-visual .community-detail-cover-fallback {
+    width: var(--parse-ready-cover-width);
+  }
+
+  .parse-ready-summary {
+    min-height: 0;
+    padding-top: calc(
+      var(--parse-ready-cover-height) - var(--parse-ready-visual-block) + 5.75rem
+    );
+    padding-bottom: clamp(4rem, 8dvh, 7rem);
+  }
+
+  .parse-ready-summary h2 {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .source-reader-side-panel {
+    position: static;
+    display: contents;
+    max-height: none;
+  }
+
+  .source-reader-toolbar {
+    order: 1;
+  }
+
+  .source-page-frame {
+    order: 2;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .source-reader-actions {
+    order: 3;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .chapter-confirm-workspace {
+    display: block;
+  }
+
+  .chapter-confirm-directory {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .chapter-confirm-detail {
+    display: none;
+  }
+
+  .study-plan-calendar,
+  .assignment-source-column,
+  .diagnosis-next-steps-column,
+  .mistake-list,
+  .mistake-review-analysis,
+  .report-summary-column,
+  .profile-summary-column,
+  .profile-card.profile-portrait-card,
+  .community-detail-workspace .community-detail-card {
+    position: static;
+    top: auto;
+    max-height: none;
+  }
+
+  .mistake-list {
+    overflow: visible;
+  }
+
+  .mistake-workspace .mistake-detail-card,
+  .mistake-workspace .mistake-state-card,
+  .community-detail-workspace .section,
+  .community-detail-workspace .capability-grid,
+  .community-import-workspace .community-import-success,
+  .community-import-workspace .import-progress-card,
+  .community-import-workspace .capability-grid {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .notes-detail-panel {
+    order: 1;
+  }
+
+  .notes-list {
+    order: 2;
+  }
+
+  .notes-actions {
+    order: 3;
+  }
+
+  .screen-content .community-screen .community-book-card {
+    min-height: 14.75rem;
+  }
+}
+
+@media (min-width: 720px) and (min-height: 600px) and (max-height: 680px) {
+  .app-shell[data-embedded-preview="true"] .screen-content.with-header.without-nav[data-screen="parseReady"] {
+    --parse-ready-cover-width: clamp(6rem, calc(48dvh - 200px), 20rem);
+    --parse-ready-cover-height: clamp(8rem, calc(64dvh - 266.667px), 26.666rem);
+  }
+
+  .app-shell[data-embedded-preview="true"] .parse-ready-summary {
+    padding-top: calc(
+      var(--parse-ready-cover-height) - var(--parse-ready-visual-block) + 5.25rem
+    );
+  }
+
+  .app-shell[data-embedded-preview="true"] .parse-ready-summary .parse-info-grid {
+    margin-top: 0.375rem;
+  }
+
+  .parse-ready-summary .parse-info-grid .metric-card {
+    min-height: 4.625rem;
+  }
+}

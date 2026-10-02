@@ -5,13 +5,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": "http://127.0.0.1:8100",
+      "/api": process.env.VITE_API_PROXY || "http://127.0.0.1:8100",
     },
   },
   preview: {
     host: "0.0.0.0",
     proxy: {
-      "/api": "http://127.0.0.1:8100",
+      "/api": process.env.VITE_API_PROXY || "http://127.0.0.1:8100",
     },
   },
 });

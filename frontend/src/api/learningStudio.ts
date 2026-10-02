@@ -45,6 +45,9 @@ export interface InkNote extends Anchor {
   revision: number;
   title: string;
   input_mode?: "ink" | "voice";
+  surface?: "blank" | "source_page";
+  source_page_number?: number | null;
+  source_pdf_sha256?: string | null;
   strokes: InkStroke[];
   audio_ready?: boolean;
   audio_mime?: string;
@@ -85,6 +88,8 @@ export const studioApi = {
     ),
   note: (id: string) =>
     request<InkNote>(`/api/studio/notes/${encodeURIComponent(id)}`),
+  sourcePage: (bookId: string, pageNumber: number) =>
+    request<InkNote>(`/api/studio/source-page?book_id=${encodeURIComponent(bookId)}&page_number=${pageNumber}`),
   save: (note: InkNote) => {
     const { updated: _, edition: __, ...data } = note;
     return post<InkNote>("/api/studio/notes", data);

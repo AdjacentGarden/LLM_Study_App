@@ -1,0 +1,333 @@
+/* The generated-course completion is a focused state transition: the mascot
+   confirms the completed work first, then makes room for the next actions. */
+.course-ready-screen.course-ready-focus {
+  width: min(100%, 34rem);
+  min-height: calc(
+    100dvh
+    - var(--safe-area-top)
+    - var(--safe-area-bottom)
+    - var(--space-layout)
+    - var(--space-layout)
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  gap: 0;
+  margin-inline: auto;
+  padding: 0 0 max(0.75rem, var(--safe-area-bottom));
+  overflow: clip;
+  text-align: center;
+}
+
+.course-ready-focus-stage {
+  position: relative;
+  width: 100%;
+  min-height: clamp(27rem, 66dvh, 33rem);
+  align-self: stretch;
+  flex: 1 1 auto;
+}
+
+.course-ready-mascot-scene {
+  position: absolute;
+  z-index: 1;
+  top: clamp(1.5rem, 5vh, 3.25rem);
+  left: 50%;
+  width: min(12rem, 52vw);
+  transform: translate3d(-50%, 0, 0) scale(1);
+  transform-origin: 50% 45%;
+  transition:
+    transform var(--motion-duration-global-emphasis) var(--motion-ease-local-enter),
+    filter var(--motion-duration-global-emphasis) var(--motion-ease-local-enter);
+}
+
+.course-ready-mascot-scene::before,
+.course-ready-mascot-scene::after {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.course-ready-mascot-scene::before {
+  inset: 3% 8%;
+}
+
+.course-ready-mascot-scene::after {
+  inset: -8% -2%;
+}
+
+.course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-mascot-scene {
+  transform: translate3d(-50%, clamp(6.75rem, 16vh, 8.75rem), 0) scale(1.24);
+  filter: drop-shadow(0 8px 6px rgba(78, 86, 174, 0.13));
+}
+
+.course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-mascot-scene::before {
+  animation: course-ready-ring var(--motion-duration-global-emphasis) var(--motion-ease-local-enter) both;
+}
+
+.course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-mascot-scene::after {
+  animation: course-ready-ring var(--motion-duration-global-emphasis) var(--motion-ease-local-enter) both;
+}
+
+.course-ready-mascot-motion {
+  position: relative;
+  aspect-ratio: 3 / 4;
+}
+
+.course-ready-success-sprite-viewport,
+.course-ready-final-image {
+  position: absolute;
+  inset: 0;
+}
+
+.course-ready-success-sprite-viewport {
+  overflow: hidden;
+  contain: paint;
+  opacity: 0;
+  transition: opacity var(--motion-duration-local-fast) var(--motion-ease-local-exit);
+}
+
+.course-ready-success-sprite-strip {
+  width: 800%;
+  max-width: none;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  transform: translate3d(0, 0, 0);
+}
+
+.course-ready-final-image {
+  display: grid;
+  align-items: start;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-duration-local-fast) var(--motion-ease-local-enter),
+    transform var(--motion-duration-global-emphasis) var(--motion-ease-local-enter);
+}
+
+.course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-success-sprite-viewport {
+  opacity: 1;
+}
+
+.course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-success-sprite-strip {
+  animation:
+    course-ready-success-sprite
+    var(--motion-duration-success-sprite)
+    var(--motion-ease-success-sprite)
+    both;
+}
+
+.course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-final-image {
+  opacity: 0;
+  transform: translate3d(0, 3rem, 0);
+}
+
+.course-ready-focus .success-hero-image,
+.course-ready-focus .success-hero-image-fallback {
+  width: 100%;
+  margin: 0;
+}
+
+.course-ready-focus .success-hero-image {
+  height: auto;
+  filter: none;
+}
+
+.course-ready-focus .success-hero-image-fallback {
+  height: 9rem;
+}
+
+.course-ready-focus-copy {
+  position: absolute;
+  top: clamp(14.75rem, 31vh, 17.25rem);
+  left: 50%;
+  width: min(100%, 31rem);
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
+  visibility: visible;
+  transition:
+    opacity var(--motion-duration-local-slow) var(--motion-ease-local-enter),
+    transform var(--motion-duration-local-slow) var(--motion-ease-local-enter);
+}
+
+.course-ready-focus-copy .course-ready-success-heading {
+  justify-content: center;
+}
+
+.course-ready-focus-copy h1 {
+  color: var(--color-text);
+  font-size: 1.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.course-ready-focus-copy p {
+  max-width: 30rem;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.course-ready-focus-actions {
+  width: 100%;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  padding-inline: 0;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  visibility: visible;
+  transition:
+    opacity var(--motion-duration-local-slow) var(--motion-ease-local-enter),
+    transform var(--motion-duration-local-slow) var(--motion-ease-local-enter);
+}
+
+.course-ready-focus-actions .button {
+  width: 100%;
+}
+
+.course-ready-focus:is(
+  [data-course-ready-phase="celebrating"],
+  [data-course-ready-phase="moving"]
+) .course-ready-focus-copy,
+.course-ready-focus:not([data-course-ready-phase="settled"]) .course-ready-focus-actions {
+  opacity: 0;
+  transform: translate3d(-50%, 0.875rem, 0);
+  visibility: hidden;
+}
+
+.course-ready-focus:not([data-course-ready-phase="settled"]) .course-ready-focus-actions {
+  transform: translate3d(0, 0.875rem, 0);
+}
+
+@keyframes course-ready-success-sprite {
+  to {
+    transform: translate3d(-87.5%, 0, 0);
+  }
+}
+
+@keyframes course-ready-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+
+  32% {
+    opacity: 0.54;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.24);
+  }
+}
+
+@media (min-width: 720px) and (min-height: 600px) {
+  .course-ready-screen.course-ready-focus {
+    width: min(100%, 38rem);
+    display: flex;
+  }
+
+  .course-ready-focus-stage {
+    min-height: 32rem;
+  }
+
+  .course-ready-mascot-scene {
+    width: 13.5rem;
+  }
+
+  .course-ready-focus-copy {
+    top: 17.75rem;
+  }
+
+  .course-ready-focus-actions {
+    width: min(100%, 28rem);
+    margin-inline: auto;
+  }
+}
+
+@media (max-height: 720px) and (orientation: portrait) {
+  .course-ready-focus-stage {
+    min-height: 24.5rem;
+  }
+
+  .course-ready-focus-copy {
+    top: 13.25rem;
+  }
+}
+
+@media (max-height: 599px) and (orientation: landscape) {
+  .course-ready-screen.course-ready-focus {
+    min-height: calc(
+      100dvh
+      - var(--safe-area-top)
+      - var(--safe-area-bottom)
+      - var(--space-layout)
+      - var(--space-layout)
+    );
+    display: grid;
+    grid-template-columns: minmax(11rem, 0.8fr) minmax(16rem, 1.2fr);
+    align-items: center;
+    gap: 1rem;
+    overflow: visible;
+  }
+
+  .course-ready-focus-stage {
+    min-height: 16rem;
+  }
+
+  .course-ready-mascot-scene {
+    top: 0.5rem;
+    width: 9rem;
+  }
+
+  .course-ready-focus[data-course-ready-phase="celebrating"] .course-ready-mascot-scene {
+    transform: translate3d(-50%, 2.75rem, 0) scale(1.08);
+  }
+
+  .course-ready-focus-copy {
+    top: 10.25rem;
+  }
+
+  .course-ready-focus-copy h1 {
+    font-size: 1.375rem;
+  }
+
+  .course-ready-focus-copy p {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .course-ready-focus-actions {
+    width: 100%;
+    align-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-ready-mascot-scene,
+  .course-ready-success-sprite-viewport,
+  .course-ready-final-image,
+  .course-ready-focus-copy,
+  .course-ready-focus-actions {
+    transition: none;
+  }
+
+  .course-ready-focus .course-ready-success-sprite-strip,
+  .course-ready-focus .course-ready-mascot-scene::before,
+  .course-ready-focus .course-ready-mascot-scene::after {
+    animation: none;
+  }
+}

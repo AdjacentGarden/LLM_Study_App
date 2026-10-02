@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -11,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ..accounts import COOKIE, DEMO_USERS, TTL, Accounts
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..social import SocialRepository
+from .origin import trusted_write_origin
 
 
 class CodeInput(BaseModel):
@@ -72,6 +72,7 @@ def account_router(
     social: SocialRepository,
     visitor: Any,
     assessments: Callable[[], SQLiteAssessmentRepository],
+    allowed_origins: tuple[str, ...] = (),
 ) -> APIRouter:
     router = APIRouter(prefix="/auth", tags=["accounts"])
 
@@ -157,8 +158,7 @@ def account_router(
 
     @router.post("/logout")
     def logout(request: Request, response: Response) -> dict[str, bool]:
-        origin = request.headers.get("origin")
-        if origin and urlsplit(origin).netloc != request.headers.get("host"):
+        if not trusted_write_origin(request, allowed_origins):
             raise HTTPException(403, "请在 App 内执行此操作")
         accounts.logout(request.cookies.get(COOKIE))
         response.delete_cookie(COOKIE)

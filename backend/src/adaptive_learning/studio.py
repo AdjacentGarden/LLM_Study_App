@@ -32,6 +32,7 @@ from pydantic import ValidationError
 
 from .community import CommunityRepository
 from .config import get_settings
+from .ingestion.jobs import SQLiteOCRJobRepository
 from .llm.client import LLMConfig, LLMTimeoutError, OpenAICompatibleClient, model_time_budget
 from .studio_diagram import render_diagram
 from .studio_models import Improvement, MediaReview, NoteInput, Recognition, Review, TeachingPlan
@@ -57,19 +58,27 @@ def normalize(text: str) -> str:
     return "".join(c for c in text if c.isalnum()).lower()
 
 
-def render_ink(strokes: list[dict[str, Any]]) -> bytes:
-    image = Image.new("RGB", (1000, 1400), "white")
+def render_ink(
+    strokes: list[dict[str, Any]],
+    width: int = 1000,
+    height: int = 1400,
+    *,
+    transparent: bool = False,
+) -> bytes:
+    image = Image.new("RGBA" if transparent else "RGB", (width, height), (0, 0, 0, 0) if transparent else "white")
     draw = ImageDraw.Draw(image)
+    scale_x, scale_y = width / 1000, height / 1400
     for stroke in strokes:
         points = stroke["points"]
         color = stroke["color"]
         for i, p in enumerate(points):
-            width = max(2, round(stroke["width"] * (0.6 + p["p"] * 0.8)))
+            pen_width = max(2, round(stroke["width"] * scale_x * (0.6 + p["p"] * 0.8)))
             if i:
                 last = points[i - 1]
-                draw.line((last["x"], last["y"], p["x"], p["y"]), fill=color, width=width)
-            r = width / 2
-            draw.ellipse((p["x"] - r, p["y"] - r, p["x"] + r, p["y"] + r), fill=color)
+                draw.line((last["x"] * scale_x, last["y"] * scale_y, p["x"] * scale_x, p["y"] * scale_y), fill=color, width=pen_width)
+            r = pen_width / 2
+            x, y = p["x"] * scale_x, p["y"] * scale_y
+            draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
     out = io.BytesIO()
     image.save(out, "PNG")
     return out.getvalue()
@@ -77,6 +86,7 @@ def render_ink(strokes: list[dict[str, Any]]) -> bytes:
 
 class Studio:
     def __init__(self, data_dir: Path) -> None:
+        self.data_dir = data_dir
         self.repo = CommunityRepository(data_dir / "state" / "community.sqlite3")
         self.assets = data_dir / "learning-studio"
         self.assets.mkdir(parents=True, exist_ok=True)
@@ -138,6 +148,12 @@ class Studio:
                 existing_audio = json.loads(old["data"])
                 if existing_audio.get("input_mode", "ink") != data.input_mode:
                     raise HTTPException(409, "笔记类型不能在创建后更改")
+                if (
+                    existing_audio.get("surface", "blank") != data.surface
+                    or existing_audio.get("source_page_number") != data.source_page_number
+                    or existing_audio.get("source_pdf_sha256") != data.source_pdf_sha256
+                ):
+                    raise HTTPException(409, "笔记所附的原文页不能更改")
                 for field in (
                     "audio_ready",
                     "audio_mime",
@@ -190,6 +206,39 @@ class Studio:
             return self.public_note(
                 db.execute("SELECT * FROM studio_notes WHERE id=?", (data.id,)).fetchone()
             )
+
+    def source_note_images(self, note: dict[str, Any]) -> list[tuple[str, bytes]]:
+        """Give vision the user's ink alone and the same ink on its verified PDF page."""
+        asset = self.repo.asset(note["book_id"])
+        if asset is None:
+            raise ValueError("source book unavailable")
+        source_id = str(asset["canonical"])
+        repository = SQLiteOCRJobRepository(self.data_dir / "state" / "ocr_jobs.sqlite3")
+        stored = repository.get_book(source_id)
+        from .api.source_routes import _actual_pdf_hash, _render_page_png
+
+        if (
+            stored is None
+            or repository.source_fingerprint(source_id) != note.get("source_pdf_sha256")
+            or not stored.file_path.is_file()
+            or _actual_pdf_hash(stored.file_path) != note.get("source_pdf_sha256")
+        ):
+            raise ValueError("source PDF changed")
+
+        stat = stored.file_path.stat()
+        page_bytes = _render_page_png(
+            stored.file_path, stat.st_mtime_ns, stat.st_size, note["source_page_number"]
+        )
+        with Image.open(io.BytesIO(page_bytes)) as original:
+            page = original.convert("RGBA")
+        page.thumbnail((1400, 1400))
+        ink = render_ink(note["strokes"], page.width, page.height)
+        overlay = render_ink(note["strokes"], page.width, page.height, transparent=True)
+        with Image.open(io.BytesIO(overlay)) as layer:
+            page.alpha_composite(layer)
+        out = io.BytesIO()
+        page.convert("RGB").save(out, "PNG")
+        return [("image/png", ink), ("image/png", out.getvalue())]
 
     @staticmethod
     def _audio_signature_valid(data: bytes, mime: str) -> bool:
@@ -1203,11 +1252,20 @@ class Studio:
                 output = self.transcribe_voice(row["owner"], note)
                 verified = output
             else:
-                ink = [("image/png", render_ink(note["strokes"]))]
+                on_source = note.get("surface") == "source_page"
+                ink = (
+                    self.source_note_images(note)
+                    if on_source else [("image/png", render_ink(note["strokes"]))]
+                )
                 recognition_prompt = (
                     "忠实转写手写笔记，保留错误观点，不补全，不参考教材猜字。公式用可读文本表示，箭头关系用文字注明。"
                     "无法识别的位置用[待确认]。返回transcript字符串和uncertain字符串数组(指出需用户确认的区域)。"
                 )
+                if on_source:
+                    recognition_prompt += (
+                        "第一幅图只有用户笔迹，第二幅图是笔迹叠在教材原页上；只转写用户笔迹，"
+                        "绝不能把印刷教材文字当成用户笔记。原页仅用于理解箭头或圈注所指对象。"
+                    )
                 if row["kind"] == "complete":
                     # Two independent reads catch silent OCR mistakes without making users wait for
                     # two serial vision requests. A disagreement is surfaced instead of guessed.
@@ -1215,7 +1273,8 @@ class Studio:
                         primary_future = pool.submit(self.llm, recognition_prompt, ink)
                         check_future = pool.submit(
                             self.llm,
-                            "独立逐笔识别所附手写笔记。只转写实际笔迹，不依据常识或教材补字，不纠正作者观点。"
+                            "独立逐笔识别所附手写笔记。若有两幅图，第一幅是独立笔迹，第二幅是原页定位图；"
+                            "只转写用户笔迹，不能抄录印刷教材文字。不依据常识或教材补字，不纠正作者观点。"
                             "保留否定、公式和箭头方向；不确定处写[待确认]并列入uncertain。返回transcript和uncertain数组。",
                             ink,
                         )

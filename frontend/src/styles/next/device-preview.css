@@ -1,0 +1,25 @@
+.next-device-preview {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: #e6eaf3;
+}
+.next-device-preview-slot { position: relative; }
+.next-device-preview-frame {
+  box-sizing: border-box;
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: top left;
+  overflow: hidden;
+  border: 7px solid #20263a;
+  border-radius: 38px;
+  background: #f6f8fb;
+  box-shadow: 0 25px 65px #20263a55;
+}
+.next-device-preview-frame iframe {
+  display: block;
+  max-width: none;
+  border: 0;
+  background: #f6f8fb;
+}

@@ -1,0 +1,104 @@
+/* One treatment for the migrated badge containers; existing dimensions and
+   interaction targets stay owned by their page styles. */
+:is(
+  .study-tool-card-icon,
+  .home-global-action-icon,
+  .home-book-empty > span,
+  .study-plan-icon,
+  .study-empty-icon,
+  .study-book-cover-placeholder,
+  .nav-course-mark,
+  .plan-hero-card .book-summary-icon,
+  .learning-flow-symbol,
+  .learning-goal-icon,
+  .learning-recommendation-icon,
+  .course-space-book-icon,
+  .note-type-icon,
+  .study-note-kind-icon,
+  .source-text-note-marker > span,
+  .assignment-progress-icon,
+  .assignment-exercise-kicker > span,
+  .diagnosis-status-icon,
+  .diagnosis-section-heading > span,
+  .mistake-overview-icon,
+  .mistake-detail-block-icon,
+  .mistake-state-icon,
+  .mistake-core-icon,
+  .profile-task-icon,
+  .profile-plan-empty-icon,
+  .profile-course-cover,
+  .profile-courses-empty > span,
+  .ai-avatar,
+  .ai-message-avatar,
+  .source-region-ai-avatar,
+  .citation-icon,
+  .upload-success-mark,
+  .stage-row.done > span,
+  .chapter-status-mark,
+  .course-ready-success-mark,
+  .chapter-conflict-icon,
+  .parse-ready-cover-icon
+):has(> .sticker-icon, > .stage-completion-check > .sticker-icon) {
+  --sticker-ink: #252436;
+  box-sizing: border-box;
+  border: 1.7px solid var(--sticker-ink);
+  border-radius: var(--sticker-corner, 9px) calc(var(--sticker-corner, 9px) + 3px) calc(var(--sticker-corner, 9px) - 1px) calc(var(--sticker-corner, 9px) + 2px);
+  color: var(--sticker-ink);
+  background: var(--sticker-surface, #ffe883);
+  background-image: none;
+  box-shadow: var(--sticker-shadow, 2px) var(--sticker-shadow, 2px) 0 var(--sticker-ink);
+  rotate: var(--sticker-angle, -3deg);
+}
+
+/* The icon owns its semantic tone, so an AI avatar and a user avatar can share
+   a container without relying on unrelated screen-specific color overrides. */
+:has(> .sticker-icon[data-sticker-tone="pink"]) { --sticker-surface: #ffc9d8; }
+:has(> .sticker-icon[data-sticker-tone="blue"]) { --sticker-surface: #bcdfff; }
+:has(> .sticker-icon[data-sticker-tone="mint"]) { --sticker-surface: #b7efd8; }
+:has(> .sticker-icon[data-sticker-tone="yellow"]) { --sticker-surface: #ffe883; }
+:has(> .sticker-icon[data-sticker-tone="violet"]) { --sticker-surface: #ddd0ff; }
+:has(> .sticker-icon[data-sticker-tone="peach"]) { --sticker-surface: #ffd3a0; }
+.stage-row.done > span:has(> .stage-completion-check > .sticker-icon) { --sticker-surface: #b7efd8; }
+
+.sticker-icon {
+  display: block;
+  flex: 0 0 auto;
+  color: #252436;
+  overflow: visible;
+}
+
+.study-tool-card-icon:has(> .sticker-icon),
+.source-text-note-marker > span:has(> .sticker-icon),
+.upload-success-mark:has(> .sticker-icon),
+.chapter-status-mark:has(> .sticker-icon) {
+  --sticker-corner: 6px;
+  --sticker-shadow: 1.5px;
+  border-width: 1.5px;
+}
+
+.home-global-action.is-mistakes .home-global-action-icon:has(> .sticker-icon),
+.note-type-option.is-ink .note-type-icon:has(> .sticker-icon),
+.study-note-kind-icon.is-ink:has(> .sticker-icon),
+.mistake-detail-focus .mistake-detail-block-icon:has(> .sticker-icon) {
+  --sticker-angle: 3deg;
+}
+
+.learning-flow-symbol:has(> .sticker-icon),
+.learning-goal-icon:has(> .sticker-icon),
+.study-empty-icon:has(> .sticker-icon),
+.parse-ready-cover-icon:has(> .sticker-icon) {
+  --sticker-corner: 13px;
+  --sticker-shadow: 3px;
+  border-width: 2px;
+}
+
+.learning-goal-option[data-goal="exam"] .learning-goal-icon,
+.learning-goal-option[data-goal="interest"] .learning-goal-icon {
+  --sticker-angle: 3deg;
+}
+
+/* CSS rotate is independent of the transform-based existing success motion. */
+.course-ready-success-mark .sticker-check-path {
+  stroke-dasharray: 34;
+  stroke-dashoffset: 0;
+}

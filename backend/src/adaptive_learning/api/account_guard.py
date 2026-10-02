@@ -8,10 +8,12 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
 from ..accounts import COOKIE, Accounts
+from .origin import trusted_write_origin
 
 
 def learning_guard(
     accounts: Accounts,
+    allowed_origins: tuple[str, ...] = (),
 ) -> Callable[[Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]]:
     async def guard(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -28,11 +30,10 @@ def learning_guard(
                     ).fetchone()
                 if row and row[0] != actor:
                     return JSONResponse({"detail": "不能访问其他用户的学习档案"}, status_code=403)
-            if request.method not in {"GET", "HEAD"} and request.headers.get("origin"):
-                from urllib.parse import urlsplit
-
-                if urlsplit(request.headers["origin"]).netloc != request.headers.get("host"):
-                    return JSONResponse({"detail": "请在 App 内执行此操作"}, status_code=403)
+            if request.method not in {"GET", "HEAD"} and not trusted_write_origin(
+                request, allowed_origins
+            ):
+                return JSONResponse({"detail": "请在 App 内执行此操作"}, status_code=403)
         return await call_next(request)
 
     return guard

@@ -115,7 +115,23 @@ class CommunityRepository:
                     (hashlib.sha256(token.encode()).hexdigest(),),
                 ).fetchone()
                 if found:
-                    return str(found[0]), token, False
+                    owner = str(found[0])
+                    # A visitor can predate a newly published curated book. Keep that
+                    # browser's shelf in sync on refresh, while respecting books the
+                    # visitor explicitly removed earlier.
+                    for canonical in initial:
+                        db.execute(
+                            """
+                            INSERT OR IGNORE INTO library_books(owner, canonical, added)
+                            SELECT ?, ?, ?
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM removed_books
+                                WHERE owner=? AND canonical=?
+                            )
+                            """,
+                            (owner, canonical, time.time(), owner, canonical),
+                        )
+                    return owner, token, False
             token = secrets.token_urlsafe(32)
             owner = uuid.uuid4().hex
             db.execute(
@@ -128,6 +144,22 @@ class CommunityRepository:
                     (owner, canonical, time.time()),
                 )
             return owner, token, True
+
+    def add_library_defaults(self, owner: str, initial: list[str]) -> None:
+        """Add newly published defaults without undoing an explicit shelf removal."""
+        with self.connect() as db:
+            for canonical in initial:
+                db.execute(
+                    """
+                    INSERT OR IGNORE INTO library_books(owner, canonical, added)
+                    SELECT ?, ?, ?
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM removed_books
+                        WHERE owner=? AND canonical=?
+                    )
+                    """,
+                    (owner, canonical, time.time(), owner, canonical),
+                )
 
     def library(self, owner: str) -> list[dict[str, Any]]:
         with self.connect() as db:

@@ -1,0 +1,242 @@
+[
+  {
+    "chapter_id": "c1s1",
+    "flashcards": [
+      { "front": "孟德尔为什么选择豌豆作为杂交实验材料？", "back": "豌豆性状稳定且易辨认，能自花传粉形成纯种，也便于人工去雄和授粉，从而可以控制亲本。", "concept": "豌豆杂交", "block_index": 0 },
+      { "front": "什么是相对性状？", "back": "同一种生物同一性状的不同表现类型，如豌豆的高茎与矮茎。", "concept": "相对性状", "block_index": 0 },
+      { "front": "一对相对性状杂交时，F1 和 F2 的典型表现是什么？", "back": "F1 只表现显性性状；F1 自交所得 F2 出现性状分离，显性与隐性表现型数量常接近 3∶1。", "concept": "性状分离", "block_index": 1 },
+      { "front": "AA、Aa 和 aa 分别表示什么？", "back": "AA 为显性纯合子，Aa 为杂合子，aa 为隐性纯合子；Aa 因显性因子的作用表现显性性状。", "concept": "遗传因子", "block_index": 2 },
+      { "front": "测交的亲本怎样选择？", "back": "让待测的显性个体与隐性纯合个体杂交，根据后代表现判断待测个体的基因型。", "concept": "测交", "block_index": 3 },
+      { "front": "分离定律的核心内容是什么？", "back": "成对的遗传因子在形成配子时彼此分离，分别进入不同配子；受精时再随机结合。", "concept": "分离定律", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "在完全显性的情况下，F1 中没有表现出的隐性性状所对应的遗传因子已经消失。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "隐性遗传因子仍存在于杂合子中，只是其性状被显性因子的作用掩盖。", "concept": "显性与隐性", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "鉴定一株高茎豌豆是 AA 还是 Aa，最合适的方法是？", "choices": ["让它与 AA 杂交", "让它与 aa 测交", "观察植株高度", "让它与另一株高茎杂交"], "answer": "让它与 aa 测交", "explanation": "隐性纯合亲本只产生含 a 的配子，后代表现能直接反映待测个体产生的配子类型。", "concept": "测交", "instruction": "选择一个最准确的答案", "block_index": 3 },
+      { "question_type": "short-answer", "prompt": "请用遗传因子假说解释 F2 为什么会出现约 3∶1 的性状分离比。", "choices": [], "answer": "F1 为 Aa，形成配子时 A 与 a 分离并等概率进入配子；雌雄配子随机结合产生 AA、Aa、Aa、aa，基因型比为 1∶2∶1，完全显性时表现型比约为 3∶1。", "explanation": "答案应依次写出 F1 基因型、配子分离、随机结合和完全显性下的表现型统计。", "concept": "分离定律", "instruction": "按“F1 基因型—配子—后代基因型—表现型”的顺序说明。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c1s2",
+    "flashcards": [
+      { "front": "双因子杂交的 F2 为什么会出现亲本没有的性状组合？", "back": "不同性状的遗传因子在形成配子时可以重新组合，使后代出现新的性状组合。", "concept": "双因子杂交", "block_index": 0 },
+      { "front": "AABB 与 aabb 杂交所得 F1 的基因型是什么？", "back": "AaBb，通常同时表现 A 和 B 所控制的显性性状。", "concept": "两对相对性状", "block_index": 0 },
+      { "front": "AaBb 产生配子时，每一对等位基因分别遵循什么规律？", "back": "A 与 a、B 与 b 分别遵循分离定律，在形成配子时彼此分离。", "concept": "分离规律", "block_index": 1 },
+      { "front": "自由组合定律适用于哪些基因？", "back": "基础模型中适用于非同源染色体上的非等位基因，而不是任意两个基因。", "concept": "自由组合", "block_index": 2 },
+      { "front": "AaBb 自交时，A_B_ 的概率怎样计算？", "back": "分别求出 A_ 和 B_ 的概率均为 3/4，在独立遗传时相乘得 9/16。", "concept": "乘法定理", "block_index": 3 },
+      { "front": "双杂合子测交通常可用于检验什么？", "back": "检验双杂合子产生的配子种类及比例，从而判断两对基因是否按预期独立分配。", "concept": "双因子测交", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "自由组合定律意味着同一条染色体上的任意两个基因都能彼此独立地进入配子。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "基础自由组合模型针对非同源染色体上的非等位基因，同一染色体上的基因不一定独立遗传。", "concept": "自由组合的适用范围", "instruction": "判断这句话是否正确", "block_index": 2 },
+      { "question_type": "choice", "prompt": "在两对基因独立遗传时，AaBb 个体产生的配子种类是？", "choices": ["AB、ab", "Aa、Bb", "AB、Ab、aB、ab", "A、a、B、b"], "answer": "AB、Ab、aB、ab", "explanation": "A/a 与 B/b 分别分离并自由组合，形成四种配子。", "concept": "配子类型", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "为什么分析双因子杂交时可以先分别处理每一对基因，再合并概率？", "choices": [], "answer": "每一对等位基因先按分离定律处理；当两对非等位基因独立遗传时，两事件可分别求概率，再用乘法定理合并，例如 A_B_ 为 3/4×3/4=9/16。", "explanation": "应说明分离定律、独立遗传条件和概率乘法三层关系。", "concept": "概率法", "instruction": "结合 AaBb 自交举一个概率计算例子。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c2s1",
+    "flashcards": [
+      { "front": "减数分裂前的间期，染色体数和 DNA 含量怎样变化？", "back": "DNA 复制一次，DNA 含量加倍；每条染色体含两条姐妹染色单体，但着丝点数和染色体数暂时不变。", "concept": "减数分裂前的间期", "block_index": 0 },
+      { "front": "什么是同源染色体？", "back": "形态、大小和着丝点位置通常相同，一条来自父方、一条来自母方，并控制同一类性状的一对染色体。", "concept": "同源染色体", "block_index": 0 },
+      { "front": "染色体数目的减半发生在什么时候？", "back": "减数第一次分裂中同源染色体分离并进入两个子细胞时。", "concept": "减数第一次分裂", "block_index": 1 },
+      { "front": "减数第二次分裂主要分离什么？", "back": "着丝点分裂，姐妹染色单体彼此分开并进入不同子细胞。", "concept": "姐妹染色单体", "block_index": 2 },
+      { "front": "减数分裂形成的配子为什么是单倍体？", "back": "同源染色体在第一次分裂时分离，每个配子只保留每对同源染色体中的一条。", "concept": "单倍体配子", "block_index": 3 },
+      { "front": "受精作用对染色体数目有什么意义？", "back": "两个单倍体配子融合，使受精卵的染色体数恢复到体细胞水平，维持物种世代间染色体数稳定。", "concept": "受精作用", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "同源染色体在减数第一次分裂后期彼此分离。", "choices": ["正确", "错误"], "answer": "正确", "explanation": "减数第一次分裂分离同源染色体，第二次分裂才分离姐妹染色单体。", "concept": "同源染色体分离", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "减数第一次分裂与第二次分裂之间通常发生什么？", "choices": ["DNA 再复制一次", "同源染色体再次联会", "通常不再进行 DNA 复制", "染色体数目恢复为二倍体"], "answer": "通常不再进行 DNA 复制", "explanation": "两次分裂之间通常没有间期或间期很短，染色体不再复制。", "concept": "两次分裂的衔接", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "请说明减数分裂与受精作用怎样共同维持生物前后代染色体数目的恒定。", "choices": [], "answer": "减数分裂使配子中的染色体数减半；受精时雌雄配子融合，两套单倍体染色体在受精卵中会合，使染色体数恢复到体细胞水平。", "explanation": "应同时写出减数分裂的减半作用和受精作用的恢复作用。", "concept": "染色体数目稳定", "instruction": "按“配子形成—配子融合—受精卵”的顺序回答。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c2s2",
+    "flashcards": [
+      { "front": "萨顿提出了什么假说？", "back": "基因位于染色体上，并由染色体携带着从亲代传给子代。", "concept": "萨顿假说", "block_index": 0 },
+      { "front": "基因和染色体的行为有哪些平行关系？", "back": "二者在体细胞中成对存在、分别来自父母双方，并在形成配子时随同源染色体分离。", "concept": "平行关系", "block_index": 0 },
+      { "front": "为什么类比推理不能直接证明基因在染色体上？", "back": "相似行为只能支持并提出假说，还需要可检验的遗传实验把具体基因与具体染色体联系起来。", "concept": "类比推理", "block_index": 1 },
+      { "front": "摩尔根的果蝇白眼实验把白眼基因定位在哪里？", "back": "X 染色体上；白眼遗传与性别相关为这一定位提供了关键证据。", "concept": "摩尔根果蝇实验", "block_index": 2 },
+      { "front": "分离定律的细胞学基础是什么？", "back": "减数第一次分裂时同源染色体分离，使同一位置上的等位基因随之进入不同配子。", "concept": "等位基因分离", "block_index": 3 },
+      { "front": "基因在染色体上通常怎样排列？", "back": "许多基因沿染色体呈线性排列，每个基因占据特定位置。", "concept": "线性排列", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "萨顿通过类比基因与染色体的平行行为，直接完成了对基因位于染色体上的实验证明。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "萨顿提出的是有解释力的假说，类比本身不能代替后续实验验证。", "concept": "类比推理", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "摩尔根果蝇杂交实验中，哪一现象成为把白眼基因与 X 染色体联系起来的突破口？", "choices": ["白眼与性别相关", "果蝇后代数量少", "红眼不能遗传", "所有雌蝇都是白眼"], "answer": "白眼与性别相关", "explanation": "白眼的出现与性别相关，使其遗传方式能与性染色体传递规律对应。", "concept": "果蝇白眼遗传", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "请用染色体行为解释孟德尔分离定律。", "choices": [], "answer": "一对等位基因位于一对同源染色体的同一位置；杂合体形成配子时，同源染色体在减数第一次分裂中分离，等位基因随之进入不同配子。", "explanation": "要把等位基因的位置、同源染色体分离和配子形成连成因果链。", "concept": "分离定律的细胞学基础", "instruction": "说明等位基因位于哪里，以及何时随什么结构分离。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c2s3",
+    "flashcards": [
+      { "front": "什么是伴性遗传？", "back": "控制性状的基因位于性染色体上，因雌雄性染色体组成不同而使遗传表现与性别相关。", "concept": "伴性遗传", "block_index": 0 },
+      { "front": "伴性遗传是否意味着性染色体上的基因只控制性别？", "back": "不是。性染色体还携带许多控制其他性状的基因，只是其传递和表现与性别相关。", "concept": "性染色体", "block_index": 0 },
+      { "front": "为什么 X 连锁隐性遗传病常见于男性？", "back": "男性只有一条 X 染色体，X 上的隐性致病基因在 Y 上通常没有对应正常等位基因可掩盖。", "concept": "X 连锁隐性遗传", "block_index": 1 },
+      { "front": "男性把自己的 X 染色体传给哪些子女？", "back": "传给所有女儿，不传给儿子；儿子的 X 染色体来自母亲。", "concept": "X 染色体传递", "block_index": 2 },
+      { "front": "X 连锁隐性遗传中的女性携带者通常是什么基因型和表现？", "back": "如 XᴮXᵇ，通常表现正常，但能把隐性等位基因传给后代。", "concept": "携带者", "block_index": 3 },
+      { "front": "伴性遗传在养鸡生产中可怎样应用？", "back": "选择合适的伴性羽毛性状杂交，可根据雏鸡刚孵化时的外表特征早期鉴别雌雄。", "concept": "生产应用", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "男性的 X 染色体遗传给所有女儿，而不会直接遗传给儿子。", "choices": ["正确", "错误"], "answer": "正确", "explanation": "父亲给女儿 X、给儿子 Y，因此父亲的 X 不直接传给儿子。", "concept": "X 染色体传递", "instruction": "判断这句话是否正确", "block_index": 2 },
+      { "question_type": "choice", "prompt": "在红绿色盲的经典 X 连锁隐性模型中，男性 XᵇY 的表现是？", "choices": ["正常且不是携带者", "正常携带者", "表现色盲", "仅把色盲基因传给儿子"], "answer": "表现色盲", "explanation": "Y 染色体上没有相应正常等位基因，Xᵇ 的隐性作用会直接表现。", "concept": "红绿色盲", "instruction": "选择一个最准确的答案", "block_index": 1 },
+      { "question_type": "short-answer", "prompt": "为什么 X 连锁隐性性状会呈现男性患者较多和交叉传递的特点？", "choices": [], "answer": "男性只有一条 X，携带隐性等位基因即可患病；父亲把 X 给女儿而不给儿子，女性携带者又可把该 X 传给儿子，因此常出现男性较多及父女、母子方向的交叉传递。", "explanation": "应从男女 X 染色体数量和父母向子女的性染色体传递规则解释。", "concept": "伴性遗传特点", "instruction": "结合男性只有一条 X 和父亲 X 的去向回答。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c3s1",
+    "flashcards": [
+      { "front": "为什么早期科学家曾认为蛋白质更可能是遗传物质？", "back": "蛋白质由多种氨基酸以多样方式排列，当时看起来比结构尚未充分认识的 DNA 更能承载复杂信息。", "concept": "遗传物质候选者", "block_index": 0 },
+      { "front": "确定遗传物质时，主要比较了染色体中的哪两类物质？", "back": "DNA 和蛋白质。", "concept": "DNA 与蛋白质", "block_index": 0 },
+      { "front": "格里菲思实验中的转化现象说明了什么？", "back": "被加热杀死的 S 型细菌中有某种可使 R 型细菌发生可遗传转化的物质，但尚不能确定其化学本质。", "concept": "肺炎双球菌转化", "block_index": 1 },
+      { "front": "噬菌体侵染实验为什么分别用 ³⁵S 和 ³²P 标记？", "back": "蛋白质含硫而 DNA 含磷，可用 ³⁵S 追踪蛋白质、³²P 追踪 DNA。", "concept": "同位素标记", "block_index": 2 },
+      { "front": "为什么说 DNA 是主要的遗传物质？", "back": "细菌、真核生物和多数病毒以 DNA 为遗传物质，但少数 RNA 病毒以 RNA 为遗传物质。", "concept": "主要遗传物质", "block_index": 3 },
+      { "front": "DNA 作为遗传物质需要具备哪些基本能力？", "back": "稳定储存遗传信息、准确复制，并在细胞或病毒增殖时把信息传递下去。", "concept": "遗传信息传递", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "格里菲思的肺炎双球菌转化实验已经直接证明 DNA 是转化因子。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "该实验只证明死 S 型中存在转化物质，不能确定这种物质就是 DNA。", "concept": "转化实验结论", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "赫尔希和蔡斯用 ³²P 标记噬菌体的哪一成分？", "choices": ["蛋白质外壳", "DNA", "脂质", "多糖"], "answer": "DNA", "explanation": "DNA 含磷，蛋白质外壳的特征标记使用含硫的 ³⁵S。", "concept": "同位素标记", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "为什么教材表述为“DNA 是主要的遗传物质”，而不是“所有生物的遗传物质都是 DNA”？", "choices": [], "answer": "细菌、真核生物和多数病毒以 DNA 为遗传物质，但少数病毒以 RNA 为遗传物质，因此“主要”既概括普遍情况，也保留例外。", "explanation": "答案要同时说明多数生物的普遍性与 RNA 病毒的例外。", "concept": "遗传物质的范围", "instruction": "从普遍情况和例外两方面回答。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c3s2",
+    "flashcards": [
+      { "front": "一个脱氧核苷酸由哪三部分组成？", "back": "一分子磷酸、一分子脱氧核糖和一种含氮碱基。", "concept": "脱氧核苷酸", "block_index": 0 },
+      { "front": "DNA 中有哪四种碱基？", "back": "腺嘌呤 A、胸腺嘧啶 T、鸟嘌呤 G、胞嘧啶 C。", "concept": "DNA 碱基", "block_index": 0 },
+      { "front": "查哥夫发现的碱基数量关系是什么？", "back": "DNA 中 A 的量等于 T，G 的量等于 C。", "concept": "碱基数量关系", "block_index": 1 },
+      { "front": "DNA 双螺旋的两条链方向如何？", "back": "两条链反向平行，并盘旋成双螺旋。", "concept": "反向平行", "block_index": 2 },
+      { "front": "DNA 的骨架和内侧分别由什么构成？", "back": "外侧是磷酸与脱氧核糖交替连接的骨架，内侧碱基按 A—T、G—C 互补配对。", "concept": "双螺旋结构", "block_index": 3 },
+      { "front": "DNA 为什么能同时具有稳定性和多样性？", "back": "共同的骨架和互补配对保证结构稳定，四种碱基排列顺序的变化形成丰富多样的遗传信息。", "concept": "稳定性与多样性", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "DNA 分子中 A 与 T 配对、G 与 C 配对，体现碱基互补配对原则。", "choices": ["正确", "错误"], "answer": "正确", "explanation": "互补配对关系正是 A—T、G—C。", "concept": "碱基互补配对", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "DNA 双螺旋结构中位于外侧、构成基本骨架的是？", "choices": ["碱基对", "磷酸与脱氧核糖交替连接", "氨基酸链", "核糖与尿嘧啶"], "answer": "磷酸与脱氧核糖交替连接", "explanation": "磷酸和脱氧核糖构成外侧骨架，碱基对位于内侧。", "concept": "DNA 骨架", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "请从 DNA 的共同结构和可变部分解释其稳定性与多样性。", "choices": [], "answer": "磷酸—脱氧核糖骨架及特定互补配对方式在各处基本一致，使结构稳定；四种碱基的排列顺序可广泛变化，使 DNA 能储存多样遗传信息。", "explanation": "应分别指出稳定性来自共同框架，多样性来自碱基序列变化。", "concept": "结构与功能", "instruction": "分别说明哪一部分较稳定、哪一部分可以变化。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c3s3",
+    "flashcards": [
+      { "front": "半保留复制的基本含义是什么？", "back": "每个子代 DNA 分子都保留一条亲代旧链，并含一条新合成链。", "concept": "半保留复制", "block_index": 0 },
+      { "front": "DNA 复制时为什么两条旧链都能作为模板？", "back": "互补配对使旧链的碱基顺序能够限定对应新链的碱基顺序。", "concept": "模板链", "block_index": 0 },
+      { "front": "重氮—轻氮实验如何区分旧链与新链？", "back": "先使亲代 DNA 带重氮标记，再转入轻氮培养基；新链含轻氮而旧链仍含重氮，可按密度区分。", "concept": "同位素示踪", "block_index": 1 },
+      { "front": "DNA 复制的基本流程是什么？", "back": "双链局部解旋，以旧链为模板，游离脱氧核苷酸按互补原则配对，并连接成新链。", "concept": "DNA 复制过程", "block_index": 2 },
+      { "front": "DNA 复制通常发生在细胞周期的什么阶段？", "back": "有丝分裂的间期以及减数第一次分裂前的间期。", "concept": "复制时期", "block_index": 3 },
+      { "front": "DNA 准确复制对遗传有什么意义？", "back": "使子代 DNA 通常保持与亲代一致的遗传信息，为细胞分裂和遗传信息连续传递提供基础。", "concept": "遗传连续性", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "DNA 半保留复制后，每个子代 DNA 都由一条旧链和一条新链组成。", "choices": ["正确", "错误"], "answer": "正确", "explanation": "这正是半保留复制模型的含义。", "concept": "半保留复制", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "DNA 复制时，新链碱基排列顺序主要由什么决定？", "choices": ["细胞大小", "模板链碱基顺序", "染色体条数", "蛋白质种类"], "answer": "模板链碱基顺序", "explanation": "游离脱氧核苷酸按互补配对原则与模板链对应。", "concept": "模板与互补配对", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "请说明 DNA 的结构特点怎样保证复制的准确性。", "choices": [], "answer": "DNA 两条链互补，每条旧链都可作为模板；新核苷酸按 A—T、G—C 的互补配对规则加入，使新链序列由模板链限定，从而通常准确传递遗传信息。", "explanation": "应把双链互补、模板作用和碱基配对规则联系起来。", "concept": "复制准确性", "instruction": "从模板链和碱基互补配对两方面回答。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c3s4",
+    "flashcards": [
+      { "front": "DNA 分子和基因的尺度关系是什么？", "back": "一个 DNA 分子上通常分布许多个基因，基因是其中具有特定遗传效应的片段。", "concept": "DNA 与基因", "block_index": 0 },
+      { "front": "为什么“一条 DNA 只有一个基因”的说法错误？", "back": "同一条很长的 DNA 分子上可以包含数千个功能不同的基因。", "concept": "基因数量", "block_index": 0 },
+      { "front": "基因的定义是什么？", "back": "基因通常是具有遗传效应的 DNA 片段。", "concept": "基因", "block_index": 1 },
+      { "front": "遗传信息主要储存在 DNA 的什么部分？", "back": "四种脱氧核苷酸（碱基）的特定排列顺序中。", "concept": "遗传信息", "block_index": 2 },
+      { "front": "为什么长度为 n 的碱基序列理论上有 4ⁿ 种排列？", "back": "每个位置都有 A、T、G、C 四种选择，n 个独立位置的组合数为 4 的 n 次方。", "concept": "信息容量", "block_index": 3 },
+      { "front": "DNA 的特异性体现在哪里？", "back": "特定 DNA 分子或基因具有特定的碱基排列顺序，可据此携带特定信息并进行身份识别。", "concept": "DNA 特异性", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "基因就是整个 DNA 分子，因此一个 DNA 分子只能控制一种性状。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "基因是 DNA 上具有特定遗传效应的片段，一个 DNA 分子通常含有多个基因。", "concept": "基因与 DNA", "instruction": "判断这句话是否正确", "block_index": 0 },
+      { "question_type": "choice", "prompt": "判断一段 DNA 是否可称为基因，关键依据是它是否？", "choices": ["足够长", "位于染色体末端", "具有特定遗传效应", "含有相同数量的四种碱基"], "answer": "具有特定遗传效应", "explanation": "基因的界定强调特定遗传效应，而非单纯的长度或位置。", "concept": "基因定义", "instruction": "选择一个最准确的答案", "block_index": 1 },
+      { "question_type": "short-answer", "prompt": "DNA 为什么具有足够大的遗传信息容量，并能体现特异性？", "choices": [], "answer": "DNA 由四种碱基构成，长度为 n 时理论排列可达 4ⁿ 种，因而容量巨大；不同 DNA 或基因具有特定碱基排列顺序，因而又具有特异性。", "explanation": "应从序列组合数量和特定排列顺序两方面回答。", "concept": "多样性与特异性", "instruction": "可结合 4ⁿ 的序列组合模型说明。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c4s1",
+    "flashcards": [
+      { "front": "转录为什么需要 RNA 作为中间分子？", "back": "DNA 主要位于细胞核，蛋白质合成主要在细胞质；RNA 能携带碱基序列信息并到达细胞质。", "concept": "RNA", "block_index": 0 },
+      { "front": "转录的产物是什么？", "back": "以 DNA 的一条链为模板合成的 RNA，蛋白质合成中主要由 mRNA 携带编码信息。", "concept": "转录", "block_index": 0 },
+      { "front": "什么是翻译？", "back": "在核糖体上把 mRNA 的碱基序列所含信息转换为氨基酸排列顺序的过程。", "concept": "翻译", "block_index": 1 },
+      { "front": "什么是密码子？", "back": "mRNA 上相邻的三个碱基组成一个密码子，通常决定一种氨基酸或翻译信号。", "concept": "密码子", "block_index": 2 },
+      { "front": "tRNA 在翻译中承担什么作用？", "back": "其反密码子识别 mRNA 上相应密码子，并把特定氨基酸运送到核糖体。", "concept": "tRNA", "block_index": 3 },
+      { "front": "一个 mRNA 上同时结合多个核糖体有什么意义？", "back": "形成多聚核糖体，可同时合成多条相同多肽，提高蛋白质合成效率。", "concept": "多聚核糖体", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "翻译是把 mRNA 的碱基序列信息转换为蛋白质氨基酸序列的过程。", "choices": ["正确", "错误"], "answer": "正确", "explanation": "翻译完成从核酸的碱基语言到蛋白质的氨基酸语言的转换。", "concept": "翻译", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "在翻译过程中，负责识别密码子并携带相应氨基酸的是？", "choices": ["DNA", "mRNA", "tRNA", "核糖"], "answer": "tRNA", "explanation": "tRNA 通过反密码子与密码子配对，并携带特定氨基酸进入核糖体。", "concept": "tRNA", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "请按信息流动顺序说明基因指导蛋白质合成的过程。", "choices": [], "answer": "细胞核中以 DNA 一条链为模板转录形成 mRNA；mRNA 进入细胞质并与核糖体结合；核糖体依次读取密码子，tRNA 运来相应氨基酸并连接成多肽链。", "explanation": "答案应依次包含转录、mRNA 转运、密码子读取和氨基酸装配。", "concept": "转录与翻译", "instruction": "按“DNA—mRNA—核糖体—多肽”的顺序回答。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c4s2",
+    "flashcards": [
+      { "front": "中心法则的基本信息流向是什么？", "back": "DNA 可以复制；遗传信息通常沿 DNA → RNA → 蛋白质传递。", "concept": "中心法则", "block_index": 0 },
+      { "front": "DNA → DNA、DNA → RNA、RNA → 蛋白质分别表示什么？", "back": "分别表示复制、转录和翻译。", "concept": "信息流动", "block_index": 0 },
+      { "front": "为什么科学规律会随新证据而完善？", "back": "科学规律是对已有证据的概括，新现象可能扩展其适用范围，但修订也必须有证据支持。", "concept": "科学证据", "block_index": 1 },
+      { "front": "基因通过酶影响性状的路径是什么？", "back": "基因影响酶的合成或活性，进而改变代谢过程和物质含量，最终影响性状。", "concept": "酶与代谢", "block_index": 2 },
+      { "front": "基因还可以怎样直接影响性状？", "back": "基因指导合成结构蛋白，蛋白质结构和数量的改变可直接影响细胞或个体性状。", "concept": "结构蛋白", "block_index": 3 },
+      { "front": "为什么不能把性状简单理解为由单个基因决定？", "back": "许多性状受多个基因组成的调控网络影响，同时还受环境条件共同作用。", "concept": "基因与环境", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "中心法则中的常见主线包括 DNA 经转录形成 RNA、RNA 经翻译指导蛋白质合成。", "choices": ["正确", "错误"], "answer": "正确", "explanation": "DNA → RNA → 蛋白质分别对应转录和翻译。", "concept": "中心法则", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "“基因改变—酶活性变化—代谢过程改变—性状变化”属于基因控制性状的哪条路径？", "choices": ["通过酶影响代谢", "通过染色体数目直接影响", "通过复制产生配子", "通过环境完全决定"], "answer": "通过酶影响代谢", "explanation": "酶是代谢反应的重要催化者，基因通过影响酶进而间接影响性状。", "concept": "间接控制性状", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "为什么“一个基因决定一个性状”不能概括所有生物性状？", "choices": [], "answer": "有些性状由多个基因共同影响，同一基因也可能参与多个过程；不同基因产物会形成调控网络，环境还会影响基因表达和最终表现，因此性状通常是基因与环境共同作用的结果。", "explanation": "应覆盖多基因、一因多效或网络调控，以及环境影响。", "concept": "性状形成", "instruction": "从基因网络和环境两个层面说明。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c4s3",
+    "flashcards": [
+      { "front": "为什么一个或两个碱基不足以编码 20 种常见氨基酸？", "back": "四种碱基的一联体只有 4 种、二联体只有 16 种组合，都少于 20；三联体有 4³=64 种。", "concept": "三联体假说", "block_index": 0 },
+      { "front": "三联体编码最初为什么只是合理设想？", "back": "组合数足够只能说明可能性，还必须通过实验检验实际阅读方式。", "concept": "遗传密码", "block_index": 0 },
+      { "front": "移码实验怎样支持三个碱基为一组？", "back": "增添或删除 1、2 个碱基常破坏功能，而增添或删除 3 个碱基可恢复阅读框和正常功能。", "concept": "移码实验", "block_index": 1 },
+      { "front": "遗传密码阅读的三个重要特点是什么？", "back": "从固定起点开始，以三个碱基为一组，连续且非重叠地读取。", "concept": "阅读框", "block_index": 2 },
+      { "front": "体外蛋白质合成实验解决了什么问题？", "back": "通过人工 RNA 与生成多肽的对应关系，确定具体密码子与氨基酸的对应规则。", "concept": "体外翻译", "block_index": 3 },
+      { "front": "人工合成的 poly-U 为什么能帮助破译 UUU？", "back": "poly-U 只提供重复的 UUU 密码子，体外体系只合成苯丙氨酸多肽，由此建立 UUU 与苯丙氨酸的对应。", "concept": "UUU", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "删除三个碱基一定完全不影响蛋白质，只因为遗传密码是三联体。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "删除三个碱基通常不改变后续阅读框，但会丢失一个氨基酸或改变局部序列，仍可能影响蛋白质。", "concept": "移码", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "移码实验主要支持遗传密码以什么方式读取？", "choices": ["一个碱基一组", "两个碱基一组", "三个碱基一组", "任意长度一组"], "answer": "三个碱基一组", "explanation": "增删 1、2 个碱基破坏阅读，而增删 3 个可恢复阅读框，支持三联体读取。", "concept": "三联体", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "比较移码实验和 poly-U 体外合成实验各自解决了什么问题。", "choices": [], "answer": "移码实验通过增删碱基造成的功能变化，证明遗传信息按三联体、固定阅读框连续读取；poly-U 体外合成实验则把特定三联体 UUU 与具体氨基酸苯丙氨酸对应起来。", "explanation": "要区分“怎样读取”和“具体密码子对应什么氨基酸”。", "concept": "密码破译证据", "instruction": "分别写出两个实验的自变量和所得结论。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c5s1",
+    "flashcards": [
+      { "front": "基因突变包括哪些基本类型？", "back": "DNA 中碱基对的替换、增添或缺失导致基因结构改变。", "concept": "基因突变", "block_index": 0 },
+      { "front": "增添或缺失碱基为什么可能造成移码？", "back": "若增删数量不是 3 的倍数，会改变后续密码子的分组方式，使阅读框移动。", "concept": "移码突变", "block_index": 0 },
+      { "front": "诱发基因突变的因素可分哪三类？", "back": "物理因素、化学因素和生物因素。", "concept": "诱变因素", "block_index": 1 },
+      { "front": "基因突变具有哪些常见特点？", "back": "可自发或诱发发生，通常具有随机性、不定向性和低频性。", "concept": "突变特点", "block_index": 2 },
+      { "front": "为什么低频突变仍能为进化提供丰富原材料？", "back": "种群个体多、基因多、复制事件多，小概率累积后仍可产生多种可遗传变异。", "concept": "进化原材料", "block_index": 3 },
+      { "front": "基因重组与基因突变的根本区别是什么？", "back": "突变改变基因自身的碱基序列；重组主要重新排列亲本已有基因，形成新的基因组合。", "concept": "基因重组", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "基因突变的方向可以由生物体根据环境需要主动决定。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "基因突变具有随机性和不定向性，环境可筛选变异但不会按需要定向产生突变。", "concept": "突变不定向性", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "下列哪一项属于基因重组而不是基因突变？", "choices": ["DNA 中一个碱基对被替换", "DNA 中增加一个碱基对", "有性生殖中亲本已有基因形成新组合", "DNA 中缺失两个碱基对"], "answer": "有性生殖中亲本已有基因形成新组合", "explanation": "基因重组改变已有基因的组合，另外三项都直接改变 DNA 碱基序列。", "concept": "突变与重组", "instruction": "选择一个最准确的答案", "block_index": 3 },
+      { "question_type": "short-answer", "prompt": "自然突变频率很低，为什么基因突变仍是生物变异和进化的重要来源？", "choices": [], "answer": "种群中个体和基因数量巨大，DNA 复制事件很多，即使单个基因突变概率低，整体仍可产生多种突变；其中可遗传变异经环境选择后能参与进化。", "explanation": "要区分单次低概率与种群尺度累积，并指出可遗传性。", "concept": "突变与进化", "instruction": "从个体数量、复制事件和遗传三个角度说明。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c5s2",
+    "flashcards": [
+      { "front": "染色体结构变异有哪四种主要类型？", "back": "缺失、重复、易位和倒位。", "concept": "染色体结构变异", "block_index": 0 },
+      { "front": "易位和倒位分别表示什么？", "back": "易位是片段移到非同源染色体上；倒位是同一染色体片段位置颠倒。", "concept": "易位与倒位", "block_index": 0 },
+      { "front": "染色体数目变异分为哪两类？", "back": "个别染色体增加或减少，以及整套染色体组以成套方式增加或减少。", "concept": "数目变异", "block_index": 1 },
+      { "front": "二倍体和多倍体怎样区分？", "back": "由受精卵发育且体细胞含两个染色体组的是二倍体；含三个或更多染色体组的是多倍体。", "concept": "染色体组", "block_index": 2 },
+      { "front": "秋水仙素诱导染色体加倍的基本原理是什么？", "back": "抑制纺锤体形成，使已复制的染色体不能正常移向两极，从而导致染色体数加倍。", "concept": "人工多倍体", "block_index": 3 },
+      { "front": "单倍体育种为什么能缩短育种年限？", "back": "先获得单倍体，再使染色体加倍，可快速得到每个位点都纯合且能稳定遗传的个体。", "concept": "单倍体育种", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "染色体易位是某一片段在同一条染色体内方向颠倒。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "片段在同一染色体内颠倒是倒位；易位通常指片段移到非同源染色体上。", "concept": "结构变异类型", "instruction": "判断这句话是否正确", "block_index": 0 },
+      { "question_type": "choice", "prompt": "下列哪一项属于整套染色体组数目的变异？", "choices": ["某号染色体多一条", "一个片段发生倒位", "二倍体形成四倍体", "一个基因缺失碱基"], "answer": "二倍体形成四倍体", "explanation": "二倍体到四倍体是染色体组整套加倍，其他选项分别是个别染色体、结构或基因层面改变。", "concept": "染色体组", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "请说明单倍体育种为什么能够较快获得稳定遗传的纯合材料。", "choices": [], "answer": "单倍体由配子发育而来，每个位点只有一个等位基因；对其染色体加倍后，同一等位基因成对，个体在各位点迅速成为纯合，因此无需多代自交筛选。", "explanation": "应连接“配子来源—单倍体—染色体加倍—纯合”四步。", "concept": "单倍体育种", "instruction": "按育种流程说明染色体组和基因型的变化。", "block_index": 3 }
+    ]
+  },
+  {
+    "chapter_id": "c5s3",
+    "flashcards": [
+      { "front": "人类遗传病主要分为哪三类？", "back": "单基因遗传病、多基因遗传病和染色体异常遗传病。", "concept": "遗传病分类", "block_index": 0 },
+      { "front": "遗传病分类的主要依据是什么？", "back": "致病遗传改变发生在一个基因、多个基因，还是染色体层面，而不是症状所在器官。", "concept": "分类依据", "block_index": 0 },
+      { "front": "21 三体综合征属于哪类遗传病？", "back": "染色体数目异常遗传病，患者细胞中通常多一条 21 号染色体。", "concept": "21 三体综合征", "block_index": 1 },
+      { "front": "遗传咨询和产前诊断的共同目标是什么？", "back": "帮助家庭了解遗传病信息、评估风险并在尊重个人权利的前提下作出知情决策。", "concept": "遗传咨询", "block_index": 2 },
+      { "front": "教材列举了哪些产前诊断手段？", "back": "羊水检查、B 超检查、孕妇血细胞检查和基因诊断等。", "concept": "产前诊断", "block_index": 3 },
+      { "front": "人类基因组计划的核心目标是什么？", "back": "测定人类基因组 DNA 序列并解读其中的遗传信息，为研究基因结构、功能和疾病机制提供基础地图。", "concept": "人类基因组计划", "block_index": 3 }
+    ],
+    "exercises": [
+      { "question_type": "judgment", "prompt": "21 三体综合征是由 21 号染色体上某一个基因发生碱基替换引起的单基因遗传病。", "choices": ["正确", "错误"], "answer": "错误", "explanation": "其典型原因是细胞中多一条 21 号染色体，属于染色体数目异常。", "concept": "21 三体综合征", "instruction": "判断这句话是否正确", "block_index": 1 },
+      { "question_type": "choice", "prompt": "下列哪项最符合遗传咨询和产前诊断的合理原则？", "choices": ["替家庭强制作出决定", "只提供一个确定结论", "提供风险信息并支持知情决策", "公开个人遗传信息"], "answer": "提供风险信息并支持知情决策", "explanation": "遗传服务应提供科学信息，同时尊重隐私、自主决定和个人权利。", "concept": "遗传服务伦理", "instruction": "选择一个最准确的答案", "block_index": 2 },
+      { "question_type": "short-answer", "prompt": "人类基因组计划为什么既有重要科学价值，也需要重视伦理边界？", "choices": [], "answer": "基因组序列为研究基因结构、功能和疾病机制提供基础数据，可促进诊断和医学研究；但遗传信息涉及隐私、歧视风险和个人自主权，采集、使用与共享都需知情同意和规范保护。", "explanation": "答案要同时陈述研究与医学价值，以及隐私、公平和自主方面的风险。", "concept": "基因组与伦理", "instruction": "从科学价值和个人权利两个方面回答。", "block_index": 3 }
+    ]
+  }
+]

@@ -107,6 +107,7 @@ def test_avatar_normalized_private_and_persists_on_text_only_update(community):
         "https://example.com/picture.jpg",
         "data:image/png;base64," + base64.b64encode(b"a" * (2 * 1024 * 1024 + 1)).decode(),
     ],
+    ids=["svg", "invalid-base64", "non-image-bytes", "remote-url", "oversized-bytes"],
 )
 def test_unsafe_avatar_rejected_without_partial_profile_write(community, image):
     a, *_ = community

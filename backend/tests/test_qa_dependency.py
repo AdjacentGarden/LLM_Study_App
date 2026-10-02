@@ -66,3 +66,29 @@ def test_multi_book_routing_reuses_models_and_isolates_indexes(monkeypatch: Any,
     with pytest.raises(HTTPException) as error:
         qa_dependency.build_book_qa_service("../../secret")
     assert error.value.status_code == 404
+
+
+def test_imported_book_uses_its_own_local_index_when_absent_from_external_manifest(monkeypatch, tmp_path):
+    monkeypatch.delenv("RAG_BOOK_INDEX_MANIFEST", raising=False)
+    settings = SimpleNamespace(rag_book_id="original", published_book_ids=("original", "imported"),
+                               data_dir=tmp_path, rag_top_pages=5, rag_max_evidence=10,
+                               rag_retrieval_budget_ms=2500)
+    monkeypatch.setattr(qa_dependency, "get_settings", lambda: settings)
+    monkeypatch.setattr(qa_dependency, "_book_services", OrderedDict())
+    target = tmp_path / "books/imported/rag-index"
+    target.mkdir(parents=True)
+    (target / "index_manifest.json").write_text("{}")
+    primary = SimpleNamespace(index=SimpleNamespace(encoder=object(), reranker=object()), generator=object())
+    monkeypatch.setattr(qa_dependency, "build_qa_service", lambda: primary)
+    loaded = []
+
+    def load(path, **kwargs):
+        loaded.append(path)
+        return SimpleNamespace(path=path)
+
+    monkeypatch.setattr(qa_dependency.PersistentRAGIndex, "load", load)
+    service = qa_dependency.build_book_qa_service("imported")
+    assert loaded == [target]
+    assert service.book_id == "imported"
+    assert service.index is not primary.index
+    assert service.generator is primary.generator

@@ -1,0 +1,128 @@
+[
+  {
+    "asset_id": "asset_ai_mendel_monohybrid_overview_v1",
+    "lesson_id": "lesson_mendel_pea_one",
+    "chapter_id": "c1s1",
+    "caption": "孟德尔一对相对性状杂交实验及 F2 性状分离概览",
+    "image_url": "/assets/lesson/mendel-monohybrid-overview-v1.png",
+    "concepts": ["一对相对性状", "显性性状", "性状分离", "分离定律"],
+    "prompt_summary": "纯合高茎与矮茎豌豆杂交，F1 一致，F2 呈 3:1 表型分离的无文字流程图"
+  },
+  {
+    "asset_id": "asset_ai_mendel_dihybrid_overview_v1",
+    "lesson_id": "lesson_mendel_pea_two",
+    "chapter_id": "c1s2",
+    "caption": "孟德尔两对相对性状杂交与四种 F2 表型组合概览",
+    "image_url": "/assets/lesson/mendel-dihybrid-overview-v1.png",
+    "concepts": ["两对相对性状", "自由组合", "测交", "9:3:3:1"],
+    "prompt_summary": "黄色圆粒与绿色皱粒豌豆的双因子杂交和四类 F2 表型组合无文字流程图"
+  },
+  {
+    "asset_id": "asset_ai_gene_chromosome_evidence_overview_v1",
+    "lesson_id": "lesson_gene_chromosome",
+    "chapter_id": "c2s2",
+    "caption": "基因与染色体平行行为及基因在线性染色体上的位置概览",
+    "image_url": "/assets/lesson/gene-chromosome-evidence-overview-v1.png",
+    "concepts": ["萨顿假说", "基因在染色体上", "果蝇实验", "线性排列"],
+    "prompt_summary": "同源染色体携带基因座并随配子分离，果蝇染色体上多个基因线性排列的无文字示意图"
+  },
+  {
+    "asset_id": "asset_ai_sex_linked_inheritance_overview_v1",
+    "lesson_id": "lesson_sex_linked_inheritance",
+    "chapter_id": "c2s3",
+    "caption": "X 连锁隐性遗传在家系中的传递规律概览",
+    "image_url": "/assets/lesson/sex-linked-inheritance-overview-v1.png",
+    "concepts": ["伴性遗传", "X 连锁隐性遗传", "交叉遗传", "性染色体"],
+    "prompt_summary": "XX、XY 性染色体及 X 连锁隐性变异在亲子间传递的无文字家系流程图"
+  },
+  {
+    "asset_id": "asset_ai_dna_genetic_material_overview_v1",
+    "lesson_id": "lesson_dna_genetic_material",
+    "chapter_id": "c3s1",
+    "caption": "噬菌体侵染细菌时 DNA 进入细胞并指导子代形成",
+    "image_url": "/assets/lesson/dna-genetic-material-overview-v1.png",
+    "concepts": ["DNA 是遗传物质", "噬菌体侵染细菌", "DNA", "蛋白质外壳"],
+    "prompt_summary": "噬菌体吸附、DNA 注入而蛋白质外壳留在外部、细菌内形成子代噬菌体的无文字流程图"
+  },
+  {
+    "asset_id": "asset_ai_dna_structure_overview_v1",
+    "lesson_id": "lesson_dna_structure",
+    "chapter_id": "c3s2",
+    "caption": "DNA 双螺旋、脱氧核苷酸与碱基互补配对结构概览",
+    "image_url": "/assets/lesson/dna-structure-overview-v1.png",
+    "concepts": ["双螺旋", "脱氧核苷酸", "碱基互补配对", "反向平行"],
+    "prompt_summary": "右手双螺旋、核苷酸组成和碱基配对局部放大的无文字结构图"
+  },
+  {
+    "asset_id": "asset_ai_dna_replication_overview_v1",
+    "lesson_id": "lesson_dna_replication",
+    "chapter_id": "c3s3",
+    "caption": "DNA 解旋、互补链合成与半保留复制结果概览",
+    "image_url": "/assets/lesson/dna-replication-overview-v1.png",
+    "concepts": ["DNA 复制", "解旋", "碱基互补配对", "半保留复制"],
+    "prompt_summary": "亲代 DNA 解旋，以两条链为模板合成互补链并形成两条半保留子代 DNA 的无文字流程图"
+  },
+  {
+    "asset_id": "asset_ai_gene_dna_segment_overview_v1",
+    "lesson_id": "lesson_gene_dna_segment",
+    "chapter_id": "c3s4",
+    "caption": "染色体、DNA、基因片段及其功能产物之间的层级关系",
+    "image_url": "/assets/lesson/gene-dna-segment-overview-v1.png",
+    "concepts": ["基因", "DNA 片段", "遗传效应", "蛋白质"],
+    "prompt_summary": "从染色体放大到 DNA 上特定基因片段，再经 RNA 和蛋白质影响花色的无文字层级图"
+  },
+  {
+    "asset_id": "asset_ai_protein_synthesis_overview_v1",
+    "lesson_id": "lesson_gene_protein_synthesis",
+    "chapter_id": "c4s1",
+    "caption": "DNA 转录形成 mRNA 并在核糖体上翻译成蛋白质",
+    "image_url": "/assets/lesson/protein-synthesis-overview-v1.png",
+    "concepts": ["转录", "翻译", "mRNA", "tRNA", "核糖体"],
+    "prompt_summary": "细胞核内转录、mRNA 出核、核糖体读取和 tRNA 搬运氨基酸形成多肽的无文字流程图"
+  },
+  {
+    "asset_id": "asset_ai_gene_trait_control_overview_v1",
+    "lesson_id": "lesson_gene_trait_control",
+    "chapter_id": "c4s2",
+    "caption": "基因通过代谢酶和结构蛋白两条路径控制性状",
+    "image_url": "/assets/lesson/gene-trait-control-overview-v1.png",
+    "concepts": ["基因控制性状", "酶", "代谢途径", "结构蛋白", "环境影响"],
+    "prompt_summary": "基因分别经酶与代谢途径、结构蛋白与细胞形态影响性状，并提示环境作用的无文字双路径图"
+  },
+  {
+    "asset_id": "asset_ai_genetic_code_deciphering_overview_v1",
+    "lesson_id": "lesson_genetic_code_deciphering",
+    "chapter_id": "c4s3",
+    "caption": "人工合成 RNA 实验与三联体密码子破译思路概览",
+    "image_url": "/assets/lesson/genetic-code-deciphering-overview-v1.png",
+    "concepts": ["遗传密码", "密码子", "人工合成 RNA", "实验破译"],
+    "prompt_summary": "人工 RNA 经核糖体翻译产生重复氨基酸链，并用三珠分组表示三联体密码子的无文字实验图"
+  },
+  {
+    "asset_id": "asset_ai_gene_mutation_recombination_overview_v1",
+    "lesson_id": "lesson_gene_mutation_recombination",
+    "chapter_id": "c5s1",
+    "caption": "基因突变产生新等位基因与基因重组形成新组合的对比",
+    "image_url": "/assets/lesson/gene-mutation-recombination-overview-v1.png",
+    "concepts": ["基因突变", "碱基替换", "基因重组", "交叉互换"],
+    "prompt_summary": "上方 DNA 单点变化影响蛋白质，下方同源染色体交换形成新基因组合的无文字对比图"
+  },
+  {
+    "asset_id": "asset_ai_chromosomal_variation_overview_v1",
+    "lesson_id": "lesson_chromosomal_variation",
+    "chapter_id": "c5s2",
+    "caption": "染色体结构变异与染色体数目变异概览",
+    "image_url": "/assets/lesson/chromosomal-variation-overview-v1.png",
+    "concepts": ["缺失", "重复", "倒位", "易位", "染色体组", "多倍体"],
+    "prompt_summary": "染色体结构片段改变与个别染色体、整套染色体数目变化的无文字双排图"
+  },
+  {
+    "asset_id": "asset_ai_human_genetic_disease_overview_v1",
+    "lesson_id": "lesson_human_genetic_disease",
+    "chapter_id": "c5s3",
+    "caption": "人类遗传病类型、家系传递及监测预防路径概览",
+    "image_url": "/assets/lesson/human-genetic-disease-overview-v1.png",
+    "concepts": ["单基因遗传病", "多基因遗传病", "染色体异常遗传病", "遗传咨询", "产前诊断"],
+    "prompt_summary": "家系、DNA 变异、染色体异常与遗传咨询、产前超声和染色体检查组成的无文字医学教育图"
+  }
+]

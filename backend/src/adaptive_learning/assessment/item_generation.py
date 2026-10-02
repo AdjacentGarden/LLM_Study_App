@@ -109,6 +109,10 @@ class DiagnosticItemGenerator:
     def generate(self, structure: BookStructure) -> list[DiagnosticItem]:
         items: list[DiagnosticItem] = []
         for chapter in structure.chapters:
+            # Sections reuse a verified subset of their parent chapter's evidence.
+            # Generating another bank from both would double-count that evidence.
+            if chapter.parent_id is not None:
+                continue
             selected = self._select_points(chapter)
             if not selected:
                 continue
