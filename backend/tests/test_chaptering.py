@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import threading
 from pathlib import Path
 from typing import Any, cast
 
@@ -213,7 +215,13 @@ def test_load_normalized_pages_preserves_heading_metadata(tmp_path: Path) -> Non
 
 
 def test_real_biology_artifact_has_six_verified_body_chapters() -> None:
-    artifact = Path(__file__).parents[2] / "artifacts" / "ocr" / "biology-20260829" / "pages.jsonl"
+    default = Path(__file__).parents[2] / "artifacts" / "ocr" / "biology-20260829" / "pages.jsonl"
+    artifact = Path(os.getenv("BIOLOGY_OCR_FIXTURE_PATH", str(default)))
+    if not artifact.is_file():
+        pytest.skip(
+            "Optional private biology OCR fixture is not installed; "
+            "set BIOLOGY_OCR_FIXTURE_PATH to an existing pages.jsonl"
+        )
     pages = load_normalized_pages(artifact)
 
     chapters, fallback = ChapterBoundaryDetector().detect(pages)
@@ -230,3 +238,74 @@ def test_real_biology_artifact_has_six_verified_body_chapters() -> None:
     ]
     assert chapters[0].title == "第2章 基因和染色体的关系"
     assert chapters[-1].title == "第 7 章 现代生物进化理论"
+
+
+@pytest.mark.parametrize("evidence_count", [24, 25])
+def test_summary_evidence_budget_accepts_24_verified_references_and_rejects_overflow(
+    evidence_count: int,
+) -> None:
+    class EvidenceClient(FakeSummaryClient):
+        def structured(self, *, system: str, user: str, **kwargs: object) -> dict[str, Any]:
+            raw = super().structured(system=system, user=user, **kwargs)
+            if "章节摘要器" in system:
+                assert kwargs["max_tokens"] == 2400
+                raw["evidence_ids"] = [entry["id"] for entry in json.loads(user)["evidence"]]
+            return raw
+
+    pages = [
+        page(number, ("text", f"第{number}页可核验原文。", None))
+        for number in range(1, evidence_count + 1)
+    ]
+    reconstructor = ChapterReconstructor(
+        cast(OpenAICompatibleClient, EvidenceClient()), validation_retries=0,
+    )
+    if evidence_count > 24:
+        with pytest.raises(ChapteringValidationError, match="chapter summary failed validation"):
+            reconstructor.reconstruct_book(pages, "证据覆盖测试")
+        return
+    structure = reconstructor.reconstruct_book(pages, "证据覆盖测试")
+    assert len(structure.chapters) == 1
+    assert [quote.page_number for quote in structure.chapters[0].evidence] == list(range(1, 25))
+
+
+def test_chapter_summaries_overlap_and_book_summary_receives_reading_order() -> None:
+    both_running = threading.Barrier(2)
+    book_chapters: list[str] = []
+
+    class ParallelClient(FakeSummaryClient):
+        def structured(self, *, system: str, user: str, **kwargs: object) -> dict[str, Any]:
+            if "章节摘要器" in system:
+                both_running.wait(timeout=2)
+            else:
+                book_chapters.extend(chapter["title"] for chapter in json.loads(user)["chapters"])
+            return super().structured(system=system, user=user, **kwargs)
+
+    pages = [
+        page(1, ("text", "第1章 起点", 1), ("text", "第一章原文。", None)),
+        page(2, ("text", "第2章 深入", 1), ("text", "第二章原文。", None)),
+    ]
+    structure = ChapterReconstructor(cast(OpenAICompatibleClient, ParallelClient())).reconstruct_book(
+        pages, "并行摘要测试",
+    )
+    assert [chapter.title for chapter in structure.chapters] == ["第1章 起点", "第2章 深入"]
+    assert book_chapters == ["第1章 起点", "第2章 深入"]
+
+
+def test_load_fast_ocr_pages_preserves_method_and_provenance(tmp_path: Path) -> None:
+    path = tmp_path / "fast-pages.jsonl"
+    path.write_text(json.dumps({
+        "page_number": 1,
+        "extraction_method": "paddle_gpu",
+        "ocr_capabilities": {"text": True, "formula": False},
+        "blocks": [{
+            "text": "第1章 开始",
+            "raw": {"text_level": 1, "confidence": 0.95,
+                    "ocr_backend": "paddle_gpu", "source_ocr_line_ids": [2, 3]},
+        }],
+    }), encoding="utf-8")
+    result = load_normalized_pages(path)[0]
+    assert result.method == ExtractionMethod.PADDLE_GPU
+    assert result.blocks[0].source_method == ExtractionMethod.PADDLE_GPU
+    assert result.blocks[0].confidence == 0.95
+    assert result.blocks[0].metadata["source_ocr_line_ids"] == [2, 3]
+    assert result.blocks[0].metadata["ocr_capabilities"] == {"text": True, "formula": False}

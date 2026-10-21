@@ -69,6 +69,12 @@ def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | 
 _deadline: ContextVar[float | None] = ContextVar("model_deadline", default=None)
 
 
+def remaining_model_time() -> float | None:
+    """Seconds left in this context's shared deadline, including queue wait time."""
+    until = _deadline.get()
+    return None if until is None else max(0, until - time.monotonic())
+
+
 @contextmanager
 def model_time_budget(seconds: float) -> Iterator[None]:
     """Carry one remaining-time budget across planning, answering, review and retries."""
@@ -89,6 +95,8 @@ class LLMConfig:
     timeout_seconds: int = 60
     max_retries: int = 1
     proxy_url: str | None = None
+    thinking_enabled: bool | None = None
+    reasoning_effort: str | None = None
 
     def __post_init__(self) -> None:
         if self.timeout_seconds < 1:
@@ -204,7 +212,7 @@ class OpenAICompatibleClient:
                     {"role": "user", "content": response_parts},
                 ],
                 "max_output_tokens": max_tokens, "stream": False, "store": False,
-                "reasoning": {"effort": "low"},
+                "reasoning": {"effort": self.config.reasoning_effort or "low"},
                 "text": {"format": {"type": "json_object"}},
             }
         elif images:
@@ -213,6 +221,15 @@ class OpenAICompatibleClient:
                     "url": f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"}}
                 for mime, data in images
             ] + [{"type": "text", "text": user}]
+        if not anthropic and not responses:
+            # Providers differ in supported settings: opt in explicitly instead
+            # of guessing from model or gateway names.
+            if self.config.thinking_enabled is not None:
+                payload["thinking"] = {
+                    "type": "enabled" if self.config.thinking_enabled else "disabled"
+                }
+            if self.config.reasoning_effort is not None:
+                payload["reasoning_effort"] = self.config.reasoning_effort
         last_error: Exception | None = None
         upstream_detail = ""
         for attempt in range(self.config.max_retries + 1):
@@ -234,9 +251,9 @@ class OpenAICompatibleClient:
                         # Responses calls. Its result is normalised back to the same
                         # dictionary contract used by the other compatible providers.
                         sdk_response = self._responses_sdk.responses.create(
-                            **payload, timeout=timeout  # type: ignore[arg-type]
+                            **payload, timeout=timeout
                         )
-                        return sdk_response.model_dump(mode="json")
+                        body = sdk_response.model_dump(mode="json")
                     else:
                         response = self._http.post(
                             endpoint,
@@ -245,7 +262,10 @@ class OpenAICompatibleClient:
                             timeout=timeout,
                         )
                         response.raise_for_status()
-                        return response.json()
+                        body = response.json()
+                    if not isinstance(body, dict):
+                        raise ValueError("model response must be a JSON object")
+                    return body
 
                 body = _request_before_deadline(send, until)
                 if until is not None and time.monotonic() >= until:
@@ -276,6 +296,8 @@ class OpenAICompatibleClient:
                     choice = body["choices"][0]
                     if choice.get("finish_reason") == "content_filter" or choice["message"].get("refusal"):
                         raise LLMRefusalError("model refused the request")
+                    if choice.get("finish_reason") == "length":
+                        raise ValueError("model output is incomplete")
                     content = choice["message"]["content"]
                 return self._parse_object(content)
             except httpx.HTTPStatusError as error:

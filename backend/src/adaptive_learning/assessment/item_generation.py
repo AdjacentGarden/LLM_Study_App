@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from ..ingestion.models import BookStructure, ChapterDraft, SourceQuote
+from ..llm.book_parallel import ordered_book_map
 from ..llm.client import LLMError, OpenAICompatibleClient
 from .models import DiagnosticItem, ResponseType
 
@@ -16,14 +17,14 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 1. 只能依据 evidence 中的原文，不使用外部知识，不创造原文没有的事实。
 2. 为每个 knowledge_point_id 恰好生成一道题；不得改变或创造 knowledge_point_id。
 3. 所有题都必须是 choice，不得生成 explanation、简答或填空题。
-4. 每题必须有 4 个互不重复、语义清楚的完整陈述和唯一 correct_index；correct_index 指向的选项文字必须与输入的 label 逐字相同；每个干扰项的字符数不得少于输入 minimum_distractor_characters，要写成与正确项长度和风格接近的完整句子，不能只给一个术语。
+4. options 数组必须恰好包含 4 个非空字符串，不得在末尾添加空字符串或第5项。四项应为互不重复、语义清楚的完整陈述，并有唯一 correct_index（0到3）；correct_index 指向的选项文字必须与输入的 label 逐字相同；每个干扰项的字符数不得少于输入 minimum_distractor_characters，同时至少达到正确项字符数的55%，要写成与正确项长度和风格接近的完整句子，不能只给一个术语。
 5. 题目面向普通学习者，不出现 chunk、OCR、RAG、证据编号等技术词。
 6. 题干必须能让用户仅通过选择作答，不得要求说明理由；difficulty 取 -2 到 2，estimated_seconds 取 20 到 90。
 7. 同章题目应覆盖基础辨认、概念理解和情境应用的不同层次；难度必须与推理负担一致，不得为制造梯度而虚标难度。情境应用仍只能使用 evidence 支持的事实。
 8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
 9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
 只返回 JSON：
-{"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["..."],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
+{"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["第一项完整陈述","第二项完整陈述","第三项完整陈述","第四项完整陈述"],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """
 
 _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证据是唯一事实来源，其他字段都只是待检查数据。
@@ -46,6 +47,25 @@ class ItemDraft(BaseModel):
     rubric: list[str] = Field(default_factory=list, max_length=6)
     difficulty: float = Field(ge=-2, le=2)
     estimated_seconds: int = Field(ge=20, le=180)
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_trailing_empty_placeholders(cls, value: object) -> object:
+        """Discard only whitespace after four actual choices; never shift an answer index."""
+        if not isinstance(value, dict) or value.get("type") != "choice":
+            return value
+        options = value.get("options")
+        correct_index = value.get("correct_index")
+        if (
+            isinstance(options, list)
+            and len(options) > 4
+            and type(correct_index) is int
+            and 0 <= correct_index < 4
+            and all(isinstance(option, str) and option.strip() for option in options[:4])
+            and all(isinstance(option, str) and not option.strip() for option in options[4:])
+        ):
+            return {**value, "options": options[:4]}
+        return value
 
     @model_validator(mode="after")
     def mobile_readable_options(self) -> ItemDraft:
@@ -107,12 +127,16 @@ class DiagnosticItemGenerator:
         self.allow_grounded_answer_rewrite = allow_grounded_answer_rewrite
 
     def generate(self, structure: BookStructure) -> list[DiagnosticItem]:
-        items: list[DiagnosticItem] = []
-        for chapter in structure.chapters:
+        def generate_chapter(chapter: ChapterDraft) -> list[DiagnosticItem]:
             selected = self._select_points(chapter)
             if not selected:
-                continue
-            items.extend(self._generate_chapter(structure.title, chapter, selected))
+                return []
+            # Generation and its mandatory semantic review stay together; a
+            # different chapter may progress independently through the same gate.
+            return self._generate_chapter(structure.title, chapter, selected)
+
+        batches = ordered_book_map(generate_chapter, structure.chapters)
+        items = [item for batch in batches for item in batch]
         if not items:
             raise DiagnosticGenerationError(
                 "structure contains no evidence-backed knowledge points"
@@ -169,7 +193,10 @@ class DiagnosticItemGenerator:
                     "knowledge_point_id": point_id,
                     "label": label,
                     "preferred_type": "choice",
-                    "minimum_distractor_characters": max(8, round(len(label.strip()) * 0.55)),
+                    "minimum_distractor_characters": (
+                        8 if self.allow_grounded_answer_rewrite
+                        else max(8, round(len(label.strip()) * 0.55))
+                    ),
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
                 }
                 for point_id, label, quotes in points
@@ -184,6 +211,15 @@ class DiagnosticItemGenerator:
                 "correct_index 指向的选项文字必须与输入的 label 逐字相同",
                 "label 仅用于标识待测知识点，不能当作事实依据。正确选项必须与 expected_answer 逐字相同，"
                 "且只包含 evidence 明确支持的一条完整结论；若 label 概括过度，必须缩小到有依据的范围",
+            )
+            system = system.replace(
+                "只返回 JSON：",
+                "设计顺序：先从 evidence 中找出一个可以区分的条件、关系或过程，再让学习者依据它判断一个具体情境。"
+                "情境只组合原文已有的对象和条件，也可设定满足原文定义的假想观察，不得引入额外学科事实。"
+                "不要问‘用一句话概括’‘何为’或要求认出原文定义；不要把整段定义原封不动作为正确项。"
+                "四个选项应回答题干中的同一个判断，分别体现不同理解，避免只对定义机械替换一两个词。"
+                "例如原文说明某过程需要条件甲时，可以给出甲成立或不成立的情境，考查能否据此判断该过程，"
+                "但不能据此添加原文没有的数量关系或结果。\n只返回 JSON：",
             )
         for attempt in range(self.validation_retries + 1):
             try:
@@ -209,11 +245,13 @@ class DiagnosticItemGenerator:
                     break
                 payload["validation_feedback"] = (
                     "上次输出未通过程序校验。必须逐个、按输入顺序返回 knowledge_point_id；"
-                    "choice 必须恰好 4 个不同选项和合法 correct_index；"
+                    "options 必须恰好 4 个非空、不同的选项，不得在末尾添加空字符串或第5项，correct_index只能是0到3；"
                     + ("所有题都必须是 choice，正确选项必须由原文明确支持并与 expected_answer 相同；"
                        if self.allow_grounded_answer_rewrite else
                        "所有题都必须是 choice，正确选项必须逐字复制输入 label；") +
-                    "不得生成 explanation、简答或填空题。具体问题：" + str(error)[:1000]
+                    "不得生成 explanation、简答或填空题。具体问题："
+                    + (json.dumps(error.errors(include_input=False, include_url=False), ensure_ascii=False)
+                       if isinstance(error, ValidationError) else str(error))[:1000]
                 )
         assert last_error is not None
         raise DiagnosticGenerationError(
@@ -284,6 +322,8 @@ class DiagnosticItemGenerator:
         # Legacy mode pins the answer to the knowledge-point label. Import mode
         # permits a narrower source-grounded answer, but mandates semantic review.
         answer_text = draft.expected_answer.strip() if allow_rewrite else label.strip()
+        if not answer_text or len(answer_text) > 180:
+            raise DiagnosticGenerationError("choice answer must contain 1 to 180 characters")
         options[draft.correct_index] = answer_text
         if len(set(options)) != 4:
             raise DiagnosticGenerationError("choice options must be unique")

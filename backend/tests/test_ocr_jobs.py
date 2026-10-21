@@ -381,3 +381,42 @@ def test_book_structure_is_persisted_and_updates_book_state(tmp_path: Path) -> N
     stored_book = restarted.get_book("book_1")
     assert stored_book is not None
     assert stored_book.status == "structured"
+
+
+def test_subprocess_completion_wakes_before_lease_interval(tmp_path, monkeypatch):
+    import json
+
+    import adaptive_learning.ingestion.jobs as jobs
+    import adaptive_learning.ingestion.ocr_job as ocr
+
+    repo = make_repository(tmp_path)
+    register(repo, tmp_path)
+    enqueue(repo, tmp_path)
+    job = repo.claim_next(owner="test", lease_seconds=60, now=3)
+    assert job is not None
+    original_popen = subprocess.Popen
+    report = {
+        "mean_heuristic_score": 0.9,
+        "page_count_normalized": 2,
+        "quality_band_counts": {"accepted": 1, "missing": 1},
+    }
+
+    def start_fixture(command, **kwargs):
+        output = Path(command[command.index("--output") + 1]) / "normalized"
+        script = (
+            "from pathlib import Path; "
+            + f"p=Path({str(output)!r}); p.mkdir(); "
+            + f"(p/'quality_report.json').write_text({json.dumps(report)!r}); "
+            + "[(p/name).write_text('fixture') for name in ('quality_report.md','pages.jsonl','full_text.md')]"
+        )
+        return original_popen([sys.executable, "-c", script], **kwargs)
+
+    monkeypatch.setattr(jobs.subprocess, "Popen", start_fixture)
+    monkeypatch.setattr(ocr, "pdf_page_count", lambda _: 2)
+    started = time.monotonic()
+    result = jobs.SubprocessOCRRunner(backend="paddle-gpu", heartbeat_interval=5).run(
+        job, lambda *_: True
+    )
+    assert time.monotonic() - started < 2
+    assert result.page_count == 2 and result.needs_human_review
+    assert (job.output_dir / "normalized/SHA256SUMS").is_file()

@@ -84,7 +84,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev,pdf]"
 cp ../.env.example .env
-# 编辑 .env：将示例中的服务器绝对路径改为自己的目录。
+# 编辑 .env：填写模型服务和本机数据目录。
 python -m uvicorn adaptive_learning.api.app:app \
   --env-file .env --host 127.0.0.1 --port 8100 --reload
 ```
@@ -103,13 +103,13 @@ npm run dev
 
 ### GPU 与模型配置
 
-在后端安装 `.[rag]` 可选依赖，并按 [OCR 部署说明](deployment/ocr/README.md) 配置 MinerU。根据实际环境填写 [配置模板](.env.example) 中的解析命令、模型路径、RAG 索引目录与模型服务配置。示例路径属于现有部署，不能直接套用到其他机器。
+在后端安装 `.[rag]` 可选依赖，并按 [OCR 部署说明](deployment/ocr/README.md) 配置 MinerU。根据实际环境填写 [配置模板](.env.example) 中的解析命令、模型路径、RAG 索引目录与模型服务配置。可选模型与索引路径应按本机安装填写。
 
 多书预览还依赖已发布教材、章节与索引清单；只克隆代码不会自动下载那 10 本测试书。相关工具位于 `deployment/server/`、`deployment/chaptering/` 和 `deployment/rag/`。
 
-## 4090 部署
+## GPU 与后台部署
 
-当前预览应用、教材与持久化数据位于服务器数据盘，前端构建由后端同源提供。使用 [服务管理脚本](deployment/server/run_backend.sh)，可配置 `APP_ROOT`、`RUNTIME_ROOT` 和 `SECRET_FILE`；默认路径需按目标机器调整。
+当前预览应用、教材与持久化数据位于服务器数据盘，前端构建由后端同源提供。使用 [服务管理脚本](deployment/server/run_backend.sh)，可配置 `APP_ROOT`、`RUNTIME_ROOT`、`ENV_FILE`（兼容 `SECRET_FILE`）、`APP_PYTHON` 和 `OCR_PYTHON`；默认从当前仓库定位应用与运行数据。
 
 发布前先备份数据库、源代码和构建，再增量发布，保留 Secret、教材、索引与学习数据。不要把 `legacy/cloudpath/` 当成新版运行目录。
 
@@ -120,6 +120,8 @@ ssh -N -L 18100:127.0.0.1:8100 <部署账号>@<4090服务器地址>
 ```
 
 随后访问 [本机预览](http://127.0.0.1:18100/?device=iphone-16)。这个地址依赖自己的 SSH 隧道，不是公开演示站点。
+
+整书处理的常驻 OCR、章节并发、后台准备任务、恢复与计时方法见 [整书解析与部署](docs/whole-book-ingestion.md)。默认使用 MinerU；快速 GPU 文本模式需要显式选择。
 
 ## 注册、发信与安全边界
 

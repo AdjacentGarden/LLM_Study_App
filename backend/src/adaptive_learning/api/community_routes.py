@@ -5,7 +5,7 @@ import os
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -203,7 +203,7 @@ def community_router(
         canonical_asset = repo.asset(canonical)
         if canonical_asset is None:
             raise HTTPException(500, "教材加入书架失败")
-        return json.loads(canonical_asset["catalog"])
+        return cast(dict[str, Any], json.loads(canonical_asset["catalog"]))
 
     @router.post("/library/books/{book_id}/bind-upload")
     def bind_uploaded_book(

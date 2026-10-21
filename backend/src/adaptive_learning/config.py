@@ -11,6 +11,16 @@ def _bool(name: str, default: bool) -> bool:
     return default if value is None else value.lower() in {"1", "true", "yes", "on"}
 
 
+def _optional_bool(name: str) -> bool | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    normalized = value.strip().lower()
+    if normalized not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false")
+    return normalized == "true"
+
+
 def _int(name: str, default: int) -> int:
     value = os.getenv(name)
     return default if not value else int(value)
@@ -66,6 +76,9 @@ class Settings:
     assessment_max_items: int
     assessment_stop_uncertainty: float
     open_answer_min_confidence: float
+    text_thinking_enabled: bool | None = None
+    text_reasoning_effort: str | None = None
+    diagnostic_allow_grounded_answer_rewrite: bool = False
 
     @property
     def text_base_url(self) -> str:
@@ -145,4 +158,9 @@ def get_settings() -> Settings:
         assessment_max_items=_int("ASSESSMENT_MAX_ITEMS", 12),
         assessment_stop_uncertainty=_float("ASSESSMENT_STOP_UNCERTAINTY", 0.035),
         open_answer_min_confidence=_float("ASSESSMENT_OPEN_ANSWER_MIN_CONFIDENCE", 0.78),
+        text_thinking_enabled=_optional_bool("TEXT_LLM_THINKING_ENABLED"),
+        text_reasoning_effort=os.getenv("TEXT_LLM_REASONING_EFFORT", "").strip() or None,
+        diagnostic_allow_grounded_answer_rewrite=(
+            _optional_bool("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE") or False
+        ),
     )

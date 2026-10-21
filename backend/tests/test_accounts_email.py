@@ -8,7 +8,7 @@ from adaptive_learning.accounts import Accounts
 
 
 class FakeSMTP:
-    instances: list["FakeSMTP"] = []
+    instances: list[FakeSMTP] = []
 
     def __init__(self, host: str, port: int, **kwargs: object) -> None:
         self.host = host
@@ -17,7 +17,7 @@ class FakeSMTP:
         self.events: list[object] = []
         self.__class__.instances.append(self)
 
-    def __enter__(self) -> "FakeSMTP":
+    def __enter__(self) -> FakeSMTP:
         return self
 
     def __exit__(self, *args: object) -> None:

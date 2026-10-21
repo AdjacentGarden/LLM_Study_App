@@ -7,6 +7,7 @@ import time
 from collections import OrderedDict
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
+from typing import cast
 
 from pydantic import BaseModel, Field
 
@@ -271,11 +272,11 @@ class TextbookQAService:
                 top_pages=self.top_pages,
                 max_evidence=self.max_evidence,
             )
-        result = fast(
+        result = cast(RetrievalResult, fast(
             question,
             top_pages=self.top_pages,
             max_evidence=self.max_evidence,
-        )
+        ))
         self._remember_retrieval(question, result, degraded=True)
         return result
 

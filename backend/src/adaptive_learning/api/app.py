@@ -12,13 +12,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Scope
 
-from ..accounts import Accounts
+from ..accounts import COOKIE, Accounts
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
@@ -48,6 +49,7 @@ from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRun
 from ..ingestion.models import BookStructure
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
+from ..ingestion.preparation import PreparationQueue
 from ..llm.client import (
     LLMConfig,
     LLMError,
@@ -70,7 +72,12 @@ from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
 from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
-from .qa_dependency import build_qa_service, qa_service_ready, require_qa_service
+from .qa_dependency import (
+    build_qa_service,
+    prepare_uploaded_book_index,
+    qa_service_ready,
+    require_qa_service,
+)
 from .schemas import (
     BookCatalogItem,
     BookQuestionRequest,
@@ -121,6 +128,8 @@ if settings.text_api_key:
             api_key=settings.text_api_key,
             model=settings.text_model,
             proxy_url=settings.llm_https_proxy,
+            thinking_enabled=settings.text_thinking_enabled,
+            reasoning_effort=settings.text_reasoning_effort,
         )
     )
 open_answer_scorer = None
@@ -130,7 +139,10 @@ if assessment_llm is not None:
         assessment_llm,
         minimum_confidence=settings.open_answer_min_confidence,
     )
-    item_generator = DiagnosticItemGenerator(assessment_llm)
+    item_generator = DiagnosticItemGenerator(
+        assessment_llm,
+        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
+    )
 orchestrator = InterviewOrchestrator(engine, open_answer_scorer)
 personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
@@ -175,9 +187,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.ocr_worker_enabled:
         ocr_worker.start()
     get_studio(settings.data_dir).start()
+    preparation_queue.start()
     try:
         yield
     finally:
+        preparation_queue.stop()
         get_studio(settings.data_dir).stop()
         if settings.ocr_worker_enabled:
             ocr_worker.stop()
@@ -398,6 +412,9 @@ def generate_book_structure(
     reconstructor: Annotated[ChapterReconstructor, Depends(require_chapter_reconstructor)],
 ) -> BookStructure:
     book = _book_or_404(book_id)
+    existing = job_repository.get_structure(book_id)
+    if existing is not None:
+        return existing
     job = job_repository.get_job(book_id)
     if job is None or job.status != "ocr_ready":
         raise HTTPException(status_code=409, detail="书籍内容尚未准备完成。")
@@ -411,6 +428,68 @@ def generate_book_structure(
         raise HTTPException(status_code=502, detail="章节结构生成未通过证据校验") from error
     _sync_book_from_job(book, "structured", 1, "章节结构与摘要已生成")
     return structure
+
+
+def _prepare_index(book_id: str) -> None:
+    # A text-only/local deployment can still prepare chapter learning content.
+    # Partial RAG configuration fails here instead of silently promising QA.
+    if any((settings.rag_index_dir, settings.rag_embedding_model_path, settings.rag_reranker_model_path)):
+        prepare_uploaded_book_index(book_id)
+
+
+def _prepare_structure(book_id: str) -> None:
+    # Recovery after diagnostics failure should reuse the verified structure.
+    if job_repository.get_structure(book_id) is None:
+        generate_book_structure(book_id, require_chapter_reconstructor())
+
+
+def _prepare_diagnostics(book_id: str) -> None:
+    generate_diagnostic_bank(book_id)
+
+
+preparation_queue = PreparationQueue(
+    settings.data_dir / "state" / "preparation.sqlite3",
+    [
+        ("indexing", _prepare_index),
+        ("structuring", _prepare_structure),
+        ("diagnostics", _prepare_diagnostics),
+    ],
+)
+
+
+def _require_upload_owner(book_id: str, request: Request) -> None:
+    if request.method not in {"GET", "HEAD"} and request.headers.get("origin"):
+        from urllib.parse import urlsplit
+
+        if urlsplit(request.headers["origin"]).netloc != request.headers.get("host"):
+            raise HTTPException(status_code=403, detail="请在 App 内执行此操作")
+    owner = account_repository.request_owner(request)
+    if not owner and request.cookies.get(COOKIE):
+        raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
+    if not owner or not account_repository.repo.owns_upload(owner, book_id):
+        raise HTTPException(status_code=403, detail="这不是当前账号上传的教材")
+
+
+@app.post("/api/books/{book_id}/prepare")
+def prepare_book(
+    book_id: str, request: Request, response: Response, retry: bool = False
+) -> dict[str, object]:
+    _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
+    job = job_repository.get_job(book_id)
+    if job is None or job.status != "ocr_ready":
+        raise HTTPException(status_code=409, detail="教材仍在读取中，请稍后再试")
+    return preparation_queue.enqueue(book_id, retry=retry)
+
+
+@app.get("/api/books/{book_id}/prepare")
+def preparation_status(book_id: str, request: Request, response: Response) -> dict[str, object]:
+    _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
+    value = preparation_queue.get(book_id)
+    if value is None:
+        raise HTTPException(status_code=404, detail="尚未开始整理教材")
+    return value
 
 
 @app.get("/api/books/{book_id}/structure", response_model=BookStructure)
@@ -1025,7 +1104,7 @@ def _install_demo_book() -> None:
 
 
 class FrontendStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope: dict):
+    async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         if response.status_code == 200:
             fingerprinted = re.search(r"-[A-Za-z0-9_-]{8,}\.(?:css|js)$", path)

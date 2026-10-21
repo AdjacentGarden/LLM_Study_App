@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pytest
 
-from adaptive_learning.rag.backends import _require_free_gpu_memory
+from adaptive_learning.rag.backends import TransformerQueryEncoder, _require_free_gpu_memory
 from adaptive_learning.rag.index import RAGIndexError
 
 
@@ -49,3 +50,22 @@ def test_gpu_memory_guard_does_not_probe_cpu() -> None:
     _require_free_gpu_memory(torch, "cpu", 2048)
 
     assert torch.cuda.calls == 0
+
+
+def test_document_encoding_batches_without_the_query_instruction(tmp_path, monkeypatch) -> None:
+    (tmp_path / "config.json").write_text('{"hidden_size":2}')
+    encoder = TransformerQueryEncoder(tmp_path, device="cpu")
+    batches: list[list[str]] = []
+
+    def encode(texts):
+        batches.append(list(texts))
+        return np.ones((len(texts), 2), dtype=np.float32)
+
+    monkeypatch.setattr(encoder, "_encode", encode)
+    documents = [f"教材正文{index}" for index in range(35)]
+    assert encoder.encode_documents(documents).shape == (35, 2)
+    assert [len(batch) for batch in batches] == [16, 16, 3]
+    assert [text for batch in batches for text in batch] == documents
+    assert encoder.encode_documents([]).shape == (0, 2)
+    assert encoder.encode_query("遗传规律").shape == (2,)
+    assert batches[-1] == ["为这个句子生成表示以用于检索相关文章：遗传规律"]

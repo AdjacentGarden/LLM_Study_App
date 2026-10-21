@@ -95,6 +95,20 @@ class TransformerQueryEncoder:
         return self._tokenizer, self._model
 
     def encode_query(self, text: str) -> NDArray[np.float32]:
+        return np.asarray(
+            self._encode(["为这个句子生成表示以用于检索相关文章：" + text])[0], dtype=np.float32
+        )
+
+    def encode_documents(self, texts: Sequence[str]) -> NDArray[np.float32]:
+        # BGE document embeddings use the same model without the query prefix.
+        batches = [self._encode(texts[start : start + 16]) for start in range(0, len(texts), 16)]
+        return (
+            np.concatenate(batches)
+            if batches
+            else np.empty((0, self.dimensions), dtype=np.float32)
+        )
+
+    def _encode(self, texts: Sequence[str]) -> NDArray[np.float32]:
         try:
             import torch  # type: ignore[import-not-found]
             from torch.nn import functional  # type: ignore[import-not-found]
@@ -105,7 +119,7 @@ class TransformerQueryEncoder:
         with self._lock, torch.inference_mode():
             tokenizer, model = self._load()
             inputs = tokenizer(
-                ["为这个句子生成表示以用于检索相关文章：" + text],
+                list(texts),
                 padding=True,
                 truncation=True,
                 max_length=512,
@@ -114,9 +128,9 @@ class TransformerQueryEncoder:
             try:
                 vector = model(**inputs).last_hidden_state[:, 0]
                 vector = functional.normalize(vector, p=2, dim=1)
-                return np.asarray(vector[0].float().cpu().numpy(), dtype=np.float32)
+                return np.asarray(vector.float().cpu().numpy(), dtype=np.float32)
             except RuntimeError as error:
-                raise RAGIndexError("query embedding failed") from error
+                raise RAGIndexError("text embedding failed") from error
 
 
 class TransformerPairReranker:

@@ -1,10 +1,9 @@
-from typing import Any
 import json
+from typing import Any
 
 import pytest
 
 from adaptive_learning.llm.client import LLMTimeoutError
-
 from adaptive_learning.rag.grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
@@ -44,7 +43,7 @@ def _evidence() -> list[EvidenceChunk]:
 
 
 def test_review_keeps_full_cited_and_neighbouring_passages():
-    from adaptive_learning.rag.grounded_qa import GroundedAnswer, VerifiedClaim, VerifiedCitation
+    from adaptive_learning.rag.grounded_qa import GroundedAnswer, VerifiedCitation, VerifiedClaim
 
     class ReviewClient:
         payload: dict = {}

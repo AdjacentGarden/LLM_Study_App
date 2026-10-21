@@ -20,6 +20,7 @@ dependencies = [
 pdf = [
   "pymupdf>=1.25,<2",
   "pypdf>=5,<7",
+  "pypdfium2>=4.30,<6",
   "pillow>=11,<13",
 ]
 dev = [
