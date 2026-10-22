@@ -381,3 +381,24 @@ def test_book_structure_is_persisted_and_updates_book_state(tmp_path: Path) -> N
     stored_book = restarted.get_book("book_1")
     assert stored_book is not None
     assert stored_book.status == "structured"
+
+
+def test_stale_ocr_worker_cannot_publish_canonical_artifact(tmp_path: Path) -> None:
+    repo = make_repository(tmp_path)
+    register(repo, tmp_path)
+    enqueue(repo, tmp_path)
+    old = repo.claim_next(owner="old", lease_seconds=1, now=3)
+    current = repo.claim_next(owner="new", lease_seconds=20, now=5)
+    assert old and current
+    stale = tmp_path / "stale"
+    stale.mkdir()
+    (stale / "pages.jsonl").write_text("stale")
+    with pytest.raises(JobStateError):
+        repo.succeed(job_id=old.job_id, owner="old", result=OCRRunResult(.9, False, 1, stale), now=6)
+    assert not (current.output_dir / "normalized").exists()
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    (fresh / "pages.jsonl").write_text("fresh")
+    current.output_dir.mkdir(parents=True)
+    repo.succeed(job_id=current.job_id, owner="new", result=OCRRunResult(.9, False, 1, fresh), now=6)
+    assert (current.output_dir / "normalized/pages.jsonl").read_text() == "fresh"

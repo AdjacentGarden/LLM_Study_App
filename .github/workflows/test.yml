@@ -1,0 +1,40 @@
+name: Regression tests
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: adaptive_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e './backend[dev,pdf]'
+      - run: pytest backend/tests
+      - run: pytest backend/tests/test_postgres.py backend/tests/test_postgres_review.py
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:test@127.0.0.1:5432/adaptive_test
+      - run: PYTHONPATH=backend/tests pytest -p pg_contracts backend/tests/test_accounts.py backend/tests/test_accounts_email.py backend/tests/test_social.py backend/tests/test_community.py backend/tests/test_native_api.py backend/tests/test_studio.py backend/tests/test_learning_design.py backend/tests/test_assessment_repository.py backend/tests/test_ocr_jobs.py
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:test@127.0.0.1:5432/adaptive_test
+  ios:
+    runs-on: macos-15
+    env:
+      # AppRootView uses iOS 26 SDK APIs. Do not build with the runner's old default.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m venv backend/.venv && backend/.venv/bin/pip install -e './backend[dev,pdf]'
+      - run: xcodebuild -resolvePackageDependencies -project frontend/BookCourse.xcodeproj -scheme BookCourse -clonedSourcePackagesDirPath frontend/.build/packages
+      - run: frontend/scripts/test-cloud.sh --unit

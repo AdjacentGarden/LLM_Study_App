@@ -103,3 +103,35 @@ def test_personalized_answers_are_not_shared_across_accounts_or_preferences() ->
         cache_scope="account-a:course-a",
     )
     assert client.calls == 3
+
+
+def test_conversation_context_expands_retrieval_without_becoming_evidence():
+    import json
+
+    queries, payloads = [], []
+
+    class CapturingIndex(FakeIndex):
+        def search(self, question, **kwargs):
+            queries.append(question)
+            return super().search(question, **kwargs)
+
+    class CapturingClient(FakeClient):
+        def structured(self, **kwargs):
+            payloads.append(json.loads(kwargs['user']))
+            return super().structured(**kwargs)
+
+    service = TextbookQAService(book_id='book', index=CapturingIndex(3.5),
+                                generator=GroundedAnswerGenerator(CapturingClient()))
+    context = {'chapter': {'title': '减数分裂'}, 'history': [
+        {'role': 'user', 'text': '同源染色体何时分离？'},
+        {'role': 'assistant', 'text': 'unverified-assistant-answer'},
+    ]}
+    first = service.answer('为什么？', conversation_context=context, cache_scope='course-a')
+    assert first.claims
+    assert '同源染色体' in queries[0] and '减数分裂' in queries[0]
+    assert 'unverified-assistant-answer' not in queries[0]
+    assert payloads[0]['conversation_context'] == context
+    assert 'unverified-assistant-answer' not in str(payloads[0]['evidence'])
+    assert service.answer('为什么？', conversation_context=context, cache_scope='course-a').cache_hit
+    assert not service.answer('为什么？', conversation_context={**context, 'history': []}, cache_scope='course-a').cache_hit
+    assert not service.answer('为什么？', conversation_context=context, cache_scope='course-b').cache_hit

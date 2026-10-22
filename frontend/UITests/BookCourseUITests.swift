@@ -784,6 +784,44 @@ final class BookCourseUITests: XCTestCase {
     keepScreenshot("motion-flashcard-mastery-restored", app: reopened)
   }
 
+  func testLastFlashcardCompletionDoesNotMarkUnratedCardMastered() throws {
+    let session = UUID().uuidString
+    func lastCard(in app: XCUIApplication) -> XCUIElement {
+      let face = app.buttons["flashcard-face"].firstMatch
+      XCTAssertTrue(face.waitForExistence(timeout: 15))
+      for _ in 0..<5 {
+        let previous = face.label
+        face.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)).press(
+          forDuration: 0.05,
+          thenDragTo: face.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)))
+        let advanced = XCTNSPredicateExpectation(
+          predicate: NSPredicate { _, _ in face.isEnabled && face.label != previous }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [advanced], timeout: 5), .completed)
+      }
+      return face
+    }
+    let app = launch("flashcards", session: session, visual: true)
+    let last = lastCard(in: app)
+    XCTAssertEqual(last.value as? String, "unmastered")
+    let finish = app.buttons["flashcard-finish"]
+    try reveal(finish, in: app)
+    keepScreenshot("last-flashcard-existing-finish", app: app)
+    finish.tap()
+    app.terminate()
+
+    let reopened = launch("flashcards", session: session, visual: true)
+    let restored = lastCard(in: reopened)
+    XCTAssertEqual(restored.value as? String, "unmastered")
+    if restored.label.hasPrefix("问题：") { restored.tap() }
+    XCTAssertTrue(restored.label.hasPrefix("参考答案："))
+    let again = reopened.buttons["flashcard-again"]
+    let remember = reopened.buttons["flashcard-remember"]
+    try reveal(again, in: reopened)
+    XCTAssertTrue(remember.exists && remember.isEnabled)
+    keepScreenshot("last-flashcard-explicit-rating", app: reopened)
+    again.tap()
+  }
+
   func testPlanCalendarKeepsSevenColumnsAndSelectsLastDay() throws {
     let app = launch("plan", visual: true)
     let first = app.buttons["第 1 天"].firstMatch

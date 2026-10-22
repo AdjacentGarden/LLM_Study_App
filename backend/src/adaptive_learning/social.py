@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from .community import CommunityRepository
+from .database import Connection
 
 
 class SocialRepository:
@@ -30,7 +31,7 @@ class SocialRepository:
                 CREATE TABLE IF NOT EXISTS social_rate(owner TEXT NOT NULL,created REAL NOT NULL);
                 CREATE INDEX IF NOT EXISTS social_rate_time ON social_rate(owner,created);
             """)
-            if "request_key" not in {
+            if not db.postgres and "request_key" not in {
                 row[1] for row in db.execute("PRAGMA table_info(chat_messages)")
             }:
                 db.execute(
@@ -41,19 +42,16 @@ class SocialRepository:
             ).fetchall():
                 self.ensure(db, str(row[0]))
 
-    def ensure(self, db: sqlite3.Connection, owner: str) -> None:
+    def ensure(self, db: Connection, owner: str) -> None:
         if db.execute("SELECT 1 FROM social_users WHERE owner=?", (owner,)).fetchone():
             return
         for _ in range(8):
-            try:
-                db.execute(
-                    "INSERT INTO social_users(owner,public_id) VALUES (?,?)",
-                    (owner, "ZW-" + secrets.token_hex(5).upper()),
-                )
+            inserted = db.execute(
+                "INSERT INTO social_users(owner,public_id) VALUES (?,?) ON CONFLICT DO NOTHING",
+                (owner, "ZW-" + secrets.token_hex(5).upper()),
+            ).rowcount
+            if inserted or db.execute("SELECT 1 FROM social_users WHERE owner=?", (owner,)).fetchone():
                 return
-            except sqlite3.IntegrityError:
-                if db.execute("SELECT 1 FROM social_users WHERE owner=?", (owner,)).fetchone():
-                    return
         raise RuntimeError("unable to allocate a unique public identity")
 
     @staticmethod
@@ -63,7 +61,7 @@ class SocialRepository:
         return tuple(sorted((owner, peer)))  # type: ignore[return-value]
 
     @staticmethod
-    def resolve(db: sqlite3.Connection, user_id: str) -> str:
+    def resolve(db: Connection, user_id: str) -> str:
         row = db.execute(
             "SELECT owner FROM social_users WHERE public_id=?", (user_id.upper(),)
         ).fetchone()
@@ -72,7 +70,7 @@ class SocialRepository:
         return str(row[0])
 
     @staticmethod
-    def blocked(db: sqlite3.Connection, owner: str, peer: str) -> bool:
+    def blocked(db: Connection, owner: str, peer: str) -> bool:
         return (
             db.execute(
                 "SELECT 1 FROM social_blocks WHERE (owner=? AND target=?) OR (owner=? AND target=?)",
@@ -81,7 +79,7 @@ class SocialRepository:
             is not None
         )
 
-    def relationship(self, db: sqlite3.Connection, owner: str, peer: str) -> str:
+    def relationship(self, db: Connection, owner: str, peer: str) -> str:
         if owner == peer:
             return "self"
         if self.blocked(db, owner, peer):
@@ -99,7 +97,7 @@ class SocialRepository:
             else "incoming"
         )
 
-    def card(self, db: sqlite3.Connection, owner: str, peer: str) -> dict[str, Any]:
+    def card(self, db: Connection, owner: str, peer: str) -> dict[str, Any]:
         row = db.execute(
             "SELECT s.public_id,s.discoverable,p.nickname,(p.avatar IS NOT NULL) AS has_avatar,p.revision FROM social_users s LEFT JOIN user_profiles p ON p.owner=s.owner WHERE s.owner=?",
             (peer,),
@@ -139,7 +137,7 @@ class SocialRepository:
         with self.repo.connect() as db:
             rows = db.execute(
                 """SELECT s.owner FROM social_users s LEFT JOIN user_profiles p ON s.owner=p.owner
-                WHERE s.discoverable=1 AND s.owner<>? AND (upper(s.public_id)=upper(?) OR instr(lower(coalesce(p.nickname,'新同学')),lower(?))>0)
+                WHERE s.discoverable=1 AND s.owner<>? AND (upper(s.public_id)=upper(?) OR strpos(lower(coalesce(p.nickname,'新同学')),lower(?))>0)
                 AND NOT EXISTS(SELECT 1 FROM social_blocks b WHERE (b.owner=? AND b.target=s.owner) OR (b.owner=s.owner AND b.target=?))
                 ORDER BY upper(s.public_id)=upper(?) DESC,s.public_id LIMIT 20""",
                 (owner, query, query, owner, owner, query),
@@ -148,14 +146,14 @@ class SocialRepository:
 
     def change_friend(self, owner: str, user_id: str, action: str) -> dict[str, Any]:
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             self.ensure(db, owner)
             peer = self.resolve(db, user_id)
             pair = self.pair(owner, peer)
             row = db.execute("SELECT * FROM friendships WHERE lo=? AND hi=?", pair).fetchone()
             relation = self.relationship(db, owner, peer)
             if action == "block":
-                db.execute("INSERT OR IGNORE INTO social_blocks VALUES (?,?)", (owner, peer))
+                db.execute('INSERT INTO social_blocks VALUES (?,?) ON CONFLICT DO NOTHING', (owner, peer))
                 db.execute("DELETE FROM friendships WHERE lo=? AND hi=?", pair)
             elif action == "unblock":
                 db.execute("DELETE FROM social_blocks WHERE owner=? AND target=?", (owner, peer))
@@ -340,7 +338,7 @@ class SocialRepository:
         if serialized and len(serialized.encode()) > 100_000:
             raise HTTPException(413, "资料太多，请减少分享的闪卡数量")
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             peer = self.resolve(db, user_id)
             pair = self.pair(owner, peer)
             if self.relationship(db, owner, peer) != "friend":
@@ -369,12 +367,12 @@ class SocialRepository:
             ):
                 raise HTTPException(429, "发送太快了，稍等一下再试")
             cursor = db.execute(
-                "INSERT INTO chat_messages(lo,hi,sender,client_id,text,attachment,created,request_key) VALUES (?,?,?,?,?,?,?,?)",
+                "INSERT INTO chat_messages(lo,hi,sender,client_id,text,attachment,created,request_key) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
                 (*pair, owner, client_id, text, serialized, time.time(), request_key),
             )
             return self.message(
                 db.execute(
-                    "SELECT * FROM chat_messages WHERE id=?", (cursor.lastrowid,)
+                    "SELECT * FROM chat_messages WHERE id=?", (cursor.fetchone()[0],)
                 ).fetchone(),
                 owner,
             )
@@ -388,13 +386,13 @@ class SocialRepository:
             ).fetchone():
                 raise HTTPException(404, "消息不存在")
             db.execute(
-                "INSERT INTO chat_reads VALUES (?,?,?) ON CONFLICT(owner,peer) DO UPDATE SET last_id=max(last_id,excluded.last_id)",
+                "INSERT INTO chat_reads VALUES (?,?,?) ON CONFLICT(owner,peer) DO UPDATE SET last_id=CASE WHEN chat_reads.last_id>excluded.last_id THEN chat_reads.last_id ELSE excluded.last_id END",
                 (owner, peer, message_id),
             )
 
     def acquire(self, owner: str, message_id: int) -> dict[str, Any]:
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT * FROM chat_messages WHERE id=? AND (lo=? OR hi=?)",
                 (message_id, owner, owner),
@@ -405,7 +403,7 @@ class SocialRepository:
             book_id = attachment["book_id"]
             if attachment["kind"] == "book":
                 added = db.execute(
-                    "INSERT OR IGNORE INTO library_books VALUES (?,?,?)",
+                    'INSERT INTO library_books VALUES (?,?,?) ON CONFLICT DO NOTHING',
                     (owner, book_id, time.time()),
                 ).rowcount
                 resource_id = None
@@ -422,7 +420,7 @@ class SocialRepository:
                 else:
                     kind = "flashcards" if attachment["kind"] == "flashcards" else "note"
                     db.execute(
-                        "INSERT INTO resources(id,owner,kind,book_id,title,content,source_post,created) VALUES (?,?,?,?,?,?,?,?)",
+                        "INSERT INTO resources(id,owner,kind,book_id,title,content,source_post,created) VALUES (?,?,?,?,?,?,?,?) RETURNING id",
                         (
                             resource_id,
                             owner,

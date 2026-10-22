@@ -4,6 +4,94 @@ import XCTest
 @testable import BookCourse
 
 final class CloudTests: XCTestCase {
+  func testMasteryConflictRebasePreservesRemoteAddsAndExplicitLocalRemovals() throws {
+    var pending = CloudPendingProgress(
+      workspaceID: "w", resourceID: "r",
+      value: CloudProgress(mastered_ids: ["book::local"]), baseMasteredIDs: ["book::removed"])
+    pending.rebaseMastery(
+      onto: CloudProgress(revision: 4, mastered_ids: ["book::remote", "book::removed"]))
+    XCTAssertEqual(Set(pending.value.mastered_ids), ["book::remote", "book::local"])
+    XCTAssertEqual(pending.value.revision, 4)
+    let restored = try JSONDecoder().decode(
+      CloudPendingProgress.self, from: JSONEncoder().encode(pending))
+    XCTAssertEqual(restored.baseMasteredIDs, ["book::remote", "book::removed"])
+    pending.recordMastery("book::local", mastered: false)
+    pending.rebaseMastery(
+      onto: CloudProgress(revision: 5, mastered_ids: ["book::remote", "book::later"]))
+    XCTAssertEqual(Set(pending.value.mastered_ids), ["book::remote", "book::later"])
+  }
+
+  func testExplicitAgainOverridesUnseenRemoteMasteryAndInFlightToggleSurvivesAck() {
+    var pending = CloudPendingProgress(
+      workspaceID: "w", resourceID: "r", value: CloudProgress(), baseMasteredIDs: [])
+    pending.recordMastery("book::card", mastered: false)
+    pending.rebaseMastery(
+      onto: CloudProgress(revision: 1, mastered_ids: ["book::card", "book::other"]))
+    XCTAssertEqual(pending.value.mastered_ids, ["book::other"])
+    pending.recordMastery("book::card", mastered: true)
+    let sent = pending
+    pending.recordMastery("book::card", mastered: false)
+    pending.acknowledgeMastery(
+      sent, saved: CloudProgress(revision: 2, mastered_ids: ["book::card", "book::other"]))
+    XCTAssertEqual(pending.value.mastered_ids, ["book::other"])
+    XCTAssertEqual(pending.masteryChanges, ["book::card": false])
+  }
+
+  @MainActor func testCloudMasteryMigratesFromResourceProgressAndKeepsCoursesIsolated() throws {
+    let repo = try LocalBookCourseRepository(
+      directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(
+      repository: repo, cloud: CloudAPI(baseURL: URL(string: "http://127.0.0.1:18101")!))
+    let a = CloudResource(
+      id: "resource-a", book_id: "book", workspace_id: "course-a", revision: 0,
+      filename: "book", status: "ready", courses: [],
+      progress: CloudProgress(mastered_ids: ["book::card"]))
+    let b = CloudResource(
+      id: "resource-b", book_id: "book", workspace_id: "course-b", revision: 0,
+      filename: "book", status: "ready", courses: [], progress: CloudProgress())
+    store.cloudState.workspaces = [a, b].map {
+      CloudWorkspace(
+        id: $0.workspace_id, name: $0.workspace_id, preferences: [:], created: 0, updated: 0,
+        resources: [$0])
+    }
+    store.mastered = ["book::card"]  // Ambiguous old cache must not be copied into both courses.
+    store.restoreCloudMastery()
+    store.selectedBookID = "book"
+    store.selectedCourseID = "course-a"
+    XCTAssertTrue(store.isMastered("card"))
+    store.selectedCourseID = "course-b"
+    XCTAssertFalse(store.isMastered("card"))
+    store.setMastery("other", mastered: true)
+    store.selectedCourseID = "course-a"
+    XCTAssertFalse(store.isMastered("other"))
+    store.cloudState.workspaces[0].resources[0].progress.mastered_ids = []
+    store.restoreCloudMastery()
+    XCTAssertFalse(store.isMastered("card"), "Reload must also apply remote removals")
+  }
+
+  @MainActor func testCloudNoteWriteFailureThrowsAndCanBeRetried() async throws {
+    let repo = try LocalBookCourseRepository(
+      directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(
+      repository: repo, cloud: CloudAPI(baseURL: URL(string: "http://127.0.0.1:18101")!))
+    store.cloudState.authenticated = true
+    store.cloudState.cacheKey = "note-write-failure"
+    let note = StudyNote(id: "draft", kind: .text, title: "草稿", body: "不得假报保存成功")
+    await repo.setWriteFaultForTesting(true)
+    do {
+      try await store.saveNote(note)
+      XCTFail("The editor must receive the SQLite failure")
+    } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
+    XCTAssertEqual(store.notes.first?.body, note.body)
+    let failed = try await repo.loadCloudState("note-write-failure")
+    XCTAssertNil(failed)
+    await repo.setWriteFaultForTesting(false)
+    try await store.saveNote(note)
+    await store.flush()
+    let saved = try await repo.loadCloudState("note-write-failure")
+    XCTAssertEqual(saved?.notes?.first?.body, note.body)
+  }
+
   func testBuiltinBiologyCatalogSurvivesEmptyRemoteCatalogAndDeduplicatesRefresh() throws {
     let bundled = try BuiltinCourseCatalog.merging([])
     let biology = try XCTUnwrap(bundled.first { $0.id == "community_genetics" })
@@ -152,10 +240,43 @@ final class CloudTests: XCTestCase {
     await store.submitCloudAssignment(question: question, answer: incorrect)
     XCTAssertNotNil(store.latestDiagnosis)
     await store.flush()
+    let card = try XCTUnwrap(store.flashcards.first)
+    let resource = try XCTUnwrap(store.cloudResource)
+    store.reviewFlashcard(card, mastered: false, seconds: 8)
+    await store.flush()
+    XCTAssertNil(store.cloudState.syncError)
+    XCTAssertTrue(store.cloudState.pendingReviews.isEmpty)
+    XCTAssertEqual(store.cloudResource?.flashcard_reviews?[card.id]?.repetitions, 1)
+    XCTAssertEqual(store.cloudResource?.flashcard_reviews?[card.id]?.last_rating, "again")
+    XCTAssertNotNil(store.flashcards.first { $0.id == card.id }?.due)
+    // A second client changes a different card, forcing the real 409/rebase path.
+    var remote = try XCTUnwrap(store.cloudResource?.progress)
+    remote.mastered_ids = [resource.book_id + "::remote-card"]
+    let _: CloudProgress = try await api.request(
+      resource.path + "/progress", method: "PUT", body: remote.body(mutationID: UUID().uuidString))
+    store.reviewFlashcard(card, mastered: true, seconds: 10)
+    await store.flush()
+    XCTAssertNil(store.cloudState.syncError)
+    XCTAssertTrue(store.isMastered(card.id))
+    XCTAssertTrue(store.isMastered("remote-card"))
+    XCTAssertEqual(store.cloudResource?.flashcard_reviews?[card.id]?.repetitions, 2)
+    // Explicit local removal must survive another device adding a new mastered card.
+    remote = try XCTUnwrap(store.cloudResource?.progress)
+    remote.mastered_ids.append(resource.book_id + "::later-card")
+    let _: CloudProgress = try await api.request(
+      resource.path + "/progress", method: "PUT", body: remote.body(mutationID: UUID().uuidString))
+    store.setMastery(card.id, mastered: false)
+    await store.flush()
+    XCTAssertFalse(store.isMastered(card.id))
+    XCTAssertTrue(store.isMastered("remote-card"))
+    XCTAssertTrue(store.isMastered("later-card"))
     let restored = AppStore(
       repository: try LocalBookCourseRepository(directory: root.appendingPathComponent("fresh")),
       cloud: CloudAPI(baseURL: base))
     await restored.boot()
+    XCTAssertEqual(restored.cloudResource?.flashcard_reviews?[card.id]?.repetitions, 2)
+    XCTAssertFalse(restored.isMastered(card.id))
+    XCTAssertTrue(restored.isMastered("remote-card"))
     XCTAssertEqual(restored.route, .home)
     XCTAssertEqual(restored.preferences?.primaryGoal, "exam")
     XCTAssertEqual(restored.preferences?.dailyTime, "30to60")
@@ -169,6 +290,28 @@ final class CloudTests: XCTestCase {
       restored.plan?.tasks.contains { $0.chapter_id == "c2s1" && $0.status == "done" } == true)
     XCTAssertFalse(restored.mistakes.isEmpty)
     await restored.flush()
+    // Simulate closing the app after a durable offline review, before the HTTP send.
+    restored.cloudState.isHydrating = true
+    restored.reviewFlashcard(card, mastered: false, seconds: 11)
+    restored.saveCloudCacheOnly()
+    await restored.persistTask?.value
+    let queuedID = try XCTUnwrap(restored.cloudState.pendingReviews.first?.eventID)
+    let resumed = AppStore(
+      repository: try LocalBookCourseRepository(directory: root.appendingPathComponent("fresh")),
+      cloud: CloudAPI(baseURL: base))
+    await resumed.boot()
+    await resumed.flush()
+    XCTAssertTrue(resumed.cloudState.pendingReviews.isEmpty)
+    XCTAssertNil(resumed.cloudState.syncError)
+    XCTAssertEqual(resumed.cloudResource?.flashcard_reviews?[card.id]?.repetitions, 3)
+    // A lost HTTP response retries the same persisted event, without a fourth review.
+    let duplicate: CloudReviewResult = try await api.request(
+      resource.path + "/catalog-flashcards/\(card.id)", method: "POST",
+      body: [
+        "event_id": .string(queuedID), "rating": .string("again"), "response_seconds": .number(11),
+      ])
+    XCTAssertTrue(duplicate.duplicate)
+    XCTAssertEqual(duplicate.review_state.repetitions, 3)
   }
 
   @MainActor func testNativeLoginUploadCourseQARestoresProgressFromServer() async throws {
@@ -247,8 +390,20 @@ final class CloudTests: XCTestCase {
     let reply = try XCTUnwrap(store.chatMessages.last)
     XCTAssertEqual(reply.role, "assistant")
     XCTAssertFalse(reply.citations.isEmpty)
+    let card = try XCTUnwrap(store.flashcards.first)
+    store.reviewFlashcard(card, mastered: true, seconds: 14)
+    await store.flush()
+    XCTAssertNil(store.cloudState.syncError)
+    XCTAssertEqual(store.cloudResource?.flashcard_reviews?[card.id]?.algorithm, "fsrs-6")
+    XCTAssertEqual(store.cloudResource?.flashcard_reviews?[card.id]?.repetitions, 1)
     let bookID = try XCTUnwrap(store.selectedBookID)
     let workspaceID = try XCTUnwrap(store.selectedCourseID)
+    store.selectedCourseID = nil
+    let libraryAnswer = try await store.answerAssistant(
+      question: "减数分裂有什么特点？", bookID: bookID, bookIDs: [bookID],
+      chapterID: store.selectedChapterID, sources: store.sources, history: [])
+    XCTAssertFalse(libraryAnswer.citations.isEmpty, "Single-book library QA must remain available")
+    store.selectedCourseID = workspaceID
     let second: CloudWorkspace = try await api.request(
       "/api/workspaces", method: "POST",
       body: [
@@ -282,5 +437,197 @@ final class CloudTests: XCTestCase {
     XCTAssertNil(state.account)
     await store.flush()
     await restored.flush()
+  }
+}
+
+private final class OfflineCloudProtocol: URLProtocol, @unchecked Sendable {
+  static let lock = NSLock()
+  nonisolated(unsafe) static var handler: ((URLRequest) throws -> (Int, Data))?
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    do {
+      Self.lock.lock()
+      let callback = Self.handler
+      Self.lock.unlock()
+      let (status, bytes) = try callback!(request)
+      let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!
+      client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+      client?.urlProtocol(self, didLoad: bytes)
+      client?.urlProtocolDidFinishLoading(self)
+    } catch { client?.urlProtocol(self, didFailWithError: error) }
+  }
+  override func stopLoading() { }
+  static func respond(_ callback: @escaping (URLRequest) throws -> (Int, Data)) {
+    lock.lock(); handler = callback; lock.unlock()
+  }
+}
+
+extension CloudTests {
+  private func isolatedCloudSession() -> URLSession {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [OfflineCloudProtocol.self]
+    return URLSession(configuration: config)
+  }
+  private func cachedAccount(_ id: String = "owner-a") -> CloudAccountState {
+    CloudAccountState(account: .init(email: id + "@example.com", stage: "university", interests: [], goal: "interest", is_demo: false), user_id: id, email_available: true, demo_available: false)
+  }
+  @MainActor private func seedOfflineCache(_ repo: LocalBookCourseRepository, api: CloudAPI, account: CloudAccountState, origin: String? = nil) async throws -> CloudLocalSnapshot {
+    var app = AppSnapshot()
+    app.preferences = LearnerPreferences(displayName: "缓存学习者", primaryGoal: "interest", dailyTime: "30to60")
+    app.selectedCourseID = "workspace"
+    app.selectedBookID = "book"
+    let row = CloudResource(id: "resource", book_id: "book", workspace_id: "workspace", revision: 0, filename: "教材.pdf", status: "ready", structure: CloudStructure(title: "离线课程", summary: "", source_page_count: 10, chapters: []), courses: [], progress: CloudProgress(page: 3))
+    let state = CloudLocalSnapshot(snapshot: app, sources: [], workspaces: [CloudWorkspace(id: "workspace", name: "离线课程", preferences: [:], created: 0, updated: 0, resources: [row])], filePaths: [:], pending: [:], creationWorkspaceID: nil, notes: [StudyNote(id: "private-note", kind: .text, title: "私人笔记", body: "只能归属当前账号")], pendingSelection: nil, onboardingComplete: true, pendingReviews: [])
+    let store = AppStore(repository: repo, cloud: api)
+    try await repo.saveCloudState(state, key: store.cloudCacheKey(account, origin: origin))
+    return state
+  }
+
+  @MainActor func testOfflineRestartMigratesLegacyOriginAndKeepsLocalEdits() async throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let legacyURL = URL(string: "https://offline-\(UUID().uuidString).example:443/")!
+    let account = cachedAccount()
+    CloudAPI.seedLegacyIdentityForTesting(url: legacyURL, account: account)
+    let api = CloudAPI(baseURL: legacyURL, session: isolatedCloudSession())
+    _ = try await seedOfflineCache(repo, api: api, account: account, origin: legacyURL.absoluteString)
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let store = AppStore(repository: repo, cloud: api)
+    await store.boot()
+    XCTAssertTrue(store.cloudState.authenticated)
+    XCTAssertFalse(store.isLoading)
+    XCTAssertEqual(store.route, .home)
+    XCTAssertEqual(store.courses.first?.name, "离线课程")
+    XCTAssertEqual(store.notes.first?.id, "private-note")
+    try await store.saveNote(StudyNote(id: "offline-new", kind: .text, title: "离线新增", body: "离线可写"))
+    await store.flush()
+    let saved = try await repo.loadCloudState(store.cloudCacheKey(account))
+    XCTAssertEqual(saved?.notes?.count, 2)
+    store.cloudState.retryTask?.cancel()
+    await store.logoutCloud()
+    let remembered = await api.verifiedAccount()
+    XCTAssertNil(remembered)
+    XCTAssertTrue(store.notes.isEmpty)
+  }
+
+  @MainActor func testExplicit401NullAccountAndBootstrap401CannotRestoreCachedIdentity() async throws {
+    for mode in ["auth401", "null-account", "bootstrap401"] {
+      let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+      let url = URL(string: "https://expired-\(UUID().uuidString).example")!
+      let account = cachedAccount()
+      CloudAPI.seedLegacyIdentityForTesting(url: url, account: account)
+      let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+      _ = try await seedOfflineCache(repo, api: api, account: account)
+      OfflineCloudProtocol.respond { request in
+        if mode == "auth401" || request.url!.path.contains("bootstrap") { return (401, Data("{\"detail\":\"expired\"}".utf8)) }
+        var response = account
+        if mode == "null-account" { response.account = nil }
+        return (200, try JSONEncoder().encode(response))
+      }
+      let store = AppStore(repository: repo, cloud: api)
+      await store.boot()
+      XCTAssertFalse(store.cloudState.authenticated, mode)
+      XCTAssertTrue(store.cloudState.workspaces.isEmpty, mode)
+      XCTAssertTrue(store.sources.isEmpty, mode)
+      XCTAssertTrue(store.notes.isEmpty, mode)
+      XCTAssertNil(store.cloudState.cacheKey, mode)
+      await store.flush()
+      await api.clearCredentials()
+    }
+  }
+
+  @MainActor func testOfflineAccountAndServiceSwitchNeverLoadsAnotherCache() async throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let url = URL(string: "https://switch-\(UUID().uuidString).example")!
+    let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+    _ = try await seedOfflineCache(repo, api: api, account: cachedAccount())
+    CloudAPI.seedLegacyIdentityForTesting(url: url, account: cachedAccount("owner-b"))
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    for destination in [url, URL(string: "https://other-\(UUID().uuidString).example")!] {
+      let store = AppStore(repository: repo, cloud: CloudAPI(baseURL: destination, session: isolatedCloudSession()))
+      await store.boot()
+      XCTAssertFalse(store.cloudState.authenticated)
+      XCTAssertTrue(store.notes.isEmpty)
+      XCTAssertTrue(store.courses.isEmpty)
+    }
+    await api.clearCredentials()
+  }
+
+  @MainActor func testSharedContentIsWrittenOnceAndProgressWritesOnlyChangedResource() async throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let source = try ContentBundle.load([SourceContent].self, name: "sources")[0]
+    let workspaces = (0..<20).map { index in
+      CloudWorkspace(id: "w\(index)", name: "课程\(index)", preferences: [:], created: 0, updated: 0, resources: [CloudResource(id: "r\(index)", book_id: source.id, workspace_id: "w\(index)", revision: 0, filename: "教材", status: "ready", courses: [], progress: CloudProgress(), source_content: source, content_key: "builtin:test-version")])
+    }
+    var state = CloudLocalSnapshot(snapshot: AppSnapshot(), sources: [], workspaces: workspaces, filePaths: [:], pending: [:], creationWorkspaceID: nil)
+    try await repo.saveCloudState(state, key: "owner")
+    let first = await repo.writeMetricsForTesting()
+    XCTAssertEqual(first.counts["cloud-content"], 1)
+    await repo.resetWriteMetricsForTesting()
+    state.workspaces[0].resources[0].progress.page = 2
+    try await repo.saveCloudState(state, key: "owner")
+    let changed = await repo.writeMetricsForTesting()
+    XCTAssertNil(changed.counts["cloud-content"])
+    XCTAssertEqual(changed.counts["cloud-resource"], 1)
+    XCTAssertLessThan(changed.bytes, 4000)
+    let restored = try await repo.loadCloudState("owner")
+    XCTAssertEqual(restored?.workspaces[0].resources[0].progress.page, 2)
+    XCTAssertEqual(restored?.workspaces[19].resources[0].source_content?.lessons.count, source.lessons.count)
+  }
+}
+
+extension CloudTests {
+  @MainActor func testOfflineQueueResumesAfterAuthenticatedNetworkRecovery() async throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let url = URL(string: "https://recover-\(UUID().uuidString).example")!
+    let account = cachedAccount()
+    CloudAPI.seedLegacyIdentityForTesting(url: url, account: account)
+    let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+    let cached = try await seedOfflineCache(repo, api: api, account: account)
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let store = AppStore(repository: repo, cloud: api)
+    store.cloudState.retryDelay = .milliseconds(50)
+    await store.boot()
+    store.locations["workspace::book"] = StudyLocation(page: 4)
+    store.persistCloud()
+    await store.persistTask?.value
+    XCTAssertFalse(store.cloudState.pending.isEmpty)
+    let bootstrap = CloudBootstrap(workspaces: cached.workspaces, selection: nil, contract_version: 1, library: [], learner_preferences: cached.snapshot.preferences, catalog: [])
+    OfflineCloudProtocol.respond { request in
+      switch request.url!.path {
+      case "/api/auth/me": return (200, try JSONEncoder().encode(account))
+      case "/api/native/bootstrap": return (200, try JSONEncoder().encode(bootstrap))
+      case let path where path.hasSuffix("/progress"):
+        return (200, try JSONEncoder().encode(CloudProgress(revision: 1, page: 4)))
+      default: return (200, Data("{\"ok\":true}".utf8))
+      }
+    }
+    for _ in 0..<100 {
+      if store.cloudState.pending.isEmpty && store.cloudState.syncError == nil { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    XCTAssertTrue(store.cloudState.authenticated)
+    XCTAssertTrue(store.cloudState.pending.isEmpty, store.cloudState.syncError ?? "")
+    XCTAssertEqual(store.cloudState.workspaces[0].resources[0].progress.page, 4)
+    store.cloudState.retryTask?.cancel()
+    await store.flush()
+    await api.clearCredentials()
+  }
+}
+
+extension CloudTests {
+  func testNonDefaultServicePortsNeverShareCredentialOrCacheOrigins() async throws {
+    let host = "ports-\(UUID().uuidString.lowercased()).example"
+    let standard = URL(string: "http://\(host):80/")!
+    CloudAPI.seedLegacyIdentityForTesting(url: standard, account: cachedAccount())
+    let api = CloudAPI(baseURL: URL(string: "http://\(host):8100")!, session: isolatedCloudSession())
+    let identity = await api.verifiedAccount()
+    XCTAssertNil(identity)
+    let own = Set(api.cacheOrigins)
+    XCTAssertTrue(own.contains("http://\(host):8100/"))
+    XCTAssertTrue(own.isDisjoint(with: CloudAPI.compatibleOrigins(URL(string: "http://\(host)")!)))
+    XCTAssertTrue(own.isDisjoint(with: CloudAPI.compatibleOrigins(URL(string: "http://\(host):8101")!)))
+    let defaultAPI = CloudAPI(baseURL: standard, session: isolatedCloudSession())
+    await defaultAPI.clearCredentials()
   }
 }

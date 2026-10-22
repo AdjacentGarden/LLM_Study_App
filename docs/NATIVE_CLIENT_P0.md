@@ -50,6 +50,7 @@ cd backend
 | `PUT /api/workspaces/{wid}/resources/{rid}/chapters` | 带目录 revision 的个人目录确认；修改范围后重新核验章节摘要与证据 |
 | `POST /api/workspaces/{wid}/resources/{rid}/session` | 幂等创建/恢复该课程资料的诊断会话 |
 | `PUT /api/workspaces/{wid}/resources/{rid}/progress` | 带进度 revision 和 mutation_id 的学习状态更新 |
+| `POST /api/workspaces/{wid}/resources/{rid}/catalog-flashcards/{card_id}` | 内置课程的幂等 FSRS 复习；`event_id/rating/response_seconds` |
 | `POST /api/workspaces/{wid}/resources/{rid}/catalog-practice/{question}` | 已有课程客观题服务端评分、按 event_id 去重；主观题需要模型 |
 | `GET /api/workspaces/{wid}/resources/{rid}/catalog-records` | 当前资料的练习记录，用于错题恢复 |
 
@@ -104,6 +105,10 @@ cd backend
 ### 个性化教材答疑
 
 `POST /api/workspaces/{wid}/resources/{rid}/qa`，或原书籍 QA 接口同时传 `workspace_id/resource_id`，由后端检查账号、课程、资料和教材对应关系后读取偏好。仅有书籍 ID 的旧请求，若该账号只有一份对应课程资料则自动定位；存在多门同书课程时只应用个人全局偏好。
+
+资料级 QA 还接收 `chapter_id`、`history: [{role, text}]`（最多 8 条）及 `book_ids`（最多 8 项）。多资料限定在当前课程中，逐份检索和核验，响应的每条 claim 带 `book_id`。历史只参与指代理解和检索上下文，事实仍必须来自原文；缓存包含课程、章节和历史上下文。内置课使用 `data/native_biology_qa.json` 中与客户端同源的 125 页文本，独立建立向量索引，保留原 PDF 页号。
+
+内置课程闪卡复习在同一事务中检查事件 ID、推进 FSRS 并保存学习证据，重复事件不重复调度，冲突内容返回 409。资料响应及 bootstrap 的 `flashcard_reviews` 返回复习状态。
 
 偏好单独传给模型，不进入检索问题；当次问题中的明确表达要求优先。引用与语义校验继续执行。答案缓存按账号、课程资料和有效教学偏好隔离，检索缓存仍按教材与原问题复用。
 

@@ -1,4 +1,4 @@
-"""Private, persistent and cost-bounded learning studio. One worker per deployment.
+"""Private, persistent and cost-bounded learning studio. Lease-based multi-worker execution.
 
 Never automatically resubmit an ambiguous paid request. Generated assets stay on
 the data disk and are served only through the authenticated studio routes.
@@ -32,6 +32,7 @@ from pydantic import ValidationError
 
 from .community import CommunityRepository
 from .config import get_settings
+from .database import DATABASE_ERRORS
 from .llm.client import LLMConfig, LLMTimeoutError, OpenAICompatibleClient, model_time_budget
 from .studio_diagram import render_diagram
 from .studio_models import Improvement, MediaReview, NoteInput, Recognition, Review, TeachingPlan
@@ -47,6 +48,10 @@ VISUAL_STYLE = (
     "polished editorial quality, clean composition, no wireframe-only look, no text, letters or watermark."
 )
 logger = logging.getLogger(__name__)
+
+
+class StudioLeaseLost(RuntimeError):
+    """A stale worker must not publish a result after lease recovery."""
 
 
 class ProviderRejected(RuntimeError):
@@ -84,6 +89,8 @@ class Studio:
         self.voice_assets.mkdir(parents=True, exist_ok=True)
         self.stop_event = threading.Event()
         self.thread: threading.Thread | None = None
+        self._lease = threading.local()
+        self.lease_seconds = 90.0
         with self.repo.connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS studio_notes (
@@ -101,6 +108,12 @@ class Studio:
                 );
                 CREATE INDEX IF NOT EXISTS studio_job_owner ON studio_jobs(owner,book_id,created);
             """)
+            if not db.postgres:
+                columns = {row[1] for row in db.execute("PRAGMA table_info(studio_jobs)")}
+                for name, definition in (("lease_owner", "TEXT"), ("lease_expires", "REAL"),
+                                         ("attempts", "INTEGER NOT NULL DEFAULT 0")):
+                    if name not in columns:
+                        db.execute(f"ALTER TABLE studio_jobs ADD COLUMN {name} {definition}")
 
     def capabilities(self) -> dict[str, Any]:
         s = get_settings()
@@ -129,7 +142,7 @@ class Studio:
     def save_note(self, owner: str, data: NoteInput) -> dict[str, Any]:
         now = time.time()
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             old = db.execute("SELECT * FROM studio_notes WHERE id=?", (data.id,)).fetchone()
             if old and (old["owner"] != owner or old["book_id"] != data.book_id):
                 raise HTTPException(404, "笔记不存在")
@@ -259,7 +272,7 @@ class Studio:
             raise HTTPException(422, "单条语音笔记最长 10 分钟")
         digest = hashlib.sha256(content).hexdigest()
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT * FROM studio_notes WHERE id=? AND owner=?", (key, owner)
             ).fetchone()
@@ -413,7 +426,7 @@ class Studio:
         ).hexdigest()
         price = 2.0 if kind == "video" else 0.025 if kind == "image" else 0.0
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             old = db.execute(
                 "SELECT * FROM studio_jobs WHERE owner=? AND request_id=?",
                 (owner, data["request_id"]),
@@ -467,23 +480,86 @@ class Studio:
     def update(self, key: str, **fields: Any) -> None:
         allowed = {"status", "result", "provider_id", "error", "next_poll"}
         assert fields and set(fields) <= allowed
+        token = getattr(self._lease, "token", None)
+        now = time.time()
         with self.repo.connect() as db:
-            db.execute(
-                "UPDATE studio_jobs SET "
-                + ",".join(f"{f}=?" for f in fields)
-                + ",updated=? WHERE id=?",
-                (*fields.values(), time.time(), key),
+            cursor = db.execute(
+                "UPDATE studio_jobs SET " + ",".join(f"{f}=?" for f in fields)
+                + ",updated=? WHERE id=?"
+                + (" AND lease_owner=? AND lease_expires>?" if token else ""),
+                (*fields.values(), now, key, *((token, now) if token else ())),
             )
+            if token and not cursor.rowcount:
+                raise StudioLeaseLost("Studio lease no longer belongs to this worker")
+
+    def claim_next(self, *, now: float | None = None) -> Any:
+        timestamp = time.time() if now is None else now
+        with self.repo.connect() as db:
+            db.begin_write(serialize=False)
+            expired = db.execute(
+                "SELECT * FROM studio_jobs WHERE lease_expires<=?"
+                + (" FOR UPDATE SKIP LOCKED" if db.postgres else ""), (timestamp,),
+            ).fetchall()
+            for row in expired:
+                status = row["status"]
+                error = row["error"]
+                attempts = row["attempts"] + 1
+                if status == "submitting":
+                    status = "uncertain"
+                    error = "生成请求中断，结果尚未确认；为避免重复计费未重新提交"
+                elif status in ACTIVE:
+                    if attempts >= 3:
+                        status, error = "failed", "任务多次中断，请稍后重新尝试"
+                    elif status == "planning":
+                        status = "queued"
+                db.execute("UPDATE studio_jobs SET status=?,error=?,attempts=?,lease_owner=NULL,lease_expires=NULL WHERE id=?",
+                           (status, error, attempts, row["id"]))
+            # Jobs from the old single-worker format have no active lease.
+            db.execute("UPDATE studio_jobs SET status='uncertain',error='生成请求中断，结果尚未确认；为避免重复计费未重新提交' WHERE status='submitting' AND lease_owner IS NULL")
+            db.execute("UPDATE studio_jobs SET status='queued' WHERE status='planning' AND lease_owner IS NULL")
+            row = db.execute(
+                "SELECT * FROM studio_jobs WHERE status IN ('queued','polling','reviewing') AND next_poll<=? AND lease_owner IS NULL ORDER BY updated,id LIMIT 1"
+                + (" FOR UPDATE SKIP LOCKED" if db.postgres else ""), (timestamp,),
+            ).fetchone()
+            if row is None:
+                return None
+            token = uuid.uuid4().hex
+            db.execute("UPDATE studio_jobs SET lease_owner=?,lease_expires=? WHERE id=?",
+                       (token, timestamp + self.lease_seconds, row["id"]))
+            return db.execute("SELECT * FROM studio_jobs WHERE id=?", (row["id"],)).fetchone()
+
+    def heartbeat_lease(self, key: str, token: str) -> bool:
+        now = time.time()
+        with self.repo.connect() as db:
+            return bool(db.execute("UPDATE studio_jobs SET lease_expires=? WHERE id=? AND lease_owner=? AND lease_expires>?",
+                                   (now + self.lease_seconds, key, token, now)).rowcount)
+
+    def release_lease(self, key: str, token: str) -> None:
+        with self.repo.connect() as db:
+            db.execute("UPDATE studio_jobs SET lease_owner=NULL,lease_expires=NULL WHERE id=? AND lease_owner=?",
+                       (key, token))
+
+    def publish_asset(self, key: str, extension: str, content: bytes) -> None:
+        """Fence filesystem publication with the same row lock as lease recovery."""
+        token = getattr(self._lease, "token", None)
+        temporary = self.assets / f".{key}.{token or uuid.uuid4().hex}.{extension}.tmp"
+        try:
+            temporary.write_bytes(content)
+            with self.repo.connect() as db:
+                db.begin_write(serialize=False)
+                row = db.execute("SELECT lease_owner,lease_expires FROM studio_jobs WHERE id=?"
+                                 + (" FOR UPDATE" if db.postgres else ""), (key,)).fetchone()
+                if token and (not row or row["lease_owner"] != token or row["lease_expires"] <= time.time()):
+                    raise StudioLeaseLost("Asset publication attempted after lease expiration")
+                os.replace(temporary, self.assets / f"{key}.{extension}")
+        finally:
+            temporary.unlink(missing_ok=True)
 
     def start(self) -> None:
         if self.thread and self.thread.is_alive():
             return
-        # Single worker deployment. No paid submission is ever replayed on restart.
         with self.repo.connect() as db:
-            db.execute(
-                "UPDATE studio_jobs SET status='uncertain',error='生成请求中断，结果尚未确认；为避免重复计费未重新提交' WHERE status='submitting'"
-            )
-            db.execute("UPDATE studio_jobs SET status='queued' WHERE status='planning'")
+            db.execute("UPDATE studio_jobs SET status='uncertain',error='生成请求中断，结果尚未确认；为避免重复计费未重新提交' WHERE status='submitting' AND lease_owner IS NULL")
         self.stop_event.clear()
         self.thread = threading.Thread(target=self.loop, name="learning-studio", daemon=True)
         self.thread.start()
@@ -500,15 +576,11 @@ class Studio:
         database_unavailable = False
         while not self.stop_event.is_set():
             try:
-                with self.repo.connect() as db:
-                    row = db.execute(
-                        "SELECT * FROM studio_jobs WHERE status IN ('queued','polling','reviewing') AND next_poll<=? ORDER BY updated LIMIT 1",
-                        (time.time(),),
-                    ).fetchone()
+                row = self.claim_next()
                 if database_unavailable:
                     logger.info("learning studio database is available again")
                     database_unavailable = False
-            except sqlite3.Error as error:
+            except DATABASE_ERRORS as error:
                 if not database_unavailable:
                     logger.warning(
                         "learning studio database temporarily unavailable; retrying",
@@ -518,29 +590,57 @@ class Studio:
                 self.stop_event.wait(2)
                 continue
             if row:
+                token = row["lease_owner"]
+                self._lease.token = token
+                heartbeat_stop = threading.Event()
+                def heartbeat(stop: threading.Event = heartbeat_stop, job: Any = row, lease: str = token) -> None:
+                    while not stop.wait(self.lease_seconds / 3):
+                        try:
+                            if not self.heartbeat_lease(job["id"], lease):
+                                return
+                        except DATABASE_ERRORS:
+                            logger.warning("Studio lease heartbeat temporarily unavailable")
+                heartbeater = threading.Thread(target=heartbeat, daemon=True)
+                heartbeater.start()
                 try:
-                    self.process(row)
-                except ProviderRejected as error:
-                    self.update(row["id"], status="failed", error=str(error))
-                except Exception as error:
-                    # No provider error bodies, credentials or notebook text in logs.
-                    current = self.job(row["owner"], row["id"])
-                    if self.retry_media_review(current, error):
-                        continue
-                    uncertain = current["status"] == "submitting"
-                    result = json.loads(current["result"])
-                    result["_diagnostic"] = {
-                        "stage": current["status"],
-                        "type": type(error).__name__,
-                    }
-                    self.update(
-                        row["id"],
-                        result=json.dumps(result, ensure_ascii=False),
-                        status="uncertain" if uncertain else "failed",
-                        error="请求结果未确认，已停止自动重试，避免重复计费"
-                        if uncertain
-                        else "这次未能完成或通过内容检查。原文和笔记已保留，可稍后重新尝试。",
-                    )
+                    try:
+                        self.process(row)
+                    except StudioLeaseLost:
+                        logger.warning("Studio stale worker result discarded")
+                    except ProviderRejected as error:
+                        self.update(row["id"], status="failed", error=str(error))
+                    except Exception as error:
+                        # No provider error bodies, credentials or notebook text in logs.
+                        current = self.job(row["owner"], row["id"])
+                        if self.retry_media_review(current, error):
+                            continue
+                        uncertain = current["status"] == "submitting"
+                        result = json.loads(current["result"])
+                        result["_diagnostic"] = {
+                            "stage": current["status"],
+                            "type": type(error).__name__,
+                        }
+                        self.update(
+                            row["id"],
+                            result=json.dumps(result, ensure_ascii=False),
+                            status="uncertain" if uncertain else "failed",
+                            error="请求结果未确认，已停止自动重试，避免重复计费"
+                            if uncertain
+                            else "这次未能完成或通过内容检查。原文和笔记已保留，可稍后重新尝试。",
+                        )
+                except StudioLeaseLost:
+                    logger.warning("Studio expired lease cannot publish failure or result")
+                except DATABASE_ERRORS:
+                    logger.warning("Studio state unavailable; recovery deferred until lease expiry")
+                    self.stop_event.wait(2)
+                finally:
+                    heartbeat_stop.set()
+                    heartbeater.join(timeout=1)
+                    self._lease.token = None
+                    try:
+                        self.release_lease(row["id"], token)
+                    except DATABASE_ERRORS:
+                        logger.warning("Studio release deferred until lease expiry")
             else:
                 # Media requests are explicitly user-triggered.  A short idle wait keeps
                 # enqueue-to-start latency below a second without busy-spinning the worker.
@@ -738,7 +838,7 @@ class Studio:
                         (
                             item.get(key)
                             for key in ("text", "description", "reason", "region")
-                            if isinstance(item.get(key), str) and item.get(key).strip()
+                            if isinstance(item.get(key), str) and str(item.get(key)).strip()
                         ),
                         None,
                     )
@@ -921,7 +1021,7 @@ class Studio:
         if kind == "image" and plan.visual_mode == "diagram":
             result["provider"] = "source-grounded-diagram"
             self.update(key, result=json.dumps(result, ensure_ascii=False))
-            (self.assets / f"{key}.jpg").write_bytes(render_diagram(plan))
+            self.publish_asset(key, "jpg", render_diagram(plan))
             self.update(key, status="reviewing")
             return
         self.update(key, result=json.dumps(result, ensure_ascii=False), status="submitting")
@@ -947,7 +1047,9 @@ class Studio:
             image = Image.open(io.BytesIO(raw))
             if image.width * image.height > 10_000_000:
                 raise ValueError("image too large")
-            image.convert("RGB").save(self.assets / f"{key}.jpg", quality=90)
+            output = io.BytesIO()
+            image.convert("RGB").save(output, format="JPEG", quality=90)
+            self.publish_asset(key, "jpg", output.getvalue())
             self.update(key, status="reviewing")
         else:
             payload: dict[str, Any] = {
@@ -1022,7 +1124,7 @@ class Studio:
                     raise ValueError("invalid file ID")
                 file = self.minimax("/v1/files/retrieve?file_id=" + file_id)
                 content = self.download(file["file"]["download_url"], 60_000_000)
-                (self.assets / f"{row['id']}.mp4").write_bytes(content)
+                self.publish_asset(row["id"], "mp4", content)
                 self.update(row["id"], status="reviewing")
             else:
                 self.update(row["id"], next_poll=time.time() + VIDEO_POLL_SECONDS)
@@ -1197,6 +1299,8 @@ class Studio:
 
         transcript = data.get("transcript", "")
         if row["kind"] in {"recognize", "complete"}:
+            output: Recognition | None = None
+            verified: Recognition | None = None
             voice = note.get("input_mode", "ink") == "voice"
             progress("transcribing" if voice else "recognizing")
             if voice:
@@ -1252,8 +1356,10 @@ class Studio:
                     assert output is not None and verified is not None
                 else:
                     output = self.recognition(self.llm(recognition_prompt, ink))
+            assert output is not None
             result = output.model_dump()
             if row["kind"] == "complete":
+                assert verified is not None
                 transcript = output.transcript.strip()
                 disagreement = not voice and normalize(transcript) != normalize(verified.transcript)
                 uncertain = list(

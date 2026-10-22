@@ -562,3 +562,148 @@ def test_last_selected_course_is_independent_of_progress_revision(native):
         assert b.put("/api/native/selection", json=body).status_code == 404
     value = a.get("/api/workspaces/workspace_first").json()["resources"][0]
     assert value["progress"]["revision"] == 0
+
+
+def test_builtin_qa_uses_shipped_pages_with_course_chapter_and_history(native, monkeypatch):
+    from adaptive_learning.api import qa_dependency
+
+    a, b, root = native
+    workspace = a.post('/api/native/catalog/community_genetics/import', json={
+        'id': 'workspace_qa_scope', 'name': '内置生物课',
+    }).json()
+    row = workspace['resources'][0]
+    path = f"/api/workspaces/{workspace['id']}/resources/{row['id']}"
+    service = qa_dependency.build_book_qa_service(native_catalog.BOOK_ID)
+    assert service.book_id == 'book_biology_2'
+    assert service is not qa_dependency._service
+    pages = {page['page_number']: page['raw_text'] for page in map(json.loads, native_catalog.qa_pages().splitlines())}
+    answer = a.post(path + '/qa', json={'question': '减数分裂有什么特点？'})
+    assert answer.status_code == 200, answer.text
+    assert answer.json()['claims']
+    for claim in answer.json()['claims']:
+        assert claim['book_id'] == 'book_biology_2'
+        for citation in claim['citations']:
+            assert citation['quote'] in pages[citation['page_number']]
+    captured = []
+    original = service.answer
+
+    def record(question, **kwargs):
+        captured.append(kwargs)
+        return original(question, **kwargs)
+
+    monkeypatch.setattr(service, 'answer', record)
+    history = [{'role': 'user', 'text': '减数分裂有什么特点？'}, {'role': 'assistant', 'text': '前一轮回答'}]
+    followup = a.post(path + '/qa', json={'question': '为什么会这样？', 'chapter_id': 'c2s1', 'history': history})
+    assert followup.status_code == 200, followup.text
+    assert captured[-1]['cache_scope'].endswith(f":{workspace['id']}:{row['id']}")
+    assert captured[-1]['conversation_context']['history'] == history
+    assert captured[-1]['conversation_context']['chapter']['id'] == 'c2s1'
+    assert a.post(path + '/qa', json={'question': '问题', 'chapter_id': 'missing'}).status_code == 422
+    assert a.post(path + '/qa', json={'question': '问题', 'book_ids': ['not-in-course']}).status_code == 422
+    assert a.post(path + '/qa', json={'question': '问题', 'history': history * 5}).status_code == 422
+    assert b.post(path + '/qa', json={'question': '问题'}).status_code == 404
+
+
+def test_catalog_flashcard_reviews_are_durable_idempotent_and_resource_scoped(native):
+    a, b, root = native
+    workspaces = [a.post('/api/native/catalog/community_genetics/import', json={
+        'id': f'workspace_review_{i}', 'name': f'生物课 {i}',
+    }).json() for i in range(2)]
+    first, second = [w['resources'][0] for w in workspaces]
+    card = native_catalog.snapshot()['source']['flashcards'][0]
+    path = f"/api/workspaces/{workspaces[0]['id']}/resources/{first['id']}/catalog-flashcards/{card['card_id']}"
+    payload = {'event_id': 'review-event-0001', 'rating': 'again', 'response_seconds': 12}
+    initial = a.post(path, json=payload)
+    assert initial.status_code == 200, initial.text
+    state = initial.json()['review_state']
+    assert state['algorithm'] == 'fsrs-6'
+    assert state['repetitions'] == 1 and state['due_at'] and state['last_rating'] == 'again'
+    retry = a.post(path, json=payload).json()
+    assert retry['duplicate'] and retry['review_state'] == state
+    assert a.post(path, json={**payload, 'rating': 'good'}).status_code == 409
+    assert b.post(path, json=payload).status_code == 404
+    assert a.post(path, json={**payload, 'event_id': 'review-event-invalid', 'rating': 'unknown'}).status_code == 422
+    api.native_repository = NativeRepository(root / 'state' / 'native.sqlite3')
+    restored = a.get('/api/native/bootstrap').json()['workspaces']
+    resources = {r['id']: r for w in restored for r in w['resources']}
+    assert resources[first['id']]['flashcard_reviews'][card['card_id']] == state
+    assert resources[second['id']]['flashcard_reviews'] == {}
+    next_review = a.post(path, json={**payload, 'event_id': 'review-event-0002', 'rating': 'good'}).json()
+    assert next_review['review_state']['repetitions'] == 2
+    assert next_review['review_state']['last_rating'] == 'good'
+    assert len(api.native_repository.catalog_practice(first['id'])) == 2
+
+
+def test_resource_qa_keeps_multi_book_citations_and_course_scope(native):
+    a, _, _ = native
+    workspace = a.post('/api/native/catalog/community_genetics/import', json={
+        'id': 'workspace_multi_qa', 'name': '多资料生物课',
+    }).json()
+    row = workspace['resources'][0]
+    uploaded_book = uploaded(a)
+    assert a.post(f"/api/workspaces/{workspace['id']}/resources", json={'book_id': uploaded_book}).status_code == 200
+    response = a.post(f"/api/workspaces/{workspace['id']}/resources/{row['id']}/qa", json={
+        'question': '减数分裂有什么特点？', 'chapter_id': 'c2s1',
+        'book_ids': [uploaded_book, row['book_id'], uploaded_book],
+    })
+    assert response.status_code == 200, response.text
+    assert {claim['book_id'] for claim in response.json()['claims']} == {row['book_id'], uploaded_book}
+    for claim in response.json()['claims']:
+        if claim['book_id'] == uploaded_book:
+            assert all(c['quote'] in QUOTES[c['page_number'] - 1] for c in claim['citations'])
+
+
+def test_packaged_builtin_qa_is_exact_client_pdf_page_map():
+    import hashlib
+    from pathlib import Path
+
+    corpus_path = Path(native_catalog.__file__).parent / 'data/native_biology_qa.json'
+    corpus = json.loads(corpus_path.read_text())
+    client = Path(__file__).resolve().parents[2] / 'frontend/Resources/Content/rag/biology-required-2-rag-v1'
+    original = client / 'page-map.json'
+    manifest = json.loads((client / 'manifest.json').read_text())
+    assert corpus['page_map_sha256'] == hashlib.sha256(original.read_bytes()).hexdigest()
+    assert corpus['source_sha256'] == manifest['source']['sha256']
+    assert corpus['book_id'] == manifest['book_id'] == native_catalog.BOOK_ID
+    assert corpus['page_count'] == 125
+    assert [(p['page_number'], p['raw_text']) for p in corpus['pages']] == [
+        (p['pdf_page'], p['text']) for p in json.loads(original.read_text())['pages']
+    ]
+
+
+def test_metadata_bootstrap_deduplicates_bodies_with_constant_query_budget(native, monkeypatch):
+    from adaptive_learning.database import Connection
+
+    client, _, _ = native
+    original = Connection.execute
+    selects = []
+
+    def counted(self, sql, params=()):
+        if sql.lstrip().upper().startswith("SELECT"):
+            selects.append(sql)
+        return original(self, sql, params)
+
+    monkeypatch.setattr(Connection, "execute", counted)
+    measurements = []
+    for count in (1, 5, 20):
+        for index in range(len(measurements) and measurements[-1][0] or 0, count):
+            result = client.post(f"/api/native/catalog/{native_catalog.CATALOG_ID}/import", json={"id": f"workspace_batch_{index}", "name": f"课程 {index}"})
+            assert result.status_code == 200
+        selects.clear()
+        light = client.get("/api/native/bootstrap?mode=metadata")
+        queries = len(selects)
+        full = client.get("/api/native/bootstrap")
+        assert light.status_code == full.status_code == 200
+        rows = [r for w in light.json()["workspaces"] for r in w["resources"]]
+        assert len({r["content_key"] for r in rows}) == 1
+        assert all(r["source_content"] is None and r["structure"] is None for r in rows)
+        assert len(light.content) < len(full.content) / 20
+        assert queries <= 12
+        measurements.append((count, queries))
+    assert len({value[1] for value in measurements}) == 1
+    path = rows[0]["content_path"]
+    body = client.get(path).json()
+    assert body["source_content"]["lessons"]
+    assert body["source_content"]["plan"]["tasks"][0]["task_id"].startswith("catalog:__shared__:")
+    assert client.get("/api/native/builtin-content/outdated").status_code == 404
+    assert client.get("/api/native/capabilities").json()["bootstrap_metadata"]

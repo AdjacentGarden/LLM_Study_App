@@ -172,7 +172,7 @@ def account_router(
             raise HTTPException(404, "该功能不可用")
         result = []
         with accounts.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             for email in DEMO_USERS:
                 row = db.execute(
                     "SELECT owner FROM accounts WHERE email=? AND is_demo=1", (email,)

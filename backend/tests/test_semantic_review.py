@@ -1,13 +1,13 @@
 import pytest
+from test_grounded_qa import SequenceFakeClient
 
+from adaptive_learning.personalization.generator import _point_title
 from adaptive_learning.rag.grounded_qa import (
     EvidenceChunk,
     GroundedAnswerGenerator,
     GroundedAnswerValidationError,
     is_definition_question,
 )
-from adaptive_learning.personalization.generator import _point_title
-from test_grounded_qa import SequenceFakeClient
 
 
 def draft(claim, quote):

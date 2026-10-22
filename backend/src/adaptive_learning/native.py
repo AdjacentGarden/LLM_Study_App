@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import time
 import uuid
 from collections.abc import Iterator
@@ -11,7 +10,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from .assessment.models import FlashcardReviewState
+from .database import Connection, connect
 from .ingestion.models import BookStructure
+from .personalization.review import rating_score, schedule_review
 
 
 class NativeConflict(ValueError):
@@ -104,7 +106,7 @@ class NativeRepository:
     ) -> dict[str, Any]:
         self.workspace(owner, wid)
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT revision FROM native_design_overrides WHERE workspace_id=?", (wid,)
             ).fetchone()
@@ -149,7 +151,7 @@ class NativeRepository:
     ) -> dict[str, Any]:
         self.workspace(owner, wid)
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT payload FROM native_daily_plans WHERE workspace_id=? AND day=?", (wid, day)
             ).fetchone()
@@ -185,7 +187,7 @@ class NativeRepository:
     def complete_task(self, owner: str, wid: str, event_id: str, task_id: str) -> bool:
         self.workspace(owner, wid)
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT task_id FROM native_task_completions WHERE workspace_id=? AND event_id=?",
                 (wid, event_id),
@@ -236,21 +238,57 @@ class NativeRepository:
         with self.connect() as db:
             return bool(
                 db.execute(
-                    "INSERT OR IGNORE INTO native_catalog_practice VALUES(?,?,?)",
+                    'INSERT INTO native_catalog_practice(resource_id,event_id,payload) VALUES(?,?,?) ON CONFLICT DO NOTHING',
                     (resource_id, event_id, json.dumps(payload, ensure_ascii=False)),
                 ).rowcount
             )
 
+    def catalog_review_states(self, resource_id: str) -> dict[str, Any]:
+        return {record["question_id"]: record["review_state"]
+                for record in reversed(self.catalog_practice(resource_id))
+                if "review_state" in record}
+
+    def review_catalog_card(
+        self, resource_id: str, event_id: str, card: dict[str, Any],
+        rating: str, response_seconds: float,
+    ) -> dict[str, Any]:
+        # Serialize scheduling and event insertion: concurrent reviews must use
+        # the last committed FSRS state, and retries must not advance it twice.
+        with self.connect() as db:
+            db.begin_write()
+            rows = [json.loads(r[0]) for r in db.execute(
+                "SELECT payload FROM native_catalog_practice WHERE resource_id=? ORDER BY rowid DESC",
+                (resource_id,),
+            )]
+            duplicate = next((r for r in rows if r["id"] == event_id), None)
+            if duplicate:
+                if (duplicate.get("review_state") is None
+                        or duplicate["question_id"] != card["card_id"]
+                        or duplicate["answer"] != rating
+                        or duplicate["response_seconds"] != response_seconds):
+                    raise NativeConflict("重复提交的内容不一致")
+                return {"duplicate": True, "review_state": duplicate["review_state"]}
+            previous = next((r["review_state"] for r in rows
+                             if r["question_id"] == card["card_id"] and "review_state" in r), None)
+            state = schedule_review(FlashcardReviewState.model_validate(previous) if previous else None,
+                                    rating, response_seconds=response_seconds)
+            assert state.updated_at is not None
+            record = {
+                "id": event_id, "question_id": card["card_id"], "title": card["front"],
+                "chapter": card["concept"], "chapter_id": card["chapter_id"],
+                "pages": [card["page_start"]] if card["page_start"] else [],
+                "answer": rating, "response_seconds": response_seconds,
+                "score": rating_score(rating), "at": state.updated_at.isoformat(),
+                "review_state": state.model_dump(mode="json"), "kind": "flashcard_review",
+            }
+            db.execute("INSERT INTO native_catalog_practice(resource_id,event_id,payload) VALUES(?,?,?)",
+                       (resource_id, event_id, json.dumps(record, ensure_ascii=False)))
+            return {"duplicate": False, "review_state": record["review_state"]}
+
     @contextmanager
-    def connect(self) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=30)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys=ON")
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+    def connect(self) -> Iterator[Connection]:
+        with connect(self.path) as db:
+            yield db
 
     def workspace(self, owner: str, key: str) -> dict[str, Any]:
         with self.connect() as db:
@@ -263,19 +301,14 @@ class NativeRepository:
 
     def workspaces(self, owner: str) -> list[dict[str, Any]]:
         with self.connect() as db:
-            keys = [
-                r[0]
-                for r in db.execute(
-                    "SELECT id FROM native_workspaces WHERE owner=? ORDER BY created,id", (owner,)
-                )
-            ]
-        return [self.workspace(owner, key) for key in keys]
+            return [{**dict(row), "preferences": json.loads(row["preferences"])} for row in
+                    db.execute("SELECT * FROM native_workspaces WHERE owner=? ORDER BY created,id", (owner,))]
 
     def save_workspace(
         self, owner: str, key: str, name: str, preferences: dict[str, Any]
     ) -> dict[str, Any]:
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute("SELECT owner FROM native_workspaces WHERE id=?", (key,)).fetchone()
             if row and row[0] != owner:
                 raise KeyError(key)
@@ -319,7 +352,7 @@ class NativeRepository:
         self.workspace(owner, workspace_id)
         with self.connect() as db:
             db.execute(
-                "INSERT OR IGNORE INTO native_resources(id,workspace_id,book_id,created) VALUES(?,?,?,?)",
+                'INSERT INTO native_resources(id,workspace_id,book_id,created) VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
                 ("resource_" + uuid.uuid4().hex, workspace_id, book_id, time.time()),
             )
             key = db.execute(
@@ -339,7 +372,7 @@ class NativeRepository:
         self.resource(owner, workspace_id, key)
         encoded = structure.model_dump_json()
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT revision,structure_json FROM native_resources WHERE id=?", (key,)
             ).fetchone()
@@ -363,7 +396,7 @@ class NativeRepository:
         items_json: str,
     ) -> str:
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT session_id,revision FROM native_resources WHERE id=?", (resource_id,)
             ).fetchone()
@@ -417,7 +450,7 @@ class NativeRepository:
     ) -> dict[str, Any]:
         self.resource(owner, workspace_id, key)
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             if db.execute(
                 "SELECT 1 FROM native_mutations WHERE resource_id=? AND mutation_id=?",
                 (key, mutation_id),

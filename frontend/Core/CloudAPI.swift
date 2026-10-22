@@ -5,6 +5,7 @@ import Security
 struct CloudError: LocalizedError {
   let status: Int
   let message: String
+  var transportFailure = false
   var errorDescription: String? { message }
 }
 
@@ -16,19 +17,19 @@ actor CloudAPI {
   }
   private let session: URLSession
   private var cookies: [String: String]
+  nonisolated let cacheOrigins: [String]
+  private let credentialKeys: [String]
   private let credentialKey: String
 
   init(baseURL: URL, session: URLSession? = nil) {
-    self.baseURL = baseURL
-    credentialKey =
-      "cloudpath.session."
-      + SHA256.hash(data: Data(baseURL.absoluteString.utf8))
-      .map { String(format: "%02x", $0) }.joined()
-    if let data = Self.readCredential(credentialKey) {
+    let normalized = Self.normalizedURL(baseURL)
+    self.baseURL = normalized
+    cacheOrigins = Self.compatibleOrigins(baseURL)
+    credentialKeys = cacheOrigins.map(Self.credentialKeyForOrigin)
+    credentialKey = Self.credentialKeyForOrigin(normalized.absoluteString)
+    if let data = credentialKeys.compactMap({ Self.readCredential($0) }).first {
       cookies = (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
-    } else {
-      cookies = [:]
-    }
+    } else { cookies = [:] }
     if let session {
       self.session = session
     } else {
@@ -40,6 +41,32 @@ actor CloudAPI {
       self.session = URLSession(configuration: config)
     }
   }
+
+  private nonisolated static func credentialKeyForOrigin(_ origin: String) -> String {
+    "cloudpath.session." + SHA256.hash(data: Data(origin.utf8)).map { String(format: "%02x", $0) }.joined()
+  }
+
+  nonisolated static func compatibleOrigins(_ url: URL) -> [String] {
+    let normalized = normalizedURL(url)
+    var candidates = [normalized.absoluteString, url.absoluteString, normalized.absoluteString + "/"]
+    if normalized.port == nil {
+      var parts = URLComponents(url: normalized, resolvingAgainstBaseURL: false)!
+      parts.port = parts.scheme == "https" ? 443 : 80
+      let defaultPort = parts.url!.absoluteString
+      candidates += [defaultPort, defaultPort + "/"]
+    }
+    var values: [String] = []
+    for value in candidates where !values.contains(value) { values.append(value) }
+    return values
+  }
+
+  #if DEBUG
+  nonisolated static func seedLegacyIdentityForTesting(url: URL, account: CloudAccountState) {
+    let key = credentialKeyForOrigin(url.absoluteString)
+    writeCredential(key, data: try? JSONEncoder().encode(["zhiwo_account": "test-credential"]))
+    writeCredential(key + ".identity", data: try? JSONEncoder().encode(account))
+  }
+  #endif
 
   nonisolated static func configured() -> CloudAPI? {
     guard !ProcessInfo.processInfo.arguments.contains("--fixture") else { return nil }
@@ -56,7 +83,25 @@ actor CloudAPI {
       url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
       url.path.isEmpty || url.path == "/"
     else { return nil }
-    return url
+    return normalizedURL(url)
+  }
+
+  nonisolated static func normalizedURL(_ url: URL) -> URL {
+    var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+    parts.scheme = parts.scheme?.lowercased()
+    parts.host = parts.host?.lowercased()
+    if (parts.scheme == "http" && parts.port == 80) || (parts.scheme == "https" && parts.port == 443) { parts.port = nil }
+    parts.path = ""
+    return parts.url!
+  }
+
+  func verifiedAccount() -> CloudAccountState? {
+    guard cookies["zhiwo_account"] != nil, let data = credentialKeys.compactMap({ Self.readCredential($0 + ".identity") }).first else { return nil }
+    return try? JSONDecoder().decode(CloudAccountState.self, from: data)
+  }
+
+  func rememberAccount(_ value: CloudAccountState) {
+    Self.writeCredential(credentialKey + ".identity", data: try? JSONEncoder().encode(value))
   }
 
   func request<T: Decodable & Sendable>(
@@ -100,7 +145,10 @@ actor CloudAPI {
 
   func clearCredentials() {
     cookies = [:]
-    Self.writeCredential(credentialKey, data: nil)
+    for key in credentialKeys {
+      Self.writeCredential(key, data: nil)
+      Self.writeCredential(key + ".identity", data: nil)
+    }
   }
 
   private func send(_ path: String, method: String, data: Data?, contentType: String?) async throws
@@ -127,7 +175,7 @@ actor CloudAPI {
     do { (bytes, raw) = try await session.data(for: request) } catch is CancellationError {
       throw CancellationError()
     } catch let error as URLError where error.code == .cancelled { throw CancellationError() } catch
-    { throw CloudError(status: 0, message: "无法连接学习服务，请检查服务地址和网络；已保存的进度仍然保留。") }
+    { throw CloudError(status: 0, message: "无法连接学习服务，请检查服务地址和网络；已保存的进度仍然保留。", transportFailure: true) }
     guard let response = raw as? HTTPURLResponse else {
       throw CloudError(status: 0, message: "服务响应无效")
     }
@@ -290,6 +338,9 @@ struct CloudResource: Codable, Sendable, Identifiable {
   var courses: [CloudCourse]
   var progress: CloudProgress
   var source_content: SourceContent? = nil
+  var flashcard_reviews: [String: CloudReviewState]? = nil
+  var content_key: String? = nil
+  var content_path: String? = nil
   var path: String { "/api/workspaces/\(workspace_id)/resources/\(id)" }
 }
 struct CloudStructure: Codable, Sendable {
@@ -411,8 +462,20 @@ struct CloudDiagnosticResult: Codable, Sendable {
   var next_turn: CloudTurn
   var profile: JSONValue
 }
+struct CloudReviewState: Codable, Sendable {
+  var algorithm: String
+  var repetitions: Int
+  var due_at: String?
+  var last_rating: String?
+}
+struct CloudReviewResult: Decodable, Sendable {
+  var duplicate: Bool
+  var review_state: CloudReviewState
+}
+
 struct CloudQA: Codable, Sendable {
   struct Claim: Codable, Sendable {
+    var book_id: String? = nil
     var text: String
     var citations: [CloudCitation]
   }

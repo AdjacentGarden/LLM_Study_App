@@ -95,13 +95,13 @@
 
 每个 `TextBlock` 保留 `book_id / page_number / block_id / bbox / source_method / confidence`。用户看到的总结、知识点和回答引用 `block_id`，但界面只显示“第 N 页原文”，不展示内部 chunk ID。
 
-建议生产存储：
+2026-10-22 当前已实现的运行存储（历史路线以此为准）：
 
-- 对象存储：原 PDF、页面图、可视化版面检查图；
-- PostgreSQL：书籍、页、块、章节、质量记录、修订账本；
-- pgvector 或 Qdrant：密集向量；
-- Redis：任务状态、限流、短期会话；
-- GPU worker：MinerU/VLM；CPU worker：预处理、质量统计和索引。
+- 文件系统：原 PDF、页面图、OCR 归一化产物、Studio 媒体、模型及 RAG 索引；
+- 可选 PostgreSQL：账号/会话/验证码与限流、书库/社交/Studio、工作区/进度/复习、诊断/课程/事件及持久任务；未配置时使用 SQLite 开发路径；
+- RAG 继续使用现有文件索引，没有迁移到 pgvector/Qdrant；
+- 独立 OCR/Studio Worker：数据库短事务领取与租约，不使用 Redis、Celery 或消息代理；
+- GPU OCR 需实际 MinerU/CUDA 运行镜像和模型；CPU Studio Worker 根据配置使用模型服务。多机需共享文件路径与账户签名材料，详见 [运维手册](P2_POSTGRES_RUNBOOK.md)。
 
 ## 4. 整书理解与通用章节结构
 
@@ -228,10 +228,10 @@ LLM 只能按预先生成并人工/模型核验的量规评分，返回命中要
 
 - Nginx：同域前后端与静态资源；
 - FastAPI：业务 API；
-- Celery/Dramatiq worker：任务编排；
-- MinerU GPU sidecar：文档解析；
-- PostgreSQL + pgvector；
-- Redis；
+- 独立 `adaptive_learning.worker`：OCR/Studio 租约任务；
+- 包含 MinerU 的 GPU OCR Worker 镜像：文档解析；
+- PostgreSQL：权威业务数据与持久任务，schema 容器显式升级；
+- 现有文件 RAG 索引，未引入向量数据库或 Redis；
 - 本地数据盘对象目录，所有持久数据挂载到数据盘。
 
 PUCODING 用于结构化生成、清洗和视觉救援，DeepSeek 可作为文本总结/评分备选。密钥只注入环境变量，不写入镜像、前端或日志。
@@ -285,4 +285,4 @@ PUCODING 用于结构化生成、清洗和视觉救援，DeepSeek 可作为文�
 
 已完成：领域模型、PDF 判型、MinerU 适配与输出归一化、五维质量门控、LLM 清洗合同、章节重建、RAG 基线、CAT/Beta 诊断内核、主动访谈状态机、开放题评分合同、个性化策略与课程合同、可交互手机模拟页。
 
-下一里程碑是把 MinerU sidecar、任务队列、PostgreSQL/pgvector 和真实模型服务装到 4090 数据盘环境，然后用跨学科测试集做 CER、章节边界和画像预测验证。至少包含扫描教材、学术论文、管理类书籍和文学作品，避免对单一学科过拟合。
+PostgreSQL 入口、43 表迁移、独立 Worker 与原生轻量启动已实现并在隔离 PostgreSQL 中演练；没有执行用户数据迁移或生产部署。下一里程碑是验证包含真实 MinerU/CUDA 和模型权重的 GPU Worker 部署，再用跨学科测试集做 CER、章节边界和画像预测验证。至少包含扫描教材、学术论文、管理类书籍和文学作品，避免对单一学科过拟合。

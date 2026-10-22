@@ -11,7 +11,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
@@ -234,9 +234,9 @@ class OpenAICompatibleClient:
                         # Responses calls. Its result is normalised back to the same
                         # dictionary contract used by the other compatible providers.
                         sdk_response = self._responses_sdk.responses.create(
-                            **payload, timeout=timeout  # type: ignore[arg-type]
+                            **payload, timeout=timeout
                         )
-                        return sdk_response.model_dump(mode="json")
+                        return cast(dict[str, Any], sdk_response.model_dump(mode="json"))
                     else:
                         response = self._http.post(
                             endpoint,
@@ -245,7 +245,7 @@ class OpenAICompatibleClient:
                             timeout=timeout,
                         )
                         response.raise_for_status()
-                        return response.json()
+                        return cast(dict[str, Any], response.json())
 
                 body = _request_before_deadline(send, until)
                 if until is not None and time.monotonic() >= until:

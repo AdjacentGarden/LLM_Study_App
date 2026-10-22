@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sqlite3
+import hashlib
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -8,6 +8,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from ..database import Connection, connect
 from ..personalization.models import ChapterLearningBundle
 from .models import DiagnosticItem, InterviewSession
 
@@ -27,19 +28,14 @@ class SQLiteAssessmentRepository:
         self._initialize()
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=30, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA busy_timeout=30000")
-        try:
-            with connection:
-                yield connection
-        finally:
-            connection.close()
+    def _connect(self) -> Iterator[Connection]:
+        with connect(self.database_path) as connection:
+            yield connection
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.execute("PRAGMA journal_mode=WAL")
+            if not connection.postgres:
+                connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS diagnostic_banks (
@@ -85,6 +81,10 @@ class SQLiteAssessmentRepository:
                 );
                 """
             )
+            if not connection.postgres:
+                columns = {row[1] for row in connection.execute("PRAGMA table_info(course_bundles)")}
+                if "content_digest" not in columns:
+                    connection.execute("ALTER TABLE course_bundles ADD COLUMN content_digest TEXT NOT NULL DEFAULT ''")
 
     def save_bank(
         self,
@@ -200,12 +200,7 @@ class SQLiteAssessmentRepository:
     def save_course(self, session_id: str, bundle: ChapterLearningBundle) -> bool:
         with self._connect() as connection:
             cursor = connection.execute(
-                """
-                INSERT OR IGNORE INTO course_bundles(
-                    course_id, session_id, chapter_id, version, profile_fingerprint,
-                    source_fingerprint, bundle_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                '\n                INSERT INTO course_bundles(\n                    course_id, session_id, chapter_id, version, profile_fingerprint,\n                    source_fingerprint, bundle_json, created_at, content_digest\n                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING',
                 (
                     bundle.course_id,
                     session_id,
@@ -215,6 +210,7 @@ class SQLiteAssessmentRepository:
                     bundle.source_fingerprint,
                     bundle.model_dump_json(),
                     bundle.created_at.timestamp(),
+                    hashlib.sha256(bundle.model_dump_json().encode()).hexdigest(),
                 ),
             )
         return cursor.rowcount == 1
@@ -254,8 +250,8 @@ class SQLiteAssessmentRepository:
         """Refresh wording without replacing IDs, versions or learning-event history."""
         with self._connect() as connection:
             connection.execute(
-                "UPDATE course_bundles SET bundle_json=? WHERE course_id=?",
-                (bundle.model_dump_json(), bundle.course_id),
+                "UPDATE course_bundles SET bundle_json=?,content_digest=? WHERE course_id=?",
+                (bundle.model_dump_json(), hashlib.sha256(bundle.model_dump_json().encode()).hexdigest(), bundle.course_id),
             )
 
     def get_course_for_session(
@@ -286,14 +282,9 @@ class SQLiteAssessmentRepository:
         session.revision += 1
         session_payload = session.model_dump_json()
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write()
             inserted = connection.execute(
-                """
-                INSERT OR IGNORE INTO learning_events(
-                    event_id, session_id, course_id, item_id, event_type,
-                    payload_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
+                '\n                INSERT INTO learning_events(\n                    event_id, session_id, course_id, item_id, event_type,\n                    payload_json, created_at\n                ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING',
                 (
                     event_id,
                     session.session_id,

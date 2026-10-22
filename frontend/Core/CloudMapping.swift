@@ -25,6 +25,23 @@ enum CloudMapping {
       chunk_id: citationID(page: value.page_number, quote: value.quote, blockID: value.block_id),
       page_start: value.page_number, page_end: value.page_number, quote: value.quote)
   }
+  static func reviewedCard(_ card: Flashcard, resource: CloudResource) -> Flashcard {
+    guard let state = resource.flashcard_reviews?[card.id] else { return card }
+    var result = card
+    // Keep the existing due-date pill; only replace its data.
+    if let value = state.due_at {
+      let formatter = ISO8601DateFormatter()
+      formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+      let date = formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+      if let date {
+        result.due =
+          date <= .now || Calendar.current.isDateInToday(date)
+          ? "today" : date.formatted(.dateTime.month().day())
+      }
+    }
+    return result
+  }
+
   static func source(_ resource: CloudResource) -> SourceContent {
     if var content = resource.source_content {
       for i in content.plan.tasks.indices {
@@ -34,6 +51,7 @@ enum CloudMapping {
           ?? (task.chapter_id.map { resource.progress.completed_chapters.contains($0) } == true
             ? "done" : task.status)
       }
+      content.flashcards = content.flashcards.map { reviewedCard($0, resource: resource) }
       return content
     }
     let bookID = resource.book_id
@@ -131,7 +149,8 @@ enum CloudMapping {
         chunk_count: 0,
         asset_count: 0, average_confidence: 100, updated_at: Date().timeIntervalSince1970,
         content_mode: "remote"),
-      chapters: chapters, lessons: lessons, chunks: [], assets: [], flashcards: cards,
+      chapters: chapters, lessons: lessons, chunks: [], assets: [],
+      flashcards: cards.map { reviewedCard($0, resource: resource) },
       quizzes: quizzes,
       plan: StudyPlan(
         user_id: "", book_id: bookID, days: max(1, chapters.count), daily_minutes: 30, tasks: tasks)

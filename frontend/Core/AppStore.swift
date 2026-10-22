@@ -471,6 +471,7 @@ import SwiftUI
     chatMessages = []
     persist()
     if cloud != nil {
+      loadSelectedCloudContent()
       cloudState.recordsTask?.cancel()
       cloudState.recordsTask = Task { await reloadCloudLearningRecords() }
     }
@@ -863,12 +864,24 @@ import SwiftUI
     persist()
   }
   func setMastery(_ questionID: String, mastered: Bool) {
-    let key = "\(selectedBookID ?? "")::\(questionID)"
+    let key = masteryKey(questionID)
     if mastered { self.mastered.insert(key) } else { self.mastered.remove(key) }
+    if cloud != nil, let resource = cloudResource {
+      var pending =
+        cloudState.pending[resource.id]
+        ?? CloudPendingProgress(
+          workspaceID: resource.workspace_id, resourceID: resource.id, value: resource.progress,
+          baseMasteredIDs: resource.progress.mastered_ids)
+      pending.recordMastery(resource.book_id + "::" + questionID, mastered: mastered)
+      cloudState.pending[resource.id] = pending
+    }
     persist()
   }
   func isMastered(_ questionID: String) -> Bool {
-    mastered.contains("\(selectedBookID ?? "")::\(questionID)")
+    mastered.contains(masteryKey(questionID))
+  }
+  func masteryKey(_ questionID: String) -> String {
+    "\(cloud != nil ? cloudResource?.id ?? "unselected" : selectedBookID ?? "")::\(questionID)"
   }
   func submitAssignment(question: QuizQuestion, answer: String) {
     if cloud != nil {
@@ -970,8 +983,10 @@ import SwiftUI
       } else {
         notes.append(updated)
       }
-      persistCloud()
-      await persistTask?.value
+      guard let saved = persistCloud() else {
+        throw CloudError(status: 409, message: "笔记尚未保存，请重新打开课程后重试")
+      }
+      try await saved.value.get()
       return
     }
     try await repository.saveNote(updated)

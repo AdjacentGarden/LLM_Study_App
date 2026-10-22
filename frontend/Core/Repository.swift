@@ -18,6 +18,10 @@ protocol StudyNoteRepository: Sendable {
 private final class SQLiteConnection: @unchecked Sendable {
   var handle: OpaquePointer?
   var failWrites = false
+  #if DEBUG
+  var writeCounts: [String: Int] = [:]
+  var writtenBytes = 0
+  #endif
   init(url: URL) throws {
     guard
       sqlite3_open_v2(
@@ -37,6 +41,7 @@ private final class SQLiteConnection: @unchecked Sendable {
   }
   func put(_ kind: String, _ id: String, _ bytes: Data) throws {
     guard !failWrites else { throw ContentError.storage("存储暂时不可写") }
+    if try get(kind, id).first == bytes { return }
     var statement: OpaquePointer?
     guard
       sqlite3_prepare_v2(
@@ -51,6 +56,21 @@ private final class SQLiteConnection: @unchecked Sendable {
       sqlite3_bind_blob(statement, 3, $0.baseAddress, Int32(bytes.count), transient)
     }
     guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+    #if DEBUG
+    writeCounts[kind, default: 0] += 1
+    writtenBytes += bytes.count
+    #endif
+  }
+  func contains(_ kind: String, _ id: String) throws -> Bool {
+    var statement: OpaquePointer?
+    guard sqlite3_prepare_v2(handle, "SELECT 1 FROM records WHERE kind=? AND id=?", -1, &statement, nil) == SQLITE_OK else { throw failure() }
+    defer { sqlite3_finalize(statement) }
+    let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    sqlite3_bind_text(statement, 1, kind, -1, transient)
+    sqlite3_bind_text(statement, 2, id, -1, transient)
+    let result = sqlite3_step(statement)
+    guard result == SQLITE_ROW || result == SQLITE_DONE else { throw failure() }
+    return result == SQLITE_ROW
   }
   func get(_ kind: String, _ id: String? = nil) throws -> [Data] {
     var statement: OpaquePointer?
@@ -99,6 +119,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     self.directory = root
     self.db = try SQLiteConnection(url: root.appendingPathComponent("bookcourse.sqlite"))
+    self.encoder.outputFormatting = [.sortedKeys]
     try FileManager.default.createDirectory(
       at: root.appendingPathComponent("attachments"), withIntermediateDirectories: true)
   }
@@ -132,12 +153,95 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try db.put("app", "state", encoder.encode(snapshot))
   }
 
+  private struct CloudDiskState: Codable {
+    var state: CloudLocalSnapshot
+    var noteIDs: [String]
+    var sourceIDs: [String]
+  }
+
+  private func contentID(_ contentKey: String, account: String) -> String {
+    contentKey.hasPrefix("builtin:") ? contentKey : account + ":" + contentKey
+  }
+
+  func loadCloudContent(_ contentKey: String, account: String) throws -> CloudContent? {
+    try db.get("cloud-content", contentID(contentKey, account: account)).first.map {
+      try decoder.decode(CloudContent.self, from: $0)
+    }
+  }
+
+  func saveCloudContent(_ content: CloudContent, contentKey: String, account: String) throws {
+    try db.put("cloud-content", contentID(contentKey, account: account), encoder.encode(content))
+  }
+
   func loadCloudState(_ key: String) throws -> CloudLocalSnapshot? {
+    if let data = try db.get("cloud-shell-v2", key).first {
+      let disk = try decoder.decode(CloudDiskState.self, from: data)
+      var state = disk.state
+      for wi in state.workspaces.indices {
+        for ri in state.workspaces[wi].resources.indices {
+          let id = state.workspaces[wi].resources[ri].id
+          if let bytes = try db.get("cloud-resource", key + ":" + id).first {
+            var resource = try decoder.decode(CloudResource.self, from: bytes)
+            if let version = resource.content_key,
+              let content = try loadCloudContent(version, account: key) {
+              resource = content.applying(to: resource)
+            }
+            state.workspaces[wi].resources[ri] = resource
+          }
+        }
+      }
+      state.notes = try disk.noteIDs.compactMap { id in
+        try db.get("cloud-note", key + ":" + id).first.map { try decoder.decode(StudyNote.self, from: $0) }
+      }
+      state.sources = state.workspaces.flatMap(\.resources).map(CloudMapping.source)
+      state.sources += try disk.sourceIDs.compactMap { id in
+        try db.get("cloud-source", key + ":" + id).first.map { try decoder.decode(SourceContent.self, from: $0) }
+      }
+      return state
+    }
     guard let data = try db.get("cloud", key).first else { return nil }
     return try decoder.decode(CloudLocalSnapshot.self, from: data)
   }
+
   func saveCloudState(_ value: CloudLocalSnapshot, key: String) throws {
-    try db.put("cloud", key, encoder.encode(value))
+    var state = value
+    let resourceBooks = Set(value.workspaces.flatMap(\.resources).map(\.book_id))
+    let extraSources = value.sources.filter { !resourceBooks.contains($0.id) }
+    try db.execute("BEGIN IMMEDIATE")
+    do {
+      for wi in state.workspaces.indices {
+        for ri in state.workspaces[wi].resources.indices {
+          var resource = state.workspaces[wi].resources[ri]
+          let contentExists = try resource.content_key.map { try db.contains("cloud-content", contentID($0, account: key)) } ?? false
+          if !contentExists && (resource.structure != nil || resource.source_content != nil || !resource.courses.isEmpty) {
+            let content = CloudContent(resource: resource)
+            let bytes = try encoder.encode(content)
+            // Responses from old servers and mutation endpoints also gain stable content IDs.
+            let version = resource.content_key ?? "legacy:" + SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+            try db.put("cloud-content", contentID(version, account: key), bytes)
+            resource.content_key = version
+          }
+          resource.structure = nil
+          resource.source_content = nil
+          resource.courses = []
+          try db.put("cloud-resource", key + ":" + resource.id, encoder.encode(resource))
+          resource.progress = CloudProgress()
+          resource.flashcard_reviews = nil
+          state.workspaces[wi].resources[ri] = resource
+        }
+      }
+      for note in value.notes ?? [] { try db.put("cloud-note", key + ":" + note.id, encoder.encode(note)) }
+      for source in extraSources { try db.put("cloud-source", key + ":" + source.id, encoder.encode(source)) }
+      state.sources = []
+      state.notes = nil
+      let disk = CloudDiskState(state: state, noteIDs: (value.notes ?? []).map(\.id), sourceIDs: extraSources.map(\.id))
+      try db.put("cloud-shell-v2", key, encoder.encode(disk))
+      try db.delete("cloud", key)
+      try db.execute("COMMIT")
+    } catch {
+      try? db.execute("ROLLBACK")
+      throw error
+    }
   }
   func loadNotes() throws -> [StudyNote] {
     try db.get("note").map { try decoder.decode(StudyNote.self, from: $0) }.sorted {
@@ -201,6 +305,8 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   }
   #if DEBUG
     func setWriteFaultForTesting(_ fail: Bool) { db.failWrites = fail }
+    func resetWriteMetricsForTesting() { db.writeCounts = [:]; db.writtenBytes = 0 }
+    func writeMetricsForTesting() -> (counts: [String: Int], bytes: Int) { (db.writeCounts, db.writtenBytes) }
   #endif
 
   func seedDemoNotesIfNeeded() throws {

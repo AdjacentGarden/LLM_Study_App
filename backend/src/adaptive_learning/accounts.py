@@ -31,17 +31,30 @@ LOCAL_OWNER = "native_local_default"
 class Accounts:
     def __init__(self, repo: CommunityRepository):
         self.repo = repo
-        key_path = repo.path.parent / "account-otp.key"
-        try:
-            fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError:
-            pass
+        signing_key = os.getenv("ACCOUNT_SIGNING_KEY", "").strip()
+        if signing_key:
+            try:
+                self.key = bytes.fromhex(signing_key)
+            except ValueError as error:
+                raise RuntimeError("ACCOUNT_SIGNING_KEY must be 64 hexadecimal characters") from error
         else:
-            with os.fdopen(fd, "wb") as file:
-                file.write(secrets.token_bytes(32))
-        self.key = key_path.read_bytes()
+            key_path = repo.path.parent / "account-otp.key"
+            try:
+                fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                with os.fdopen(fd, "wb") as file:
+                    file.write(secrets.token_bytes(32))
+            # An adjacent process can observe the exclusive file before its first
+            # write completes. Never substitute another key during that window.
+            for _ in range(20):
+                self.key = key_path.read_bytes()
+                if len(self.key) == 32:
+                    break
+                time.sleep(0.01)
         if len(self.key) != 32:
-            raise RuntimeError("invalid OTP signing key")
+            raise RuntimeError("invalid OTP signing key (expected 32 bytes)")
         with repo.connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS accounts(owner TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,stage TEXT NOT NULL,interests TEXT NOT NULL,goal TEXT NOT NULL,is_demo INTEGER NOT NULL DEFAULT 0,created REAL NOT NULL);
@@ -69,13 +82,13 @@ class Accounts:
             raise HTTPException(404, "本地默认登录未启用")
         token, now = secrets.token_urlsafe(32), time.time()
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             db.execute(
-                "INSERT OR IGNORE INTO accounts VALUES(?,?,?,?,?,?,?)",
+                'INSERT INTO accounts VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',
                 (LOCAL_OWNER, "local@cloudpath.invalid", "university", "[]", "interest", 0, now),
             )
             db.execute(
-                "INSERT OR IGNORE INTO user_profiles VALUES(?,?,NULL,'',NULL,1)",
+                "INSERT INTO user_profiles VALUES(?,?,NULL,'',NULL,1) ON CONFLICT DO NOTHING",
                 (LOCAL_OWNER, "本地学习者"),
             )
             if previous_token:
@@ -168,7 +181,7 @@ class Accounts:
             time.time(),
         )
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             db.execute("DELETE FROM email_codes WHERE created<?", (now - 86400,))
             db.execute("DELETE FROM email_rate WHERE created<?", (now - 86400,))
             last = db.execute(
@@ -256,7 +269,7 @@ class Accounts:
         failure: tuple[int, str] | None = None
         target, token = "", secrets.token_urlsafe(32)
         with self.repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT * FROM email_codes WHERE id=? AND owner=?", (challenge, owner)
             ).fetchone()

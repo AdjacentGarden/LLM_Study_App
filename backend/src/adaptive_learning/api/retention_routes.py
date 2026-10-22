@@ -85,7 +85,7 @@ def retention_router(
         ).hexdigest()
         now = time.time()
         with repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             old = db.execute(
                 "SELECT * FROM reading_doubts WHERE owner=? AND book_id=? AND fingerprint=?",
                 (owner, data.book_id, fingerprint),
@@ -122,7 +122,7 @@ def retention_router(
     def update(key: str, data: DoubtUpdate, owner: str = Depends(visitor)) -> dict[str, Any]:
         now = time.time()
         with repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             row = db.execute(
                 "SELECT * FROM reading_doubts WHERE id=? AND owner=?", (key, owner)
             ).fetchone()

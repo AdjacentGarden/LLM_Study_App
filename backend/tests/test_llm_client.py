@@ -6,7 +6,12 @@ from typing import Any
 import httpx
 import pytest
 
-from adaptive_learning.llm.client import LLMConfig, LLMError, OpenAICompatibleClient, model_time_budget
+from adaptive_learning.llm.client import (
+    LLMConfig,
+    LLMError,
+    OpenAICompatibleClient,
+    model_time_budget,
+)
 
 
 class FakeResponse:
@@ -130,7 +135,8 @@ def test_connection_client_is_reused_and_can_be_closed(monkeypatch):
     client=_client(max_retries=0)
     instances=[]
     def post(self,*args,**kwargs):
-        instances.append(id(self));return FakeResponse(content='{"ok":true}')
+        instances.append(id(self))
+        return FakeResponse(content='{"ok":true}')
     monkeypatch.setattr(httpx.Client,"post",post)
     client.structured(system="s",user="1")
     client.structured(system="s",user="2")
@@ -149,7 +155,8 @@ def test_nested_time_budgets_do_not_extend_deadline(monkeypatch):
                 client.structured(system="s",user="u")
     captured={}
     def post(*args,**kwargs):
-        captured.update(kwargs);return FakeResponse(content="{}")
+        captured.update(kwargs)
+        return FakeResponse(content="{}")
     monkeypatch.setattr(httpx.Client,"post",post)
     with model_time_budget(2):
         client.structured(system="s",user="u")
@@ -159,6 +166,7 @@ def test_nested_time_budgets_do_not_extend_deadline(monkeypatch):
 def test_deadline_returns_before_blocked_transport_and_discards_late_result(monkeypatch):
     import threading
     import time
+
     from adaptive_learning.llm.client import LLMTimeoutError
     release = threading.Event()
     completed = threading.Event()
@@ -226,6 +234,7 @@ def test_http_403_content_refusal_is_not_confused_with_auth(monkeypatch, code, e
 
 def test_expired_slot_admission_does_not_send_or_leak(monkeypatch):
     import time
+
     import adaptive_learning.llm.client as module
     calls = []
     class DelayedSlot:
@@ -244,6 +253,7 @@ def test_abandoned_transports_are_bounded_and_slots_recover(monkeypatch):
     import threading
     import time
     from concurrent.futures import ThreadPoolExecutor
+
     import adaptive_learning.llm.client as module
     slot = threading.BoundedSemaphore(2)
     release = threading.Event()
@@ -264,5 +274,6 @@ def test_abandoned_transports_are_bounded_and_slots_recover(monkeypatch):
         release.set()
     assert slot.acquire(timeout=1)
     assert slot.acquire(timeout=1)
-    slot.release(); slot.release()
+    slot.release()
+    slot.release()
     assert module._request_before_deadline(lambda: {"ok": True}, time.monotonic() + 1) == {"ok": True}

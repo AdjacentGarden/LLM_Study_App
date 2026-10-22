@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..assessment.models import (
@@ -49,11 +51,19 @@ class StartInterviewRequest(BaseModel):
     book_id: str
 
 
+class QuestionTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
 class BookQuestionRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     question: str = Field(min_length=1, max_length=2000)
     workspace_id: str | None = Field(default=None, min_length=1, max_length=100)
     resource_id: str | None = Field(default=None, min_length=1, max_length=100)
+    chapter_id: str | None = Field(default=None, min_length=1, max_length=150)
+    history: list[QuestionTurn] = Field(default_factory=list, max_length=8)
+    book_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
 class ProfileAnswerRequest(BaseModel):

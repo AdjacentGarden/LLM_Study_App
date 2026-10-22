@@ -5,7 +5,7 @@ import os
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -203,7 +203,7 @@ def community_router(
         canonical_asset = repo.asset(canonical)
         if canonical_asset is None:
             raise HTTPException(500, "教材加入书架失败")
-        return json.loads(canonical_asset["catalog"])
+        return cast(dict[str, Any], json.loads(canonical_asset["catalog"]))
 
     @router.post("/library/books/{book_id}/bind-upload")
     def bind_uploaded_book(
@@ -389,7 +389,7 @@ def community_router(
     def save_user_profile(body: UserProfileInput, owner: str = Depends(visitor)) -> dict[str, Any]:
         avatar = normalize_avatar(body.avatar_data_url) if body.avatar_data_url else None
         with repo.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             previous = db.execute("SELECT * FROM user_profiles WHERE owner=?", (owner,)).fetchone()
             revision = previous["revision"] if previous else 0
             if body.revision != revision:

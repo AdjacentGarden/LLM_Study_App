@@ -180,11 +180,11 @@ class FlashcardQualityGate:
                                 migrated.append((key, cached_card, verdict))
                     except (ValidationError, FlashcardQualityError):
                         pass
-            for key, card, verdict in migrated:
+            for key, migrated_card, verdict in migrated:
                 conn.execute(
                     "INSERT OR REPLACE INTO reviewed_flashcards "
                     "(cache_key,card_json,review_json,quality_version) VALUES (?,?,?,?)",
-                    (key, card.model_dump_json(), verdict.model_dump_json(), QUALITY_VERSION),
+                    (key, migrated_card.model_dump_json(), verdict.model_dump_json(), QUALITY_VERSION),
                 )
         missing = [data for key, data in inputs.items() if key not in corrected]
         # Bound request length for arbitrary books and long courses.

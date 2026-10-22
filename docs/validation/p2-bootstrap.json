@@ -1,0 +1,56 @@
+[
+  {
+    "workspaces": 1,
+    "legacy": {
+      "bytes": 698950,
+      "selects": 19,
+      "milliseconds": 18.11
+    },
+    "full": {
+      "bytes": 698950,
+      "selects": 11,
+      "milliseconds": 14.22
+    },
+    "metadata": {
+      "bytes": 2650,
+      "selects": 11,
+      "milliseconds": 5.06
+    }
+  },
+  {
+    "workspaces": 5,
+    "legacy": {
+      "bytes": 3488594,
+      "selects": 71,
+      "milliseconds": 112.3
+    },
+    "full": {
+      "bytes": 3488594,
+      "selects": 11,
+      "milliseconds": 56.92
+    },
+    "metadata": {
+      "bytes": 6990,
+      "selects": 11,
+      "milliseconds": 4.14
+    }
+  },
+  {
+    "workspaces": 20,
+    "legacy": {
+      "bytes": 13949779,
+      "selects": 266,
+      "milliseconds": 314.85
+    },
+    "full": {
+      "bytes": 13949779,
+      "selects": 11,
+      "milliseconds": 134.8
+    },
+    "metadata": {
+      "bytes": 23285,
+      "selects": 11,
+      "milliseconds": 3.7
+    }
+  }
+]

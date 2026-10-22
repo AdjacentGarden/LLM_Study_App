@@ -51,6 +51,12 @@ python3 scripts/validate-content.py
 
 默认账号仅适用于本机开发。局域网真机或远程服务应使用正式账号认证或安全转发；正式服务不会开放本地默认账号入口。详情见 [原生接口与账号边界](docs/NATIVE_CLIENT_P0.md)。
 
+## PostgreSQL 与离线恢复
+
+服务端可选择 PostgreSQL 主存储，未配置时保留本机 SQLite；配置失败不会静默回退。43 张权威业务表通过统一连接入口和显式 SQL migrations 管理，OCR/Studio 可作为独立 Worker 运行，运行部署不依赖 Redis。迁移工具只对停写后的 SQLite 快照向空目标导入，不会自动迁移现有用户数据。配置、租约、文件路径和切换流程见 [PostgreSQL 运维手册](docs/P2_POSTGRES_RUNBOOK.md)。
+
+原生端恢复最近验证成功的账号缓存后即可显示已有学习空间；暂时断网允许本机学习和笔记落盘，恢复网络后重试同步，明确会话失效仍要求重新登录。轻量 bootstrap 按版本复用内置正文，个人进度、笔记与正文分开持久化。现有界面和功能保持原有入口；真实服务接入范围见 [能力矩阵](docs/NATIVE_CAPABILITIES.md)。
+
 ## 发现中的内置生物课程
 
 《遗传与进化高频考点课》是永久随代码保存的已有课程，包含 15 个课时、90 张闪卡、45 道练习和 125 张已发布原文页图片。原有 AI 补充及待原文核验标记继续保留。
@@ -68,7 +74,7 @@ backend/.venv/bin/python backend/scripts/import_native_biology.py \
   --community frontend/Resources/Data/community.json
 ```
 
-该命令同时更新服务端快照和客户端内置目录，不读取设备个人记录。
+该命令同时更新服务端快照、客户端内置目录和与 App 原文一致的答疑页文本，不读取设备个人记录。内置生物课使用独立的 `book_biology_2` 索引，不复用可能属于其他版本的 `biology-required-2` 索引；首次答疑会按已配置的向量模型建立索引，仍需要向量、重排和文本模型服务。
 
 ## OCR、模型与课程个性化
 

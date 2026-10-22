@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-import sqlite3
 import time
 import unicodedata
 import uuid
@@ -17,6 +16,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
+
+from .database import Connection, connect
 
 
 def text_fingerprint(text: str) -> str | None:
@@ -31,7 +32,8 @@ class CommunityRepository:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
-            db.execute("PRAGMA journal_mode=WAL")
+            if not db.postgres:
+                db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS visitors (
                     id TEXT PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL, created REAL NOT NULL);
@@ -69,20 +71,15 @@ class CommunityRepository:
             """)
 
     @contextmanager
-    def connect(self) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=15)
-        db.row_factory = sqlite3.Row
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+    def connect(self) -> Iterator[Connection]:
+        with connect(self.path) as db:
+            yield db
 
     def register_asset(
         self, catalog: dict[str, Any], source_hash: str, text_hash: str | None
     ) -> str:
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             match = db.execute(
                 "SELECT canonical FROM assets WHERE source_hash=? OR (text_hash IS NOT NULL AND text_hash=?) LIMIT 1",
                 (source_hash, text_hash),
@@ -100,10 +97,10 @@ class CommunityRepository:
             )
             return canonical
 
-    def asset(self, book_id: str) -> sqlite3.Row | None:
+    def asset(self, book_id: str) -> Any | None:
         with self.connect() as db:
             return cast(
-                sqlite3.Row | None,
+                Any | None,
                 db.execute("SELECT * FROM assets WHERE book_id=?", (book_id,)).fetchone(),
             )
 
@@ -124,7 +121,7 @@ class CommunityRepository:
             )
             for canonical in initial:
                 db.execute(
-                    "INSERT OR IGNORE INTO library_books VALUES (?,?,?)",
+                    'INSERT INTO library_books VALUES (?,?,?) ON CONFLICT DO NOTHING',
                     (owner, canonical, time.time()),
                 )
             return owner, token, True
@@ -151,7 +148,7 @@ class CommunityRepository:
         """Add a parsed canonical asset to one user's shelf without publishing it."""
         with self.connect() as db:
             inserted = db.execute(
-                "INSERT OR IGNORE INTO library_books VALUES (?,?,?)",
+                'INSERT INTO library_books VALUES (?,?,?) ON CONFLICT DO NOTHING',
                 (owner, canonical, time.time()),
             ).rowcount
             db.execute(
@@ -164,7 +161,7 @@ class CommunityRepository:
         """Bind a private upload once; account switching must not transfer ownership."""
         with self.connect() as db:
             db.execute(
-                "INSERT OR IGNORE INTO upload_owners VALUES (?,?,?)",
+                'INSERT INTO upload_owners VALUES (?,?,?) ON CONFLICT DO NOTHING',
                 (book_id, owner, time.time()),
             )
             row = db.execute(
@@ -181,9 +178,9 @@ class CommunityRepository:
 
     def remove_book(self, owner: str, book_id: str) -> None:
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             db.execute(
-                "INSERT OR IGNORE INTO removed_books SELECT owner,canonical FROM library_books WHERE owner=? AND canonical=(SELECT canonical FROM assets WHERE book_id=?)",
+                'INSERT INTO removed_books SELECT owner,canonical FROM library_books WHERE owner=? AND canonical=(SELECT canonical FROM assets WHERE book_id=?) ON CONFLICT DO NOTHING',
                 (owner, book_id),
             )
             db.execute(
@@ -195,7 +192,7 @@ class CommunityRepository:
         with self.connect() as db:
             return bool(
                 db.execute(
-                    "INSERT OR IGNORE INTO library_books SELECT owner,canonical,? FROM removed_books WHERE owner=? AND canonical=(SELECT canonical FROM assets WHERE book_id=?)",
+                    'INSERT INTO library_books SELECT owner,canonical,? FROM removed_books WHERE owner=? AND canonical=(SELECT canonical FROM assets WHERE book_id=?) ON CONFLICT DO NOTHING',
                     (time.time(), owner, book_id),
                 ).rowcount
             )
@@ -204,7 +201,7 @@ class CommunityRepository:
         # Existing opaque session IDs are bearer capabilities in the legacy app.
         # Bind on first use so another visitor cannot subsequently publish from it.
         with self.connect() as db:
-            db.execute("INSERT OR IGNORE INTO session_owners VALUES (?,?)", (session_id, owner))
+            db.execute('INSERT INTO session_owners VALUES (?,?) ON CONFLICT DO NOTHING', (session_id, owner))
             return bool(
                 db.execute(
                     "SELECT owner FROM session_owners WHERE session_id=?", (session_id,)
@@ -221,7 +218,7 @@ class CommunityRepository:
         return [self.resource_dict(row) for row in rows]
 
     @staticmethod
-    def resource_dict(row: sqlite3.Row) -> dict[str, Any]:
+    def resource_dict(row: Any) -> dict[str, Any]:
         result = dict(row)
         result.pop("owner", None)
         result["content"] = json.loads(result["content"])
@@ -293,7 +290,7 @@ class CommunityRepository:
         )
         fingerprint = hashlib.sha256(basis.encode()).hexdigest()
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             old = db.execute(
                 "SELECT id,active,owner FROM posts WHERE fingerprint=?", (fingerprint,)
             ).fetchone()
@@ -328,7 +325,7 @@ class CommunityRepository:
                 (SELECT count(*) FROM acquisitions x WHERE x.post_id=p.id) AS downloads,
                 EXISTS(SELECT 1 FROM library_books l WHERE l.owner=? AND l.canonical=p.book_id) AS book_owned,
                 EXISTS(SELECT 1 FROM resources r WHERE r.owner=? AND r.source_post=p.id AND r.archived=0) AS resource_owned
-                FROM posts p WHERE p.active=1 AND (?='all' OR p.kind=?) AND instr(lower(p.title||' '||p.description),lower(?))>0
+                FROM posts p WHERE p.active=1 AND (?='all' OR p.kind=?) AND strpos(lower(p.title||' '||p.description),lower(?))>0
                 ORDER BY p.created DESC,p.id LIMIT 51 OFFSET ?""",
                 (owner, owner, kind, kind, search, page * 50),
             ).fetchall()
@@ -353,14 +350,14 @@ class CommunityRepository:
 
     def acquire(self, owner: str, post_id: str) -> dict[str, Any]:
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+            db.begin_write()
             post = db.execute("SELECT * FROM posts WHERE id=? AND active=1", (post_id,)).fetchone()
             if not post:
                 raise KeyError("post missing")
             resource_id = None
             if post["kind"] == "book":
                 inserted = db.execute(
-                    "INSERT OR IGNORE INTO library_books VALUES (?,?,?)",
+                    'INSERT INTO library_books VALUES (?,?,?) ON CONFLICT DO NOTHING',
                     (owner, post["book_id"], time.time()),
                 ).rowcount
             else:
@@ -387,7 +384,7 @@ class CommunityRepository:
                         ),
                     )
             db.execute(
-                "INSERT OR IGNORE INTO acquisitions VALUES (?,?,?)", (owner, post_id, time.time())
+                'INSERT INTO acquisitions VALUES (?,?,?) ON CONFLICT DO NOTHING', (owner, post_id, time.time())
             )
         return {
             "status": "added" if inserted else "already_owned",

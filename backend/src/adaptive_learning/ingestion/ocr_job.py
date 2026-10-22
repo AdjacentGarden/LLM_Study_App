@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ..config import get_settings
 from .quality import evaluate_text_quality
 
 _CJK = re.compile(r"[\u3400-\u9fff]")
@@ -158,9 +159,9 @@ def evaluate_page(page: dict[str, Any]) -> dict[str, Any]:
         band = "missing"
     elif len(text.strip()) < 12:
         band = "visual_or_low_text"
-    elif score >= 0.82 and not signals.suspicious_fragments:
+    elif score >= get_settings().ocr_page_quality_accept and not signals.suspicious_fragments:
         band = "accepted"
-    elif score >= 0.66 or (structured_content and score >= 0.5):
+    elif score >= get_settings().ocr_page_quality_review or (structured_content and score >= get_settings().ocr_page_structured_review):
         band = "review"
     else:
         band = "rescue"

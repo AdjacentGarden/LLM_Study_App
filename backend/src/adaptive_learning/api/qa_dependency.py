@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+from .. import native_catalog
 from ..config import get_settings
 from ..llm.client import LLMConfig, OpenAICompatibleClient
 from ..rag.backends import TransformerPairReranker, TransformerQueryEncoder
@@ -117,6 +118,11 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
         raise HTTPException(status_code=404, detail="未找到该书的检索索引")
     data_dir = getattr(settings, "data_dir", None)
     upload_path = published_upload_index(data_dir / "books" / book_id) if data_dir else None
+    if book_id == native_catalog.BOOK_ID:
+        if data_dir is None:
+            raise QAConfigurationError("Built-in textbook index needs a data directory")
+        encoder, _, _ = upload_components()
+        upload_path = native_catalog.prepare_qa_index(data_dir, encoder)
     if upload_path is not None:
         encoder, reranker, generator = upload_components()
         key = f"{book_id}:{upload_path.name}"

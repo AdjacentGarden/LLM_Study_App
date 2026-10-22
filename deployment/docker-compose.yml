@@ -1,36 +1,88 @@
 services:
-  api:
-    build: ../backend
-    env_file: ../.env
-    ports:
-      - "8100:8100"
-    volumes:
-      - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/app-data:/app/data
-    depends_on:
-      - postgres
-      - redis
-
   postgres:
-    image: pgvector/pgvector:pg17
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: adaptive_learning
       POSTGRES_USER: adaptive_learning
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in deployment secret}
     volumes:
       - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adaptive_learning -d adaptive_learning"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-  redis:
-    image: redis:8-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+  schema:
+    build: ../backend
+    env_file: ../.env
+    environment:
+      DATABASE_URL: ""
+      DATABASE_HOST: postgres
+      DATABASE_NAME: adaptive_learning
+      DATABASE_USER: adaptive_learning
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set in deployment secret}
+    command: ["python", "-m", "adaptive_learning.migrate", "schema"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: ../backend
+    env_file: ../.env
+    environment:
+      DATABASE_URL: ""
+      DATABASE_HOST: postgres
+      DATABASE_NAME: adaptive_learning
+      DATABASE_USER: adaptive_learning
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set in deployment secret}
+      OCR_WORKER_ENABLED: "0"
+      STUDIO_WORKER_ENABLED: "0"
+    ports:
+      - "8100:8100"
     volumes:
-      - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/redis:/data
+      - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/app-data:/app/data
+    depends_on:
+      schema:
+        condition: service_completed_successfully
 
-  mineru:
-    image: mineru:local-gpu
+  worker:
+    build: ../backend
+    env_file: ../.env
+    environment:
+      DATABASE_URL: ""
+      DATABASE_HOST: postgres
+      DATABASE_NAME: adaptive_learning
+      DATABASE_USER: adaptive_learning
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set in deployment secret}
+    command: ["python", "-m", "adaptive_learning.worker", "--queue", "studio"]
+    restart: unless-stopped
+    volumes:
+      - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/app-data:/app/data
+    depends_on:
+      schema:
+        condition: service_completed_successfully
+
+  ocr-worker:
+    # Build this image with the backend package, MinerU and the required CUDA runtime.
+    image: ${OCR_WORKER_IMAGE:-adaptive-learning-ocr:local}
     profiles: ["gpu"]
+    env_file: ../.env
+    environment:
+      DATABASE_URL: ""
+      DATABASE_HOST: postgres
+      DATABASE_NAME: adaptive_learning
+      DATABASE_USER: adaptive_learning
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set in deployment secret}
+      APP_DATA_DIR: /app/data
+    command: ["python", "-m", "adaptive_learning.worker", "--queue", "ocr"]
+    restart: unless-stopped
     volumes:
-      - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/app-data:/data
+      - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/app-data:/app/data
       - ${DATA_DISK_ROOT:-/data/adaptive-book-learning}/models:/models
+    depends_on:
+      schema:
+        condition: service_completed_successfully
     deploy:
       resources:
         reservations:

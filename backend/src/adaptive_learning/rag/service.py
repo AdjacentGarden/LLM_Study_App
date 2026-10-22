@@ -112,15 +112,16 @@ class TextbookQAService:
         *,
         teaching_context: dict[str, Any] | None = None,
         cache_scope: str = "",
+        conversation_context: dict[str, Any] | None = None,
     ) -> TextbookQAResult:
         question = question.strip()
         if not question or len(question) > 2000:
             raise ValueError("question must contain 1–2000 characters")
         key = question
-        if teaching_context is not None or cache_scope:
+        if teaching_context is not None or cache_scope or conversation_context:
             key = hashlib.sha256(
                 json.dumps(
-                    [question, cache_scope, teaching_context], sort_keys=True, ensure_ascii=False
+                    [question, cache_scope, teaching_context, conversation_context], sort_keys=True, ensure_ascii=False
                 ).encode()
             ).hexdigest()
         with self._lock:
@@ -151,8 +152,9 @@ class TextbookQAService:
                 raise QABusyError("waiting for shared answer timed out") from error
         try:
             result = (
-                self._answer(question, teaching_context=teaching_context)
-                if teaching_context is not None
+                self._answer(question, teaching_context=teaching_context,
+                             **({"conversation_context": conversation_context} if conversation_context else {}))
+                if teaching_context is not None or conversation_context
                 else self._answer(question)
             )
             with self._lock:
@@ -177,10 +179,19 @@ class TextbookQAService:
                 self._inflight.pop(key, None)
 
     def _answer(
-        self, question: str, *, teaching_context: dict[str, Any] | None = None
+        self, question: str, *, teaching_context: dict[str, Any] | None = None,
+        conversation_context: dict[str, Any] | None = None,
     ) -> TextbookQAResult:
         retrieval_started = time.monotonic()
-        retrieval, retrieval_mode = self._retrieve(question)
+        query = question
+        if conversation_context:
+            # Only user questions and the verified chapter title expand retrieval.
+            # Earlier assistant answers never become textbook evidence.
+            turns = [turn["text"] for turn in conversation_context.get("history", [])
+                     if turn["role"] == "user" and turn["text"] != question][-2:]
+            title = conversation_context.get("chapter", {}).get("title", "")
+            query = "\n".join([title, *(text[:500] for text in turns), question]).strip()
+        retrieval, retrieval_mode = self._retrieve(query)
         self._ready = True
         retrieval_duration_ms = round((time.monotonic() - retrieval_started) * 1000)
         logger.info(
@@ -207,6 +218,7 @@ class TextbookQAService:
                 retrieval_score=retrieval.score,
                 lexical_support=retrieval.lexical_support,
                 **({"teaching_context": teaching_context} if teaching_context is not None else {}),
+                **({"conversation_context": conversation_context} if conversation_context else {}),
             )
         generation_duration_ms = round((time.monotonic() - generation_started) * 1000)
         logger.info(

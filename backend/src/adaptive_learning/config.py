@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -66,6 +67,20 @@ class Settings:
     assessment_max_items: int
     assessment_stop_uncertainty: float
     open_answer_min_confidence: float
+    studio_worker_enabled: bool = True
+    ocr_page_quality_accept: float = 0.82
+    ocr_page_quality_review: float = 0.66
+    ocr_page_structured_review: float = 0.50
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.quality_review <= self.quality_accept <= 1:
+            raise ValueError("OCR quality thresholds require 0 <= review <= accept <= 1")
+        if not 0 <= self.ocr_page_structured_review <= self.ocr_page_quality_review <= self.ocr_page_quality_accept <= 1:
+            raise ValueError("OCR page thresholds require 0 <= structured <= review <= accept <= 1")
+        for name in ("ocr_worker_lease_seconds", "ocr_worker_poll_seconds", "ocr_max_attempts"):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be positive and finite")
 
     @property
     def text_base_url(self) -> str:
@@ -102,6 +117,10 @@ def get_settings() -> Settings:
         return Path(value).resolve() if value else None
 
     return Settings(
+        studio_worker_enabled=_bool("STUDIO_WORKER_ENABLED", True),
+        ocr_page_quality_accept=_float("OCR_PAGE_QUALITY_ACCEPT", 0.82),
+        ocr_page_quality_review=_float("OCR_PAGE_QUALITY_REVIEW", 0.66),
+        ocr_page_structured_review=_float("OCR_PAGE_STRUCTURED_REVIEW", 0.50),
         app_env=os.getenv("APP_ENV", "development"),
         app_host=os.getenv("APP_HOST", "0.0.0.0"),
         app_port=_int("APP_PORT", 8100),

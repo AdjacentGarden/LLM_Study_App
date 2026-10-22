@@ -1,0 +1,180 @@
+{
+  "schema_version": 5,
+  "tables": {
+    "visitors": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "user_profiles": {
+      "rows": 1,
+      "sha256": "2ea0c3f460c13ddcc64e7a3406c728eeb565f6d1dbe8add7b4d85b5f247c4240"
+    },
+    "assets": {
+      "rows": 1,
+      "sha256": "03fbe724a16ef7e0d0069b44893bddb4b4a4a78b0fba0c8ba8b1562ab6d71d6d"
+    },
+    "library_books": {
+      "rows": 1,
+      "sha256": "07ec635b71a2a559c43db185b22c4df2b413d45064fa1835e4fe643bee75a6a2"
+    },
+    "removed_books": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "resources": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "posts": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "acquisitions": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "session_owners": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "upload_owners": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "accounts": {
+      "rows": 1,
+      "sha256": "184aff72b9befd6bd600f78c5da4d5f1916e981d0fb4dd02457c9c4b9ee325ad"
+    },
+    "account_sessions": {
+      "rows": 1,
+      "sha256": "9223bdfe5c96641980fa27d33c1ef2ece8711442a0ad4b481b85fad5c4c755b1"
+    },
+    "email_codes": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "email_rate": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "social_users": {
+      "rows": 2,
+      "sha256": "7bf3fc8ba345c5ee8115ea32c89ceb4a976b9a70c8e159c0db54c105889db533"
+    },
+    "friendships": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "social_blocks": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "chat_messages": {
+      "rows": 1,
+      "sha256": "be6850dd737f00d868f9b78cd190d020afe2a53ab9134af1e9527328623a04af"
+    },
+    "chat_reads": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "social_rate": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "studio_notes": {
+      "rows": 1,
+      "sha256": "00fe761ac62e49d47e4e89d18e499b0c4613bb6ce069f6c424cf127a1081e648"
+    },
+    "studio_jobs": {
+      "rows": 1,
+      "sha256": "69c5d7829611472b43c2676b88f47eab718b82f655cca72ad195abbb6b496753"
+    },
+    "studio_note_editions": {
+      "rows": 1,
+      "sha256": "8d0d5d28235a8591bd2a47642aef76e47f81630f44c49977a8a437c2d83834e5"
+    },
+    "native_workspaces": {
+      "rows": 1,
+      "sha256": "176639fd0520061f493a99758147c8c59676268ba2ef64a2bc3aa2cd69b718df"
+    },
+    "native_resources": {
+      "rows": 1,
+      "sha256": "64ddd667d6090978ec591c5f1ba75473866166a8586fb07441016a6d7d7b444c"
+    },
+    "native_session_context": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_progress": {
+      "rows": 1,
+      "sha256": "b63bd672cfc1a83743866b268900880498693f5cc81c2afd9ef2c70379a6ffdd"
+    },
+    "native_mutations": {
+      "rows": 1,
+      "sha256": "d5f4a67878123c53a8a2e35591eb3da770f169ad4f2fa02169524d6bf07a6434"
+    },
+    "native_selection": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_learner_preferences": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_catalog_practice": {
+      "rows": 1,
+      "sha256": "037b47fe6703216dc40c810a77837a08a2e4cb5f34470c9d9ce8eafdf6c8155d"
+    },
+    "native_design_overrides": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_daily_plans": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_task_completions": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_design_adjustments": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "diagnostic_banks": {
+      "rows": 1,
+      "sha256": "51eb927d818451841959a6814657b26a088125e3f16e462da2f7afa9099f49f3"
+    },
+    "interview_sessions": {
+      "rows": 1,
+      "sha256": "f0eceda663a5c6c4570f4c43191b65ea5f63ed9481c23d29df75195162197d79"
+    },
+    "course_bundles": {
+      "rows": 1,
+      "sha256": "6558c35f95485e12c0c6bca731604e0ba3ad29fe9dc831657e3f8638997ea22b"
+    },
+    "learning_events": {
+      "rows": 1,
+      "sha256": "2955ede3663c7a323a2df96b849d69099bab99e698bd66cf0552d27cf9800802"
+    },
+    "books": {
+      "rows": 1,
+      "sha256": "769745f345341e97664d4e88c38c877850ad687d491084f9c67a6310ffe70bb9"
+    },
+    "ocr_jobs": {
+      "rows": 1,
+      "sha256": "d9f13a5df90ccac306e877283dfb15c028ef46b027a3b4b8a59269d92a433d00"
+    },
+    "book_structures": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "backups": [
+    "community.sqlite3",
+    "native.sqlite3",
+    "assessments.sqlite3",
+    "ocr_jobs.sqlite3"
+  ],
+  "verified": true
+}

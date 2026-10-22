@@ -92,7 +92,7 @@ class FixtureAnswerModel:
             "confidence": 0.95,
             "claims": [
                 {
-                    "text": evidence["text"],
+                    "text": evidence["text"][:300],
                     "citations": [
                         {"source_id": evidence["source_id"], "quote": evidence["text"][:300]}
                     ],
@@ -238,6 +238,7 @@ def configure(root: Path, patch) -> FastAPI:
             "POST",
             api.answer_course_practice,
         ),
+        ("/api/interviews/{session_id}/courses/{course_id}/flashcards/{card_id}", "POST", api.review_flashcard),
         ("/api/interviews/{session_id}/learning-records", "GET", api.get_learning_records),
     ]:
         app.add_api_route(path, endpoint, methods=[method])

@@ -17,162 +17,35 @@ extension AppStore {
       cloudState.showDiagnosis = false
       cloudState.epoch = UUID()
       cloudState.syncTask?.cancel()
+      cloudState.retryTask?.cancel()
+      cloudState.contentTask?.cancel()
+      cloudState.workspaces = []
+      cloudState.account = nil
+      cloudState.cacheKey = nil
+      cloudState.pending = [:]
+      cloudState.pendingReviews = []
+      cloudState.pendingSelection = nil
+      preferences = nil
+      locations = [:]
+      filePaths = [:]
+      mastered = []
+      selectedCourseID = nil
+      selectedBookID = nil
+      selectedChapterID = nil
+      selectedLessonID = nil
+      shelf = []
+      mistakes = []
+      chapterDrafts = [:]
+      draft = CourseDraft()
+      importJob = nil
+      cloudState.onboardingComplete = false
+      route = .onboarding
       sources = []
       courses = []
       notes = []
       chatMessages = []
       Task { await cloud?.clearCredentials() }
     }
-  }
-
-  func bootCloud() async {
-    guard let cloud else { return }
-    cloudState.error = nil
-    cloudState.localLogin = cloud.prefersLocalLogin
-    bootError = nil
-    defer { isLoading = false }
-    do {
-      community = try BuiltinCourseCatalog.merging([])
-      if cloudState.localLogin {
-        do {
-          let _: CloudOK = try await cloud.request("/api/native/local-login", method: "POST")
-        } catch let error as CloudError where error.status == 404 {
-          cloudState.localLogin = false
-        }
-      }
-      let account: CloudAccountState = try await cloud.request("/api/auth/me")
-      cloudState.account = account
-      guard account.account != nil else {
-        cloudState.authenticated = false
-        return
-      }
-      cloudState.authenticated = true
-      cloudState.isHydrating = true
-      defer { cloudState.isHydrating = false }
-      let key = SHA256.hash(data: Data((cloud.baseURL.absoluteString + "|" + account.user_id).utf8))
-        .map { String(format: "%02x", $0) }.joined()
-      if cloudState.cacheKey != key {
-        cloudState.onboardingComplete = false
-        sources = []
-        courses = []
-        notes = []
-        shelf = []
-        preferences = nil
-        locations = [:]
-        filePaths = [:]
-        mastered = []
-        mistakes = []
-        chapterDrafts = [:]
-        draft = CourseDraft()
-        importJob = nil
-        selectedCourseID = nil
-        selectedBookID = nil
-        selectedChapterID = nil
-        selectedLessonID = nil
-        cloudState.pending = [:]
-        cloudState.pendingSelection = nil
-        cloudState.workspaces = []
-        cloudState.creationWorkspaceID = nil
-      }
-      cloudState.cacheKey = key
-      let cached = try await repository.loadCloudState(key)
-      if let cached {
-        filePaths = cached.filePaths
-        cloudState.pending = cached.pending
-        cloudState.pendingSelection = cached.pendingSelection
-        cloudState.creationWorkspaceID = cached.creationWorkspaceID
-        notes = cached.notes ?? []
-        draft = cached.snapshot.draft
-        chapterDrafts = cached.snapshot.chapterDrafts ?? [:]
-        importJob = cached.snapshot.importJob
-        preferences = cached.snapshot.preferences
-        cloudState.onboardingComplete =
-          cached.onboardingComplete == true && preferences?.hasCompletedOnboarding == true
-        cloudState.workspaces = cached.workspaces
-        sources = cached.sources
-        selectedCourseID = cached.snapshot.selectedCourseID
-        selectedBookID = cached.snapshot.selectedBookID
-        locations = cached.snapshot.locations
-        mastered = cached.snapshot.mastery
-        mistakes = cached.snapshot.mistakes
-      }
-      do { try await reloadCloud() } catch {
-        guard cached != nil else { throw error }
-        rebuildCloudCourses()
-        cloudState.syncError = "正在使用本机缓存：" + error.localizedDescription
-      }
-      if let id = selectedCourseID { selectCourse(id) }
-      await reloadCloudLearningRecords()
-      route = cloudState.onboardingComplete ? .home : .onboarding
-      if cloudState.onboardingComplete, !draft.resourceIDs.isEmpty {
-        if draft.catalogBookID != nil {
-          route = .courseSetup
-        } else {
-          route =
-            cloudState.creationWorkspaceID != nil
-            ? .chapterConfirm : draft.parseCompleted ? .courseSetup : .parseReady
-        }
-      }
-      if cloudState.onboardingComplete, let job = importJob,
-        job.status == .running || job.status == .interrupted || job.status == .failed
-      {
-        importJob?.status = .interrupted
-        processingMessage = "资料处理可继续，原文件已保留"
-        route = .parseReady
-      }
-    } catch {
-      handleCloudError(error)
-      if cloudState.authenticated { bootError = error.localizedDescription }
-    }
-    cloudState.isHydrating = false
-    persistCloud()
-    startCloudSync()
-  }
-
-  func reloadCloud() async throws {
-    guard let cloud else { return }
-    let epoch = cloudState.epoch
-    let bootstrap: CloudBootstrap = try await cloud.request("/api/native/bootstrap")
-    guard epoch == cloudState.epoch else { throw CancellationError() }
-    guard bootstrap.contract_version == 1 else {
-      throw CloudError(status: 0, message: "客户端与后端版本不兼容")
-    }
-    cloudState.workspaces = bootstrap.workspaces
-    preferences = bootstrap.learner_preferences
-    cloudState.onboardingComplete = bootstrap.learner_preferences?.hasCompletedOnboarding == true
-    community = try BuiltinCourseCatalog.merging(bootstrap.catalog ?? [])
-    cloudState.confirmedSelection = bootstrap.selection
-    rebuildCloudCourses()
-    for book in bootstrap.library ?? [] where !sources.contains(where: { $0.id == book.book_id }) {
-      let resource = CloudResource(
-        id: "library:\(book.book_id)", book_id: book.book_id,
-        workspace_id: "", revision: 0, filename: book.title + ".pdf", status: book.status,
-        structure: book.structure, courses: [], progress: CloudProgress())
-      sources.append(CloudMapping.source(resource))
-    }
-    shelf = (bootstrap.library ?? []).map {
-      ShelfBook(
-        bookId: $0.book_id, title: $0.title, filename: $0.title + ".pdf",
-        coverUrl: $0.cover_url ?? "")
-    }
-    for workspace in bootstrap.workspaces {
-      for resource in workspace.resources {
-        let value = cloudState.pending[resource.id]?.value ?? resource.progress
-        locations["\(workspace.id)::\(resource.book_id)"] = StudyLocation(
-          chapterID: value.chapter_id, lessonID: value.lesson_id, page: value.page)
-        mastered.formUnion(value.mastered_ids)
-      }
-    }
-    if selectedCourseID == nil || !courses.contains(where: { $0.id == selectedCourseID }) {
-      let candidate = bootstrap.selection?.workspace_id
-      selectedCourseID = courses.first { $0.id == candidate }?.id ?? courses.first?.id
-      if let resourceID = bootstrap.selection?.resource_id {
-        selectedBookID =
-          bootstrap.workspaces.flatMap(\.resources).first { $0.id == resourceID }?.book_id
-      }
-    }
-    if let workspaceID = selectedCourseID { installCloudSources(workspaceID: workspaceID) }
-    cloudState.syncError = nil
   }
 
   func rebuildCloudCourses() {
@@ -280,18 +153,23 @@ extension AppStore {
     defer { cloudState.isWorking = false }
     await persistTask?.value
     cloudState.epoch = UUID()
+    cloudState.retryTask?.cancel()
+    cloudState.contentTask?.cancel()
     cloudState.recordsTask?.cancel()
     await cloudState.recordsTask?.value
     cloudState.syncTask?.cancel()
     await cloudState.syncTask?.value
     do {
-      let _: CloudOK = try await cloud.request("/api/auth/logout", method: "POST")
+      do { let _: CloudOK = try await cloud.request("/api/auth/logout", method: "POST") }
+      catch let error as CloudError where error.transportFailure || error.status == 401 { }
       await cloud.clearCredentials()
       cloudState.epoch = UUID()
       cloudState.authenticated = false
       cloudState.account = nil
       cloudState.cacheKey = nil
       cloudState.pending = [:]
+      cloudState.pendingReviews = []
+      cloudState.cacheWriteError = nil
       cloudState.pendingSelection = nil
       cloudState.confirmedSelection = nil
       cloudState.creationWorkspaceID = nil
@@ -662,7 +540,8 @@ extension AppStore {
     do {
       let result = try await answerAssistant(
         question: question, bookID: bookID,
-        bookIDs: [bookID], chapterID: selectedChapterID, sources: sources, history: chatMessages)
+        bookIDs: currentCourse?.resourceIDs ?? [bookID], chapterID: selectedChapterID,
+        sources: sources, history: chatMessages)
       guard epoch == cloudState.epoch, generation == selectionGeneration else { return }
       chatMessages.append(
         ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
@@ -678,21 +557,43 @@ extension AppStore {
         question: question, bookID: bookID, bookIDs: bookIDs,
         chapterID: chapterID, sources: sources, history: history)
     }
-    let result: CloudQA = try await cloud.request(
-      "/api/books/\(bookID)/qa", method: "POST", body: ["question": .string(question)])
-    let directory = sources.first { $0.id == bookID }?.chapters ?? []
+    let resource = cloudState.workspaces.first(where: { $0.id == selectedCourseID })?
+      .resources.first(where: { $0.book_id == bookID })
+    guard !bookID.isEmpty, resource != nil || bookIDs.allSatisfy({ $0 == bookID }) else {
+      throw CloudError(status: 409, message: "请先打开当前课程资料再提问")
+    }
+    var turns = history
+    if turns.last?.role == "user", turns.last?.text == question { turns.removeLast() }
+    let body: [String: JSONValue] = [
+      "question": .string(question),
+      "book_ids": .array(bookIDs.map(JSONValue.string)),
+      "chapter_id": chapterID.map(JSONValue.string) ?? .null,
+      "history": .array(
+        turns.filter { ["user", "assistant"].contains($0.role) }
+          .suffix(8).map {
+            .object([
+              "role": .string($0.role), "text": .string(String($0.text.prefix(4000))),
+            ])
+          }),
+    ]
+    // Keep single-book questions available for library books not yet in a course.
+    let path = resource.map { $0.path + "/qa" } ?? "/api/books/\(bookID)/qa"
+    let result: CloudQA = try await cloud.request(path, method: "POST", body: body)
     var seen = Set<String>()
-    let citations = result.claims.flatMap(\.citations).map { value in
-      let chapter = directory.first {
-        $0.page_start <= value.page_number && $0.page_end >= value.page_number
-      }
-      return Citation(
-        bookID: bookID, chapterID: chapter?.id ?? "", chapterTitle: chapter?.title ?? "教材原文",
-        page: value.page_number,
-        chunkID: CloudMapping.citationID(
+    let citations = result.claims.flatMap { claim in
+      let sourceID = claim.book_id ?? result.book_id
+      let directory = sources.first { $0.id == sourceID }?.chapters ?? []
+      return claim.citations.map { value in
+        let chapter = directory.filter {
+          $0.page_start <= value.page_number && $0.page_end >= value.page_number
+        }.min { ($0.page_end - $0.page_start) < ($1.page_end - $1.page_start) }
+        return Citation(
+          bookID: sourceID, chapterID: chapter?.id ?? "", chapterTitle: chapter?.title ?? "教材原文",
           page: value.page_number,
-          quote: value.quote, blockID: value.block_id), quote: value.quote, score: result.confidence
-      )
+          chunkID: CloudMapping.citationID(
+            page: value.page_number, quote: value.quote, blockID: value.block_id),
+          quote: value.quote, score: result.confidence)
+      }
     }.filter { seen.insert($0.id).inserted }
     return AssistantAnswer(answer: result.answer, citations: citations)
   }
@@ -795,9 +696,48 @@ extension AppStore {
     }
   }
 
-  func persistCloud() {
+  func reviewFlashcard(_ card: Flashcard, mastered: Bool, seconds: Double) {
+    if cloud != nil {
+      guard let resource = cloudResource else { return }
+      let path: String
+      if resource.source_content != nil {
+        path = resource.path + "/catalog-flashcards/\(card.id)"
+      } else if let session = resource.session_id {
+        path = "/api/interviews/\(session)/courses/\(card.lesson_id)/flashcards/\(card.id)"
+      } else {
+        showToast("请先生成当前章节课程")
+        return
+      }
+      cloudState.pendingReviews.append(
+        CloudPendingReview(
+          workspaceID: resource.workspace_id, resourceID: resource.id, cardID: card.id,
+          path: path, rating: mastered ? "good" : "again", seconds: min(3600, max(0.1, seconds))))
+    }
+    setMastery(card.id, mastered: mastered)
+  }
+
+  func restoreCloudMastery() {
+    mastered = []
+    for resource in cloudState.workspaces.flatMap(\.resources) {
+      let value = cloudState.pending[resource.id]?.value ?? resource.progress
+      applyCloudMastery(value, resource: resource)
+    }
+  }
+
+  func applyCloudMastery(_ value: CloudProgress, resource: CloudResource) {
+    let prefix = resource.id + "::"
+    mastered = mastered.filter { !$0.hasPrefix(prefix) }
+    let wirePrefix = resource.book_id + "::"
+    mastered.formUnion(
+      value.mastered_ids.map {
+        prefix + ($0.hasPrefix(wirePrefix) ? String($0.dropFirst(wirePrefix.count)) : $0)
+      })
+  }
+
+  @discardableResult
+  func persistCloud() -> Task<Result<Void, Error>, Never>? {
     guard cloudState.authenticated, !cloudState.isHydrating, let key = cloudState.cacheKey else {
-      return
+      return nil
     }
     if let resource = cloudResource {
       let selection = CloudBootstrap.Selection(
@@ -817,11 +757,16 @@ extension AppStore {
           \.chapter_id) ?? []).sorted()
       value.task_status = Dictionary(
         uniqueKeysWithValues: (currentSource?.plan.tasks ?? []).map { ($0.id, $0.status) })
-      value.mastered_ids = mastered.filter { $0.hasPrefix(resource.book_id + "::") }.sorted()
+      let prefix = resource.id + "::"
+      value.mastered_ids = mastered.filter { $0.hasPrefix(prefix) }.map {
+        resource.book_id + "::" + $0.dropFirst(prefix.count)
+      }.sorted()
       let pending = cloudState.pending[resource.id]
       if value != (pending?.value ?? resource.progress) {
         cloudState.pending[resource.id] = CloudPendingProgress(
-          workspaceID: resource.workspace_id, resourceID: resource.id, value: value)
+          workspaceID: resource.workspace_id, resourceID: resource.id, value: value,
+          baseMasteredIDs: pending?.baseMasteredIDs ?? resource.progress.mastered_ids,
+          masteryChanges: pending?.masteryChanges)
       }
     }
     let local = CloudLocalSnapshot(
@@ -829,20 +774,32 @@ extension AppStore {
       filePaths: filePaths, pending: cloudState.pending,
       creationWorkspaceID: cloudState.creationWorkspaceID, notes: notes,
       pendingSelection: cloudState.pendingSelection,
-      onboardingComplete: cloudState.onboardingComplete)
+      onboardingComplete: cloudState.onboardingComplete, pendingReviews: cloudState.pendingReviews)
     let previous = persistTask
-    persistTask = Task { [repository] in
+    let epoch = cloudState.epoch
+    let saved = Task<Result<Void, Error>, Never> { [repository] in
       await previous?.value
-      do { try await repository.saveCloudState(local, key: key) } catch {
-        self.cloudState.syncError = error.localizedDescription
+      do {
+        try await repository.saveCloudState(local, key: key)
+        if epoch == self.cloudState.epoch { self.cloudState.cacheWriteError = nil }
+        return .success(())
+      } catch {
+        if epoch == self.cloudState.epoch {
+          self.cloudState.syncError = error.localizedDescription
+          self.cloudState.cacheWriteError = error.localizedDescription
+        }
+        return .failure(error)
       }
     }
+    persistTask = Task { _ = await saved.value }
     startCloudSync()
+    return saved
   }
 
   func startCloudSync() {
     guard cloudState.authenticated, !cloudState.isHydrating, cloudState.syncTask == nil,
-      !cloudState.pending.isEmpty || cloudState.pendingSelection != nil,
+      !cloudState.pending.isEmpty || !cloudState.pendingReviews.isEmpty
+        || cloudState.pendingSelection != nil,
       let cloud
     else { return }
     let epoch = cloudState.epoch
@@ -852,16 +809,22 @@ extension AppStore {
         cloudState.syncing = false
         cloudState.syncTask = nil
         if epoch == cloudState.epoch, !Task.isCancelled, cloudState.syncError == nil,
-          !cloudState.pending.isEmpty || cloudState.pendingSelection != nil
+          cloudState.cacheWriteError == nil,
+          !cloudState.pending.isEmpty || !cloudState.pendingReviews.isEmpty
+            || cloudState.pendingSelection != nil
         {
           startCloudSync()
         }
       }
       await persistTask?.value
+      guard cloudState.cacheWriteError == nil else { return }
       while let entry = cloudState.pending.values.sorted(by: { $0.resourceID < $1.resourceID })
         .first
       {
-        guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+        await persistTask?.value
+        guard epoch == cloudState.epoch, !Task.isCancelled, cloudState.cacheWriteError == nil else {
+          return
+        }
         do {
           let saved: CloudProgress = try await cloud.request(
             entry.path + "/progress", method: "PUT",
@@ -876,9 +839,12 @@ extension AppStore {
           }
           if cloudState.pending[entry.resourceID]?.mutationID == entry.mutationID {
             cloudState.pending.removeValue(forKey: entry.resourceID)
-          } else {
-            cloudState.pending[entry.resourceID]?.value.revision = saved.revision
+          } else if var pending = cloudState.pending[entry.resourceID] {
+            // Only changes made after this in-flight request remain unacknowledged.
+            pending.acknowledgeMastery(entry, saved: saved)
+            cloudState.pending[entry.resourceID] = pending
           }
+          restoreCloudMastery()
           cloudState.syncError = nil
           saveCloudCacheOnly()
         } catch let error as CloudError where error.status == 409 {
@@ -892,7 +858,13 @@ extension AppStore {
             }
             guard epoch == cloudState.epoch else { return }
             if var pending = cloudState.pending[entry.resourceID] {
-              pending.value.revision = server.progress.revision
+              if pending.baseMasteredIDs == nil {
+                pending.baseMasteredIDs =
+                  cloudState.workspaces.flatMap(\.resources)
+                  .first { $0.id == entry.resourceID }?.progress.mastered_ids ?? []
+              }
+              pending.rebaseMastery(onto: server.progress)
+              applyCloudMastery(pending.value, resource: server)
               pending.value.completed_chapters = Array(
                 Set(pending.value.completed_chapters + server.progress.completed_chapters)
               ).sorted()
@@ -910,12 +882,55 @@ extension AppStore {
         } catch {
           cloudState.syncError = error.localizedDescription
           if let error = error as? CloudError, error.status == 401 { handleCloudError(error) }
+          else if (error as? CloudError)?.transportFailure == true { scheduleCloudRetry() }
+          saveCloudCacheOnly()
+          return
+        }
+      }
+      while let review = cloudState.pendingReviews.first {
+        await persistTask?.value
+        guard epoch == cloudState.epoch, !Task.isCancelled, cloudState.cacheWriteError == nil else {
+          return
+        }
+        do {
+          let result: CloudReviewResult = try await cloud.request(
+            review.path, method: "POST",
+            body: [
+              "event_id": .string(review.eventID), "rating": .string(review.rating),
+              "response_seconds": .number(review.seconds),
+            ])
+          guard epoch == cloudState.epoch else { return }
+          if let wi = cloudState.workspaces.firstIndex(where: { $0.id == review.workspaceID }),
+            let ri = cloudState.workspaces[wi].resources.firstIndex(where: {
+              $0.id == review.resourceID
+            })
+          {
+            var states = cloudState.workspaces[wi].resources[ri].flashcard_reviews ?? [:]
+            states[review.cardID] = result.review_state
+            cloudState.workspaces[wi].resources[ri].flashcard_reviews = states
+            if selectedCourseID == review.workspaceID {
+              installCloudSources(workspaceID: review.workspaceID)
+            }
+          }
+          cloudState.pendingReviews.removeAll { $0.eventID == review.eventID }
+          cloudState.syncError = nil
+          saveCloudCacheOnly()
+          // Persist the acknowledged event before sending another one. A lost response
+          // still retries with the same ID and cannot advance FSRS twice.
+          await persistTask?.value
+        } catch {
+          cloudState.syncError = error.localizedDescription
+          if let error = error as? CloudError, error.status == 401 { handleCloudError(error) }
+          else if (error as? CloudError)?.transportFailure == true { scheduleCloudRetry() }
           saveCloudCacheOnly()
           return
         }
       }
       while let selection = cloudState.pendingSelection {
-        guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+        await persistTask?.value
+        guard epoch == cloudState.epoch, !Task.isCancelled, cloudState.cacheWriteError == nil else {
+          return
+        }
         do {
           let _: CloudOK = try await cloud.request(
             "/api/native/selection", method: "PUT",
@@ -931,6 +946,7 @@ extension AppStore {
         } catch {
           cloudState.syncError = error.localizedDescription
           if let error = error as? CloudError, error.status == 401 { handleCloudError(error) }
+          else if (error as? CloudError)?.transportFailure == true { scheduleCloudRetry() }
           saveCloudCacheOnly()
           return
         }
@@ -945,12 +961,19 @@ extension AppStore {
       filePaths: filePaths, pending: cloudState.pending,
       creationWorkspaceID: cloudState.creationWorkspaceID, notes: notes,
       pendingSelection: cloudState.pendingSelection,
-      onboardingComplete: cloudState.onboardingComplete)
+      onboardingComplete: cloudState.onboardingComplete, pendingReviews: cloudState.pendingReviews)
     let previous = persistTask
+    let epoch = cloudState.epoch
     persistTask = Task { [repository] in
       await previous?.value
-      do { try await repository.saveCloudState(local, key: key) } catch {
-        self.cloudState.syncError = error.localizedDescription
+      do {
+        try await repository.saveCloudState(local, key: key)
+        if epoch == self.cloudState.epoch { self.cloudState.cacheWriteError = nil }
+      } catch {
+        if epoch == self.cloudState.epoch {
+          self.cloudState.syncError = error.localizedDescription
+          self.cloudState.cacheWriteError = error.localizedDescription
+        }
       }
     }
   }

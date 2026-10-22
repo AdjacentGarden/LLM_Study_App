@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,6 +39,7 @@ from ..assessment.repository import SessionConflictError, SQLiteAssessmentReposi
 from ..assessment.scoring import OpenAnswerScorer
 from ..community import CommunityRepository
 from ..config import get_settings
+from ..database import close_pools, healthcheck
 from ..ingestion.chaptering import (
     ChapterReconstructor,
     load_normalized_pages,
@@ -69,6 +70,7 @@ from ..personalization.review import rating_score, review_state_for_point, sched
 from ..rag.grounded_qa import GroundedAnswerValidationError
 from ..rag.index import RAGIndexError
 from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
+from ..worker_presence import WorkerPresence, readiness
 from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
@@ -99,6 +101,7 @@ if hasattr(signal, "SIGUSR2"):
     faulthandler.register(signal.SIGUSR2, all_threads=True)
 
 settings = get_settings()
+healthcheck()
 store = MemoryStore()
 job_repository = SQLiteOCRJobRepository(settings.data_dir / "state" / "ocr_jobs.sqlite3")
 assessment_repository = SQLiteAssessmentRepository(
@@ -178,13 +181,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         build_qa_service().warmup()
     if settings.ocr_worker_enabled:
         ocr_worker.start()
-    get_studio(settings.data_dir).start()
+    if settings.studio_worker_enabled:
+        get_studio(settings.data_dir).start()
     try:
         yield
     finally:
-        get_studio(settings.data_dir).stop()
+        if settings.studio_worker_enabled:
+            get_studio(settings.data_dir).stop()
         if settings.ocr_worker_enabled:
             ocr_worker.stop()
+        close_pools()
 
 
 app = FastAPI(
@@ -219,13 +225,13 @@ def health() -> dict[str, object]:
 
     studio_worker_alive = get_studio(settings.data_dir).is_alive()
     ocr_worker_alive = ocr_worker.is_alive()
+    external = WorkerPresence(settings.data_dir).active()
     return {
-        "ok": studio_worker_alive and (not settings.ocr_worker_enabled or ocr_worker_alive),
+        **readiness(inline_ocr_enabled=settings.ocr_worker_enabled,
+                    inline_ocr_alive=ocr_worker_alive, inline_studio_alive=studio_worker_alive,
+                    external=external),
         "service": "adaptive-book-learning",
         "version": app.version,
-        "ocr_worker_enabled": settings.ocr_worker_enabled,
-        "ocr_worker_alive": ocr_worker_alive,
-        "studio_worker_alive": studio_worker_alive,
     }
 
 
@@ -430,9 +436,26 @@ def answer_book_question(
         account_preferences = native_repository.learner_preferences(actor)
         if account_preferences:
             config = resolve_learning_design(account_preferences)
+    context: dict[str, Any] = {"history": [turn.model_dump() for turn in request.history]}
+    if request.chapter_id:
+        from .. import native_catalog
+
+        structure = None
+        if actor and wid and rid:
+            row = native_repository.resource(actor, wid, rid)
+            if row["structure_json"]:
+                structure = BookStructure.model_validate_json(row["structure_json"])
+        structure = structure or (native_catalog.structure() if book_id == native_catalog.BOOK_ID
+                                  else job_repository.get_structure(book_id))
+        chapter = next((c for c in structure.chapters if c.chapter_id == request.chapter_id), None) if structure else None
+        if chapter is None:
+            raise HTTPException(422, "当前章节不属于这份课程资料")
+        context["chapter"] = {"id": chapter.chapter_id, "title": chapter.title,
+                              "start_page": chapter.start_page, "end_page": chapter.end_page}
     try:
-        if config is not None or cache_scope:
-            return qa_service.answer(request.question, teaching_context=config.qa_preferences() if config else None, cache_scope=cache_scope)
+        extra = {"conversation_context": context} if request.history or request.chapter_id else {}
+        if config is not None or cache_scope or extra:
+            return qa_service.answer(request.question, teaching_context=config.qa_preferences() if config else None, cache_scope=cache_scope, **extra)
         return qa_service.answer(request.question)
     except QABusyError as error:
         raise HTTPException(

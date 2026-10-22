@@ -6,7 +6,7 @@ import json
 import uuid
 from datetime import UTC, date, datetime
 from ipaddress import ip_address
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
@@ -17,6 +17,7 @@ from .. import native_catalog as curated
 from ..accounts import COOKIE, TTL
 from ..assessment.item_generation import DiagnosticGenerationError, structure_fingerprint
 from ..assessment.models import DiagnosticItem
+from ..bootstrap import BootstrapService, builtin_content_version
 from ..ingestion.chaptering import load_normalized_pages
 from ..ingestion.models import BookStructure
 from ..learning_design import NativeLearningDesign
@@ -29,7 +30,7 @@ from ..rag.upload_index import published_upload_index
 from ..social import SocialRepository
 from .chapter_dependency import require_chapter_reconstructor
 from .qa_dependency import QAConfigurationError, prepare_upload_index, require_qa_service
-from .schemas import BookQuestionRequest
+from .schemas import BookQuestionRequest, FlashcardReviewRequest
 
 
 class Strict(BaseModel):
@@ -208,6 +209,11 @@ def native_router(services: Any) -> APIRouter:
                 for v in latest.values()
             ]
         progress = services.native_repository.progress(row["id"])
+        reviews = services.native_repository.catalog_review_states(row["id"]) if row["book_id"] == curated.BOOK_ID else {}
+        if row["session_id"]:
+            session = services.assessment_repository.get_session(row["session_id"])
+            if session:
+                reviews = {key: value.model_dump(mode="json") for key, value in session.profile.flashcard_reviews.items()}
         return {
             "id": row["id"],
             "book_id": row["book_id"],
@@ -223,6 +229,7 @@ def native_router(services: Any) -> APIRouter:
             "structure": structure.model_dump(mode="json") if structure else None,
             "courses": bundles,
             "progress": progress,
+            "flashcard_reviews": reviews,
             "source_content": curated.public_source(row["id"], progress)
             if row["book_id"] == curated.BOOK_ID
             else None,
@@ -244,25 +251,29 @@ def native_router(services: Any) -> APIRouter:
             if k != "owner"
         }
 
+    bootstrap_service = BootstrapService(services.native_repository, services.assessment_repository,
+                                         services.job_repository, services.account_repository.repo)
+
     @router.get("/native/bootstrap")
-    def bootstrap(actor: str = Depends(owner)) -> dict[str, Any]:
-        library = []
-        for entry in services.account_repository.repo.library(actor):
-            structure = services.job_repository.get_structure(entry["book_id"])
-            library.append(
-                {**entry, "structure": structure.model_dump(mode="json") if structure else None}
-            )
-        return {
-            "workspaces": [
-                workspace_state(actor, w["id"])
-                for w in services.native_repository.workspaces(actor)
-            ],
-            "selection": services.native_repository.selection(actor),
-            "contract_version": 1,
-            "library": library,
-            "learner_preferences": services.native_repository.learner_preferences(actor),
-            "catalog": curated.catalog(),
-        }
+    def bootstrap(mode: Literal["full", "metadata"] = "full", actor: str = Depends(owner)) -> dict[str, Any]:
+        return bootstrap_service.assemble(actor, light=mode == "metadata")
+
+    @router.get("/native/builtin-content/{version}")
+    def builtin_content(version: str, actor: str = Depends(owner)) -> dict[str, Any]:
+        if version != builtin_content_version():
+            raise HTTPException(404, "课程内容版本已更新，请刷新课程")
+        return {"structure": curated.structure().model_dump(mode="json"), "courses": [],
+                "source_content": curated.public_source("__shared__", {})}
+
+    @router.get("/native/capabilities")
+    def capabilities(actor: str = Depends(owner)) -> dict[str, Any]:
+        return {"contract_version": 1, "bootstrap_metadata": True,
+                "teaching_units": {"backend": True, "native": False},
+                "server_planning": {"backend": True, "native": False},
+                "note_cloud_sync": {"backend": True, "native": False},
+                "voice_transcription": {"backend": True, "native": False, "runtime_checked_at": "/api/studio/capabilities"},
+                "handwriting": {"backend": True, "native": False},
+                "community_social": {"backend": True, "native": False}}
 
     @router.put("/native/learner-preferences")
     def learner_preferences(body: LearnerInput, actor: str = Depends(owner)) -> dict[str, Any]:
@@ -424,9 +435,33 @@ def native_router(services: Any) -> APIRouter:
     ) -> Any:
         row = resource(wid, rid, actor)
         scoped = body.model_copy(update={"workspace_id": wid, "resource_id": rid})
-        return services.answer_book_question(
-            row["book_id"], scoped, require_qa_service(row["book_id"]), request
-        )
+        book_ids = list(dict.fromkeys([row["book_id"], *body.book_ids]))
+        resources = {r["book_id"]: r for r in services.native_repository.resources(actor, wid)}
+        if any(book_id not in resources for book_id in book_ids):
+            raise HTTPException(422, "答疑资料必须属于当前课程")
+        results = []
+        for book_id in book_ids:
+            selected = resource(wid, resources[book_id]["id"], actor)
+            question = scoped.model_copy(update={
+                "resource_id": selected["id"], "book_ids": [],
+                "chapter_id": body.chapter_id if book_id == row["book_id"] else None,
+            })
+            result = services.answer_book_question(
+                book_id, question, require_qa_service(book_id), request
+            ).model_dump(mode="json")
+            for claim in result["claims"]:
+                claim["book_id"] = book_id
+            structure = effective_structure(selected)
+            results.append((structure.title if structure else book_id, result))
+        if len(results) == 1:
+            return results[0][1]
+        supported = [result for _, result in results if result["status"] == "supported"]
+        return {
+            "book_id": row["book_id"], "status": "supported" if supported else "insufficient",
+            "answer": "\n\n".join(f"{title}\n{result['answer']}" for title, result in results),
+            "claims": [claim for _, result in results for claim in result["claims"]],
+            "confidence": min((result["confidence"] for result in supported), default=0),
+        }
 
     @router.get("/native/catalog")
     def catalog(actor: str = Depends(owner)) -> list[dict[str, Any]]:
@@ -472,6 +507,24 @@ def native_router(services: Any) -> APIRouter:
             "book_id": row["book_id"],
             "evidence": services.native_repository.catalog_practice(rid),
         }
+
+    @router.post("/workspaces/{wid}/resources/{rid}/catalog-flashcards/{card_id}")
+    def catalog_flashcard(
+        wid: str, rid: str, card_id: str, body: FlashcardReviewRequest, actor: str = Depends(owner)
+    ) -> dict[str, Any]:
+        row = resource(wid, rid, actor)
+        if row["book_id"] != curated.BOOK_ID:
+            raise HTTPException(404, "已有课程不存在")
+        card = next((c for c in curated.snapshot()["source"]["flashcards"] if c["card_id"] == card_id), None)
+        if card is None:
+            raise HTTPException(404, "闪卡不存在")
+        try:
+            return cast(dict[str, Any], services.native_repository.review_catalog_card(
+                rid, body.event_id, card, body.rating, body.response_seconds))
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        except ValueError as error:
+            raise HTTPException(422, "闪卡反馈必须是 again/hard/good/easy") from error
 
     @router.post("/workspaces/{wid}/resources/{rid}/catalog-practice/{question_id}")
     def catalog_practice(

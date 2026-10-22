@@ -4,7 +4,6 @@ import json
 import logging
 import math
 import os
-import shutil
 import signal
 import sqlite3
 import subprocess
@@ -18,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from ..database import DATABASE_ERRORS, Connection, connect
 from .models import BookStructure
 
 logger = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ class OCRRunResult:
     quality_score: float
     needs_human_review: bool
     page_count: int
+    artifact_dir: Path | None = None
 
 
 class OCRRunner(Protocol):
@@ -79,16 +80,9 @@ class SQLiteOCRJobRepository:
         self._initialize()
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=30, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys=ON")
-        connection.execute("PRAGMA busy_timeout=30000")
-        try:
-            with connection:
-                yield connection
-        finally:
-            connection.close()
+    def _connect(self) -> Iterator[Connection]:
+        with connect(self.database_path) as connection:
+            yield connection
 
     def source_fingerprint(self, book_id: str) -> str | None:
         with self._connect() as connection:
@@ -99,7 +93,8 @@ class SQLiteOCRJobRepository:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.execute("PRAGMA journal_mode=WAL")
+            if not connection.postgres:
+                connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS books (
@@ -197,16 +192,21 @@ class SQLiteOCRJobRepository:
             raise ValueError("max_attempts must be positive")
         timestamp = time.time() if now is None else now
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
+            if connection.postgres:
+                # Only enqueue shares this per-book lock. Existing queue rows are
+                # locked before books everywhere, avoiding job/book lock inversion.
+                connection.execute("SELECT pg_advisory_xact_lock(hashtextextended(?,20261022))", (book_id,))
+            existing = connection.execute(
+                "SELECT * FROM ocr_jobs WHERE book_id = ?"
+                + (" FOR UPDATE" if connection.postgres else ""), (book_id,)
+            ).fetchone()
             book = connection.execute(
                 "SELECT book_id, status FROM books WHERE book_id = ?", (book_id,)
             ).fetchone()
             if book is None:
                 connection.rollback()
                 raise KeyError(book_id)
-            existing = connection.execute(
-                "SELECT * FROM ocr_jobs WHERE book_id = ?", (book_id,)
-            ).fetchone()
             if existing is None:
                 connection.execute(
                     """
@@ -249,10 +249,11 @@ class SQLiteOCRJobRepository:
     def recover_expired(self, *, now: float | None = None) -> int:
         timestamp = time.time() if now is None else now
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             expired = connection.execute(
                 """SELECT book_id, attempts, max_attempts FROM ocr_jobs
-                WHERE status='running' AND lease_expires_at < ?""",
+                WHERE status='running' AND lease_expires_at < ?"""
+                + (" FOR UPDATE SKIP LOCKED" if connection.postgres else ""),
                 (timestamp,),
             ).fetchall()
             for row in expired:
@@ -287,13 +288,13 @@ class SQLiteOCRJobRepository:
         timestamp = time.time() if now is None else now
         self.recover_expired(now=timestamp)
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             row = connection.execute(
                 """
                 SELECT job_id, book_id FROM ocr_jobs
                 WHERE status IN ('queued', 'retry_wait') AND available_at <= ?
                 ORDER BY created_at, job_id LIMIT 1
-                """,
+                """ + (" FOR UPDATE SKIP LOCKED" if connection.postgres else ""),
                 (timestamp,),
             ).fetchone()
             if row is None:
@@ -302,14 +303,14 @@ class SQLiteOCRJobRepository:
             step = "正在进行页面识别与版面还原"
             connection.execute(
                 """
-                UPDATE ocr_jobs SET status='running', progress=MAX(progress, 0.05),
+                UPDATE ocr_jobs SET status='running', progress=CASE WHEN progress<0.05 THEN 0.05 ELSE progress END,
                     current_step=?, attempts=attempts+1, lease_owner=?,
                     lease_expires_at=?, updated_at=? WHERE job_id=?
                 """,
                 (step, owner, timestamp + lease_seconds, timestamp, row["job_id"]),
             )
             connection.execute(
-                """UPDATE books SET status='running', progress=MAX(progress, 0.05),
+                """UPDATE books SET status='running', progress=CASE WHEN progress<0.05 THEN 0.05 ELSE progress END,
                 current_step=?, updated_at=? WHERE book_id=?""",
                 (step, timestamp, row["book_id"]),
             )
@@ -331,24 +332,26 @@ class SQLiteOCRJobRepository:
         with self._connect() as connection:
             cursor = connection.execute(
                 """
-                UPDATE ocr_jobs SET progress=MAX(progress, ?), current_step=?,
+                UPDATE ocr_jobs SET progress=CASE WHEN progress>? THEN progress ELSE ? END, current_step=?,
                     lease_expires_at=?, updated_at=?
-                WHERE job_id=? AND status='running' AND lease_owner=?
+                WHERE job_id=? AND status='running' AND lease_owner=? AND lease_expires_at>?
                 """,
                 (
+                    bounded_progress,
                     bounded_progress,
                     current_step,
                     timestamp + lease_seconds,
                     timestamp,
                     job_id,
                     owner,
+                    timestamp,
                 ),
             )
             if cursor.rowcount:
                 connection.execute(
-                    """UPDATE books SET progress=MAX(progress, ?), current_step=?, updated_at=?
+                    """UPDATE books SET progress=CASE WHEN progress>? THEN progress ELSE ? END, current_step=?, updated_at=?
                     WHERE book_id=(SELECT book_id FROM ocr_jobs WHERE job_id=?)""",
-                    (bounded_progress, current_step, timestamp, job_id),
+                    (bounded_progress, bounded_progress, current_step, timestamp, job_id),
                 )
         return bool(cursor.rowcount)
 
@@ -372,19 +375,30 @@ class SQLiteOCRJobRepository:
             ensure_ascii=False,
         )
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             cursor = connection.execute(
                 """
                 UPDATE ocr_jobs SET status=?, progress=1, current_step=?, result_json=?,
                     lease_owner=NULL, lease_expires_at=NULL, last_error=NULL,
                     updated_at=?, finished_at=?
-                WHERE job_id=? AND status='running' AND lease_owner=?
+                WHERE job_id=? AND status='running' AND lease_owner=? AND lease_expires_at>?
                 """,
-                (status, step, payload, timestamp, timestamp, job_id, owner),
+                (status, step, payload, timestamp, timestamp, job_id, owner, timestamp),
             )
             if not cursor.rowcount:
                 connection.rollback()
                 raise JobStateError("OCR job lease is no longer owned by this worker")
+            if result.artifact_dir is not None:
+                row = connection.execute("SELECT output_dir FROM ocr_jobs WHERE job_id=?", (job_id,)).fetchone()
+                canonical = Path(row["output_dir"]) / "normalized"
+                staging = canonical.with_name(".normalized-" + uuid.uuid4().hex)
+                try:
+                    staging.symlink_to(os.path.relpath(result.artifact_dir, canonical.parent), target_is_directory=True)
+                    if canonical.exists() and not canonical.is_symlink():
+                        canonical.rename(canonical.with_name("normalized-legacy-" + uuid.uuid4().hex))
+                    os.replace(staging, canonical)
+                finally:
+                    staging.unlink(missing_ok=True)
             connection.execute(
                 """UPDATE books SET status=?, progress=1, current_step=?, updated_at=?
                 WHERE book_id=(SELECT book_id FROM ocr_jobs WHERE job_id=?)""",
@@ -404,11 +418,12 @@ class SQLiteOCRJobRepository:
         timestamp = time.time() if now is None else now
         safe_error = " ".join(error.split())[:1000]
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             row = connection.execute(
                 """SELECT attempts, max_attempts FROM ocr_jobs
-                WHERE job_id=? AND status='running' AND lease_owner=?""",
-                (job_id, owner),
+                WHERE job_id=? AND status='running' AND lease_owner=? AND lease_expires_at>?"""
+                + (" FOR UPDATE" if connection.postgres else ""),
+                (job_id, owner, timestamp),
             ).fetchone()
             if row is None:
                 connection.rollback()
@@ -437,7 +452,7 @@ class SQLiteOCRJobRepository:
         """Invalidate a running lease; the next heartbeat stops its subprocess."""
         timestamp = time.time()
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             changed = connection.execute(
                 "UPDATE ocr_jobs SET status='cancelled',current_step='已取消处理，原文件保留',lease_owner=NULL,lease_expires_at=NULL,updated_at=?,finished_at=? WHERE book_id=? AND status IN ('queued','running','retry_wait')",
                 (timestamp, timestamp, book_id),
@@ -451,15 +466,15 @@ class SQLiteOCRJobRepository:
         timestamp = time.time() if now is None else now
         step = "服务更新完成后将自动继续 OCR"
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             cursor = connection.execute(
                 """
-                UPDATE ocr_jobs SET status='queued', attempts=MAX(0, attempts-1),
+                UPDATE ocr_jobs SET status='queued', attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END,
                     current_step=?, available_at=?, lease_owner=NULL,
                     lease_expires_at=NULL, updated_at=?
-                WHERE job_id=? AND status='running' AND lease_owner=?
+                WHERE job_id=? AND status='running' AND lease_owner=? AND lease_expires_at>?
                 """,
-                (step, timestamp, timestamp, job_id, owner),
+                (step, timestamp, timestamp, job_id, owner, timestamp),
             )
             if cursor.rowcount:
                 connection.execute(
@@ -487,7 +502,7 @@ class SQLiteOCRJobRepository:
         timestamp = time.time() if now is None else now
         payload = structure.model_dump_json()
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            connection.begin_write(serialize=False)
             if (
                 connection.execute("SELECT 1 FROM books WHERE book_id=?", (book_id,)).fetchone()
                 is None
@@ -614,15 +629,14 @@ class SubprocessOCRRunner:
         if not report_path.is_file():
             raise RuntimeError("OCR subprocess completed without a quality report")
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        canonical = job.output_dir / "normalized"
-        shutil.copytree(attempt_dir / "normalized", canonical, dirs_exist_ok=True)
-        _write_canonical_hashes(canonical)
+        _write_canonical_hashes(attempt_dir / "normalized")
         bands = report.get("quality_band_counts", {})
         needs_review = any(int(bands.get(name, 0)) for name in ("missing", "rescue"))
         return OCRRunResult(
             quality_score=float(report["mean_heuristic_score"]),
             needs_human_review=needs_review,
             page_count=int(report["page_count_normalized"]),
+            artifact_dir=attempt_dir / "normalized",
         )
 
 
@@ -789,7 +803,7 @@ class OCRWorker:
                 if database_unavailable:
                     logger.info("OCR job database is available again")
                     database_unavailable = False
-            except sqlite3.Error as error:
+            except DATABASE_ERRORS as error:
                 if not database_unavailable:
                     logger.warning(
                         "OCR job database temporarily unavailable; retrying",

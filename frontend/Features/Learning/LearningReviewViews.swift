@@ -50,6 +50,7 @@ struct LearningFlashcardsView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var index = 0
+  @State private var reviewStarted = Date()
   @State private var revealed = false
   @State private var drag: CGFloat = 0
   @State private var isTransitioning = false
@@ -120,28 +121,32 @@ struct LearningFlashcardsView: View {
         .padding(.horizontal, store.isPad ? 8 : 2).padding(.bottom, 30)
         if last {
           BCButton("完成记忆", icon: "checkmark") {
-            store.setMastery(current.id, mastered: true)
             store.showToast("已完成本轮闪卡记忆")
             store.back()
           }
           .disabled(isFlipping || isTransitioning)
           .accessibilityIdentifier("flashcard-finish")
-        } else if revealed {
+        }
+        if revealed {
           HStack(spacing: 12) {
             ratingButton("还不熟", helper: "稍后再复习", icon: "arrow.counterclockwise", primary: false) {
-              store.setMastery(current.id, mastered: false)
+              store.reviewFlashcard(
+                current, mastered: false, seconds: Date().timeIntervalSince(reviewStarted))
               store.showToast("已加入复习队列")
-              advance()
+              if last { store.back() } else { advance() }
             }
-            ratingButton("记住了", helper: "进入下一张", icon: "checkmark", primary: true) {
-              store.setMastery(current.id, mastered: true)
+            ratingButton("记住了", helper: last ? "完成本轮" : "进入下一张", icon: "checkmark", primary: true) {
+              store.reviewFlashcard(
+                current, mastered: true, seconds: Date().timeIntervalSince(reviewStarted))
               store.showToast("已记录为掌握")
-              advance()
+              if last { store.back() } else { advance() }
             }
           }
           .transition(.opacity.combined(with: .offset(y: 6)))
         }
       }
+      .onChange(of: index) { _, _ in reviewStarted = .now }
+      .onChange(of: store.selectedCourseID) { _, _ in resetDeck() }
       .onChange(of: store.selectedChapterID) { _, _ in resetDeck() }
       .onChange(of: store.selectedBookID) { _, _ in resetDeck() }
       .onChange(of: reduceMotion) { _, reduced in
@@ -354,6 +359,7 @@ struct LearningFlashcardsView: View {
   private func resetDeck() {
     switchTask?.cancel()
     index = 0
+    reviewStarted = .now
     revealed = false
     settleFlip()
     drag = 0

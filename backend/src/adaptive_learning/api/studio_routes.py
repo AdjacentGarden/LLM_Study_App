@@ -27,7 +27,7 @@ def studio_router(
     router = APIRouter(tags=["learning-studio"])
     studio = get_studio(data_dir)
     with studio.repo.connect() as db:
-        db.execute(
+        db.executescript(
             "CREATE TABLE IF NOT EXISTS studio_note_editions (job_id TEXT PRIMARY KEY,owner TEXT NOT NULL,note_id TEXT NOT NULL,accepted INTEGER NOT NULL,updated REAL NOT NULL)"
         )
 
