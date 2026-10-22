@@ -145,7 +145,7 @@ def community_router(
         return owner
 
     def owned_book(owner: str, book_id: str) -> None:
-        if book_id not in published or not repo.owns(owner, book_id):
+        if not repo.owns(owner, book_id):
             raise HTTPException(403, "请先将这本书加入自己的书架")
 
     def owned_session(owner: str, session_id: str) -> InterviewSession:

@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from ..learning_preferences import LearningDesignConfig
+
 
 class TeachingDepth(StrEnum):
     FOUNDATION = "foundation"
@@ -43,6 +45,20 @@ class LessonSection(BaseModel):
     content: str = Field(min_length=1, max_length=1200)
     purpose: str = Field(min_length=1, max_length=240)
     citations: list[SourceCitation] = Field(default_factory=list)
+    kind: str = "explanation"
+    point_id: str = ""
+
+
+class LearningUnit(BaseModel):
+    unit_id: str
+    title: str
+    objectives: list[str]
+    knowledge_point_ids: list[str]
+    sections: list[LessonSection]
+    flashcard_ids: list[str]
+    practice_item_ids: list[str]
+    estimated_minutes: int = Field(ge=1)
+    prerequisite_check: str | None = None
 
 
 class PracticeItem(BaseModel):
@@ -88,6 +104,8 @@ class PersonalizationDecision(BaseModel):
     scaffolds: list[str] = Field(default_factory=list)
     exercise_difficulty: float = Field(ge=0, le=1)
     explanation: str = Field(min_length=1, max_length=600)
+    presentation_order: list[str] = Field(default_factory=list)
+    support_actions: list[str] = Field(default_factory=list)
 
 
 class ChapterLearningBundle(BaseModel):
@@ -110,6 +128,10 @@ class ChapterLearningBundle(BaseModel):
     estimated_minutes: int = Field(ge=1, le=600)
     created_at: datetime
     unresolved_source_warnings: list[str] = Field(default_factory=list)
+    design_config: LearningDesignConfig | None = None
+    design_fingerprint: str = ""
+    units: list[LearningUnit] = Field(default_factory=list)
+    coverage_point_ids: list[str] = Field(default_factory=list)
 
 
 class PublicChapterLearningBundle(BaseModel):
@@ -129,6 +151,10 @@ class PublicChapterLearningBundle(BaseModel):
     estimated_minutes: int
     created_at: datetime
     unresolved_source_warnings: list[str]
+    design_config: LearningDesignConfig | None = None
+    design_fingerprint: str = ""
+    units: list[LearningUnit] = Field(default_factory=list)
+    coverage_point_ids: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_private(cls, bundle: ChapterLearningBundle) -> PublicChapterLearningBundle:
@@ -151,4 +177,8 @@ class PublicChapterLearningBundle(BaseModel):
             estimated_minutes=bundle.estimated_minutes,
             created_at=bundle.created_at,
             unresolved_source_warnings=bundle.unresolved_source_warnings,
+            design_config=bundle.design_config,
+            design_fingerprint=bundle.design_fingerprint,
+            units=bundle.units,
+            coverage_point_ids=bundle.coverage_point_ids,
         )

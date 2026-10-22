@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Protocol
 
+from ..learning_preferences import GOAL_LABELS, LearningDesignConfig
 from .engine import AdaptiveAssessmentEngine, score_choice
 from .models import (
     AssessmentResponse,
@@ -56,9 +57,14 @@ class InterviewOrchestrator:
         chapter_titles: list[str],
         items: list[DiagnosticItem],
         chapter_options: list[dict[str, str]] | None = None,
+        learning_design: LearningDesignConfig | None = None,
     ) -> InterviewSession:
         now = datetime.now(UTC)
         profile = LearnerProfile(user_id=user_id, book_id=book_id)
+        profile.learning_design = learning_design
+        if learning_design:
+            profile.goal = GOAL_LABELS[learning_design.primary_goal]
+            profile.constraints.minutes_per_day = learning_design.minutes_per_day
         for item in items:
             profile.chapter_mastery.setdefault(item.chapter_id, MasteryPosterior())
             for point_id in item.knowledge_point_ids:
@@ -74,7 +80,7 @@ class InterviewOrchestrator:
             why="目标会决定案例、练习和章节优先级。",
             progress=0.05,
         )
-        return InterviewSession(
+        session = InterviewSession(
             session_id=f"interview_{uuid.uuid4().hex}",
             profile=profile,
             pending_turn=turn,
@@ -86,6 +92,20 @@ class InterviewOrchestrator:
             created_at=now,
             updated_at=now,
         )
+        if learning_design and "primary_goal" in learning_design.sources:
+            # Inherited preferences prefill the session; only actual interview
+            # answers become DECLARED evidence and override later account edits.
+            session.phase = InterviewPhase.GOAL_DISCOVERY
+            session.pending_turn = self._turn(
+                phase=session.phase,
+                message=f"已沿用你的学习目标：{profile.goal}。你可以在课程偏好中修改。",
+                question="你最想优先学习哪些章节？可以多选，也可以选“由我判断”。",
+                response_type=ResponseType.MULTIPLE_CHOICE,
+                options=[*session.chapter_options, {"id": "auto", "label": "由我判断"}],
+                why="重点章节用于选择诊断范围。",
+                progress=0.12,
+            )
+        return session
 
     def answer_profile_question(
         self,
@@ -168,6 +188,15 @@ class InterviewOrchestrator:
                 why="可用时间决定每次学习单元的长度，不会改变知识判断。",
                 progress=0.21,
             )
+            design = session.profile.learning_design
+            if design and "minutes_per_day" in design.sources:
+                session.phase = InterviewPhase.ADAPTIVE_DIAGNOSIS
+                turn = self._turn(
+                    phase=session.phase,
+                    message=f"已沿用每日 {design.minutes_per_day} 分钟的时间预算，接下来用简短诊断了解实际基础。",
+                    why="时间偏好只控制学习量，实际作答用于判断知识掌握。",
+                    progress=0.25,
+                )
         elif session.phase == InterviewPhase.CONSTRAINT_DISCOVERY:
             selected = (selected_option_ids or [answer.strip()])[:1]
             match = re.search(r"\d+", selected[0] if selected else answer)
@@ -219,9 +248,7 @@ class InterviewOrchestrator:
             message="这道题会帮助我缩小当前最不确定的部分。",
             question=item.prompt,
             response_type=item.response_type,
-            options=[
-                {"id": str(index), "label": option} for index, option in ordered_options
-            ],
+            options=[{"id": str(index), "label": option} for index, option in ordered_options],
             item=public_item,
             why="这道题能补足当前最缺少依据的知识区域，并兼顾你的学习重点。",
             progress=progress,
@@ -383,6 +410,9 @@ class InterviewOrchestrator:
                 value=value,
                 confidence=confidence,
                 observed_at=datetime.now(UTC),
+                design_revision=profile.learning_design.course_revision
+                if profile.learning_design
+                else 0,
             )
         )
 

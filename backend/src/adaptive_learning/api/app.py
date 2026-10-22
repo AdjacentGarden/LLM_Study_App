@@ -6,17 +6,19 @@ import os
 import re
 import shutil
 import signal
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import TypeAdapter
 
 from ..accounts import Accounts
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
@@ -48,6 +50,8 @@ from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRun
 from ..ingestion.models import BookStructure
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
+from ..learning_design import NativeLearningDesign, resolved_profile
+from ..learning_preferences import resolve_learning_design
 from ..llm.client import (
     LLMConfig,
     LLMError,
@@ -55,6 +59,7 @@ from ..llm.client import (
     LLMTimeoutError,
     OpenAICompatibleClient,
 )
+from ..native import NativeRepository
 from ..personalization.flashcard_quality import FlashcardQualityError, FlashcardQualityGate
 from ..personalization.generator import (
     ChapterCourseCompiler,
@@ -63,13 +68,14 @@ from ..personalization.generator import (
 )
 from ..personalization.models import ChapterLearningBundle, PublicChapterLearningBundle
 from ..personalization.policy import PersonalizationPolicy
-from ..personalization.review import rating_score, schedule_review
+from ..personalization.review import rating_score, review_state_for_point, schedule_review
 from ..rag.grounded_qa import GroundedAnswerValidationError
 from ..rag.index import RAGIndexError
 from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
 from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
+from .native_routes import native_router
 from .qa_dependency import build_qa_service, qa_service_ready, require_qa_service
 from .schemas import (
     BookCatalogItem,
@@ -101,6 +107,7 @@ job_repository = SQLiteOCRJobRepository(settings.data_dir / "state" / "ocr_jobs.
 assessment_repository = SQLiteAssessmentRepository(
     settings.data_dir / "state" / "assessments.sqlite3"
 )
+native_repository = NativeRepository(settings.data_dir / "state" / "native.sqlite3")
 ocr_worker = OCRWorker(
     repository=job_repository,
     runner=SubprocessOCRRunner(backend=settings.ocr_backend),
@@ -239,7 +246,7 @@ def rag_health() -> dict[str, object]:
 
 
 @app.post("/api/books", response_model=UploadResponse)
-async def upload_book(file: Annotated[UploadFile, File()]) -> UploadResponse:
+async def upload_book(file: Annotated[UploadFile, File()], request: Request, response: Response) -> UploadResponse:
     suffix = Path(file.filename or "book.pdf").suffix.lower()
     if suffix != ".pdf":
         raise HTTPException(
@@ -249,8 +256,29 @@ async def upload_book(file: Annotated[UploadFile, File()]) -> UploadResponse:
     target_dir = settings.data_dir / "books" / book_id
     target_dir.mkdir(parents=True, exist_ok=False)
     target = target_dir / "source.pdf"
-    with target.open("wb") as output:
-        shutil.copyfileobj(file.file, output)
+    owner = account_repository.request_owner(request)
+    if request.cookies.get("zhiwo_account") and owner is None:
+        shutil.rmtree(target_dir)
+        raise HTTPException(401, "登录已过期，请重新登录")
+    if owner is None:
+        owner, token, _ = account_repository.repo.visitor(request.cookies.get("zhiwo_visitor"), [])
+        response.set_cookie("zhiwo_visitor", token, httponly=True, samesite="lax",
+                            secure=request.url.scheme == "https", max_age=31536000)
+    try:
+        size = 0
+        with target.open("wb") as output:
+            while data := await file.read(1024 * 1024):
+                if size == 0 and b"%PDF-" not in data[:1024]:
+                    raise HTTPException(415, "文件内容不是有效 PDF")
+                size += len(data)
+                if size > 100 * 1024 * 1024:
+                    raise HTTPException(413, "PDF 不能超过 100 MB")
+                output.write(data)
+        if not size:
+            raise HTTPException(422, "不能上传空文件")
+    except BaseException:
+        shutil.rmtree(target_dir, ignore_errors=True)
+        raise
     store.books[book_id] = BookRecord(
         book_id=book_id,
         original_name=file.filename or "book.pdf",
@@ -262,6 +290,7 @@ async def upload_book(file: Annotated[UploadFile, File()]) -> UploadResponse:
         file_path=target,
         source_sha256=sha256_file(target),
     )
+    account_repository.repo.bind_upload(owner, book_id)
     return UploadResponse(
         book_id=book_id,
         filename=file.filename or "book.pdf",
@@ -314,7 +343,7 @@ def get_learning_records(session_id: str) -> dict[str, object]:
     session = _session_or_404(session_id)
     return learning_records(
         session,
-        _items_for_book(session.profile.book_id),
+        _items_for_session(session),
         assessment_repository.courses_for_session(session_id),
     )
 
@@ -341,7 +370,7 @@ def retry_process_book(book_id: str) -> BookStatusResponse:
     current = job_repository.get_job(book_id)
     if current is None:
         raise HTTPException(status_code=409, detail="该书尚未开始处理。")
-    if current.status not in {"failed", "ocr_review_required"}:
+    if current.status not in {"failed", "ocr_review_required", "cancelled"}:
         raise HTTPException(status_code=409, detail="当前状态不支持重新处理。")
     job = job_repository.enqueue(
         book_id=book_id,
@@ -358,10 +387,45 @@ def answer_book_question(
     book_id: str,
     request: BookQuestionRequest,
     qa_service: Annotated[TextbookQAService, Depends(require_qa_service)],
+    http_request: Request,
 ) -> TextbookQAResult:
     if book_id != qa_service.book_id:
         raise HTTPException(status_code=404, detail="未找到该书的检索索引")
+    actor = account_repository.request_owner(http_request)
+    config = None
+    cache_scope = actor or ""
+    wid, rid = request.workspace_id, request.resource_id
+    if bool(wid) != bool(rid):
+        raise HTTPException(422, "请同时提供课程和资料上下文")
+    if wid and rid:
+        if actor is None:
+            raise HTTPException(401, "请先登录学习账号")
+        try:
+            row = native_repository.resource(actor, wid, rid)
+        except KeyError as error:
+            raise HTTPException(404, "课程资料不存在") from error
+        if row["book_id"] != book_id:
+            raise HTTPException(422, "资料与教材不匹配")
+    elif actor:
+        matches = [resource for workspace in native_repository.workspaces(actor)
+                   for resource in native_repository.resources(actor, workspace["id"])
+                   if resource["book_id"] == book_id]
+        # A legacy book-only request is ambiguous when a book is used in several
+        # courses. Use the account default rather than a potentially stale selection.
+        if len(matches) == 1:
+            wid, rid = matches[0]["workspace_id"], matches[0]["id"]
+    if actor and wid and rid:
+        row = native_repository.resource(actor, wid, rid)
+        session = assessment_repository.get_session(row["session_id"]) if row["session_id"] else None
+        config = NativeLearningDesign(sys.modules[__name__]).config(actor, wid, session.profile if session else None)
+        cache_scope = f"{actor}:{wid}:{rid}"
+    elif actor:
+        account_preferences = native_repository.learner_preferences(actor)
+        if account_preferences:
+            config = resolve_learning_design(account_preferences)
     try:
+        if config is not None or cache_scope:
+            return qa_service.answer(request.question, teaching_context=config.qa_preferences() if config else None, cache_scope=cache_scope)
         return qa_service.answer(request.question)
     except QABusyError as error:
         raise HTTPException(
@@ -461,6 +525,11 @@ def get_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
 @app.post("/api/interviews/start", response_model=InterviewResponse)
 def start_interview(request: StartInterviewRequest, http_request: Request) -> InterviewResponse:
     _book_or_404(request.book_id)
+    with account_repository.repo.connect() as db:
+        bound = db.execute("SELECT owner FROM upload_owners WHERE book_id=?", (request.book_id,)).fetchone()
+    actor = account_repository.request_owner(http_request)
+    if bound and bound[0] != actor and not (actor and account_repository.repo.owns(actor, request.book_id)):
+        raise HTTPException(403, "不能访问其他账号的教材")
     if request.book_id == "demo_book":
         chapter_titles = ["从局部到整体", "反馈与变化", "边界、延迟与涌现", "用系统方法解决问题"]
         book_title = "理解复杂系统"
@@ -503,6 +572,7 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
 @app.post("/api/interviews/{session_id}/profile", response_model=InterviewResponse)
 def answer_profile(session_id: str, request: ProfileAnswerRequest) -> InterviewResponse:
     session = _session_or_404(session_id)
+    session.profile = resolved_profile(sys.modules[__name__], session)
     try:
         turn = orchestrator.answer_profile_question(
             session,
@@ -537,7 +607,7 @@ def get_interview(session_id: str) -> InterviewResponse:
 @app.post("/api/interviews/{session_id}/next", response_model=InterviewResponse)
 def next_diagnostic(session_id: str) -> InterviewResponse:
     session = _session_or_404(session_id)
-    items = _items_for_book(session.profile.book_id)
+    items = _items_for_session(session)
     try:
         turn = orchestrator.next_diagnostic(session, items)
     except ValueError as error:
@@ -554,7 +624,7 @@ def next_diagnostic(session_id: str) -> InterviewResponse:
 @app.post("/api/interviews/{session_id}/respond", response_model=DiagnosticAnswerResponse)
 def respond(session_id: str, request: DiagnosticResponseRequest) -> DiagnosticAnswerResponse:
     session = _session_or_404(session_id)
-    items = _items_for_book(session.profile.book_id)
+    items = _items_for_session(session)
     previous_turn_id = session.pending_turn.turn_id if session.pending_turn else None
     try:
         evidence = orchestrator.record_diagnostic(session, request, items)
@@ -593,7 +663,9 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
     session = _session_or_404(session_id)
     if session.phase != InterviewPhase.COMPLETE:
         raise HTTPException(status_code=409, detail="请先确认学习画像再生成课程")
-    structure = job_repository.get_structure(session.profile.book_id)
+    context = native_repository.session_context(session_id)
+    structure = (BookStructure.model_validate_json(context["structure_json"]) if context
+                 else job_repository.get_structure(session.profile.book_id))
     if structure is None:
         raise HTTPException(status_code=409, detail="书籍尚未完成章节重建")
     chapter = next(
@@ -602,7 +674,8 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
     if chapter is None:
         raise HTTPException(status_code=404, detail="未找到该章节")
     latest = assessment_repository.get_latest_course(session_id, chapter_id)
-    current_profile_hash = profile_fingerprint(session.profile)
+    profile = resolved_profile(sys.modules[__name__], session)
+    current_profile_hash = profile_fingerprint(profile)
     current_source_hash = chapter_fingerprint(chapter)
     if (
         latest is not None
@@ -611,11 +684,11 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
     ):
         return PublicChapterLearningBundle.from_private(_reviewed_course(latest))
     version = assessment_repository.next_course_version(session_id, chapter_id)
-    decision = personalization_policy.decide(session.profile, chapter_id)
+    decision = personalization_policy.decide(profile, chapter_id)
     try:
         bundle = course_compiler.compile(
             chapter=chapter,
-            profile=session.profile,
+            profile=profile,
             decision=decision,
             version=version,
             instance_key=session_id,
@@ -693,7 +766,7 @@ def answer_course_practice(
         raise HTTPException(status_code=503, detail="练习评分暂时不可用，请稍后重试。")
     if evidence.scoring_confidence > 0:
         engine.update_profile(session.profile, diagnostic, response, evidence)
-    stale = profile_fingerprint(session.profile) != bundle.profile_fingerprint
+    stale = profile_fingerprint(resolved_profile(sys.modules[__name__], session)) != bundle.profile_fingerprint
     activity = CourseActivityResponse(
         evidence=evidence,
         profile=session.profile,
@@ -731,7 +804,7 @@ def review_flashcard(
         raise HTTPException(status_code=404, detail="未找到该闪卡")
     try:
         review_state = schedule_review(
-            session.profile.flashcard_reviews.get(card_id),
+            review_state_for_point(session.profile, card.point_id, assessment_repository.courses_for_session(session_id)),
             request.rating,
             response_seconds=request.response_seconds,
         )
@@ -768,7 +841,7 @@ def review_flashcard(
         evidence_kind=EvidenceKind.BEHAVIORAL,
     )
     session.profile.flashcard_reviews[card_id] = review_state
-    stale = profile_fingerprint(session.profile) != bundle.profile_fingerprint
+    stale = profile_fingerprint(resolved_profile(sys.modules[__name__], session)) != bundle.profile_fingerprint
     activity = CourseActivityResponse(
         evidence=evidence,
         profile=session.profile,
@@ -869,6 +942,13 @@ def _save_course_activity(
     return activity
 
 
+def _items_for_session(session: InterviewSession) -> list[DiagnosticItem]:
+    context = native_repository.session_context(session.session_id)
+    if context:
+        return TypeAdapter(list[DiagnosticItem]).validate_json(context["items_json"])
+    return _items_for_book(session.profile.book_id)
+
+
 def _items_for_book(book_id: str) -> list[DiagnosticItem]:
     if book_id == "demo_book":
         items = store.book(book_id).diagnostic_items
@@ -923,7 +1003,7 @@ def _status(book: BookRecord) -> BookStatusResponse:
             if job is not None
             else (structure.source_page_count if structure is not None else None)
         ),
-        retryable=job is not None and job.status in {"failed", "ocr_review_required"},
+        retryable=job is not None and job.status in {"failed", "ocr_review_required", "cancelled"},
     )
 
 
@@ -1073,4 +1153,5 @@ app.include_router(
         lambda: assessment_repository,
     )
 )
+app.include_router(native_router(sys.modules[__name__]))
 _mount_frontend()

@@ -52,6 +52,8 @@ class StartInterviewRequest(BaseModel):
 class BookQuestionRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     question: str = Field(min_length=1, max_length=2000)
+    workspace_id: str | None = Field(default=None, min_length=1, max_length=100)
+    resource_id: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class ProfileAnswerRequest(BaseModel):

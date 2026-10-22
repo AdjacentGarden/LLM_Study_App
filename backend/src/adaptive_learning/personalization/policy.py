@@ -39,6 +39,18 @@ class PersonalizationPolicy:
         if not emphasis:
             emphasis.append("建立章节整体结构")
 
+        design = profile.learning_design
+        if design:
+            if design.primary_goal == "exam":
+                emphasis.append("概念辨析与有原文依据的练习，不推断必考点")
+            elif design.primary_goal == "growth":
+                emphasis.append("结合教材已有情境解释应用条件")
+            elif design.primary_goal == "interest":
+                emphasis.append("从教材中的问题与现象进入")
+            else:
+                emphasis.append("建立知识点之间的联系")
+            scaffolds = list(dict.fromkeys([*scaffolds, *design.support_actions]))
+
         reason = (
             f"章节掌握估计为 {mastery:.0%}，证据置信度为 {confidence:.0%}；"
             f"因此采用{self._depth_label(depth)}内容，并按可用时间控制单元长度。"
@@ -52,6 +64,8 @@ class PersonalizationPolicy:
             scaffolds=scaffolds,
             exercise_difficulty=difficulty,
             explanation=reason,
+            presentation_order=design.presentation_order if design else [],
+            support_actions=design.support_actions if design else [],
         )
 
     @staticmethod

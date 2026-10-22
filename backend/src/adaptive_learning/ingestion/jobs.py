@@ -217,7 +217,7 @@ class SQLiteOCRJobRepository:
                     """,
                     (book_id, str(output_dir), max_attempts, timestamp, timestamp, timestamp),
                 )
-            elif force_retry and str(existing["status"]) in {"failed", "ocr_review_required"}:
+            elif force_retry and str(existing["status"]) in {"failed", "ocr_review_required", "cancelled"}:
                 connection.execute(
                     """
                     UPDATE ocr_jobs SET status='queued', progress=0.02,
@@ -432,6 +432,19 @@ class SQLiteOCRJobRepository:
             )
             connection.commit()
         return status
+
+    def cancel(self, book_id: str) -> bool:
+        """Invalidate a running lease; the next heartbeat stops its subprocess."""
+        timestamp = time.time()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            changed = connection.execute(
+                "UPDATE ocr_jobs SET status='cancelled',current_step='已取消处理，原文件保留',lease_owner=NULL,lease_expires_at=NULL,updated_at=?,finished_at=? WHERE book_id=? AND status IN ('queued','running','retry_wait')",
+                (timestamp, timestamp, book_id),
+            ).rowcount
+            if changed:
+                connection.execute("UPDATE books SET status='cancelled',current_step='已取消处理，原文件保留',updated_at=? WHERE book_id=?", (timestamp, book_id))
+        return bool(changed)
 
     def release(self, *, job_id: int, owner: str, now: float | None = None) -> bool:
         """Return a cooperatively cancelled job to the queue without spending an attempt."""

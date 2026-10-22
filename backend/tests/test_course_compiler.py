@@ -44,9 +44,7 @@ def test_compiler_prioritizes_unknown_and_weak_points_with_exact_citations() -> 
     profile.constraints.minutes_per_day = 60
     decision = PersonalizationPolicy().decide(profile, value.chapter_id)
 
-    bundle = ChapterCourseCompiler().compile(
-        chapter=value, profile=profile, decision=decision
-    )
+    bundle = ChapterCourseCompiler().compile(chapter=value, profile=profile, decision=decision)
 
     selected_ids = [point.point_id for point in bundle.knowledge_points]
     assert selected_ids.index(weak_id) < selected_ids.index(strong_id)
@@ -95,7 +93,13 @@ def test_course_changes_depth_and_size_for_different_profiles() -> None:
     assert foundation.decision.depth == TeachingDepth.FOUNDATION
     assert challenge.decision.depth == TeachingDepth.ADVANCED
     assert len(foundation.knowledge_points) == 10
-    assert len(challenge.knowledge_points) == 6
+    assert len(challenge.knowledge_points) == 10
+    assert len(challenge.units[0].knowledge_point_ids) < len(
+        foundation.units[0].knowledge_point_ids
+    )
+    assert {p for unit in challenge.units for p in unit.knowledge_point_ids} == set(
+        challenge.coverage_point_ids
+    )
     assert foundation.flashcards[0].front != challenge.flashcards[0].front
 
 
@@ -103,9 +107,7 @@ def test_public_course_never_contains_practice_answer_keys() -> None:
     value = chapter(3)
     profile = LearnerProfile(user_id="u", book_id="b")
     decision = PersonalizationPolicy().decide(profile, value.chapter_id)
-    private = ChapterCourseCompiler().compile(
-        chapter=value, profile=profile, decision=decision
-    )
+    private = ChapterCourseCompiler().compile(chapter=value, profile=profile, decision=decision)
 
     public = PublicChapterLearningBundle.from_private(private)
     serialized = public.model_dump_json()
@@ -125,9 +127,7 @@ def test_same_inputs_are_idempotent_but_new_evidence_changes_course_id() -> None
     decision = PersonalizationPolicy().decide(profile, value.chapter_id)
     first = compiler.compile(chapter=value, profile=profile, decision=decision)
     second = compiler.compile(chapter=value, profile=profile, decision=decision)
-    racing_version = compiler.compile(
-        chapter=value, profile=profile, decision=decision, version=2
-    )
+    racing_version = compiler.compile(chapter=value, profile=profile, decision=decision, version=2)
     point_id = stable_knowledge_point_id(value.chapter_id, value.knowledge_points[0])
     profile.knowledge_mastery[point_id] = MasteryPosterior(alpha=2, beta=1, evidence_count=1)
     changed = compiler.compile(

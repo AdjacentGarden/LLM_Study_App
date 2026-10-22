@@ -82,3 +82,24 @@ def test_service_refuses_low_score_without_model_call() -> None:
     assert result.status == AnswerStatus.INSUFFICIENT
     assert result.evidence_pages == []
     assert client.calls == 0
+
+
+def test_personalized_answers_are_not_shared_across_accounts_or_preferences() -> None:
+    client = FakeClient()
+    service = TextbookQAService(
+        book_id="shared-book", index=FakeIndex(3.5), generator=GroundedAnswerGenerator(client)
+    )  # type: ignore[arg-type]
+    question = "减数分裂有什么特点？"
+    preferences = {"guidance_styles": ["examples"]}
+    service.answer(question, teaching_context=preferences, cache_scope="account-a:course-a")
+    assert service.answer(
+        question, teaching_context=preferences, cache_scope="account-a:course-a"
+    ).cache_hit
+    service.answer(question, teaching_context=preferences, cache_scope="account-b:course-b")
+    assert client.calls == 2
+    service.answer(
+        question,
+        teaching_context={"guidance_styles": ["principles"]},
+        cache_scope="account-a:course-a",
+    )
+    assert client.calls == 3

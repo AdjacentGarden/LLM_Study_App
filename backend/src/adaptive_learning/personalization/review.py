@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from fsrs import Card, Rating, Scheduler, State
 
-from ..assessment.models import FlashcardReviewState
+from ..assessment.models import FlashcardReviewState, LearnerProfile
+from .models import ChapterLearningBundle
 
 RATINGS = {"again", "hard", "good", "easy"}
 FSRS_ALGORITHM = "fsrs-6"
@@ -16,6 +18,29 @@ _RATING_MAP = {
     "good": Rating.Good,
     "easy": Rating.Easy,
 }
+
+
+def review_state_for_point(
+    profile: LearnerProfile, point_id: str, courses: Sequence[ChapterLearningBundle]
+) -> FlashcardReviewState | None:
+    """Reuse the newest real review even when an older course used versioned card IDs."""
+    ids = {
+        card.card_id
+        for course in courses
+        for card in course.flashcards
+        if card.point_id == point_id
+    }
+    states = [state for key, state in profile.flashcard_reviews.items() if key in ids]
+    return (
+        max(
+            states,
+            key=lambda s: (
+                s.last_review_at or s.updated_at or datetime.min.replace(tzinfo=UTC)
+            ).timestamp(),
+        )
+        if states
+        else None
+    )
 
 
 def _scheduler() -> Scheduler:
@@ -30,11 +55,7 @@ def _scheduler() -> Scheduler:
 
 
 def _restore_card(state: FlashcardReviewState, observed_at: datetime) -> Card:
-    if (
-        state.algorithm != FSRS_ALGORITHM
-        or state.card_id is None
-        or state.memory_state is None
-    ):
+    if state.algorithm != FSRS_ALGORITHM or state.card_id is None or state.memory_state is None:
         # Legacy SM-2-like records migrate on their next review. Historical
         # evidence remains in the learner profile; only future timing switches.
         return Card(card_id=state.card_id, due=observed_at)

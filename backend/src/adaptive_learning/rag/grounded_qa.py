@@ -5,6 +5,7 @@ import logging
 import re
 import time
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, StrictBool
 
@@ -179,6 +180,7 @@ class GroundedAnswerGenerator:
         evidence: list[EvidenceChunk],
         retrieval_score: float,
         lexical_support: bool = False,
+        teaching_context: dict[str, Any] | None = None,
     ) -> GroundedAnswer:
         if not evidence or (retrieval_score <= self.refusal_score_threshold
                             and not (lexical_support and self.use_semantic_review)):
@@ -206,7 +208,7 @@ class GroundedAnswerGenerator:
                 logger.warning("QA coverage planner unavailable; continuing with retrieved evidence")
             finally:
                 timings["planning"] += round((time.monotonic() - started) * 1000)
-        payload = {
+        payload: dict[str, Any] = {
             "question": question,
             "evidence": [item.model_dump(mode="json") for item in evidence],
             "coverage_plan": [item.model_dump(mode="json") for item in plan],
@@ -214,6 +216,12 @@ class GroundedAnswerGenerator:
             if concise
             else "完整回答所问子问题，不扩写无关内容，最多6条claims，总长通常180至900字。",
         }
+        if teaching_context is not None:
+            payload["teaching_preferences"] = teaching_context
+            payload["presentation_instruction"] = (
+                "按教学偏好组织重点、原理、原文示例或步骤；用户在 question 中的当次明确要求优先。"
+                "偏好只影响表达，不改变事实、证据阈值和引用要求；所有 claim 仍需原文支持。"
+            )
         for attempt in range(self.max_validation_retries + 1):
             started = time.monotonic()
             try:

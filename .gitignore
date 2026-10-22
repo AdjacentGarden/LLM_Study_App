@@ -21,6 +21,9 @@ __pycache__/
 .mypy_cache/
 .coverage
 data/
+# Packaged course content is source material, separate from runtime databases.
+!backend/src/adaptive_learning/data/
+!backend/src/adaptive_learning/data/native_biology.json
 storage/
 *.db
 *.tsbuildinfo

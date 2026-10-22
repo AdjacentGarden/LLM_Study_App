@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
+from ..learning_preferences import LearningDesignConfig
+
 
 class InterviewPhase(StrEnum):
     BOOK_BRIEFING = "book_briefing"
@@ -131,6 +133,7 @@ class ProfileEvidence(BaseModel):
     confidence: float = Field(ge=0, le=1)
     item_id: str | None = None
     observed_at: datetime
+    design_revision: int = 0
 
 
 class DiagnosticObservation(BaseModel):
@@ -181,6 +184,7 @@ class LearnerProfile(BaseModel):
     user_id: str
     book_id: str
     goal: str = ""
+    learning_design: LearningDesignConfig | None = None
     focus_chapter_ids: list[str] = Field(default_factory=list)
     declared_background: str = ""
     background_level: str = "unknown"

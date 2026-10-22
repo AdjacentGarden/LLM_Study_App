@@ -64,6 +64,7 @@ OCR 丢失的上下标、染色体或公式记号不能直接照抄为错误的�
 每卡只问一个中心问题；不要把概念、分类、原因和应用全塞进一张卡。证据只支持部分知识点时，缩小提问范围，不要求猜补其余部分。
 front为6-120个字符，back为8-360个字符。previous_candidate 是上次未通过的候选，优先按具体意见修改，不重新扩写其他知识。
 根据 depth 调整提问难度。每个 id 恰好返回一次，不能增删。
+若提供 learning_design，按其目标和引导偏好调整问答表达；只改变组织方式，不能添加缺少证据的事实或把偏好当作掌握证据。
 仅返回 JSON：{"cards":[{"id":"输入id","front":"完整问题","back":"准确答案"}]}。
 如有上轮审查意见，逐条修复。"""
 
@@ -123,9 +124,11 @@ class FlashcardQualityGate:
             point = points.get(card.point_id)
             if point is None or not card.citations:
                 raise FlashcardQualityError("闪卡缺少知识点或原文证据")
-            data = {"chapter": bundle.chapter_title, "depth": bundle.decision.depth.value,
+            data: dict[str, Any] = {"chapter": bundle.chapter_title, "depth": bundle.decision.depth.value,
                     "knowledge_point": point.explanation,
                     "evidence": [citation.model_dump() for citation in card.citations]}
+            if bundle.design_config is not None:
+                data["learning_design"] = bundle.design_config.qa_preferences()
             key = hashlib.sha256(json.dumps(
                 [QUALITY_VERSION, self.model_identity, data], ensure_ascii=False,
                 sort_keys=True).encode()).hexdigest()

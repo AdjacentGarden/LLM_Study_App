@@ -25,6 +25,7 @@ DEMO_USERS = {
 DEMO_EMAILS = {*DEMO_USERS, "reader@zhiwo.test"}
 COOKIE = "zhiwo_account"
 TTL = 30 * 86400
+LOCAL_OWNER = "native_local_default"
 
 
 class Accounts:
@@ -57,6 +58,39 @@ class Accounts:
         return os.getenv("AUTH_DEMO_MODE", "0") == "1"
 
     @staticmethod
+    def local_login_enabled() -> bool:
+        return os.getenv("NATIVE_LOCAL_LOGIN_ENABLED", "0") == "1" and os.getenv(
+            "APP_ENV", "development"
+        ) in {"development", "local"}
+
+    def local_session(self, previous_token: str | None) -> str:
+        """Issue a normal revocable session for the persistent local development account."""
+        if not self.local_login_enabled():
+            raise HTTPException(404, "本地默认登录未启用")
+        token, now = secrets.token_urlsafe(32), time.time()
+        with self.repo.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                "INSERT OR IGNORE INTO accounts VALUES(?,?,?,?,?,?,?)",
+                (LOCAL_OWNER, "local@cloudpath.invalid", "university", "[]", "interest", 0, now),
+            )
+            db.execute(
+                "INSERT OR IGNORE INTO user_profiles VALUES(?,?,NULL,'',NULL,1)",
+                (LOCAL_OWNER, "本地学习者"),
+            )
+            if previous_token:
+                db.execute(
+                    "DELETE FROM account_sessions WHERE token_hash=?",
+                    (hashlib.sha256(previous_token.encode()).hexdigest(),),
+                )
+            db.execute("DELETE FROM account_sessions WHERE expires<?", (now,))
+            db.execute(
+                "INSERT INTO account_sessions VALUES(?,?,?,?)",
+                (hashlib.sha256(token.encode()).hexdigest(), LOCAL_OWNER, now, now + TTL),
+            )
+        return token
+
+    @staticmethod
     def smtp_ready() -> bool:
         if not all(os.getenv(k) for k in ("SMTP_HOST", "SMTP_FROM")):
             return False
@@ -75,7 +109,9 @@ class Accounts:
                 "SELECT s.owner FROM account_sessions s JOIN accounts a ON a.owner=s.owner WHERE token_hash=? AND expires>? AND (a.is_demo=0 OR ?=1)",
                 (hashlib.sha256(token.encode()).hexdigest(), time.time(), int(self.demo_enabled())),
             ).fetchone()
-            return str(row[0]) if row else None
+            if row and (row[0] != LOCAL_OWNER or self.local_login_enabled()):
+                return str(row[0])
+            return None
 
     def request_owner(self, request: Request) -> str | None:
         if request.cookies.get(COOKIE):

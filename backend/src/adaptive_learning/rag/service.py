@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import queue
 import threading
@@ -7,6 +9,7 @@ import time
 from collections import OrderedDict
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -88,9 +91,7 @@ class TextbookQAService:
         # Service/index scoped; never shared across books or model configurations.
         self._cache: OrderedDict[str, tuple[float, TextbookQAResult]] = OrderedDict()
         self._inflight: dict[str, Future[TextbookQAResult]] = {}
-        self._retrieval_cache: OrderedDict[
-            str, tuple[float, RetrievalResult, bool]
-        ] = OrderedDict()
+        self._retrieval_cache: OrderedDict[str, tuple[float, RetrievalResult, bool]] = OrderedDict()
         # At most one full neural retrieval may outlive its latency budget per book.
         # Further requests immediately use the lexical circuit breaker instead of queuing.
         self._retrieval_slot = threading.BoundedSemaphore(1)
@@ -105,10 +106,23 @@ class TextbookQAService:
         self.index.search("教材核心概念", top_pages=1, max_evidence=1, per_page=1)
         self._ready = True
 
-    def answer(self, question: str) -> TextbookQAResult:
-        key = question.strip()
-        if not key or len(key) > 2000:
+    def answer(
+        self,
+        question: str,
+        *,
+        teaching_context: dict[str, Any] | None = None,
+        cache_scope: str = "",
+    ) -> TextbookQAResult:
+        question = question.strip()
+        if not question or len(question) > 2000:
             raise ValueError("question must contain 1–2000 characters")
+        key = question
+        if teaching_context is not None or cache_scope:
+            key = hashlib.sha256(
+                json.dumps(
+                    [question, cache_scope, teaching_context], sort_keys=True, ensure_ascii=False
+                ).encode()
+            ).hexdigest()
         with self._lock:
             now = time.monotonic()
             for expired in [q for q, (until, _) in self._cache.items() if until <= now]:
@@ -136,7 +150,11 @@ class TextbookQAService:
             except FutureTimeout as error:
                 raise QABusyError("waiting for shared answer timed out") from error
         try:
-            result = self._answer(key)
+            result = (
+                self._answer(question, teaching_context=teaching_context)
+                if teaching_context is not None
+                else self._answer(question)
+            )
             with self._lock:
                 if (
                     result.status == AnswerStatus.SUPPORTED
@@ -158,7 +176,9 @@ class TextbookQAService:
             with self._lock:
                 self._inflight.pop(key, None)
 
-    def _answer(self, question: str) -> TextbookQAResult:
+    def _answer(
+        self, question: str, *, teaching_context: dict[str, Any] | None = None
+    ) -> TextbookQAResult:
         retrieval_started = time.monotonic()
         retrieval, retrieval_mode = self._retrieve(question)
         self._ready = True
@@ -186,6 +206,7 @@ class TextbookQAService:
                 evidence=evidence,
                 retrieval_score=retrieval.score,
                 lexical_support=retrieval.lexical_support,
+                **({"teaching_context": teaching_context} if teaching_context is not None else {}),
             )
         generation_duration_ms = round((time.monotonic() - generation_started) * 1000)
         logger.info(
@@ -225,9 +246,9 @@ class TextbookQAService:
         if not self._retrieval_slot.acquire(blocking=False):
             return self._fast_retrieve(question), "lexical-busy"
 
-        completed: queue.Queue[
-            tuple[RetrievalResult | None, BaseException | None]
-        ] = queue.Queue(maxsize=1)
+        completed: queue.Queue[tuple[RetrievalResult | None, BaseException | None]] = queue.Queue(
+            maxsize=1
+        )
 
         def run() -> None:
             try:
@@ -277,9 +298,11 @@ class TextbookQAService:
             max_evidence=self.max_evidence,
         )
         self._remember_retrieval(question, result, degraded=True)
-        return result
+        return cast(RetrievalResult, result)
 
-    def _remember_retrieval(self, question: str, result: RetrievalResult, *, degraded: bool = False) -> None:
+    def _remember_retrieval(
+        self, question: str, result: RetrievalResult, *, degraded: bool = False
+    ) -> None:
         if (
             not self.retrieval_cache_size
             or not self.retrieval_cache_seconds
@@ -292,7 +315,10 @@ class TextbookQAService:
             if degraded and existing and existing[0] > time.monotonic() and not existing[2]:
                 return  # A late fallback must never overwrite a full neural result.
             self._retrieval_cache[question] = (
-                time.monotonic() + min(self.retrieval_cache_seconds, 5 if degraded else self.retrieval_cache_seconds),
+                time.monotonic()
+                + min(
+                    self.retrieval_cache_seconds, 5 if degraded else self.retrieval_cache_seconds
+                ),
                 result,
                 degraded,
             )

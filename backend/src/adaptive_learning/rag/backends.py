@@ -118,6 +118,25 @@ class TransformerQueryEncoder:
             except RuntimeError as error:
                 raise RAGIndexError("query embedding failed") from error
 
+    def encode_documents(self, texts: Sequence[str]) -> NDArray[np.float32]:
+        """Document vectors use the same model without the query instruction."""
+        try:
+            import torch
+            from torch.nn import functional
+        except ImportError as error:
+            raise RAGIndexError("document embedding requires backend[rag]") from error
+        vectors = []
+        with self._lock, torch.inference_mode():
+            tokenizer, model = self._load()
+            for start in range(0, len(texts), 16):
+                inputs = tokenizer(list(texts[start:start + 16]), padding=True, truncation=True,
+                                   max_length=512, return_tensors="pt").to(self.device)
+                vector = functional.normalize(model(**inputs).last_hidden_state[:, 0], p=2, dim=1)
+                vectors.append(np.asarray(vector.float().cpu().numpy(), dtype=np.float32))
+        if not vectors:
+            raise RAGIndexError("no document text to embed")
+        return np.concatenate(vectors)
+
 
 class TransformerPairReranker:
     def __init__(self, model_path: Path, *, device: str = "auto") -> None:
