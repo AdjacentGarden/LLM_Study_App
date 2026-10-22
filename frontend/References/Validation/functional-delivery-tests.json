@@ -1,0 +1,877 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "C405B13F-6B58-4601-A67D-BFE323436F8A",
+      "deviceName" : "iPhone 17 Pro",
+      "modelName" : "iPhone 17 Pro",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "0.0013s",
+                  "durationInSeconds" : 0.0012869834899902344,
+                  "name" : "testFullCatalogLinksEveryDiscoveryCourseInOriginalOrder()",
+                  "nodeIdentifier" : "CommunityAssistantTests/testFullCatalogLinksEveryDiscoveryCourseInOriginalOrder()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CommunityAssistantTests/testFullCatalogLinksEveryDiscoveryCourseInOriginalOrder",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00065s",
+                  "durationInSeconds" : 0.0006510019302368164,
+                  "name" : "testNamedCourseUsesCatalogMetadata()",
+                  "nodeIdentifier" : "CommunityAssistantTests/testNamedCourseUsesCatalogMetadata()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CommunityAssistantTests/testNamedCourseUsesCatalogMetadata",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.001s",
+                  "durationInSeconds" : 0.0010290145874023438,
+                  "name" : "testRecommendationsCombineSubjectAndGrade()",
+                  "nodeIdentifier" : "CommunityAssistantTests/testRecommendationsCombineSubjectAndGrade()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CommunityAssistantTests/testRecommendationsCombineSubjectAndGrade",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00085s",
+                  "durationInSeconds" : 0.0008488893508911133,
+                  "name" : "testUnmatchedQuestionStaysWithinDiscoveryCatalog()",
+                  "nodeIdentifier" : "CommunityAssistantTests/testUnmatchedQuestionStaysWithinDiscoveryCatalog()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CommunityAssistantTests/testUnmatchedQuestionStaysWithinDiscoveryCatalog",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CommunityAssistantTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CommunityAssistantTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "0.38s",
+                  "durationInSeconds" : 0.37539899349212646,
+                  "name" : "testAllCommunityEntriesUseExactContentOrTheirOwnDirectory()",
+                  "nodeIdentifier" : "CoreTests/testAllCommunityEntriesUseExactContentOrTheirOwnDirectory()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testAllCommunityEntriesUseExactContentOrTheirOwnDirectory",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.26s",
+                  "durationInSeconds" : 0.2563459873199463,
+                  "name" : "testChapterEditsRemainDraftUntilExplicitConfirmation()",
+                  "nodeIdentifier" : "CoreTests/testChapterEditsRemainDraftUntilExplicitConfirmation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testChapterEditsRemainDraftUntilExplicitConfirmation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.12s",
+                  "durationInSeconds" : 0.12472498416900635,
+                  "name" : "testCreditReservationRefundAndInterruptedRecovery()",
+                  "nodeIdentifier" : "CoreTests/testCreditReservationRefundAndInterruptedRecovery()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testCreditReservationRefundAndInterruptedRecovery",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.1s",
+                  "durationInSeconds" : 0.10172104835510254,
+                  "name" : "testCrossSourceCitationReturnsToOriginalCourseAndLesson()",
+                  "nodeIdentifier" : "CoreTests/testCrossSourceCitationReturnsToOriginalCourseAndLesson()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testCrossSourceCitationReturnsToOriginalCourseAndLesson",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0037s",
+                  "durationInSeconds" : 0.0037189722061157227,
+                  "name" : "testDeletedDemoNoteIsNotSeededAgain()",
+                  "nodeIdentifier" : "CoreTests/testDeletedDemoNoteIsNotSeededAgain()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testDeletedDemoNoteIsNotSeededAgain",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.026s",
+                  "durationInSeconds" : 0.02594900131225586,
+                  "name" : "testEveryBundledSourceDecodesWithoutLosingIDs()",
+                  "nodeIdentifier" : "CoreTests/testEveryBundledSourceDecodesWithoutLosingIDs()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testEveryBundledSourceDecodesWithoutLosingIDs",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.054s",
+                  "durationInSeconds" : 0.053720951080322266,
+                  "name" : "testFailedCreditWriteDoesNotSpendOrStartOperation()",
+                  "nodeIdentifier" : "CoreTests/testFailedCreditWriteDoesNotSpendOrStartOperation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testFailedCreditWriteDoesNotSpendOrStartOperation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0014s",
+                  "durationInSeconds" : 0.001447916030883789,
+                  "name" : "testFontsHaveUniquePostScriptNames()",
+                  "nodeIdentifier" : "CoreTests/testFontsHaveUniquePostScriptNames()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testFontsHaveUniquePostScriptNames",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.075s",
+                  "durationInSeconds" : 0.07495403289794922,
+                  "name" : "testGroupedAssignmentChecksObjectiveQuestionsSeparatelyFromShortAnswer()",
+                  "nodeIdentifier" : "CoreTests/testGroupedAssignmentChecksObjectiveQuestionsSeparatelyFromShortAnswer()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testGroupedAssignmentChecksObjectiveQuestionsSeparatelyFromShortAnswer",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.087s",
+                  "durationInSeconds" : 0.08700394630432129,
+                  "name" : "testInterruptedImportRetainsOriginalAndResumes()",
+                  "nodeIdentifier" : "CoreTests/testInterruptedImportRetainsOriginalAndResumes()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testInterruptedImportRetainsOriginalAndResumes",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.066s",
+                  "durationInSeconds" : 0.06606400012969971,
+                  "name" : "testLogoutPreservesCoursesNotesAndCredits()",
+                  "nodeIdentifier" : "CoreTests/testLogoutPreservesCoursesNotesAndCredits()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testLogoutPreservesCoursesNotesAndCredits",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.051s",
+                  "durationInSeconds" : 0.05115997791290283,
+                  "name" : "testPublishedPagesAreCompleteAndHashesMatch()",
+                  "nodeIdentifier" : "CoreTests/testPublishedPagesAreCompleteAndHashesMatch()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testPublishedPagesAreCompleteAndHashesMatch",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00032s",
+                  "durationInSeconds" : 0.0003249645233154297,
+                  "name" : "testRoutesAndSheetsCoverSourceContracts()",
+                  "nodeIdentifier" : "CoreTests/testRoutesAndSheetsCoverSourceContracts()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testRoutesAndSheetsCoverSourceContracts",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.088s",
+                  "durationInSeconds" : 0.08847701549530029,
+                  "name" : "testSourceSelectionAndCitationKeepResourceIdentity()",
+                  "nodeIdentifier" : "CoreTests/testSourceSelectionAndCitationKeepResourceIdentity()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testSourceSelectionAndCitationKeepResourceIdentity",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0033s",
+                  "durationInSeconds" : 0.0033190250396728516,
+                  "name" : "testSQLiteSnapshotAndSourceSurviveReopen()",
+                  "nodeIdentifier" : "CoreTests/testSQLiteSnapshotAndSourceSurviveReopen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests/testSQLiteSnapshotAndSourceSurviveReopen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CoreTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CoreTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "0.00089s",
+                  "durationInSeconds" : 0.0008919239044189453,
+                  "name" : "testChapterEditorPreservesHierarchyAndRejectsCycle()",
+                  "nodeIdentifier" : "CourseTests/testChapterEditorPreservesHierarchyAndRejectsCycle()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testChapterEditorPreservesHierarchyAndRejectsCycle",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00032s",
+                  "durationInSeconds" : 0.0003160238265991211,
+                  "name" : "testChapterEditorRejectsOutOfDocumentAndSiblingOverlap()",
+                  "nodeIdentifier" : "CourseTests/testChapterEditorRejectsOutOfDocumentAndSiblingOverlap()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testChapterEditorRejectsOutOfDocumentAndSiblingOverlap",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.03s",
+                  "durationInSeconds" : 0.03039109706878662,
+                  "name" : "testCourseRecommendationsRankAcrossResourcesAndShareDailyBudget()",
+                  "nodeIdentifier" : "CourseTests/testCourseRecommendationsRankAcrossResourcesAndShareDailyBudget()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testCourseRecommendationsRankAcrossResourcesAndShareDailyBudget",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00038s",
+                  "durationInSeconds" : 0.00038492679595947266,
+                  "name" : "testFreeReviewIsExclusiveButCanBeReplacedOrDeselected()",
+                  "nodeIdentifier" : "CourseTests/testFreeReviewIsExclusiveButCanBeReplacedOrDeselected()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testFreeReviewIsExclusiveButCanBeReplacedOrDeselected",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.026s",
+                  "durationInSeconds" : 0.025822997093200684,
+                  "name" : "testHomeNextStepPrioritizesSavedSectionThenUnfinishedPlanAndSkipsContainers()",
+                  "nodeIdentifier" : "CourseTests/testHomeNextStepPrioritizesSavedSectionThenUnfinishedPlanAndSkipsContainers()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testHomeNextStepPrioritizesSavedSectionThenUnfinishedPlanAndSkipsContainers",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0033s",
+                  "durationInSeconds" : 0.003258943557739258,
+                  "name" : "testOnboardingDraftSurvivesReopeningAndIsClearedOnCompletion()",
+                  "nodeIdentifier" : "CourseTests/testOnboardingDraftSurvivesReopeningAndIsClearedOnCompletion()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testOnboardingDraftSurvivesReopeningAndIsClearedOnCompletion",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.025s",
+                  "durationInSeconds" : 0.025367021560668945,
+                  "name" : "testRecommendationExcludesCompletedTasksAndKeepsReviewPreferences()",
+                  "nodeIdentifier" : "CourseTests/testRecommendationExcludesCompletedTasksAndKeepsReviewPreferences()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testRecommendationExcludesCompletedTasksAndKeepsReviewPreferences",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00035s",
+                  "durationInSeconds" : 0.0003490447998046875,
+                  "name" : "testRepositoryCourseProgressExcludesPlanPresentationMocks()",
+                  "nodeIdentifier" : "CourseTests/testRepositoryCourseProgressExcludesPlanPresentationMocks()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests/testRepositoryCourseProgressExcludesPlanPresentationMocks",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CourseTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/CourseTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "0.013s",
+                  "durationInSeconds" : 0.012968063354492188,
+                  "name" : "testAsyncExtractionUsesSameBookAndPageIdentity()",
+                  "nodeIdentifier" : "ImporterTests/testAsyncExtractionUsesSameBookAndPageIdentity()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testAsyncExtractionUsesSameBookAndPageIdentity",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0042s",
+                  "durationInSeconds" : 0.0042449235916137695,
+                  "name" : "testCancellationPreservesOriginalAndAllowsRetry()",
+                  "nodeIdentifier" : "ImporterTests/testCancellationPreservesOriginalAndAllowsRetry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testCancellationPreservesOriginalAndAllowsRetry",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.011s",
+                  "durationInSeconds" : 0.01075601577758789,
+                  "name" : "testCorruptUnsupportedMissingXMLAndOversizedOfficeEntriesFail()",
+                  "nodeIdentifier" : "ImporterTests/testCorruptUnsupportedMissingXMLAndOversizedOfficeEntriesFail()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testCorruptUnsupportedMissingXMLAndOversizedOfficeEntriesFail",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.004s",
+                  "durationInSeconds" : 0.003976941108703613,
+                  "name" : "testEmptyOversizedAndDirectoryInputsAreRejectedBeforeCopying()",
+                  "nodeIdentifier" : "ImporterTests/testEmptyOversizedAndDirectoryInputsAreRejectedBeforeCopying()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testEmptyOversizedAndDirectoryInputsAreRejectedBeforeCopying",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0033s",
+                  "durationInSeconds" : 0.0032999515533447266,
+                  "name" : "testExtractionFailureLeavesStagedOriginalAvailableForRetry()",
+                  "nodeIdentifier" : "ImporterTests/testExtractionFailureLeavesStagedOriginalAvailableForRetry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testExtractionFailureLeavesStagedOriginalAvailableForRetry",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00072s",
+                  "durationInSeconds" : 0.0007200241088867188,
+                  "name" : "testLongUnicodeTextSplitsWithoutLosingCharactersOrChangingPage()",
+                  "nodeIdentifier" : "ImporterTests/testLongUnicodeTextSplitsWithoutLosingCharactersOrChangingPage()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testLongUnicodeTextSplitsWithoutLosingCharactersOrChangingPage",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0017s",
+                  "durationInSeconds" : 0.0016880035400390625,
+                  "name" : "testOfficeWordRunsPresentationNumericOrderingAndSpreadsheetCells()",
+                  "nodeIdentifier" : "ImporterTests/testOfficeWordRunsPresentationNumericOrderingAndSpreadsheetCells()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testOfficeWordRunsPresentationNumericOrderingAndSpreadsheetCells",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00066s",
+                  "durationInSeconds" : 0.0006639957427978516,
+                  "name" : "testPDFTextKeepsPageNumbersAndOriginalCitations()",
+                  "nodeIdentifier" : "ImporterTests/testPDFTextKeepsPageNumbersAndOriginalCitations()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testPDFTextKeepsPageNumbersAndOriginalCitations",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0037s",
+                  "durationInSeconds" : 0.0037180185317993164,
+                  "name" : "testRepeatedContentGetsStableBookIDAndSeparateOriginalFiles()",
+                  "nodeIdentifier" : "ImporterTests/testRepeatedContentGetsStableBookIDAndSeparateOriginalFiles()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testRepeatedContentGetsStableBookIDAndSeparateOriginalFiles",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0032s",
+                  "durationInSeconds" : 0.0031729936599731445,
+                  "name" : "testScannedPDFAndImageRemainReadableWithoutInventedText()",
+                  "nodeIdentifier" : "ImporterTests/testScannedPDFAndImageRemainReadableWithoutInventedText()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testScannedPDFAndImageRemainReadableWithoutInventedText",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.001s",
+                  "durationInSeconds" : 0.0010010004043579102,
+                  "name" : "testTextMarkdownCSVPreserveOriginalUTF8Content()",
+                  "nodeIdentifier" : "ImporterTests/testTextMarkdownCSVPreserveOriginalUTF8Content()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests/testTextMarkdownCSVPreserveOriginalUTF8Content",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "ImporterTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/ImporterTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "0.00027s",
+                  "durationInSeconds" : 0.0002709627151489258,
+                  "name" : "testChapterProgressCountsInProgressAsHalfAndIgnoresOtherChapters()",
+                  "nodeIdentifier" : "LearningTests/testChapterProgressCountsInProgressAsHalfAndIgnoresOtherChapters()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testChapterProgressCountsInProgressAsHalfAndIgnoresOtherChapters",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00079s",
+                  "durationInSeconds" : 0.0007899999618530273,
+                  "name" : "testDirectoryKeepsFormalSectionsAndLocalPagesButOmitsFrontmatter()",
+                  "nodeIdentifier" : "LearningTests/testDirectoryKeepsFormalSectionsAndLocalPagesButOmitsFrontmatter()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testDirectoryKeepsFormalSectionsAndLocalPagesButOmitsFrontmatter",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00054s",
+                  "durationInSeconds" : 0.0005379915237426758,
+                  "name" : "testPageScansExcludedButExtractedFiguresRetained()",
+                  "nodeIdentifier" : "LearningTests/testPageScansExcludedButExtractedFiguresRetained()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testPageScansExcludedButExtractedFiguresRetained",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00025s",
+                  "durationInSeconds" : 0.000247955322265625,
+                  "name" : "testPreferredToolsHonorGoalsWithoutDuplicatingCards()",
+                  "nodeIdentifier" : "LearningTests/testPreferredToolsHonorGoalsWithoutDuplicatingCards()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testPreferredToolsHonorGoalsWithoutDuplicatingCards",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0038s",
+                  "durationInSeconds" : 0.0037839412689208984,
+                  "name" : "testPrettyReadingUsesOriginalFontAndMatchesWebKitPhoneAndPadLineBreaks()",
+                  "nodeIdentifier" : "LearningTests/testPrettyReadingUsesOriginalFontAndMatchesWebKitPhoneAndPadLineBreaks()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testPrettyReadingUsesOriginalFontAndMatchesWebKitPhoneAndPadLineBreaks",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00026s",
+                  "durationInSeconds" : 0.00025594234466552734,
+                  "name" : "testPrintedPageRangePreservesOriginalSpan()",
+                  "nodeIdentifier" : "LearningTests/testPrintedPageRangePreservesOriginalSpan()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testPrintedPageRangePreservesOriginalSpan",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00046s",
+                  "durationInSeconds" : 0.0004640817642211914,
+                  "name" : "testQuestionKindUsesExplicitTypeBeforeChoiceCount()",
+                  "nodeIdentifier" : "LearningTests/testQuestionKindUsesExplicitTypeBeforeChoiceCount()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testQuestionKindUsesExplicitTypeBeforeChoiceCount",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00032s",
+                  "durationInSeconds" : 0.00032198429107666016,
+                  "name" : "testSharedIllustrationsAreDistributedBeforeSecondSlots()",
+                  "nodeIdentifier" : "LearningTests/testSharedIllustrationsAreDistributedBeforeSecondSlots()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests/testSharedIllustrationsAreDistributedBeforeSecondSlots",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "LearningTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/LearningTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "0.0064s",
+                  "durationInSeconds" : 0.0063860416412353516,
+                  "name" : "testAnnotationConversationSurvivesBodyEditUpgradeAndRepositoryReopen()",
+                  "nodeIdentifier" : "NoteTests/testAnnotationConversationSurvivesBodyEditUpgradeAndRepositoryReopen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testAnnotationConversationSurvivesBodyEditUpgradeAndRepositoryReopen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0016s",
+                  "durationInSeconds" : 0.00164794921875,
+                  "name" : "testDrawingKeepsRelativeLocationWhenPageWidthChanges()",
+                  "nodeIdentifier" : "NoteTests/testDrawingKeepsRelativeLocationWhenPageWidthChanges()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testDrawingKeepsRelativeLocationWhenPageWidthChanges",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.13s",
+                  "durationInSeconds" : 0.13428807258605957,
+                  "name" : "testLateTextWriteCannotOverwriteNewerDraft()",
+                  "nodeIdentifier" : "NoteTests/testLateTextWriteCannotOverwriteNewerDraft()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testLateTextWriteCannotOverwriteNewerDraft",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.01s",
+                  "durationInSeconds" : 0.010263919830322266,
+                  "name" : "testNoteMediaAndCourseIdentitySurviveRepositoryReopen()",
+                  "nodeIdentifier" : "NoteTests/testNoteMediaAndCourseIdentitySurviveRepositoryReopen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testNoteMediaAndCourseIdentitySurviveRepositoryReopen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.094s",
+                  "durationInSeconds" : 0.09404993057250977,
+                  "name" : "testOriginalPageRestoresAcrossRestartWithoutCrossingCourseOrBook()",
+                  "nodeIdentifier" : "NoteTests/testOriginalPageRestoresAcrossRestartWithoutCrossingCourseOrBook()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testOriginalPageRestoresAcrossRestartWithoutCrossingCourseOrBook",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.072s",
+                  "durationInSeconds" : 0.0717240571975708,
+                  "name" : "testSampleAudioIsDecodableAndExplicitlyMarkedAsSample()",
+                  "nodeIdentifier" : "NoteTests/testSampleAudioIsDecodableAndExplicitlyMarkedAsSample()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testSampleAudioIsDecodableAndExplicitlyMarkedAsSample",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.72s",
+                  "durationInSeconds" : 0.7176790237426758,
+                  "name" : "testTextAutosaveDebouncesToLatestAndSurvivesRepositoryReopen()",
+                  "nodeIdentifier" : "NoteTests/testTextAutosaveDebouncesToLatestAndSurvivesRepositoryReopen()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testTextAutosaveDebouncesToLatestAndSurvivesRepositoryReopen",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.014s",
+                  "durationInSeconds" : 0.014081001281738281,
+                  "name" : "testTextSaveFailurePreservesDraftForRetry()",
+                  "nodeIdentifier" : "NoteTests/testTextSaveFailurePreservesDraftForRetry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testTextSaveFailurePreservesDraftForRetry",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.011s",
+                  "durationInSeconds" : 0.010536909103393555,
+                  "name" : "testTextUpgradeToVoiceKeepsIDBodyAnchorAndSingleRecord()",
+                  "nodeIdentifier" : "NoteTests/testTextUpgradeToVoiceKeepsIDBodyAnchorAndSingleRecord()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testTextUpgradeToVoiceKeepsIDBodyAnchorAndSingleRecord",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00085s",
+                  "durationInSeconds" : 0.000847935676574707,
+                  "name" : "testVoicePreviewIncludesPreservedAnnotationAndConfirmedTranscript()",
+                  "nodeIdentifier" : "NoteTests/testVoicePreviewIncludesPreservedAnnotationAndConfirmedTranscript()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests/testVoicePreviewIncludesPreservedAnnotationAndConfirmedTranscript",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "NoteTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/NoteTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "0.15s",
+                  "durationInSeconds" : 0.15055906772613525,
+                  "name" : "testBM25FiftyQueryCalibrationMatchesCommittedReference()",
+                  "nodeIdentifier" : "RAGTests/testBM25FiftyQueryCalibrationMatchesCommittedReference()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testBM25FiftyQueryCalibrationMatchesCommittedReference",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.079s",
+                  "durationInSeconds" : 0.07943892478942871,
+                  "name" : "testBM25MatchesSourceGoldenRanksScoresAndReliability()",
+                  "nodeIdentifier" : "RAGTests/testBM25MatchesSourceGoldenRanksScoresAndReliability()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testBM25MatchesSourceGoldenRanksScoresAndReliability",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.18s",
+                  "durationInSeconds" : 0.1753849983215332,
+                  "name" : "testChapterPriorOnlyBoostsTheRequestedScope()",
+                  "nodeIdentifier" : "RAGTests/testChapterPriorOnlyBoostsTheRequestedScope()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testChapterPriorOnlyBoostsTheRequestedScope",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00053s",
+                  "durationInSeconds" : 0.0005300045013427734,
+                  "name" : "testEmptyQueryDoesNotInventEvidence()",
+                  "nodeIdentifier" : "RAGTests/testEmptyQueryDoesNotInventEvidence()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testEmptyQueryDoesNotInventEvidence",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.48s",
+                  "durationInSeconds" : 0.4843829870223999,
+                  "name" : "testNativeBGEFiftyQueryEvaluationPreservesRetrievalQuality()",
+                  "nodeIdentifier" : "RAGTests/testNativeBGEFiftyQueryEvaluationPreservesRetrievalQuality()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testNativeBGEFiftyQueryEvaluationPreservesRetrievalQuality",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.12s",
+                  "durationInSeconds" : 0.11828494071960449,
+                  "name" : "testNativeBGEProducesFiniteNormalized512DimensionEmbedding()",
+                  "nodeIdentifier" : "RAGTests/testNativeBGEProducesFiniteNormalized512DimensionEmbedding()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testNativeBGEProducesFiniteNormalized512DimensionEmbedding",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.025s",
+                  "durationInSeconds" : 0.02462601661682129,
+                  "name" : "testOfflineAssistantDoesNotBorrowBiologyForAnotherCourse()",
+                  "nodeIdentifier" : "RAGTests/testOfflineAssistantDoesNotBorrowBiologyForAnotherCourse()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testOfflineAssistantDoesNotBorrowBiologyForAnotherCourse",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00057s",
+                  "durationInSeconds" : 0.000574946403503418,
+                  "name" : "testOfflineAssistantGreetsWithoutTextbookCitation()",
+                  "nodeIdentifier" : "RAGTests/testOfflineAssistantGreetsWithoutTextbookCitation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testOfflineAssistantGreetsWithoutTextbookCitation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.024s",
+                  "durationInSeconds" : 0.02398395538330078,
+                  "name" : "testOfflineAssistantPreservesImportedDocumentIdentity()",
+                  "nodeIdentifier" : "RAGTests/testOfflineAssistantPreservesImportedDocumentIdentity()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testOfflineAssistantPreservesImportedDocumentIdentity",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.081s",
+                  "durationInSeconds" : 0.08093690872192383,
+                  "name" : "testPinnedModelAndCasedNormalizerContract()",
+                  "nodeIdentifier" : "RAGTests/testPinnedModelAndCasedNormalizerContract()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testPinnedModelAndCasedNormalizerContract",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.011s",
+                  "durationInSeconds" : 0.01080310344696045,
+                  "name" : "testTokenizerMatchesAllSourceGoldenCases()",
+                  "nodeIdentifier" : "RAGTests/testTokenizerMatchesAllSourceGoldenCases()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testTokenizerMatchesAllSourceGoldenCases",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "RAGTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "BookCourseTests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseTests",
+          "nodeType" : "Unit test bundle",
+          "result" : "Passed"
+        },
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "2分钟22秒",
+                  "durationInSeconds" : 142.36027693748474,
+                  "name" : "testAllRoutesAndGlobalSheetsLaunch()",
+                  "nodeIdentifier" : "BookCourseUITests/testAllRoutesAndGlobalSheetsLaunch()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testAllRoutesAndGlobalSheetsLaunch",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "38秒",
+                  "durationInSeconds" : 38.31849801540375,
+                  "name" : "testAnnotationConversationAndGuideActionsRemainAvailable()",
+                  "nodeIdentifier" : "BookCourseUITests/testAnnotationConversationAndGuideActionsRemainAvailable()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testAnnotationConversationAndGuideActionsRemainAvailable",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "24秒",
+                  "durationInSeconds" : 24.20225203037262,
+                  "name" : "testAssistantDockAndFlashcardFlipMasterySurvivesRelaunch()",
+                  "nodeIdentifier" : "BookCourseUITests/testAssistantDockAndFlashcardFlipMasterySurvivesRelaunch()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testAssistantDockAndFlashcardFlipMasterySurvivesRelaunch",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "30秒",
+                  "durationInSeconds" : 30.129283905029297,
+                  "name" : "testCourseLessonCitationNoteSurvivesRelaunch()",
+                  "nodeIdentifier" : "BookCourseUITests/testCourseLessonCitationNoteSurvivesRelaunch()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testCourseLessonCitationNoteSurvivesRelaunch",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "1分钟11秒",
+                  "durationInSeconds" : 71.66933906078339,
+                  "name" : "testLandscapeCorePages()",
+                  "nodeIdentifier" : "BookCourseUITests/testLandscapeCorePages()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testLandscapeCorePages",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "27秒",
+                  "durationInSeconds" : 27.11311101913452,
+                  "name" : "testNotesLocalPopupsHandwritingRegionAndVoiceSample()",
+                  "nodeIdentifier" : "BookCourseUITests/testNotesLocalPopupsHandwritingRegionAndVoiceSample()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testNotesLocalPopupsHandwritingRegionAndVoiceSample",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "9秒",
+                  "durationInSeconds" : 9.281845927238464,
+                  "name" : "testOfflineAssistantGreeting()",
+                  "nodeIdentifier" : "BookCourseUITests/testOfflineAssistantGreeting()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testOfflineAssistantGreeting",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "6秒",
+                  "durationInSeconds" : 6.006654977798462,
+                  "name" : "testPlanCalendarKeepsSevenColumnsAndSelectsLastDay()",
+                  "nodeIdentifier" : "BookCourseUITests/testPlanCalendarKeepsSevenColumnsAndSelectsLastDay()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testPlanCalendarKeepsSevenColumnsAndSelectsLastDay",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "13秒",
+                  "durationInSeconds" : 13.306250095367432,
+                  "name" : "testSourceTextAutosaveSurvivesTermination()",
+                  "nodeIdentifier" : "BookCourseUITests/testSourceTextAutosaveSurvivesTermination()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testSourceTextAutosaveSurvivesTermination",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "8秒",
+                  "durationInSeconds" : 8.586781024932861,
+                  "name" : "testTabsAndCourseLearningEntry()",
+                  "nodeIdentifier" : "BookCourseUITests/testTabsAndCourseLearningEntry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests/testTabsAndCourseLearningEntry",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "BookCourseUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/BookCourseUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "31秒",
+                  "durationInSeconds" : 31.950273990631104,
+                  "name" : "testCommunityImportCompletesQuestionnaireAndOpensStudy()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testCommunityImportCompletesQuestionnaireAndOpensStudy()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testCommunityImportCompletesQuestionnaireAndOpensStudy",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "14秒",
+                  "durationInSeconds" : 14.459569096565247,
+                  "name" : "testOnboardingCompletesAllThreeSteps()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testOnboardingCompletesAllThreeSteps()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testOnboardingCompletesAllThreeSteps",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "children" : [
+                    {
+                      "name" : "Invalid frame dimension (negative or non-finite).",
+                      "nodeType" : "Runtime Warning"
+                    }
+                  ],
+                  "duration" : "1分钟1秒",
+                  "durationInSeconds" : 61.39150404930115,
+                  "name" : "testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CourseFunctionalUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "1分钟6秒",
+                  "durationInSeconds" : 66.64715898036957,
+                  "name" : "testAssignmentDiagnosisMistakeRedoAndMasteryPersist()",
+                  "nodeIdentifier" : "LearningFunctionalUITests/testAssignmentDiagnosisMistakeRedoAndMasteryPersist()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/LearningFunctionalUITests/testAssignmentDiagnosisMistakeRedoAndMasteryPersist",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "27秒",
+                  "durationInSeconds" : 27.49609899520874,
+                  "name" : "testLessonPagingConceptDismissalAndCompletion()",
+                  "nodeIdentifier" : "LearningFunctionalUITests/testLessonPagingConceptDismissalAndCompletion()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/LearningFunctionalUITests/testLessonPagingConceptDismissalAndCompletion",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "36秒",
+                  "durationInSeconds" : 36.661381006240845,
+                  "name" : "testVideoCancelPreservesCreditsAndBundledMP4ActuallyPlays()",
+                  "nodeIdentifier" : "LearningFunctionalUITests/testVideoCancelPreservesCreditsAndBundledMP4ActuallyPlays()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/LearningFunctionalUITests/testVideoCancelPreservesCreditsAndBundledMP4ActuallyPlays",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "LearningFunctionalUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/LearningFunctionalUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "BookCourseUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "BookCourse",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

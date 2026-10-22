@@ -1,0 +1,26 @@
+{
+  "appDebugDylibSHA256": "a688efdb792cd648deda7dc097ca23db30fa06f91fe6fa28c211423038badc54",
+  "script": "scripts/run-simulator.sh --no-build",
+  "launches": [
+    {
+      "device": "C405B13F-6B58-4601-A67D-BFE323436F8A",
+      "kind": "phone",
+      "runtime": "26.0",
+      "appLaunchSucceeded": true,
+      "processID": 94787,
+      "guiAvailable": false,
+      "fixtureSession": "delivery-preview",
+      "route": "home"
+    },
+    {
+      "device": "C4116145-9865-4813-9CDA-33CCE36FA756",
+      "kind": "ipad",
+      "runtime": "26.0",
+      "appLaunchSucceeded": true,
+      "processID": 94862,
+      "guiAvailable": false,
+      "fixtureSession": "delivery-preview",
+      "route": "home"
+    }
+  ]
+}

@@ -264,6 +264,26 @@ def test_existing_biology_catalog_import_preserves_content_and_isolates_progress
     )
 
 
+def test_builtin_biology_remains_in_discovery_after_personal_course_deletion_and_restart(native):
+    a, b, root = native
+    original = a.get("/api/native/catalog").json()
+    body = {"id": "workspace_biology_temporary", "name": "个人生物课"}
+    imported = a.post(f"/api/native/catalog/{native_catalog.CATALOG_ID}/import", json=body)
+    assert imported.status_code == 200
+    assert a.delete(f"/api/workspaces/{body['id']}").status_code == 200
+    api.native_repository = NativeRepository(root / "state" / "native.sqlite3")
+    native_catalog.snapshot.cache_clear()
+    for client in (a, b):
+        assert client.get("/api/native/catalog").json() == original
+        state = client.get("/api/native/bootstrap").json()
+        assert state["catalog"] == original
+        assert state["workspaces"] == []
+    assert (
+        a.post(f"/api/native/catalog/{native_catalog.CATALOG_ID}/import", json=body).status_code
+        == 200
+    )
+
+
 def uploaded(client):
     response = client.post(
         "/api/native/uploads", files={"file": ("生物教材.pdf", textbook_pdf(), "application/pdf")}

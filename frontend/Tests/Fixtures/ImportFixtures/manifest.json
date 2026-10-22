@@ -1,0 +1,82 @@
+{
+  "corrupt.docx": {
+    "bytes": 26,
+    "sha256": "ec38ffb25f4f44256ec7309412eb2fbb5ad48ad04dccdddb27dd7691bb9515e7"
+  },
+  "corrupt.pdf": {
+    "bytes": 23,
+    "sha256": "1d0bd2522e9ad0272b74b06e8f3da5ea5dbafc4554ebc4262fa45c30e525a32c"
+  },
+  "corrupt.png": {
+    "bytes": 26,
+    "sha256": "26b96b372f839945413a8da7c889860d232b75c468334571e955f9ac0ded7f26"
+  },
+  "document.docx": {
+    "bytes": 551,
+    "sha256": "bcf5cdfa6d60f22d26c1a60ea61c18fecef1ce942b62723c1c81c49d60832d12"
+  },
+  "empty.txt": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "image.png": {
+    "bytes": 78,
+    "sha256": "dc81765be2d6d586def203ce00b9e56dce62431a95e12dc4e675f66b31069e7c"
+  },
+  "invalid-utf8.txt": {
+    "bytes": 4,
+    "sha256": "22100da1622010d563d3d8a0c0d8c35105d24e32a3122a0e3e44d0fa2ea34a4c"
+  },
+  "long.txt": {
+    "bytes": 10819,
+    "sha256": "1599aad92739a4dbc2f8c90a83737cd5efa5b9bed9569a44e0dc81d20d36b740"
+  },
+  "malformed-xml.docx": {
+    "bytes": 157,
+    "sha256": "ca28e49cda4034465c5288e341b804d2a0d5a0f8c0e7b236dc7f236ddb8cdd2d"
+  },
+  "missing-part.docx": {
+    "bytes": 280,
+    "sha256": "48871d497e2a8657124fd65d3e8f8b7eff2fa685e4a3b1c5fd6ae331a5829c3b"
+  },
+  "no-slides.pptx": {
+    "bytes": 280,
+    "sha256": "48871d497e2a8657124fd65d3e8f8b7eff2fa685e4a3b1c5fd6ae331a5829c3b"
+  },
+  "notes.md": {
+    "bytes": 55,
+    "sha256": "641277d79860a74149ccb94456a17c8d5bb2ddefd3c388024201ae556f4fb42d"
+  },
+  "oversized-entry.docx": {
+    "bytes": 178,
+    "sha256": "e64428e9b6ca63b46b4f1ff0a6564918c4bcd93ccbe46e5a3eed74a2f4d7b37b"
+  },
+  "plain.txt": {
+    "bytes": 85,
+    "sha256": "03af9f878ded604d96030629c77bd9c3849bf385d73b8ea36eb0a8154c2bd95d"
+  },
+  "scan.pdf": {
+    "bytes": 701,
+    "sha256": "3a17cfad37488a7b033a37d5eb30a94ad5283a6384731a10a26087c781f8b1e4"
+  },
+  "slides.pptx": {
+    "bytes": 1160,
+    "sha256": "6fab9495baebd2e4620ea8f801f6bd8cc7b7e9b164e8f55b626030ed83d9a7c5"
+  },
+  "table.csv": {
+    "bytes": 43,
+    "sha256": "fbe4f771a055728233299973f1f5881dace3cceddd6a230f5a170c75c85956ef"
+  },
+  "text.pdf": {
+    "bytes": 884,
+    "sha256": "c05f61e85b4726d2d8a2a1b35f0573b9282d186e2aca9880f71dc029e3f57263"
+  },
+  "unsupported.bin": {
+    "bytes": 62,
+    "sha256": "0024d6325bd6dca97037d692c36c62cb93b08c1d31d437dd26bfc43ee5ff9684"
+  },
+  "workbook.xlsx": {
+    "bytes": 1107,
+    "sha256": "32f9e616b517fbcd2d3f415e197deb760af3b5a111ba1b44cb9df1b805fcf852"
+  }
+}

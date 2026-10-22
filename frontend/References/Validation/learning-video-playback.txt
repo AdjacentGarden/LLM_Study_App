@@ -1,0 +1,1 @@
+AVPlayer periodic currentTime: 2.20 seconds; asserted >= 0.5. Credit balance before confirmation: 100.

@@ -1,0 +1,33 @@
+[
+  {
+    "id": "community_genetics",
+    "title": "遗传与进化高频考点课",
+    "catalogTitle": "遗传与进化",
+    "owner": "原项目已有课程",
+    "cover": "/assets/textbook/biology-cover-thumb.webp",
+    "subject": "生物",
+    "grade": "高二",
+    "version": "人教版",
+    "volume": "必修 2",
+    "learners": 0,
+    "progress": 0,
+    "flashcardCount": 90,
+    "recommended": true,
+    "tags": [
+      "已有课程",
+      "章节导学",
+      "闪卡",
+      "原文阅读"
+    ],
+    "description": "原项目《生物 必修2 遗传与进化》已有课程，保留15个课时、90张闪卡和45道练习，以及已发布的125页原文图片。部分内容为原项目AI补充，继续保留待原文核验标记。",
+    "chapters": [
+      "第 1 章 遗传因子的发现",
+      "第 2 章 基因和染色体的关系",
+      "第 3 章 基因的本质",
+      "第 4 章 基因的表达",
+      "第 5 章 基因突变及其他变异",
+      "第 6 章 从杂交育种到基因工程",
+      "第 7 章 现代生物进化理论"
+    ]
+  }
+]

@@ -1,0 +1,3856 @@
+[
+  {
+    "scene": "sheet-editChapter",
+    "sourceViewport": [
+      834,
+      1194
+    ],
+    "method": "Playwright WebKit read-only live DOM computed style / bounding rect; original React worktree including uncommitted changes",
+    "nodes": [
+      {
+        "selector": "chapter-edit-summary",
+        "tag": "DIV",
+        "text": "已确认100% 综合置信度",
+        "bounds": {
+          "x": 203.171875,
+          "y": 192.6875,
+          "w": 496,
+          "h": 40
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "pill pill-orange",
+        "tag": "SPAN",
+        "text": "已确认",
+        "bounds": {
+          "x": 203.171875,
+          "y": 192.6875,
+          "w": 82,
+          "h": 40
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "5px 10px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "100% 综合置信度",
+        "bounds": {
+          "x": 571.796875,
+          "y": 202.28125,
+          "w": 127.375,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "chapter-inspection-details",
+        "tag": "SECTION",
+        "text": "识别详情层级 2 · PDF 11–21 页暂无单项识别证据，可继续人工调整名称、页码与所属上级。识别来源：manual_toc_refer",
+        "bounds": {
+          "x": 203.171875,
+          "y": 246.6875,
+          "w": 496,
+          "h": 144.890625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "9px"
+      },
+      {
+        "selector": "chapter-inspection-heading",
+        "tag": "DIV",
+        "text": "识别详情层级 2 · PDF 11–21 页",
+        "bounds": {
+          "x": 215.171875,
+          "y": 258.6875,
+          "w": 472,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "识别详情",
+        "bounds": {
+          "x": 215.171875,
+          "y": 262.28125,
+          "w": 64,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "层级 2 · PDF 11–21 页",
+        "bounds": {
+          "x": 481.078125,
+          "y": 258.6875,
+          "w": 206.09375,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "helper-text",
+        "tag": "P",
+        "text": "暂无单项识别证据，可继续人工调整名称、页码与所属上级。",
+        "bounds": {
+          "x": 215.171875,
+          "y": 309.6875,
+          "w": 472,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "14px 0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "chapter-source-detail",
+        "tag": "P",
+        "text": "识别来源：manual_toc_reference+mineru",
+        "bounds": {
+          "x": 215.171875,
+          "y": 351.578125,
+          "w": 472,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "answer-field",
+        "tag": "LABEL",
+        "text": "原书目录名称",
+        "bounds": {
+          "x": 203.171875,
+          "y": 405.578125,
+          "w": 496,
+          "h": 90
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "原书目录名称",
+        "bounds": {
+          "x": 203.171875,
+          "y": 405.578125,
+          "w": 496,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "INPUT",
+        "text": "",
+        "bounds": {
+          "x": 203.171875,
+          "y": 441.578125,
+          "w": 496,
+          "h": 54
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "answer-field",
+        "tag": "LABEL",
+        "text": "课程章节名称",
+        "bounds": {
+          "x": 203.171875,
+          "y": 509.578125,
+          "w": 496,
+          "h": 90
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "课程章节名称",
+        "bounds": {
+          "x": 203.171875,
+          "y": 509.578125,
+          "w": 496,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "INPUT",
+        "text": "",
+        "bounds": {
+          "x": 203.171875,
+          "y": 545.578125,
+          "w": 496,
+          "h": 54
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "answer-field",
+        "tag": "LABEL",
+        "text": "PDF 起始页",
+        "bounds": {
+          "x": 203.171875,
+          "y": 613.578125,
+          "w": 243,
+          "h": 90
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "PDF 起始页",
+        "bounds": {
+          "x": 203.171875,
+          "y": 613.578125,
+          "w": 243,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "INPUT",
+        "text": "",
+        "bounds": {
+          "x": 203.171875,
+          "y": 649.578125,
+          "w": 243,
+          "h": 54
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "answer-field",
+        "tag": "LABEL",
+        "text": "PDF 结束页",
+        "bounds": {
+          "x": 456.171875,
+          "y": 613.578125,
+          "w": 243,
+          "h": 90
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "PDF 结束页",
+        "bounds": {
+          "x": 456.171875,
+          "y": 613.578125,
+          "w": 243,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "INPUT",
+        "text": "",
+        "bounds": {
+          "x": 456.171875,
+          "y": 649.578125,
+          "w": 243,
+          "h": 54
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "answer-field",
+        "tag": "LABEL",
+        "text": "所属上级章节无（作为一级章节）教材封面、前言与目录（1–9 页）第 1 章 遗传因子的发现（0–0 页）第 2 章 基因和染色体的关系（10",
+        "bounds": {
+          "x": 203.171875,
+          "y": 717.578125,
+          "w": 496,
+          "h": 90
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "所属上级章节",
+        "bounds": {
+          "x": 203.171875,
+          "y": 717.578125,
+          "w": 496,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "无（作为一级章节）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "教材封面、前言与目录（1–9 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 1 章 遗传因子的发现（0–0 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 2 章 基因和染色体的关系（10–35 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 3 章 基因的本质（36–55 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 4 章 基因的表达（56–73 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 5 章 基因突变及其他变异（74–91 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 6 章 从杂交育种到基因工程（92–103 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "",
+        "tag": "OPTION",
+        "text": "第 7 章 现代生物进化理论（104–125 页）",
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 10px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": "helper-text",
+        "tag": "P",
+        "text": "修改先保存在当前确认页，点击“确认生成课程”后再统一写入课程。",
+        "bounds": {
+          "x": 203.171875,
+          "y": 835.578125,
+          "w": 496,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "14px 0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 380.421875,
+          "y": 902.71875,
+          "w": 13.5,
+          "h": 13.5
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 383.421875,
+          "y": 910.21875,
+          "w": 7.5,
+          "h": 6
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 383.421875,
+          "y": 902.71875,
+          "w": 6,
+          "h": 3.75
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "保存本章修改",
+        "bounds": {
+          "x": 404.171875,
+          "y": 895.46875,
+          "w": 120,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 395.671875,
+          "y": 976.71875,
+          "w": 0,
+          "h": 4.5
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 398.671875,
+          "y": 976.71875,
+          "w": 0,
+          "h": 4.5
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 391.921875,
+          "y": 972.96875,
+          "w": 10.5,
+          "h": 12
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 390.421875,
+          "y": 972.96875,
+          "w": 13.5,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 394.171875,
+          "y": 969.96875,
+          "w": 6,
+          "h": 3
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "移除此章节",
+        "bounds": {
+          "x": 414.171875,
+          "y": 963.46875,
+          "w": 100,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "返回目录",
+        "bounds": {
+          "x": 411.171875,
+          "y": 1031.46875,
+          "w": 80,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      }
+    ]
+  },
+  {
+    "scene": "courseDetail",
+    "sourceViewport": [
+      834,
+      1194
+    ],
+    "method": "Playwright WebKit read-only live DOM computed style / bounding rect; original React worktree including uncommitted changes",
+    "nodes": [
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 126.34735870361328,
+          "y": 172.5348663330078,
+          "w": 13.336524963378906,
+          "h": 13.336517333984375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 138.3489532470703,
+          "y": 172.5364532470703,
+          "w": 0,
+          "h": 2.6666717529296875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 137.015625,
+          "y": 173.8697967529297,
+          "w": 2.6666717529296875,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "circle",
+        "text": "",
+        "bounds": {
+          "x": 126.34896087646484,
+          "y": 183.203125,
+          "w": 2.6666641235351562,
+          "h": 2.6666717529296875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 140.3489990234375,
+          "y": 231.5362091064453,
+          "w": 13.333206176757812,
+          "h": 13.332290649414062
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 149.015625,
+          "y": 233.5364532470703,
+          "w": 2.6666717529296875,
+          "h": 2.6666717529296875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 342.3489685058594,
+          "y": 238.203125,
+          "w": 9.33331298828125,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 347.015625,
+          "y": 233.5364532470703,
+          "w": 0,
+          "h": 9.333343505859375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "H2",
+        "text": "今日建议",
+        "bounds": {
+          "x": 111.65625,
+          "y": 337.578125,
+          "w": 83.203125,
+          "h": 25.96875
+        },
+        "font": "20.799999px",
+        "line": "26px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "45 分钟预算",
+        "bounds": {
+          "x": 674.3125,
+          "y": 336.5625,
+          "w": 106.6875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "course-space-review-note",
+        "tag": "P",
+        "text": "建议每 3 天回看一次重点与错题。",
+        "bounds": {
+          "x": 111.65625,
+          "y": 373.5625,
+          "w": 669.34375,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "9px 0px 16px",
+        "gap": "normal"
+      },
+      {
+        "selector": "learning-recommendations",
+        "tag": "DIV",
+        "text": "伴性遗传生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 30 分钟根据课程目标推荐DNA 复制生物 必修 2 遗传与进化 · 课程",
+        "bounds": {
+          "x": 111.65625,
+          "y": 417.5625,
+          "w": 669.34375,
+          "h": 208.375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "14px 0px 0px",
+        "gap": "9px"
+      },
+      {
+        "selector": "learning-recommendation",
+        "tag": "BUTTON",
+        "text": "伴性遗传生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 30 分钟根据课程目标推荐",
+        "bounds": {
+          "x": 111.65625,
+          "y": 417.5625,
+          "w": 669.34375,
+          "h": 99.6875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "13px"
+      },
+      {
+        "selector": "learning-recommendation-icon",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 123.58597564697266,
+          "y": 445.3359680175781,
+          "w": 44.14055633544922,
+          "h": 44.14056396484375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "rect",
+        "text": "",
+        "bounds": {
+          "x": 138.2302703857422,
+          "y": 461.10400390625,
+          "w": 14.893386840820312,
+          "h": 13.39508056640625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 138.2302703857422,
+          "y": 461.10400390625,
+          "w": 14.458343505859375,
+          "h": 5.093963623046875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "line",
+        "text": "",
+        "bounds": {
+          "x": 141.70501708984375,
+          "y": 460.0821838378906,
+          "w": 0.165740966796875,
+          "h": 3.162322998046875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "line",
+        "text": "",
+        "bounds": {
+          "x": 148.82025146484375,
+          "y": 459.70928955078125,
+          "w": 0.165740966796875,
+          "h": 3.162322998046875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "rect",
+        "text": "",
+        "bounds": {
+          "x": 141.3494873046875,
+          "y": 468.25897216796875,
+          "w": 3.3280487060546875,
+          "h": 3.32806396484375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "circle",
+        "text": "",
+        "bounds": {
+          "x": 147.2163543701172,
+          "y": 468.34320068359375,
+          "w": 1.8304443359375,
+          "h": 1.830413818359375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "circle",
+        "text": "",
+        "bounds": {
+          "x": 149.55429077148438,
+          "y": 470.59893798828125,
+          "w": 1.8304290771484375,
+          "h": 1.830413818359375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "learning-recommendation-body",
+        "tag": "SPAN",
+        "text": "伴性遗传生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 30 分钟根据课程目标推荐",
+        "bounds": {
+          "x": 179.65625,
+          "y": 430.5625,
+          "w": 557.34375,
+          "h": 73.6875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "3px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "伴性遗传",
+        "bounds": {
+          "x": 179.65625,
+          "y": 430.5625,
+          "w": 557.34375,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 30 分钟",
+        "bounds": {
+          "x": 179.65625,
+          "y": 454.359375,
+          "w": 557.34375,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "EM",
+        "text": "根据课程目标推荐",
+        "bounds": {
+          "x": 179.65625,
+          "y": 476.25,
+          "w": 557.34375,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 753.75,
+          "y": 467.40625,
+          "w": 10.5,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 759,
+          "y": 462.15625,
+          "w": 5.25,
+          "h": 10.5
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "learning-recommendation",
+        "tag": "BUTTON",
+        "text": "DNA 复制生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 15 分钟（完整任务预计 30 分钟）根据课程目标推荐",
+        "bounds": {
+          "x": 111.65625,
+          "y": 526.25,
+          "w": 669.34375,
+          "h": 99.6875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "13px"
+      },
+      {
+        "selector": "learning-recommendation-icon",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 123.58597564697266,
+          "y": 554.0234985351562,
+          "w": 44.14055633544922,
+          "h": 44.1405029296875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "rect",
+        "text": "",
+        "bounds": {
+          "x": 138.2302703857422,
+          "y": 569.79150390625,
+          "w": 14.893386840820312,
+          "h": 13.39508056640625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 138.2302703857422,
+          "y": 569.79150390625,
+          "w": 14.458343505859375,
+          "h": 5.093994140625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "line",
+        "text": "",
+        "bounds": {
+          "x": 141.70501708984375,
+          "y": 568.7696533203125,
+          "w": 0.165740966796875,
+          "h": 3.162353515625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "line",
+        "text": "",
+        "bounds": {
+          "x": 148.82025146484375,
+          "y": 568.3967895507812,
+          "w": 0.165740966796875,
+          "h": 3.16229248046875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "rect",
+        "text": "",
+        "bounds": {
+          "x": 141.3494873046875,
+          "y": 576.9464721679688,
+          "w": 3.3280487060546875,
+          "h": 3.32806396484375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "circle",
+        "text": "",
+        "bounds": {
+          "x": 147.2163543701172,
+          "y": 577.0307006835938,
+          "w": 1.8304443359375,
+          "h": 1.8304443359375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "circle",
+        "text": "",
+        "bounds": {
+          "x": 149.55429077148438,
+          "y": 579.2864379882812,
+          "w": 1.8304290771484375,
+          "h": 1.8304443359375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "learning-recommendation-body",
+        "tag": "SPAN",
+        "text": "DNA 复制生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 15 分钟（完整任务预计 30 分钟）根据课程目标推荐",
+        "bounds": {
+          "x": 179.65625,
+          "y": 539.25,
+          "w": 557.34375,
+          "h": 73.6875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "3px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "DNA 复制",
+        "bounds": {
+          "x": 179.65625,
+          "y": 539.25,
+          "w": 557.34375,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "生物 必修 2 遗传与进化 · 课程 + 练习 · 建议 15 分钟（完整任务预计 30 分钟）",
+        "bounds": {
+          "x": 179.65625,
+          "y": 563.046875,
+          "w": 557.34375,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "EM",
+        "text": "根据课程目标推荐",
+        "bounds": {
+          "x": 179.65625,
+          "y": 584.9375,
+          "w": 557.34375,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 753.75,
+          "y": 576.09375,
+          "w": 10.5,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 759,
+          "y": 570.84375,
+          "w": 5.25,
+          "h": 10.5
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "H2",
+        "text": "课程资料",
+        "bounds": {
+          "x": 111.65625,
+          "y": 688.953125,
+          "w": 83.203125,
+          "h": 25.96875
+        },
+        "font": "20.799999px",
+        "line": "26px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "1 份",
+        "bounds": {
+          "x": 745.40625,
+          "y": 687.9375,
+          "w": 35.59375,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 135.46841430664062,
+          "y": 757.3500366210938,
+          "w": 16.441299438476562,
+          "h": 14.42694091796875
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 136.97280883789062,
+          "y": 756.1264038085938,
+          "w": 13.2633056640625,
+          "h": 13.645751953125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "line",
+        "text": "",
+        "bounds": {
+          "x": 143.3677520751953,
+          "y": 758.4325561523438,
+          "w": 0.576995849609375,
+          "h": 11.0098876953125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "生物 必修 2 遗传与进化",
+        "bounds": {
+          "x": 174.65625,
+          "y": 742.09375,
+          "w": 438.34375,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "可开始学习",
+        "bounds": {
+          "x": 174.65625,
+          "y": 766.890625,
+          "w": 438.34375,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 687.3333129882812,
+          "y": 763.9375,
+          "w": 9.3333740234375,
+          "h": 0
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 692,
+          "y": 759.2708129882812,
+          "w": 4.66668701171875,
+          "h": 9.3333740234375
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 742.5,
+          "y": 759.4375,
+          "w": 9,
+          "h": 9
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 742.5,
+          "y": 759.4375,
+          "w": 9,
+          "h": 9
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "H2",
+        "text": "学习画像",
+        "bounds": {
+          "x": 111.65625,
+          "y": 868.953125,
+          "w": 83.203125,
+          "h": 25.96875
+        },
+        "font": "20.799999px",
+        "line": "26px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "course-space-edit-link",
+        "tag": "BUTTON",
+        "text": "修改",
+        "bounds": {
+          "x": 717,
+          "y": 859.9375,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "6px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "你当前学习的紧迫程度？",
+        "bounds": {
+          "x": 123.65625,
+          "y": 929.9375,
+          "w": 306.171875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "正常节奏，按计划来",
+        "bounds": {
+          "x": 123.65625,
+          "y": 956.734375,
+          "w": 306.171875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "你的学习时间是哪种类型？",
+        "bounds": {
+          "x": 462.828125,
+          "y": 929.9375,
+          "w": 306.171875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "整块固定时间",
+        "bounds": {
+          "x": 462.828125,
+          "y": 956.734375,
+          "w": 306.171875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "这门课程主要用于什么？",
+        "bounds": {
+          "x": 123.65625,
+          "y": 1017.734375,
+          "w": 306.171875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "系统学习",
+        "bounds": {
+          "x": 123.65625,
+          "y": 1044.53125,
+          "w": 306.171875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "你希望内容更侧重什么？",
+        "bounds": {
+          "x": 462.828125,
+          "y": 1017.734375,
+          "w": 306.171875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "原理和逻辑",
+        "bounds": {
+          "x": 462.828125,
+          "y": 1044.53125,
+          "w": 306.171875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "你最需要哪些学习辅助？",
+        "bounds": {
+          "x": 123.65625,
+          "y": 1105.53125,
+          "w": 306.171875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "AI 对话讲解",
+        "bounds": {
+          "x": 123.65625,
+          "y": 1132.328125,
+          "w": 306.171875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "你习惯怎样巩固这门课程？",
+        "bounds": {
+          "x": 462.828125,
+          "y": 1105.53125,
+          "w": 306.171875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "定期复盘",
+        "bounds": {
+          "x": 462.828125,
+          "y": 1132.328125,
+          "w": 306.171875,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "H2",
+        "text": "为你优先展示",
+        "bounds": {
+          "x": 111.65625,
+          "y": 1234.328125,
+          "w": 124.8125,
+          "h": 25.96875
+        },
+        "font": "20.799999px",
+        "line": "26px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "闪卡回忆",
+        "bounds": {
+          "x": 111.65625,
+          "y": 1273.296875,
+          "w": 96,
+          "h": 38
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "5px 8px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "章节练习",
+        "bounds": {
+          "x": 214.65625,
+          "y": 1273.296875,
+          "w": 96,
+          "h": 38
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "5px 8px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "错题复盘",
+        "bounds": {
+          "x": 317.65625,
+          "y": 1273.296875,
+          "w": 96,
+          "h": 38
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "5px 8px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "AI 问答",
+        "bounds": {
+          "x": 420.65625,
+          "y": 1273.296875,
+          "w": 78.5,
+          "h": 38
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "5px 8px",
+        "margin": "0px",
+        "gap": "normal"
+      }
+    ]
+  },
+  {
+    "scene": "community",
+    "sourceViewport": [
+      834,
+      1194
+    ],
+    "method": "Playwright WebKit read-only live DOM computed style / bounding rect; original React worktree including uncommitted changes",
+    "nodes": [
+      {
+        "selector": "community-discovery-controls",
+        "tag": "DIV",
+        "text": "搜索课程推荐生物数学物理化学历史地理语文英语",
+        "bounds": {
+          "x": 90.65625,
+          "y": 28,
+          "w": 711.34375,
+          "h": 108
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "12px"
+      },
+      {
+        "selector": "sticky-controls-background",
+        "tag": "DIV",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "page-header-blur-layer",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "page-header-blur-layer",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "page-header-blur-layer",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "page-header-blur-layer",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "page-header-blur-layer",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "page-header-blur-layer",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 58.65625,
+          "y": 0,
+          "w": 775.34375,
+          "h": 136
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-search-panel",
+        "tag": "DIV",
+        "text": "搜索课程",
+        "bounds": {
+          "x": 90.65625,
+          "y": 28,
+          "w": 711.34375,
+          "h": 52
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-search-label",
+        "tag": "LABEL",
+        "text": "搜索课程",
+        "bounds": {
+          "x": 89.65625,
+          "y": 27,
+          "w": 1,
+          "h": 1
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "-1px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-search-field",
+        "tag": "DIV",
+        "text": "",
+        "bounds": {
+          "x": 90.65625,
+          "y": 28,
+          "w": 711.34375,
+          "h": 52
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 14px",
+        "margin": "0px",
+        "gap": "10px"
+      },
+      {
+        "selector": {},
+        "tag": "svg",
+        "text": "",
+        "bounds": {
+          "x": 105.65625,
+          "y": 44.5,
+          "w": 19,
+          "h": 19
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 118.84541320800781,
+          "y": 57.68916702270508,
+          "w": 3.4358367919921875,
+          "h": 3.435832977294922
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "circle",
+        "text": "",
+        "bounds": {
+          "x": 108.03125,
+          "y": 46.875,
+          "w": 12.666664123535156,
+          "h": 12.666667938232422
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "INPUT",
+        "text": "",
+        "bounds": {
+          "x": 135.65625,
+          "y": 29,
+          "w": 641.34375,
+          "h": 50
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-catalog-section community-category-section",
+        "tag": "SECTION",
+        "text": "推荐生物数学物理化学历史地理语文英语",
+        "bounds": {
+          "x": 90.65625,
+          "y": 92,
+          "w": 711.34375,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-category-rail",
+        "tag": "DIV",
+        "text": "推荐生物数学物理化学历史地理语文英语",
+        "bounds": {
+          "x": 58.65625,
+          "y": 92,
+          "w": 775.34375,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px 0px 0px -32px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-list",
+        "tag": "DIV",
+        "text": "推荐生物数学物理化学历史地理语文英语",
+        "bounds": {
+          "x": 58.65625,
+          "y": 92,
+          "w": 731.34375,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px 48px 0px 32px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "推荐",
+        "bounds": {
+          "x": 90.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "推荐",
+        "bounds": {
+          "x": 102.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "生物",
+        "bounds": {
+          "x": 154.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "生物",
+        "bounds": {
+          "x": 166.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "数学",
+        "bounds": {
+          "x": 218.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "数学",
+        "bounds": {
+          "x": 230.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "物理",
+        "bounds": {
+          "x": 282.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "物理",
+        "bounds": {
+          "x": 294.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "化学",
+        "bounds": {
+          "x": 346.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "化学",
+        "bounds": {
+          "x": 358.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "历史",
+        "bounds": {
+          "x": 410.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "历史",
+        "bounds": {
+          "x": 422.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "地理",
+        "bounds": {
+          "x": 474.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "地理",
+        "bounds": {
+          "x": 486.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "语文",
+        "bounds": {
+          "x": 538.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "语文",
+        "bounds": {
+          "x": 550.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-button",
+        "tag": "BUTTON",
+        "text": "英语",
+        "bounds": {
+          "x": 602.65625,
+          "y": 92,
+          "w": 64,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "4px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "英语",
+        "bounds": {
+          "x": 614.65625,
+          "y": 100,
+          "w": 40,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-category-more",
+        "tag": "BUTTON",
+        "text": "",
+        "bounds": {
+          "x": 790,
+          "y": 92,
+          "w": 44,
+          "h": 44
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "svg",
+        "text": "",
+        "bounds": {
+          "x": 801.5,
+          "y": 103.5,
+          "w": 21,
+          "h": 21
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": {},
+        "tag": "path",
+        "text": "",
+        "bounds": {
+          "x": 806.75,
+          "y": 111.375,
+          "w": 10.5,
+          "h": 5.25
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-catalog-section community-popular-section",
+        "tag": "SECTION",
+        "text": "为你推荐 8 本书遗传与进化高二 · 人教版128 人学习进入函数与导数高二 · 北师大版203 人学习进入高等数学·上册大学 · 高教版3",
+        "bounds": {
+          "x": 90.65625,
+          "y": 156,
+          "w": 711.34375,
+          "h": 1097.625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "4px"
+      },
+      {
+        "selector": "community-results-switch",
+        "tag": "DIV",
+        "text": "为你推荐 8 本书遗传与进化高二 · 人教版128 人学习进入函数与导数高二 · 北师大版203 人学习进入高等数学·上册大学 · 高教版3",
+        "bounds": {
+          "x": 90.65625,
+          "y": 156,
+          "w": 711.34375,
+          "h": 1097.625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "4px"
+      },
+      {
+        "selector": "community-result-summary",
+        "tag": "P",
+        "text": "为你推荐 8 本书",
+        "bounds": {
+          "x": 90.65625,
+          "y": 154,
+          "w": 711.34375,
+          "h": 28
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "-2px 0px 0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-grid",
+        "tag": "DIV",
+        "text": "遗传与进化高二 · 人教版128 人学习进入函数与导数高二 · 北师大版203 人学习进入高等数学·上册大学 · 高教版321 人学习进入数",
+        "bounds": {
+          "x": 90.65625,
+          "y": 186,
+          "w": 711.34375,
+          "h": 1067.625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "12px"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "遗传与进化高二 · 人教版128 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 186,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 90.65625,
+          "y": 186,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 102.65625,
+          "y": 198,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "遗传与进化高二 · 人教版128 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 359.328125,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "遗传与进化",
+        "bounds": {
+          "x": 102.65625,
+          "y": 371.328125,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "高二 · 人教版128 人学习进入",
+        "bounds": {
+          "x": 102.65625,
+          "y": 392.125,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "高二 · 人教版128 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 392.125,
+          "w": 90.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "高二 · 人教版",
+        "bounds": {
+          "x": 102.65625,
+          "y": 392.125,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "128 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 413.015625,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 372.328125,
+          "y": 395.90625,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "函数与导数高二 · 北师大版203 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 186,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 452.328125,
+          "y": 186,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 464.328125,
+          "y": 198,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "函数与导数高二 · 北师大版203 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 359.328125,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "函数与导数",
+        "bounds": {
+          "x": 464.328125,
+          "y": 371.328125,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "高二 · 北师大版203 人学习进入",
+        "bounds": {
+          "x": 464.328125,
+          "y": 392.125,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "高二 · 北师大版203 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 392.125,
+          "w": 104.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "高二 · 北师大版",
+        "bounds": {
+          "x": 464.328125,
+          "y": 392.125,
+          "w": 104.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "203 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 413.015625,
+          "w": 104.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 734,
+          "y": 395.90625,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "高等数学·上册大学 · 高教版321 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 455.90625,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 90.65625,
+          "y": 455.90625,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 102.65625,
+          "y": 467.90625,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "高等数学·上册大学 · 高教版321 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 629.234375,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "高等数学·上册",
+        "bounds": {
+          "x": 102.65625,
+          "y": 641.234375,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "大学 · 高教版321 人学习进入",
+        "bounds": {
+          "x": 102.65625,
+          "y": 662.03125,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "大学 · 高教版321 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 662.03125,
+          "w": 90.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "大学 · 高教版",
+        "bounds": {
+          "x": 102.65625,
+          "y": 662.03125,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "321 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 682.921875,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 372.328125,
+          "y": 665.8125,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "数学必修第二册高一 · 人教 A 版245 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 455.90625,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 452.328125,
+          "y": 455.90625,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 464.328125,
+          "y": 467.90625,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "数学必修第二册高一 · 人教 A 版245 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 629.234375,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "数学必修第二册",
+        "bounds": {
+          "x": 464.328125,
+          "y": 641.234375,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "高一 · 人教 A 版245 人学习进入",
+        "bounds": {
+          "x": 464.328125,
+          "y": 662.03125,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "高一 · 人教 A 版245 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 662.03125,
+          "w": 105.0625,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "高一 · 人教 A 版",
+        "bounds": {
+          "x": 464.328125,
+          "y": 662.03125,
+          "w": 105.0625,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "245 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 682.921875,
+          "w": 105.0625,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 734,
+          "y": 665.8125,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "理论力学 I大学 · 高教版156 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 725.8125,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 90.65625,
+          "y": 725.8125,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 102.65625,
+          "y": 737.8125,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "理论力学 I大学 · 高教版156 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 899.140625,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "理论力学 I",
+        "bounds": {
+          "x": 102.65625,
+          "y": 911.140625,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "大学 · 高教版156 人学习进入",
+        "bounds": {
+          "x": 102.65625,
+          "y": 931.9375,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "大学 · 高教版156 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 931.9375,
+          "w": 90.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "大学 · 高教版",
+        "bounds": {
+          "x": 102.65625,
+          "y": 931.9375,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "156 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 952.828125,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 372.328125,
+          "y": 935.71875,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "物理必修第三册高二 · 人教版189 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 725.8125,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 452.328125,
+          "y": 725.8125,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 464.328125,
+          "y": 737.8125,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "物理必修第三册高二 · 人教版189 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 899.140625,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "物理必修第三册",
+        "bounds": {
+          "x": 464.328125,
+          "y": 911.140625,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "高二 · 人教版189 人学习进入",
+        "bounds": {
+          "x": 464.328125,
+          "y": 931.9375,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "高二 · 人教版189 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 931.9375,
+          "w": 90.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "高二 · 人教版",
+        "bounds": {
+          "x": 464.328125,
+          "y": 931.9375,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "189 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 952.828125,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 734,
+          "y": 935.71875,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "英语必修第三册高一 · 人教版174 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 995.71875,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 90.65625,
+          "y": 995.71875,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 102.65625,
+          "y": 1007.71875,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "英语必修第三册高一 · 人教版174 人学习进入",
+        "bounds": {
+          "x": 90.65625,
+          "y": 1169.046875,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "英语必修第三册",
+        "bounds": {
+          "x": 102.65625,
+          "y": 1181.046875,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "高一 · 人教版174 人学习进入",
+        "bounds": {
+          "x": 102.65625,
+          "y": 1201.84375,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "高一 · 人教版174 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 1201.84375,
+          "w": 90.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "高一 · 人教版",
+        "bounds": {
+          "x": 102.65625,
+          "y": 1201.84375,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "174 人学习",
+        "bounds": {
+          "x": 102.65625,
+          "y": 1222.734375,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 372.328125,
+          "y": 1205.625,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-card",
+        "tag": "BUTTON",
+        "text": "化学必修第二册高一 · 人教版168 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 995.71875,
+          "w": 349.671875,
+          "h": 257.90625
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "0px"
+      },
+      {
+        "selector": "community-book-visual",
+        "tag": "SPAN",
+        "text": "",
+        "bounds": {
+          "x": 452.328125,
+          "y": 995.71875,
+          "w": 349.671875,
+          "h": 173.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-cover-image community-book-cover",
+        "tag": "IMG",
+        "text": "",
+        "bounds": {
+          "x": 464.328125,
+          "y": 1007.71875,
+          "w": 112,
+          "h": 149.328125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-copy",
+        "tag": "SPAN",
+        "text": "化学必修第二册高一 · 人教版168 人学习进入",
+        "bounds": {
+          "x": 452.328125,
+          "y": 1169.046875,
+          "w": 349.671875,
+          "h": 84.578125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "12px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "",
+        "tag": "STRONG",
+        "text": "化学必修第二册",
+        "bounds": {
+          "x": 464.328125,
+          "y": 1181.046875,
+          "w": 325.671875,
+          "h": 20.796875
+        },
+        "font": "16px",
+        "line": "20.799999px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-bottom",
+        "tag": "SPAN",
+        "text": "高一 · 人教版168 人学习进入",
+        "bounds": {
+          "x": 464.328125,
+          "y": 1201.84375,
+          "w": 325.671875,
+          "h": 39.78125
+        },
+        "font": "20px",
+        "line": "28px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "8px"
+      },
+      {
+        "selector": "community-book-meta",
+        "tag": "SPAN",
+        "text": "高一 · 人教版168 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 1201.84375,
+          "w": 90.28125,
+          "h": 39.78125
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "2px"
+      },
+      {
+        "selector": "",
+        "tag": "SMALL",
+        "text": "高一 · 人教版",
+        "bounds": {
+          "x": 464.328125,
+          "y": 1201.84375,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "",
+        "tag": "SPAN",
+        "text": "168 人学习",
+        "bounds": {
+          "x": 464.328125,
+          "y": 1222.734375,
+          "w": 90.28125,
+          "h": 18.890625
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px",
+        "margin": "0px",
+        "gap": "normal"
+      },
+      {
+        "selector": "community-book-enter",
+        "tag": "SPAN",
+        "text": "进入",
+        "bounds": {
+          "x": 734,
+          "y": 1205.625,
+          "w": 56,
+          "h": 36
+        },
+        "font": "14px",
+        "line": "18.9px",
+        "padding": "0px 12px",
+        "margin": "0px",
+        "gap": "normal"
+      }
+    ]
+  }
+]

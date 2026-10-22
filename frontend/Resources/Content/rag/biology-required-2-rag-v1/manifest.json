@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "corpus_version": "biology-required-2-rag-v1",
+  "book_id": "book_biology_2",
+  "source": {
+    "filename": "人教版高中生物必修2遗传与进化 (人民教育出版社, 课程教材研究所, 生物课程教材研究开发中心.pdf",
+    "sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+    "bytes": 38847801,
+    "pdf_page_count": 125,
+    "content_scope": "只覆盖当前源 PDF 的 125 个 PDF 页；源 PDF 的目录后直接进入第 2 章，不含第 1 章正文，构建器不会从互联网补齐另一版本。",
+    "missing_chapter_one_body": true,
+    "frontmatter": {
+      "chapter_id": "frontmatter",
+      "title": "教材封面、前言与目录",
+      "pdf_page_start": 1,
+      "pdf_page_end": 9
+    }
+  },
+  "mineru": {
+    "parser": "MinerU 3.4.4",
+    "content_list_filename": "人教版高中生物必修2遗传与进化_人民教育出版社_课程教材研究所_生物课程教材研究开发中心_z-library.sk_1lib.sk_z-lib.sk__content_list.json",
+    "content_list_sha256": "3f448ccbf6e3be4bf73768604d4973caf070320ed930a94d78e5bebd2314e55d",
+    "middle_filename": "人教版高中生物必修2遗传与进化_人民教育出版社_课程教材研究所_生物课程教材研究开发中心_z-library.sk_1lib.sk_z-lib.sk__middle.json",
+    "middle_sha256": "4137d7d7e993b551dbb08acbaae5e8ba55d06be2af87438389ef66cbc413245f",
+    "content_list_entries": 2013,
+    "page_count": 125,
+    "page_6_recovery": "middle.json preproc_blocks directory text"
+  },
+  "chunking": {
+    "target_characters": [
+      320,
+      700
+    ],
+    "overlap_characters": 80,
+    "max_consecutive_pdf_pages": 2,
+    "chunk_count": 171,
+    "short_chunk_exceptions": [
+      {
+        "chunk_id": "rag_de0bc00cf834852488ae",
+        "section_id": "frontmatter",
+        "page_start": 1,
+        "page_end": 2,
+        "text_characters": 148,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_82212b0f2a4838e81169",
+        "section_id": "frontmatter",
+        "page_start": 3,
+        "page_end": 4,
+        "text_characters": 210,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_711aff9dde7d240930d0",
+        "section_id": "c2",
+        "page_start": 10,
+        "page_end": 10,
+        "text_characters": 157,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_f03f65e05a54e8fa9068",
+        "section_id": "c2s1b",
+        "page_start": 21,
+        "page_end": 21,
+        "text_characters": 311,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_d1508502a028cbf2d2f3",
+        "section_id": "c3",
+        "page_start": 36,
+        "page_end": 36,
+        "text_characters": 248,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_2e7e59c9be7c9c1fee52",
+        "section_id": "c3s3",
+        "page_start": 47,
+        "page_end": 48,
+        "text_characters": 312,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_ae4804d9c2f0478f39ac",
+        "section_id": "c4",
+        "page_start": 56,
+        "page_end": 56,
+        "text_characters": 186,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_224cb37c781231a2ba04",
+        "section_id": "c5",
+        "page_start": 74,
+        "page_end": 74,
+        "text_characters": 235,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_d345778a1e7a8cc5d506",
+        "section_id": "c6",
+        "page_start": 92,
+        "page_end": 92,
+        "text_characters": 199,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_b04d42a30cf208d41a6c",
+        "section_id": "c7",
+        "page_start": 104,
+        "page_end": 104,
+        "text_characters": 154,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_b0c9c23c3036c21369a7",
+        "section_id": "c7s2a",
+        "page_start": 112,
+        "page_end": 112,
+        "text_characters": 249,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_3f63b8e337a5e04c86d4",
+        "section_id": "c7sts1",
+        "page_start": 122,
+        "page_end": 122,
+        "text_characters": 297,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      }
+    ]
+  },
+  "embeddings": {
+    "model_id": "Xenova/bge-small-zh-v1.5",
+    "revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+    "model_int8_sha256": "b9837c19ce154ff0726d398ee77abbc03a7faf0476c6f93016c84e531be7ebb5",
+    "dimension": 512,
+    "pooling": "cls",
+    "normalize": true,
+    "query_prefix": "为这个句子生成表示以用于检索相关文章：",
+    "provider": "wasm",
+    "wasm_threads": 1
+  },
+  "retrieval": {
+    "algorithm_version": "hybrid-cosine-bm25-v1",
+    "weights": {
+      "semantic": 0.75,
+      "bm25": 0.2,
+      "chapterPrior": 0.05
+    },
+    "high_confidence_threshold": 0.6037,
+    "minimum_evidence_threshold": 0.6037,
+    "lexical_fallback_threshold": 58.6248,
+    "calibration": {
+      "report_path": "rag/biology-required-2-rag-v1/evaluation-report.json",
+      "report_sha256": "3c2fc8fbc4330e1448341fdce9dc297eb3d464967a460f5d3aefb60c8135e4f2",
+      "selected_thresholds": {
+        "high_confidence": 0.6037,
+        "minimum_evidence": 0.6037,
+        "lexical_fallback": 58.6248
+      },
+      "metrics": {
+        "recall_at_5": 1,
+        "top_3_chapter_or_page_hit_rate": 0.9706,
+        "accepted_citation_precision": 0.9524,
+        "accepted_positive_recall": 0.5882,
+        "false_citation_rate": 0
+      },
+      "lexical_fallback": {
+        "requirement": "BM25 top-1 precision >= 0.95 and non-textbook false citation rate <= 0.05",
+        "selected": {
+          "threshold": 58.6248,
+          "cited_count": 3
+        },
+        "metrics": {
+          "accepted_citation_precision": 1,
+          "accepted_positive_recall": 0.0882,
+          "false_citation_rate": 0
+        }
+      },
+      "evaluated_query_count": 50
+    }
+  },
+  "coverage": {
+    "required_pdf_pages": 125,
+    "covered_pdf_pages": 125,
+    "recovered_pdf_pages": [
+      6
+    ],
+    "no_text_documented_pages": []
+  },
+  "artifacts": {
+    "chunks": {
+      "path": "rag/biology-required-2-rag-v1/chunks.json",
+      "bytes": 1321414,
+      "sha256": "292dd2ecd8462eb269fc993e2b0d79cdd90cc845218113923dad9cf374d77e92"
+    },
+    "bm25": {
+      "path": "rag/biology-required-2-rag-v1/bm25.json",
+      "bytes": 5221301,
+      "sha256": "7fdd8f961b87d580db05f5c111c64db8c7a103b6b18809f1869dc04309e95a6e"
+    },
+    "page_map": {
+      "path": "rag/biology-required-2-rag-v1/page-map.json",
+      "bytes": 969532,
+      "sha256": "21daacc4c6fe1f49b8f14ad3fc0bc1d0c18612ffdc32992c42dbde64caaf65be"
+    },
+    "evaluation_set": {
+      "path": "rag/biology-required-2-rag-v1/evaluation-set.json",
+      "bytes": 10491,
+      "sha256": "95e24b5f6b93bcf2161fd8b19b664be585cb469fcb177fba7bfad451831a9e93"
+    },
+    "vectors": {
+      "path": "rag/biology-required-2-rag-v1/vectors.f32",
+      "bytes": 350208,
+      "sha256": "708a7c454a557d36fc344efb7a8e4b823b52507059110c6330b0d9f4eb53cf18"
+    },
+    "build_report": {
+      "path": "rag/biology-required-2-rag-v1/build-report.json",
+      "bytes": 4218,
+      "sha256": "081e81e4fa29207c6143cbf7b0b1cbeb561d970832566d01e818990c0b970e51"
+    },
+    "evaluation_report": {
+      "path": "rag/biology-required-2-rag-v1/evaluation-report.json",
+      "bytes": 131285,
+      "sha256": "3c2fc8fbc4330e1448341fdce9dc297eb3d464967a460f5d3aefb60c8135e4f2"
+    }
+  }
+}

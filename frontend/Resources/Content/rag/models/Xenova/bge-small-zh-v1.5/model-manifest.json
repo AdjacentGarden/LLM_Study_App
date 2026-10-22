@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "model_id": "Xenova/bge-small-zh-v1.5",
+  "revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+  "transformers_version": "3.8.1",
+  "provider": "wasm",
+  "wasm_threads": 1,
+  "pooling": "cls",
+  "normalize": true,
+  "dimension": 512,
+  "query_prefix": "为这个句子生成表示以用于检索相关文章：",
+  "files": [
+    {
+      "path": "config.json",
+      "bytes": 716,
+      "sha256": "d4193ead3a810fd694fa8a31d7fc72fbaebc0668b603e398734bf2f6538ff42f",
+      "status": "reused"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 125,
+      "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+      "status": "reused"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 439125,
+      "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26",
+      "status": "reused"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 367,
+      "sha256": "e6f3b96db926a37d4039995fbf5ad17de158dfb8f6343d607e4dbaad18d75f5a",
+      "status": "reused"
+    },
+    {
+      "path": "vocab.txt",
+      "bytes": 109540,
+      "sha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
+      "status": "reused"
+    },
+    {
+      "path": "onnx/model_int8.onnx",
+      "bytes": 23903394,
+      "sha256": "b9837c19ce154ff0726d398ee77abbc03a7faf0476c6f93016c84e531be7ebb5",
+      "status": "reused"
+    }
+  ],
+  "wasm": {
+    "path": "ort-wasm-simd-threaded.jsep.wasm",
+    "bytes": 21596019,
+    "sha256": "c46655e8a94afc45338d4cb2b840475f88e5012d524509916e505079c00bfa39"
+  },
+  "wasm_files": [
+    {
+      "path": "ort-wasm-simd-threaded.jsep.mjs",
+      "bytes": 44484,
+      "sha256": "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9"
+    },
+    {
+      "path": "ort-wasm-simd-threaded.jsep.wasm",
+      "bytes": 21596019,
+      "sha256": "c46655e8a94afc45338d4cb2b840475f88e5012d524509916e505079c00bfa39"
+    }
+  ],
+  "license": "MIT"
+}

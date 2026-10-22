@@ -1,0 +1,2 @@
+# Only for optional simulator capture/comparison; not required by the app.
+Pillow==11.3.0

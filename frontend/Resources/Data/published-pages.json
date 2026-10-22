@@ -1,0 +1,757 @@
+{
+  "schema_version": 1,
+  "book_id": "book_biology_2",
+  "page_count": 125,
+  "assets": [
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 1,
+      "url": "/assets/textbook/pages/page_001.jpeg",
+      "sha256": "20ce781353d316f963fd4d42cfe63104c9fa2f8fb3623afdd2de486a01d5a307"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 2,
+      "url": "/assets/textbook/pages/page_002.jpeg",
+      "sha256": "56fd9540e16881c4163f4a9a8718111d4e43792e38db81904be2c47a101160e6"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 3,
+      "url": "/assets/textbook/pages/page_003.jpeg",
+      "sha256": "1533aebde1e1643c547f37c1254d0851263e532480bbf51e1dc25cd36795f645"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 4,
+      "url": "/assets/textbook/pages/page_004.jpeg",
+      "sha256": "41baa00bc6a2e32ac6eed00c7371bc538f9cb6c491dadbc896647b0406907692"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 5,
+      "url": "/assets/textbook/pages/page_005.jpeg",
+      "sha256": "73f644cc09f9d1d4c67dfb4519d3d8ef24a0b668c5bdaa804660e9330a24cde5"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 6,
+      "url": "/assets/textbook/pages/page_006.jpeg",
+      "sha256": "b85e8f59a9b31ee11b1ca6ccba60086cba8680406404d7f658f89f6d5a6b3a32"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 7,
+      "url": "/assets/textbook/pages/page_007.jpeg",
+      "sha256": "dd96a7af3a049326913e2e23485936098415c14594a728a8a364b29bc2c17734"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 8,
+      "url": "/assets/textbook/pages/page_008.jpeg",
+      "sha256": "2dc1d3dc261e8cccdd3fd261c417f76498923f88228b1721b3e080130bb065a1"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 9,
+      "url": "/assets/textbook/pages/page_009.jpeg",
+      "sha256": "c0260b441628275c21fd7b8b875a33a9b58d1486874eaacc2f92024cf5a74422"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 10,
+      "url": "/assets/textbook/pages/page_010.jpeg",
+      "sha256": "384ae9ebf121925ed66c23206c2ce44a5776ca219035c0ca1ac45d190c7ae841"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 11,
+      "url": "/assets/textbook/pages/page_011.jpeg",
+      "sha256": "6759799a9141caa67c6013b21ea0f3ee7593b26c96d458b92366760b3d5d7241"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 12,
+      "url": "/assets/textbook/pages/page_012.jpeg",
+      "sha256": "6afe951e5904c909bca4d6258ccc89c571cdb16593aca46f72c62181590a1420"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 13,
+      "url": "/assets/textbook/pages/page_013.jpeg",
+      "sha256": "7bec71c5adb8275b86cbed7aab3f32f2f792623c64e9fbc9810f6f1e894cf5b6"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 14,
+      "url": "/assets/textbook/pages/page_014.jpeg",
+      "sha256": "6e25dd2ef6e1fd5e0f08ef901041dc8fef868a929b592f26d96822b1f75f7825"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 15,
+      "url": "/assets/textbook/pages/page_015.jpeg",
+      "sha256": "3d66e70d0a0d315a79e4a72277da37d44c9069d5bbd29ca34933746ac6d4974f"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 16,
+      "url": "/assets/textbook/pages/page_016.jpeg",
+      "sha256": "fb2e06cfcc164ee54a273e28e26bf76e99a84568ed463569fbdb976b9cda65c4"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 17,
+      "url": "/assets/textbook/pages/page_017.jpeg",
+      "sha256": "2bc5e058245ebd1d308de37a85f53ffdb704a136ede98018f7ba01166ee6ee38"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 18,
+      "url": "/assets/textbook/pages/page_018.jpeg",
+      "sha256": "3f3c7dea91c4485011b74559544f093ef71a3aa11f14bfcdc6ccf8a7ba7d24a2"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 19,
+      "url": "/assets/textbook/pages/page_019.jpeg",
+      "sha256": "7574a92e561e0853c7ff83528feaa426298939a367c2a59ee0df4a4c6a27a246"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 20,
+      "url": "/assets/textbook/pages/page_020.jpeg",
+      "sha256": "48d6c73631a77aab2e2df5a359b91965f78792fc78d50f96e3d32ac8d0814d0d"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 21,
+      "url": "/assets/textbook/pages/page_021.jpeg",
+      "sha256": "18b0fb0a248641ee1ea1cdff6a886f8a514bf6f6885395aa3e5ea47c1bfdc7e2"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 22,
+      "url": "/assets/textbook/pages/page_022.jpeg",
+      "sha256": "1ec199f8eebf2583b18167b357614725700aff3bae5a7c9c3481250e1a869f96"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 23,
+      "url": "/assets/textbook/pages/page_023.jpeg",
+      "sha256": "c158a21da9af1900182164fc7df3c44b08af940383bb0733e8be8b48593acd93"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 24,
+      "url": "/assets/textbook/pages/page_024.jpeg",
+      "sha256": "dada0835f4b8eab38af8fca1c4efcb9a97181b2352e85739754a09e5771b6973"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 25,
+      "url": "/assets/textbook/pages/page_025.jpeg",
+      "sha256": "f3fe5bdfefcd1f403cf0dd8460cb9d70cf62ccf326d511242f4caf473fb9bfe6"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 26,
+      "url": "/assets/textbook/pages/page_026.jpeg",
+      "sha256": "b1f4687ebff41d8338c1ae78d95cbc4faf68d54fb40eb49cebc80efe2043663d"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 27,
+      "url": "/assets/textbook/pages/page_027.jpeg",
+      "sha256": "0e879f08aec467c1da7dde7e672fe3eb22c8cd91609c3881ae343acdb16f1727"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 28,
+      "url": "/assets/textbook/pages/page_028.jpeg",
+      "sha256": "079e75ee0489ce0618b5e9df54609755da12eff6366d54265938d37524517e9e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 29,
+      "url": "/assets/textbook/pages/page_029.jpeg",
+      "sha256": "915f61422ce2f4c2a8db6c1b676ded27816b50ea2e46d6512b9e5a073fbece01"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 30,
+      "url": "/assets/textbook/pages/page_030.jpeg",
+      "sha256": "467e2d9df321ee2f7fe39c045354e94fa083c1fa97dd0625d84e30eef4ab3946"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 31,
+      "url": "/assets/textbook/pages/page_031.jpeg",
+      "sha256": "3602211bfd41ddc65743645fc077a92bff059852b924a0e7c9957735addf206d"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 32,
+      "url": "/assets/textbook/pages/page_032.jpeg",
+      "sha256": "8e0d7b12c044a4d13fc6da59f37d1376a3b2c9a44e98d09f086c077681089551"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 33,
+      "url": "/assets/textbook/pages/page_033.jpeg",
+      "sha256": "7de43a266f56dca2f7918ba08e7e4f4ce2a110382f72ee084e9546e5c6ace982"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 34,
+      "url": "/assets/textbook/pages/page_034.jpeg",
+      "sha256": "33fcef6d27b3f1c2516e8a3eb5cfbbdbd6ad63b18c2a3afca432c7cf48a4c1b5"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 35,
+      "url": "/assets/textbook/pages/page_035.jpeg",
+      "sha256": "8cee7c4c6849e3d15627316a040c0ff44a901a0f1a1150b9cca170fc899d60de"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 36,
+      "url": "/assets/textbook/pages/page_036.jpeg",
+      "sha256": "d5f4459b98d711ba34d5a45dd1ba7e88a689500b0912da554a9f84dbb424ac74"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 37,
+      "url": "/assets/textbook/pages/page_037.jpeg",
+      "sha256": "093a8a2139d0f51f4688822e2fb97a09af2d5aec00427687fc9f869130abcd89"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 38,
+      "url": "/assets/textbook/pages/page_038.jpeg",
+      "sha256": "1f3da507fc97475d3bcdf9b76e6661db0466a5d6619fd8e3dd8fc13eef8f7244"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 39,
+      "url": "/assets/textbook/pages/page_039.jpeg",
+      "sha256": "649fbc20018e843c25d8bc2433ba99786b480aa2cdba0a5b171e93fbd4d9168e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 40,
+      "url": "/assets/textbook/pages/page_040.jpeg",
+      "sha256": "18fd7a25f63b3176f80bf15e27079101bdff3b6d55c1938e94fd62c02d39f277"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 41,
+      "url": "/assets/textbook/pages/page_041.jpeg",
+      "sha256": "417e0ed61c4d292005b299e7e285ab4248c07472ae7241e03d76f6abaf0dcace"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 42,
+      "url": "/assets/textbook/pages/page_042.jpeg",
+      "sha256": "632c1503aa4494fa5175015ff954547ddc6d0cda3df12c9062236a5a2ae4dbbe"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 43,
+      "url": "/assets/textbook/pages/page_043.jpeg",
+      "sha256": "9d0e2638442c158304a27d9fd3cc3503151535948255859bd091308de160a1da"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 44,
+      "url": "/assets/textbook/pages/page_044.jpeg",
+      "sha256": "8e551207158598f52e984cd1c2eb5291d7af78bf1181d5079dd69c11dd5fed82"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 45,
+      "url": "/assets/textbook/pages/page_045.jpeg",
+      "sha256": "1530a2b6c0da205d523ae68487a33a75bf75117ed220b43a24658ab71be13270"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 46,
+      "url": "/assets/textbook/pages/page_046.jpeg",
+      "sha256": "efa7d00aa786e3c9421b5f36726461ad2fc1f5bd9e345e7d10e8da56f98a2c35"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 47,
+      "url": "/assets/textbook/pages/page_047.jpeg",
+      "sha256": "fc055fedc176f508e59dfade073ead74773125ecc229277a644309d2abac8d6c"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 48,
+      "url": "/assets/textbook/pages/page_048.jpeg",
+      "sha256": "ca9e206d3eb9f5b5abd040fe4b483773226fbbfb865c7b249b08999ec545a00e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 49,
+      "url": "/assets/textbook/pages/page_049.jpeg",
+      "sha256": "bfd89a6595a5ef77a700a018053702f8abcd1d84a3fa1ddb21606a4e43d9ebcc"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 50,
+      "url": "/assets/textbook/pages/page_050.jpeg",
+      "sha256": "448e1a69b5f002e17d8d5a51f5348c61d6953197fdb65c5b6e95c0b0ebd8f3cb"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 51,
+      "url": "/assets/textbook/pages/page_051.jpeg",
+      "sha256": "544c629adc9fc6be3c3af642c1ca0376b8df99ebaf751f69e845483c3ff110b9"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 52,
+      "url": "/assets/textbook/pages/page_052.jpeg",
+      "sha256": "dd613cf559fb0a3b82138bd716aebca05c4c0fbe4b545b62092c4f0bbf46684c"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 53,
+      "url": "/assets/textbook/pages/page_053.jpeg",
+      "sha256": "6e26429ad4e880062779b7cd522dd5fc12645f73975d6f5c6ffa5ca90b1b99b5"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 54,
+      "url": "/assets/textbook/pages/page_054.jpeg",
+      "sha256": "1ad0bb6918919f8757259c3adc46b9038d8b321df706d19d5a482c414da0e9c8"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 55,
+      "url": "/assets/textbook/pages/page_055.jpeg",
+      "sha256": "024e43a85cf2e17f5ec8e876a78db058d89fa7bbf795ce3019c0791f0c224e41"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 56,
+      "url": "/assets/textbook/pages/page_056.jpeg",
+      "sha256": "3d5fa09060e24fa5858eed3f5c389cf690ebebbf9123e1dbc937d3bf374a7ef3"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 57,
+      "url": "/assets/textbook/pages/page_057.jpeg",
+      "sha256": "2b74adbf759bb652295094aec35f4d6ba758d2c89c525d019ab3ca972ba04d66"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 58,
+      "url": "/assets/textbook/pages/page_058.jpeg",
+      "sha256": "e720307a40b3dbfa1848d84d1682792f85eedcef68bc2bb170d7560b83dd95c3"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 59,
+      "url": "/assets/textbook/pages/page_059.jpeg",
+      "sha256": "6c7ae261575a4346543411eb2385ed070ee037c421422c83a59715ff8beade83"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 60,
+      "url": "/assets/textbook/pages/page_060.jpeg",
+      "sha256": "95b0d6c3518ddb9728db23a9968cee749cadba9ca8c6e07c487318d50d616d21"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 61,
+      "url": "/assets/textbook/pages/page_061.jpeg",
+      "sha256": "0e94264bf5eeb4e7f60d2222992dec13f88ab5fee6dc8f82a09aeab7f36085d9"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 62,
+      "url": "/assets/textbook/pages/page_062.jpeg",
+      "sha256": "d0cb416164f6ca1df23b3916f69783466d7b0e9241b9a26494cb7de989b6ab2f"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 63,
+      "url": "/assets/textbook/pages/page_063.jpeg",
+      "sha256": "bb9dad6c4ee4dcc1517f2df7f877d0edfb53d4bdaa893ee5f9f821b6439a1383"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 64,
+      "url": "/assets/textbook/pages/page_064.jpeg",
+      "sha256": "29bf6cdb0accf0a44fa4674d731ce0bfdd56385dbf7327762606f996ff290f4f"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 65,
+      "url": "/assets/textbook/pages/page_065.jpeg",
+      "sha256": "e183dee2db2cf1d51c3656e616bab82b98cc46beb83d6e5580e71770fb8afcc2"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 66,
+      "url": "/assets/textbook/pages/page_066.jpeg",
+      "sha256": "31ac773aa2825ea7ddacc5aae3e1743ddd2595037f11b9284578bf7463226553"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 67,
+      "url": "/assets/textbook/pages/page_067.jpeg",
+      "sha256": "d6424ccb8cf513ff7386eee020422bc5dacca1e1b8181aaa8691fa2e5feeda3e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 68,
+      "url": "/assets/textbook/pages/page_068.jpeg",
+      "sha256": "3907ef1179dbf47c55147765cc82f6d6a8817738ee410b79ae1233a801bc0042"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 69,
+      "url": "/assets/textbook/pages/page_069.jpeg",
+      "sha256": "99e4f3b14d32ab5e068fec5538c81ca5c89718cd5dd327be74699fbcc9add279"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 70,
+      "url": "/assets/textbook/pages/page_070.jpeg",
+      "sha256": "0dc06b3e85483960028abcaf51d2ebc5b6bdb1db1f38ed6593fb2e07e6e3e499"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 71,
+      "url": "/assets/textbook/pages/page_071.jpeg",
+      "sha256": "01429b834bb6263ea03a51aa050f8b8fd466af14d42e0ad72d7dc4e548c6d6cf"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 72,
+      "url": "/assets/textbook/pages/page_072.jpeg",
+      "sha256": "60c15ce0a897358a2a4571888d053109218f933569d3077469f4259e5c678361"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 73,
+      "url": "/assets/textbook/pages/page_073.jpeg",
+      "sha256": "3fd4b2737c70847b860d3caac61d24f2011a84610a0868e9167e5898cd1cb224"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 74,
+      "url": "/assets/textbook/pages/page_074.jpeg",
+      "sha256": "44d93f58cefda1aab169ca76b9b45e08b2f655fa200ee3b00197dfb5e67f6821"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 75,
+      "url": "/assets/textbook/pages/page_075.jpeg",
+      "sha256": "3b783d0aa129ae7e86c2a0e4bd544b4120d07a912fe3001e4b060035092671b2"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 76,
+      "url": "/assets/textbook/pages/page_076.jpeg",
+      "sha256": "b30ad4c6caee1fd769446dac1642bd3b3c9332ecd0964abc3e7af2030efcefac"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 77,
+      "url": "/assets/textbook/pages/page_077.jpeg",
+      "sha256": "2ee8344809bd4eaead4eb19d882bc4a44b5f4565be7fc75af4f1b255d12a3759"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 78,
+      "url": "/assets/textbook/pages/page_078.jpeg",
+      "sha256": "1236f39625f46e104c4984c994997162e040395038b9449f1bac65e69caedbd7"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 79,
+      "url": "/assets/textbook/pages/page_079.jpeg",
+      "sha256": "f8b690fbf7e111fe558f70de4bd152fd7e8bf1b4bd8ebde104b843f6c70ae85b"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 80,
+      "url": "/assets/textbook/pages/page_080.jpeg",
+      "sha256": "9ef62d8a88ba2334c39dffe48e17b4572aa1a57189659ff6e19dd37cf304a8ae"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 81,
+      "url": "/assets/textbook/pages/page_081.jpeg",
+      "sha256": "9391f5cb56abf255ba5b1f50a878ee9a76565eb59914ae4cb58e489adee1782e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 82,
+      "url": "/assets/textbook/pages/page_082.jpeg",
+      "sha256": "959c3250a5804cf72bfcaa48ea9acd88212a02d706e73c8433e4c3cfaef8a0ef"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 83,
+      "url": "/assets/textbook/pages/page_083.jpeg",
+      "sha256": "62801cd510a3b134551f413c203084a9650747cdc64f44d41154404c5157d268"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 84,
+      "url": "/assets/textbook/pages/page_084.jpeg",
+      "sha256": "f69719e0449fea796b185757e2740195545c51e1fb9f72bcff625a9918f96eac"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 85,
+      "url": "/assets/textbook/pages/page_085.jpeg",
+      "sha256": "e4e74e263f2c68f71debca4ccb72c7d32d289f79c0671dad93a5526ec30078c3"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 86,
+      "url": "/assets/textbook/pages/page_086.jpeg",
+      "sha256": "631abba369afc2db652803139410fc7dc07aaa8dcefef1491d3dc44e1f1e1391"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 87,
+      "url": "/assets/textbook/pages/page_087.jpeg",
+      "sha256": "818d26748ca1c58f873866bfb9f8395ef98a350fabb53568c461e5d30e03dc81"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 88,
+      "url": "/assets/textbook/pages/page_088.jpeg",
+      "sha256": "47cad243fe63b986d60f51acee1c456ee494fdf8389ae8b8041a44ea2a8fb3e4"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 89,
+      "url": "/assets/textbook/pages/page_089.jpeg",
+      "sha256": "5806fbcdc43a56cac01ec3ea9d395b295153d581217f12e73ff2889098158d96"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 90,
+      "url": "/assets/textbook/pages/page_090.jpeg",
+      "sha256": "4dd48c2c1e4830fc2a68622d2213244fb7aa365fe2b5db143d5aae3779ec38f5"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 91,
+      "url": "/assets/textbook/pages/page_091.jpeg",
+      "sha256": "c9c142db1e53ba683cb2df30d9f7c10cc20f07dcee3ec2c1c90b2dabaac244a7"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 92,
+      "url": "/assets/textbook/pages/page_092.jpeg",
+      "sha256": "a179104f6a22fb8549f1b591517614c5f020edbff3742a8d5c3a2749512dc56b"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 93,
+      "url": "/assets/textbook/pages/page_093.jpeg",
+      "sha256": "c46bc6fa7f9d4368fc0716376879c449a6f6c078cf7ba3ba5aa1f053c7b99f28"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 94,
+      "url": "/assets/textbook/pages/page_094.jpeg",
+      "sha256": "e2395bd6a4e72368b5e89ad397d225206edb584d02404cb7137ffe51680f0bf8"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 95,
+      "url": "/assets/textbook/pages/page_095.jpeg",
+      "sha256": "3024c257037a481820116c46d0fe4529d6e649e8ecf0125a6fdfcf46b553ada4"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 96,
+      "url": "/assets/textbook/pages/page_096.jpeg",
+      "sha256": "258c1c3d22c9b8259a68c3e8559f37a2bfb76df9c884297d323b7e751bb9443e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 97,
+      "url": "/assets/textbook/pages/page_097.jpeg",
+      "sha256": "aa0ce89dfc29c74fe200b245d24ac07aeb9d1e78422a9510f4db9af8ca348f4c"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 98,
+      "url": "/assets/textbook/pages/page_098.jpeg",
+      "sha256": "94470ffacba7dc267cdae07e77f5917ef60287c50b061d282541107ceb1eb16e"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 99,
+      "url": "/assets/textbook/pages/page_099.jpeg",
+      "sha256": "656ff63b9a391b18d0fceb3728191c48a0cc4d415ebbf0bc457f59a87fa01883"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 100,
+      "url": "/assets/textbook/pages/page_100.jpeg",
+      "sha256": "5413d9a78987d972407811dcf93c8826751a6f0d52d8e5d3d4089cea5ead9b6d"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 101,
+      "url": "/assets/textbook/pages/page_101.jpeg",
+      "sha256": "c6d00bca5bc1d22c5c5806183e9d480cd389c46d6634964b07c35839c89f90be"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 102,
+      "url": "/assets/textbook/pages/page_102.jpeg",
+      "sha256": "c7b1437cb7a1acf09557399c33fdf2212e6c1121fb7b288448d2ae74a0dddef8"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 103,
+      "url": "/assets/textbook/pages/page_103.jpeg",
+      "sha256": "78cfaeaea491be11ec8ac42ceaddff3e4c23d3897ac4fcefa72bba1c30c8ca6b"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 104,
+      "url": "/assets/textbook/pages/page_104.jpeg",
+      "sha256": "ec6daceee82b65bfa995da49e30881e5f5f7930eef0ad351ad45ce3e87d12c0b"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 105,
+      "url": "/assets/textbook/pages/page_105.jpeg",
+      "sha256": "c1c7d92606bb0b7b6d5c17ed32efa6574c4a07a556502cb588be0ddeb0ca4dcd"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 106,
+      "url": "/assets/textbook/pages/page_106.jpeg",
+      "sha256": "25b2f9f5fb01762c3d72c54a2e859d0c6a09ecf0a7779e55f441911497e93b01"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 107,
+      "url": "/assets/textbook/pages/page_107.jpeg",
+      "sha256": "527d6e87296ba61043d34a344ee4beae104551c902cf028c0e30593c113d7d73"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 108,
+      "url": "/assets/textbook/pages/page_108.jpeg",
+      "sha256": "af7ed2dbe026f0dd8c20b51e66bbedfeae88464ea0614035f5746fbc9a0d74d8"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 109,
+      "url": "/assets/textbook/pages/page_109.jpeg",
+      "sha256": "83717248c6fb7def01a0d0cf6ccd03cd95b9e57271d45870f9d7d98fc99f643d"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 110,
+      "url": "/assets/textbook/pages/page_110.jpeg",
+      "sha256": "ec807a81eef39fbb63ab2b226b50d0f5ad6f5590c8907d4432e2969d156d2c9f"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 111,
+      "url": "/assets/textbook/pages/page_111.jpeg",
+      "sha256": "9a18417bbb4d804fe10489cb215e0e5630ac76a6f467d03968dc3043a88fcd8a"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 112,
+      "url": "/assets/textbook/pages/page_112.jpeg",
+      "sha256": "f0d2ed0754e935c08944f96578c6c91133cf0c7db382a2cfd1a619d6bb573103"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 113,
+      "url": "/assets/textbook/pages/page_113.jpeg",
+      "sha256": "8ca9b696b547bfbd7fbf863c189385e1f42d2d5cc1fedbd71f158ee4638fee85"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 114,
+      "url": "/assets/textbook/pages/page_114.jpeg",
+      "sha256": "d6a6e6061073efc05b7198dc2bf209440754857373bb11a67ad3758deaa81c4d"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 115,
+      "url": "/assets/textbook/pages/page_115.jpeg",
+      "sha256": "567329eebad8de251702f5a1893d64f4d1cfb71fa125f8dbdc0cb12331c3a1a3"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 116,
+      "url": "/assets/textbook/pages/page_116.jpeg",
+      "sha256": "b89385f2e9a36a3cd156564e12ce7f250c609c6a5cd4c95cad3f7118e93c8529"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 117,
+      "url": "/assets/textbook/pages/page_117.jpeg",
+      "sha256": "6751240189e36a25dc0049f194cb9deca373ad6c1924679fec93ff17e2972d0f"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 118,
+      "url": "/assets/textbook/pages/page_118.jpeg",
+      "sha256": "ff7813c730153c9f554c42bec5e0986d261805f1150d7a6cdcac772cb489532a"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 119,
+      "url": "/assets/textbook/pages/page_119.jpeg",
+      "sha256": "17ffed299239a7a989a658006d9fb75912d70dc63d413519139a951483b3382b"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 120,
+      "url": "/assets/textbook/pages/page_120.jpeg",
+      "sha256": "41aeb71af66f18ecd0bee0215ed0d49dd76cbc658dec7d98674cb8e027f6e937"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 121,
+      "url": "/assets/textbook/pages/page_121.jpeg",
+      "sha256": "bddc83fcb25f0eb365bccf17bc8937ad83e4b4a868c24d4b6e69cad5ae2922df"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 122,
+      "url": "/assets/textbook/pages/page_122.jpeg",
+      "sha256": "5dcc1e70aeba0d2048c018726f9b9052d952ad07010d4226a80fd7e422863a69"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 123,
+      "url": "/assets/textbook/pages/page_123.jpeg",
+      "sha256": "880e83523596b5314d95d1e9942a7e9b66b8c8dce964a700a91b57df641296dd"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 124,
+      "url": "/assets/textbook/pages/page_124.jpeg",
+      "sha256": "eac5dbf02f44812ef3f2d45d1ea3dc8eb587995e29c8fca074ba7122b51a80b0"
+    },
+    {
+      "book_id": "book_biology_2",
+      "pdf_page": 125,
+      "url": "/assets/textbook/pages/page_125.jpeg",
+      "sha256": "db6dc0cbfb329cb6bffd42f5e4646d1f3b592272bb4ee3bc19e3ccbd423ec28a"
+    }
+  ]
+}

@@ -8,6 +8,13 @@ from pathlib import Path
 parser = argparse.ArgumentParser()
 parser.add_argument("--sources", type=Path, required=True)
 parser.add_argument("--community", type=Path, required=True)
+parser.add_argument(
+    "--client-catalog",
+    type=Path,
+    default=Path(__file__).resolve().parents[2]
+    / "frontend/Resources/Data/builtin-catalog.json",
+    help="Also refresh the permanent SwiftUI discovery listing from this snapshot.",
+)
 args = parser.parse_args()
 raw = args.sources.read_bytes()
 source = next(s for s in json.loads(raw) if s["summary"]["book_id"] == "book_biology_2")
@@ -43,6 +50,10 @@ target.write_text(
     )
     + "\n",
     encoding="utf-8",
+)
+args.client_catalog.parent.mkdir(parents=True, exist_ok=True)
+args.client_catalog.write_text(
+    json.dumps([entry], ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
 )
 print(
     f"Packaged {len(source['lessons'])} lessons, {len(source['flashcards'])} cards, {len(source['quizzes'])} questions"

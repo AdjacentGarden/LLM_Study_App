@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "model": "Xenova/bge-small-zh-v1.5",
+  "revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+  "base_model": "BAAI/bge-small-zh-v1.5",
+  "license_assertion": "MIT in original model-manifest and BAAI model card; Xenova revision has no standalone LICENSE file",
+  "base_model_card": "https://huggingface.co/BAAI/bge-small-zh-v1.5",
+  "license_retrieved_utc": "2026-10-21T07:30:12.096420+00:00",
+  "upstream_mit_license_url": "https://raw.githubusercontent.com/FlagOpen/FlagEmbedding/fd1a2bdf69488ffebe0327999d4400d8c8058a0b/LICENSE",
+  "upstream_mit_license_sha256": "587a673933425dbc36ec61268d3b954051b2d3ef3c9b322ede357976055ffdd5",
+  "onnx_third_party_notices_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.2/ThirdPartyNotices.txt",
+  "onnx_third_party_notices_sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+}

@@ -1,0 +1,59 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "6A10E145-6528-4537-B5B6-DB386407F057",
+      "deviceName" : "BookCourse Course Flow iPhone",
+      "modelName" : "iPhone 17 Pro",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "children" : [
+                    {
+                      "name" : "Invalid frame dimension (negative or non-finite).",
+                      "nodeType" : "Runtime Warning"
+                    }
+                  ],
+                  "duration" : "1分钟9秒",
+                  "durationInSeconds" : 69.9538300037384,
+                  "name" : "testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CourseFunctionalUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "BookCourseUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "BookCourse",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

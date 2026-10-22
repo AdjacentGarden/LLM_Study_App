@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "missing_chapter_one_body": true,
+  "frontmatter": {
+    "chapter_id": "frontmatter",
+    "title": "教材封面、前言与目录",
+    "pdf_page_start": 1,
+    "pdf_page_end": 9
+  },
+  "source_inputs": {
+    "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+    "content_list_sha256": "3f448ccbf6e3be4bf73768604d4973caf070320ed930a94d78e5bebd2314e55d",
+    "middle_sha256": "4137d7d7e993b551dbb08acbaae5e8ba55d06be2af87438389ef66cbc413245f"
+  },
+  "source_pdf_page_count": 125,
+  "covered_page_count": 125,
+  "content_list_entries": 2013,
+  "pages_from_content_list": 124,
+  "recovered_pages": [
+    6
+  ],
+  "no_text_documented_pages": [],
+  "text_characters": 83946,
+  "chunk_count": 171,
+  "chunk_characters": {
+    "minimum": 148,
+    "maximum": 700,
+    "short_exception_count": 12,
+    "short_exceptions": [
+      {
+        "chunk_id": "rag_de0bc00cf834852488ae",
+        "section_id": "frontmatter",
+        "page_start": 1,
+        "page_end": 2,
+        "text_characters": 148,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_82212b0f2a4838e81169",
+        "section_id": "frontmatter",
+        "page_start": 3,
+        "page_end": 4,
+        "text_characters": 210,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_711aff9dde7d240930d0",
+        "section_id": "c2",
+        "page_start": 10,
+        "page_end": 10,
+        "text_characters": 157,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_f03f65e05a54e8fa9068",
+        "section_id": "c2s1b",
+        "page_start": 21,
+        "page_end": 21,
+        "text_characters": 311,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_d1508502a028cbf2d2f3",
+        "section_id": "c3",
+        "page_start": 36,
+        "page_end": 36,
+        "text_characters": 248,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_2e7e59c9be7c9c1fee52",
+        "section_id": "c3s3",
+        "page_start": 47,
+        "page_end": 48,
+        "text_characters": 312,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_ae4804d9c2f0478f39ac",
+        "section_id": "c4",
+        "page_start": 56,
+        "page_end": 56,
+        "text_characters": 186,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_224cb37c781231a2ba04",
+        "section_id": "c5",
+        "page_start": 74,
+        "page_end": 74,
+        "text_characters": 235,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_d345778a1e7a8cc5d506",
+        "section_id": "c6",
+        "page_start": 92,
+        "page_end": 92,
+        "text_characters": 199,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_b04d42a30cf208d41a6c",
+        "section_id": "c7",
+        "page_start": 104,
+        "page_end": 104,
+        "text_characters": 154,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_b0c9c23c3036c21369a7",
+        "section_id": "c7s2a",
+        "page_start": 112,
+        "page_end": 112,
+        "text_characters": 249,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      },
+      {
+        "chunk_id": "rag_3f63b8e337a5e04c86d4",
+        "section_id": "c7sts1",
+        "page_start": 122,
+        "page_end": 122,
+        "text_characters": 297,
+        "reason": "isolated_section_or_page_boundary_shorter_than_minimum"
+      }
+    ]
+  },
+  "vector_dimension": 512,
+  "vector_bytes": 350208,
+  "index_artifact_bytes": 7872946,
+  "duplicate_chunk_ratio": 0,
+  "page_map_validation": {
+    "status": "passed",
+    "checked_pages": 125,
+    "recovered_page_6": true,
+    "chunk_page_coverage": 125
+  },
+  "static_rag_bytes": 54112227
+}

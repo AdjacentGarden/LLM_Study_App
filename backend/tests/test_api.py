@@ -3,6 +3,20 @@ from fastapi.testclient import TestClient
 from adaptive_learning.api.app import app
 
 
+def test_native_api_entry_has_no_web_frontend_fallback(monkeypatch, tmp_path) -> None:
+    # A stale deployment variable must not resurrect the archived React frontend.
+    (tmp_path / "index.html").write_text("old web frontend", encoding="utf-8")
+    (tmp_path / "assets").mkdir()
+    monkeypatch.setenv("FRONTEND_DIST_DIR", str(tmp_path))
+    with TestClient(app) as client:
+        entry = client.get("/")
+        assert entry.status_code == 200
+        assert entry.json()["client"] == "SwiftUI iOS / iPadOS"
+        assert client.get(entry.json()["docs"]).status_code == 200
+        for path in ("/bookshelf", "/assets/old-app.js", "/api/unknown-native-endpoint"):
+            assert client.get(path).status_code == 404
+
+
 def test_demo_interview_starts_with_user_goal_question() -> None:
     with TestClient(app) as client:
         health = client.get("/api/health")

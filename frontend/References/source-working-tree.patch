@@ -1,0 +1,1224 @@
+diff --git a/.gitignore b/.gitignore
+index f72d5bd..ba74365 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,3 +22,12 @@ public/rag/**/*.tmp
+ Thumbs.db
+ .idea/
+ .vscode/
++
++# Xcode local state and build products (keep project files and Package.resolved)
++ios/**/xcuserdata/
++ios/DerivedData/
++ios/build/
++ios/**/.build/
++*.xcuserstate
++*.ipa
++*.dSYM/
+diff --git a/README.md b/README.md
+index 5ceec6d..d2c2801 100644
+--- a/README.md
++++ b/README.md
+@@ -16,6 +16,20 @@ npm run dev
+ 
+ 在“我的”页面点击右上角“设置”可查看学习偏好并退出账号。确认退出后立即返回首次引导；再次打开应用也需重新完成引导。当前 Demo 会保留本机已有课程、资料文件、课程草稿、笔记、学习进度和积分，完成引导后即可继续使用。
+ 
++## iPhone / iPad（Xcode）
++
++仓库包含使用 Swift Package Manager 的 `ios/` 原生工程，支持 iPhone 和 iPad，最低部署目标为 iOS / iPadOS 15。开发环境推荐 Node.js 24，需要 Xcode 26 或更新版本及相应模拟器运行时。
++
++```bash
++npm ci
++npm run ios:sync
++npm run ios:open
++```
++
++在 Xcode 选择 **App** Scheme 和 iPhone 或 iPad 模拟器，按 **⌘R** 运行。也可以直接打开 `ios/App/App.xcodeproj`。前端代码修改后先执行 `npm run ios:sync`，再从 Xcode 运行；`npm run ios:run` 会先构建、同步，再选择设备运行。
++
++已补齐原生系统栏、安全区域、键盘视口刷新、iPad 侧栏、麦克风用途说明和真实文件选择入口；录音支持保存失败重试。原生运行与 WebKit 回归不能替代真机验收：权限、音频中断、Apple Pencil、外接键盘和 iPad 系统多任务仍需设备验证。环境配置、签名、调试及设备测试清单见 [docs/IOS_SETUP.md](./docs/IOS_SETUP.md)，验证结果见 [docs/IOS_BUILD_VALIDATION.md](./docs/IOS_BUILD_VALIDATION.md)。
++
+ ## Android debug APK（Capacitor）
+ 
+ 仓库已经包含 Capacitor 的 `android/` 原生工程。根路径 `/` 现在始终打开真实 App；仅在需要设计验收时，使用 `/?preview=device-preview` 打开设备预览工作台。
+diff --git a/capacitor.config.ts b/capacitor.config.ts
+index ceeaeeb..4616f19 100644
+--- a/capacitor.config.ts
++++ b/capacitor.config.ts
+@@ -1,21 +1,26 @@
+ import type { CapacitorConfig } from "@capacitor/cli";
+ 
+ /**
+- * Native container configuration for the local Android build.
++ * Shared native container configuration for local Android and iOS builds.
+  *
+- * `appId` only needs to be stable and valid for a debug APK. Change it before
++ * `appId` is shared by the debug builds. Review it before
+  * publishing or distributing the application outside this device.
+  */
+ const config: CapacitorConfig = {
+   appId: "com.littleri.bookcourseai",
+   appName: "BookCourse AI",
+   webDir: "dist",
++  ios: {
++    scheme: "App"
++  },
+   plugins: {
+     App: {
+       // The React navigation machine owns Android back-button behaviour.
+       disableBackButtonHandler: true
+     },
+     Keyboard: {
++      // iOS resizes the WebView once; overlays measure that resulting viewport.
++      resize: "native",
+       // Keeps Android's WebView resize workaround available when a device
+       // chooses an edge-to-edge/full-screen system-bar implementation.
+       resizeOnFullScreen: true
+diff --git a/e2e/responsive.spec.ts b/e2e/responsive.spec.ts
+index ce31675..cdf8c74 100644
+--- a/e2e/responsive.spec.ts
++++ b/e2e/responsive.spec.ts
+@@ -657,7 +657,7 @@ test.describe("current DemoRepository responsive matrix", () => {
+         return {
+           nav: bounds(".primary-nav"),
+           statusBar: bounds(".ios-status-bar"),
+-          navBackground: navStyle.backgroundColor,
++          navBackground: getComputedStyle(nav.querySelector<HTMLElement>(".nav-rail-surface")!).backgroundColor,
+           navRadius: navStyle.borderRadius,
+           navShadow: navStyle.boxShadow,
+           picker: bounds(".home-book-picker"),
+@@ -721,43 +721,16 @@ test.describe("current DemoRepository responsive matrix", () => {
+       expect(Math.abs(second!.y - first!.y)).toBeLessThanOrEqual(1);
+       expect(second!.x).toBeGreaterThanOrEqual(first!.x + first!.width);
+     }
+-    const discoveryHeader = await page.evaluate(() => {
+-      const main = document.querySelector<HTMLElement>('.screen-content[data-screen="community"]')!;
++    // Discovery now owns sticky search/category controls rather than a shared
++    // HeaderBar. Verify the current controls remain usable after scrolling.
++    await expect(page.locator(".header-bar")).toHaveCount(0);
++    await page.locator('.screen-content[data-screen="community"]').evaluate((main) => {
+       main.style.scrollBehavior = "auto";
+-      const header = document.querySelector<HTMLElement>(".header-bar")!;
+-      const controls = document.querySelector<HTMLElement>(".community-discovery-controls")!;
+-      const card = document.querySelector(".community-book-card")!;
+-      const titleRect = header.querySelector(".header-title")!.getBoundingClientRect();
+-      main.scrollTop += card.getBoundingClientRect().top - titleRect.top + 24;
+-      const headerRect = header.getBoundingClientRect();
+-      const cardRect = card.getBoundingClientRect();
+-      const headerCover = getComputedStyle(header, "::before");
+-      const controlsCover = getComputedStyle(controls, "::before");
+-      return {
+-        background: headerCover.backgroundColor,
+-        left: headerRect.left + parseFloat(headerCover.left),
+-        right: headerRect.right - parseFloat(headerCover.right),
+-        top: headerRect.top + parseFloat(headerCover.top),
+-        bottom: headerRect.bottom - parseFloat(headerCover.bottom),
+-        controlsCoverTop: controls.getBoundingClientRect().top + parseFloat(controlsCover.top),
+-        titleTop: titleRect.top,
+-        titleBottom: titleRect.bottom,
+-        cardTop: cardRect.top,
+-        cardBottom: cardRect.bottom,
+-        scrollTop: main.scrollTop,
+-        maxScroll: main.scrollHeight - main.clientHeight
+-      };
++      main.scrollTop = main.scrollHeight;
+     });
+-    expect(discoveryHeader.background).toBe("rgb(246, 248, 251)");
+-    expect(Math.abs(discoveryHeader.left - (nav!.x + nav!.width))).toBeLessThanOrEqual(1);
+-    expect(Math.abs(discoveryHeader.right - (shell!.x + shell!.width))).toBeLessThanOrEqual(1);
+-    expect(discoveryHeader.top).toBeLessThanOrEqual(shell!.y + 1);
+-    expect(discoveryHeader.bottom).toBeGreaterThanOrEqual(discoveryHeader.controlsCoverTop);
+-    if (discoveryHeader.cardTop < discoveryHeader.titleBottom) {
+-      expect(discoveryHeader.cardBottom).toBeGreaterThan(discoveryHeader.titleTop);
+-    } else {
+-      expect(discoveryHeader.scrollTop).toBeCloseTo(discoveryHeader.maxScroll, 0);
+-    }
++    const discoveryControls = page.locator(".community-discovery-controls");
++    await expectInsideShell(page, discoveryControls, "pad discovery sticky controls");
++    await expect(discoveryControls.getByRole("searchbox", { name: "搜索课程" })).toBeVisible();
+   });
+ 
+   test("fits tablet parse confirmation and keeps back and parse actions aligned", async ({ page }, testInfo) => {
+diff --git a/e2e/source-reader-notes.spec.ts b/e2e/source-reader-notes.spec.ts
+index c60ecfc..2c417ca 100644
+--- a/e2e/source-reader-notes.spec.ts
++++ b/e2e/source-reader-notes.spec.ts
+@@ -258,7 +258,7 @@ test.describe("text annotation popup motion", () => {
+     await page.route(`**${nextImageUrl}`, async (route) => { await imageReady; await route.continue(); });
+     const pause = await page.addStyleTag({ content: ".source-page-frame { animation-play-state: paused !important; }" });
+     await swipeSourcePage(page, "left");
+-    await expect(page.locator(".header-title p")).toHaveText("第 17 页");
++    await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 17 页");
+     await expect(reader.locator(".source-page-skeleton-reveal")).toHaveAttribute("data-motion-load-state", "loading");
+     await expect(frame).toHaveAttribute("data-motion-item-state", "idle");
+     releaseImage();
+@@ -269,7 +269,7 @@ test.describe("text annotation popup motion", () => {
+     await dispatchMotion(frame, "animationend", "motion-source-page-in");
+     await expect(frame).toHaveAttribute("data-motion-item-state", "idle");
+     await swipeSourcePage(page, "right");
+-    await expect(page.locator(".header-title p")).toHaveText("第 16 页");
++    await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 16 页");
+     await expect(frame).toHaveAttribute("data-motion-item-state", "entering");
+     await expect(frame).toHaveAttribute("data-page-direction", "back");
+     expect(await frame.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41)).toBeLessThan(0);
+@@ -386,7 +386,7 @@ test("anchors selected text on the original page and reopens it for reading and
+   await page.setViewportSize({ width: 761, height: 1138 });
+   const { reader, progress } = await openLessonSource(page);
+   await expect(page.locator(".header-title h1")).toHaveText("第 1 节 减数分裂和受精作用");
+-  await expect(page.locator(".header-title p")).toHaveText("第 16 页");
++  await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 16 页");
+   await expect(reader).not.toContainText("PDF 第 11 页");
+   const selectableText = reader.locator(".source-page-text-layer.is-reader");
+   await expect(selectableText).toBeVisible();
+@@ -556,7 +556,7 @@ test("keeps touch swipes distinct from taps and fits the editor at a phone page
+     element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 31, pointerType: "touch", button: 0, clientX: bounds.right - 40, clientY: y }));
+     element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 31, pointerType: "touch", button: 0, clientX: bounds.left + 40, clientY: y }));
+   });
+-  await expect(page.locator(".header-title p")).toHaveText("第 17 页");
++  await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 17 页");
+   await expect(reader.getByRole("region", { name: "原文文字笔记" })).toHaveCount(0);
+   await reader.getByRole("button", { name: "点击原文添加批注" }).evaluate((element) => {
+     const bounds = element.getBoundingClientRect();
+@@ -948,9 +948,9 @@ test("keeps the full-page reader and saved ink usable in landscape", async ({ pa
+   await page.mouse.up();
+   await reader.getByRole("button", { name: "钢笔" }).click();
+   await swipeSourcePage(page, "left");
+-  await expect(page.locator(".header-title p")).toHaveText("第 17 页");
++  await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 17 页");
+   await swipeSourcePage(page, "right");
+-  await expect(page.locator(".header-title p")).toHaveText("第 16 页");
++  await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 16 页");
+   const width = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+   expect(width.content).toBeLessThanOrEqual(width.viewport);
+ });
+@@ -983,5 +983,5 @@ test("fits one source page without vertical scrolling and keeps note controls on
+   expect(Math.abs(geometry.penTop - geometry.textTop)).toBeLessThan(8);
+   expect(geometry.pageBottom).toBeLessThanOrEqual(geometry.contentBottom + 1);
+   await swipeSourcePage(page, "left");
+-  await expect(page.locator(".header-title p")).toHaveText("第 17 页");
++  await expect(page.locator(".source-reader-screen .source-page-caption")).toContainText("第 17 页");
+ });
+diff --git a/eslint.config.js b/eslint.config.js
+index 7820f0a..a19a318 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -11,9 +11,15 @@ export default tseslint.config(
+     "coverage",
+     "playwright-report",
+     "test-results",
++    "output",
+     "tmp",
+     "android/app/build",
+     "android/app/src/main/assets/public",
++    "ios/DerivedData",
++    "ios/App/build",
++    "ios/App/Pods",
++    "ios/App/App/public",
++    "ios/App/CapApp-SPM/.build",
+     "public/rag/runtime"
+   ] },
+   js.configs.recommended,
+diff --git a/package-lock.json b/package-lock.json
+index 92c0787..59f80d9 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,6 +11,7 @@
+         "@capacitor/android": "^8.5.0",
+         "@capacitor/app": "^8.1.1",
+         "@capacitor/core": "^8.5.0",
++        "@capacitor/ios": "8.5.0",
+         "@capacitor/keyboard": "^8.0.5",
+         "@capacitor/status-bar": "^8.0.3",
+         "@gsap/react": "^2.1.2",
+@@ -39,6 +40,9 @@
+         "postcss-value-parser": "4.2.0",
+         "typescript-eslint": "8.61.1",
+         "vitest": "4.1.9"
++      },
++      "engines": {
++        "node": "^22.13.0 || >=24.0.0"
+       }
+     },
+     "node_modules/@capacitor/android": {
+@@ -98,11 +102,19 @@
+       "resolved": "https://registry.npmjs.org/@capacitor/core/-/core-8.5.0.tgz",
+       "integrity": "sha512-Ca4krtqH1hothjtBIwf2J2TW7IhYq1ujp8QeItTiJohNsqij8ja2DYYH3DU0l8RmxCWaBAFTGA2TgOgOMCSNsQ==",
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "tslib": "^2.1.0"
+       }
+     },
++    "node_modules/@capacitor/ios": {
++      "version": "8.5.0",
++      "resolved": "https://registry.npmjs.org/@capacitor/ios/-/ios-8.5.0.tgz",
++      "integrity": "sha512-7k1TfohJu5BzRXc1F3g04Q8QQ0fyQgms6h1AvhnHb04VaNr9EdHOx03hL8O+OigEKMQnyJd1ZOjTPPNHCqL5Yw==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@capacitor/core": "^8.5.0"
++      }
++    },
+     "node_modules/@capacitor/keyboard": {
+       "version": "8.0.5",
+       "resolved": "https://registry.npmjs.org/@capacitor/keyboard/-/keyboard-8.0.5.tgz",
+@@ -121,12 +133,35 @@
+         "@capacitor/core": ">=8.0.0"
+       }
+     },
++    "node_modules/@emnapi/core": {
++      "version": "1.11.3",
++      "resolved": "https://registry.npmjs.org/@emnapi/core/-/core-1.11.3.tgz",
++      "integrity": "sha512-zLpS5asjEb7lq8jYLq37N6XKaE41DIexlY1rF/z4/tIl3wo13Sqm28fRyfIsKZD+NZ8mM5RoKkpW/rBcuoSZSg==",
++      "license": "MIT",
++      "optional": true,
++      "peer": true,
++      "dependencies": {
++        "@emnapi/wasi-threads": "1.2.3",
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@emnapi/runtime": {
++      "version": "1.11.3",
++      "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.3.tgz",
++      "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==",
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
+     "node_modules/@emnapi/wasi-threads": {
+       "version": "1.2.3",
+       "resolved": "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.3.tgz",
+       "integrity": "sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==",
+       "license": "MIT",
+       "optional": true,
++      "peer": true,
+       "dependencies": {
+         "tslib": "^2.4.0"
+       }
+@@ -1682,7 +1717,6 @@
+       "integrity": "sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==",
+       "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "csstype": "^3.2.2"
+       }
+@@ -1749,7 +1783,6 @@
+       "integrity": "sha512-PJ5vePq5/ognBbrIcoC5+SHO5dfpeLPzP9FpLkzWrguoYQEeeSjlJpVwOpo1JRSTEi7dRcwNy4h4dzV70PqHcg==",
+       "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "@typescript-eslint/scope-manager": "8.61.1",
+         "@typescript-eslint/types": "8.61.1",
+@@ -2089,7 +2122,6 @@
+       "integrity": "sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg==",
+       "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "bin": {
+         "acorn": "bin/acorn"
+       },
+@@ -2528,7 +2560,6 @@
+       "integrity": "sha512-1y+7C+vi12bUK1IpZeaV3gsH9fHLBmPvYmPx42pvT/E9yG0IC8g3PUZZgp0+JLJl7ZDK0flc2gc+Aw9dpCvIsQ==",
+       "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "workspaces": [
+         "packages/*"
+       ],
+@@ -2938,8 +2969,7 @@
+       "version": "3.15.0",
+       "resolved": "https://registry.npmjs.org/gsap/-/gsap-3.15.0.tgz",
+       "integrity": "sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==",
+-      "license": "Standard 'no charge' license: https://gsap.com/standard-license.",
+-      "peer": true
++      "license": "Standard 'no charge' license: https://gsap.com/standard-license."
+     },
+     "node_modules/guid-typescript": {
+       "version": "1.0.9",
+@@ -3761,7 +3791,6 @@
+       "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.4.tgz",
+       "integrity": "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==",
+       "license": "MIT",
+-      "peer": true,
+       "engines": {
+         "node": ">=12"
+       },
+@@ -3955,7 +3984,6 @@
+       "resolved": "https://registry.npmjs.org/react/-/react-19.2.7.tgz",
+       "integrity": "sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==",
+       "license": "MIT",
+-      "peer": true,
+       "engines": {
+         "node": ">=0.10.0"
+       }
+@@ -4470,7 +4498,6 @@
+       "resolved": "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
+       "integrity": "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==",
+       "license": "Apache-2.0",
+-      "peer": true,
+       "bin": {
+         "tsc": "bin/tsc",
+         "tsserver": "bin/tsserver"
+@@ -4562,7 +4589,6 @@
+       "resolved": "https://registry.npmjs.org/vite/-/vite-8.0.16.tgz",
+       "integrity": "sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==",
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "lightningcss": "^1.32.0",
+         "picomatch": "^4.0.4",
+diff --git a/package.json b/package.json
+index efc1100..f2eb3ab 100644
+--- a/package.json
++++ b/package.json
+@@ -3,6 +3,9 @@
+   "version": "0.1.0",
+   "private": true,
+   "type": "module",
++  "engines": {
++    "node": "^22.13.0 || >=24.0.0"
++  },
+   "scripts": {
+     "dev": "vite --host 127.0.0.1",
+     "build": "npm run rag:validate:source-assets && tsc -b && vite build && node scripts/validate-citation-source-assets.mjs --public-directory=dist",
+@@ -11,6 +14,9 @@
+     "android:open": "npx cap open android",
+     "android:run": "npm run android:sync && npx cap run android",
+     "android:apk": "npm run android:sync && npx cap build android",
++    "ios:sync": "npm run build && npx cap sync ios && node scripts/validate-citation-source-assets.mjs --public-directory=ios/App/App/public",
++    "ios:open": "npx cap open ios",
++    "ios:run": "npm run ios:sync && node scripts/run-ios.mjs",
+     "lint": "eslint .",
+     "test": "vitest run",
+     "test:motion": "playwright test e2e/motion.spec.ts",
+@@ -38,6 +44,7 @@
+     "@capacitor/android": "^8.5.0",
+     "@capacitor/app": "^8.1.1",
+     "@capacitor/core": "^8.5.0",
++    "@capacitor/ios": "8.5.0",
+     "@capacitor/keyboard": "^8.0.5",
+     "@capacitor/status-bar": "^8.0.3",
+     "@gsap/react": "^2.1.2",
+diff --git a/scripts/generate-app-icons.mjs b/scripts/generate-app-icons.mjs
+index 4072829..485eaf7 100644
+--- a/scripts/generate-app-icons.mjs
++++ b/scripts/generate-app-icons.mjs
+@@ -1,4 +1,5 @@
+ import { mkdir, readFile } from "node:fs/promises";
++import { existsSync } from "node:fs";
+ import { dirname, resolve } from "node:path";
+ import { fileURLToPath } from "node:url";
+ import sharp from "sharp";
+@@ -76,4 +77,14 @@ for (const [density, scale] of [
+   await save(`${directory}/ic_launcher_foreground.png`, foreground);
+ }
+ 
+-console.log("Generated the app brand mark, 5 web icons and 15 Android launcher icons from the supplied logo.");
++if (existsSync(resolve(root, "ios/App/App/Assets.xcassets"))) {
++  const icon = await sharp(source)
++    .resize(1024, 1024, { fit: "contain", background })
++    .flatten({ background })
++    .png()
++    .toBuffer();
++  await save("ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png", icon);
++  await save("ios/App/App/Assets.xcassets/Splash.imageset/splash-logo.png", await square(512));
++}
++
++console.log("Generated the web, Android and available iOS brand assets from the supplied logo.");
+diff --git a/src/components/ui.tsx b/src/components/ui.tsx
+index dc7a2f3..5e85854 100644
+--- a/src/components/ui.tsx
++++ b/src/components/ui.tsx
+@@ -44,7 +44,7 @@ import { useBookCourseRepository } from "../context/BookCourseRepositoryContext"
+ import { IosStatusBar } from "./IosStatusBar";
+ import { usePadSidebarMotion } from "../motion/usePadSidebarMotion";
+ import { MotionIconSwap } from "../motion/MotionIconSwap";
+-import { getRuntimePlatform } from "../platform/nativeApp";
++import { getRuntimePlatform, registerNativeViewportUpdates } from "../platform/nativeApp";
+ import { getTextbookRetriever } from "../services/TextbookRetriever";
+ import { getCitationSourceText } from "../screens/sheets/citationSource";
+ import { communityBooks } from "../data/mockBook";
+@@ -502,7 +502,7 @@ export function AppShell({
+   const [navExpanded, setNavExpanded] = useState(false);
+   const isNavExpanded = deviceLayout === "pad" && navExpanded;
+   const runtimePlatform = getRuntimePlatform();
+-  const isNativeAndroid = runtimePlatform === "android";
++  const isNative = runtimePlatform !== "web";
+   const isEmbeddedPreview = new URLSearchParams(window.location.search).get("embedded") === "device-preview";
+   const mouseDragScroll = useMouseDragScroll({
+     enableVerticalMomentum: !motionReduced && (active === "study" || active === "community"),
+@@ -521,11 +521,12 @@ export function AppShell({
+   const syncOverlayViewport = useCallback(() => {
+     const shell = appShellRef.current;
+     if (!shell) return;
++    if (runtimePlatform === "ios") shell.style.setProperty("--native-viewport-height", `${window.innerHeight}px`);
+     const viewport = getOverlayViewportMetrics(shell);
+     shell.style.setProperty("--overlay-visual-top", `${Math.round(viewport.top)}px`);
+     shell.style.setProperty("--overlay-visual-height", `${Math.round(viewport.height)}px`);
+     shell.style.setProperty("--overlay-visual-bottom", `${Math.round(viewport.bottomGap)}px`);
+-  }, []);
++  }, [runtimePlatform]);
+ 
+   useLayoutEffect(() => {
+     const shell = appShellElement;
+@@ -539,6 +540,14 @@ export function AppShell({
+     visualViewport?.addEventListener("scroll", syncOverlayViewport);
+     window.addEventListener("resize", syncOverlayViewport);
+     window.addEventListener("orientationchange", syncOverlayViewport);
++    window.addEventListener("pageshow", syncOverlayViewport);
++    let frame = 0;
++    const removeNativeListeners = registerNativeViewportUpdates((keyboardVisible) => {
++      if (keyboardVisible !== undefined) shell.dataset.keyboardVisible = String(keyboardVisible);
++      syncOverlayViewport();
++      cancelAnimationFrame(frame);
++      frame = requestAnimationFrame(syncOverlayViewport);
++    });
+ 
+     return () => {
+       resizeObserver?.disconnect();
+@@ -546,6 +555,9 @@ export function AppShell({
+       visualViewport?.removeEventListener("scroll", syncOverlayViewport);
+       window.removeEventListener("resize", syncOverlayViewport);
+       window.removeEventListener("orientationchange", syncOverlayViewport);
++      window.removeEventListener("pageshow", syncOverlayViewport);
++      cancelAnimationFrame(frame);
++      removeNativeListeners();
+     };
+   }, [appShellElement, syncOverlayViewport]);
+ 
+@@ -578,10 +590,10 @@ export function AppShell({
+   // stable sibling of that replaceable layer so rapid boundary resizes never
+   // create a window where the navigation element has been replaced.
+   const deviceChrome = deviceLayout === "pad" ? (
+-    <PadChrome>{isEmbeddedPreview && !isNativeAndroid ? <IosStatusBar /> : null}</PadChrome>
++    <PadChrome>{isEmbeddedPreview && !isNative ? <IosStatusBar /> : null}</PadChrome>
+   ) : (
+     <PhoneChrome>
+-      {isNativeAndroid ? null : (
++      {isNative ? null : (
+         <>
+           <IosStatusBar />
+           <HomeIndicator />
+@@ -691,6 +703,7 @@ function useDialogFocus(
+   }, [dialogRef, enabled, focusKey, initialFocusRef]);
+ 
+   return (event: KeyboardEvent<HTMLElement>) => {
++    if (event.nativeEvent.isComposing) return;
+     if (event.key === "Escape") {
+       event.preventDefault();
+       event.stopPropagation();
+diff --git a/src/features/courses/FlowScreens.tsx b/src/features/courses/FlowScreens.tsx
+index 57820a0..083224b 100644
+--- a/src/features/courses/FlowScreens.tsx
++++ b/src/features/courses/FlowScreens.tsx
+@@ -144,7 +144,7 @@ export function OnboardingScreen() {
+               placeholder="输入你的姓名或昵称"
+               value={onboardingDraft.displayName}
+               onChange={(event) => update({ displayName: event.target.value })}
+-              onKeyDown={(event) => { if (event.key === "Enter") next(); }}
++              onKeyDown={(event) => { if (!event.nativeEvent.isComposing && event.key === "Enter") next(); }}
+             />
+           </div>
+         ) : step === 1 ? (
+diff --git a/src/features/studyNotes/InkAnnotationSurface.tsx b/src/features/studyNotes/InkAnnotationSurface.tsx
+index 0319c21..48825a6 100644
+--- a/src/features/studyNotes/InkAnnotationSurface.tsx
++++ b/src/features/studyNotes/InkAnnotationSurface.tsx
+@@ -66,6 +66,9 @@ export function InkAnnotationSurface({
+   const viewportRef = useRef<HTMLDivElement | null>(null);
+   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+   const draftStrokeRef = useRef<InkStroke | null>(null);
++  const drawingPointerRef = useRef<number | null>(null);
++  const onChangeRef = useRef(onChange);
++  const measuredSizeRef = useRef({ width: 0, height: 0 });
+   const strokesRef = useRef(strokes);
+   const pointersRef = useRef(new Map<number, { x: number; y: number; type: string }>());
+   const gestureRef = useRef<{
+@@ -85,6 +88,7 @@ export function InkAnnotationSurface({
+   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+   strokesRef.current = strokes;
++  onChangeRef.current = onChange;
+   draftRegionRef.current = draftRegion;
+ 
+   const pageRect = containImageRect(viewportSize.width, viewportSize.height, imageSize.width, imageSize.height);
+@@ -127,7 +131,23 @@ export function InkAnnotationSurface({
+     const viewport = viewportRef.current;
+     if (!viewport || typeof ResizeObserver === "undefined") return;
+     const observer = new ResizeObserver(() => {
+-      setViewportSize({ width: viewport.clientWidth, height: viewport.clientHeight });
++      const next = { width: viewport.clientWidth, height: viewport.clientHeight };
++      const previous = measuredSizeRef.current;
++      if (next.width === previous.width && next.height === previous.height) return;
++      measuredSizeRef.current = next;
++      // Keep normalized ink, but clear stale gesture coordinates after rotation.
++      const draft = draftStrokeRef.current;
++      if (draft?.points.length) onChangeRef.current([...strokesRef.current, draft]);
++      draftStrokeRef.current = null;
++      drawingPointerRef.current = null;
++      pointersRef.current.clear();
++      gestureRef.current = null;
++      panRef.current = null;
++      swipeStartRef.current = null;
++      regionStartRef.current = null;
++      setDraftRegion(null);
++      setTransform({ scale: 1, translateX: 0, translateY: 0 });
++      setViewportSize(next);
+       redraw();
+     });
+     observer.observe(viewport);
+@@ -166,6 +186,7 @@ export function InkAnnotationSurface({
+     const touches = Array.from(pointersRef.current.values()).filter((pointer) => pointer.type === "touch");
+     if (touches.length < 2) return;
+     draftStrokeRef.current = null;
++    drawingPointerRef.current = null;
+     swipeStartRef.current = null;
+     const first = touches[0];
+     const second = touches[1];
+@@ -179,6 +200,9 @@ export function InkAnnotationSurface({
+ 
+   function handlePointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
+     if (!active) return;
++    // A palm or second pointer must not replace an in-progress Pencil stroke.
++    if (drawingPointerRef.current !== null && event.pointerType !== "touch") return;
++    if (event.pointerType === "touch" && Array.from(pointersRef.current.values()).some((pointer) => pointer.type === "pen")) return;
+     event.currentTarget.setPointerCapture(event.pointerId);
+     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY, type: event.pointerType });
+     const touchCount = Array.from(pointersRef.current.values()).filter((pointer) => pointer.type === "touch").length;
+@@ -208,8 +232,9 @@ export function InkAnnotationSurface({
+     const bounds = canvasBounds();
+     if (!bounds) return;
+     const point = normalizedInkPoint(event.clientX, event.clientY, bounds, event.pressure, event.timeStamp);
++    drawingPointerRef.current = event.pointerId;
+     if (regionMode) {
+-      if (!isRegionPointer(event)) return;
++      if (!isRegionPointer(event)) { drawingPointerRef.current = null; return; }
+       regionStartRef.current = { x: point.x, y: point.y };
+       setDraftRegion({ x: point.x, y: point.y, width: 0, height: 0 });
+       return;
+@@ -258,6 +283,7 @@ export function InkAnnotationSurface({
+       return;
+     }
+ 
++    if (drawingPointerRef.current !== event.pointerId) return;
+     const bounds = canvasBounds();
+     if (!bounds) return;
+     const point = normalizedInkPoint(event.clientX, event.clientY, bounds, event.pressure, event.timeStamp);
+@@ -278,6 +304,7 @@ export function InkAnnotationSurface({
+   }
+ 
+   function endPointer(event: ReactPointerEvent<HTMLCanvasElement>) {
++    if (!pointersRef.current.has(event.pointerId)) return;
+     const swipeStart = swipeStartRef.current;
+     const swipe = event.type === "pointerup" && swipeStart?.pointerId === event.pointerId && transform.scale <= 1.01
+       ? pageSwipeDirection(event.clientX - swipeStart.x, event.clientY - swipeStart.y, viewportSize.width)
+@@ -285,6 +312,8 @@ export function InkAnnotationSurface({
+     pointersRef.current.delete(event.pointerId);
+     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+     if (pointersRef.current.size < 2) gestureRef.current = null;
++    if (drawingPointerRef.current !== null && drawingPointerRef.current !== event.pointerId) return;
++    drawingPointerRef.current = null;
+     panRef.current = null;
+     swipeStartRef.current = null;
+     const regionStart = regionStartRef.current;
+@@ -292,7 +321,7 @@ export function InkAnnotationSurface({
+     if (regionMode) {
+       const selection = draftRegionRef.current;
+       setDraftRegion(null);
+-      if (regionStart && selection && isRegionUsable(selection)) onRegionCommit?.(selection);
++      if (event.type === "pointerup" && regionStart && selection && isRegionUsable(selection)) onRegionCommit?.(selection);
+       return;
+     }
+     const draft = draftStrokeRef.current;
+@@ -349,6 +378,7 @@ export function InkAnnotationSurface({
+           onPointerMove={handlePointerMove}
+           onPointerUp={endPointer}
+           onPointerCancel={endPointer}
++          onLostPointerCapture={endPointer}
+         />
+         {!active && sourceText?.trim() ? (
+           <div
+diff --git a/src/features/studyNotes/SourceRegionAiPanel.tsx b/src/features/studyNotes/SourceRegionAiPanel.tsx
+index 26e73ac..a0df67b 100644
+--- a/src/features/studyNotes/SourceRegionAiPanel.tsx
++++ b/src/features/studyNotes/SourceRegionAiPanel.tsx
+@@ -289,6 +289,7 @@ export function SourceRegionAiPanel({
+       style={morphStyle}
+       onAnimationEnd={(event) => settleAnimation(event, motion.onAnimationEnd)}
+       onKeyDown={(event) => {
++        if (event.nativeEvent.isComposing) return;
+         if (event.key !== "Escape") return;
+         event.stopPropagation();
+         onClose();
+diff --git a/src/features/studyNotes/SourceTextNotePanel.tsx b/src/features/studyNotes/SourceTextNotePanel.tsx
+index d60b384..e4814fe 100644
+--- a/src/features/studyNotes/SourceTextNotePanel.tsx
++++ b/src/features/studyNotes/SourceTextNotePanel.tsx
+@@ -351,6 +351,7 @@ export function SourceTextNotePanel({
+       } as CSSProperties}
+       onAnimationEnd={(event) => settleAnimation(event, motion.onAnimationEnd)}
+       onKeyDown={(event) => {
++        if (event.nativeEvent.isComposing) return;
+         if (event.key === "Escape" || ((editing || voiceMode) && (event.metaKey || event.ctrlKey) && event.key === "Enter")) {
+           event.preventDefault();
+           void requestClose();
+diff --git a/src/platform/nativeApp.ts b/src/platform/nativeApp.ts
+index 84f53d9..1a5d5e8 100644
+--- a/src/platform/nativeApp.ts
++++ b/src/platform/nativeApp.ts
+@@ -13,15 +13,49 @@ export function isNativeAndroid() {
+   return getRuntimePlatform() === "android";
+ }
+ 
+-/** Keep Android system bars readable while CSS handles the edge-to-edge safe areas. */
++export function isNativeApp() {
++  return getRuntimePlatform() !== "web";
++}
++
++/** LIGHT describes the light background, so both platforms use dark text. */
+ export async function configureNativeAppShell() {
+-  if (!isNativeAndroid()) return;
++  if (!isNativeApp()) return;
+ 
+   // Avoid legacy overlay calls that resize the WebView away from the system
+   // navigation area and expose a solid strip underneath the tablet sidebar.
+   await SystemBars.setStyle({ style: SystemBarsStyle.Light }).catch(() => undefined);
+ }
+ 
++/** Native resize owns keyboard geometry; callers only remeasure the WebView. */
++export function registerNativeViewportUpdates(update: (keyboardVisible?: boolean) => void) {
++  if (!isNativeApp()) return () => undefined;
++  let disposed = false;
++  const handles: PluginListenerHandle[] = [];
++  const retain = (promise: Promise<PluginListenerHandle>) => {
++    void promise.then((handle) => {
++      if (disposed) void handle.remove();
++      else handles.push(handle);
++    }).catch(() => undefined);
++  };
++  const notify = (keyboardVisible?: boolean) => {
++    if (!disposed) update(keyboardVisible);
++  };
++  if (getRuntimePlatform() === "ios") {
++    retain(Keyboard.addListener("keyboardWillShow", () => notify(true)));
++    retain(Keyboard.addListener("keyboardDidShow", () => notify(true)));
++    retain(Keyboard.addListener("keyboardDidHide", () => notify(false)));
++  }
++  retain(NativeApp.addListener("appStateChange", ({ isActive }) => {
++    if (!isActive) return;
++    void configureNativeAppShell();
++    notify();
++  }));
++  return () => {
++    disposed = true;
++    handles.forEach((handle) => void handle.remove());
++  };
++}
++
+ export function registerAndroidBackButton(handler: () => void) {
+   if (!isNativeAndroid()) return () => undefined;
+ 
+@@ -45,7 +79,7 @@ export function registerAndroidBackButton(handler: () => void) {
+ }
+ 
+ export function dismissNativeKeyboardIfFocused() {
+-  if (!isNativeAndroid() || typeof document === "undefined") return false;
++  if (!isNativeApp() || typeof document === "undefined") return false;
+   const activeElement = document.activeElement;
+   const isEditable = activeElement instanceof HTMLInputElement
+     || activeElement instanceof HTMLTextAreaElement
+diff --git a/src/screens/CommunityScreen.tsx b/src/screens/CommunityScreen.tsx
+index a971338..b4b15b3 100644
+--- a/src/screens/CommunityScreen.tsx
++++ b/src/screens/CommunityScreen.tsx
+@@ -75,6 +75,7 @@ export function CommunityScreen() {
+   }
+ 
+   function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
++    if (event.nativeEvent.isComposing) return;
+     if (event.key === "Escape" || event.key === "Enter") {
+       event.preventDefault();
+       event.currentTarget.blur();
+diff --git a/src/screens/LessonScreen.tsx b/src/screens/LessonScreen.tsx
+index 643e028..8ee3a10 100644
+--- a/src/screens/LessonScreen.tsx
++++ b/src/screens/LessonScreen.tsx
+@@ -413,6 +413,7 @@ export function LessonScreen() {
+   }, [credits.refund]);
+ 
+   function handleLessonKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
++    if (event.nativeEvent.isComposing || event.target !== event.currentTarget) return;
+     if (event.key === "ArrowLeft") {
+       event.preventDefault();
+       moveLessonPage(activeLessonPage - 1);
+diff --git a/src/screens/UploadScreen.tsx b/src/screens/UploadScreen.tsx
+index 7ec2a8c..425fa2c 100644
+--- a/src/screens/UploadScreen.tsx
++++ b/src/screens/UploadScreen.tsx
+@@ -4,6 +4,8 @@ import { Button } from "../components/ui";
+ import { StickerIcon } from "../components/icons/StickerIcon";
+ import { useAppContext } from "../context/AppContext";
+ import { bookIdFromResourceId, localResourceId } from "../features/courses/model";
++import { getRuntimePlatform } from "../platform/nativeApp";
++import { normalizeImportFile } from "../platform/files";
+ 
+ export function UploadScreen() {
+   return <div className="screen-stack upload-sheet-screen upload-flow-screen"><CourseMaterialsUpload /></div>;
+@@ -15,6 +17,10 @@ export function CourseMaterialsUpload({ courseId }: { courseId?: string }) {
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const fileSequence = useRef(0);
++  const fileInputRef = useRef<HTMLInputElement>(null);
++  const isDemoPreview = getRuntimePlatform() === "web"
++    && new URLSearchParams(window.location.search).get("embedded") === "device-preview";
++  const selectFiles = () => isDemoPreview ? addMockFile() : fileInputRef.current?.click();
+   function addMockFile() {
+     const number = files.length ? fileSequence.current + 1 : 1;
+     fileSequence.current = number;
+@@ -60,16 +66,36 @@ export function CourseMaterialsUpload({ courseId }: { courseId?: string }) {
+     finally { setBusy(false); }
+   }
+   return <section className="upload-sheet-card upload-flow-primary">
++    <input
++      ref={fileInputRef}
++      type="file"
++      multiple
++      hidden
++      aria-label="选择本地课程文件"
++      accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.csv,image/*,application/pdf"
++      onChange={(event) => {
++        const selected = Array.from(event.currentTarget.files ?? []).map(normalizeImportFile);
++        if (selected.length) {
++          // The repository deduplicates by content; matching names alone must
++          // not discard different documents from separate document providers.
++          setFiles((current) => [...current, ...selected]);
++          setError(null);
++        }
++        // Permit selecting the same file after a removal or cancelled import.
++        event.currentTarget.value = "";
++      }}
++    />
+     {files.length ? <div className="upload-add-tile has-selection upload-selected-file-visual" role="group" aria-label={`已选择 ${files.length} 份学习资料`}>
+-      {files.map((file, index) => <div className="upload-selected-file-item" key={file.name}>
++      {files.map((file, index) => <div className="upload-selected-file-item" key={`${file.name}:${index}`}>
+         <span className="upload-selected-file-icon" role="img" aria-label={`资料 ${index + 1}`}>
+           <StickerIcon name="FileText" size={28} />
+           <span className="upload-file-number" aria-hidden="true">{index + 1}</span>
+         </span>
+         <button className="upload-remove-file" type="button" disabled={busy} aria-label={`移除资料 ${index + 1}`} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}><span className="upload-remove-file-mark"><X size={10} /></span></button>
+       </div>)}
+-      <button className="upload-add-more" type="button" disabled={busy} onClick={addMockFile} aria-label="继续添加资料"><Plus size={28} /></button>
+-    </div> : <button className="upload-add-tile" type="button" disabled={busy} onClick={addMockFile} aria-label="选择课程资料"><span className="upload-add-icon" aria-hidden="true"><Plus size={38} /></span></button>}
++      <button className="upload-add-more" type="button" disabled={busy} onClick={selectFiles} aria-label="继续添加资料"><Plus size={28} /></button>
++    </div> : <button className="upload-add-tile" type="button" disabled={busy} onClick={selectFiles} aria-label="选择课程资料"><span className="upload-add-icon" aria-hidden="true"><Plus size={38} /></span></button>}
++    {!isDemoPreview && files.length > 0 ? <ul className="upload-selected-file-names" aria-label="已选择文件名">{files.map((file, index) => <li key={`${file.name}:${index}`}>{index + 1}. {file.name}</li>)}</ul> : null}
+     <h3>添加课程资料</h3>
+     {error ? <p className="status-error-copy" role="alert">{error}</p> : null}
+     <Button disabled={!files.length || busy} loading={busy} onClick={() => void save()}>{busy ? "正在整理…" : "保存资料并继续"}</Button>
+diff --git a/src/screens/VoiceNoteScreen.tsx b/src/screens/VoiceNoteScreen.tsx
+index 9408cfc..cb8fe49 100644
+--- a/src/screens/VoiceNoteScreen.tsx
++++ b/src/screens/VoiceNoteScreen.tsx
+@@ -30,6 +30,7 @@ import {
+   saveAudioBlob
+ } from "../features/studyNotes/repository";
+ import type { NoteCaptureIntent, NotePipelinePhase, VoiceStudyNote } from "../features/studyNotes/types";
++import { recordingDuration, recordingErrorMessage } from "../platform/recording";
+ 
+ type RecordingState = "idle" | "requesting" | "recording" | "paused" | "ready";
+ export type VoiceNoteHandle = { save: () => Promise<VoiceStudyNote | undefined> };
+@@ -101,12 +102,16 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+   const startedAtRef = useRef(0);
+   const pausedAtRef = useRef(0);
+   const totalPausedRef = useRef(0);
++  const stoppedDurationRef = useRef<number | null>(null);
+   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
+   const [durationMs, setDurationMs] = useState(0);
+   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+   const [audioUrl, setAudioUrl] = useState("");
+   const [waveform, setWaveform] = useState<number[]>(Array.from({ length: 32 }, () => 0.08));
+   const [permissionError, setPermissionError] = useState("");
++  const [recordingSaved, setRecordingSaved] = useState(true);
++  const recordingSavedRef = useRef(true);
++  recordingSavedRef.current = recordingSaved;
+   const [pipelinePhase, setPipelinePhase] = useState<NotePipelinePhase>("idle");
+   const [transcript, setTranscript] = useState("");
+   const [organizedText, setOrganizedText] = useState("");
+@@ -185,6 +190,7 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+   }
+ 
+   async function acceptRecordedBlob(blob: Blob, nextDuration: number, nextWaveform: number[]) {
++    if (blob.size === 0) throw new Error("未录到音频，请检查麦克风后重新录制。");
+     if (blob.size > maximumSizeBytes) {
+       setPermissionError("录音超过 20MB，请缩短后重新录制。");
+       throw new Error("录音超过 20MB，请缩短后重新录制。");
+@@ -192,9 +198,7 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+     const previousAudioId = audioIdRef.current;
+     const nextAudioId = `audio-${noteIdRef.current}-${Date.now()}`;
+     audioIdRef.current = nextAudioId;
+-    const persisted = await saveAudioBlob(nextAudioId, blob);
+-    if (!persisted) showToast("录音仅保留在当前会话，本设备音频存储暂不可用", "warning");
+-    if (previousAudioId) void deleteAudioBlob(previousAudioId);
++    setRecordingSaved(false);
+     setAudioBlob(blob);
+     setDurationMs(nextDuration);
+     setWaveform(nextWaveform);
+@@ -205,7 +209,9 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+     setOrganizedText("");
+     const nextVersion = noteVersion + 1;
+     setNoteVersion(nextVersion);
+-    return saveVoiceDraft({
++    const persisted = await saveAudioBlob(nextAudioId, blob);
++    if (!persisted) throw new Error("录音仅保留在本次会话，尚未保存到设备。请勿关闭页面，释放存储空间后点击“重试保存”。");
++    const note = await saveVoiceDraft({
+       audioId: nextAudioId,
+       mimeType: blob.type,
+       durationMs: nextDuration,
+@@ -219,42 +225,47 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+       noteVersion: nextVersion,
+       pipelinePhase: "idle"
+     });
++    setRecordingSaved(true);
++    if (previousAudioId && previousAudioId !== nextAudioId) void deleteAudioBlob(previousAudioId);
++    return note;
+   }
+ 
+   function stopRecording() {
+     const recorder = recorderRef.current;
+     if (recorder && recorder.state !== "inactive") {
+-      if (recorder.state === "paused") {
+-        totalPausedRef.current += performance.now() - pausedAtRef.current;
+-        recorder.resume();
+-      }
++      stoppedDurationRef.current = recordingDuration(startedAtRef.current, totalPausedRef.current,
++        recorder.state === "paused" ? pausedAtRef.current : null, performance.now());
+       recorder.stop();
+     }
+     return recordingCompletionRef.current?.promise;
+   }
+ 
+-  useImperativeHandle(ref, () => ({
+-    async save() {
+-      // Complete the current recording before the anchored popup unmounts.
+-      // Invalidating a pending permission request also releases any late stream.
+-      requestGenerationRef.current += 1;
+-      processingGenerationRef.current += 1;
+-      const recording = stopRecording();
+-      if (recording) return recording;
+-      if (!audioBlob) return latestSavedNoteRef.current;
+-      // A dismissed local AI task is resumable when this annotation reopens.
+-      const nextPhase = ["transcribing", "retrieving", "organizing", "reviewing"].includes(pipelinePhase)
+-        ? transcript.trim() ? "needs_confirmation" : "idle" : pipelinePhase;
+-      return saveVoiceDraft({ pipelinePhase: nextPhase });
+-    }
+-  }));
++  async function saveCurrentRecording() {
++    // Complete the current recording before the anchored popup unmounts.
++    // Invalidating a pending permission request also releases any late stream.
++    requestGenerationRef.current += 1;
++    processingGenerationRef.current += 1;
++    const recording = stopRecording();
++    if (recording) return recording;
++    if (!audioBlob) return latestSavedNoteRef.current;
++    // A dismissed local AI task is resumable when this annotation reopens.
++    const nextPhase = ["transcribing", "retrieving", "organizing", "reviewing"].includes(pipelinePhase)
++      ? transcript.trim() ? "needs_confirmation" : "idle" : pipelinePhase;
++    const persisted = audioIdRef.current && await saveAudioBlob(audioIdRef.current, audioBlob);
++    if (!persisted) throw new Error("录音尚未保存到设备。请勿关闭页面，释放存储空间后重试。");
++    const note = await saveVoiceDraft({ pipelinePhase: nextPhase });
++    setRecordingSaved(true);
++    return note;
++  }
++
++  useImperativeHandle(ref, () => ({ save: saveCurrentRecording }));
+ 
+   async function startRecording() {
+     if (recorderRef.current?.state === "recording" || recorderRef.current?.state === "paused") return;
+     const generation = ++requestGenerationRef.current;
+     setPermissionError("");
+     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+-      setPermissionError("当前 Android WebView 不支持网页录音，请使用示例录音。");
++      setPermissionError("当前设备不支持网页录音，请更新系统或使用示例录音。");
+       return;
+     }
+     setRecordingState("requesting");
+@@ -279,6 +290,8 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+       discardRecordingRef.current = false;
+       waveformRef.current = [];
+       totalPausedRef.current = 0;
++      pausedAtRef.current = 0;
++      stoppedDurationRef.current = null;
+       startedAtRef.current = performance.now();
+       recorder.addEventListener("dataavailable", (event) => {
+         if (event.data.size > 0) chunksRef.current.push(event.data);
+@@ -289,9 +302,11 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+           completion.resolve(undefined);
+           return;
+         }
+-        const elapsed = Math.min(maximumDurationMs, Math.max(0, performance.now() - startedAtRef.current - totalPausedRef.current));
+-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || "audio/webm" });
++        const elapsed = Math.min(maximumDurationMs, stoppedDurationRef.current ?? recordingDuration(
++          startedAtRef.current, totalPausedRef.current, pausedAtRef.current || null, performance.now()));
++        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || chunksRef.current[0]?.type || mimeType });
+         stopMediaTracks();
++        if (blob.size === 0 || blob.size > maximumSizeBytes) setRecordingState("idle");
+         void acceptRecordedBlob(blob, elapsed, downsampleWaveform(waveformRef.current)).then(completion.resolve, (error: unknown) => {
+           setPermissionError(error instanceof Error ? error.message : "录音保存失败，请重试。");
+           completion.reject(error);
+@@ -299,20 +314,32 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+           if (recordingCompletionRef.current === completion) recordingCompletionRef.current = null;
+         });
+       });
+-      const audioContext = new AudioContext();
+-      audioContextRef.current = audioContext;
+-      const analyser = audioContext.createAnalyser();
+-      analyser.fftSize = 256;
+-      audioContext.createMediaStreamSource(stream).connect(analyser);
+-      const samples = new Uint8Array(analyser.frequencyBinCount);
+-      const readLevel = () => {
+-        analyser.getByteTimeDomainData(samples);
+-        const level = Math.max(0.05, Math.sqrt(samples.reduce((sum, sample) => sum + ((sample - 128) / 128) ** 2, 0) / samples.length));
+-        waveformRef.current.push(Math.min(1, level * 4));
+-        setWaveform((current) => [...current.slice(-47), Math.min(1, level * 4)]);
+-        animationFrameRef.current = requestAnimationFrame(readLevel);
+-      };
+-      readLevel();
++      // Metering is optional: WebKit may suspend AudioContext after permission UI.
++      try {
++        const audioContext = new AudioContext();
++        audioContextRef.current = audioContext;
++        void audioContext.resume().catch(() => undefined);
++        audioContext.addEventListener("statechange", () => {
++          if ((audioContext.state as string) === "interrupted") stopRecording();
++        });
++        const analyser = audioContext.createAnalyser();
++        analyser.fftSize = 256;
++        audioContext.createMediaStreamSource(stream).connect(analyser);
++        const samples = new Uint8Array(analyser.frequencyBinCount);
++        const readLevel = () => {
++          analyser.getByteTimeDomainData(samples);
++          const level = Math.max(0.05, Math.sqrt(samples.reduce((sum, sample) => sum + ((sample - 128) / 128) ** 2, 0) / samples.length));
++          waveformRef.current.push(Math.min(1, level * 4));
++          setWaveform((current) => [...current.slice(-47), Math.min(1, level * 4)]);
++          animationFrameRef.current = requestAnimationFrame(readLevel);
++        };
++        readLevel();
++      } catch { /* Audio capture can continue without a live waveform. */ }
++      recorder.addEventListener("error", () => {
++        setPermissionError("录音已中断，正在保留已录片段。请回放确认后重新录制。");
++        stopRecording();
++      });
++      stream.getTracks().filter((track) => track.kind === "audio").forEach((track) => track.addEventListener("ended", () => stopRecording()));
+       recorder.start(500);
+       setRecordingState("recording");
+       timerRef.current = window.setInterval(() => {
+@@ -327,9 +354,7 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+       recordingCompletionRef.current = null;
+       stopMediaTracks();
+       setRecordingState("idle");
+-      setPermissionError(error instanceof DOMException && error.name === "NotAllowedError"
+-        ? "麦克风权限未开启。请在 Android 设置中允许 BookCourse AI 使用麦克风，然后重新尝试。"
+-        : "无法启动麦克风，请检查系统权限或使用示例录音。");
++      setPermissionError(recordingErrorMessage(error));
+     }
+   }
+ 
+@@ -345,6 +370,7 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+     if (recorder.state === "paused") {
+       recorder.resume();
+       totalPausedRef.current += performance.now() - pausedAtRef.current;
++      pausedAtRef.current = 0;
+       setRecordingState("recording");
+     }
+   }
+@@ -353,8 +379,12 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+     setPermissionError("");
+     const blob = createSilentWavBlob(8);
+     const samples = Array.from({ length: 48 }, (_, index) => 0.18 + Math.abs(Math.sin(index * 0.58)) * 0.7);
+-    await acceptRecordedBlob(blob, 8_000, samples);
+-    showToast("已载入演示录音");
++    try {
++      await acceptRecordedBlob(blob, 8_000, samples);
++      showToast("已载入演示录音");
++    } catch (error) {
++      setPermissionError(error instanceof Error ? error.message : "录音保存失败，请重试。");
++    }
+   }
+ 
+   async function transcribeRecording() {
+@@ -438,9 +468,25 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+ 
+   useEffect(() => {
+     let handle: PluginListenerHandle | undefined;
++    let disposed = false;
++    const finishOnInterruption = () => {
++      const recorder = recorderRef.current;
++      if (recorder && recorder.state !== "inactive") {
++        void stopRecording()?.then(() => showToast("录音已因应用切换而结束，请回放确认。", "info"), () => undefined);
++      } else {
++        // Ignore a late permission response after the page leaves the foreground.
++        requestGenerationRef.current += 1;
++        setRecordingState((current) => current === "requesting" ? "idle" : current);
++      }
++    };
+     void CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+-      if (!isActive && recorderRef.current?.state !== "inactive") stopRecording();
+-    }).then((next) => { handle = next; });
++      if (!isActive) finishOnInterruption();
++    }).then((next) => {
++      if (disposed) void next.remove();
++      else handle = next;
++    }).catch(() => undefined);
++    const handleVisibility = () => { if (document.hidden) finishOnInterruption(); };
++    document.addEventListener("visibilitychange", handleVisibility);
+     const handleNativeBack = (event: Event) => {
+       if (event.defaultPrevented) return;
+       if (embedded) {
+@@ -448,6 +494,11 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+         onClose?.();
+         return;
+       }
++      if (!recordingSavedRef.current) {
++        event.preventDefault();
++        showToast("录音尚未保存，请先重试保存或明确选择重新录制。", "warning");
++        return;
++      }
+       if (recorderRef.current?.state === "recording" || recorderRef.current?.state === "paused") {
+         event.preventDefault();
+         if (window.confirm("正在录音。是否保存已经录下的片段？")) {
+@@ -472,6 +523,8 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+     };
+     window.addEventListener("bookcourse:native-back", handleNativeBack);
+     return () => {
++      disposed = true;
++      document.removeEventListener("visibilitychange", handleVisibility);
+       void handle?.remove();
+       window.removeEventListener("bookcourse:native-back", handleNativeBack);
+       requestGenerationRef.current += 1;
+@@ -494,8 +547,8 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+     return () => { cancelled = true; };
+   }, [autoStart]);
+   useEffect(() => {
+-    onStatusChange?.({ idle: "待录音", requesting: "开启麦克风…", recording: "正在录音", paused: "已暂停", ready: "已保存" }[recordingState]);
+-  }, [onStatusChange, recordingState]);
++    onStatusChange?.({ idle: "待录音", requesting: "开启麦克风…", recording: "正在录音", paused: "已暂停", ready: recordingSaved ? "已保存" : "尚未保存" }[recordingState]);
++  }, [onStatusChange, recordingState, recordingSaved]);
+ 
+   const processing = ["transcribing", "retrieving", "organizing", "reviewing"].includes(pipelinePhase);
+   const processingLabel: Partial<Record<NotePipelinePhase, string>> = {
+@@ -525,15 +578,20 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+             {waveform.map((value, index) => <i key={index} style={{ height: `${Math.max(8, value * 78)}%` }} />)}
+           </div>
+           <div className="voice-recorder-time">{formatDuration(durationMs)}</div>
+-          <h2>{recordingState === "recording" ? "正在听你说…" : recordingState === "paused" ? "录音已暂停" : recordingState === "ready" ? "这段想法已经记下" : "录一段语音笔记"}</h2>
++          <h2>{recordingState === "recording" ? "正在听你说…" : recordingState === "paused" ? "录音已暂停" : recordingState === "ready" ? recordingSaved ? "这段想法已经记下" : "录音尚未保存到设备" : "录一段语音笔记"}</h2>
+           <p>{recordingState === "ready" ? "先回放确认，再生成可编辑逐字稿。" : "最长 10 分钟；原始录音会与整理版分别保留。"}</p>
+ 
+           {permissionError ? (
+             <div className="voice-permission-error" role="alert">
+-              <strong>无法使用麦克风</strong>
++              <strong>{recordingState === "ready" && !recordingSaved ? "录音尚未保存" : "录音提示"}</strong>
+               <p>{permissionError}</p>
+               <div>
+-                <Button variant="secondary" onClick={() => void startRecording()}>重新尝试</Button>
++                {recordingState === "ready" && !recordingSaved ? (
++                  <Button variant="secondary" onClick={() => {
++                    setPermissionError("");
++                    void saveCurrentRecording().catch((error: unknown) => setPermissionError(error instanceof Error ? error.message : "录音保存失败，请重试。"));
++                  }}>重试保存</Button>
++                ) : <Button variant="secondary" onClick={() => void startRecording()}>重新尝试</Button>}
+                 <Button variant="text" onClick={() => void useSampleRecording()}>使用示例录音</Button>
+               </div>
+             </div>
+@@ -549,7 +607,7 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+               </>
+             ) : recordingState === "ready" ? (
+               <>
+-                <button type="button" aria-label="重新录制" onClick={() => { setAudioBlob(null); setDurationMs(0); setWaveform([]); setRecordingState("idle"); }}><RotateCcw size={22} /></button>
++                <button type="button" aria-label="重新录制" onClick={() => { setAudioBlob(null); setDurationMs(0); setWaveform([]); setRecordingState("idle"); setRecordingSaved(true); setPermissionError(""); }}><RotateCcw size={22} /></button>
+                 {audioUrl ? <audio className="voice-audio-player" controls src={audioUrl} aria-label="语音笔记录音" /> : null}
+               </>
+             ) : (
+@@ -561,7 +619,7 @@ export function VoiceNoteScreen({ embedded = false, captureIntent, annotationTex
+ 
+           {recordingState === "idle" && !permissionError ? <Button variant="text" onClick={() => void useSampleRecording()}>使用示例录音</Button> : null}
+           {recordingState === "ready" && pipelinePhase === "idle" ? (
+-            <Button icon={<Sparkles size={18} />} onClick={() => void transcribeRecording()}>完成并整理</Button>
++            <Button disabled={!recordingSaved} icon={<Sparkles size={18} />} onClick={() => void transcribeRecording()}>完成并整理</Button>
+           ) : null}
+           {processing ? (
+             <div className="voice-processing" role="status"><LoaderCircle className="spin" size={20} />{processingLabel[pipelinePhase] ?? "正在处理…"}</div>
+diff --git a/src/styles/responsive.css b/src/styles/responsive.css
+index 41dfd55..9ae1ec5 100644
+--- a/src/styles/responsive.css
++++ b/src/styles/responsive.css
+@@ -239,6 +239,21 @@ body {
+   --safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+ }
+ 
++/* WKWebView supplies the real insets; preview-only chrome has no native size. */
++.app-shell[data-runtime-platform="ios"] {
++  --status-bar-height: env(safe-area-inset-top, 0px);
++  --home-indicator-height: 0px;
++  --safe-area-top: env(safe-area-inset-top, 0px);
++  --safe-area-right: env(safe-area-inset-right, 0px);
++  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
++  --safe-area-left: env(safe-area-inset-left, 0px);
++  --primary-nav-bottom: calc(var(--safe-area-bottom) + 6px);
++  height: var(--native-viewport-height, 100vh);
++}
++
++/* Keep env() as the inset source while typing too. A floating iPad keyboard
++   does not cover the home indicator, unlike a docked keyboard. */
++
+ .ai-overlay-layer {
+   position: absolute;
+   z-index: 45;
+diff --git a/src/styles/tablet.css b/src/styles/tablet.css
+index 6e1862a..310a84d 100644
+--- a/src/styles/tablet.css
++++ b/src/styles/tablet.css
+@@ -70,7 +70,7 @@
+     height: calc(100% - var(--status-bar-height));
+   }
+ 
+-  .app-shell[data-device-layout="pad"][data-runtime-platform="android"] .primary-nav.glass-nav[data-lg-variant="prominent"] {
++  .app-shell[data-device-layout="pad"]:is([data-runtime-platform="android"], [data-runtime-platform="ios"]) .primary-nav.glass-nav[data-lg-variant="prominent"] {
+     top: var(--safe-area-top);
+     height: calc(100% - var(--safe-area-top));
+     padding-bottom: calc(20px + var(--safe-area-bottom));
+diff --git a/src/styles/upload.css b/src/styles/upload.css
+index 3fd2809..8fa3861 100644
+--- a/src/styles/upload.css
++++ b/src/styles/upload.css
+@@ -1,6 +1,15 @@
+ /* Upload is a focused, single-decision flow: a lavender cover with one white
+    content sheet. The sheet owns the viewport edges so the learner never has to
+    scan a collection of competing cards before choosing a file. */
++.upload-selected-file-names {
++  width: 100%;
++  margin: 0;
++  padding: 0;
++  list-style: none;
++  font-size: 14px;
++  overflow-wrap: anywhere;
++}
++
+ .app-shell[data-active-screen="upload"] {
+   --upload-cover: #dccafa;
+   --upload-sheet-top: 108px;
+diff --git a/vite.config.ts b/vite.config.ts
+index a89974a..46f6a84 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -49,6 +49,6 @@ export default defineConfig({
+     ...httpsOptions
+   },
+   test: {
+-    exclude: [...configDefaults.exclude, "e2e/**", "tmp/**"]
++    exclude: [...configDefaults.exclude, "e2e/**", "tmp/**", "output/**"]
+   }
+ });

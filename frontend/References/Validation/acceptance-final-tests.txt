@@ -1,0 +1,89 @@
+Command: scripts/test.sh --device C405B13F-6B58-4601-A67D-BFE323436F8A --all --result output/Acceptance-Final.xcresult -- ARCHS=arm64
+App debug dylib SHA-256: 88aa4bbf4e3c6acf0645c6dab0526c5e20164fa3445cb3c51996b8279038e800
+
+Test Case '-[BookCourseTests.CommunityAssistantTests testFullCatalogLinksEveryDiscoveryCourseInOriginalOrder]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.CommunityAssistantTests testNamedCourseUsesCatalogMetadata]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.CommunityAssistantTests testRecommendationsCombineSubjectAndGrade]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.CommunityAssistantTests testUnmatchedQuestionStaysWithinDiscoveryCatalog]' passed (0.001 seconds).
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Case '-[BookCourseTests.CoreTests testAllCommunityEntriesUseExactContentOrTheirOwnDirectory]' passed (0.367 seconds).
+Test Case '-[BookCourseTests.CoreTests testChapterEditsRemainDraftUntilExplicitConfirmation]' passed (0.268 seconds).
+Test Case '-[BookCourseTests.CoreTests testCreditReservationRefundAndInterruptedRecovery]' passed (0.130 seconds).
+Test Case '-[BookCourseTests.CoreTests testCrossSourceCitationReturnsToOriginalCourseAndLesson]' passed (0.106 seconds).
+Test Case '-[BookCourseTests.CoreTests testDeletedDemoNoteIsNotSeededAgain]' passed (0.004 seconds).
+Test Case '-[BookCourseTests.CoreTests testEveryBundledSourceDecodesWithoutLosingIDs]' passed (0.026 seconds).
+Test Case '-[BookCourseTests.CoreTests testFailedCreditWriteDoesNotSpendOrStartOperation]' passed (0.057 seconds).
+Test Case '-[BookCourseTests.CoreTests testFontsHaveUniquePostScriptNames]' passed (0.002 seconds).
+Test Case '-[BookCourseTests.CoreTests testGroupedAssignmentChecksObjectiveQuestionsSeparatelyFromShortAnswer]' passed (0.078 seconds).
+Test Case '-[BookCourseTests.CoreTests testInterruptedImportRetainsOriginalAndResumes]' passed (0.092 seconds).
+Test Case '-[BookCourseTests.CoreTests testLogoutPreservesCoursesNotesAndCredits]' passed (0.070 seconds).
+Test Case '-[BookCourseTests.CoreTests testPublishedPagesAreCompleteAndHashesMatch]' passed (0.051 seconds).
+Test Case '-[BookCourseTests.CoreTests testRoutesAndSheetsCoverSourceContracts]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.CoreTests testSourceSelectionAndCitationKeepResourceIdentity]' passed (0.096 seconds).
+Test Case '-[BookCourseTests.CoreTests testSQLiteSnapshotAndSourceSurviveReopen]' passed (0.005 seconds).
+	 Executed 15 tests, with 0 failures (0 unexpected) in 1.353 (1.356) seconds
+Test Case '-[BookCourseTests.CourseTests testChapterEditorPreservesHierarchyAndRejectsCycle]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.CourseTests testChapterEditorRejectsOutOfDocumentAndSiblingOverlap]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.CourseTests testCourseRecommendationsRankAcrossResourcesAndShareDailyBudget]' passed (0.029 seconds).
+Test Case '-[BookCourseTests.CourseTests testFreeReviewIsExclusiveButCanBeReplacedOrDeselected]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.CourseTests testHomeNextStepPrioritizesSavedSectionThenUnfinishedPlanAndSkipsContainers]' passed (0.026 seconds).
+Test Case '-[BookCourseTests.CourseTests testOnboardingDraftSurvivesReopeningAndIsClearedOnCompletion]' passed (0.003 seconds).
+Test Case '-[BookCourseTests.CourseTests testRecommendationExcludesCompletedTasksAndKeepsReviewPreferences]' passed (0.026 seconds).
+Test Case '-[BookCourseTests.CourseTests testRepositoryCourseProgressExcludesPlanPresentationMocks]' passed (0.000 seconds).
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.086 (0.087) seconds
+Test Case '-[BookCourseTests.ImporterTests testAsyncExtractionUsesSameBookAndPageIdentity]' passed (0.019 seconds).
+Test Case '-[BookCourseTests.ImporterTests testCancellationPreservesOriginalAndAllowsRetry]' passed (0.006 seconds).
+Test Case '-[BookCourseTests.ImporterTests testCorruptUnsupportedMissingXMLAndOversizedOfficeEntriesFail]' passed (0.010 seconds).
+Test Case '-[BookCourseTests.ImporterTests testEmptyOversizedAndDirectoryInputsAreRejectedBeforeCopying]' passed (0.005 seconds).
+Test Case '-[BookCourseTests.ImporterTests testExtractionFailureLeavesStagedOriginalAvailableForRetry]' passed (0.004 seconds).
+Test Case '-[BookCourseTests.ImporterTests testLongUnicodeTextSplitsWithoutLosingCharactersOrChangingPage]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.ImporterTests testOfficeWordRunsPresentationNumericOrderingAndSpreadsheetCells]' passed (0.002 seconds).
+Test Case '-[BookCourseTests.ImporterTests testPDFTextKeepsPageNumbersAndOriginalCitations]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.ImporterTests testRepeatedContentGetsStableBookIDAndSeparateOriginalFiles]' passed (0.004 seconds).
+Test Case '-[BookCourseTests.ImporterTests testScannedPDFAndImageRemainReadableWithoutInventedText]' passed (0.003 seconds).
+Test Case '-[BookCourseTests.ImporterTests testTextMarkdownCSVPreserveOriginalUTF8Content]' passed (0.001 seconds).
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.055 (0.057) seconds
+Test Case '-[BookCourseTests.LearningTests testChapterProgressCountsInProgressAsHalfAndIgnoresOtherChapters]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.LearningTests testDirectoryKeepsFormalSectionsAndLocalPagesButOmitsFrontmatter]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.LearningTests testPageScansExcludedButExtractedFiguresRetained]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.LearningTests testPreferredToolsHonorGoalsWithoutDuplicatingCards]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.LearningTests testPrettyReadingUsesOriginalFontAndMatchesWebKitPhoneAndPadLineBreaks]' passed (0.004 seconds).
+Test Case '-[BookCourseTests.LearningTests testPrintedPageRangePreservesOriginalSpan]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.LearningTests testQuestionKindUsesExplicitTypeBeforeChoiceCount]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.LearningTests testSharedIllustrationsAreDistributedBeforeSecondSlots]' passed (0.000 seconds).
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Case '-[BookCourseTests.NoteTests testDrawingKeepsRelativeLocationWhenPageWidthChanges]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.NoteTests testLateTextWriteCannotOverwriteNewerDraft]' passed (0.132 seconds).
+Test Case '-[BookCourseTests.NoteTests testNoteMediaAndCourseIdentitySurviveRepositoryReopen]' passed (0.012 seconds).
+Test Case '-[BookCourseTests.NoteTests testOriginalPageRestoresAcrossRestartWithoutCrossingCourseOrBook]' passed (0.093 seconds).
+Test Case '-[BookCourseTests.NoteTests testSampleAudioIsDecodableAndExplicitlyMarkedAsSample]' passed (0.061 seconds).
+Test Case '-[BookCourseTests.NoteTests testTextAutosaveDebouncesToLatestAndSurvivesRepositoryReopen]' passed (0.712 seconds).
+Test Case '-[BookCourseTests.NoteTests testTextSaveFailurePreservesDraftForRetry]' passed (0.013 seconds).
+Test Case '-[BookCourseTests.NoteTests testTextUpgradeToVoiceKeepsIDBodyAnchorAndSingleRecord]' passed (0.012 seconds).
+	 Executed 8 tests, with 0 failures (0 unexpected) in 1.037 (1.040) seconds
+Test Case '-[BookCourseTests.RAGTests testBM25FiftyQueryCalibrationMatchesCommittedReference]' passed (0.155 seconds).
+Test Case '-[BookCourseTests.RAGTests testBM25MatchesSourceGoldenRanksScoresAndReliability]' passed (0.079 seconds).
+Test Case '-[BookCourseTests.RAGTests testChapterPriorOnlyBoostsTheRequestedScope]' passed (0.185 seconds).
+Test Case '-[BookCourseTests.RAGTests testEmptyQueryDoesNotInventEvidence]' passed (0.001 seconds).
+Test Case '-[BookCourseTests.RAGTests testNativeBGEFiftyQueryEvaluationPreservesRetrievalQuality]' passed (0.473 seconds).
+Test Case '-[BookCourseTests.RAGTests testNativeBGEProducesFiniteNormalized512DimensionEmbedding]' passed (0.119 seconds).
+Test Case '-[BookCourseTests.RAGTests testOfflineAssistantDoesNotBorrowBiologyForAnotherCourse]' passed (0.024 seconds).
+Test Case '-[BookCourseTests.RAGTests testOfflineAssistantGreetsWithoutTextbookCitation]' passed (0.000 seconds).
+Test Case '-[BookCourseTests.RAGTests testOfflineAssistantPreservesImportedDocumentIdentity]' passed (0.025 seconds).
+Test Case '-[BookCourseTests.RAGTests testPinnedModelAndCasedNormalizerContract]' passed (0.080 seconds).
+Test Case '-[BookCourseTests.RAGTests testTokenizerMatchesAllSourceGoldenCases]' passed (0.011 seconds).
+	 Executed 11 tests, with 0 failures (0 unexpected) in 1.152 (1.154) seconds
+	 Executed 65 tests, with 0 failures (0 unexpected) in 3.695 (3.708) seconds
+	 Executed 65 tests, with 0 failures (0 unexpected) in 3.695 (3.710) seconds
+Test Case '-[BookCourseUITests.BookCourseUITests testAllRoutesAndGlobalSheetsLaunch]' passed (146.008 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testAssistantDockAndFlashcardFlipMasterySurvivesRelaunch]' passed (22.969 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testCourseLessonCitationNoteSurvivesRelaunch]' passed (29.336 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testLandscapeCorePages]' passed (69.315 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testNotesLocalPopupsHandwritingRegionAndVoiceSample]' passed (23.786 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testOfflineAssistantGreeting]' passed (8.982 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testSourceTextAutosaveSurvivesTermination]' passed (12.636 seconds).
+Test Case '-[BookCourseUITests.BookCourseUITests testTabsAndCourseLearningEntry]' passed (8.457 seconds).
+	 Executed 8 tests, with 0 failures (0 unexpected) in 321.489 (321.494) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 321.489 (321.495) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 321.489 (321.497) seconds
+** TEST SUCCEEDED **

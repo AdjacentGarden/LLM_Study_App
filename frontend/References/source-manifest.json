@@ -1,0 +1,2521 @@
+{
+  "source": "/Users/renxingyu/code/study_app_demo_ios",
+  "commit": "4a74d61a5c2d7937311c7d46f105dc17cb1f6b9e",
+  "files": [
+    {
+      "path": "src/App.tsx",
+      "bytes": 53061,
+      "sha256": "bd3be159bc99feac7766be7d6e838551df5b821c264b0ee1d19957f6f27e21bd"
+    },
+    {
+      "path": "src/api/bookcourseApi.test.ts",
+      "bytes": 4127,
+      "sha256": "286bdd4fec701e174803ad7acb073af495bed287043cea10f5b399e45da7a38b"
+    },
+    {
+      "path": "src/api/bookcourseApi.ts",
+      "bytes": 461,
+      "sha256": "f864c517dd6217768371f34686a78947616dab7774e851da39129750a1b0e18c"
+    },
+    {
+      "path": "src/components/BottomNavigationBlur.tsx",
+      "bytes": 595,
+      "sha256": "27e926b174e8713e1685dbe72dcd8dad4c5568b9584ada9842eb1eef68d3a77e"
+    },
+    {
+      "path": "src/components/CourseRemovalMotion.tsx",
+      "bytes": 1257,
+      "sha256": "be34bc80dff9430b4cdea43e59102cd00c4a2ecedc397205f74cc3e9a0be1a0d"
+    },
+    {
+      "path": "src/components/EmptyStateIllustration.tsx",
+      "bytes": 626,
+      "sha256": "30979019f77a40f53b135fc2e7cc6c88e22273a8986435585825e3b2a08c9202"
+    },
+    {
+      "path": "src/components/ErrorBoundary.tsx",
+      "bytes": 1064,
+      "sha256": "b34fa5656a74e853d3201b2d228aff424ebe9306d529cf2140c8c5c3b5c70198"
+    },
+    {
+      "path": "src/components/IosStatusBar.tsx",
+      "bytes": 3486,
+      "sha256": "c4b54459a6bcef58c81bc1c7a8c14693e89961598eaec5012b9223a7bb97ef3b"
+    },
+    {
+      "path": "src/components/PageHeaderBackground.tsx",
+      "bytes": 1196,
+      "sha256": "632781dd3e6c3195795eb67ef81a597b3c7a92bb18119483bcd8b01a6453abd0"
+    },
+    {
+      "path": "src/components/aiAssistantArtwork.ts",
+      "bytes": 564,
+      "sha256": "8f59961f87a91e89fac7e7efbe3050fffcd6262428f62ffdaf97be82249df4a1"
+    },
+    {
+      "path": "src/components/home/HomeBookCarousel.tsx",
+      "bytes": 14834,
+      "sha256": "c59bfd63172834a12ebda65947edfec7cda6e3fdbe07001e6645381d38c881d3"
+    },
+    {
+      "path": "src/components/home/HomeWorkspaceMotion.tsx",
+      "bytes": 3930,
+      "sha256": "64880ead8884450f4f1cb91fc8a2ef712ebf7b3e0be2001323b23bfd534cc2c0"
+    },
+    {
+      "path": "src/components/home/SelectedBookWorkspace.tsx",
+      "bytes": 15358,
+      "sha256": "4ea5e3ff76210345e632258aee3a1ec96f62e98136f1bac4fe09d993a93077a7"
+    },
+    {
+      "path": "src/components/icons/LICENSE.phosphor-icons.txt",
+      "bytes": 1071,
+      "sha256": "b5b1f1da112d18ea2147decfd48ddc1bf2b5aeb6c265381579340e95b15a2bb2"
+    },
+    {
+      "path": "src/components/icons/NavigationIcon.tsx",
+      "bytes": 3739,
+      "sha256": "7230b7f0bfc39abd25fe0e02850fe8535f6b5e8fc6d075f21b1a7c00a4e36062"
+    },
+    {
+      "path": "src/components/icons/StickerIcon.tsx",
+      "bytes": 1490,
+      "sha256": "8997fd674aced5e9391638b7cb1eeacaca7ac636c25f89680d8a117d8e4c6ae0"
+    },
+    {
+      "path": "src/components/icons/stickerArtwork.ts",
+      "bytes": 11101,
+      "sha256": "9e130de4be1c4e6af3591095989eb81843dbf56a05c734efe7c02dc31bcb0f74"
+    },
+    {
+      "path": "src/components/study/ChapterToolCards.tsx",
+      "bytes": 4639,
+      "sha256": "4576fb40ce238d5f4fa79a1b2fae03420c74b328763a258efef0d14979b6bad3"
+    },
+    {
+      "path": "src/components/study/useHorizontalDragScroll.ts",
+      "bytes": 9245,
+      "sha256": "bd1e588ab0d0beeea4bad1dcf789f24a4152e2771e9fba65cd1fce36fced9c36"
+    },
+    {
+      "path": "src/components/ui.tsx",
+      "bytes": 81163,
+      "sha256": "3ce419c4203ba7a114bc6bec0da9495808a61f2f2367f5280a36fae338740b57"
+    },
+    {
+      "path": "src/config/deepseek.ts",
+      "bytes": 838,
+      "sha256": "5791876f5b78bd335192d3561a51b4786c4914887d23064ccc5e237d84f41d88"
+    },
+    {
+      "path": "src/config/runtime.ts",
+      "bytes": 91,
+      "sha256": "f4a2009f8a2f8ad1fca10738adcd9c569dfce930f3827a747616ffd8e10639e3"
+    },
+    {
+      "path": "src/context/AppContext.tsx",
+      "bytes": 3849,
+      "sha256": "f3a7796b91621addc70bd56f508766c19bea3703b8dfa0f4e16006fce46a8002"
+    },
+    {
+      "path": "src/context/BookCourseRepositoryContext.tsx",
+      "bytes": 757,
+      "sha256": "f3a9a6a799514626e309373e82c538d6c8ecd7f30000499e1153c8b00badcf58"
+    },
+    {
+      "path": "src/data/demoAssets.test.ts",
+      "bytes": 2845,
+      "sha256": "37392bb4844ac5ccea8849a2a9dd2c0c832cc51c7df5984c3524c07ad877e306"
+    },
+    {
+      "path": "src/data/demoDirectory.test.ts",
+      "bytes": 4323,
+      "sha256": "d795ab246663d04bd09a17924a31d12c12fb844e8a3426106e7c0d167e173397"
+    },
+    {
+      "path": "src/data/demoDirectoryCourses.test.ts",
+      "bytes": 3525,
+      "sha256": "da3a1c1dd0eeb3355e4abbea8783d7808f9b238b1b095cfa70e35418e4175fe4"
+    },
+    {
+      "path": "src/data/demoDirectoryCourses.ts",
+      "bytes": 10428,
+      "sha256": "f5b18ef4d8af143e98ff1bdc6be100648f73f614fd1496efa993ffc3b8d72acb"
+    },
+    {
+      "path": "src/data/demoMathCourse.ts",
+      "bytes": 9289,
+      "sha256": "c52376637e9e3685d808d790c9d0bbf545c0495865d17f0a260f61377afd3322"
+    },
+    {
+      "path": "src/data/demoPhysicsCourse.test.ts",
+      "bytes": 3743,
+      "sha256": "b44ce757837109e9bcc91e06aa36371c4091a0b57e5b603a16c74e218dc946c6"
+    },
+    {
+      "path": "src/data/demoPhysicsCourse.ts",
+      "bytes": 4023,
+      "sha256": "3cd0acda43fee42f1a608a1cda51937a05600fb6c9d878694daa77c30fd844af"
+    },
+    {
+      "path": "src/data/demoShelfBooks.ts",
+      "bytes": 2266,
+      "sha256": "37bfb5b2328728d749327e2f837dbc93f8a5d6725f28bc7c2f76469421bf8a6b"
+    },
+    {
+      "path": "src/data/demoShelfStudyPreviews.test.ts",
+      "bytes": 1424,
+      "sha256": "0a3150ce1678ba0362cb97c40e13f87f1c26cb5d0aff465415672303bb1bcae2"
+    },
+    {
+      "path": "src/data/demoShelfStudyPreviews.ts",
+      "bytes": 3156,
+      "sha256": "5632ab9664b117c2d31fff209cc55b6a577c9aca65ada62e6a1f73a7b6643b6c"
+    },
+    {
+      "path": "src/data/expandedLessons.test.ts",
+      "bytes": 2982,
+      "sha256": "8bc66e58d2815c211899985ec6c52ad0dd7cf02714fa36ded6dc432b744f9239"
+    },
+    {
+      "path": "src/data/expandedPractice.test.ts",
+      "bytes": 2513,
+      "sha256": "d757340423548dc36ef285895027739bc8c2803705cb8e96f2071f661b4b16d4"
+    },
+    {
+      "path": "src/data/generated/ai-responses.json",
+      "bytes": 618,
+      "sha256": "7546cc6530eb31b9f96ecd42543b0c66886cb2976518fe0576bef39a1a457e43"
+    },
+    {
+      "path": "src/data/generated/assets.json",
+      "bytes": 419441,
+      "sha256": "2a790ab63b8db48b25a4e98d9dafab24b4dec6c73c78e0ec8b9e16045ef55862"
+    },
+    {
+      "path": "src/data/generated/book.json",
+      "bytes": 8554,
+      "sha256": "9b2af6eb442ec5716ab93bc6cc3afac82ce12e2859725a98bfe3136020e0d127"
+    },
+    {
+      "path": "src/data/generated/chapters.json",
+      "bytes": 15297,
+      "sha256": "efb830b042774402aba54625d3300b1a680c299290949740c5fa83f6873c8502"
+    },
+    {
+      "path": "src/data/generated/demo-state-meta.json",
+      "bytes": 71924,
+      "sha256": "970a6aef1ace3435183f731b7919799e2df68b321aa0f80ccc04f1a8216347f5"
+    },
+    {
+      "path": "src/data/generated/demo-state.json",
+      "bytes": 981047,
+      "sha256": "46c061bc2642293c9a08ec90c4ef0c3f1f7cda83e2a3a6a1c5c953952efdda89"
+    },
+    {
+      "path": "src/data/generated/flashcards.json",
+      "bytes": 120013,
+      "sha256": "b39f4e1b9425e46e0272977a689a27765ec192868436d4b70dcc439b7e430235"
+    },
+    {
+      "path": "src/data/generated/lessons.json",
+      "bytes": 179523,
+      "sha256": "ad6b69b76fa247416aea1cdf8b54970abf6ba3bb5727472ce0dad15157fc59c4"
+    },
+    {
+      "path": "src/data/generated/quiz.json",
+      "bytes": 67923,
+      "sha256": "da5c7b83a561995bc7d5b782f2937e28a52b3f85ec6ef128bb59ba1bebd70097"
+    },
+    {
+      "path": "src/data/mockBook.ts",
+      "bytes": 21102,
+      "sha256": "c502187cd29df79024c90f0f5ce70ef5d7d8254afef7f031ecf725bbf574372e"
+    },
+    {
+      "path": "src/data/published-citation-source-page-assets.json",
+      "bytes": 25863,
+      "sha256": "fb8854cff6aed9269fdc03edb4cd2b2264e4c43a3dbb30194dc76a5db6497778"
+    },
+    {
+      "path": "src/data/publishedSourcePages.test.ts",
+      "bytes": 917,
+      "sha256": "71ff79816e8d4bda2ddcf2611a483a00127c732f0fbe942127680e493153090f"
+    },
+    {
+      "path": "src/data/publishedSourcePages.ts",
+      "bytes": 1263,
+      "sha256": "380e6c21fad17a9f46e77bbb1a8d72e89145ecd39f120e7f3ac5cff98b6e9904"
+    },
+    {
+      "path": "src/data/seed/chapter-one-supplement.json",
+      "bytes": 1279,
+      "sha256": "1c7667be55c67364a174d8641686559d714c21faf54478887bf75c25c65a6479"
+    },
+    {
+      "path": "src/data/seed/curated-content.json",
+      "bytes": 36691,
+      "sha256": "4319377c061bfd59d1b089f4f7d798faeabdfd3b5f8fbb280a8c27bf6a8ae2d4"
+    },
+    {
+      "path": "src/data/seed/expanded-lesson-assets.json",
+      "bytes": 7169,
+      "sha256": "5a60d35929b088189377486e3c24b7090222e22bafdbca03212a36134e5b332c"
+    },
+    {
+      "path": "src/data/seed/lessons-chapters-1-3.json",
+      "bytes": 70480,
+      "sha256": "32ef8bce471b7af25920acf8ef97725623f90e649c7a1c65a9ed7b6d56b1d36c"
+    },
+    {
+      "path": "src/data/seed/lessons-chapters-4-5.json",
+      "bytes": 56179,
+      "sha256": "035a00254b71715d71e2700f0bcc4121b29fa6f05019a31b81cf1323a93b540e"
+    },
+    {
+      "path": "src/data/seed/practice-chapters-1-5.json",
+      "bytes": 42975,
+      "sha256": "82c32a457e18410a3aa86064b8c2477c314a68a2703a79c49cd5519fb23d1057"
+    },
+    {
+      "path": "src/features/courses/AddMaterialsSheetContent.tsx",
+      "bytes": 515,
+      "sha256": "b8cedfefc8f9d9db64d9825995914776c8d779bd126e22af9a93506f0b36d9e4"
+    },
+    {
+      "path": "src/features/courses/FlowScreens.tsx",
+      "bytes": 21668,
+      "sha256": "aebd223f7154ab173313f8ce3cb5e974b4e94a976d78e43d6760818c4f8c590b"
+    },
+    {
+      "path": "src/features/courses/HomeScreens.tsx",
+      "bytes": 11321,
+      "sha256": "bb45e5f7d0ce944f3ac8be5d3d8fe26aaeec123b17f36cf9010272b5bf255256"
+    },
+    {
+      "path": "src/features/courses/migration.test.ts",
+      "bytes": 4531,
+      "sha256": "cb1a8aeef1c4ce710a7ef4ab635f189faa8ae138b8844fd09cee17efa2e22eda"
+    },
+    {
+      "path": "src/features/courses/model.test.ts",
+      "bytes": 973,
+      "sha256": "bd35c747a7049029ad367df71d7c09a7f8c403cefa6738369824e485639bd8e3"
+    },
+    {
+      "path": "src/features/courses/model.ts",
+      "bytes": 9252,
+      "sha256": "772d8e6f254113152a930c73138e6442fef87457bafee69254271e5d974dfa71"
+    },
+    {
+      "path": "src/features/courses/recommendations.test.ts",
+      "bytes": 3582,
+      "sha256": "de5cc4b2daff4aff36fdd0612f7e5ec0d3d5aa2494fdc02907b958c33f7bd7e9"
+    },
+    {
+      "path": "src/features/courses/recommendations.ts",
+      "bytes": 7497,
+      "sha256": "7df386e9812ce2824067334fcfdb588098ffc4aaa7c661203aa37aa0cf97ad71"
+    },
+    {
+      "path": "src/features/courses/repository.ts",
+      "bytes": 19196,
+      "sha256": "85a74f224cb842a7ae21c82591d5c99f52f1133d824a9c810e45da353234ed6d"
+    },
+    {
+      "path": "src/features/courses/selectors.ts",
+      "bytes": 1893,
+      "sha256": "43574fe7fd87e47781b5036d35a3b5340c2380301a9b6ce3de3749f9093c50ea"
+    },
+    {
+      "path": "src/features/courses/useCoursePlans.ts",
+      "bytes": 2034,
+      "sha256": "37aa1351da1cae4362da8413aa68ed6f631658247cc40b73b2b472a454c48266"
+    },
+    {
+      "path": "src/features/credits/creditStore.test.ts",
+      "bytes": 2462,
+      "sha256": "7d9ff247697600e136699ff3601dc84078e808d0c802af33044cb2b106a4c55e"
+    },
+    {
+      "path": "src/features/credits/creditStore.ts",
+      "bytes": 5144,
+      "sha256": "0796d810e2eb6cd220dc4eb49e723d91925b7c1ac115d6e50961e6ce443d2095"
+    },
+    {
+      "path": "src/features/studyNotes/InkAnnotationSurface.tsx",
+      "bytes": 16174,
+      "sha256": "7289c4a3b813a254f63e20fb42c65c2c66395d71f0d2a5e9176171961a7f969c"
+    },
+    {
+      "path": "src/features/studyNotes/SourceRegionAiPanel.tsx",
+      "bytes": 15936,
+      "sha256": "62b2480575e5697d8d2d82f70ec25626a2d2b149b5e1a69e7a2a5a6a375d9bea"
+    },
+    {
+      "path": "src/features/studyNotes/SourceTextAnnotationLayer.tsx",
+      "bytes": 7894,
+      "sha256": "93fbfc1ae00abe740b6e5462cfa5fd0765f5d85b0a1af81d72cb99ff54281a12"
+    },
+    {
+      "path": "src/features/studyNotes/SourceTextNotePanel.tsx",
+      "bytes": 19141,
+      "sha256": "a73b984a0f2ded49cea6957395f2a4e301bf13d6c62e4ea1f28d2fa3bc9f89fc"
+    },
+    {
+      "path": "src/features/studyNotes/fixtures.ts",
+      "bytes": 1616,
+      "sha256": "96dac0133e799be2a199ce75510f45d0723b3efaee3832070a4fa82f130c8242"
+    },
+    {
+      "path": "src/features/studyNotes/ink.test.ts",
+      "bytes": 3914,
+      "sha256": "ce8df2e21bcac3169bd12022b110807838416f8bb8060e845f9ea25a2f06d2fe"
+    },
+    {
+      "path": "src/features/studyNotes/ink.ts",
+      "bytes": 3448,
+      "sha256": "bcd62dd6a63a563883dc9fa8b413ddc6fbc6bbe91888d046b6b2928fc492ad5e"
+    },
+    {
+      "path": "src/features/studyNotes/pageSwipe.test.ts",
+      "bytes": 567,
+      "sha256": "d490696a69b7a213ec4355bf7dfac63e025b464f89008055fd68c397e1a83a44"
+    },
+    {
+      "path": "src/features/studyNotes/pageSwipe.ts",
+      "bytes": 461,
+      "sha256": "b075d0a50c45efd8b5c90d408ac067b81426c276b32169ba270986e1701c3056"
+    },
+    {
+      "path": "src/features/studyNotes/regionAsk.test.ts",
+      "bytes": 2658,
+      "sha256": "7472e9845609dae44bcdcd4ddf5a2dfc98a20264ebfeb0acd9261a88941499d3"
+    },
+    {
+      "path": "src/features/studyNotes/regionAsk.ts",
+      "bytes": 3639,
+      "sha256": "19b15cc2b5fb3c77c786204d5209b6842f697fcbc3cd0ab66e675b89fa8e8ee3"
+    },
+    {
+      "path": "src/features/studyNotes/regionCapture.ts",
+      "bytes": 1844,
+      "sha256": "b92a784d6000a4e5f4a7945072a44ea6af44d8646fa6c3ae7bfd03cf1994812f"
+    },
+    {
+      "path": "src/features/studyNotes/repository.test.ts",
+      "bytes": 800,
+      "sha256": "fa9fa12c9919779f2e7dccc8f09cd187085fd6b563740bc480e99eb5eed50ec1"
+    },
+    {
+      "path": "src/features/studyNotes/repository.ts",
+      "bytes": 11103,
+      "sha256": "50d589c92b164869ca0fe8eadf2767d22b76956635983ecc7e57d9b1872a8ace"
+    },
+    {
+      "path": "src/features/studyNotes/sourceReaderHeading.test.ts",
+      "bytes": 1720,
+      "sha256": "2637646769f1de10e8bed3a1c2132b405e7c8f7fe5e0601eac028717e1fe0904"
+    },
+    {
+      "path": "src/features/studyNotes/sourceReaderHeading.ts",
+      "bytes": 1401,
+      "sha256": "fc106099d6659a7fc1d9cee0af452294a2b5bac60c38621fd08adacbae7455ba"
+    },
+    {
+      "path": "src/features/studyNotes/textAnnotations.ts",
+      "bytes": 917,
+      "sha256": "615a0a3edc9f83167d8b5b964477945e61c2c05653f89ed3cd97a2c935d79641"
+    },
+    {
+      "path": "src/features/studyNotes/types.ts",
+      "bytes": 3331,
+      "sha256": "99bce4b3415f9165b57ad1d42a21237405c514fb47cafc5fdb7d86ce703dd5ea"
+    },
+    {
+      "path": "src/hooks/useAssignmentDiagnosis.ts",
+      "bytes": 2365,
+      "sha256": "d1f9b267b90bd0d5c0158d56e65de54a540fafbc13b26f591a7768b5f3179bb7"
+    },
+    {
+      "path": "src/hooks/useBookAssets.ts",
+      "bytes": 1052,
+      "sha256": "6c0d78516da6d5ccb109db7ccea4578a4a01e141eca92a590791645b297411f6"
+    },
+    {
+      "path": "src/hooks/useChapters.ts",
+      "bytes": 1945,
+      "sha256": "c937238524b97c54fbe34774595b421cc65944b9d1a6b8df8298e6a0c38d2e05"
+    },
+    {
+      "path": "src/hooks/useChunks.ts",
+      "bytes": 1041,
+      "sha256": "b479b6ee42a365f514c6d52d9b97ec498c94a94f2142ff7296152b155b44ed12"
+    },
+    {
+      "path": "src/hooks/useGenerateFigure.ts",
+      "bytes": 2856,
+      "sha256": "7ebd9e40b2c96db53030261d3040f742519f2a06a8c57a851fe28a4a8a48e990"
+    },
+    {
+      "path": "src/hooks/useMouseDragScroll.ts",
+      "bytes": 12044,
+      "sha256": "169131bb454b3f97edafbc00f550c24a9c8c75dd2892014abf07995a155c9540"
+    },
+    {
+      "path": "src/hooks/useParseJob.ts",
+      "bytes": 1515,
+      "sha256": "bd1060756484d8db4fb47e26db37af48ac11bc87f6bf49908df4bac53f66f50b"
+    },
+    {
+      "path": "src/hooks/useRagQuery.ts",
+      "bytes": 2046,
+      "sha256": "42ecd4eb7f6aed23d93070fec69c7ee2b819d4c192be475ca31204ac3d35f153"
+    },
+    {
+      "path": "src/hooks/useStudyPlan.ts",
+      "bytes": 3624,
+      "sha256": "00973ee36f657a644da9a79c066e2c4263ac6cb7e4966cc3806f9ea04c81b84a"
+    },
+    {
+      "path": "src/layouts/DeviceChrome.tsx",
+      "bytes": 337,
+      "sha256": "44a08ba543b7fef68f61b57350fced3479aa9d60ac5384c7b22f41dee3055e73"
+    },
+    {
+      "path": "src/layouts/PadChrome.tsx",
+      "bytes": 231,
+      "sha256": "aaed6d06465554bff6d3d1f2f82003ebc7b01657dce151907c1af8bb49a39936"
+    },
+    {
+      "path": "src/layouts/PhoneChrome.tsx",
+      "bytes": 235,
+      "sha256": "68cc65ca959a62dbf370da9211da85078a3cbf1c65933f28e422ec47ebb63cf2"
+    },
+    {
+      "path": "src/layouts/useDeviceLayout.ts",
+      "bytes": 1415,
+      "sha256": "720cbb6304e961fcf2e3bf7d14a455530447c8468f9cef61748de091597ae39e"
+    },
+    {
+      "path": "src/main.tsx",
+      "bytes": 2572,
+      "sha256": "1a23d0408d60bcafe1dae016fb3dbb8c35dbbe60bcbcb446794557d6a14088f4"
+    },
+    {
+      "path": "src/motion/CollapsibleRegion.tsx",
+      "bytes": 1157,
+      "sha256": "badf1465d2d591871891e9a9e6c46bd16ea46ed568df13059964ab531fc5eb7f"
+    },
+    {
+      "path": "src/motion/MotionErrorShake.tsx",
+      "bytes": 1414,
+      "sha256": "c27f2688403aeb7ca2a6dea44178648a1ae7e7324dad0b85dc27021a5bb8b5d6"
+    },
+    {
+      "path": "src/motion/MotionHistoryContext.tsx",
+      "bytes": 1195,
+      "sha256": "057a9c7abf80a6ea9af2ac7fde746c79d22d92835064cdc8857c7f74a6aa6805"
+    },
+    {
+      "path": "src/motion/MotionIconSwap.tsx",
+      "bytes": 979,
+      "sha256": "9a911536d2ed7cbca639cccf0a47dde08ff8d9d65fe2e7cfc783b07eff942cea"
+    },
+    {
+      "path": "src/motion/ScreenTransition.tsx",
+      "bytes": 5493,
+      "sha256": "e32333cdb3b58f9129e10b0e8da5a8881055f97c11b12bbcc37a6d69e3e9b4e5"
+    },
+    {
+      "path": "src/motion/SkeletonReveal.tsx",
+      "bytes": 2553,
+      "sha256": "2cae4600bf67340e372f8c8ea2d4abb5e601c718437a12ea504ee43d1f37d665"
+    },
+    {
+      "path": "src/motion/SlidingFilterGroup.tsx",
+      "bytes": 4731,
+      "sha256": "03029257e0bef2c79d419f821537ea3d521632dda3fc8e95685e9395e5231985"
+    },
+    {
+      "path": "src/motion/StateSwapText.tsx",
+      "bytes": 2923,
+      "sha256": "0ac5a9047604dfb0de59dcbf92ef19a40634df875091b22f8173ba28f4d88ecf"
+    },
+    {
+      "path": "src/motion/courseCardMotion.test.ts",
+      "bytes": 1129,
+      "sha256": "e122a2471de890f9bf4d1586b70e55bc21d928f93897beb18415c5be85091de7"
+    },
+    {
+      "path": "src/motion/courseCardMotion.ts",
+      "bytes": 642,
+      "sha256": "577196ee454b97eaadbc2138d6dc97a304c97a47019d69f6a8d88a9a72205e41"
+    },
+    {
+      "path": "src/motion/index.ts",
+      "bytes": 2789,
+      "sha256": "1bcb32d76d8a0e1fc386f97d004745bd2f810e28d4fc1785213ac228d1fbacba"
+    },
+    {
+      "path": "src/motion/navigationMachine.test.ts",
+      "bytes": 2868,
+      "sha256": "64035937d0ccd780eeea2d0ad5e82cedeeff40c9c40814db7152c5c0b57ca8f7"
+    },
+    {
+      "path": "src/motion/navigationMachine.ts",
+      "bytes": 2137,
+      "sha256": "e0a709c109dc65a685f05d588f9019b92381f871b9262f119498d848f141cfa2"
+    },
+    {
+      "path": "src/motion/presenceMachine.test.ts",
+      "bytes": 5278,
+      "sha256": "84d7ed4baed8b26ed03fb18186268e8799171e8120c8e226d1d3bf81aafdd1c8"
+    },
+    {
+      "path": "src/motion/presenceMachine.ts",
+      "bytes": 2852,
+      "sha256": "fb7c1ac98749cf87df5a73405f3fc3b8201e45c6a890903428086b5dd1df150e"
+    },
+    {
+      "path": "src/motion/screenTransitionMachine.test.ts",
+      "bytes": 2304,
+      "sha256": "b9ee28a228069a685b7b8122aa4f91e373b67300575ee08c72317af1240d6c23"
+    },
+    {
+      "path": "src/motion/screenTransitionMachine.ts",
+      "bytes": 2086,
+      "sha256": "0243aa73005a2d297ba541df06782bfc13930430d1faec616c821f53e70cbc7c"
+    },
+    {
+      "path": "src/motion/sourceMotionContract.test.ts",
+      "bytes": 16164,
+      "sha256": "75d2c2417aad5dbc45afc9394447a94c209b188b003d0cab307ac35186ee7e7c"
+    },
+    {
+      "path": "src/motion/sourceMotionContract.ts",
+      "bytes": 34068,
+      "sha256": "d0ef95dba1eaae71e9d7903c158c410ab7ab6b26054a613ad248a77b87cf3871"
+    },
+    {
+      "path": "src/motion/stateSwapMachine.test.ts",
+      "bytes": 1853,
+      "sha256": "80b3d8d2dd13e4258c31b30a178fe5c1b373b265e6cb6fd17ce85a0e4013ca19"
+    },
+    {
+      "path": "src/motion/stateSwapMachine.ts",
+      "bytes": 1303,
+      "sha256": "98454c4f45a4f436c0e7f6d2e395f9b7ad84e7021cbe4ef6457b29df1108d925"
+    },
+    {
+      "path": "src/motion/timing.test.ts",
+      "bytes": 1327,
+      "sha256": "f0c3fad3e32ba4c1616aa0282097036e7648f9292ba2fb88f73fa0051a0f0375"
+    },
+    {
+      "path": "src/motion/timing.ts",
+      "bytes": 524,
+      "sha256": "f32b6690cf951c9e6637c532c258689843251b051396a2e5682d9b7592b28837"
+    },
+    {
+      "path": "src/motion/useCourseCardMotion.tsx",
+      "bytes": 2405,
+      "sha256": "9eae932aa95ced8be370d6124820caf1b4cf7721fb506f46fa50cd7502d2cb04"
+    },
+    {
+      "path": "src/motion/useDiagnosisMotion.ts",
+      "bytes": 1396,
+      "sha256": "1b05c3a84d6fa993ecd13f1f19c3f95072f6a219fab680053293117deff8b3cf"
+    },
+    {
+      "path": "src/motion/useListReflowMotion.ts",
+      "bytes": 1990,
+      "sha256": "e41aac29fe44502691300efdd5d2fcf50d2301c1f506fdb53ff159cf40558666"
+    },
+    {
+      "path": "src/motion/useLocalMotionItem.ts",
+      "bytes": 3326,
+      "sha256": "a8e82a42ba5ec95b441a7382f287e0ae90694e3016268c6336e7d46f847ae974"
+    },
+    {
+      "path": "src/motion/useMotionPresence.ts",
+      "bytes": 2778,
+      "sha256": "25ac8c80e4cb0cf8ebc3ea9565cd13363a89dc31aeb8ff3dde7a8db3d02debc3"
+    },
+    {
+      "path": "src/motion/useOneShotFeedback.ts",
+      "bytes": 1477,
+      "sha256": "3b53eefb5dbc07c315c4ded1a1c811dea71044798ec433795efb257845d34b96"
+    },
+    {
+      "path": "src/motion/usePadSidebarMotion.ts",
+      "bytes": 5858,
+      "sha256": "c185396c049c39cb896d0c4640784d64d004fdd06a9128fb349c9078bc2f61b9"
+    },
+    {
+      "path": "src/motion/useReducedMotion.ts",
+      "bytes": 1073,
+      "sha256": "8d8493f052a118fccbcff895fc23190aa62ffc474dd5e631265133bb06c5480d"
+    },
+    {
+      "path": "src/motion/useStageThreeImageMotion.ts",
+      "bytes": 2165,
+      "sha256": "d41b4c86f3e5e0cc90b1c75df9f3cab3012010317ca6e99dbd2adb1f7fe6f905"
+    },
+    {
+      "path": "src/platform/files.test.ts",
+      "bytes": 904,
+      "sha256": "a51be4ad4724b52b1201b862e158169eb1dec97861fd36654e1a1cf6ee0dea15"
+    },
+    {
+      "path": "src/platform/files.ts",
+      "bytes": 849,
+      "sha256": "8a2549195d443e82dcd16403a6c70f82af1b703b09282cd8bd0f65d35adc9129"
+    },
+    {
+      "path": "src/platform/nativeApp.test.ts",
+      "bytes": 2812,
+      "sha256": "7a5c0f93dd49718d52f568eea231f7409556e69e2bc620c2307b84e616abf253"
+    },
+    {
+      "path": "src/platform/nativeApp.ts",
+      "bytes": 3368,
+      "sha256": "401e106ef0250196dbd7afab3d9a1a8545bd26358584e942bd7b63110af095c2"
+    },
+    {
+      "path": "src/platform/recording.test.ts",
+      "bytes": 1236,
+      "sha256": "3fa932668734a1849f3d387dc84c2b4ee5406acb0f6317776b3c4ad246ea3393"
+    },
+    {
+      "path": "src/platform/recording.ts",
+      "bytes": 1307,
+      "sha256": "b99e1d754d81dd0b9518c138ad3fbb7182e343522a8db88c9cbbc657ed2d0453"
+    },
+    {
+      "path": "src/preview/DevicePreviewStudio.tsx",
+      "bytes": 11336,
+      "sha256": "401ab5c15ae73a5ed7309b7a3ae3a1836f2e040be587a40b6b642cd7ded61fe7"
+    },
+    {
+      "path": "src/preview/DevicePreviewToolbar.tsx",
+      "bytes": 2499,
+      "sha256": "ca6601e0292b84d13d5ba4c1c8faed1e7be0a2ebca85903df2ae350f56610101"
+    },
+    {
+      "path": "src/preview/devicePreview.test.ts",
+      "bytes": 3831,
+      "sha256": "a86e61c1149c8148fd6863e70232e6f76022503692bfc14b4dfcee864a1be5d1"
+    },
+    {
+      "path": "src/preview/devicePreview.ts",
+      "bytes": 5992,
+      "sha256": "0d6fc9b40cddc55703d29aa4e2f71cda7a3d00ffcdb9bc3a91160ad06828cec7"
+    },
+    {
+      "path": "src/rag/retrievalMath.test.ts",
+      "bytes": 4981,
+      "sha256": "1e5d04ac5474b0df059cb75fea8e0d30da9ee1d0625405fd44df72ed1b9cfb5a"
+    },
+    {
+      "path": "src/rag/retrievalMath.ts",
+      "bytes": 4470,
+      "sha256": "6f93e45b6ab93f8de4fea1cb0d47b9ace045a4e2af9bf67d538ce9155361b89c"
+    },
+    {
+      "path": "src/rag/textbookRag.worker.ts",
+      "bytes": 9767,
+      "sha256": "cf70d2d36f1529e7f9d86e49de77e1f89ca65c7ada7bd24ead67473e7e6bce64"
+    },
+    {
+      "path": "src/rag/types.ts",
+      "bytes": 4535,
+      "sha256": "754bab48018eb83a71e3a846140231d74340b2bae10fbe867d06018a37cfbbe2"
+    },
+    {
+      "path": "src/screens/AssignmentScreen.tsx",
+      "bytes": 17590,
+      "sha256": "93b469ec4c8c8f2e80c8fda6523f32186854728e188991dd845efe0ff763de00"
+    },
+    {
+      "path": "src/screens/ChapterConfirmScreen.tsx",
+      "bytes": 36775,
+      "sha256": "5d2a4d9c7f1f857c60c4f9001a17166e5a7b0b8d8b34572ecc3aeb8b8610fb7f"
+    },
+    {
+      "path": "src/screens/CommunityBookScreen.tsx",
+      "bytes": 7272,
+      "sha256": "632485a8818b0444d75b13d52808e9c7b748fe0bc64e0a581ad5328d947af280"
+    },
+    {
+      "path": "src/screens/CommunityCover.tsx",
+      "bytes": 1307,
+      "sha256": "ad3cf1f9dc096515a7f8231220a8d6da38cb0faab95868ce40c137b98ae6a879"
+    },
+    {
+      "path": "src/screens/CommunityImportScreen.tsx",
+      "bytes": 1398,
+      "sha256": "b5e2a8872299e72dc5d350f04c94c82e996b2fc53f584c393eea3207bd2c6515"
+    },
+    {
+      "path": "src/screens/CommunityScreen.tsx",
+      "bytes": 11119,
+      "sha256": "11f02a35e3e32e648c0114c23e1126ec99d3fb8de52f0b30d1eaec44b9af77dc"
+    },
+    {
+      "path": "src/screens/CourseReadyScreen.tsx",
+      "bytes": 10607,
+      "sha256": "7a01a7ca4a4623d1ad3a6a59ecb3c6be15369b20419e1416e3f977ab8320d70a"
+    },
+    {
+      "path": "src/screens/DiagnosisScreen.tsx",
+      "bytes": 7073,
+      "sha256": "1eddb6711462bb653c66f0ffd9ea1fbcf31f3d394e952108172a19184d66ff5c"
+    },
+    {
+      "path": "src/screens/ExportPreviewScreen.tsx",
+      "bytes": 2534,
+      "sha256": "61f2b0c209a510e0db0e862066d5411a95e15844950c10f5db6a3bc25cebb74a"
+    },
+    {
+      "path": "src/screens/FlashcardScreen.tsx",
+      "bytes": 22368,
+      "sha256": "b8f5beadf9016198e1d59da1d1ca13e718475fd8e98439e5aa7403dc22fb274d"
+    },
+    {
+      "path": "src/screens/HomeScreen.tsx",
+      "bytes": 9876,
+      "sha256": "05071c04d2a20d3189e8f25d7999ac084ba4ac17d5b099c8055fdc9688baab18"
+    },
+    {
+      "path": "src/screens/LessonAiChatEntry.tsx",
+      "bytes": 15166,
+      "sha256": "fa663762e2204a839104cfe0eaa2844a5397de9ff19d4417f569c13dc412ec9c"
+    },
+    {
+      "path": "src/screens/LessonAnimationDialog.tsx",
+      "bytes": 11559,
+      "sha256": "28583b77d27b323093e026aeb6eea9df3af90b582ed0269055ad8365179fe921"
+    },
+    {
+      "path": "src/screens/LessonScreen.tsx",
+      "bytes": 29551,
+      "sha256": "b24e6aae4bd115dd4a9e02fa4cce574df1ae003f6799efe3a550cf1b71ace902"
+    },
+    {
+      "path": "src/screens/LessonVideoConfirmDialog.tsx",
+      "bytes": 3466,
+      "sha256": "099cc2980a75b1a5fa3509aeb2c4db93a1c58ccbd8fdd33d66a46dc0d9bb8853"
+    },
+    {
+      "path": "src/screens/LibraryScreen.tsx",
+      "bytes": 7154,
+      "sha256": "eb2229456ee77b2b7dcb4e9fe7a75e9ab0330887bc6ea4da3b7aff1256eacd98"
+    },
+    {
+      "path": "src/screens/MistakeBookScreen.tsx",
+      "bytes": 25420,
+      "sha256": "2063475cf2d128f303938cf3ddd555432c1c264037de0bf496c7d668e2860f78"
+    },
+    {
+      "path": "src/screens/NotesScreen.tsx",
+      "bytes": 13246,
+      "sha256": "f3dd73b7a39934af4c8f9faa4f9ac78a60c18f5513a56572eb0085a985f5a2e6"
+    },
+    {
+      "path": "src/screens/ParseReadyScreen.tsx",
+      "bytes": 7520,
+      "sha256": "df5235b422e5b697b192f4d733f8bc2c9c55d101679304b57bf5cf3901d97654"
+    },
+    {
+      "path": "src/screens/ProcessingScreen.tsx",
+      "bytes": 10025,
+      "sha256": "8bc60410f05d4059a70d91aa204965d9d02482f14531799a9f1243e361ca8504"
+    },
+    {
+      "path": "src/screens/ProfileScreen.tsx",
+      "bytes": 10543,
+      "sha256": "49d362a020e6b57e9be95427a735d9a95540c53c7332405ec592be2d1cf9cc87"
+    },
+    {
+      "path": "src/screens/SettingsScreen.tsx",
+      "bytes": 4990,
+      "sha256": "53286e6c3e55a26faa7a4c63451565e9e08cf3957b9042c66b30571d3c4e9c10"
+    },
+    {
+      "path": "src/screens/SourceReaderScreen.test.tsx",
+      "bytes": 8119,
+      "sha256": "3f110cf5b40daf39fc4eafea11f507821d9a322d96d42e2a6b75c015bc2bcbb5"
+    },
+    {
+      "path": "src/screens/SourceReaderScreen.tsx",
+      "bytes": 41799,
+      "sha256": "5eedaa9c94b5c9006477e9bdb809a5f8d5f87af792d546523418564225dbae5f"
+    },
+    {
+      "path": "src/screens/StudyPlanScreen.tsx",
+      "bytes": 13633,
+      "sha256": "7b734cea880912d978127eb78409d43d521cd79315fb350bc054374948547e8c"
+    },
+    {
+      "path": "src/screens/StudyScreen.tsx",
+      "bytes": 30419,
+      "sha256": "0014fd5e32e0f6e38c6b0b6dcc520dd63f0debf12d545220e83e5752c684490c"
+    },
+    {
+      "path": "src/screens/UploadScreen.tsx",
+      "bytes": 6153,
+      "sha256": "81b08e2e669280f0aa63701ed2620973f3a023bc4de1d27c1ebfcf772f135dd0"
+    },
+    {
+      "path": "src/screens/VoiceNoteScreen.test.ts",
+      "bytes": 888,
+      "sha256": "a68bff49613f7aef5747ea05b8b35877b637a60fae78f2c8a04732aa0a112c76"
+    },
+    {
+      "path": "src/screens/VoiceNoteScreen.tsx",
+      "bytes": 29902,
+      "sha256": "841a5d69741d15fb0e80da7f496e64ca72911e414a0b0eb5ee4676a0bbbdee15"
+    },
+    {
+      "path": "src/screens/assignmentExercises.test.ts",
+      "bytes": 1579,
+      "sha256": "79aa8dcec6d8229e63e10efb3d0e616e22d244d3cf3dc0837c0596e4242c838a"
+    },
+    {
+      "path": "src/screens/assignmentExercises.ts",
+      "bytes": 2398,
+      "sha256": "40bc1dfe302449220b54fc46093777f6914940d7c084e9243a5026eafa92f404"
+    },
+    {
+      "path": "src/screens/communityAssistant.test.ts",
+      "bytes": 1493,
+      "sha256": "bf1934545c5873798d7d900f87e8ba9cba36d4bdbbac1b55889717a077af7eb3"
+    },
+    {
+      "path": "src/screens/communityAssistant.ts",
+      "bytes": 5540,
+      "sha256": "6811648b228a0eb65adc7227aefc75aaaea448ae998fbe607cc0c6ac619a5e3e"
+    },
+    {
+      "path": "src/screens/communityCatalog.test.ts",
+      "bytes": 3912,
+      "sha256": "beffb2698b384f644318832d259b08f971b6aeba5a446ff898fef3ff62329203"
+    },
+    {
+      "path": "src/screens/communityCatalog.ts",
+      "bytes": 1569,
+      "sha256": "a2d9b7bd2dfaaf754aef19abc25afc62ae80f4c89e4496507b19696b79b16361"
+    },
+    {
+      "path": "src/screens/flashcardGestures.test.ts",
+      "bytes": 1363,
+      "sha256": "734d93f87fa2f9e7d6db540ce82a7b92c947abc6cb5422f25188eb080e85794a"
+    },
+    {
+      "path": "src/screens/flashcardGestures.ts",
+      "bytes": 878,
+      "sha256": "1cc690ef57b9c85b4be4a3b60dd7d7beb11c766b99106a89eebc372901ddc4f6"
+    },
+    {
+      "path": "src/screens/homeBookModel.test.ts",
+      "bytes": 17500,
+      "sha256": "c4744f351554773221af3c12a3ea5c8cd08c6a33a8d5418f77c36f17ef44eb2e"
+    },
+    {
+      "path": "src/screens/homeBookModel.ts",
+      "bytes": 10372,
+      "sha256": "5d2961698aeeb7779e732f2bac9ed4dd59576f9b2988c3f2a9119cae3b46806d"
+    },
+    {
+      "path": "src/screens/homeBookPreview.ts",
+      "bytes": 219,
+      "sha256": "87bbdfb637a47a5657fda1e6cf56549dd2136b4a6ea6953216b884da93e99c4d"
+    },
+    {
+      "path": "src/screens/homeGlobalActions.test.ts",
+      "bytes": 3204,
+      "sha256": "52ac427df910d853a0e4a5ecb69c4c4e292ca319744d8b1ec90d5347e11459e6"
+    },
+    {
+      "path": "src/screens/homeGlobalActions.ts",
+      "bytes": 1872,
+      "sha256": "7b3a7ff916e71c955f688f01e8b88abd3ce6b752441200650777a348869c6d6a"
+    },
+    {
+      "path": "src/screens/homeNextStep.test.ts",
+      "bytes": 6386,
+      "sha256": "dc50431b48232c63701adc8f35bbc519fd7cecb30f10bd02a0ab9d4b04550e69"
+    },
+    {
+      "path": "src/screens/homeNextStep.ts",
+      "bytes": 5167,
+      "sha256": "b0dff51c9e3cc2ae50cf6c7ec7248e2500701621cc7f0ca2f2a7597c5bdb3155"
+    },
+    {
+      "path": "src/screens/index.ts",
+      "bytes": 1577,
+      "sha256": "0959216c4737712f2bbfae4abd6d63cea7ff1a2b4c90da84f66360288671a90a"
+    },
+    {
+      "path": "src/screens/lessonAnimations.test.ts",
+      "bytes": 676,
+      "sha256": "3d62a9bac1d5bfabbe37c03263e25d1ec1781955c8a23c7db12955f900c4d684"
+    },
+    {
+      "path": "src/screens/lessonAnimations.ts",
+      "bytes": 915,
+      "sha256": "c4be4842feb28aea99c05d54b4563b50750d906903350ad3ad0ebe674579f1e4"
+    },
+    {
+      "path": "src/screens/lessonEvidence.test.ts",
+      "bytes": 1658,
+      "sha256": "78b3dbe53b9f0a8c00a6967559e3ac2530c613682a4d699a7af261edcbd4d3ae"
+    },
+    {
+      "path": "src/screens/lessonEvidence.ts",
+      "bytes": 2068,
+      "sha256": "d1a17fb6cebcb7f8cac2600c18670488af2ec7363c54f89f8972c510a8db6205"
+    },
+    {
+      "path": "src/screens/lessonHeader.test.ts",
+      "bytes": 1120,
+      "sha256": "e77f5b189331d2aee95d77ade1149f737547a71c7f9353f6f85d962e2c20a652"
+    },
+    {
+      "path": "src/screens/lessonHeader.ts",
+      "bytes": 1196,
+      "sha256": "e8f961aceed764969d15e0e4198105086ad9fe5d85aab0b4ff3e04e78edfac39"
+    },
+    {
+      "path": "src/screens/lessonReading.test.ts",
+      "bytes": 4435,
+      "sha256": "c8c2055ad952bd058790173b52c6e4e424adc75f55d3f20f588736c4af5cabf2"
+    },
+    {
+      "path": "src/screens/lessonReading.ts",
+      "bytes": 3676,
+      "sha256": "9fba0fa34cf5e960f636da5b5be08084e2a205d5c305acdbbb915c545a61ac64"
+    },
+    {
+      "path": "src/screens/savedStudyNotes.ts",
+      "bytes": 1909,
+      "sha256": "dc1cfc39d3972f74b5ce83426472f5da613ee56c8d9fb71580e5e59fc1ccd888"
+    },
+    {
+      "path": "src/screens/shared.test.ts",
+      "bytes": 2526,
+      "sha256": "46a48f1b1fafbdb5c00bc8693d26315da7f3298de56c51e4cffc048d5929f047"
+    },
+    {
+      "path": "src/screens/shared.tsx",
+      "bytes": 12625,
+      "sha256": "9ae45aa4f5e2adb5c446586b9f3654da5eeea66377615b9fb511d82c555383d3"
+    },
+    {
+      "path": "src/screens/sheets/BookSwitcherSheetContent.tsx",
+      "bytes": 2419,
+      "sha256": "bcae709024c426eb47423e941269f8b6961c0acbffee9914488086742ed78500"
+    },
+    {
+      "path": "src/screens/sheets/ChatSheetContent.tsx",
+      "bytes": 7784,
+      "sha256": "34ac16922e14ba192d904f57d48002c41b3d8433289aa817dd77016fac6f943e"
+    },
+    {
+      "path": "src/screens/sheets/EditChapterSheetContent.tsx",
+      "bytes": 9872,
+      "sha256": "4f53df2bfb00581574a4ac4a1b8d53cbd6d0618ec4796952b440265b64e2d914"
+    },
+    {
+      "path": "src/screens/sheets/NoteSheetContent.tsx",
+      "bytes": 6844,
+      "sha256": "5f0e58a7d37b303e8dcb222ba8e5a84a9d456aeb3f2e7e57ef7f1e19dbb6d33b"
+    },
+    {
+      "path": "src/screens/sheets/NoteTypeSheetContent.tsx",
+      "bytes": 2802,
+      "sha256": "de907d7e57ac75e29f1ee610fce8257d1c8f010f50d0181073bfddfb4645ea0d"
+    },
+    {
+      "path": "src/screens/sheets/citationSource.test.ts",
+      "bytes": 3496,
+      "sha256": "7dc0788be6cd865eaa9bd6f4b81d1d9ea783f459abda1d5a251eb9c14fe554a4"
+    },
+    {
+      "path": "src/screens/sheets/citationSource.ts",
+      "bytes": 2062,
+      "sha256": "e1eb2843940221e5579ae5636dc6a84b56f3d4a34cc8741d3e672827fb648d56"
+    },
+    {
+      "path": "src/screens/sourceResourceIdentity.test.ts",
+      "bytes": 4068,
+      "sha256": "b949d9b1435bb4b636b545222016739eced46d7705e1f346ab67f569bbcf9621"
+    },
+    {
+      "path": "src/screens/sourceResourceIdentity.ts",
+      "bytes": 4396,
+      "sha256": "66443a79fe95e1e05d801cf67a1ec884c59e24957b9c704ae3d7db39ff001321"
+    },
+    {
+      "path": "src/screens/studyDirectory.test.ts",
+      "bytes": 2455,
+      "sha256": "ae86667e8f1a1f6e977dc24d76e66ab6b5e9c699ae66a8c442f56808d70c7a42"
+    },
+    {
+      "path": "src/screens/studyDirectory.ts",
+      "bytes": 2151,
+      "sha256": "f9e17895c213319b403bd19306c756d54aee7863942038e3d172e85aaa06dc94"
+    },
+    {
+      "path": "src/screens/studyPlanPresentation.test.ts",
+      "bytes": 3776,
+      "sha256": "4768be95d8ba291e60225d9d650fd15bafe3ec2f5a72b82597d2c63f2e2d60fe"
+    },
+    {
+      "path": "src/screens/studyPlanPresentation.ts",
+      "bytes": 2931,
+      "sha256": "3bf0aaea67ac14124ccf1996fa38d785befc5c8c6e7fe735c8e1b93094d300af"
+    },
+    {
+      "path": "src/screens/studyProgress.test.ts",
+      "bytes": 1096,
+      "sha256": "8574ea6952e8e1c772822b568a327d7e5bec9b9591e4c0e61ac53bbf16c64d95"
+    },
+    {
+      "path": "src/screens/studyProgress.ts",
+      "bytes": 769,
+      "sha256": "a3eb5214a221e144ca8492fc18890305873cfbec424f0d2057a399c765a3dedb"
+    },
+    {
+      "path": "src/screens/studyTools.test.ts",
+      "bytes": 862,
+      "sha256": "25332afa06ee9ddf40423a746c51dc67a7592cd3e081d2ea00a5f0c1cb39f821"
+    },
+    {
+      "path": "src/screens/studyTools.ts",
+      "bytes": 1344,
+      "sha256": "c2c4a793f30270d882a637c0dd988ea0e95f506de0d1a8e94a7e409d023766ef"
+    },
+    {
+      "path": "src/screens/uploadFlow.test.ts",
+      "bytes": 3681,
+      "sha256": "573fa07c2d6c4de7bcad36583aa3647922306650946706fe8a6291dd6b238978"
+    },
+    {
+      "path": "src/screens/uploadFlow.ts",
+      "bytes": 2800,
+      "sha256": "becf9cf58d54d9e25a4e3f5d421f1ded5e9d491cea66467c44357fb7365382a4"
+    },
+    {
+      "path": "src/services/DeepSeekRag.test.ts",
+      "bytes": 33010,
+      "sha256": "b1ed07596ce441a5a390efc0eb9d0ee76977c32c67ba332e76fa4d734d8b2673"
+    },
+    {
+      "path": "src/services/DeepSeekRag.ts",
+      "bytes": 29639,
+      "sha256": "d4b0af4d8c0c6d3bcaacb857cca3816af5dd4f0e7cdbb8bf2ce025666f942ff1"
+    },
+    {
+      "path": "src/services/DemoRepository.practice.test.ts",
+      "bytes": 1943,
+      "sha256": "f34aafcaf9979d8a5fd573c1485bb57f5d736d205c0a0baa155045754290d35f"
+    },
+    {
+      "path": "src/services/DemoRepository.ts",
+      "bytes": 32401,
+      "sha256": "0998b0cfd16f4611c3a58ebd66eedae2b5194172abdaf6554ab0870fb3ced29a"
+    },
+    {
+      "path": "src/services/LocalSources.ts",
+      "bytes": 9831,
+      "sha256": "40d9f40526ca2d28037348a86c7e03fc7340ce75a1d0a05dc9929318d538a82d"
+    },
+    {
+      "path": "src/services/TextbookRetriever.test.ts",
+      "bytes": 12396,
+      "sha256": "2447cf987d24d6795409ed0f4d37b0c6cbfe64361b24124e8aa71598b8be18e4"
+    },
+    {
+      "path": "src/services/TextbookRetriever.ts",
+      "bytes": 13354,
+      "sha256": "a4a2d86a0cd6f748cb865686729618069174687eca6522f627bc123cedacf89e"
+    },
+    {
+      "path": "src/styles/ai-assistant-artwork.css",
+      "bytes": 589,
+      "sha256": "7be7c55c424d8a12cec376403f0d20ca00c7914d340051d27fb276b0f9f0fb00"
+    },
+    {
+      "path": "src/styles/base.css",
+      "bytes": 128615,
+      "sha256": "d2c09fb10e1777bea8284cb40fe9541c0d65ef5f8926ed0c4c052dbe0ce3f437"
+    },
+    {
+      "path": "src/styles/bottom-navigation-blur.css",
+      "bytes": 3169,
+      "sha256": "d8921d3b30ff22072b6b08724b0fe5becfebaca778e9808ab51dcd194d6b3816"
+    },
+    {
+      "path": "src/styles/card-system.css",
+      "bytes": 24549,
+      "sha256": "db3029f3f7c094b82f94afa6690193f1f4910430ce1d1a12f1c1c7f4f8383c1a"
+    },
+    {
+      "path": "src/styles/chapter-confirm.css",
+      "bytes": 4116,
+      "sha256": "b6b4962c49edee415c1604dd5f04bf6384b093710222166802aab4cafba4fcf6"
+    },
+    {
+      "path": "src/styles/chapter-tools.css",
+      "bytes": 5185,
+      "sha256": "63d1cb4e6c65eb8fbaa9b9c85669d94db0c1d9b90fa55708db00ecce557d5a67"
+    },
+    {
+      "path": "src/styles/community.css",
+      "bytes": 25250,
+      "sha256": "fa94a1916b9ce4351ad218e0fdb0d532fd5334c1d2788178c3bf151da1364e44"
+    },
+    {
+      "path": "src/styles/course-ready.css",
+      "bytes": 7744,
+      "sha256": "d01bdeb7c4838fbf34abd132bd0eb877b1aa8a0d039a8db0767715cfdda3b391"
+    },
+    {
+      "path": "src/styles/courses.css",
+      "bytes": 20119,
+      "sha256": "7ff31ed8f4ca8a8efe0ebeab4f0c87c085826b4490131af394732e8a29d87bfc"
+    },
+    {
+      "path": "src/styles/device-preview.css",
+      "bytes": 16531,
+      "sha256": "42e3e23daec047de96555d34b2686ddc684f3690061dd1f2b992b73732e69554"
+    },
+    {
+      "path": "src/styles/empty-states.css",
+      "bytes": 4220,
+      "sha256": "2dbb9e7005f312f9f5b25bd8a62ddc9ceb844d7ecdb7544c7babad92c4711462"
+    },
+    {
+      "path": "src/styles/glass.css",
+      "bytes": 4586,
+      "sha256": "53a3d219af03889ebd615de4cefa1bc149fedd4d59e62ee55aeb8a85037cf12c"
+    },
+    {
+      "path": "src/styles/home.css",
+      "bytes": 30459,
+      "sha256": "3165d42429094afc1277cc1fa2f3633089f559225b13f4ff98c9684d368c700e"
+    },
+    {
+      "path": "src/styles/mistake-book.css",
+      "bytes": 21298,
+      "sha256": "e420cab4eb2a1e440d3d3dae971703feffd42f4d8d87581d919620f4e5002d6e"
+    },
+    {
+      "path": "src/styles/motion.css",
+      "bytes": 69445,
+      "sha256": "3798f87d702dfc4a44a4423b2425ed2bbef70ee6dcb98f9823f6939b06dc03e4"
+    },
+    {
+      "path": "src/styles/page-header-background.css",
+      "bytes": 7527,
+      "sha256": "be63fa7368dc24196e8ecaa4b43765f538a8539aeef3e0fd8018ea3cb2ddeb6a"
+    },
+    {
+      "path": "src/styles/page-headers.css",
+      "bytes": 3800,
+      "sha256": "a30dd22a9640366e69bd01581ffa7725c36097f5a9bb95b210f076f5bb71e0ce"
+    },
+    {
+      "path": "src/styles/parse-ready.css",
+      "bytes": 5528,
+      "sha256": "70be5d0fe04d2518e7624d663f1e318854a2bb8e45318bddc6bcb1dd9f565a69"
+    },
+    {
+      "path": "src/styles/processing.css",
+      "bytes": 4239,
+      "sha256": "c5f2c96b6ff50523deac253d83331ce2e36c3df93fa7e1d5bc8221743463a4a6"
+    },
+    {
+      "path": "src/styles/profile.css",
+      "bytes": 8893,
+      "sha256": "43d7c740c1a6ea259456115890a0c40637e2961530cce4b1c79dd39121d0ed12"
+    },
+    {
+      "path": "src/styles/responsive.css",
+      "bytes": 48879,
+      "sha256": "1e58ed50426b0c31f6f93324c8121f7c99d5489e53cb3dae54deb17e8190d410"
+    },
+    {
+      "path": "src/styles/settings.css",
+      "bytes": 3549,
+      "sha256": "573b0f85b667b3d9b66b61e43001ca20a77838047e1f97e2429d62c1f02f918c"
+    },
+    {
+      "path": "src/styles/sticker-icons.css",
+      "bytes": 3743,
+      "sha256": "86914c86d14413b5e3abbd4edc2685d767d2859eea8d5fc248db4b2f797201b1"
+    },
+    {
+      "path": "src/styles/study-notes.css",
+      "bytes": 47808,
+      "sha256": "3e9d9a69f806fed40c58f883373ad639ee756d6bc97bc2170ab9a402195df798"
+    },
+    {
+      "path": "src/styles/study.css",
+      "bytes": 28537,
+      "sha256": "2b3ddba084bb1af45ea15f29e1331ea1f7e2fac72d10c8dce5d0121ae6bad825"
+    },
+    {
+      "path": "src/styles/tablet.css",
+      "bytes": 16588,
+      "sha256": "d3393bf42625dea8d92ae2601cb73628bc6a3c7c3adbf4d717235406dc385d0c"
+    },
+    {
+      "path": "src/styles/tokens.css",
+      "bytes": 6164,
+      "sha256": "f13c28ac09ea211b4a8f41f00494a27bd8f6a79d90aef0914be1218c017d8bde"
+    },
+    {
+      "path": "src/styles/typography.css",
+      "bytes": 10274,
+      "sha256": "56703272f212b56a8de02b5a96f35d2274a0c5108b2963fc8c399b8111ae3d03"
+    },
+    {
+      "path": "src/styles/upload.css",
+      "bytes": 11830,
+      "sha256": "9ee618bdca3e25120bcc433109d21c924fa7332f4075b69bab44a0073035cf2c"
+    },
+    {
+      "path": "src/types/api.ts",
+      "bytes": 11569,
+      "sha256": "dfa725d744dd2ea21903407117a5ddc2a27a59b5577c69d0c2f537f61f7c8d32"
+    },
+    {
+      "path": "src/types/app.ts",
+      "bytes": 3398,
+      "sha256": "03ddbdf0828fd3fa6b3941c64750e72c0d0232e91c5e231d631e5e367efb4aa0"
+    },
+    {
+      "path": "src/utils/chapterStructure.test.ts",
+      "bytes": 3895,
+      "sha256": "ca19828ab67fb791c8a702eefb61062303eb1ab30b02933e06bf692806892547"
+    },
+    {
+      "path": "src/utils/chapterStructure.ts",
+      "bytes": 5882,
+      "sha256": "e2b99caf3ff6d1378d7aef0151500273daddb952a5d9b6b50b62311b04b3db5e"
+    },
+    {
+      "path": "src/utils/lessonGeneration.test.ts",
+      "bytes": 1770,
+      "sha256": "8f53912b06325dea819c87f52ad376755a56fa9cc91e62e43ac32eacfb3a0071"
+    },
+    {
+      "path": "src/utils/lessonGeneration.ts",
+      "bytes": 1148,
+      "sha256": "983d8447b17db170cb84cea88d28bbf01f22fadcd39cb3a8e9df742140831fc1"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "bytes": 38,
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "path": "public/assets/backgrounds/biology-liquid-glass-bg.png",
+      "bytes": 2031578,
+      "sha256": "36a8a7d78940a1bc835be9a5794841e7ebb3a9bd16221fd43a386a3586f12ea4"
+    },
+    {
+      "path": "public/assets/book-covers/advanced-mathematics-1.webp",
+      "bytes": 25270,
+      "sha256": "47b3dce77d3aaa43fa9015c1a75223e665f93c8e017d34773936abe455b4565c"
+    },
+    {
+      "path": "public/assets/book-covers/biology-required-2.webp",
+      "bytes": 53850,
+      "sha256": "6432e49e6f2ffc6f739b79ef9e45b1b43c79d01cd7a42d65fd878d67ed5f8eea"
+    },
+    {
+      "path": "public/assets/book-covers/chemistry-required-2.webp",
+      "bytes": 10842,
+      "sha256": "5e251a235ef7848a31035c0277190a23a4a0981f54279f42c067d721b86d997b"
+    },
+    {
+      "path": "public/assets/book-covers/english-required-3.webp",
+      "bytes": 47150,
+      "sha256": "35f36ff2b2716e9d3070cdb075c72afaab746af782486be2f14b1d6bdc06aab6"
+    },
+    {
+      "path": "public/assets/book-covers/high-school-math-required-2.webp",
+      "bytes": 10750,
+      "sha256": "368741668d6d1c9dc9fc520fa43a16cc1f0e4ccfcd426b6caae9752d99577edb"
+    },
+    {
+      "path": "public/assets/book-covers/micro-psychology-set.webp",
+      "bytes": 41536,
+      "sha256": "d1a35efb45a631bd4b5e3b3d35a8685d6cd67a7973f893795a7ef1f232b22236"
+    },
+    {
+      "path": "public/assets/book-covers/physics-required-3.webp",
+      "bytes": 11060,
+      "sha256": "29aed6c614ccc069abcc94ce5619d0324024656a55e576e59065d8de17e74cb5"
+    },
+    {
+      "path": "public/assets/book-covers/theoretical-mechanics-1.webp",
+      "bytes": 23474,
+      "sha256": "63f1c125b328c257c684925ae2e74d43790758f4dc2b766d1a8f97277a85d659"
+    },
+    {
+      "path": "public/assets/brand/ai-assistant/avatar-v1.png",
+      "bytes": 779700,
+      "sha256": "fa8fa803ebb6252750dd788c14deb474f4bd757f6fda573a4d60f93de71b88bd"
+    },
+    {
+      "path": "public/assets/brand/ai-assistant/dragging-v1.png",
+      "bytes": 815645,
+      "sha256": "094736948967f95b25f54fd80a8875bbb8216b3b76a7ae8911986ef08ff14178"
+    },
+    {
+      "path": "public/assets/brand/ai-assistant/idle-left-v1.png",
+      "bytes": 802604,
+      "sha256": "a0b5b3c843a172ab06e87770a29cc5f0c91b297b9413a57bb22e140b38d7292e"
+    },
+    {
+      "path": "public/assets/brand/ai-assistant/idle-right-v1.png",
+      "bytes": 885583,
+      "sha256": "ad07db1ee395b50092995f2525be329cadac4befca5b044b4cce7219162206a5"
+    },
+    {
+      "path": "public/assets/brand/ai-assistant/pressed-v1.png",
+      "bytes": 768591,
+      "sha256": "e9d19ad209b87c5d06a4eb73e7770d7c38db32e48b7a39ba0c0f8d5549bd0f72"
+    },
+    {
+      "path": "public/assets/brand/app-logo.png",
+      "bytes": 258654,
+      "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-airborne-ui.webp",
+      "bytes": 7962,
+      "sha256": "d2957bf82b5dc782481470fe8154f2683b66b2252204185a615c837ded0e6edf"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-airborne.png",
+      "bytes": 418864,
+      "sha256": "882e05609c8a09dbbd7dacc4211e0a6f0f71002983f062335f64e6c4385bc3ba"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-dragging-ui.webp",
+      "bytes": 10518,
+      "sha256": "b6726a6efc88899d64de2e0d7cf0ee23362fd4ba37bdd0e75508748c37e93212"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-dragging.png",
+      "bytes": 500043,
+      "sha256": "5e9b3781759add33f9750db3db3c97681b67bd462c51692678a1106c7c9f9bff"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-left-ui.webp",
+      "bytes": 5946,
+      "sha256": "b060cefe3f76559c2a719974b9120a0d770af93dfd7849cd2cc3974e616dc30d"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-left.png",
+      "bytes": 431260,
+      "sha256": "43ece6c971d8aada273e8cfe81ec8e01c7f0fe9032563c78d9579719baae0f4f"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-pressed-ui.webp",
+      "bytes": 9204,
+      "sha256": "92df15ddb8d9e5630ffcec1c19d7f55d219e99f6ec1fa70ba96205e6df8f2f79"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-pressed.png",
+      "bytes": 419545,
+      "sha256": "45648f18ed6a45fed5fe044b31f858896930c2bd071ca1e6bd33413ba413e770"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge-ui.webp",
+      "bytes": 11064,
+      "sha256": "5eeee127e5c381d2e7075416df9f63133f3af427543c6b9a6d7db6376f689fd3"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-ai-chat-edge.png",
+      "bytes": 498548,
+      "sha256": "b75217e78c7bb8eaaa48a2764b39735b7c4a8e0cf83c63b787246c889437e764"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-home.png",
+      "bytes": 36778,
+      "sha256": "e6a5eef29d7686b38d8c83cd639285ed47a881bb4a9a5724f3a98cdad3e61a87"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-parsing.png",
+      "bytes": 146429,
+      "sha256": "4ffd512115e4243722d564c8c633f0e2c2aad0318cea6442510cbb4db0e0d71c"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-report.png",
+      "bytes": 37265,
+      "sha256": "5e1583bc80e57ee8f0aae38bf5183a47461f85916b215da017787f1c5803d215"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-success-transparent-v1.png",
+      "bytes": 405734,
+      "sha256": "840672ccab62ff6d543c0391d05456644f06619d080bba327c6f4585a2783fef"
+    },
+    {
+      "path": "public/assets/brand/cloud-mascot-success.png",
+      "bytes": 147344,
+      "sha256": "38026528849e3510e0958c0e2eff57dc5921f8bd7bfe260088a32be01cbdba4a"
+    },
+    {
+      "path": "public/assets/brand/community-hero-bg.png",
+      "bytes": 1299514,
+      "sha256": "742493a2fca15f45df4e303fb3accc301d494da710c8c402918528b464bed35a"
+    },
+    {
+      "path": "public/assets/brand/daily-task-cloud-bg.png",
+      "bytes": 1242963,
+      "sha256": "2968dedf265d1e76d4a38a9b09b64f2e249c6bc0061c14ee6417c0adef246f5f"
+    },
+    {
+      "path": "public/assets/brand/empty-states/connection-error-v1.png",
+      "bytes": 828492,
+      "sha256": "b640deefda80aaa6c2b67a1f1b53fa050202cc5d06482b527d78e08f6a505f71"
+    },
+    {
+      "path": "public/assets/brand/empty-states/no-courses-v1.png",
+      "bytes": 821197,
+      "sha256": "ed717deb1cdf0134dfb554bf04702c18467b3b4e4ffe7cb7e07ad801f88870f0"
+    },
+    {
+      "path": "public/assets/brand/empty-states/no-notes-v1.png",
+      "bytes": 798334,
+      "sha256": "d2973a280143a8862b04419620e8c72b88dba6354224bdf73180f748c56b06ee"
+    },
+    {
+      "path": "public/assets/brand/empty-states/no-results-v1.png",
+      "bytes": 778801,
+      "sha256": "2c06715508e83e4c1334c128ab6118d7df3ce6d0548f9ce64dd6821bf1dc6ac5"
+    },
+    {
+      "path": "public/assets/brand/home-learning-path.webp",
+      "bytes": 28354,
+      "sha256": "671b1b65a1269d10ff81994575b0f2a8b0ac5325d0a9d782bd4d17dbc68b4be8"
+    },
+    {
+      "path": "public/assets/brand/loading/cloud-course-loading-preview-v1.webp",
+      "bytes": 443676,
+      "sha256": "01282106dccbbb75517d09d9da1a8795ef8ef022bfafb6250f56a4f860efc02a"
+    },
+    {
+      "path": "public/assets/brand/loading/cloud-course-loading-spritesheet-v2.png",
+      "bytes": 698463,
+      "sha256": "64728ca629158e2a8718961931995151810a2ace76df6304697d2c339406a239"
+    },
+    {
+      "path": "public/assets/brand/loading/cloud-course-loading-strip-v1.png",
+      "bytes": 645747,
+      "sha256": "b84bb6435bbfd9426311d0c4207a10d45235df4ac0e405414654438e036263db"
+    },
+    {
+      "path": "public/assets/brand/sidebar-cloud-icon.png",
+      "bytes": 19699,
+      "sha256": "5d871eb2d8c0f7c19418847d5da40a85f3a4d15809097e40acd756cf5ba1d230"
+    },
+    {
+      "path": "public/assets/brand/success/cloud-mascot-success-spritesheet-v1.png",
+      "bytes": 649954,
+      "sha256": "dd5b2e274a25aa3be9e69f854ffc0071e8eae7ffea29b0b3751dd2d9e1f6bb69"
+    },
+    {
+      "path": "public/assets/brand/success/cloud-mascot-success-strip-v1.png",
+      "bytes": 654322,
+      "sha256": "ce7409cbbb4aade443f4222437e658e2d3b4ea68ee3c141ebc7709781274e48e"
+    },
+    {
+      "path": "public/assets/brand/yunjing-startup-screen.png",
+      "bytes": 120,
+      "sha256": "08f36e964faa12d5009eb77dcc86498bd5344646c81b37a17a629ce171f05b09"
+    },
+    {
+      "path": "public/assets/community/force-motion-cover-v1.webp",
+      "bytes": 36258,
+      "sha256": "ecdf142e3cefa16446844868c3b0e777157e371d1ba1ca04d0af980e380fad65"
+    },
+    {
+      "path": "public/assets/community/functions-derivatives-cover-v1.webp",
+      "bytes": 22410,
+      "sha256": "7685fb94ee0845cad5cd6ac6ee71631f7fabfd7ae46bf8c768b5e5bf670c98ab"
+    },
+    {
+      "path": "public/assets/community/high-school-chemistry-required-2-cover.webp",
+      "bytes": 17134,
+      "sha256": "04d69a746b23aff2d6125ae4bce162ee18e336763497f3dea97be2a2a1b667c8"
+    },
+    {
+      "path": "public/assets/community/high-school-english-required-3-cover.webp",
+      "bytes": 83220,
+      "sha256": "8de847599d438293d104eb53cf2835d5377133b67ae17d05175c42b9b5eff889"
+    },
+    {
+      "path": "public/assets/community/high-school-math-required-2-cover.webp",
+      "bytes": 18274,
+      "sha256": "1e73bc081354f64c6ab0d02794b59d8b3798b5e043e24ada27f9f7296f004e9c"
+    },
+    {
+      "path": "public/assets/community/high-school-physics-required-3-cover.webp",
+      "bytes": 17460,
+      "sha256": "d391f864123293cc74fd4cf0ca9059142e39ab0c2e5dc7fb4ce0dfde8cec8ce5"
+    },
+    {
+      "path": "public/assets/community/higher-mathematics-vol1-7e-cover.webp",
+      "bytes": 47100,
+      "sha256": "f321b1347e1bd8f324f7a63f3a5a439f469499ef877b3a8535153bf91bae0b58"
+    },
+    {
+      "path": "public/assets/community/theoretical-mechanics-1-8e-cover.webp",
+      "bytes": 42250,
+      "sha256": "30cd381576dc2a7cb9fe5fad52c7426505e01eecf5787321969f202342af4199"
+    },
+    {
+      "path": "public/assets/fonts/NotoSansSC-400.woff",
+      "bytes": 6329932,
+      "sha256": "25a63732c0488ff2654cfbf8ef797e701fb178bff872cdb4587734bb640b3803"
+    },
+    {
+      "path": "public/assets/fonts/NotoSansSC-700.woff",
+      "bytes": 6410036,
+      "sha256": "e45fd8b383b7bfaa2a4212067b563983b7fb27940d385f4d0c00602afdf29704"
+    },
+    {
+      "path": "public/assets/fonts/OFL.txt",
+      "bytes": 4387,
+      "sha256": "babcfe66c8a098b2fa279bc724a3a342f8124f77ce18941fbcc1bbb39823cded"
+    },
+    {
+      "path": "public/assets/fonts/README.md",
+      "bytes": 376,
+      "sha256": "f8855443c575a467c52eb94b872eb50fa9d27168887b134a55f7326c710140a3"
+    },
+    {
+      "path": "public/assets/lesson/chromosomal-variation-overview-v1.png",
+      "bytes": 1250989,
+      "sha256": "809f0538c46c94218774a518708f1f10a18af9d9c0cf7c14be4e0c4262939a22"
+    },
+    {
+      "path": "public/assets/lesson/dna-genetic-material-overview-v1.png",
+      "bytes": 1152337,
+      "sha256": "508da30bf6909bddb7085f5d6cf7bf698ae53fb7c9164047f7e106d0d38eae64"
+    },
+    {
+      "path": "public/assets/lesson/dna-replication-overview-v1.png",
+      "bytes": 1289450,
+      "sha256": "2fd931eb37dd36d35a2ac2ccebc32bef6256bc9dd1211931a9686e26c33dff04"
+    },
+    {
+      "path": "public/assets/lesson/dna-structure-overview-v1.png",
+      "bytes": 1381417,
+      "sha256": "a38210c12f1361b2255583fc4e65ff1f89dd8e5d96560b708a5f0a841710f34a"
+    },
+    {
+      "path": "public/assets/lesson/fertilization-diploid-restoration-v1.webp",
+      "bytes": 34586,
+      "sha256": "a4422db86b4c460774a22ab02ea30d1ccf1e9ab33bc33e638c85fea8fa09b096"
+    },
+    {
+      "path": "public/assets/lesson/fertilization-homolog-pair-v2.webp",
+      "bytes": 33326,
+      "sha256": "910ed6b1adf566fbd3fa4d2fe2b55070c32f665b7631ce4c4ed73267a0e1225a"
+    },
+    {
+      "path": "public/assets/lesson/gene-chromosome-evidence-overview-v1.png",
+      "bytes": 1168130,
+      "sha256": "d372dcfc3d3c0650baf7b9953e49c5e4b8e680eda991a1f26bcdaf19b8d33f9d"
+    },
+    {
+      "path": "public/assets/lesson/gene-dna-segment-overview-v1.png",
+      "bytes": 1216450,
+      "sha256": "1e7c273733538bacd504cf885b8cdeb00bbcd0428b356a2f7cbecb28534c80f0"
+    },
+    {
+      "path": "public/assets/lesson/gene-mutation-recombination-overview-v1.png",
+      "bytes": 1259868,
+      "sha256": "a061a948c6dba09fddf6ea4848eebd41a1522aeab1305fa014d652cfe2cf697d"
+    },
+    {
+      "path": "public/assets/lesson/gene-trait-control-overview-v1.png",
+      "bytes": 1135372,
+      "sha256": "b8a05389ecc79062f0a444b6fdb443d0dbf72d953fb8108c5172f1818acc6333"
+    },
+    {
+      "path": "public/assets/lesson/genetic-code-deciphering-overview-v1.png",
+      "bytes": 1271691,
+      "sha256": "e384e704fb34bfbc5403699deafe2a309622ce573f97b2b8b773ce394e60c8ba"
+    },
+    {
+      "path": "public/assets/lesson/human-genetic-disease-overview-v1.png",
+      "bytes": 1523332,
+      "sha256": "88cd4fd492257d8eb99da0f160dee4f05e5bf7e09b5f92ac9a4946390ac3baca"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-dna-replication-v1.webp",
+      "bytes": 41678,
+      "sha256": "89b749e25eed033312f41c59e2b738fc286e9311f43b7ae44a0a14d08060f8c3"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-explainer-demo-v1.mp4",
+      "bytes": 1225315,
+      "sha256": "e902089f6f773d93e2b41049e6cb70fccaf6ecb67fa8111d07e992e82338c701"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-fertilization-cycle-v1.webp",
+      "bytes": 50904,
+      "sha256": "4ed535708ce77fe56ac651c87e279206db07529bbd759ba722429d76fb044550"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-homologous-separation-v1.webp",
+      "bytes": 67962,
+      "sha256": "407749129e9ab4f5300a17f39fafde1b8eef0d04ecda16e3211261126922acac"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-ii-centromere-separation-v1.webp",
+      "bytes": 44250,
+      "sha256": "480e7e13893df64eae697e71a71913962627bb49cb39c7271d7c06e798998c89"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-overview-v2.webp",
+      "bytes": 50310,
+      "sha256": "0438b8313920ccf99b03781330c10c58dfd614a7d251df6471d52fdaa4ee8878"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-separation-compare-v2.webp",
+      "bytes": 69508,
+      "sha256": "67ef0d4b4b95ea636bb63c22e423f617e855203ec1f8c53a13c75ec752e44ab8"
+    },
+    {
+      "path": "public/assets/lesson/meiosis-synapsis-crossing-over-v1.webp",
+      "bytes": 60272,
+      "sha256": "f77a003cb2a2e37d48bcf40583948de36fed59fdd91588d22c31a63aff56a111"
+    },
+    {
+      "path": "public/assets/lesson/mendel-dihybrid-overview-v1.png",
+      "bytes": 1205297,
+      "sha256": "2ac4fc3c65d91bf11a75bacde733fc19cf6a3d6fb205c5c8a3746d2b930028b5"
+    },
+    {
+      "path": "public/assets/lesson/mendel-monohybrid-overview-v1.png",
+      "bytes": 1242834,
+      "sha256": "82b4c0657caf50027a14703bcddabe5d2f1e9b578bc8fc73d492bfa94f18805d"
+    },
+    {
+      "path": "public/assets/lesson/protein-synthesis-overview-v1.png",
+      "bytes": 1284968,
+      "sha256": "e5303e1b536bf95bcca86844c7a9b80ae5542e44d5c1060da09b136ae4890503"
+    },
+    {
+      "path": "public/assets/lesson/sex-linked-inheritance-overview-v1.png",
+      "bytes": 1359379,
+      "sha256": "86d41ff48c9768598230d4a23e4c95cf261c8b19a2257ee9f3ef7b005fa4abfd"
+    },
+    {
+      "path": "public/assets/notes/ink-wave-divider.png",
+      "bytes": 232874,
+      "sha256": "2e23c6f5ff0dfa4b0f50b7febd5f22e11904cd0f31f1fbce21c1ca96031dd0e1"
+    },
+    {
+      "path": "public/assets/textbook/biology-catalog-1.webp",
+      "bytes": 88262,
+      "sha256": "6161bf747ec7091681d2d8fc66dd1195ca3d45ffa32302db08e3826502e94988"
+    },
+    {
+      "path": "public/assets/textbook/biology-catalog-2.webp",
+      "bytes": 73534,
+      "sha256": "0dc41d4d749d4c940ed489972793d7a2b339b7cfe17a32a4c2ed38d9da763bd5"
+    },
+    {
+      "path": "public/assets/textbook/biology-chapter-2-open.webp",
+      "bytes": 211308,
+      "sha256": "b07bfdac6ea1a429ded0e85cad6e27b9fd5e7743aea3021da7a34d563248c5ab"
+    },
+    {
+      "path": "public/assets/textbook/biology-chapter-3-open.webp",
+      "bytes": 158350,
+      "sha256": "2d5a3e1acef8331563c6fc07eeed8f740cb8a7453c6b141228d59c793f6c266d"
+    },
+    {
+      "path": "public/assets/textbook/biology-chapter-section-open.webp",
+      "bytes": 98410,
+      "sha256": "bf2477df23d0f9c00ea618a2f313d4c3f44e22b629ed6031de376b443d9094ab"
+    },
+    {
+      "path": "public/assets/textbook/biology-cover-thumb.webp",
+      "bytes": 32298,
+      "sha256": "69b4a74d39bf907f7c9ad17c7d23890bc9074b1c8d2ca792973b6b80e9c078f4"
+    },
+    {
+      "path": "public/assets/textbook/biology-cover.webp",
+      "bytes": 84664,
+      "sha256": "7ada054c5acc39f0b938ecccde14a703edd0472b180ff30d2a1f16dc3f15fd18"
+    },
+    {
+      "path": "public/assets/textbook/biology-illustration-cell-division.webp",
+      "bytes": 87458,
+      "sha256": "310385b4cfd498ce2eb92621b8a6a61830b5fe0b7e3b55eb941b03109bb75483"
+    },
+    {
+      "path": "public/assets/textbook/biology-lesson-meiosis-1.webp",
+      "bytes": 117926,
+      "sha256": "ae58cb52a576495b58be678be9e0f8a8a9529fd757d6f0b7f80ab66e1f39d232"
+    },
+    {
+      "path": "public/assets/textbook/biology-lesson-meiosis-2.webp",
+      "bytes": 73834,
+      "sha256": "9c4a139052e2a918039dd1e5faa661195d74621cd6293b3804a04a7bb030bb14"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_001.jpeg",
+      "bytes": 264072,
+      "sha256": "20ce781353d316f963fd4d42cfe63104c9fa2f8fb3623afdd2de486a01d5a307"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_002.jpeg",
+      "bytes": 164085,
+      "sha256": "56fd9540e16881c4163f4a9a8718111d4e43792e38db81904be2c47a101160e6"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_003.jpeg",
+      "bytes": 121541,
+      "sha256": "1533aebde1e1643c547f37c1254d0851263e532480bbf51e1dc25cd36795f645"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_004.jpeg",
+      "bytes": 82124,
+      "sha256": "41baa00bc6a2e32ac6eed00c7371bc538f9cb6c491dadbc896647b0406907692"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_005.jpeg",
+      "bytes": 290831,
+      "sha256": "73f644cc09f9d1d4c67dfb4519d3d8ef24a0b668c5bdaa804660e9330a24cde5"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_006.jpeg",
+      "bytes": 238986,
+      "sha256": "b85e8f59a9b31ee11b1ca6ccba60086cba8680406404d7f658f89f6d5a6b3a32"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_007.jpeg",
+      "bytes": 397023,
+      "sha256": "dd96a7af3a049326913e2e23485936098415c14594a728a8a364b29bc2c17734"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_008.jpeg",
+      "bytes": 470637,
+      "sha256": "2dc1d3dc261e8cccdd3fd261c417f76498923f88228b1721b3e080130bb065a1"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_009.jpeg",
+      "bytes": 400542,
+      "sha256": "c0260b441628275c21fd7b8b875a33a9b58d1486874eaacc2f92024cf5a74422"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_010.jpeg",
+      "bytes": 441541,
+      "sha256": "384ae9ebf121925ed66c23206c2ce44a5776ca219035c0ca1ac45d190c7ae841"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_011.jpeg",
+      "bytes": 347220,
+      "sha256": "6759799a9141caa67c6013b21ea0f3ee7593b26c96d458b92366760b3d5d7241"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_012.jpeg",
+      "bytes": 234732,
+      "sha256": "6afe951e5904c909bca4d6258ccc89c571cdb16593aca46f72c62181590a1420"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_013.jpeg",
+      "bytes": 316033,
+      "sha256": "7bec71c5adb8275b86cbed7aab3f32f2f792623c64e9fbc9810f6f1e894cf5b6"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_014.jpeg",
+      "bytes": 292123,
+      "sha256": "6e25dd2ef6e1fd5e0f08ef901041dc8fef868a929b592f26d96822b1f75f7825"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_015.jpeg",
+      "bytes": 181066,
+      "sha256": "3d66e70d0a0d315a79e4a72277da37d44c9069d5bbd29ca34933746ac6d4974f"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_016.jpeg",
+      "bytes": 263767,
+      "sha256": "fb2e06cfcc164ee54a273e28e26bf76e99a84568ed463569fbdb976b9cda65c4"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_017.jpeg",
+      "bytes": 225665,
+      "sha256": "2bc5e058245ebd1d308de37a85f53ffdb704a136ede98018f7ba01166ee6ee38"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_018.jpeg",
+      "bytes": 285862,
+      "sha256": "3f3c7dea91c4485011b74559544f093ef71a3aa11f14bfcdc6ccf8a7ba7d24a2"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_019.jpeg",
+      "bytes": 329997,
+      "sha256": "7574a92e561e0853c7ff83528feaa426298939a367c2a59ee0df4a4c6a27a246"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_020.jpeg",
+      "bytes": 265920,
+      "sha256": "48d6c73631a77aab2e2df5a359b91965f78792fc78d50f96e3d32ac8d0814d0d"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_021.jpeg",
+      "bytes": 164458,
+      "sha256": "18b0fb0a248641ee1ea1cdff6a886f8a514bf6f6885395aa3e5ea47c1bfdc7e2"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_022.jpeg",
+      "bytes": 291610,
+      "sha256": "1ec199f8eebf2583b18167b357614725700aff3bae5a7c9c3481250e1a869f96"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_023.jpeg",
+      "bytes": 330535,
+      "sha256": "c158a21da9af1900182164fc7df3c44b08af940383bb0733e8be8b48593acd93"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_024.jpeg",
+      "bytes": 292312,
+      "sha256": "dada0835f4b8eab38af8fca1c4efcb9a97181b2352e85739754a09e5771b6973"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_025.jpeg",
+      "bytes": 314470,
+      "sha256": "f3fe5bdfefcd1f403cf0dd8460cb9d70cf62ccf326d511242f4caf473fb9bfe6"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_026.jpeg",
+      "bytes": 237059,
+      "sha256": "b1f4687ebff41d8338c1ae78d95cbc4faf68d54fb40eb49cebc80efe2043663d"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_027.jpeg",
+      "bytes": 367581,
+      "sha256": "0e879f08aec467c1da7dde7e672fe3eb22c8cd91609c3881ae343acdb16f1727"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_028.jpeg",
+      "bytes": 289178,
+      "sha256": "079e75ee0489ce0618b5e9df54609755da12eff6366d54265938d37524517e9e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_029.jpeg",
+      "bytes": 237672,
+      "sha256": "915f61422ce2f4c2a8db6c1b676ded27816b50ea2e46d6512b9e5a073fbece01"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_030.jpeg",
+      "bytes": 231598,
+      "sha256": "467e2d9df321ee2f7fe39c045354e94fa083c1fa97dd0625d84e30eef4ab3946"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_031.jpeg",
+      "bytes": 295406,
+      "sha256": "3602211bfd41ddc65743645fc077a92bff059852b924a0e7c9957735addf206d"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_032.jpeg",
+      "bytes": 216481,
+      "sha256": "8e0d7b12c044a4d13fc6da59f37d1376a3b2c9a44e98d09f086c077681089551"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_033.jpeg",
+      "bytes": 376620,
+      "sha256": "7de43a266f56dca2f7918ba08e7e4f4ce2a110382f72ee084e9546e5c6ace982"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_034.jpeg",
+      "bytes": 335006,
+      "sha256": "33fcef6d27b3f1c2516e8a3eb5cfbbdbd6ad63b18c2a3afca432c7cf48a4c1b5"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_035.jpeg",
+      "bytes": 313070,
+      "sha256": "8cee7c4c6849e3d15627316a040c0ff44a901a0f1a1150b9cca170fc899d60de"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_036.jpeg",
+      "bytes": 425574,
+      "sha256": "d5f4459b98d711ba34d5a45dd1ba7e88a689500b0912da554a9f84dbb424ac74"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_037.jpeg",
+      "bytes": 273239,
+      "sha256": "093a8a2139d0f51f4688822e2fb97a09af2d5aec00427687fc9f869130abcd89"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_038.jpeg",
+      "bytes": 361934,
+      "sha256": "1f3da507fc97475d3bcdf9b76e6661db0466a5d6619fd8e3dd8fc13eef8f7244"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_039.jpeg",
+      "bytes": 297022,
+      "sha256": "649fbc20018e843c25d8bc2433ba99786b480aa2cdba0a5b171e93fbd4d9168e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_040.jpeg",
+      "bytes": 318781,
+      "sha256": "18fd7a25f63b3176f80bf15e27079101bdff3b6d55c1938e94fd62c02d39f277"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_041.jpeg",
+      "bytes": 270787,
+      "sha256": "417e0ed61c4d292005b299e7e285ab4248c07472ae7241e03d76f6abaf0dcace"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_042.jpeg",
+      "bytes": 311016,
+      "sha256": "632c1503aa4494fa5175015ff954547ddc6d0cda3df12c9062236a5a2ae4dbbe"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_043.jpeg",
+      "bytes": 336919,
+      "sha256": "9d0e2638442c158304a27d9fd3cc3503151535948255859bd091308de160a1da"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_044.jpeg",
+      "bytes": 238666,
+      "sha256": "8e551207158598f52e984cd1c2eb5291d7af78bf1181d5079dd69c11dd5fed82"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_045.jpeg",
+      "bytes": 257681,
+      "sha256": "1530a2b6c0da205d523ae68487a33a75bf75117ed220b43a24658ab71be13270"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_046.jpeg",
+      "bytes": 173785,
+      "sha256": "efa7d00aa786e3c9421b5f36726461ad2fc1f5bd9e345e7d10e8da56f98a2c35"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_047.jpeg",
+      "bytes": 302998,
+      "sha256": "fc055fedc176f508e59dfade073ead74773125ecc229277a644309d2abac8d6c"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_048.jpeg",
+      "bytes": 216224,
+      "sha256": "ca9e206d3eb9f5b5abd040fe4b483773226fbbfb865c7b249b08999ec545a00e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_049.jpeg",
+      "bytes": 349280,
+      "sha256": "bfd89a6595a5ef77a700a018053702f8abcd1d84a3fa1ddb21606a4e43d9ebcc"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_050.jpeg",
+      "bytes": 288597,
+      "sha256": "448e1a69b5f002e17d8d5a51f5348c61d6953197fdb65c5b6e95c0b0ebd8f3cb"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_051.jpeg",
+      "bytes": 309840,
+      "sha256": "544c629adc9fc6be3c3af642c1ca0376b8df99ebaf751f69e845483c3ff110b9"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_052.jpeg",
+      "bytes": 335944,
+      "sha256": "dd613cf559fb0a3b82138bd716aebca05c4c0fbe4b545b62092c4f0bbf46684c"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_053.jpeg",
+      "bytes": 270951,
+      "sha256": "6e26429ad4e880062779b7cd522dd5fc12645f73975d6f5c6ffa5ca90b1b99b5"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_054.jpeg",
+      "bytes": 381291,
+      "sha256": "1ad0bb6918919f8757259c3adc46b9038d8b321df706d19d5a482c414da0e9c8"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_055.jpeg",
+      "bytes": 311625,
+      "sha256": "024e43a85cf2e17f5ec8e876a78db058d89fa7bbf795ce3019c0791f0c224e41"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_056.jpeg",
+      "bytes": 407035,
+      "sha256": "3d5fa09060e24fa5858eed3f5c389cf690ebebbf9123e1dbc937d3bf374a7ef3"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_057.jpeg",
+      "bytes": 337795,
+      "sha256": "2b74adbf759bb652295094aec35f4d6ba758d2c89c525d019ab3ca972ba04d66"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_058.jpeg",
+      "bytes": 365727,
+      "sha256": "e720307a40b3dbfa1848d84d1682792f85eedcef68bc2bb170d7560b83dd95c3"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_059.jpeg",
+      "bytes": 260405,
+      "sha256": "6c7ae261575a4346543411eb2385ed070ee037c421422c83a59715ff8beade83"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_060.jpeg",
+      "bytes": 274320,
+      "sha256": "95b0d6c3518ddb9728db23a9968cee749cadba9ca8c6e07c487318d50d616d21"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_061.jpeg",
+      "bytes": 321950,
+      "sha256": "0e94264bf5eeb4e7f60d2222992dec13f88ab5fee6dc8f82a09aeab7f36085d9"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_062.jpeg",
+      "bytes": 327038,
+      "sha256": "d0cb416164f6ca1df23b3916f69783466d7b0e9241b9a26494cb7de989b6ab2f"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_063.jpeg",
+      "bytes": 263293,
+      "sha256": "bb9dad6c4ee4dcc1517f2df7f877d0edfb53d4bdaa893ee5f9f821b6439a1383"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_064.jpeg",
+      "bytes": 338559,
+      "sha256": "29bf6cdb0accf0a44fa4674d731ce0bfdd56385dbf7327762606f996ff290f4f"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_065.jpeg",
+      "bytes": 339257,
+      "sha256": "e183dee2db2cf1d51c3656e616bab82b98cc46beb83d6e5580e71770fb8afcc2"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_066.jpeg",
+      "bytes": 260592,
+      "sha256": "31ac773aa2825ea7ddacc5aae3e1743ddd2595037f11b9284578bf7463226553"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_067.jpeg",
+      "bytes": 271942,
+      "sha256": "d6424ccb8cf513ff7386eee020422bc5dacca1e1b8181aaa8691fa2e5feeda3e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_068.jpeg",
+      "bytes": 297552,
+      "sha256": "3907ef1179dbf47c55147765cc82f6d6a8817738ee410b79ae1233a801bc0042"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_069.jpeg",
+      "bytes": 317569,
+      "sha256": "99e4f3b14d32ab5e068fec5538c81ca5c89718cd5dd327be74699fbcc9add279"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_070.jpeg",
+      "bytes": 264182,
+      "sha256": "0dc06b3e85483960028abcaf51d2ebc5b6bdb1db1f38ed6593fb2e07e6e3e499"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_071.jpeg",
+      "bytes": 314601,
+      "sha256": "01429b834bb6263ea03a51aa050f8b8fd466af14d42e0ad72d7dc4e548c6d6cf"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_072.jpeg",
+      "bytes": 316376,
+      "sha256": "60c15ce0a897358a2a4571888d053109218f933569d3077469f4259e5c678361"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_073.jpeg",
+      "bytes": 298494,
+      "sha256": "3fd4b2737c70847b860d3caac61d24f2011a84610a0868e9167e5898cd1cb224"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_074.jpeg",
+      "bytes": 575954,
+      "sha256": "44d93f58cefda1aab169ca76b9b45e08b2f655fa200ee3b00197dfb5e67f6821"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_075.jpeg",
+      "bytes": 339513,
+      "sha256": "3b783d0aa129ae7e86c2a0e4bd544b4120d07a912fe3001e4b060035092671b2"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_076.jpeg",
+      "bytes": 313988,
+      "sha256": "b30ad4c6caee1fd769446dac1642bd3b3c9332ecd0964abc3e7af2030efcefac"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_077.jpeg",
+      "bytes": 365247,
+      "sha256": "2ee8344809bd4eaead4eb19d882bc4a44b5f4565be7fc75af4f1b255d12a3759"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_078.jpeg",
+      "bytes": 266764,
+      "sha256": "1236f39625f46e104c4984c994997162e040395038b9449f1bac65e69caedbd7"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_079.jpeg",
+      "bytes": 187832,
+      "sha256": "f8b690fbf7e111fe558f70de4bd152fd7e8bf1b4bd8ebde104b843f6c70ae85b"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_080.jpeg",
+      "bytes": 294176,
+      "sha256": "9ef62d8a88ba2334c39dffe48e17b4572aa1a57189659ff6e19dd37cf304a8ae"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_081.jpeg",
+      "bytes": 304445,
+      "sha256": "9391f5cb56abf255ba5b1f50a878ee9a76565eb59914ae4cb58e489adee1782e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_082.jpeg",
+      "bytes": 331370,
+      "sha256": "959c3250a5804cf72bfcaa48ea9acd88212a02d706e73c8433e4c3cfaef8a0ef"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_083.jpeg",
+      "bytes": 313737,
+      "sha256": "62801cd510a3b134551f413c203084a9650747cdc64f44d41154404c5157d268"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_084.jpeg",
+      "bytes": 244207,
+      "sha256": "f69719e0449fea796b185757e2740195545c51e1fb9f72bcff625a9918f96eac"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_085.jpeg",
+      "bytes": 304305,
+      "sha256": "e4e74e263f2c68f71debca4ccb72c7d32d289f79c0671dad93a5526ec30078c3"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_086.jpeg",
+      "bytes": 359199,
+      "sha256": "631abba369afc2db652803139410fc7dc07aaa8dcefef1491d3dc44e1f1e1391"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_087.jpeg",
+      "bytes": 326972,
+      "sha256": "818d26748ca1c58f873866bfb9f8395ef98a350fabb53568c461e5d30e03dc81"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_088.jpeg",
+      "bytes": 338384,
+      "sha256": "47cad243fe63b986d60f51acee1c456ee494fdf8389ae8b8041a44ea2a8fb3e4"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_089.jpeg",
+      "bytes": 313872,
+      "sha256": "5806fbcdc43a56cac01ec3ea9d395b295153d581217f12e73ff2889098158d96"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_090.jpeg",
+      "bytes": 375480,
+      "sha256": "4dd48c2c1e4830fc2a68622d2213244fb7aa365fe2b5db143d5aae3779ec38f5"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_091.jpeg",
+      "bytes": 345667,
+      "sha256": "c9c142db1e53ba683cb2df30d9f7c10cc20f07dcee3ec2c1c90b2dabaac244a7"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_092.jpeg",
+      "bytes": 525445,
+      "sha256": "a179104f6a22fb8549f1b591517614c5f020edbff3742a8d5c3a2749512dc56b"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_093.jpeg",
+      "bytes": 314305,
+      "sha256": "c46bc6fa7f9d4368fc0716376879c449a6f6c078cf7ba3ba5aa1f053c7b99f28"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_094.jpeg",
+      "bytes": 304511,
+      "sha256": "e2395bd6a4e72368b5e89ad397d225206edb584d02404cb7137ffe51680f0bf8"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_095.jpeg",
+      "bytes": 322719,
+      "sha256": "3024c257037a481820116c46d0fe4529d6e649e8ecf0125a6fdfcf46b553ada4"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_096.jpeg",
+      "bytes": 316103,
+      "sha256": "258c1c3d22c9b8259a68c3e8559f37a2bfb76df9c884297d323b7e751bb9443e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_097.jpeg",
+      "bytes": 312352,
+      "sha256": "aa0ce89dfc29c74fe200b245d24ac07aeb9d1e78422a9510f4db9af8ca348f4c"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_098.jpeg",
+      "bytes": 254786,
+      "sha256": "94470ffacba7dc267cdae07e77f5917ef60287c50b061d282541107ceb1eb16e"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_099.jpeg",
+      "bytes": 387341,
+      "sha256": "656ff63b9a391b18d0fceb3728191c48a0cc4d415ebbf0bc457f59a87fa01883"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_100.jpeg",
+      "bytes": 318922,
+      "sha256": "5413d9a78987d972407811dcf93c8826751a6f0d52d8e5d3d4089cea5ead9b6d"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_101.jpeg",
+      "bytes": 342770,
+      "sha256": "c6d00bca5bc1d22c5c5806183e9d480cd389c46d6634964b07c35839c89f90be"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_102.jpeg",
+      "bytes": 286727,
+      "sha256": "c7b1437cb7a1acf09557399c33fdf2212e6c1121fb7b288448d2ae74a0dddef8"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_103.jpeg",
+      "bytes": 339798,
+      "sha256": "78cfaeaea491be11ec8ac42ceaddff3e4c23d3897ac4fcefa72bba1c30c8ca6b"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_104.jpeg",
+      "bytes": 446419,
+      "sha256": "ec6daceee82b65bfa995da49e30881e5f5f7930eef0ad351ad45ce3e87d12c0b"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_105.jpeg",
+      "bytes": 342425,
+      "sha256": "c1c7d92606bb0b7b6d5c17ed32efa6574c4a07a556502cb588be0ddeb0ca4dcd"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_106.jpeg",
+      "bytes": 295219,
+      "sha256": "25b2f9f5fb01762c3d72c54a2e859d0c6a09ecf0a7779e55f441911497e93b01"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_107.jpeg",
+      "bytes": 295316,
+      "sha256": "527d6e87296ba61043d34a344ee4beae104551c902cf028c0e30593c113d7d73"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_108.jpeg",
+      "bytes": 280767,
+      "sha256": "af7ed2dbe026f0dd8c20b51e66bbedfeae88464ea0614035f5746fbc9a0d74d8"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_109.jpeg",
+      "bytes": 364494,
+      "sha256": "83717248c6fb7def01a0d0cf6ccd03cd95b9e57271d45870f9d7d98fc99f643d"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_110.jpeg",
+      "bytes": 377504,
+      "sha256": "ec807a81eef39fbb63ab2b226b50d0f5ad6f5590c8907d4432e2969d156d2c9f"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_111.jpeg",
+      "bytes": 330867,
+      "sha256": "9a18417bbb4d804fe10489cb215e0e5630ac76a6f467d03968dc3043a88fcd8a"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_112.jpeg",
+      "bytes": 356931,
+      "sha256": "f0d2ed0754e935c08944f96578c6c91133cf0c7db382a2cfd1a619d6bb573103"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_113.jpeg",
+      "bytes": 209491,
+      "sha256": "8ca9b696b547bfbd7fbf863c189385e1f42d2d5cc1fedbd71f158ee4638fee85"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_114.jpeg",
+      "bytes": 354524,
+      "sha256": "d6a6e6061073efc05b7198dc2bf209440754857373bb11a67ad3758deaa81c4d"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_115.jpeg",
+      "bytes": 300365,
+      "sha256": "567329eebad8de251702f5a1893d64f4d1cfb71fa125f8dbdc0cb12331c3a1a3"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_116.jpeg",
+      "bytes": 315799,
+      "sha256": "b89385f2e9a36a3cd156564e12ce7f250c609c6a5cd4c95cad3f7118e93c8529"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_117.jpeg",
+      "bytes": 328640,
+      "sha256": "6751240189e36a25dc0049f194cb9deca373ad6c1924679fec93ff17e2972d0f"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_118.jpeg",
+      "bytes": 325353,
+      "sha256": "ff7813c730153c9f554c42bec5e0986d261805f1150d7a6cdcac772cb489532a"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_119.jpeg",
+      "bytes": 276440,
+      "sha256": "17ffed299239a7a989a658006d9fb75912d70dc63d413519139a951483b3382b"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_120.jpeg",
+      "bytes": 407640,
+      "sha256": "41aeb71af66f18ecd0bee0215ed0d49dd76cbc658dec7d98674cb8e027f6e937"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_121.jpeg",
+      "bytes": 294393,
+      "sha256": "bddc83fcb25f0eb365bccf17bc8937ad83e4b4a868c24d4b6e69cad5ae2922df"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_122.jpeg",
+      "bytes": 298658,
+      "sha256": "5dcc1e70aeba0d2048c018726f9b9052d952ad07010d4226a80fd7e422863a69"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_123.jpeg",
+      "bytes": 394518,
+      "sha256": "880e83523596b5314d95d1e9942a7e9b66b8c8dce964a700a91b57df641296dd"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_124.jpeg",
+      "bytes": 365781,
+      "sha256": "eac5dbf02f44812ef3f2d45d1ea3dc8eb587995e29c8fca074ba7122b51a80b0"
+    },
+    {
+      "path": "public/assets/textbook/pages/page_125.jpeg",
+      "bytes": 335983,
+      "sha256": "db6dc0cbfb329cb6bffd42f5e4646d1f3b592272bb4ee3bc19e3ccbd423ec28a"
+    },
+    {
+      "path": "public/icons/apple-touch-icon.png",
+      "bytes": 45932,
+      "sha256": "a97fe07700a0c30012a558646e9e0ce17d79f49951724e140504563bf731be8c"
+    },
+    {
+      "path": "public/icons/favicon-48.png",
+      "bytes": 4654,
+      "sha256": "3a6fb0eef95614aaf879b98e206aa867c503865df31a334e1c06758bf2ef7d9a"
+    },
+    {
+      "path": "public/icons/icon-192.png",
+      "bytes": 51239,
+      "sha256": "063079c7166b950a3411120bfd38a505e7d00ae7dcbfe5be81491cf3c793b6fe"
+    },
+    {
+      "path": "public/icons/icon-512.png",
+      "bytes": 258654,
+      "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+    },
+    {
+      "path": "public/icons/icon-maskable-512.png",
+      "bytes": 178922,
+      "sha256": "9015c13bff060c5bad06e0983dfdb771f936caa364f7a5a8d670af4cac031064"
+    },
+    {
+      "path": "public/manifest.webmanifest",
+      "bytes": 603,
+      "sha256": "eaa1d8d94cb7c4e21de1b17166a094ae0da3df6c8d1891e7b304361f7f10394a"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/bm25.json",
+      "bytes": 5221301,
+      "sha256": "7fdd8f961b87d580db05f5c111c64db8c7a103b6b18809f1869dc04309e95a6e"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/build-report.json",
+      "bytes": 4218,
+      "sha256": "081e81e4fa29207c6143cbf7b0b1cbeb561d970832566d01e818990c0b970e51"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/chunks.json",
+      "bytes": 1321414,
+      "sha256": "292dd2ecd8462eb269fc993e2b0d79cdd90cc845218113923dad9cf374d77e92"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/evaluation-report.json",
+      "bytes": 131285,
+      "sha256": "3c2fc8fbc4330e1448341fdce9dc297eb3d464967a460f5d3aefb60c8135e4f2"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/evaluation-set.json",
+      "bytes": 10491,
+      "sha256": "95e24b5f6b93bcf2161fd8b19b664be585cb469fcb177fba7bfad451831a9e93"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/manifest.json",
+      "bytes": 8029,
+      "sha256": "138d736de2b952a23bb793b4de9deb718967408976ac14247d5d071dbc697ed2"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/page-map.json",
+      "bytes": 969532,
+      "sha256": "21daacc4c6fe1f49b8f14ad3fc0bc1d0c18612ffdc32992c42dbde64caaf65be"
+    },
+    {
+      "path": "public/rag/biology-required-2-rag-v1/vectors.f32",
+      "bytes": 350208,
+      "sha256": "708a7c454a557d36fc344efb7a8e4b823b52507059110c6330b0d9f4eb53cf18"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/config.json",
+      "bytes": 716,
+      "sha256": "d4193ead3a810fd694fa8a31d7fc72fbaebc0668b603e398734bf2f6538ff42f"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/model-manifest.json",
+      "bytes": 1979,
+      "sha256": "f2b0558de0464e7f820d45622782e17ef62e845c043887bdedd44abca57792c4"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/onnx/model_int8.onnx",
+      "bytes": 23903394,
+      "sha256": "b9837c19ce154ff0726d398ee77abbc03a7faf0476c6f93016c84e531be7ebb5"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/special_tokens_map.json",
+      "bytes": 125,
+      "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/tokenizer.json",
+      "bytes": 439125,
+      "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/tokenizer_config.json",
+      "bytes": 367,
+      "sha256": "e6f3b96db926a37d4039995fbf5ad17de158dfb8f6343d607e4dbaad18d75f5a"
+    },
+    {
+      "path": "public/rag/models/Xenova/bge-small-zh-v1.5/vocab.txt",
+      "bytes": 109540,
+      "sha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c"
+    },
+    {
+      "path": "public/rag/runtime/wasm/ort-wasm-simd-threaded.jsep.mjs",
+      "bytes": 44484,
+      "sha256": "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9"
+    },
+    {
+      "path": "public/rag/runtime/wasm/ort-wasm-simd-threaded.jsep.wasm",
+      "bytes": 21596019,
+      "sha256": "c46655e8a94afc45338d4cb2b840475f88e5012d524509916e505079c00bfa39"
+    }
+  ]
+}

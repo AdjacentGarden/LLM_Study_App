@@ -1,174 +1,110 @@
 # 云径 CloudPath
 
-SwiftUI 原生客户端 P0 接入已加入：账号隔离的多资料工作区、个人目录、上传教材动态索引、原 PDF 访问和可恢复学习进度。原生界面仍由独立 `study_app_swiftui` 工程维护，现有 React 前端保留。接口、启动与验收边界见 [原生客户端 P0](docs/NATIVE_CLIENT_P0.md)。
+SwiftUI iPhone / iPad 客户端与 FastAPI 后端在本仓库统一维护。`frontend/` 已替换为当前原生工程，最低 iOS 17；原 React 前端位于 `legacy/react-frontend/`，不参与当前构建和部署。
 
-> 同一本书，不同的起点，不同的学习路径。
+当前原生版本保留已有页面、插图和动效，并接入默认账号、六步个性化引导、PDF 上传、多资料课程、诊断、课程生成、教材答疑和学习进度恢复。真实 OCR、向量检索和模型服务需要单独配置；没有配置时会显示所缺服务。现有生物课程可直接导入，无需重新解析或生成。
 
-云径围绕 **PDF 教材理解、主动诊断与个性化教学** 构建学习体验：先解析教材，再用由浅入深的选择题了解用户的基础和薄弱点，据此安排讲解深度、学习重点、闪卡与练习。
-
-当前主干对应部署在 4090 上的 React 移动端预览与 FastAPI 后端，包含书架、学习社区、好友聊天和邮箱账号。项目仍处于**受控预览阶段**，不是已完成公网发布验收的正式产品。
-
-## 当前界面
-
-以下为实际运行版本的 iPhone 16 等比模拟界面，使用独立测试身份，不是设计稿。注册页更新于 2026-09-07，其余截图为 2026-09-06。
-
-| 我的书架 | 学习社区 |
-| --- | --- |
-| <img src="docs/images/bookshelf.png" alt="统一左倾、无彩色底板的双列书架" width="260"> | <img src="docs/images/community.png" alt="只有书籍和笔记分类的学习社区" width="260"> |
-
-| 邮箱注册 | 选书答疑 |
-| --- | --- |
-| <img src="docs/images/registration.png" alt="邮箱验证码注册第一步，底部固定下一步入口" width="260"> | <img src="docs/images/book-qa.png" alt="选择 C++ 教材后的真实原文依据答疑" width="260"> |
-
-截图中的教材仅用于展示测试效果；本仓库不附带新版预览服务器上的教材 PDF、OCR 文本、检索索引或用户数据库。
-
-## 核心体验
-
-| 模块 | 当前实现 |
-| --- | --- |
-| 教材处理 | PDF 上传、持久化 OCR 队列、MinerU 解析归一化、质量门控、LLM 清洗及需复核状态 |
-| 主动诊断 | 学习背景选择、由浅入深的选择题、自适应选题、信心反馈与可恢复画像 |
-| 个性化教学 | 按章节生成不同深度的讲解、总结、知识点清单、原文摘录、闪卡和练习；学习证据影响后续编排 |
-| 教材答疑 | 默认当前学习教材，也可选书架中的其他书；混合检索、重排序、原文引用与一致性检查，证据不足时不强行作答 |
-| 书架 | 原 PDF 封面/首页、搜索、在读筛选、轻触预览；统一左倾，悬停回正，以留白和细分隔线组织内容 |
-| 社区 | 书籍与笔记两类公开分享；领取时检查是否同一本书，复用解析结果，个人学习进度独立保存 |
-| 好友 | 唯一用户 ID、昵称/ID 查找、双方同意、文本聊天、站内资料分享、收藏、删除与屏蔽 |
-| 我的 | 头像、昵称、年龄等资料；可查看知识验证、学习证据与闪卡复习记录 |
-| 账号 | 邮箱验证码注册/登录、学习阶段与兴趣选择、跨浏览器身份恢复、账号缓存隔离及退出登录 |
-| 记忆回访 | 学习页到期闪卡队列、FSRS 自适应复习排程、隔日与七天后回忆自评记录 |
-| 疑问回访 | 原文/答疑一键留下疑问、关联章节轻提示、延后回访、个人理解记录与重新打开 |
-| 手写笔记 | 章节/选段笔记、笔画云端保存、PUCODING 识别、确认文字后检查与补全、独立整理版，不覆盖原笔迹 |
-| 视觉讲解（受控预览） | 选段生成教材关系图或 MiniMax 辅助插画、6 秒短片；明确讲解范围、逐项内容审核、图解放大；已实测通过灯彩插画/短片与 DNA、验电器关系图，错误素材不展示 |
-
-社区公开发布只保留书籍和笔记；已有闪卡资料及好友私信中的闪卡分享能力仍保留。答疑当前是**单书检索**，尚未实现跨所有书的自动综合回答。
-
-## 技术路线
-
-```text
-PDF → OCR / 文本重建 → 清洗与质量检查 → 章节结构与证据化摘要
-                                           ├─ 混合检索 + 重排序 → 带原文引用的答疑
-                                           └─ 主动诊断 → 掌握画像 → 个性化章节课程
-                                                            ↑            ↓
-                                                            └─ 练习 / 闪卡反馈
-```
-
-- 前端：React、TypeScript、Vite；CSS 动效、键盘/触屏反馈、减弱动态效果支持；Playwright 验收。
-- 后端：Python、FastAPI、Pydantic；SQLite 持久化任务、学习会话、账号、好友与消息。
-- 文档与 RAG：MinerU、PyMuPDF；持久化索引、关键词与向量混合召回、BGE 编码与重排序、证据校验及有界缓存。
-- 学习建模：IRT/CAT、自适应停止条件、Beta 后验与知识追踪、FSRS 复习调度。估计值不等于已经证实的掌握程度。
-- 模型服务：支持 PUCODING 与 DeepSeek 后端配置；当前预览答疑使用 PUCODING。模型名称和密钥由服务器配置，不放进前端。
-
-## 仓库结构与旧版迁移
+## 仓库结构
 
 ```text
 LLM_Study_App/
-├── backend/src/adaptive_learning/   # 当前后端
-├── backend/tests/                  # 当前后端测试
-├── frontend/src/                   # 当前移动端界面
-├── frontend/e2e/                   # 浏览器端到端测试
-├── frontend/scripts/               # README 实景截图脚本
-├── deployment/                     # OCR、RAG、章节与部署工具
-├── docs/                           # 模块报告、功能边界与当前截图
-└── legacy/cloudpath/               # 旧“云径”主干原样归档
+├── frontend/BookCourse.xcodeproj   # SwiftUI 主客户端
+├── frontend/App/                  # App 入口与全局路由
+├── frontend/Core/                 # 状态、持久化、网络与数据适配
+├── frontend/DesignSystem/         # 共享组件、字体和视觉样式
+├── frontend/Features/             # 课程、学习、发现、笔记与个人页
+├── frontend/Resources/            # 随 App 发布的课程素材和原生资源
+├── frontend/Tests/、UITests/       # XCTest 与原生 UI 测试
+├── frontend/scripts/              # 构建、测试和模拟器启动
+├── backend/src/adaptive_learning/ # FastAPI、OCR、RAG 与课程设计
+├── backend/tests/                 # 后端测试与隔离联调适配器
+├── deployment/                    # 后端和模型服务部署工具
+├── docs/                          # 整体架构与接口说明
+└── legacy/                        # 历史 React 实现与旧版项目归档
 ```
 
-原主干 `539e976` 的文件完整保留在 [legacy/cloudpath](legacy/cloudpath/)，提交历史也仍保留。根目录现在是当前“云径”实现；**不要混用旧版的安装命令、环境变量或测试统计**。历史报告只代表其记录时点，不是当前发布承诺。
+## 本地启动
 
-## 开发启动
+客户端需要 macOS、完整 Xcode、可用的 iOS Simulator 和 Python 3。后端需要 Python 3.11+，可运行于本机或 GPU 服务器。克隆本仓库后即可构建，日常开发不需要原 `study_app_swiftui` 仓库或 Node.js。
 
-建议 Python 3.11+、Node.js 22.18+。以下命令启动开发服务，**不等于已具备完整 OCR / RAG 环境**：真实教材处理还需要 MinerU、模型权重、有效模型服务配置及已构建索引。
-
-### 后端
+首次准备后端：
 
 ```sh
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev,pdf]"
-cp ../.env.example .env
-# 编辑 .env：将示例中的服务器绝对路径改为自己的目录。
-python -m uvicorn adaptive_learning.api.app:app \
-  --env-file .env --host 127.0.0.1 --port 8100 --reload
+.venv/bin/python -m pip install -e ".[dev,pdf]"
+./scripts/run_native_dev.sh
 ```
 
-Windows 可使用 `.venv\Scripts\Activate.ps1` 激活环境。健康检查为 `/api/health`，接口文档为 `/docs`；RAG 是否真正就绪应检查 `/api/rag/health`，而不是只看进程启动成功。
+开发脚本默认监听 `http://127.0.0.1:8100`，开启限本机回环访问的默认账号，无需邮箱、SMTP 或 `.env`。首次进入 App 显示“称呼 → 学习目标 → 每日时间 → 学习卡点 → 帮助方式 → 计划支持”六步引导。正常学习数据保存于后端持久化目录。
 
-### 前端
+另开终端，在仓库根目录启动客户端：
 
 ```sh
 cd frontend
-npm ci
-npm run dev
+python3 scripts/validate-content.py
+./scripts/build.sh
+./scripts/run-simulator.sh --device SIMULATOR_UDID --no-build
 ```
 
-打开 [iPhone 16 模拟界面](http://127.0.0.1:5174/?device=iphone-16)。Vite 将 `/api` 转发到本机 `8100`。模拟器是网页设备预览，不是原生 iOS 模拟器或 APK。
+也可以用 Xcode 打开 `frontend/BookCourse.xcodeproj`，选择 `BookCourse` scheme。首次构建需下载已锁定的 ONNX Runtime 和 ZIPFoundation。真机运行需配置自己的签名团队。后端地址可在 App 连接页切换，或通过运行环境变量 `BOOKCOURSE_API_BASE_URL` 设置。
 
-### GPU 与模型配置
+默认账号仅适用于本机开发。局域网真机或远程服务应使用正式账号认证或安全转发；正式服务不会开放本地默认账号入口。详情见 [原生接口与账号边界](docs/NATIVE_CLIENT_P0.md)。
 
-在后端安装 `.[rag]` 可选依赖，并按 [OCR 部署说明](deployment/ocr/README.md) 配置 MinerU。根据实际环境填写 [配置模板](.env.example) 中的解析命令、模型路径、RAG 索引目录与模型服务配置。示例路径属于现有部署，不能直接套用到其他机器。
+## 发现中的内置生物课程
 
-多书预览还依赖已发布教材、章节与索引清单；只克隆代码不会自动下载那 10 本测试书。相关工具位于 `deployment/server/`、`deployment/chaptering/` 和 `deployment/rag/`。
+《遗传与进化高频考点课》是永久随代码保存的已有课程，包含 15 个课时、90 张闪卡、45 道练习和 125 张已发布原文页图片。原有 AI 补充及待原文核验标记继续保留。
 
-## 4090 部署
+- 服务端内容快照：`backend/src/adaptive_learning/data/native_biology.json`，发布后端包时包含该文件。
+- App 内置发现目录：`frontend/Resources/Data/builtin-catalog.json`；封面与学习素材随 App 打包。
+- 发现目录独立于个人课程和进度。导入、学习、删除自己的课程都不会移除这条目录；服务端目录暂时缺失时使用内置条目，刷新不会重复显示。
+- 在线导入仍通过后端完成身份绑定，个人进度与客观题评分独立保存；主观题评分和教材答疑需要模型服务。
 
-当前预览应用、教材与持久化数据位于服务器数据盘，前端构建由后端同源提供。使用 [服务管理脚本](deployment/server/run_backend.sh)，可配置 `APP_ROOT`、`RUNTIME_ROOT` 和 `SECRET_FILE`；默认路径需按目标机器调整。
-
-发布前先备份数据库、源代码和构建，再增量发布，保留 Secret、教材、索引与学习数据。不要把 `legacy/cloudpath/` 当成新版运行目录。
-
-通过 SSH 转发访问已配置的预览：
+显式维护内容时，在仓库根目录执行：
 
 ```sh
-ssh -N -L 18100:127.0.0.1:8100 <部署账号>@<4090服务器地址>
+backend/.venv/bin/python backend/scripts/import_native_biology.py \
+  --sources frontend/Resources/Data/sources.json \
+  --community frontend/Resources/Data/community.json
 ```
 
-随后访问 [本机预览](http://127.0.0.1:18100/?device=iphone-16)。这个地址依赖自己的 SSH 隧道，不是公开演示站点。
+该命令同时更新服务端快照和客户端内置目录，不读取设备个人记录。
 
-## 注册、发信与安全边界
+## OCR、模型与课程个性化
 
-- 邮箱验证码具备过期、一次性使用、重发间隔与错误次数限制；会话由 HttpOnly Cookie 保存，服务端只保存令牌哈希。
-- 注册分为「填写账号」和「学习偏好」两步，登录一步完成；验证码只在最终提交时由后端验证，进入偏好页不代表邮箱已验证。
-- **当前私有预览已配置 QQ SMTP（SSL）**，接口报告邮件服务可用；2026-09-07 本轮验证覆盖模拟 SMTP、异常状态和演示账号，未发送真实邮件，实际收信仍需单独验收。这是邮箱验证码，不是手机号短信。
-- `AUTH_DEMO_MODE` 默认关闭。私有预览可显式启用 `.test` 演示账号，页面显示测试验证码；这不代表已发送邮件。演示账号是公共测试身份，不应存放隐私。
-- 真实 `.env`、数据库、日志、运行时验证码密钥及含用户资料的测试截图不得提交到 Git。
-- 公网发布前仍需完成 HTTPS、邮件投递、旧学习会话统一鉴权迁移、账号注销/导出、举报审核和负载/滥用验收。私信不是端到端加密。
+真实新教材流程需要 MinerU/OCR、文本模型服务以及 BGE 向量与重排序模型。按 `.env.example` 配置 `backend/.env`，需要 RAG 时安装后端 `.[rag]` 依赖。模型密钥只保存在服务器配置中。
 
-详细说明见 [账号与验证码](docs/accounts-and-verification.md)、[好友与私信](docs/social-system.md)。
+六步偏好已进入后端有效课程配置、教学单元、每日计划及答疑策略。当前 SwiftUI 保留已接入的课程展示；新教学单元的分段界面、服务端每日计划清单、建议确认及撤销界面仍属后续接入范围。详见 [个性化后端与接口](docs/NATIVE_CLIENT_P0.md) 和 [客户端接入边界](frontend/docs/CLOUD_INTEGRATION.md)。
 
-## 测试与验收
-
-2026-09-07 学习工作台质量迭代：后端全量 **341 项**、前端单元 **26 项**通过；包含 **33 项** studio 后端测试。MiniMax 实际生成 4 张图片与 1 条短片，最终通过 1 张插画和 1 条 6 秒短片，另有 2 张教材关系图通过；失败样本保留但不展示。验证包括大图缩放/滚动、真实视频播放/暂停/跳播、刷新恢复和素材权限，不代表任意教材均无误。详细记录见 [质量迭代与样本记录](docs/learning-studio-quality-20260907.md)，手写能力与边界见 [视觉讲解与手写笔记](docs/learning-studio-20260907.md)。
-
-2026-09-07 记忆与疑问回访更新：**后端 308 项、前端单元测试 26 项通过**，新增 2 项浏览器流程测试及既有 5 项回归通过。到期与七天统计使用隔离历史样本，不代表完成了七天真人学习效果实验。详见 [回访功能及测试边界](docs/learning-return-20260907.md)。
-
-2026-09-07 注册界面更新：**后端 296 项、前端单元测试 26 项通过，构建通过**；4 项浏览器测试覆盖两步注册、资料保留、验证码失效、发信错误、触屏布局，以及真实演示账号登录、双向聊天、退出同步和新浏览器恢复。详见 [注册体验验收](docs/auth-experience-20260907.md)。
-
-2026-09-06 最近一次主应用验证：**后端 291 项、前端单元测试 26 项通过，TypeScript / Vite 构建通过**。书架、选书答疑、触屏、空书架与社交共 5 项浏览器测试通过。生物和 C++ 两个真实答疑案例返回了对应教材引用；这不是对所有教材或问题的准确率保证。
+## 测试
 
 ```sh
-# 当前项目测试；不包含 legacy 中的旧版测试
 cd backend
 .venv/bin/pytest
-.venv/bin/ruff check src tests/test_accounts.py tests/test_social.py
-.venv/bin/mypy src
 cd ../frontend
-npm run test:unit
-npm run build
-npx playwright install webkit
+./scripts/test.sh --device SIMULATOR_UDID
+# 实际 HTTP / SQLite / Swift 客户端联调，临时服务监听 18101
+./scripts/test-cloud.sh --device SIMULATOR_UDID --only BookCourseTests/CloudTests
+# 本地默认账号、六步引导、已有课程导入与重启恢复
+NATIVE_E2E_LOCAL_LOGIN=1 ./scripts/test-cloud.sh --device SIMULATOR_UDID \
+  --only BookCourseUITests/CloudAccountUITests/testLocalDefaultAccountEntersHomeWithoutEmailAndSurvivesRelaunch
 ```
 
-对授权的受控预览执行浏览器验收：
+联调脚本自动定位同仓库 `backend/`，使用临时数据库；只有外部 OCR/模型适配器被替换。普通开发数据不会被清空。已有完整教材测试依赖未随仓库发布的原始 OCR 产物，测试统计与实际边界见 [迁移验收](docs/SWIFTUI_MIGRATION.md)。
 
-```sh
-SOCIAL_E2E_BASE_URL=http://127.0.0.1:18100 npx playwright test \
-  e2e/shelf-qa.spec.ts e2e/shelf-edge.spec.ts e2e/social.spec.ts
-```
+## 后端部署
 
-显式设置 `QA_LIVE_E2E=1` 才执行真实模型答疑测试；`ACCOUNT_E2E_SEED_DEMOS=1` 会注册并保留演示账号。不要将这些带写入的测试无差别指向公网生产环境。
+4090 / Linux 服务器部署 FastAPI、OCR 和模型服务；SwiftUI App 在 macOS 上构建与分发。后端不再加载 React `dist` 或提供网页路由回退，`/` 返回 API 信息，`/docs` 为接口文档，`/api/health` 为进程健康检查，RAG 就绪情况见 `/api/rag/health`。
+
+服务管理使用 [run_backend.sh](deployment/server/run_backend.sh)，按实际服务器配置 `APP_ROOT`、`RUNTIME_ROOT` 和 `SECRET_FILE`；部署说明见 [API 服务部署](deployment/server/README.md)。PDF、OCR 文本、索引、模型、账号与学习数据库属于运行数据，不随前端迁移复制。
 
 ## 进一步阅读
 
-- [技术架构](docs/TECHNICAL_ARCHITECTURE.md) · [主动诊断](docs/MODULE_04_ACTIVE_LEARNER_DIAGNOSIS.md) · [个性化课程闭环](docs/MODULE_05_PERSONALIZED_COURSE_LOOP.md)
-- [闪卡质量门控](docs/MODULE_10_FLASHCARD_QUALITY.md) · [社区分享](docs/community-release-20260906.md)
-- [最新书架、社区与选书答疑验收](docs/shelf-community-qa-refinement.md)
+- [迁移来源、功能边界与回退](docs/SWIFTUI_MIGRATION.md)
+- [原生客户端构建与资源说明](frontend/README.md)
+- [原生客户端接口、个性化与持久化](docs/NATIVE_CLIENT_P0.md)
+- [整体技术架构](docs/TECHNICAL_ARCHITECTURE.md)
+- [客户端第三方许可与内容来源](frontend/THIRD_PARTY_NOTICES.md)
+- [React 前端归档说明](legacy/react-frontend/README.md)
 
-截图可通过 `frontend/scripts/capture-readme.mjs` 从授权私有预览重新生成。旧版说明及第三方通知保留在 `legacy/cloudpath/`。仓库尚未添加项目级 `LICENSE`；依赖、模型与教材的许可需要分别确认。
+历史文档与截图仅代表记录时点。仓库没有覆盖所有业务代码与教材内容的统一开源授权；依赖、模型和教材的许可分别以对应来源记录为准。

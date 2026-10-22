@@ -1,0 +1,2 @@
+# Used only for explicit fixture/font refresh; not needed to build the app.
+fonttools==4.60.2

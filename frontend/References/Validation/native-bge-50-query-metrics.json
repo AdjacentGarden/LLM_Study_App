@@ -1,0 +1,8 @@
+{
+  "recall@5": 1.0,
+  "top3": 0.9705882352941176,
+  "precision": 0.9545454545454546,
+  "falseCitationRate": 0.0,
+  "acceptedPositiveRecall": 0.6176470588235294,
+  "cited": 22
+}

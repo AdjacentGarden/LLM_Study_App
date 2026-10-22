@@ -1,5 +1,7 @@
 # 技术架构：从扫描书到个人课程
 
+当前主客户端为 `frontend/` 内的 SwiftUI iOS / iPadOS 工程，通过 HTTP API 连接 `backend/`；原 React 前端归档于 `legacy/react-frontend/`。GPU 服务器运行 API、OCR 和模型服务，客户端在 macOS / Xcode 构建。迁移来源及当前能力边界见 [迁移说明](SWIFTUI_MIGRATION.md)。
+
 ## 1. 产品目标与边界
 
 核心卖点不是“把 PDF 接到聊天模型”，而是：对任意书籍先重建可信内容，再用尽可能少、但信息量最大的互动识别用户在这本书上的真实起点，最终生成能够持续变化的个人课程。

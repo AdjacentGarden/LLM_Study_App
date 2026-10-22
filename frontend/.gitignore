@@ -1,0 +1,15 @@
+.DS_Store
+.tools/
+.build/
+DerivedData/
+output/
+*.xcuserstate
+xcuserdata/
+Config/Local.xcconfig
+*.env
+*.log
+.env
+.env.*
+__pycache__/
+*.pyc
+*.xcresult/

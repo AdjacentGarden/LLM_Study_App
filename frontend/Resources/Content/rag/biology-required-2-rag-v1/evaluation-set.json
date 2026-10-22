@@ -1,0 +1,443 @@
+{
+  "schema_version": 1,
+  "book_id": "book_biology_2",
+  "description": "固定 50 条本地教材检索评测：17 个实际教材节各一条直接问法和一条改写问法（34 条），加 8 条闲聊和 8 条不应引用本教材的通用问题。",
+  "queries": [
+    {
+      "id": "c2s1-direct",
+      "query": "减数分裂的特点是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s1",
+      "expected_pdf_page_range": [
+        11,
+        21
+      ]
+    },
+    {
+      "id": "c2s1-paraphrase",
+      "query": "为什么配子中的染色体数目会减半？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s1",
+      "expected_pdf_page_range": [
+        11,
+        21
+      ]
+    },
+    {
+      "id": "c2s2-direct",
+      "query": "萨顿假说认为基因和染色体有什么关系？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s2",
+      "expected_pdf_page_range": [
+        22,
+        26
+      ]
+    },
+    {
+      "id": "c2s2-paraphrase",
+      "query": "摩尔根用果蝇实验说明了什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s2",
+      "expected_pdf_page_range": [
+        22,
+        26
+      ]
+    },
+    {
+      "id": "c2s3-direct",
+      "query": "伴性遗传指什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s3",
+      "expected_pdf_page_range": [
+        28,
+        35
+      ]
+    },
+    {
+      "id": "c2s3-paraphrase",
+      "query": "为什么红绿色盲常见于男性？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s3",
+      "expected_pdf_page_range": [
+        28,
+        35
+      ]
+    },
+    {
+      "id": "c3s1-direct",
+      "query": "噬菌体侵染细菌实验证明了什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s1",
+      "expected_pdf_page_range": [
+        37,
+        41
+      ]
+    },
+    {
+      "id": "c3s1-paraphrase",
+      "query": "肺炎双球菌转化实验如何证明 DNA 是遗传物质？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s1",
+      "expected_pdf_page_range": [
+        37,
+        41
+      ]
+    },
+    {
+      "id": "c3s2-direct",
+      "query": "DNA 双螺旋结构有什么特点？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s2",
+      "expected_pdf_page_range": [
+        42,
+        46
+      ]
+    },
+    {
+      "id": "c3s2-paraphrase",
+      "query": "碱基互补配对原则怎么理解？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s2",
+      "expected_pdf_page_range": [
+        42,
+        46
+      ]
+    },
+    {
+      "id": "c3s3-direct",
+      "query": "DNA 复制的方式是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s3",
+      "expected_pdf_page_range": [
+        47,
+        49
+      ]
+    },
+    {
+      "id": "c3s3-paraphrase",
+      "query": "半保留复制如何保证遗传信息准确传递？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s3",
+      "expected_pdf_page_range": [
+        47,
+        49
+      ]
+    },
+    {
+      "id": "c3s4-direct",
+      "query": "基因为什么是有遗传效应的 DNA 片段？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s4",
+      "expected_pdf_page_range": [
+        50,
+        52
+      ]
+    },
+    {
+      "id": "c3s4-paraphrase",
+      "query": "DNA 片段怎样才能成为基因？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s4",
+      "expected_pdf_page_range": [
+        50,
+        52
+      ]
+    },
+    {
+      "id": "c4s1-direct",
+      "query": "遗传信息怎样通过转录和翻译表达？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s1",
+      "expected_pdf_page_range": [
+        57,
+        62
+      ]
+    },
+    {
+      "id": "c4s1-paraphrase",
+      "query": "mRNA 在蛋白质合成中起什么作用？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s1",
+      "expected_pdf_page_range": [
+        57,
+        62
+      ]
+    },
+    {
+      "id": "c4s2-direct",
+      "query": "基因怎样控制生物性状？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s2",
+      "expected_pdf_page_range": [
+        63,
+        66
+      ]
+    },
+    {
+      "id": "c4s2-paraphrase",
+      "query": "白化病的性状控制途径说明了什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s2",
+      "expected_pdf_page_range": [
+        63,
+        66
+      ]
+    },
+    {
+      "id": "c4s3-direct",
+      "query": "遗传密码是怎样被破译的？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s3",
+      "expected_pdf_page_range": [
+        68,
+        73
+      ]
+    },
+    {
+      "id": "c4s3-paraphrase",
+      "query": "三联体密码为什么能决定氨基酸？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s3",
+      "expected_pdf_page_range": [
+        68,
+        73
+      ]
+    },
+    {
+      "id": "c5s1-direct",
+      "query": "基因突变和基因重组有什么区别？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s1",
+      "expected_pdf_page_range": [
+        75,
+        79
+      ]
+    },
+    {
+      "id": "c5s1-paraphrase",
+      "query": "DNA 碱基替换会造成什么后果？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s1",
+      "expected_pdf_page_range": [
+        75,
+        79
+      ]
+    },
+    {
+      "id": "c5s2-direct",
+      "query": "染色体结构变异有哪些类型？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s2",
+      "expected_pdf_page_range": [
+        80,
+        84
+      ]
+    },
+    {
+      "id": "c5s2-paraphrase",
+      "query": "染色体数目变异如何产生？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s2",
+      "expected_pdf_page_range": [
+        80,
+        84
+      ]
+    },
+    {
+      "id": "c5s3-direct",
+      "query": "人类遗传病可以分为哪几类？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s3",
+      "expected_pdf_page_range": [
+        85,
+        88
+      ]
+    },
+    {
+      "id": "c5s3-paraphrase",
+      "query": "近亲结婚为什么会增加隐性遗传病风险？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s3",
+      "expected_pdf_page_range": [
+        85,
+        88
+      ]
+    },
+    {
+      "id": "c6s1-direct",
+      "query": "杂交育种和诱变育种有什么特点？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s1",
+      "expected_pdf_page_range": [
+        93,
+        96
+      ]
+    },
+    {
+      "id": "c6s1-paraphrase",
+      "query": "用射线处理种子属于哪种育种方法？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s1",
+      "expected_pdf_page_range": [
+        93,
+        96
+      ]
+    },
+    {
+      "id": "c6s2-direct",
+      "query": "基因工程的基本操作步骤是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s2",
+      "expected_pdf_page_range": [
+        97,
+        103
+      ]
+    },
+    {
+      "id": "c6s2-paraphrase",
+      "query": "限制酶和 DNA 连接酶在基因工程中分别做什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s2",
+      "expected_pdf_page_range": [
+        97,
+        103
+      ]
+    },
+    {
+      "id": "c7s1-direct",
+      "query": "拉马克和达尔文进化学说的主要差异是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s1",
+      "expected_pdf_page_range": [
+        105,
+        108
+      ]
+    },
+    {
+      "id": "c7s1-paraphrase",
+      "query": "自然选择学说如何解释适应性的形成？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s1",
+      "expected_pdf_page_range": [
+        105,
+        108
+      ]
+    },
+    {
+      "id": "c7s2-direct",
+      "query": "种群基因频率改变为什么意味着进化？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s2",
+      "expected_pdf_page_range": [
+        109,
+        121
+      ]
+    },
+    {
+      "id": "c7s2-paraphrase",
+      "query": "隔离如何导致新物种形成？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s2",
+      "expected_pdf_page_range": [
+        109,
+        121
+      ]
+    },
+    {
+      "id": "chat-01",
+      "query": "你好",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-02",
+      "query": "早上好",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-03",
+      "query": "谢谢",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-04",
+      "query": "嗨",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-05",
+      "query": "你好吗",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-06",
+      "query": "晚安",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-07",
+      "query": "好的",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "chat-08",
+      "query": "可以吗",
+      "expected_rag": false,
+      "category": "greeting"
+    },
+    {
+      "id": "general-01",
+      "query": "怎样制定复习计划？",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-02",
+      "query": "如何提高阅读效率？",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-03",
+      "query": "怎样缓解考试焦虑？",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-04",
+      "query": "怎么记英语单词？",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-05",
+      "query": "帮我写一段自我介绍",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-06",
+      "query": "什么是番茄工作法？",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-07",
+      "query": "如何和同学合作学习？",
+      "expected_rag": false,
+      "category": "general_learning"
+    },
+    {
+      "id": "general-08",
+      "query": "怎样安排睡眠时间更合理？",
+      "expected_rag": false,
+      "category": "general_learning"
+    }
+  ]
+}

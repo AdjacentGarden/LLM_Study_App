@@ -1,0 +1,71 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "C4116145-9865-4813-9CDA-33CCE36FA756",
+      "deviceName" : "iPad Pro 11-inch (M5)",
+      "modelName" : "iPad Pro 11-inch (M5)",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "32秒",
+                  "durationInSeconds" : 32.50993597507477,
+                  "name" : "testCommunityImportCompletesQuestionnaireAndOpensStudy()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testCommunityImportCompletesQuestionnaireAndOpensStudy()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testCommunityImportCompletesQuestionnaireAndOpensStudy",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "14秒",
+                  "durationInSeconds" : 14.857028007507324,
+                  "name" : "testOnboardingCompletesAllThreeSteps()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testOnboardingCompletesAllThreeSteps()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testOnboardingCompletesAllThreeSteps",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "54秒",
+                  "durationInSeconds" : 54.79364800453186,
+                  "name" : "testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm()",
+                  "nodeIdentifier" : "CourseFunctionalUITests/testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests/testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CourseFunctionalUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests/CourseFunctionalUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "BookCourseUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/BookCourse/BookCourseUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "BookCourse",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

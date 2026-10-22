@@ -1,0 +1,35 @@
+{
+  "resultBundle": "output/Functional-Delivery.xcresult",
+  "attachments": [
+    {
+      "attachments": [
+        {
+          "configurationName": "Test Scheme Action",
+          "deviceId": "C405B13F-6B58-4601-A67D-BFE323436F8A",
+          "deviceName": "iPhone 17 Pro",
+          "exportedFileName": "F239021A-48DD-4A8B-BCB4-C0CEA43D50D3.txt",
+          "isAssociatedWithFailure": false,
+          "suggestedHumanReadableName": "BM25 50-query metrics_0_3EF04334-0A48-4B4B-8AD1-5B29D21D2243.txt",
+          "timestamp": 1792584882.807
+        }
+      ],
+      "testIdentifier": "RAGTests/testBM25FiftyQueryCalibrationMatchesCommittedReference()",
+      "testIdentifierURL": "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testBM25FiftyQueryCalibrationMatchesCommittedReference"
+    },
+    {
+      "attachments": [
+        {
+          "configurationName": "Test Scheme Action",
+          "deviceId": "C405B13F-6B58-4601-A67D-BFE323436F8A",
+          "deviceName": "iPhone 17 Pro",
+          "exportedFileName": "50078AE9-A8E6-470C-8254-CC45ADADA3DE.txt",
+          "isAssociatedWithFailure": false,
+          "suggestedHumanReadableName": "Native BGE 50-query metrics_0_EA68AF64-4054-425F-A051-60EEDC14C09C.txt",
+          "timestamp": 1792584883.547
+        }
+      ],
+      "testIdentifier": "RAGTests/testNativeBGEFiftyQueryEvaluationPreservesRetrievalQuality()",
+      "testIdentifierURL": "test://com.apple.xcode/BookCourse/BookCourseTests/RAGTests/testNativeBGEFiftyQueryEvaluationPreservesRetrievalQuality"
+    }
+  ]
+}

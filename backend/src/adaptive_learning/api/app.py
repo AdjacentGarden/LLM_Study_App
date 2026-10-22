@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import faulthandler
 import logging
-import os
-import re
 import shutil
 import signal
 import sys
@@ -17,7 +15,6 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, Up
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import TypeAdapter
 
 from ..accounts import Accounts
@@ -204,6 +201,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", include_in_schema=False)
+def service_index() -> dict[str, str]:
+    return {
+        "service": "云径 CloudPath API",
+        "client": "SwiftUI iOS / iPadOS",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
 
 
 @app.get("/api/health")
@@ -1104,43 +1111,6 @@ def _install_demo_book() -> None:
     )
 
 
-class FrontendStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope: dict):
-        response = await super().get_response(path, scope)
-        if response.status_code == 200:
-            fingerprinted = re.search(r"-[A-Za-z0-9_-]{8,}\.(?:css|js)$", path)
-            response.headers["Cache-Control"] = (
-                "public, max-age=31536000, immutable"
-                if fingerprinted
-                else "public, max-age=604800"
-            )
-        return response
-
-
-def _mount_frontend() -> None:
-    configured = os.getenv("FRONTEND_DIST_DIR", "").strip()
-    if not configured:
-        return
-    frontend_dist = Path(configured).resolve()
-    index_file = frontend_dist / "index.html"
-    assets_dir = frontend_dist / "assets"
-    if not index_file.is_file() or not assets_dir.is_dir():
-        logger.warning("frontend dist is incomplete: %s", frontend_dist)
-        return
-
-    app.mount("/assets", FrontendStaticFiles(directory=assets_dir), name="frontend-assets")
-
-    @app.get("/", include_in_schema=False)
-    def frontend_index() -> FileResponse:
-        return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
-
-    @app.get("/{frontend_path:path}", include_in_schema=False)
-    def frontend_fallback(frontend_path: str) -> FileResponse:
-        if frontend_path == "api" or frontend_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="未找到该接口")
-        return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
-
-
 account_repository = Accounts(
     CommunityRepository(settings.data_dir / "state" / "community.sqlite3")
 )
@@ -1154,4 +1124,3 @@ app.include_router(
     )
 )
 app.include_router(native_router(sys.modules[__name__]))
-_mount_frontend()

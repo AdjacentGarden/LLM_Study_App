@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "source": "/Users/renxingyu/code/study_app_demo",
+  "source_revision": "4a74d61a5c2d7937311c7d46f105dc17cb1f6b9e",
+  "source_state": "current working tree, including local modifications",
+  "brand_asset_count": 35,
+  "brand_assets_match_source": true,
+  "changes": [
+    {
+      "surface": "原生启动页与应用初始化",
+      "before": "启动加载层使用 cloud-mascot-home.png，加转圈与准备文案；系统启动页未指定品牌资源",
+      "after": "同步原仓库 LaunchScreen.storyboard 与 Splash 图片；144pt 品牌 Logo、#fefdfa 背景，应用初始化层保持同一画面",
+      "source": [
+        "ios/App/App/Base.lproj/LaunchScreen.storyboard",
+        "ios/App/App/Assets.xcassets/Splash.imageset"
+      ]
+    },
+    {
+      "surface": "通用空状态",
+      "before": "EmptyStateView 默认使用 no-courses-v1.png，导致课程库、课时、诊断等无关页面显示云朵插画",
+      "after": "默认不放插画；学习页真正无课程时显式使用 no-courses，资料准备中使用 LibraryBig；课程库、课时和诊断采用原仓库对应图标",
+      "source": [
+        "src/screens/StudyScreen.tsx",
+        "src/screens/LibraryScreen.tsx",
+        "src/screens/LessonScreen.tsx",
+        "src/screens/DiagnosisScreen.tsx",
+        "src/screens/StudyPlanScreen.tsx"
+      ]
+    },
+    {
+      "surface": "无封面课程及上传待解析资料",
+      "before": "封面缺失时使用 cloud-mascot-home.png",
+      "after": "使用 FileText 文档占位，待解析页面显示文件类型及 AI 课程资料",
+      "source": [
+        "src/screens/shared.tsx",
+        "src/screens/ParseReadyScreen.tsx"
+      ]
+    }
+  ],
+  "retained_artwork": [
+    {
+      "purpose": "搜索无结果、笔记为空、连接错误、学习页无课程",
+      "source": "src/components/EmptyStateIllustration.tsx"
+    },
+    {
+      "purpose": "资料解析中的精灵动效",
+      "source": "src/screens/ProcessingScreen.tsx"
+    },
+    {
+      "purpose": "课程生成完成与笔记保存反馈",
+      "source": [
+        "src/screens/CourseReadyScreen.tsx",
+        "src/screens/sheets/NoteSheetContent.tsx"
+      ]
+    },
+    {
+      "purpose": "全局 AI 助手、导航品牌及应用图标",
+      "source": [
+        "src/components/aiAssistantArtwork.ts",
+        "src/components/ui.tsx",
+        "scripts/generate-app-icons.mjs"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "path": "src/App.tsx",
+      "sha256": "bd3be159bc99feac7766be7d6e838551df5b821c264b0ee1d19957f6f27e21bd"
+    },
+    {
+      "path": "src/components/EmptyStateIllustration.tsx",
+      "sha256": "30979019f77a40f53b135fc2e7cc6c88e22273a8986435585825e3b2a08c9202"
+    },
+    {
+      "path": "src/screens/shared.tsx",
+      "sha256": "9ae45aa4f5e2adb5c446586b9f3654da5eeea66377615b9fb511d82c555383d3"
+    },
+    {
+      "path": "src/screens/StudyScreen.tsx",
+      "sha256": "0014fd5e32e0f6e38c6b0b6dcc520dd63f0debf12d545220e83e5752c684490c"
+    },
+    {
+      "path": "src/screens/LibraryScreen.tsx",
+      "sha256": "eb2229456ee77b2b7dcb4e9fe7a75e9ab0330887bc6ea4da3b7aff1256eacd98"
+    },
+    {
+      "path": "src/screens/ParseReadyScreen.tsx",
+      "sha256": "df5235b422e5b697b192f4d733f8bc2c9c55d101679304b57bf5cf3901d97654"
+    },
+    {
+      "path": "src/screens/CourseReadyScreen.tsx",
+      "sha256": "7a01a7ca4a4623d1ad3a6a59ecb3c6be15369b20419e1416e3f977ab8320d70a"
+    },
+    {
+      "path": "src/screens/ProcessingScreen.tsx",
+      "sha256": "8bc60410f05d4059a70d91aa204965d9d02482f14531799a9f1243e361ca8504"
+    },
+    {
+      "path": "src/screens/NotesScreen.tsx",
+      "sha256": "f3dd73b7a39934af4c8f9faa4f9ac78a60c18f5513a56572eb0085a985f5a2e6"
+    },
+    {
+      "path": "src/screens/DiagnosisScreen.tsx",
+      "sha256": "1eddb6711462bb653c66f0ffd9ea1fbcf31f3d394e952108172a19184d66ff5c"
+    },
+    {
+      "path": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
+      "sha256": "782492c6403f56a76c64cfad72bc2031b7453e7196a79c9fa8f2fa602dbddb4c"
+    }
+  ],
+  "assets": [
+    {
+      "source": "public/assets/brand/ai-assistant/avatar-v1.png",
+      "native": "Resources/Content/assets/brand/ai-assistant/avatar-v1.png",
+      "sha256": "fa8fa803ebb6252750dd788c14deb474f4bd757f6fda573a4d60f93de71b88bd"
+    },
+    {
+      "source": "public/assets/brand/ai-assistant/dragging-v1.png",
+      "native": "Resources/Content/assets/brand/ai-assistant/dragging-v1.png",
+      "sha256": "094736948967f95b25f54fd80a8875bbb8216b3b76a7ae8911986ef08ff14178"
+    },
+    {
+      "source": "public/assets/brand/ai-assistant/idle-left-v1.png",
+      "native": "Resources/Content/assets/brand/ai-assistant/idle-left-v1.png",
+      "sha256": "a0b5b3c843a172ab06e87770a29cc5f0c91b297b9413a57bb22e140b38d7292e"
+    },
+    {
+      "source": "public/assets/brand/ai-assistant/idle-right-v1.png",
+      "native": "Resources/Content/assets/brand/ai-assistant/idle-right-v1.png",
+      "sha256": "ad07db1ee395b50092995f2525be329cadac4befca5b044b4cce7219162206a5"
+    },
+    {
+      "source": "public/assets/brand/ai-assistant/pressed-v1.png",
+      "native": "Resources/Content/assets/brand/ai-assistant/pressed-v1.png",
+      "sha256": "e9d19ad209b87c5d06a4eb73e7770d7c38db32e48b7a39ba0c0f8d5549bd0f72"
+    },
+    {
+      "source": "public/assets/brand/app-logo.png",
+      "native": "Resources/Content/assets/brand/app-logo.png",
+      "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-airborne-ui.webp",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-airborne-ui.webp",
+      "sha256": "d2957bf82b5dc782481470fe8154f2683b66b2252204185a615c837ded0e6edf"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-airborne.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-airborne.png",
+      "sha256": "882e05609c8a09dbbd7dacc4211e0a6f0f71002983f062335f64e6c4385bc3ba"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-dragging-ui.webp",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-dragging-ui.webp",
+      "sha256": "b6726a6efc88899d64de2e0d7cf0ee23362fd4ba37bdd0e75508748c37e93212"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-dragging.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-dragging.png",
+      "sha256": "5e9b3781759add33f9750db3db3c97681b67bd462c51692678a1106c7c9f9bff"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-left-ui.webp",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-left-ui.webp",
+      "sha256": "b060cefe3f76559c2a719974b9120a0d770af93dfd7849cd2cc3974e616dc30d"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-left.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-left.png",
+      "sha256": "43ece6c971d8aada273e8cfe81ec8e01c7f0fe9032563c78d9579719baae0f4f"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-pressed-ui.webp",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-pressed-ui.webp",
+      "sha256": "92df15ddb8d9e5630ffcec1c19d7f55d219e99f6ec1fa70ba96205e6df8f2f79"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-pressed.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-pressed.png",
+      "sha256": "45648f18ed6a45fed5fe044b31f858896930c2bd071ca1e6bd33413ba413e770"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge-ui.webp",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge-ui.webp",
+      "sha256": "5eeee127e5c381d2e7075416df9f63133f3af427543c6b9a6d7db6376f689fd3"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-ai-chat-edge.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-ai-chat-edge.png",
+      "sha256": "b75217e78c7bb8eaaa48a2764b39735b7c4a8e0cf83c63b787246c889437e764"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-home.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-home.png",
+      "sha256": "e6a5eef29d7686b38d8c83cd639285ed47a881bb4a9a5724f3a98cdad3e61a87"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-parsing.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-parsing.png",
+      "sha256": "4ffd512115e4243722d564c8c633f0e2c2aad0318cea6442510cbb4db0e0d71c"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-report.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-report.png",
+      "sha256": "5e1583bc80e57ee8f0aae38bf5183a47461f85916b215da017787f1c5803d215"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-success-transparent-v1.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-success-transparent-v1.png",
+      "sha256": "840672ccab62ff6d543c0391d05456644f06619d080bba327c6f4585a2783fef"
+    },
+    {
+      "source": "public/assets/brand/cloud-mascot-success.png",
+      "native": "Resources/Content/assets/brand/cloud-mascot-success.png",
+      "sha256": "38026528849e3510e0958c0e2eff57dc5921f8bd7bfe260088a32be01cbdba4a"
+    },
+    {
+      "source": "public/assets/brand/community-hero-bg.png",
+      "native": "Resources/Content/assets/brand/community-hero-bg.png",
+      "sha256": "742493a2fca15f45df4e303fb3accc301d494da710c8c402918528b464bed35a"
+    },
+    {
+      "source": "public/assets/brand/daily-task-cloud-bg.png",
+      "native": "Resources/Content/assets/brand/daily-task-cloud-bg.png",
+      "sha256": "2968dedf265d1e76d4a38a9b09b64f2e249c6bc0061c14ee6417c0adef246f5f"
+    },
+    {
+      "source": "public/assets/brand/empty-states/connection-error-v1.png",
+      "native": "Resources/Content/assets/brand/empty-states/connection-error-v1.png",
+      "sha256": "b640deefda80aaa6c2b67a1f1b53fa050202cc5d06482b527d78e08f6a505f71"
+    },
+    {
+      "source": "public/assets/brand/empty-states/no-courses-v1.png",
+      "native": "Resources/Content/assets/brand/empty-states/no-courses-v1.png",
+      "sha256": "ed717deb1cdf0134dfb554bf04702c18467b3b4e4ffe7cb7e07ad801f88870f0"
+    },
+    {
+      "source": "public/assets/brand/empty-states/no-notes-v1.png",
+      "native": "Resources/Content/assets/brand/empty-states/no-notes-v1.png",
+      "sha256": "d2973a280143a8862b04419620e8c72b88dba6354224bdf73180f748c56b06ee"
+    },
+    {
+      "source": "public/assets/brand/empty-states/no-results-v1.png",
+      "native": "Resources/Content/assets/brand/empty-states/no-results-v1.png",
+      "sha256": "2c06715508e83e4c1334c128ab6118d7df3ce6d0548f9ce64dd6821bf1dc6ac5"
+    },
+    {
+      "source": "public/assets/brand/home-learning-path.webp",
+      "native": "Resources/Content/assets/brand/home-learning-path.webp",
+      "sha256": "671b1b65a1269d10ff81994575b0f2a8b0ac5325d0a9d782bd4d17dbc68b4be8"
+    },
+    {
+      "source": "public/assets/brand/loading/cloud-course-loading-preview-v1.webp",
+      "native": "Resources/Content/assets/brand/loading/cloud-course-loading-preview-v1.webp",
+      "sha256": "01282106dccbbb75517d09d9da1a8795ef8ef022bfafb6250f56a4f860efc02a"
+    },
+    {
+      "source": "public/assets/brand/loading/cloud-course-loading-spritesheet-v2.png",
+      "native": "Resources/Content/assets/brand/loading/cloud-course-loading-spritesheet-v2.png",
+      "sha256": "64728ca629158e2a8718961931995151810a2ace76df6304697d2c339406a239"
+    },
+    {
+      "source": "public/assets/brand/loading/cloud-course-loading-strip-v1.png",
+      "native": "Resources/Content/assets/brand/loading/cloud-course-loading-strip-v1.png",
+      "sha256": "b84bb6435bbfd9426311d0c4207a10d45235df4ac0e405414654438e036263db"
+    },
+    {
+      "source": "public/assets/brand/sidebar-cloud-icon.png",
+      "native": "Resources/Content/assets/brand/sidebar-cloud-icon.png",
+      "sha256": "5d871eb2d8c0f7c19418847d5da40a85f3a4d15809097e40acd756cf5ba1d230"
+    },
+    {
+      "source": "public/assets/brand/success/cloud-mascot-success-spritesheet-v1.png",
+      "native": "Resources/Content/assets/brand/success/cloud-mascot-success-spritesheet-v1.png",
+      "sha256": "dd5b2e274a25aa3be9e69f854ffc0071e8eae7ffea29b0b3751dd2d9e1f6bb69"
+    },
+    {
+      "source": "public/assets/brand/success/cloud-mascot-success-strip-v1.png",
+      "native": "Resources/Content/assets/brand/success/cloud-mascot-success-strip-v1.png",
+      "sha256": "ce7409cbbb4aade443f4222437e658e2d3b4ea68ee3c141ebc7709781274e48e"
+    },
+    {
+      "source": "public/assets/brand/yunjing-startup-screen.png",
+      "native": "Resources/Content/assets/brand/yunjing-startup-screen.png",
+      "sha256": "08f36e964faa12d5009eb77dcc86498bd5344646c81b37a17a629ce171f05b09"
+    }
+  ],
+  "validation": {
+    "content_checks_passed": 1811,
+    "iphone_ui_tests_passed": 4,
+    "ipad_pro_ui_tests_passed": 2,
+    "deployed_and_verified": [
+      "iPhone 17 Pro",
+      "iPad Pro 11-inch (M5)"
+    ]
+  }
+}

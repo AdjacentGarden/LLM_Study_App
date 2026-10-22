@@ -1,0 +1,20 @@
+[
+  {
+    "source": "NotoSansSC-400.woff",
+    "source_sha256": "25a63732c0488ff2654cfbf8ef797e701fb178bff872cdb4587734bb640b3803",
+    "output": "BookCourseNotoSansSC-Regular.ttf",
+    "output_sha256": "5bcf0d1c497f85441b98b133b7260c00a5f96b63bdfd2922dfaa3fc10bc6f3e9",
+    "postscript_name": "BookCourseNotoSansSC-Regular",
+    "glyphs": 31036,
+    "weight": 400
+  },
+  {
+    "source": "NotoSansSC-700.woff",
+    "source_sha256": "e45fd8b383b7bfaa2a4212067b563983b7fb27940d385f4d0c00602afdf29704",
+    "output": "BookCourseNotoSansSC-Bold.ttf",
+    "output_sha256": "433b8f994386c9384b1c2cc8a3fe453105afcef7daf244c7b435ea1ecfbd225f",
+    "postscript_name": "BookCourseNotoSansSC-Bold",
+    "glyphs": 31036,
+    "weight": 700
+  }
+]

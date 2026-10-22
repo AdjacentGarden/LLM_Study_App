@@ -1,0 +1,212 @@
+[
+  {
+    "query": "减数分裂",
+    "hits": [
+      {
+        "id": "rag_9b576099978071c74cab",
+        "score": 19.55965232849121,
+        "reliable": false
+      },
+      {
+        "id": "rag_31735886cfe9b2252678",
+        "score": 19.317049026489258,
+        "reliable": false
+      },
+      {
+        "id": "rag_62d2e4fb74dcd77d7d0d",
+        "score": 19.22145652770996,
+        "reliable": false
+      },
+      {
+        "id": "rag_ff248cd51c11ee8c39e4",
+        "score": 19.132749557495117,
+        "reliable": false
+      },
+      {
+        "id": "rag_fd79a65d32cf3e76c026",
+        "score": 18.97937774658203,
+        "reliable": false
+      }
+    ]
+  },
+  {
+    "query": "你好",
+    "hits": [
+      {
+        "id": "rag_4ba379eaf452c691bad7",
+        "score": 3.5160703659057617,
+        "reliable": false
+      },
+      {
+        "id": "rag_e44dc4a42b26123283fc",
+        "score": 3.1169960498809814,
+        "reliable": false
+      },
+      {
+        "id": "rag_db3272776dd2d3561234",
+        "score": 3.102914810180664,
+        "reliable": false
+      },
+      {
+        "id": "rag_224cb37c781231a2ba04",
+        "score": 3.0679821968078613,
+        "reliable": false
+      },
+      {
+        "id": "rag_3f63b8e337a5e04c86d4",
+        "score": 2.9935760498046875,
+        "reliable": false
+      }
+    ]
+  },
+  {
+    "query": "同源染色体",
+    "hits": [
+      {
+        "id": "rag_15a9d2c685619c1036b5",
+        "score": 17.78548240661621,
+        "reliable": false
+      },
+      {
+        "id": "rag_5b670315035928e27f6e",
+        "score": 17.613351821899414,
+        "reliable": false
+      },
+      {
+        "id": "rag_b55b202f7b320cd04e43",
+        "score": 17.085601806640625,
+        "reliable": false
+      },
+      {
+        "id": "rag_fa296962ac10c212bad2",
+        "score": 16.653844833374023,
+        "reliable": false
+      },
+      {
+        "id": "rag_352265ecc53ccc04d29a",
+        "score": 16.547080993652344,
+        "reliable": false
+      }
+    ]
+  },
+  {
+    "query": "DNA半保留复制",
+    "hits": [
+      {
+        "id": "rag_eefee743a9bb75bd4704",
+        "score": 39.54707336425781,
+        "reliable": false
+      },
+      {
+        "id": "rag_250b3bfd28ddb76122e0",
+        "score": 28.397850036621094,
+        "reliable": false
+      },
+      {
+        "id": "rag_2e7e59c9be7c9c1fee52",
+        "score": 25.607290267944336,
+        "reliable": false
+      },
+      {
+        "id": "rag_3a8d0486219fcec26f80",
+        "score": 14.592967987060547,
+        "reliable": false
+      },
+      {
+        "id": "rag_3dc3d4a7c79ad4b88c14",
+        "score": 12.018045425415039,
+        "reliable": false
+      }
+    ]
+  },
+  {
+    "query": "人类遗传病",
+    "hits": [
+      {
+        "id": "rag_c72e49e6abdd48502aa9",
+        "score": 18.721033096313477,
+        "reliable": false
+      },
+      {
+        "id": "rag_980f2ca24cf6683125f1",
+        "score": 18.371414184570312,
+        "reliable": false
+      },
+      {
+        "id": "rag_e44dc4a42b26123283fc",
+        "score": 17.45846939086914,
+        "reliable": false
+      },
+      {
+        "id": "rag_db3272776dd2d3561234",
+        "score": 16.94615936279297,
+        "reliable": false
+      },
+      {
+        "id": "rag_3a7b3de653d70979f42a",
+        "score": 16.389596939086914,
+        "reliable": false
+      }
+    ]
+  },
+  {
+    "query": "苹果手机怎么充电",
+    "hits": [
+      {
+        "id": "rag_8298f24a91c7cb368502",
+        "score": 11.957234382629395,
+        "reliable": false
+      },
+      {
+        "id": "rag_8172e4c9186b973822ac",
+        "score": 9.68443489074707,
+        "reliable": false
+      },
+      {
+        "id": "rag_870e8487a93f07a88276",
+        "score": 9.674704551696777,
+        "reliable": false
+      },
+      {
+        "id": "rag_a9fafbe5c3f7959f61b7",
+        "score": 8.583108901977539,
+        "reliable": false
+      },
+      {
+        "id": "rag_94325ad8ff5ebc7b8cfb",
+        "score": 8.377118110656738,
+        "reliable": false
+      }
+    ]
+  },
+  {
+    "query": "基因突变和基因重组有什么区别",
+    "hits": [
+      {
+        "id": "rag_766ab568ad6739c9d7a1",
+        "score": 34.208648681640625,
+        "reliable": false
+      },
+      {
+        "id": "rag_709051233f5eeefea754",
+        "score": 33.94139862060547,
+        "reliable": false
+      },
+      {
+        "id": "rag_434ac05a974925dc761c",
+        "score": 29.09626007080078,
+        "reliable": false
+      },
+      {
+        "id": "rag_e1356b86daff7a3892fe",
+        "score": 29.009531021118164,
+        "reliable": false
+      },
+      {
+        "id": "rag_3467466d7a1eb019ee7b",
+        "score": 27.924274444580078,
+        "reliable": false
+      }
+    ]
+  }
+]

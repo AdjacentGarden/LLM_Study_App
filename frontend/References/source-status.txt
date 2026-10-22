@@ -1,0 +1,34 @@
+ M .gitignore
+ M README.md
+ M capacitor.config.ts
+ M e2e/responsive.spec.ts
+ M e2e/source-reader-notes.spec.ts
+ M eslint.config.js
+ M package-lock.json
+ M package.json
+ M scripts/generate-app-icons.mjs
+ M src/components/ui.tsx
+ M src/features/courses/FlowScreens.tsx
+ M src/features/studyNotes/InkAnnotationSurface.tsx
+ M src/features/studyNotes/SourceRegionAiPanel.tsx
+ M src/features/studyNotes/SourceTextNotePanel.tsx
+ M src/platform/nativeApp.ts
+ M src/screens/CommunityScreen.tsx
+ M src/screens/LessonScreen.tsx
+ M src/screens/UploadScreen.tsx
+ M src/screens/VoiceNoteScreen.tsx
+ M src/styles/responsive.css
+ M src/styles/tablet.css
+ M src/styles/upload.css
+ M vite.config.ts
+?? .node-version
+?? docs/IOS_BUILD_VALIDATION.md
+?? docs/IOS_SETUP.md
+?? e2e/native-shell.spec.ts
+?? ios/
+?? scripts/run-ios.mjs
+?? src/platform/files.test.ts
+?? src/platform/files.ts
+?? src/platform/nativeApp.test.ts
+?? src/platform/recording.test.ts
+?? src/platform/recording.ts

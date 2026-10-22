@@ -24,7 +24,16 @@ data/
 # Packaged course content is source material, separate from runtime databases.
 !backend/src/adaptive_learning/data/
 !backend/src/adaptive_learning/data/native_biology.json
+!frontend/Resources/Data/
+!frontend/Resources/Data/*.json
 storage/
 *.db
 *.tsbuildinfo
 .DS_Store
+output/
+DerivedData/
+.build/
+.tools/
+*.xcresult/
+*.xcuserstate
+xcuserdata/

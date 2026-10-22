@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-10-21T05:30:21.129381-07:00",
+  "branch": "codex/swiftui-migration",
+  "remotes": [],
+  "sourceCommit": "4a74d61a5c2d7937311c7d46f105dc17cb1f6b9e",
+  "sourceFileCount": 503,
+  "changedSourceFiles": [],
+  "sourceStatusUnchanged": true,
+  "sourcePatchUnchanged": true,
+  "trackedFiles": 692,
+  "trackedEnvFiles": [],
+  "secretPatternMatchingFiles": [],
+  "scope": "Tracked repository text scan; excludes binary models/media and files >20MB. Runtime keys only from local environment/Keychain; device personal data was not imported. UI fixtures use isolated sessions."
+}

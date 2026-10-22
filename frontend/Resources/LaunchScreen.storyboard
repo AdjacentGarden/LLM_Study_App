@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17105"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="snD-IY-ifK">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="launch-logo">
+                                <rect key="frame" x="115.5" y="261.5" width="144" height="144"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="144" id="logo-width"/>
+                                    <constraint firstAttribute="height" constant="144" id="logo-height"/>
+                                </constraints>
+                            </imageView>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="SplashCorners" translatesAutoresizingMaskIntoConstraints="NO" id="launch-logo-corners">
+                                <rect key="frame" x="115.5" y="261.5" width="144" height="144"/>
+                            </imageView>
+                        </subviews>
+                        <color key="backgroundColor" red="0.9960784314" green="0.9921568627" blue="0.9803921569" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="launch-logo-corners" firstAttribute="leading" secondItem="launch-logo" secondAttribute="leading" id="corners-leading"/>
+                            <constraint firstItem="launch-logo-corners" firstAttribute="trailing" secondItem="launch-logo" secondAttribute="trailing" id="corners-trailing"/>
+                            <constraint firstItem="launch-logo-corners" firstAttribute="top" secondItem="launch-logo" secondAttribute="top" id="corners-top"/>
+                            <constraint firstItem="launch-logo-corners" firstAttribute="bottom" secondItem="launch-logo" secondAttribute="bottom" id="corners-bottom"/>
+                            <constraint firstItem="launch-logo" firstAttribute="centerX" secondItem="snD-IY-ifK" secondAttribute="centerX" id="logo-center-x"/>
+                            <constraint firstItem="launch-logo" firstAttribute="centerY" secondItem="snD-IY-ifK" secondAttribute="centerY" id="logo-center-y"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="Splash" width="512" height="512"/>
+        <image name="SplashCorners" width="144" height="144"/>
+    </resources>
+</document>

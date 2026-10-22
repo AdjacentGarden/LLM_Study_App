@@ -1,0 +1,61 @@
+[
+  {
+    "id": "ink-demo-needs-confirmation",
+    "kind": "ink",
+    "title": "字迹需确认 · 减数分裂",
+    "anchor": {
+      "bookId": "book_biology_2",
+      "bookTitle": "高中生物学·必修2",
+      "chapterId": "chapter-2",
+      "chapterTitle": "减数分裂和受精作用",
+      "pageStart": 16,
+      "pageEnd": 16
+    },
+    "pages": {
+      "16": [
+        {
+          "id": "demo-uncertain-stroke",
+          "tool": "pen",
+          "color": "#7c3aed",
+          "width": 0.006,
+          "opacity": 0.92,
+          "points": [
+            {
+              "x": 0.29,
+              "y": 0.34,
+              "pressure": 0.55,
+              "t": 0
+            },
+            {
+              "x": 0.36,
+              "y": 0.32,
+              "pressure": 0.62,
+              "t": 20
+            },
+            {
+              "x": 0.43,
+              "y": 0.36,
+              "pressure": 0.58,
+              "t": 40
+            },
+            {
+              "x": 0.51,
+              "y": 0.33,
+              "pressure": 0.6,
+              "t": 60
+            }
+          ]
+        }
+      ]
+    },
+    "createdAt": 1785552000000,
+    "updatedAt": 1785552000000,
+    "noteVersion": 1,
+    "pipelinePhase": "needs_confirmation",
+    "recognizedText": "减数第一次分裂时，同源染色体？离。",
+    "uncertain": [
+      "？离"
+    ],
+    "fixtureId": "meiosis-uncertain-ink-v1"
+  }
+]

@@ -1,0 +1,106 @@
+{
+  "evidenceRole": "historical simulator interaction evidence; NOT the final visual baseline",
+  "capturedAt": "2026-10-21 approximately 00:45 America/Los_Angeles",
+  "device": "BookCourse iPad Air 11",
+  "deviceId": "94AE34DC-F8E0-4230-A322-8444D3148282",
+  "runtime": "iPadOS 26.0",
+  "scale": 2,
+  "viewportPoints": [
+    820,
+    1180
+  ],
+  "test": "BookCourseUITests.testNotesLocalPopupsHandwritingRegionAndVoiceSample",
+  "testResult": {
+    "passed": true,
+    "seconds": 27.084,
+    "log": "output/NotesReview/local-popups-tests-04.log",
+    "resultBundle": "output/NotesReview/LocalPopups-04.xcresult"
+  },
+  "versionLimit": "Captured before the final compact voice white-container and outside-close forwarding refinements. Voice sample screenshot retains the earlier nested gray edge. Final delivery code is validated separately by output/Acceptance-Delivery.xcresult; these PNGs must not be relabeled as final screenshots. It also predates the later 500ms text autosave and same-ID text-to-voice ownership transfer; these images do not prove those final behaviors. See docs/VALIDATION.md for later independent XCTest evidence.",
+  "capabilityLimits": [
+    "Voice uses an explicitly labeled 8-second silent sample; physical microphone was not exercised.",
+    "PencilKit used simulator finger input; physical Apple Pencil was not exercised.",
+    "Handwriting recognition is a fixed demonstration fixture, not OCR.",
+    "Page-region preview uses current-page textual context for offline retrieval, not image understanding.",
+    "Air11 viewport differs from Web 834x1194 and final Pro11 834x1210; no 2pt visual pass is asserted."
+  ],
+  "files": [
+    {
+      "file": "popup-text-keyboard.png",
+      "source": "output/NotesReview/popup-text-keyboard.png",
+      "sha256": "ecec82b9977c159adc54179e146f18589ecd9f346342587becab1bde44f528ff",
+      "bytes": 1602464,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Text annotation editing with keyboard visible; early custom popup."
+    },
+    {
+      "file": "popup-text-saved-on-close.png",
+      "source": "output/NotesReview/popup-text-saved-on-close.png",
+      "sha256": "68e465eb01a37be197989f7f519ac70d6d56775a4d6695fd115dd0d1bc1a4969",
+      "bytes": 2462733,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Closing the text editor saves the note and returns to the source page."
+    },
+    {
+      "file": "popup-native-pencilkit-stroke.png",
+      "source": "output/NotesReview/popup-native-pencilkit-stroke.png",
+      "sha256": "bb4cc5c935882be7fbed92c0b16a3f8b4bff50b4e08a2fdb6ee6c096985f4756",
+      "bytes": 2417910,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Finger input draws a real PencilKit stroke on the source page."
+    },
+    {
+      "file": "popup-ink-demo-confirmation.png",
+      "source": "output/NotesReview/popup-ink-demo-confirmation.png",
+      "sha256": "6060b1621cd4d41c3e0054bcf6a89e714d5928eb273f07cbd3606b7d628cd727",
+      "bytes": 1885199,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Fixed demonstration handwriting recognition confirmation; no real OCR."
+    },
+    {
+      "file": "popup-region-keyboard.png",
+      "source": "output/NotesReview/popup-region-keyboard.png",
+      "sha256": "4fb1a9495fdb730720f27dd068ae0b2ee4b8a411eddc0d0b38176d7c82509ce0",
+      "bytes": 531162,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Dragged page-region preview and question input with keyboard visible."
+    },
+    {
+      "file": "popup-voice-sample-stopped.png",
+      "source": "output/NotesReview/popup-voice-sample-stopped.png",
+      "sha256": "045b3094cfb36729fd48a02b77cc4951d2d9bf6ab1e6e974cb07c4ecbc9334f7",
+      "bytes": 2177055,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Eight-second explicitly marked silent sample, stopped and saved; pre-final nested gray edge."
+    },
+    {
+      "file": "popup-voice-close-keeps-parent.png",
+      "source": "output/NotesReview/popup-voice-close-keeps-parent.png",
+      "sha256": "83d39017336b9f743d939605b26349815c9c0652e14ada32979da805bfd41b7c",
+      "bytes": 2091599,
+      "pixels": [
+        1640,
+        2360
+      ],
+      "description": "Closing the embedded voice recorder returns to the parent text annotation editor."
+    }
+  ]
+}

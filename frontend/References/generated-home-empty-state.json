@@ -1,0 +1,8 @@
+{
+  "tool": "built-in image_gen",
+  "purpose": "Home screen empty course state, matching the study screen layout and existing cloud mascot",
+  "prompt": "Use case: illustration-story. Asset type: a transparent PNG empty-state illustration for the home screen of a Chinese SwiftUI learning app. Use the supplied existing blue cloud mascot image as the identity and visual-style reference. Create a NEW companion pose for welcoming a learner who has no courses yet: the same friendly sky-blue cloud with rounded lobes, bold dark-navy hand-drawn outlines, black oval eyes with white highlights, pink cheeks, and a joyful small open mouth. The cloud is floating behind a small closed yellow textbook and a cream notebook, holding a purple pencil in one hand while its other hand makes an inviting welcoming gesture. Include just two small yellow excitement marks and a small cyan oval floating shadow, consistent with the reference. Match the original simple sticker-like 2D illustration, gentle blue shading, confident clean linework and cheerful proportions, legible at 190 points tall. Center the entire character and books in a compact square composition with a small even transparent margin. Actual transparent background with a clean alpha channel. No background panel, no scenery, no text, no letters, no numbers, no UI, no button, no watermark. Preserve the cloud's existing identity and palette; do not turn it into a human, animal, 3D render, or realistic painting.",
+  "reference": "Resources/Content/assets/brand/empty-states/no-courses-v1.png",
+  "asset": "Resources/Content/assets/brand/empty-states/home-no-courses-v1.png",
+  "transparent_background": true
+}

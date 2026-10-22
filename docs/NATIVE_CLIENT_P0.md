@@ -1,6 +1,6 @@
 # SwiftUI 客户端 P0 接入
 
-当前 SwiftUI 客户端由相邻独立仓库 `study_app_swiftui` 维护。本仓库继续保留 React 前端；原生客户端通过 HTTP 接入同一个后端，不使用 `FRONTEND_DIST_DIR` 部署。
+当前 SwiftUI 客户端位于本仓库 `frontend/`，替代原主 React 前端；React 代码归档在 `legacy/react-frontend/`。客户端通过 HTTP 接入 `backend/`，后端仅提供 API，不再加载 `FRONTEND_DIST_DIR` 或网页路由回退。迁移来源、验收及回退见 [SwiftUI 迁移](SWIFTUI_MIGRATION.md)。
 
 ## 服务启动
 
@@ -11,7 +11,7 @@ cd backend
 ./scripts/run_native_dev.sh
 ```
 
-默认地址 `http://127.0.0.1:8100`，可以通过 `CLOUDPATH_HOST`、`CLOUDPATH_PORT` 修改。默认开启本地默认账号，不需要邮箱验证码、SMTP 或 `.env`。SwiftUI App 自动登录后，首次展示三个个性化问题，完成后进入首页。账号身份固定，课程和进度仍使用现有持久化与鉴权。连接页面可切换服务地址，也支持本机运行环境变量 `BOOKCOURSE_API_BASE_URL`。
+默认地址 `http://127.0.0.1:8100`，可以通过 `CLOUDPATH_HOST`、`CLOUDPATH_PORT` 修改。默认开启本地默认账号，不需要邮箱验证码、SMTP 或 `.env`。SwiftUI App 自动登录后，首次展示六步个性化问题，完成后进入首页。账号身份固定，课程和进度仍使用现有持久化与鉴权。连接页面可切换服务地址，也支持本机运行环境变量 `BOOKCOURSE_API_BASE_URL`。
 
 `POST /api/native/local-login` 仅在 `NATIVE_LOCAL_LOGIN_ENABLED=1` 且 `APP_ENV=development/local` 时可用，要求请求来源及 Host 都为回环地址，保留 Origin 校验。返回普通 HttpOnly 会话 Cookie，不移除工作区权限校验；关闭该模式后，已有默认账号会话也不可用。开发脚本默认打开，其他启动方式默认关闭。使用 `NATIVE_LOCAL_LOGIN_ENABLED=0 ./scripts/run_native_dev.sh` 可恢复邮箱登录，适用于正式认证或远程连接。
 
@@ -117,7 +117,9 @@ cd backend
 
 另保存明确完成的个性化偏好和已有课程练习记录。原项目生物课程打包在 `src/adaptive_learning/data/native_biology.json`，含原导出数据的 SHA-256；读取与导入均无需 OCR 或模型。原生端保留原项目课时、素材及 125 张原文页图片，原项目 AI 补充与待核验状态保持不变。服务端返回 `source_content` 适配旧课程树，题目答案不公开；任务、掌握度与演示完成记录在导入时重置，用户进度仍按资料独立保存。
 
-显式更新生物课程快照时使用 `scripts/import_native_biology.py --sources 原生Resources/Data/sources.json --community 原生Resources/Data/community.json`，不会导出设备个人数据。
+生物课程是内置的永久目录，与个人工作区及学习状态独立；删除自己的课程不会移除发现中的条目。App 另打包 `frontend/Resources/Data/builtin-catalog.json`，在账号模式联网前加载，并按稳定 ID 合并服务端目录。目录响应为空或刷新失败时，保留内置入口；在线导入和进度保存仍需后端。
+
+在仓库根目录使用 `backend/.venv/bin/python backend/scripts/import_native_biology.py --sources frontend/Resources/Data/sources.json --community frontend/Resources/Data/community.json` 显式更新快照，同时生成 App 内置目录，不会导出设备个人数据。
 
 课程工作区与生成的章节教学内容使用不同 ID。每个资料会话保存目录和诊断题库快照，目录修改不会覆盖共享教材或其他课程；旧会话仍保留其原有上下文。删除课程只移除对应工作区关系，不删除教材和历史学习证据。
 

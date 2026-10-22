@@ -1,0 +1,4901 @@
+{
+  "schema_version": 1,
+  "corpus_version": "biology-required-2-rag-v1",
+  "evaluated_at": "2026-08-22T06:46:23.633Z",
+  "source_inputs": {
+    "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+    "content_list_sha256": "3f448ccbf6e3be4bf73768604d4973caf070320ed930a94d78e5bebd2314e55d",
+    "middle_sha256": "4137d7d7e993b551dbb08acbaae5e8ba55d06be2af87438389ef66cbc413245f"
+  },
+  "query_count": 50,
+  "textbook_query_count": 34,
+  "non_textbook_query_count": 16,
+  "retrieval_weights": {
+    "semantic": 0.75,
+    "bm25": 0.2,
+    "chapterPrior": 0.05
+  },
+  "selected_thresholds": {
+    "high_confidence": 0.6037,
+    "minimum_evidence": 0.6037,
+    "lexical_fallback": 58.6248
+  },
+  "metrics": {
+    "recall_at_5": 1,
+    "top_3_chapter_or_page_hit_rate": 0.9706,
+    "accepted_citation_precision": 0.9524,
+    "accepted_positive_recall": 0.5882,
+    "false_citation_rate": 0
+  },
+  "threshold_scan": {
+    "requirement": "precision >= 0.95 and false citation rate <= 0.05",
+    "selected": {
+      "threshold": 0.6037,
+      "cited_count": 21
+    }
+  },
+  "lexical_fallback": {
+    "requirement": "BM25 top-1 precision >= 0.95 and non-textbook false citation rate <= 0.05",
+    "selected": {
+      "threshold": 58.6248,
+      "cited_count": 3
+    },
+    "metrics": {
+      "accepted_citation_precision": 1,
+      "accepted_positive_recall": 0.0882,
+      "false_citation_rate": 0
+    }
+  },
+  "results": [
+    {
+      "id": "c2s1-direct",
+      "query": "减数分裂的特点是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s1",
+      "category": "textbook",
+      "top_score": 0.6207771828671534,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 33.3740348815918,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_9b576099978071c74cab",
+          "section_id": "c2s1a",
+          "page_start": 15,
+          "page_end": 16,
+          "semantic": 0.6126,
+          "lexical": 33.374,
+          "score": 0.6208
+        },
+        {
+          "chunk_id": "rag_62d2e4fb74dcd77d7d0d",
+          "section_id": "c2s1a",
+          "page_start": 11,
+          "page_end": 11,
+          "semantic": 0.6104,
+          "lexical": 28.786,
+          "score": 0.6143
+        },
+        {
+          "chunk_id": "rag_fd79a65d32cf3e76c026",
+          "section_id": "c2s1a",
+          "page_start": 16,
+          "page_end": 17,
+          "semantic": 0.581,
+          "lexical": 29.9594,
+          "score": 0.5936
+        },
+        {
+          "chunk_id": "rag_15a9d2c685619c1036b5",
+          "section_id": "c2s1a",
+          "page_start": 12,
+          "page_end": 13,
+          "semantic": 0.5784,
+          "lexical": 24.9681,
+          "score": 0.5853
+        },
+        {
+          "chunk_id": "rag_31735886cfe9b2252678",
+          "section_id": "c2s1a",
+          "page_start": 11,
+          "page_end": 12,
+          "semantic": 0.5575,
+          "lexical": 22.6799,
+          "score": 0.566
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9b576099978071c74cab",
+          "section_id": "c2s1a",
+          "page_start": 15,
+          "page_end": 16,
+          "score": 33.374
+        },
+        {
+          "chunk_id": "rag_fd79a65d32cf3e76c026",
+          "section_id": "c2s1a",
+          "page_start": 16,
+          "page_end": 17,
+          "score": 29.9594
+        },
+        {
+          "chunk_id": "rag_62d2e4fb74dcd77d7d0d",
+          "section_id": "c2s1a",
+          "page_start": 11,
+          "page_end": 11,
+          "score": 28.786
+        },
+        {
+          "chunk_id": "rag_15a9d2c685619c1036b5",
+          "section_id": "c2s1a",
+          "page_start": 12,
+          "page_end": 13,
+          "score": 24.9681
+        },
+        {
+          "chunk_id": "rag_fa296962ac10c212bad2",
+          "section_id": "c2s1a",
+          "page_start": 17,
+          "page_end": 17,
+          "score": 24.3886
+        }
+      ]
+    },
+    {
+      "id": "c2s1-paraphrase",
+      "query": "为什么配子中的染色体数目会减半？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s1",
+      "category": "textbook",
+      "top_score": 0.6155574089643536,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 39.33973693847656,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_62d2e4fb74dcd77d7d0d",
+          "section_id": "c2s1a",
+          "page_start": 11,
+          "page_end": 11,
+          "semantic": 0.5991,
+          "lexical": 39.3397,
+          "score": 0.6156
+        },
+        {
+          "chunk_id": "rag_07895bcdd173e9d38c84",
+          "section_id": "c2s1b",
+          "page_start": 19,
+          "page_end": 20,
+          "semantic": 0.5523,
+          "lexical": 33.5501,
+          "score": 0.5757
+        },
+        {
+          "chunk_id": "rag_6121a6c53d45791fd9bb",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 19,
+          "semantic": 0.5499,
+          "lexical": 32.8156,
+          "score": 0.5732
+        },
+        {
+          "chunk_id": "rag_c80396f6c8af763cece7",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 18,
+          "semantic": 0.5464,
+          "lexical": 32.3256,
+          "score": 0.5701
+        },
+        {
+          "chunk_id": "rag_02223450f7d59e811841",
+          "section_id": "c2s2",
+          "page_start": 22,
+          "page_end": 22,
+          "semantic": 0.539,
+          "lexical": 29.8974,
+          "score": 0.562
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_62d2e4fb74dcd77d7d0d",
+          "section_id": "c2s1a",
+          "page_start": 11,
+          "page_end": 11,
+          "score": 39.3397
+        },
+        {
+          "chunk_id": "rag_d9bf0f2ea1d1c34f914c",
+          "section_id": "c5s2",
+          "page_start": 81,
+          "page_end": 82,
+          "score": 38.1395
+        },
+        {
+          "chunk_id": "rag_07895bcdd173e9d38c84",
+          "section_id": "c2s1b",
+          "page_start": 19,
+          "page_end": 20,
+          "score": 33.5501
+        },
+        {
+          "chunk_id": "rag_6121a6c53d45791fd9bb",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 19,
+          "score": 32.8156
+        },
+        {
+          "chunk_id": "rag_c80396f6c8af763cece7",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 18,
+          "score": 32.3256
+        }
+      ]
+    },
+    {
+      "id": "c2s2-direct",
+      "query": "萨顿假说认为基因和染色体有什么关系？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s2",
+      "category": "textbook",
+      "top_score": 0.6753107433085396,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 48.929534912109375,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_02223450f7d59e811841",
+          "section_id": "c2s2",
+          "page_start": 22,
+          "page_end": 22,
+          "semantic": 0.6712,
+          "lexical": 48.9295,
+          "score": 0.6753
+        },
+        {
+          "chunk_id": "rag_13ae80e897cd0ac181e4",
+          "section_id": "c2s2",
+          "page_start": 22,
+          "page_end": 23,
+          "semantic": 0.6355,
+          "lexical": 40.9451,
+          "score": 0.6439
+        },
+        {
+          "chunk_id": "rag_711aff9dde7d240930d0",
+          "section_id": "c2",
+          "page_start": 10,
+          "page_end": 10,
+          "semantic": 0.6207,
+          "lexical": 21.4978,
+          "score": 0.6113
+        },
+        {
+          "chunk_id": "rag_c56c7a7133feebf9c8a7",
+          "section_id": "c2s2",
+          "page_start": 23,
+          "page_end": 24,
+          "semantic": 0.5913,
+          "lexical": 38.1164,
+          "score": 0.6088
+        },
+        {
+          "chunk_id": "rag_b55b202f7b320cd04e43",
+          "section_id": "c2s3",
+          "page_start": 33,
+          "page_end": 34,
+          "semantic": 0.5442,
+          "lexical": 22.9203,
+          "score": 0.5564
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_02223450f7d59e811841",
+          "section_id": "c2s2",
+          "page_start": 22,
+          "page_end": 22,
+          "score": 48.9295
+        },
+        {
+          "chunk_id": "rag_13ae80e897cd0ac181e4",
+          "section_id": "c2s2",
+          "page_start": 22,
+          "page_end": 23,
+          "score": 40.9451
+        },
+        {
+          "chunk_id": "rag_c56c7a7133feebf9c8a7",
+          "section_id": "c2s2",
+          "page_start": 23,
+          "page_end": 24,
+          "score": 38.1164
+        },
+        {
+          "chunk_id": "rag_613ba5fa5827524c7166",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 29,
+          "score": 27.0033
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 25.5727
+        }
+      ]
+    },
+    {
+      "id": "c2s2-paraphrase",
+      "query": "摩尔根用果蝇实验说明了什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s2",
+      "category": "textbook",
+      "top_score": 0.7021202302198852,
+      "top_1_correct": false,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 48.38241195678711,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_9ec58850f00996ea2379",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.7073,
+          "lexical": 48.3824,
+          "score": 0.7021
+        },
+        {
+          "chunk_id": "rag_09cc11cf1ddb5a873cf7",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.6345,
+          "lexical": 43.6283,
+          "score": 0.6449
+        },
+        {
+          "chunk_id": "rag_6f111bc647abccce99a4",
+          "section_id": "c2s2",
+          "page_start": 24,
+          "page_end": 25,
+          "semantic": 0.5916,
+          "lexical": 33.3215,
+          "score": 0.6049
+        },
+        {
+          "chunk_id": "rag_c56c7a7133feebf9c8a7",
+          "section_id": "c2s2",
+          "page_start": 23,
+          "page_end": 24,
+          "semantic": 0.5785,
+          "lexical": 32.6805,
+          "score": 0.5946
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.559,
+          "lexical": 37.1552,
+          "score": 0.5838
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9ec58850f00996ea2379",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 48.3824
+        },
+        {
+          "chunk_id": "rag_09cc11cf1ddb5a873cf7",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 43.6283
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 37.1552
+        },
+        {
+          "chunk_id": "rag_6f111bc647abccce99a4",
+          "section_id": "c2s2",
+          "page_start": 24,
+          "page_end": 25,
+          "score": 33.3215
+        },
+        {
+          "chunk_id": "rag_c56c7a7133feebf9c8a7",
+          "section_id": "c2s2",
+          "page_start": 23,
+          "page_end": 24,
+          "score": 32.6805
+        }
+      ]
+    },
+    {
+      "id": "c2s3-direct",
+      "query": "伴性遗传指什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s3",
+      "category": "textbook",
+      "top_score": 0.5862483013661859,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 20.300899505615234,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_613ba5fa5827524c7166",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 29,
+          "semantic": 0.594,
+          "lexical": 18.9879,
+          "score": 0.5862
+        },
+        {
+          "chunk_id": "rag_b0a205c877552d962ba0",
+          "section_id": "c2s3",
+          "page_start": 31,
+          "page_end": 32,
+          "semantic": 0.5697,
+          "lexical": 17.3964,
+          "score": 0.5642
+        },
+        {
+          "chunk_id": "rag_f42f80a109a143076e3c",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 28,
+          "semantic": 0.5534,
+          "lexical": 20.3009,
+          "score": 0.5585
+        },
+        {
+          "chunk_id": "rag_53896a1d5ae76b745262",
+          "section_id": "c2s3",
+          "page_start": 32,
+          "page_end": 33,
+          "semantic": 0.5463,
+          "lexical": 14.4737,
+          "score": 0.5385
+        },
+        {
+          "chunk_id": "rag_9da65737a7fb4d3ea22f",
+          "section_id": "c2s3",
+          "page_start": 30,
+          "page_end": 31,
+          "semantic": 0.5168,
+          "lexical": 17.2774,
+          "score": 0.5243
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_f42f80a109a143076e3c",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 28,
+          "score": 20.3009
+        },
+        {
+          "chunk_id": "rag_613ba5fa5827524c7166",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 29,
+          "score": 18.9879
+        },
+        {
+          "chunk_id": "rag_58d5e44ba4630070ff93",
+          "section_id": "c2s3",
+          "page_start": 35,
+          "page_end": 35,
+          "score": 17.7206
+        },
+        {
+          "chunk_id": "rag_b0a205c877552d962ba0",
+          "section_id": "c2s3",
+          "page_start": 31,
+          "page_end": 32,
+          "score": 17.3964
+        },
+        {
+          "chunk_id": "rag_9da65737a7fb4d3ea22f",
+          "section_id": "c2s3",
+          "page_start": 30,
+          "page_end": 31,
+          "score": 17.2774
+        }
+      ]
+    },
+    {
+      "id": "c2s3-paraphrase",
+      "query": "为什么红绿色盲常见于男性？",
+      "expected_rag": true,
+      "expected_chapter_id": "c2s3",
+      "category": "textbook",
+      "top_score": 0.6474896178249667,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 53.863162994384766,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_f42f80a109a143076e3c",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 28,
+          "semantic": 0.6311,
+          "lexical": 53.8632,
+          "score": 0.6475
+        },
+        {
+          "chunk_id": "rag_8145ecd1afa87f178e3e",
+          "section_id": "c2s3",
+          "page_start": 34,
+          "page_end": 35,
+          "semantic": 0.5952,
+          "lexical": 34.8321,
+          "score": 0.6091
+        },
+        {
+          "chunk_id": "rag_613ba5fa5827524c7166",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 29,
+          "semantic": 0.5816,
+          "lexical": 41.5534,
+          "score": 0.6039
+        },
+        {
+          "chunk_id": "rag_d1e78dfec65a12f0817a",
+          "section_id": "c2s3",
+          "page_start": 29,
+          "page_end": 30,
+          "semantic": 0.5713,
+          "lexical": 44.0911,
+          "score": 0.5977
+        },
+        {
+          "chunk_id": "rag_9da65737a7fb4d3ea22f",
+          "section_id": "c2s3",
+          "page_start": 30,
+          "page_end": 31,
+          "semantic": 0.5669,
+          "lexical": 45.4192,
+          "score": 0.5952
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_f42f80a109a143076e3c",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 28,
+          "score": 53.8632
+        },
+        {
+          "chunk_id": "rag_9da65737a7fb4d3ea22f",
+          "section_id": "c2s3",
+          "page_start": 30,
+          "page_end": 31,
+          "score": 45.4192
+        },
+        {
+          "chunk_id": "rag_d1e78dfec65a12f0817a",
+          "section_id": "c2s3",
+          "page_start": 29,
+          "page_end": 30,
+          "score": 44.0911
+        },
+        {
+          "chunk_id": "rag_613ba5fa5827524c7166",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 29,
+          "score": 41.5534
+        },
+        {
+          "chunk_id": "rag_4832ecffb649989a0271",
+          "section_id": "c2s3",
+          "page_start": 34,
+          "page_end": 34,
+          "score": 37.2331
+        }
+      ]
+    },
+    {
+      "id": "c3s1-direct",
+      "query": "噬菌体侵染细菌实验证明了什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s1",
+      "category": "textbook",
+      "top_score": 0.6465715635097571,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 63.04510498046875,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_6cb1ed9e3f2f3fde7d60",
+          "section_id": "c3s1",
+          "page_start": 40,
+          "page_end": 41,
+          "semantic": 0.6255,
+          "lexical": 63.0451,
+          "score": 0.6466
+        },
+        {
+          "chunk_id": "rag_4cafe01e4fcd7864792a",
+          "section_id": "c3s1",
+          "page_start": 38,
+          "page_end": 39,
+          "semantic": 0.6175,
+          "lexical": 60.1013,
+          "score": 0.6396
+        },
+        {
+          "chunk_id": "rag_3bf96c0adfa4b46800ac",
+          "section_id": "c3s1",
+          "page_start": 41,
+          "page_end": 41,
+          "semantic": 0.5713,
+          "lexical": 54.8374,
+          "score": 0.603
+        },
+        {
+          "chunk_id": "rag_55cc49186773d5eb1666",
+          "section_id": "c3s1",
+          "page_start": 39,
+          "page_end": 40,
+          "semantic": 0.5731,
+          "lexical": 50.8199,
+          "score": 0.6026
+        },
+        {
+          "chunk_id": "rag_2a3ef8ce38556f4b3c56",
+          "section_id": "c3s1",
+          "page_start": 38,
+          "page_end": 38,
+          "semantic": 0.5547,
+          "lexical": 23.6844,
+          "score": 0.5655
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_6cb1ed9e3f2f3fde7d60",
+          "section_id": "c3s1",
+          "page_start": 40,
+          "page_end": 41,
+          "score": 63.0451
+        },
+        {
+          "chunk_id": "rag_4cafe01e4fcd7864792a",
+          "section_id": "c3s1",
+          "page_start": 38,
+          "page_end": 39,
+          "score": 60.1013
+        },
+        {
+          "chunk_id": "rag_3bf96c0adfa4b46800ac",
+          "section_id": "c3s1",
+          "page_start": 41,
+          "page_end": 41,
+          "score": 54.8374
+        },
+        {
+          "chunk_id": "rag_55cc49186773d5eb1666",
+          "section_id": "c3s1",
+          "page_start": 39,
+          "page_end": 40,
+          "score": 50.8199
+        },
+        {
+          "chunk_id": "rag_8958b5b7f4026c38b4b8",
+          "section_id": "c3sts1",
+          "page_start": 55,
+          "page_end": 55,
+          "score": 49.5562
+        }
+      ]
+    },
+    {
+      "id": "c3s1-paraphrase",
+      "query": "肺炎双球菌转化实验如何证明 DNA 是遗传物质？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s1",
+      "category": "textbook",
+      "top_score": 0.6713120601097057,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 78.03963470458984,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_3bf96c0adfa4b46800ac",
+          "section_id": "c3s1",
+          "page_start": 41,
+          "page_end": 41,
+          "semantic": 0.6532,
+          "lexical": 78.0396,
+          "score": 0.6713
+        },
+        {
+          "chunk_id": "rag_2a3ef8ce38556f4b3c56",
+          "section_id": "c3s1",
+          "page_start": 38,
+          "page_end": 38,
+          "semantic": 0.6433,
+          "lexical": 70.8512,
+          "score": 0.6622
+        },
+        {
+          "chunk_id": "rag_6cb1ed9e3f2f3fde7d60",
+          "section_id": "c3s1",
+          "page_start": 40,
+          "page_end": 41,
+          "semantic": 0.6236,
+          "lexical": 62.1014,
+          "score": 0.6449
+        },
+        {
+          "chunk_id": "rag_fc2a29bb181f26cd0fa2",
+          "section_id": "c3s1",
+          "page_start": 37,
+          "page_end": 38,
+          "semantic": 0.6048,
+          "lexical": 59.828,
+          "score": 0.63
+        },
+        {
+          "chunk_id": "rag_4cafe01e4fcd7864792a",
+          "section_id": "c3s1",
+          "page_start": 38,
+          "page_end": 39,
+          "semantic": 0.5985,
+          "lexical": 36.6346,
+          "score": 0.6131
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_3bf96c0adfa4b46800ac",
+          "section_id": "c3s1",
+          "page_start": 41,
+          "page_end": 41,
+          "score": 78.0396
+        },
+        {
+          "chunk_id": "rag_2a3ef8ce38556f4b3c56",
+          "section_id": "c3s1",
+          "page_start": 38,
+          "page_end": 38,
+          "score": 70.8512
+        },
+        {
+          "chunk_id": "rag_6cb1ed9e3f2f3fde7d60",
+          "section_id": "c3s1",
+          "page_start": 40,
+          "page_end": 41,
+          "score": 62.1014
+        },
+        {
+          "chunk_id": "rag_fc2a29bb181f26cd0fa2",
+          "section_id": "c3s1",
+          "page_start": 37,
+          "page_end": 38,
+          "score": 59.828
+        },
+        {
+          "chunk_id": "rag_3a8d0486219fcec26f80",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 54,
+          "score": 50.2779
+        }
+      ]
+    },
+    {
+      "id": "c3s2-direct",
+      "query": "DNA 双螺旋结构有什么特点？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s2",
+      "category": "textbook",
+      "top_score": 0.6471004093734167,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 45.79728698730469,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_3b4a7a06f64282af95e4",
+          "section_id": "c3s2",
+          "page_start": 42,
+          "page_end": 42,
+          "semantic": 0.6392,
+          "lexical": 41.5532,
+          "score": 0.6471
+        },
+        {
+          "chunk_id": "rag_2a7864978f3ade008eb9",
+          "section_id": "c3s2",
+          "page_start": 42,
+          "page_end": 43,
+          "semantic": 0.5888,
+          "lexical": 45.7973,
+          "score": 0.6119
+        },
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "semantic": 0.5824,
+          "lexical": 44.686,
+          "score": 0.6064
+        },
+        {
+          "chunk_id": "rag_67314ab8a2c59f757cb8",
+          "section_id": "c3s2",
+          "page_start": 43,
+          "page_end": 44,
+          "semantic": 0.5429,
+          "lexical": 24.6041,
+          "score": 0.5581
+        },
+        {
+          "chunk_id": "rag_6b373690b627601df5d1",
+          "section_id": "c3sts1",
+          "page_start": 54,
+          "page_end": 55,
+          "semantic": 0.5207,
+          "lexical": 22.6726,
+          "score": 0.5384
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_2a7864978f3ade008eb9",
+          "section_id": "c3s2",
+          "page_start": 42,
+          "page_end": 43,
+          "score": 45.7973
+        },
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "score": 44.686
+        },
+        {
+          "chunk_id": "rag_3b4a7a06f64282af95e4",
+          "section_id": "c3s2",
+          "page_start": 42,
+          "page_end": 42,
+          "score": 41.5532
+        },
+        {
+          "chunk_id": "rag_3a8d0486219fcec26f80",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 54,
+          "score": 36.5618
+        },
+        {
+          "chunk_id": "rag_ae4804d9c2f0478f39ac",
+          "section_id": "c4",
+          "page_start": 56,
+          "page_end": 56,
+          "score": 31.9124
+        }
+      ]
+    },
+    {
+      "id": "c3s2-paraphrase",
+      "query": "碱基互补配对原则怎么理解？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s2",
+      "category": "textbook",
+      "top_score": 0.6270992374184544,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 40.71229934692383,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "semantic": 0.6133,
+          "lexical": 40.7123,
+          "score": 0.6271
+        },
+        {
+          "chunk_id": "rag_098453a8c3af11026b66",
+          "section_id": "c3s2",
+          "page_start": 45,
+          "page_end": 46,
+          "semantic": 0.6146,
+          "lexical": 36.9344,
+          "score": 0.6254
+        },
+        {
+          "chunk_id": "rag_67314ab8a2c59f757cb8",
+          "section_id": "c3s2",
+          "page_start": 43,
+          "page_end": 44,
+          "semantic": 0.6004,
+          "lexical": 17.6361,
+          "score": 0.5879
+        },
+        {
+          "chunk_id": "rag_3dc3d4a7c79ad4b88c14",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.5621,
+          "lexical": 24.6825,
+          "score": 0.5726
+        },
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "semantic": 0.5558,
+          "lexical": 27.7579,
+          "score": 0.5721
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "score": 40.7123
+        },
+        {
+          "chunk_id": "rag_098453a8c3af11026b66",
+          "section_id": "c3s2",
+          "page_start": 45,
+          "page_end": 46,
+          "score": 36.9344
+        },
+        {
+          "chunk_id": "rag_3a8d0486219fcec26f80",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 54,
+          "score": 35.0566
+        },
+        {
+          "chunk_id": "rag_93aed9e316d5f0882998",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "score": 34.3644
+        },
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "score": 32.2941
+        }
+      ]
+    },
+    {
+      "id": "c3s3-direct",
+      "query": "DNA 复制的方式是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s3",
+      "category": "textbook",
+      "top_score": 0.5953907102699779,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 21.931602478027344,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "semantic": 0.5985,
+          "lexical": 21.9316,
+          "score": 0.5954
+        },
+        {
+          "chunk_id": "rag_93aed9e316d5f0882998",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.5591,
+          "lexical": 12.3237,
+          "score": 0.5406
+        },
+        {
+          "chunk_id": "rag_250b3bfd28ddb76122e0",
+          "section_id": "c3s3",
+          "page_start": 48,
+          "page_end": 49,
+          "semantic": 0.5076,
+          "lexical": 21.461,
+          "score": 0.5264
+        },
+        {
+          "chunk_id": "rag_3dc3d4a7c79ad4b88c14",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.5259,
+          "lexical": 14.3176,
+          "score": 0.5228
+        },
+        {
+          "chunk_id": "rag_2e7e59c9be7c9c1fee52",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 48,
+          "semantic": 0.477,
+          "lexical": 18.9316,
+          "score": 0.4983
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "score": 21.9316
+        },
+        {
+          "chunk_id": "rag_250b3bfd28ddb76122e0",
+          "section_id": "c3s3",
+          "page_start": 48,
+          "page_end": 49,
+          "score": 21.461
+        },
+        {
+          "chunk_id": "rag_2e7e59c9be7c9c1fee52",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 48,
+          "score": 18.9316
+        },
+        {
+          "chunk_id": "rag_94325ad8ff5ebc7b8cfb",
+          "section_id": "c4frontier1",
+          "page_start": 67,
+          "page_end": 67,
+          "score": 16.4004
+        },
+        {
+          "chunk_id": "rag_67314ab8a2c59f757cb8",
+          "section_id": "c3s2",
+          "page_start": 43,
+          "page_end": 44,
+          "score": 15.4789
+        }
+      ]
+    },
+    {
+      "id": "c3s3-paraphrase",
+      "query": "半保留复制如何保证遗传信息准确传递？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s3",
+      "category": "textbook",
+      "top_score": 0.5794111342339877,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 48.965660095214844,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "semantic": 0.5433,
+          "lexical": 48.9657,
+          "score": 0.5794
+        },
+        {
+          "chunk_id": "rag_2e7e59c9be7c9c1fee52",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 48,
+          "semantic": 0.5105,
+          "lexical": 33.3576,
+          "score": 0.5442
+        },
+        {
+          "chunk_id": "rag_94b82da8a36ce5963027",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 64,
+          "semantic": 0.4945,
+          "lexical": 29.4064,
+          "score": 0.5281
+        },
+        {
+          "chunk_id": "rag_250b3bfd28ddb76122e0",
+          "section_id": "c3s3",
+          "page_start": 48,
+          "page_end": 49,
+          "semantic": 0.4863,
+          "lexical": 34.1467,
+          "score": 0.5268
+        },
+        {
+          "chunk_id": "rag_93aed9e316d5f0882998",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.4657,
+          "lexical": 35.1541,
+          "score": 0.5122
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "score": 48.9657
+        },
+        {
+          "chunk_id": "rag_3a8d0486219fcec26f80",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 54,
+          "score": 40.3347
+        },
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "score": 36.4933
+        },
+        {
+          "chunk_id": "rag_93aed9e316d5f0882998",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "score": 35.1541
+        },
+        {
+          "chunk_id": "rag_250b3bfd28ddb76122e0",
+          "section_id": "c3s3",
+          "page_start": 48,
+          "page_end": 49,
+          "score": 34.1467
+        }
+      ]
+    },
+    {
+      "id": "c3s4-direct",
+      "query": "基因为什么是有遗传效应的 DNA 片段？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s4",
+      "category": "textbook",
+      "top_score": 0.6562964104994518,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 47.020477294921875,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "semantic": 0.6472,
+          "lexical": 47.0205,
+          "score": 0.6563
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.631,
+          "lexical": 38.4266,
+          "score": 0.6388
+        },
+        {
+          "chunk_id": "rag_6b373690b627601df5d1",
+          "section_id": "c3sts1",
+          "page_start": 54,
+          "page_end": 55,
+          "semantic": 0.613,
+          "lexical": 31.0939,
+          "score": 0.6189
+        },
+        {
+          "chunk_id": "rag_d4b568b7f567dd2ff638",
+          "section_id": "frontmatter",
+          "page_start": 5,
+          "page_end": 5,
+          "semantic": 0.584,
+          "lexical": 34.0149,
+          "score": 0.5999
+        },
+        {
+          "chunk_id": "rag_870e8487a93f07a88276",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 57,
+          "semantic": 0.5782,
+          "lexical": 34.1888,
+          "score": 0.5957
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "score": 47.0205
+        },
+        {
+          "chunk_id": "rag_1dfdd4be05b5580dd078",
+          "section_id": "c3s4",
+          "page_start": 52,
+          "page_end": 52,
+          "score": 42.4586
+        },
+        {
+          "chunk_id": "rag_e394ed631612be1dd408",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 53,
+          "score": 39.3951
+        },
+        {
+          "chunk_id": "rag_682af57a9050fbd8a7cc",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 51,
+          "score": 38.9001
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "score": 38.4266
+        }
+      ]
+    },
+    {
+      "id": "c3s4-paraphrase",
+      "query": "DNA 片段怎样才能成为基因？",
+      "expected_rag": true,
+      "expected_chapter_id": "c3s4",
+      "category": "textbook",
+      "top_score": 0.5803912648952358,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 17.573787689208984,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "semantic": 0.6019,
+          "lexical": 14.5177,
+          "score": 0.5804
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.59,
+          "lexical": 13.6864,
+          "score": 0.5687
+        },
+        {
+          "chunk_id": "rag_1dfdd4be05b5580dd078",
+          "section_id": "c3s4",
+          "page_start": 52,
+          "page_end": 52,
+          "semantic": 0.5589,
+          "lexical": 17.5738,
+          "score": 0.5566
+        },
+        {
+          "chunk_id": "rag_e394ed631612be1dd408",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 53,
+          "semantic": 0.5602,
+          "lexical": 13.6223,
+          "score": 0.5461
+        },
+        {
+          "chunk_id": "rag_870e8487a93f07a88276",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 57,
+          "semantic": 0.5555,
+          "lexical": 14.2962,
+          "score": 0.5449
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_1dfdd4be05b5580dd078",
+          "section_id": "c3s4",
+          "page_start": 52,
+          "page_end": 52,
+          "score": 17.5738
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "score": 14.5177
+        },
+        {
+          "chunk_id": "rag_870e8487a93f07a88276",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 57,
+          "score": 14.2962
+        },
+        {
+          "chunk_id": "rag_89f8fcec6d1a92126c87",
+          "section_id": "c7s2a",
+          "page_start": 109,
+          "page_end": 109,
+          "score": 13.8946
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "score": 13.6864
+        }
+      ]
+    },
+    {
+      "id": "c4s1-direct",
+      "query": "遗传信息怎样通过转录和翻译表达？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s1",
+      "category": "textbook",
+      "top_score": 0.5626395334117136,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 54.89323043823242,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "semantic": 0.5231,
+          "lexical": 45.894,
+          "score": 0.5626
+        },
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "semantic": 0.4955,
+          "lexical": 32.9082,
+          "score": 0.5325
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "semantic": 0.4762,
+          "lexical": 54.8932,
+          "score": 0.5317
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.516,
+          "lexical": 16.6092,
+          "score": 0.522
+        },
+        {
+          "chunk_id": "rag_870e8487a93f07a88276",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 57,
+          "semantic": 0.4821,
+          "lexical": 27.3397,
+          "score": 0.5163
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "score": 54.8932
+        },
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "score": 45.894
+        },
+        {
+          "chunk_id": "rag_bc65af6dfaf01240737d",
+          "section_id": "c4s2",
+          "page_start": 63,
+          "page_end": 64,
+          "score": 43.5372
+        },
+        {
+          "chunk_id": "rag_8af6ed49ec7309cb9f61",
+          "section_id": "c4s2",
+          "page_start": 65,
+          "page_end": 66,
+          "score": 40.1386
+        },
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "score": 32.9082
+        }
+      ]
+    },
+    {
+      "id": "c4s1-paraphrase",
+      "query": "mRNA 在蛋白质合成中起什么作用？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s1",
+      "category": "textbook",
+      "top_score": 0.6037113830431219,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 30.250774383544922,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "semantic": 0.6038,
+          "lexical": 24.5776,
+          "score": 0.6037
+        },
+        {
+          "chunk_id": "rag_3f3431fcdc2ead437fb3",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 58,
+          "semantic": 0.5919,
+          "lexical": 30.2508,
+          "score": 0.6021
+        },
+        {
+          "chunk_id": "rag_870e8487a93f07a88276",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 57,
+          "semantic": 0.589,
+          "lexical": 22.6041,
+          "score": 0.5894
+        },
+        {
+          "chunk_id": "rag_02cf8732345e699833da",
+          "section_id": "c4s1",
+          "page_start": 60,
+          "page_end": 61,
+          "semantic": 0.5617,
+          "lexical": 24.7526,
+          "score": 0.5724
+        },
+        {
+          "chunk_id": "rag_63d4b114229ecc07c26d",
+          "section_id": "c4s1",
+          "page_start": 61,
+          "page_end": 62,
+          "semantic": 0.55,
+          "lexical": 24.6169,
+          "score": 0.5634
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_3f3431fcdc2ead437fb3",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 58,
+          "score": 30.2508
+        },
+        {
+          "chunk_id": "rag_bc65af6dfaf01240737d",
+          "section_id": "c4s2",
+          "page_start": 63,
+          "page_end": 64,
+          "score": 24.9772
+        },
+        {
+          "chunk_id": "rag_02cf8732345e699833da",
+          "section_id": "c4s1",
+          "page_start": 60,
+          "page_end": 61,
+          "score": 24.7526
+        },
+        {
+          "chunk_id": "rag_63d4b114229ecc07c26d",
+          "section_id": "c4s1",
+          "page_start": 61,
+          "page_end": 62,
+          "score": 24.6169
+        },
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "score": 24.5776
+        }
+      ]
+    },
+    {
+      "id": "c4s2-direct",
+      "query": "基因怎样控制生物性状？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s2",
+      "category": "textbook",
+      "top_score": 0.5847718030121102,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 22.973203659057617,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_8af6ed49ec7309cb9f61",
+          "section_id": "c4s2",
+          "page_start": 65,
+          "page_end": 66,
+          "semantic": 0.597,
+          "lexical": 17.3945,
+          "score": 0.5848
+        },
+        {
+          "chunk_id": "rag_bc65af6dfaf01240737d",
+          "section_id": "c4s2",
+          "page_start": 63,
+          "page_end": 64,
+          "semantic": 0.5855,
+          "lexical": 18.681,
+          "score": 0.5791
+        },
+        {
+          "chunk_id": "rag_276c797b421ebe8ab833",
+          "section_id": "c4s2",
+          "page_start": 66,
+          "page_end": 66,
+          "semantic": 0.5569,
+          "lexical": 22.9732,
+          "score": 0.566
+        },
+        {
+          "chunk_id": "rag_12776e5a52d21f0dc09e",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 65,
+          "semantic": 0.5635,
+          "lexical": 17.4779,
+          "score": 0.5598
+        },
+        {
+          "chunk_id": "rag_ae4804d9c2f0478f39ac",
+          "section_id": "c4",
+          "page_start": 56,
+          "page_end": 56,
+          "semantic": 0.5619,
+          "lexical": 11.5861,
+          "score": 0.5397
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_276c797b421ebe8ab833",
+          "section_id": "c4s2",
+          "page_start": 66,
+          "page_end": 66,
+          "score": 22.9732
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "score": 19.2049
+        },
+        {
+          "chunk_id": "rag_bc65af6dfaf01240737d",
+          "section_id": "c4s2",
+          "page_start": 63,
+          "page_end": 64,
+          "score": 18.681
+        },
+        {
+          "chunk_id": "rag_12776e5a52d21f0dc09e",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 65,
+          "score": 17.4779
+        },
+        {
+          "chunk_id": "rag_8af6ed49ec7309cb9f61",
+          "section_id": "c4s2",
+          "page_start": 65,
+          "page_end": 66,
+          "score": 17.3945
+        }
+      ]
+    },
+    {
+      "id": "c4s2-paraphrase",
+      "query": "白化病的性状控制途径说明了什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s2",
+      "category": "textbook",
+      "top_score": 0.5911981460796376,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 37.18531799316406,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_12776e5a52d21f0dc09e",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 65,
+          "semantic": 0.5688,
+          "lexical": 37.1853,
+          "score": 0.5912
+        },
+        {
+          "chunk_id": "rag_0b18a2590255b7bc2053",
+          "section_id": "c5sts1",
+          "page_start": 89,
+          "page_end": 89,
+          "semantic": 0.5567,
+          "lexical": 18.6606,
+          "score": 0.5575
+        },
+        {
+          "chunk_id": "rag_53896a1d5ae76b745262",
+          "section_id": "c2s3",
+          "page_start": 32,
+          "page_end": 33,
+          "semantic": 0.5326,
+          "lexical": 15.4219,
+          "score": 0.5311
+        },
+        {
+          "chunk_id": "rag_ef63f9875f0d67f9bad8",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "semantic": 0.4938,
+          "lexical": 25.2037,
+          "score": 0.5222
+        },
+        {
+          "chunk_id": "rag_8ed4901d38eaf65c9f4d",
+          "section_id": "c4s2",
+          "page_start": 65,
+          "page_end": 65,
+          "semantic": 0.4839,
+          "lexical": 22.7,
+          "score": 0.5108
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_12776e5a52d21f0dc09e",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 65,
+          "score": 37.1853
+        },
+        {
+          "chunk_id": "rag_c72e49e6abdd48502aa9",
+          "section_id": "c5s3",
+          "page_start": 85,
+          "page_end": 85,
+          "score": 29.8898
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "score": 25.7142
+        },
+        {
+          "chunk_id": "rag_ef63f9875f0d67f9bad8",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "score": 25.2037
+        },
+        {
+          "chunk_id": "rag_8af6ed49ec7309cb9f61",
+          "section_id": "c4s2",
+          "page_start": 65,
+          "page_end": 66,
+          "score": 24.7505
+        }
+      ]
+    },
+    {
+      "id": "c4s3-direct",
+      "query": "遗传密码是怎样被破译的？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s3",
+      "category": "textbook",
+      "top_score": 0.6365624290152269,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 49.004093170166016,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_34f57a03910eeac44969",
+          "section_id": "c4s3",
+          "page_start": 73,
+          "page_end": 73,
+          "semantic": 0.632,
+          "lexical": 34.7158,
+          "score": 0.6366
+        },
+        {
+          "chunk_id": "rag_29a3ad9049952099cbb4",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 68,
+          "semantic": 0.6184,
+          "lexical": 40.5916,
+          "score": 0.6309
+        },
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "semantic": 0.5945,
+          "lexical": 49.0041,
+          "score": 0.6178
+        },
+        {
+          "chunk_id": "rag_9ba73d062c8e8861a6ba",
+          "section_id": "c4s3",
+          "page_start": 69,
+          "page_end": 70,
+          "semantic": 0.5375,
+          "lexical": 35.1542,
+          "score": 0.566
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "semantic": 0.4986,
+          "lexical": 31.0586,
+          "score": 0.533
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "score": 49.0041
+        },
+        {
+          "chunk_id": "rag_29a3ad9049952099cbb4",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 68,
+          "score": 40.5916
+        },
+        {
+          "chunk_id": "rag_9ba73d062c8e8861a6ba",
+          "section_id": "c4s3",
+          "page_start": 69,
+          "page_end": 70,
+          "score": 35.1542
+        },
+        {
+          "chunk_id": "rag_34f57a03910eeac44969",
+          "section_id": "c4s3",
+          "page_start": 73,
+          "page_end": 73,
+          "score": 34.7158
+        },
+        {
+          "chunk_id": "rag_31c3182c7940debaa6b9",
+          "section_id": "c4s3",
+          "page_start": 70,
+          "page_end": 71,
+          "score": 33.9933
+        }
+      ]
+    },
+    {
+      "id": "c4s3-paraphrase",
+      "query": "三联体密码为什么能决定氨基酸？",
+      "expected_rag": true,
+      "expected_chapter_id": "c4s3",
+      "category": "textbook",
+      "top_score": 0.5804161329292855,
+      "top_1_correct": false,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 36.70058822631836,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_920945918903290df0e2",
+          "section_id": "c4s1",
+          "page_start": 59,
+          "page_end": 60,
+          "semantic": 0.5553,
+          "lexical": 36.4145,
+          "score": 0.5804
+        },
+        {
+          "chunk_id": "rag_4df3cb36d257ec964f47",
+          "section_id": "c4s1",
+          "page_start": 62,
+          "page_end": 62,
+          "semantic": 0.552,
+          "lexical": 28.2992,
+          "score": 0.5699
+        },
+        {
+          "chunk_id": "rag_9ba73d062c8e8861a6ba",
+          "section_id": "c4s3",
+          "page_start": 69,
+          "page_end": 70,
+          "semantic": 0.5368,
+          "lexical": 29.27,
+          "score": 0.5596
+        },
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "semantic": 0.5175,
+          "lexical": 32.5788,
+          "score": 0.5487
+        },
+        {
+          "chunk_id": "rag_9f49c4a34a65e0fd66f1",
+          "section_id": "c4s3",
+          "page_start": 73,
+          "page_end": 73,
+          "semantic": 0.5006,
+          "lexical": 29.8408,
+          "score": 0.5331
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "score": 36.7006
+        },
+        {
+          "chunk_id": "rag_920945918903290df0e2",
+          "section_id": "c4s1",
+          "page_start": 59,
+          "page_end": 60,
+          "score": 36.4145
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "score": 35.3857
+        },
+        {
+          "chunk_id": "rag_63d4b114229ecc07c26d",
+          "section_id": "c4s1",
+          "page_start": 61,
+          "page_end": 62,
+          "score": 35.098
+        },
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "score": 32.5788
+        }
+      ]
+    },
+    {
+      "id": "c5s1-direct",
+      "query": "基因突变和基因重组有什么区别？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s1",
+      "category": "textbook",
+      "top_score": 0.653386972623021,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 34.208648681640625,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_766ab568ad6739c9d7a1",
+          "section_id": "c5s1",
+          "page_start": 78,
+          "page_end": 78,
+          "semantic": 0.6551,
+          "lexical": 34.2086,
+          "score": 0.6534
+        },
+        {
+          "chunk_id": "rag_709051233f5eeefea754",
+          "section_id": "c5s1",
+          "page_start": 75,
+          "page_end": 76,
+          "semantic": 0.6461,
+          "lexical": 33.9414,
+          "score": 0.6464
+        },
+        {
+          "chunk_id": "rag_9950cb348a47d9559cf8",
+          "section_id": "c5s1",
+          "page_start": 78,
+          "page_end": 79,
+          "semantic": 0.651,
+          "lexical": 27.123,
+          "score": 0.6427
+        },
+        {
+          "chunk_id": "rag_434ac05a974925dc761c",
+          "section_id": "c5s1",
+          "page_start": 79,
+          "page_end": 79,
+          "semantic": 0.6181,
+          "lexical": 29.0963,
+          "score": 0.6205
+        },
+        {
+          "chunk_id": "rag_4d193b27bae933e39c2f",
+          "section_id": "c5s1",
+          "page_start": 76,
+          "page_end": 76,
+          "semantic": 0.6098,
+          "lexical": 25.0675,
+          "score": 0.609
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_766ab568ad6739c9d7a1",
+          "section_id": "c5s1",
+          "page_start": 78,
+          "page_end": 78,
+          "score": 34.2086
+        },
+        {
+          "chunk_id": "rag_709051233f5eeefea754",
+          "section_id": "c5s1",
+          "page_start": 75,
+          "page_end": 76,
+          "score": 33.9414
+        },
+        {
+          "chunk_id": "rag_434ac05a974925dc761c",
+          "section_id": "c5s1",
+          "page_start": 79,
+          "page_end": 79,
+          "score": 29.0963
+        },
+        {
+          "chunk_id": "rag_e1356b86daff7a3892fe",
+          "section_id": "c5s1",
+          "page_start": 76,
+          "page_end": 77,
+          "score": 29.0095
+        },
+        {
+          "chunk_id": "rag_3467466d7a1eb019ee7b",
+          "section_id": "c5s1",
+          "page_start": 77,
+          "page_end": 78,
+          "score": 27.9243
+        }
+      ]
+    },
+    {
+      "id": "c5s1-paraphrase",
+      "query": "DNA 碱基替换会造成什么后果？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s1",
+      "category": "textbook",
+      "top_score": 0.5487841272957695,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 30.977657318115234,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_4d193b27bae933e39c2f",
+          "section_id": "c5s1",
+          "page_start": 76,
+          "page_end": 76,
+          "semantic": 0.5404,
+          "lexical": 20.295,
+          "score": 0.5488
+        },
+        {
+          "chunk_id": "rag_4df3cb36d257ec964f47",
+          "section_id": "c4s1",
+          "page_start": 62,
+          "page_end": 62,
+          "semantic": 0.5798,
+          "lexical": 10.3512,
+          "score": 0.5476
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "semantic": 0.5393,
+          "lexical": 11.8816,
+          "score": 0.524
+        },
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "semantic": 0.5326,
+          "lexical": 11.4091,
+          "score": 0.517
+        },
+        {
+          "chunk_id": "rag_1dfdd4be05b5580dd078",
+          "section_id": "c3s4",
+          "page_start": 52,
+          "page_end": 52,
+          "semantic": 0.5217,
+          "lexical": 10.9823,
+          "score": 0.507
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_fa296962ac10c212bad2",
+          "section_id": "c2s1a",
+          "page_start": 17,
+          "page_end": 17,
+          "score": 30.9777
+        },
+        {
+          "chunk_id": "rag_4d193b27bae933e39c2f",
+          "section_id": "c5s1",
+          "page_start": 76,
+          "page_end": 76,
+          "score": 20.295
+        },
+        {
+          "chunk_id": "rag_3f3431fcdc2ead437fb3",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 58,
+          "score": 18.5706
+        },
+        {
+          "chunk_id": "rag_e45fc854980684a38385",
+          "section_id": "c5sts1",
+          "page_start": 89,
+          "page_end": 90,
+          "score": 17.7681
+        },
+        {
+          "chunk_id": "rag_709051233f5eeefea754",
+          "section_id": "c5s1",
+          "page_start": 75,
+          "page_end": 76,
+          "score": 16.2632
+        }
+      ]
+    },
+    {
+      "id": "c5s2-direct",
+      "query": "染色体结构变异有哪些类型？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s2",
+      "category": "textbook",
+      "top_score": 0.6299862453611558,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 51.87096405029297,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_f54508a47f98a2800215",
+          "section_id": "c5s2",
+          "page_start": 80,
+          "page_end": 81,
+          "semantic": 0.6089,
+          "lexical": 51.871,
+          "score": 0.63
+        },
+        {
+          "chunk_id": "rag_d9bf0f2ea1d1c34f914c",
+          "section_id": "c5s2",
+          "page_start": 81,
+          "page_end": 82,
+          "semantic": 0.6248,
+          "lexical": 27.9002,
+          "score": 0.624
+        },
+        {
+          "chunk_id": "rag_3c53fc20f82580139ec1",
+          "section_id": "c7s2a",
+          "page_start": 111,
+          "page_end": 111,
+          "semantic": 0.5671,
+          "lexical": 18.6107,
+          "score": 0.5652
+        },
+        {
+          "chunk_id": "rag_8de572e331369d04745d",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "semantic": 0.5529,
+          "lexical": 19.9016,
+          "score": 0.5573
+        },
+        {
+          "chunk_id": "rag_fd79a65d32cf3e76c026",
+          "section_id": "c2s1a",
+          "page_start": 16,
+          "page_end": 17,
+          "semantic": 0.5713,
+          "lexical": 12.2559,
+          "score": 0.5495
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_f54508a47f98a2800215",
+          "section_id": "c5s2",
+          "page_start": 80,
+          "page_end": 81,
+          "score": 51.871
+        },
+        {
+          "chunk_id": "rag_d9bf0f2ea1d1c34f914c",
+          "section_id": "c5s2",
+          "page_start": 81,
+          "page_end": 82,
+          "score": 27.9002
+        },
+        {
+          "chunk_id": "rag_c53efe1563fd16a20a6c",
+          "section_id": "c5sts1",
+          "page_start": 90,
+          "page_end": 91,
+          "score": 20.3371
+        },
+        {
+          "chunk_id": "rag_8de572e331369d04745d",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "score": 19.9016
+        },
+        {
+          "chunk_id": "rag_709051233f5eeefea754",
+          "section_id": "c5s1",
+          "page_start": 75,
+          "page_end": 76,
+          "score": 19.5375
+        }
+      ]
+    },
+    {
+      "id": "c5s2-paraphrase",
+      "query": "染色体数目变异如何产生？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s2",
+      "category": "textbook",
+      "top_score": 0.6455832232166099,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 28.437654495239258,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_d9bf0f2ea1d1c34f914c",
+          "section_id": "c5s2",
+          "page_start": 81,
+          "page_end": 82,
+          "semantic": 0.6587,
+          "lexical": 25.0473,
+          "score": 0.6456
+        },
+        {
+          "chunk_id": "rag_bfac63dbfc49f9f4c046",
+          "section_id": "c5s2",
+          "page_start": 83,
+          "page_end": 83,
+          "semantic": 0.6276,
+          "lexical": 28.4377,
+          "score": 0.6268
+        },
+        {
+          "chunk_id": "rag_f54508a47f98a2800215",
+          "section_id": "c5s2",
+          "page_start": 80,
+          "page_end": 81,
+          "semantic": 0.6131,
+          "lexical": 20.0248,
+          "score": 0.6027
+        },
+        {
+          "chunk_id": "rag_8de572e331369d04745d",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "semantic": 0.6009,
+          "lexical": 18.414,
+          "score": 0.5901
+        },
+        {
+          "chunk_id": "rag_3c53fc20f82580139ec1",
+          "section_id": "c7s2a",
+          "page_start": 111,
+          "page_end": 111,
+          "semantic": 0.5949,
+          "lexical": 20.0286,
+          "score": 0.5891
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_bfac63dbfc49f9f4c046",
+          "section_id": "c5s2",
+          "page_start": 83,
+          "page_end": 83,
+          "score": 28.4377
+        },
+        {
+          "chunk_id": "rag_0d5d21c83d61c2b8cc6f",
+          "section_id": "c5s2",
+          "page_start": 82,
+          "page_end": 83,
+          "score": 27.3676
+        },
+        {
+          "chunk_id": "rag_95381a98813e7413d15e",
+          "section_id": "c5s2",
+          "page_start": 83,
+          "page_end": 84,
+          "score": 26.4175
+        },
+        {
+          "chunk_id": "rag_d9bf0f2ea1d1c34f914c",
+          "section_id": "c5s2",
+          "page_start": 81,
+          "page_end": 82,
+          "score": 25.0473
+        },
+        {
+          "chunk_id": "rag_8298f24a91c7cb368502",
+          "section_id": "c5s2",
+          "page_start": 82,
+          "page_end": 82,
+          "score": 23.3536
+        }
+      ]
+    },
+    {
+      "id": "c5s3-direct",
+      "query": "人类遗传病可以分为哪几类？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s3",
+      "category": "textbook",
+      "top_score": 0.6320208905006879,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 33.16532897949219,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_c72e49e6abdd48502aa9",
+          "section_id": "c5s3",
+          "page_start": 85,
+          "page_end": 85,
+          "semantic": 0.6279,
+          "lexical": 33.1653,
+          "score": 0.632
+        },
+        {
+          "chunk_id": "rag_980f2ca24cf6683125f1",
+          "section_id": "c5s3",
+          "page_start": 85,
+          "page_end": 86,
+          "semantic": 0.6218,
+          "lexical": 25.1852,
+          "score": 0.6181
+        },
+        {
+          "chunk_id": "rag_c53efe1563fd16a20a6c",
+          "section_id": "c5sts1",
+          "page_start": 90,
+          "page_end": 91,
+          "semantic": 0.5851,
+          "lexical": 26.3956,
+          "score": 0.5923
+        },
+        {
+          "chunk_id": "rag_db3272776dd2d3561234",
+          "section_id": "c5s3",
+          "page_start": 86,
+          "page_end": 87,
+          "semantic": 0.596,
+          "lexical": 21.0012,
+          "score": 0.5919
+        },
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "semantic": 0.5793,
+          "lexical": 21.0105,
+          "score": 0.5793
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_c72e49e6abdd48502aa9",
+          "section_id": "c5s3",
+          "page_start": 85,
+          "page_end": 85,
+          "score": 33.1653
+        },
+        {
+          "chunk_id": "rag_c53efe1563fd16a20a6c",
+          "section_id": "c5sts1",
+          "page_start": 90,
+          "page_end": 91,
+          "score": 26.3956
+        },
+        {
+          "chunk_id": "rag_980f2ca24cf6683125f1",
+          "section_id": "c5s3",
+          "page_start": 85,
+          "page_end": 86,
+          "score": 25.1852
+        },
+        {
+          "chunk_id": "rag_3a7b3de653d70979f42a",
+          "section_id": "c5s3",
+          "page_start": 88,
+          "page_end": 88,
+          "score": 23.0606
+        },
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "score": 21.0105
+        }
+      ]
+    },
+    {
+      "id": "c5s3-paraphrase",
+      "query": "近亲结婚为什么会增加隐性遗传病风险？",
+      "expected_rag": true,
+      "expected_chapter_id": "c5s3",
+      "category": "textbook",
+      "top_score": 0.59715392402251,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": true,
+      "lexical_top_score": 32.890045166015625,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_9da65737a7fb4d3ea22f",
+          "section_id": "c2s3",
+          "page_start": 30,
+          "page_end": 31,
+          "semantic": 0.5817,
+          "lexical": 32.89,
+          "score": 0.5972
+        },
+        {
+          "chunk_id": "rag_d1e78dfec65a12f0817a",
+          "section_id": "c2s3",
+          "page_start": 29,
+          "page_end": 30,
+          "semantic": 0.5814,
+          "lexical": 29.8827,
+          "score": 0.5938
+        },
+        {
+          "chunk_id": "rag_53896a1d5ae76b745262",
+          "section_id": "c2s3",
+          "page_start": 32,
+          "page_end": 33,
+          "semantic": 0.601,
+          "lexical": 17.0696,
+          "score": 0.587
+        },
+        {
+          "chunk_id": "rag_db3272776dd2d3561234",
+          "section_id": "c5s3",
+          "page_start": 86,
+          "page_end": 87,
+          "semantic": 0.5803,
+          "lexical": 19.3583,
+          "score": 0.5767
+        },
+        {
+          "chunk_id": "rag_224cb37c781231a2ba04",
+          "section_id": "c5",
+          "page_start": 74,
+          "page_end": 74,
+          "semantic": 0.5485,
+          "lexical": 32.6288,
+          "score": 0.572
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9da65737a7fb4d3ea22f",
+          "section_id": "c2s3",
+          "page_start": 30,
+          "page_end": 31,
+          "score": 32.89
+        },
+        {
+          "chunk_id": "rag_224cb37c781231a2ba04",
+          "section_id": "c5",
+          "page_start": 74,
+          "page_end": 74,
+          "score": 32.6288
+        },
+        {
+          "chunk_id": "rag_d1e78dfec65a12f0817a",
+          "section_id": "c2s3",
+          "page_start": 29,
+          "page_end": 30,
+          "score": 29.8827
+        },
+        {
+          "chunk_id": "rag_613ba5fa5827524c7166",
+          "section_id": "c2s3",
+          "page_start": 28,
+          "page_end": 29,
+          "score": 24.2794
+        },
+        {
+          "chunk_id": "rag_b0a205c877552d962ba0",
+          "section_id": "c2s3",
+          "page_start": 31,
+          "page_end": 32,
+          "score": 22.7505
+        }
+      ]
+    },
+    {
+      "id": "c6s1-direct",
+      "query": "杂交育种和诱变育种有什么特点？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s1",
+      "category": "textbook",
+      "top_score": 0.6560357763159756,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 54.754756927490234,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "semantic": 0.644,
+          "lexical": 51.3032,
+          "score": 0.656
+        },
+        {
+          "chunk_id": "rag_5f1389d01b70e3f68bbe",
+          "section_id": "c6career1",
+          "page_start": 96,
+          "page_end": 96,
+          "semantic": 0.6329,
+          "lexical": 39.6341,
+          "score": 0.6411
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "semantic": 0.5848,
+          "lexical": 54.7548,
+          "score": 0.6131
+        },
+        {
+          "chunk_id": "rag_9b679ffa1663dd800f49",
+          "section_id": "c6s1",
+          "page_start": 94,
+          "page_end": 95,
+          "semantic": 0.5838,
+          "lexical": 42.6478,
+          "score": 0.6063
+        },
+        {
+          "chunk_id": "rag_d345778a1e7a8cc5d506",
+          "section_id": "c6",
+          "page_start": 92,
+          "page_end": 92,
+          "semantic": 0.5682,
+          "lexical": 33.2304,
+          "score": 0.5874
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "score": 54.7548
+        },
+        {
+          "chunk_id": "rag_03515680208e294a2130",
+          "section_id": "c6s1",
+          "page_start": 95,
+          "page_end": 95,
+          "score": 54.6014
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "score": 51.3032
+        },
+        {
+          "chunk_id": "rag_833aab4e1672ea0cb62e",
+          "section_id": "c6s1",
+          "page_start": 95,
+          "page_end": 95,
+          "score": 49.8376
+        },
+        {
+          "chunk_id": "rag_9b679ffa1663dd800f49",
+          "section_id": "c6s1",
+          "page_start": 94,
+          "page_end": 95,
+          "score": 42.6478
+        }
+      ]
+    },
+    {
+      "id": "c6s1-paraphrase",
+      "query": "用射线处理种子属于哪种育种方法？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s1",
+      "category": "textbook",
+      "top_score": 0.5322751439549636,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 34.79499053955078,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_5f1389d01b70e3f68bbe",
+          "section_id": "c6career1",
+          "page_start": 96,
+          "page_end": 96,
+          "semantic": 0.4946,
+          "lexical": 33.4105,
+          "score": 0.5323
+        },
+        {
+          "chunk_id": "rag_833aab4e1672ea0cb62e",
+          "section_id": "c6s1",
+          "page_start": 95,
+          "page_end": 95,
+          "semantic": 0.4551,
+          "lexical": 34.795,
+          "score": 0.5039
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "semantic": 0.48,
+          "lexical": 18.1793,
+          "score": 0.4989
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "semantic": 0.483,
+          "lexical": 17.1965,
+          "score": 0.4988
+        },
+        {
+          "chunk_id": "rag_9b679ffa1663dd800f49",
+          "section_id": "c6s1",
+          "page_start": 94,
+          "page_end": 95,
+          "semantic": 0.4453,
+          "lexical": 31.4243,
+          "score": 0.4934
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_833aab4e1672ea0cb62e",
+          "section_id": "c6s1",
+          "page_start": 95,
+          "page_end": 95,
+          "score": 34.795
+        },
+        {
+          "chunk_id": "rag_5f1389d01b70e3f68bbe",
+          "section_id": "c6career1",
+          "page_start": 96,
+          "page_end": 96,
+          "score": 33.4105
+        },
+        {
+          "chunk_id": "rag_9b679ffa1663dd800f49",
+          "section_id": "c6s1",
+          "page_start": 94,
+          "page_end": 95,
+          "score": 31.4243
+        },
+        {
+          "chunk_id": "rag_03515680208e294a2130",
+          "section_id": "c6s1",
+          "page_start": 95,
+          "page_end": 95,
+          "score": 28.3755
+        },
+        {
+          "chunk_id": "rag_95381a98813e7413d15e",
+          "section_id": "c5s2",
+          "page_start": 83,
+          "page_end": 84,
+          "score": 26.7799
+        }
+      ]
+    },
+    {
+      "id": "c6s2-direct",
+      "query": "基因工程的基本操作步骤是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s2",
+      "category": "textbook",
+      "top_score": 0.6245593713148094,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 37.62324523925781,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_1687dd2b4841cc8bb725",
+          "section_id": "c6career2",
+          "page_start": 101,
+          "page_end": 101,
+          "semantic": 0.623,
+          "lexical": 29.4789,
+          "score": 0.6246
+        },
+        {
+          "chunk_id": "rag_67ed3a8f02dd11e581b3",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 97,
+          "semantic": 0.5879,
+          "lexical": 25.1295,
+          "score": 0.5926
+        },
+        {
+          "chunk_id": "rag_c06214ec0a84e9b23b98",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 98,
+          "semantic": 0.5664,
+          "lexical": 37.6232,
+          "score": 0.5897
+        },
+        {
+          "chunk_id": "rag_17f7de9b3990eabb6bcc",
+          "section_id": "c6s2",
+          "page_start": 98,
+          "page_end": 99,
+          "semantic": 0.5704,
+          "lexical": 32.3533,
+          "score": 0.5882
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "semantic": 0.5048,
+          "lexical": 23.4342,
+          "score": 0.5277
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_c06214ec0a84e9b23b98",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 98,
+          "score": 37.6232
+        },
+        {
+          "chunk_id": "rag_17f7de9b3990eabb6bcc",
+          "section_id": "c6s2",
+          "page_start": 98,
+          "page_end": 99,
+          "score": 32.3533
+        },
+        {
+          "chunk_id": "rag_1687dd2b4841cc8bb725",
+          "section_id": "c6career2",
+          "page_start": 101,
+          "page_end": 101,
+          "score": 29.4789
+        },
+        {
+          "chunk_id": "rag_67ed3a8f02dd11e581b3",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 97,
+          "score": 25.1295
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "score": 23.4342
+        }
+      ]
+    },
+    {
+      "id": "c6s2-paraphrase",
+      "query": "限制酶和 DNA 连接酶在基因工程中分别做什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c6s2",
+      "category": "textbook",
+      "top_score": 0.6606446405662931,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 51.515045166015625,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_c06214ec0a84e9b23b98",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 98,
+          "semantic": 0.65,
+          "lexical": 51.515,
+          "score": 0.6606
+        },
+        {
+          "chunk_id": "rag_17f7de9b3990eabb6bcc",
+          "section_id": "c6s2",
+          "page_start": 98,
+          "page_end": 99,
+          "semantic": 0.6139,
+          "lexical": 27.5846,
+          "score": 0.6154
+        },
+        {
+          "chunk_id": "rag_3dc3d4a7c79ad4b88c14",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.6047,
+          "lexical": 27.6062,
+          "score": 0.6086
+        },
+        {
+          "chunk_id": "rag_67ed3a8f02dd11e581b3",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 97,
+          "semantic": 0.5758,
+          "lexical": 44.6395,
+          "score": 0.6015
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "semantic": 0.5737,
+          "lexical": 35.5794,
+          "score": 0.5936
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_c06214ec0a84e9b23b98",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 98,
+          "score": 51.515
+        },
+        {
+          "chunk_id": "rag_67ed3a8f02dd11e581b3",
+          "section_id": "c6s2",
+          "page_start": 97,
+          "page_end": 97,
+          "score": 44.6395
+        },
+        {
+          "chunk_id": "rag_cfccb93094e6ee7d04da",
+          "section_id": "c6career2",
+          "page_start": 102,
+          "page_end": 103,
+          "score": 35.8619
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "score": 35.5794
+        },
+        {
+          "chunk_id": "rag_1687dd2b4841cc8bb725",
+          "section_id": "c6career2",
+          "page_start": 101,
+          "page_end": 101,
+          "score": 28.3565
+        }
+      ]
+    },
+    {
+      "id": "c7s1-direct",
+      "query": "拉马克和达尔文进化学说的主要差异是什么？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s1",
+      "category": "textbook",
+      "top_score": 0.6249741390043931,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 58.62479782104492,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_31e725e474271f912cf7",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 105,
+          "semantic": 0.5987,
+          "lexical": 58.6248,
+          "score": 0.625
+        },
+        {
+          "chunk_id": "rag_21218bd96573c3d67fc2",
+          "section_id": "c7s1",
+          "page_start": 107,
+          "page_end": 108,
+          "semantic": 0.5962,
+          "lexical": 47.8812,
+          "score": 0.6185
+        },
+        {
+          "chunk_id": "rag_c62d27e6a3f1f38c1319",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 106,
+          "semantic": 0.5752,
+          "lexical": 55.3086,
+          "score": 0.6061
+        },
+        {
+          "chunk_id": "rag_bea37e85f5d8d6884537",
+          "section_id": "c7sts1",
+          "page_start": 123,
+          "page_end": 123,
+          "semantic": 0.5882,
+          "lexical": 36.7159,
+          "score": 0.6053
+        },
+        {
+          "chunk_id": "rag_595a9d84a818ce5e077a",
+          "section_id": "c7s1",
+          "page_start": 107,
+          "page_end": 107,
+          "semantic": 0.5701,
+          "lexical": 51.2393,
+          "score": 0.6006
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_31e725e474271f912cf7",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 105,
+          "score": 58.6248
+        },
+        {
+          "chunk_id": "rag_c62d27e6a3f1f38c1319",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 106,
+          "score": 55.3086
+        },
+        {
+          "chunk_id": "rag_595a9d84a818ce5e077a",
+          "section_id": "c7s1",
+          "page_start": 107,
+          "page_end": 107,
+          "score": 51.2393
+        },
+        {
+          "chunk_id": "rag_5e92a5ab9d3f1825a25a",
+          "section_id": "c7s1",
+          "page_start": 106,
+          "page_end": 107,
+          "score": 48.5366
+        },
+        {
+          "chunk_id": "rag_21218bd96573c3d67fc2",
+          "section_id": "c7s1",
+          "page_start": 107,
+          "page_end": 108,
+          "score": 47.8812
+        }
+      ]
+    },
+    {
+      "id": "c7s1-paraphrase",
+      "query": "自然选择学说如何解释适应性的形成？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s1",
+      "category": "textbook",
+      "top_score": 0.5587153304790777,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 50.09486770629883,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_c62d27e6a3f1f38c1319",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 106,
+          "semantic": 0.5272,
+          "lexical": 35.5995,
+          "score": 0.5587
+        },
+        {
+          "chunk_id": "rag_68cf81e9b22bdf01c069",
+          "section_id": "c7sts1",
+          "page_start": 124,
+          "page_end": 125,
+          "semantic": 0.5181,
+          "lexical": 41.8703,
+          "score": 0.5565
+        },
+        {
+          "chunk_id": "rag_62cca9a5e2d6ba35e293",
+          "section_id": "c7s1",
+          "page_start": 108,
+          "page_end": 108,
+          "semantic": 0.5096,
+          "lexical": 38.1612,
+          "score": 0.5475
+        },
+        {
+          "chunk_id": "rag_31e725e474271f912cf7",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 105,
+          "semantic": 0.4865,
+          "lexical": 50.0949,
+          "score": 0.5373
+        },
+        {
+          "chunk_id": "rag_f2ca30ddf8ff5805881b",
+          "section_id": "c7s2c",
+          "page_start": 121,
+          "page_end": 121,
+          "semantic": 0.4773,
+          "lexical": 43.6785,
+          "score": 0.527
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_31e725e474271f912cf7",
+          "section_id": "c7s1",
+          "page_start": 105,
+          "page_end": 105,
+          "score": 50.0949
+        },
+        {
+          "chunk_id": "rag_f2ca30ddf8ff5805881b",
+          "section_id": "c7s2c",
+          "page_start": 121,
+          "page_end": 121,
+          "score": 43.6785
+        },
+        {
+          "chunk_id": "rag_68cf81e9b22bdf01c069",
+          "section_id": "c7sts1",
+          "page_start": 124,
+          "page_end": 125,
+          "score": 41.8703
+        },
+        {
+          "chunk_id": "rag_62cca9a5e2d6ba35e293",
+          "section_id": "c7s1",
+          "page_start": 108,
+          "page_end": 108,
+          "score": 38.1612
+        },
+        {
+          "chunk_id": "rag_bea37e85f5d8d6884537",
+          "section_id": "c7sts1",
+          "page_start": 123,
+          "page_end": 123,
+          "score": 37.2917
+        }
+      ]
+    },
+    {
+      "id": "c7s2-direct",
+      "query": "种群基因频率改变为什么意味着进化？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s2",
+      "category": "textbook",
+      "top_score": 0.6499482914988302,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 46.45924377441406,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_3c53fc20f82580139ec1",
+          "section_id": "c7s2a",
+          "page_start": 111,
+          "page_end": 111,
+          "semantic": 0.6473,
+          "lexical": 37.0206,
+          "score": 0.6499
+        },
+        {
+          "chunk_id": "rag_ae4ef9c65b54b237c436",
+          "section_id": "c7s2a",
+          "page_start": 110,
+          "page_end": 111,
+          "semantic": 0.6327,
+          "lexical": 36.9831,
+          "score": 0.6389
+        },
+        {
+          "chunk_id": "rag_b0c9c23c3036c21369a7",
+          "section_id": "c7s2a",
+          "page_start": 112,
+          "page_end": 112,
+          "semantic": 0.6292,
+          "lexical": 40.3385,
+          "score": 0.6388
+        },
+        {
+          "chunk_id": "rag_a9fafbe5c3f7959f61b7",
+          "section_id": "c7s2a",
+          "page_start": 113,
+          "page_end": 113,
+          "semantic": 0.5986,
+          "lexical": 39.9638,
+          "score": 0.6156
+        },
+        {
+          "chunk_id": "rag_3467466d7a1eb019ee7b",
+          "section_id": "c5s1",
+          "page_start": 77,
+          "page_end": 78,
+          "semantic": 0.5872,
+          "lexical": 28.7924,
+          "score": 0.5969
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_47735aa73b9fba404f00",
+          "section_id": "c7s2b",
+          "page_start": 115,
+          "page_end": 116,
+          "score": 46.4592
+        },
+        {
+          "chunk_id": "rag_89f8fcec6d1a92126c87",
+          "section_id": "c7s2a",
+          "page_start": 109,
+          "page_end": 109,
+          "score": 41.7648
+        },
+        {
+          "chunk_id": "rag_69459e5b44dd13a8457e",
+          "section_id": "c7s2a",
+          "page_start": 112,
+          "page_end": 113,
+          "score": 40.3875
+        },
+        {
+          "chunk_id": "rag_b0c9c23c3036c21369a7",
+          "section_id": "c7s2a",
+          "page_start": 112,
+          "page_end": 112,
+          "score": 40.3385
+        },
+        {
+          "chunk_id": "rag_a9fafbe5c3f7959f61b7",
+          "section_id": "c7s2a",
+          "page_start": 113,
+          "page_end": 113,
+          "score": 39.9638
+        }
+      ]
+    },
+    {
+      "id": "c7s2-paraphrase",
+      "query": "隔离如何导致新物种形成？",
+      "expected_rag": true,
+      "expected_chapter_id": "c7s2",
+      "category": "textbook",
+      "top_score": 0.5858619528533586,
+      "top_1_correct": true,
+      "top_3_correct": true,
+      "top_5_correct": true,
+      "lexical_top_score": 30.5687313079834,
+      "lexical_top_1_correct": true,
+      "top": [
+        {
+          "chunk_id": "rag_29b544d1edd69de9689e",
+          "section_id": "c7s2b",
+          "page_start": 114,
+          "page_end": 114,
+          "semantic": 0.5777,
+          "lexical": 25.7288,
+          "score": 0.5859
+        },
+        {
+          "chunk_id": "rag_730df8364e5094446d31",
+          "section_id": "c7s2b",
+          "page_start": 114,
+          "page_end": 115,
+          "semantic": 0.5758,
+          "lexical": 24.2915,
+          "score": 0.5823
+        },
+        {
+          "chunk_id": "rag_68cf81e9b22bdf01c069",
+          "section_id": "c7sts1",
+          "page_start": 124,
+          "page_end": 125,
+          "semantic": 0.5714,
+          "lexical": 17.4566,
+          "score": 0.5657
+        },
+        {
+          "chunk_id": "rag_47735aa73b9fba404f00",
+          "section_id": "c7s2b",
+          "page_start": 115,
+          "page_end": 116,
+          "semantic": 0.5395,
+          "lexical": 30.5687,
+          "score": 0.5632
+        },
+        {
+          "chunk_id": "rag_95dd497d6cf26cc01a61",
+          "section_id": "c7s2b",
+          "page_start": 116,
+          "page_end": 116,
+          "semantic": 0.5096,
+          "lexical": 20.0782,
+          "score": 0.5252
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_47735aa73b9fba404f00",
+          "section_id": "c7s2b",
+          "page_start": 115,
+          "page_end": 116,
+          "score": 30.5687
+        },
+        {
+          "chunk_id": "rag_29b544d1edd69de9689e",
+          "section_id": "c7s2b",
+          "page_start": 114,
+          "page_end": 114,
+          "score": 25.7288
+        },
+        {
+          "chunk_id": "rag_730df8364e5094446d31",
+          "section_id": "c7s2b",
+          "page_start": 114,
+          "page_end": 115,
+          "score": 24.2915
+        },
+        {
+          "chunk_id": "rag_bea37e85f5d8d6884537",
+          "section_id": "c7sts1",
+          "page_start": 123,
+          "page_end": 123,
+          "score": 23.341
+        },
+        {
+          "chunk_id": "rag_95dd497d6cf26cc01a61",
+          "section_id": "c7s2b",
+          "page_start": 116,
+          "page_end": 116,
+          "score": 20.0782
+        }
+      ]
+    },
+    {
+      "id": "chat-01",
+      "query": "你好",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.3669030852913143,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 3.5160703659057617,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.4201,
+          "lexical": 2.7997,
+          "score": 0.3669
+        },
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "semantic": 0.3677,
+          "lexical": 3.117,
+          "score": 0.3318
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "semantic": 0.3424,
+          "lexical": 3.5161,
+          "score": 0.3179
+        },
+        {
+          "chunk_id": "rag_986b5ed655f9918133f8",
+          "section_id": "c7sts1",
+          "page_start": 125,
+          "page_end": 125,
+          "semantic": 0.4048,
+          "lexical": 0.5821,
+          "score": 0.3171
+        },
+        {
+          "chunk_id": "rag_db3272776dd2d3561234",
+          "section_id": "c5s3",
+          "page_start": 86,
+          "page_end": 87,
+          "semantic": 0.343,
+          "lexical": 3.1029,
+          "score": 0.3131
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "score": 3.5161
+        },
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "score": 3.117
+        },
+        {
+          "chunk_id": "rag_db3272776dd2d3561234",
+          "section_id": "c5s3",
+          "page_start": 86,
+          "page_end": 87,
+          "score": 3.1029
+        },
+        {
+          "chunk_id": "rag_224cb37c781231a2ba04",
+          "section_id": "c5",
+          "page_start": 74,
+          "page_end": 74,
+          "score": 3.068
+        },
+        {
+          "chunk_id": "rag_3f63b8e337a5e04c86d4",
+          "section_id": "c7sts1",
+          "page_start": 122,
+          "page_end": 122,
+          "score": 2.9936
+        }
+      ]
+    },
+    {
+      "id": "chat-02",
+      "query": "早上好",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.334346221932071,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 6.827822208404541,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_b0a205c877552d962ba0",
+          "section_id": "c2s3",
+          "page_start": 31,
+          "page_end": 32,
+          "semantic": 0.3406,
+          "lexical": 5.2122,
+          "score": 0.3343
+        },
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.3734,
+          "lexical": 2.7997,
+          "score": 0.3319
+        },
+        {
+          "chunk_id": "rag_09cc11cf1ddb5a873cf7",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.3384,
+          "lexical": 2.5933,
+          "score": 0.3027
+        },
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "semantic": 0.3349,
+          "lexical": 2.6153,
+          "score": 0.3004
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "semantic": 0.3255,
+          "lexical": 2.7724,
+          "score": 0.2956
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_f0a0006b0717d17d2e49",
+          "section_id": "c7s2c",
+          "page_start": 118,
+          "page_end": 119,
+          "score": 6.8278
+        },
+        {
+          "chunk_id": "rag_b0a205c877552d962ba0",
+          "section_id": "c2s3",
+          "page_start": 31,
+          "page_end": 32,
+          "score": 5.2122
+        },
+        {
+          "chunk_id": "rag_3020e4321aae5d01bfdd",
+          "section_id": "frontmatter",
+          "page_start": 6,
+          "page_end": 7,
+          "score": 3.5742
+        },
+        {
+          "chunk_id": "rag_f2ca30ddf8ff5805881b",
+          "section_id": "c7s2c",
+          "page_start": 121,
+          "page_end": 121,
+          "score": 3.2874
+        },
+        {
+          "chunk_id": "rag_1c415ae6c961600720b7",
+          "section_id": "c7s2c",
+          "page_start": 119,
+          "page_end": 120,
+          "score": 3.0921
+        }
+      ]
+    },
+    {
+      "id": "chat-03",
+      "query": "谢谢",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.42430465896024416,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 12.444369316101074,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_986b5ed655f9918133f8",
+          "section_id": "c7sts1",
+          "page_start": 125,
+          "page_end": 125,
+          "semantic": 0.4034,
+          "lexical": 12.4444,
+          "score": 0.4243
+        },
+        {
+          "chunk_id": "rag_ef63f9875f0d67f9bad8",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "semantic": 0.3279,
+          "lexical": 10.2781,
+          "score": 0.3584
+        },
+        {
+          "chunk_id": "rag_8de572e331369d04745d",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "semantic": 0.3269,
+          "lexical": 8.6897,
+          "score": 0.3493
+        },
+        {
+          "chunk_id": "rag_12776e5a52d21f0dc09e",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 65,
+          "semantic": 0.3001,
+          "lexical": 6.6481,
+          "score": 0.3159
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "semantic": 0.2874,
+          "lexical": 6.3019,
+          "score": 0.3037
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_986b5ed655f9918133f8",
+          "section_id": "c7sts1",
+          "page_start": 125,
+          "page_end": 125,
+          "score": 12.4444
+        },
+        {
+          "chunk_id": "rag_ef63f9875f0d67f9bad8",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "score": 10.2781
+        },
+        {
+          "chunk_id": "rag_8de572e331369d04745d",
+          "section_id": "c5sts1",
+          "page_start": 91,
+          "page_end": 91,
+          "score": 8.6897
+        },
+        {
+          "chunk_id": "rag_12776e5a52d21f0dc09e",
+          "section_id": "c4s2",
+          "page_start": 64,
+          "page_end": 65,
+          "score": 6.6481
+        },
+        {
+          "chunk_id": "rag_d1ba0eaa76043de167e6",
+          "section_id": "c4s3",
+          "page_start": 71,
+          "page_end": 72,
+          "score": 6.3019
+        }
+      ]
+    },
+    {
+      "id": "chat-04",
+      "query": "嗨",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.2584952720755235,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 0,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.3447,
+          "lexical": 0,
+          "score": 0.2585
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "semantic": 0.3298,
+          "lexical": 0,
+          "score": 0.2474
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "semantic": 0.3243,
+          "lexical": 0,
+          "score": 0.2432
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.3233,
+          "lexical": 0,
+          "score": 0.2425
+        },
+        {
+          "chunk_id": "rag_68cf81e9b22bdf01c069",
+          "section_id": "c7sts1",
+          "page_start": 124,
+          "page_end": 125,
+          "semantic": 0.3178,
+          "lexical": 0,
+          "score": 0.2383
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_02223450f7d59e811841",
+          "section_id": "c2s2",
+          "page_start": 22,
+          "page_end": 22,
+          "score": 0
+        },
+        {
+          "chunk_id": "rag_02cf8732345e699833da",
+          "section_id": "c4s1",
+          "page_start": 60,
+          "page_end": 61,
+          "score": 0
+        },
+        {
+          "chunk_id": "rag_03515680208e294a2130",
+          "section_id": "c6s1",
+          "page_start": 95,
+          "page_end": 95,
+          "score": 0
+        },
+        {
+          "chunk_id": "rag_07895bcdd173e9d38c84",
+          "section_id": "c2s1b",
+          "page_start": 19,
+          "page_end": 20,
+          "score": 0
+        },
+        {
+          "chunk_id": "rag_098453a8c3af11026b66",
+          "section_id": "c3s2",
+          "page_start": 45,
+          "page_end": 46,
+          "score": 0
+        }
+      ]
+    },
+    {
+      "id": "chat-05",
+      "query": "你好吗",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.382249765867846,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 4.471462726593018,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.4405,
+          "lexical": 2.7997,
+          "score": 0.3822
+        },
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "semantic": 0.3753,
+          "lexical": 4.4715,
+          "score": 0.3532
+        },
+        {
+          "chunk_id": "rag_21218bd96573c3d67fc2",
+          "section_id": "c7s1",
+          "page_start": 107,
+          "page_end": 108,
+          "semantic": 0.3753,
+          "lexical": 3.0368,
+          "score": 0.3365
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.3911,
+          "lexical": 1.8818,
+          "score": 0.3314
+        },
+        {
+          "chunk_id": "rag_68cf81e9b22bdf01c069",
+          "section_id": "c7sts1",
+          "page_start": 124,
+          "page_end": 125,
+          "semantic": 0.3743,
+          "lexical": 2.4486,
+          "score": 0.3276
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_e44dc4a42b26123283fc",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 87,
+          "score": 4.4715
+        },
+        {
+          "chunk_id": "rag_c80396f6c8af763cece7",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 18,
+          "score": 3.7225
+        },
+        {
+          "chunk_id": "rag_95381a98813e7413d15e",
+          "section_id": "c5s2",
+          "page_start": 83,
+          "page_end": 84,
+          "score": 3.6066
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "score": 3.5161
+        },
+        {
+          "chunk_id": "rag_f7ba34b0ba4e5d582dd5",
+          "section_id": "c7s2c",
+          "page_start": 118,
+          "page_end": 118,
+          "score": 3.4674
+        }
+      ]
+    },
+    {
+      "id": "chat-06",
+      "query": "晚安",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.27999562969611247,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 5.904455184936523,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_730df8364e5094446d31",
+          "section_id": "c7s2b",
+          "page_start": 114,
+          "page_end": 115,
+          "semantic": 0.2936,
+          "lexical": 3.4146,
+          "score": 0.28
+        },
+        {
+          "chunk_id": "rag_db3272776dd2d3561234",
+          "section_id": "c5s3",
+          "page_start": 86,
+          "page_end": 87,
+          "semantic": 0.2991,
+          "lexical": 2.8891,
+          "score": 0.2774
+        },
+        {
+          "chunk_id": "rag_1687dd2b4841cc8bb725",
+          "section_id": "c6career2",
+          "page_start": 101,
+          "page_end": 101,
+          "semantic": 0.261,
+          "lexical": 4.3492,
+          "score": 0.2662
+        },
+        {
+          "chunk_id": "rag_9ec58850f00996ea2379",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.2346,
+          "lexical": 5.9045,
+          "score": 0.2609
+        },
+        {
+          "chunk_id": "rag_09cc11cf1ddb5a873cf7",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.2505,
+          "lexical": 4.3531,
+          "score": 0.2583
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9ec58850f00996ea2379",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 5.9045
+        },
+        {
+          "chunk_id": "rag_607d1ac3f1b02f488812",
+          "section_id": "c6s2",
+          "page_start": 100,
+          "page_end": 100,
+          "score": 4.6902
+        },
+        {
+          "chunk_id": "rag_09cc11cf1ddb5a873cf7",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 4.3531
+        },
+        {
+          "chunk_id": "rag_1687dd2b4841cc8bb725",
+          "section_id": "c6career2",
+          "page_start": 101,
+          "page_end": 101,
+          "score": 4.3492
+        },
+        {
+          "chunk_id": "rag_e3f60bbc43ea70e7050c",
+          "section_id": "c6s2",
+          "page_start": 100,
+          "page_end": 100,
+          "score": 4.0576
+        }
+      ]
+    },
+    {
+      "id": "chat-07",
+      "query": "好的",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.37277638729790147,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 6.497195720672607,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.4279,
+          "lexical": 2.7997,
+          "score": 0.3728
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "semantic": 0.3712,
+          "lexical": 5.0324,
+          "score": 0.3557
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.3699,
+          "lexical": 4.9753,
+          "score": 0.3541
+        },
+        {
+          "chunk_id": "rag_c80396f6c8af763cece7",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 18,
+          "semantic": 0.3513,
+          "lexical": 6.4972,
+          "score": 0.3531
+        },
+        {
+          "chunk_id": "rag_cfccb93094e6ee7d04da",
+          "section_id": "c6career2",
+          "page_start": 102,
+          "page_end": 103,
+          "semantic": 0.3774,
+          "lexical": 4.0671,
+          "score": 0.3505
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_c80396f6c8af763cece7",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 18,
+          "score": 6.4972
+        },
+        {
+          "chunk_id": "rag_4ba379eaf452c691bad7",
+          "section_id": "c6s1",
+          "page_start": 93,
+          "page_end": 93,
+          "score": 5.0324
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 4.9753
+        },
+        {
+          "chunk_id": "rag_9b679ffa1663dd800f49",
+          "section_id": "c6s1",
+          "page_start": 94,
+          "page_end": 95,
+          "score": 4.3583
+        },
+        {
+          "chunk_id": "rag_17f7de9b3990eabb6bcc",
+          "section_id": "c6s2",
+          "page_start": 98,
+          "page_end": 99,
+          "score": 4.3346
+        }
+      ]
+    },
+    {
+      "id": "chat-08",
+      "query": "可以吗",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "greeting",
+      "top_score": 0.3803175845413237,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 3.9449784755706787,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.4239,
+          "lexical": 3.6256,
+          "score": 0.3803
+        },
+        {
+          "chunk_id": "rag_51732e11bcae3e8e6e8d",
+          "section_id": "frontmatter",
+          "page_start": 8,
+          "page_end": 9,
+          "semantic": 0.4443,
+          "lexical": 2.3771,
+          "score": 0.379
+        },
+        {
+          "chunk_id": "rag_e394ed631612be1dd408",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 53,
+          "semantic": 0.4089,
+          "lexical": 3.6268,
+          "score": 0.3691
+        },
+        {
+          "chunk_id": "rag_9f49c4a34a65e0fd66f1",
+          "section_id": "c4s3",
+          "page_start": 73,
+          "page_end": 73,
+          "semantic": 0.4184,
+          "lexical": 2.5237,
+          "score": 0.3618
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "semantic": 0.4044,
+          "lexical": 3.0818,
+          "score": 0.3589
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_ea809b8464c3dc66fb18",
+          "section_id": "c5s1",
+          "page_start": 77,
+          "page_end": 77,
+          "score": 3.945
+        },
+        {
+          "chunk_id": "rag_bc65af6dfaf01240737d",
+          "section_id": "c4s2",
+          "page_start": 63,
+          "page_end": 64,
+          "score": 3.7145
+        },
+        {
+          "chunk_id": "rag_e394ed631612be1dd408",
+          "section_id": "c3sts1",
+          "page_start": 53,
+          "page_end": 53,
+          "score": 3.6268
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "score": 3.6256
+        },
+        {
+          "chunk_id": "rag_730df8364e5094446d31",
+          "section_id": "c7s2b",
+          "page_start": 114,
+          "page_end": 115,
+          "score": 3.5992
+        }
+      ]
+    },
+    {
+      "id": "general-01",
+      "query": "怎样制定复习计划？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.49680528552247283,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 15.416159629821777,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "semantic": 0.5152,
+          "lexical": 9.8601,
+          "score": 0.4968
+        },
+        {
+          "chunk_id": "rag_93aed9e316d5f0882998",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.4957,
+          "lexical": 6.1656,
+          "score": 0.4588
+        },
+        {
+          "chunk_id": "rag_af5cfd147356a040f38c",
+          "section_id": "frontmatter",
+          "page_start": 7,
+          "page_end": 8,
+          "semantic": 0.3988,
+          "lexical": 15.4162,
+          "score": 0.4308
+        },
+        {
+          "chunk_id": "rag_250b3bfd28ddb76122e0",
+          "section_id": "c3s3",
+          "page_start": 48,
+          "page_end": 49,
+          "semantic": 0.4712,
+          "lexical": 4.3482,
+          "score": 0.4238
+        },
+        {
+          "chunk_id": "rag_3dc3d4a7c79ad4b88c14",
+          "section_id": "c3s3",
+          "page_start": 49,
+          "page_end": 49,
+          "semantic": 0.442,
+          "lexical": 5.7901,
+          "score": 0.4155
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_af5cfd147356a040f38c",
+          "section_id": "frontmatter",
+          "page_start": 7,
+          "page_end": 8,
+          "score": 15.4162
+        },
+        {
+          "chunk_id": "rag_224cb37c781231a2ba04",
+          "section_id": "c5",
+          "page_start": 74,
+          "page_end": 74,
+          "score": 13.6497
+        },
+        {
+          "chunk_id": "rag_8172e4c9186b973822ac",
+          "section_id": "frontmatter",
+          "page_start": 8,
+          "page_end": 8,
+          "score": 13.2972
+        },
+        {
+          "chunk_id": "rag_94325ad8ff5ebc7b8cfb",
+          "section_id": "c4frontier1",
+          "page_start": 67,
+          "page_end": 67,
+          "score": 13.0258
+        },
+        {
+          "chunk_id": "rag_2462d783964e5f23c274",
+          "section_id": "c5s3",
+          "page_start": 87,
+          "page_end": 88,
+          "score": 12.8365
+        }
+      ]
+    },
+    {
+      "id": "general-02",
+      "query": "如何提高阅读效率？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.4242844081095678,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 18.420015335083008,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "semantic": 0.3806,
+          "lexical": 18.1497,
+          "score": 0.4243
+        },
+        {
+          "chunk_id": "rag_29a3ad9049952099cbb4",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 68,
+          "semantic": 0.3618,
+          "lexical": 18.42,
+          "score": 0.4108
+        },
+        {
+          "chunk_id": "rag_a87580d0fc087a8f6a49",
+          "section_id": "frontmatter",
+          "page_start": 2,
+          "page_end": 3,
+          "semantic": 0.3687,
+          "lexical": 12.9073,
+          "score": 0.4
+        },
+        {
+          "chunk_id": "rag_68cf81e9b22bdf01c069",
+          "section_id": "c7sts1",
+          "page_start": 124,
+          "page_end": 125,
+          "semantic": 0.3661,
+          "lexical": 10.3715,
+          "score": 0.3875
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "semantic": 0.3216,
+          "lexical": 14.9434,
+          "score": 0.3714
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_29a3ad9049952099cbb4",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 68,
+          "score": 18.42
+        },
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "score": 18.1497
+        },
+        {
+          "chunk_id": "rag_cfccb93094e6ee7d04da",
+          "section_id": "c6career2",
+          "page_start": 102,
+          "page_end": 103,
+          "score": 15.7322
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "score": 14.9434
+        },
+        {
+          "chunk_id": "rag_82212b0f2a4838e81169",
+          "section_id": "frontmatter",
+          "page_start": 3,
+          "page_end": 4,
+          "score": 14.6729
+        }
+      ]
+    },
+    {
+      "id": "general-03",
+      "query": "怎样缓解考试焦虑？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.3481303263532921,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 11.052413940429688,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_51732e11bcae3e8e6e8d",
+          "section_id": "frontmatter",
+          "page_start": 8,
+          "page_end": 9,
+          "semantic": 0.3187,
+          "lexical": 9.6007,
+          "score": 0.3481
+        },
+        {
+          "chunk_id": "rag_250b3bfd28ddb76122e0",
+          "section_id": "c3s3",
+          "page_start": 48,
+          "page_end": 49,
+          "semantic": 0.3486,
+          "lexical": 5.404,
+          "score": 0.3421
+        },
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "semantic": 0.2897,
+          "lexical": 11.0524,
+          "score": 0.3333
+        },
+        {
+          "chunk_id": "rag_098453a8c3af11026b66",
+          "section_id": "c3s2",
+          "page_start": 45,
+          "page_end": 46,
+          "semantic": 0.3175,
+          "lexical": 6.7757,
+          "score": 0.3299
+        },
+        {
+          "chunk_id": "rag_dbe96cc865c7a7080306",
+          "section_id": "c6career2",
+          "page_start": 103,
+          "page_end": 103,
+          "semantic": 0.3648,
+          "lexical": 2.8508,
+          "score": 0.3261
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "score": 11.0524
+        },
+        {
+          "chunk_id": "rag_07895bcdd173e9d38c84",
+          "section_id": "c2s1b",
+          "page_start": 19,
+          "page_end": 20,
+          "score": 10.2732
+        },
+        {
+          "chunk_id": "rag_51732e11bcae3e8e6e8d",
+          "section_id": "frontmatter",
+          "page_start": 8,
+          "page_end": 9,
+          "score": 9.6007
+        },
+        {
+          "chunk_id": "rag_3b4a7a06f64282af95e4",
+          "section_id": "c3s2",
+          "page_start": 42,
+          "page_end": 42,
+          "score": 8.7457
+        },
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "score": 8.5628
+        }
+      ]
+    },
+    {
+      "id": "general-04",
+      "query": "怎么记英语单词？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.44706647224255514,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 17.747535705566406,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_9ba73d062c8e8861a6ba",
+          "section_id": "c4s3",
+          "page_start": 69,
+          "page_end": 70,
+          "semantic": 0.4123,
+          "lexical": 17.7475,
+          "score": 0.4471
+        },
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "semantic": 0.3395,
+          "lexical": 17.5724,
+          "score": 0.392
+        },
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "semantic": 0.3483,
+          "lexical": 13.5563,
+          "score": 0.387
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.3598,
+          "lexical": 10.1307,
+          "score": 0.3816
+        },
+        {
+          "chunk_id": "rag_709051233f5eeefea754",
+          "section_id": "c5s1",
+          "page_start": 75,
+          "page_end": 76,
+          "semantic": 0.3426,
+          "lexical": 12.2971,
+          "score": 0.3781
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_9ba73d062c8e8861a6ba",
+          "section_id": "c4s3",
+          "page_start": 69,
+          "page_end": 70,
+          "score": 17.7475
+        },
+        {
+          "chunk_id": "rag_cb753f19a37ec5bae2e9",
+          "section_id": "c4s1",
+          "page_start": 58,
+          "page_end": 59,
+          "score": 17.5724
+        },
+        {
+          "chunk_id": "rag_3986f104c7d4f969188b",
+          "section_id": "c4s3",
+          "page_start": 68,
+          "page_end": 69,
+          "score": 13.5563
+        },
+        {
+          "chunk_id": "rag_709051233f5eeefea754",
+          "section_id": "c5s1",
+          "page_start": 75,
+          "page_end": 76,
+          "score": 12.2971
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "score": 10.1307
+        }
+      ]
+    },
+    {
+      "id": "general-05",
+      "query": "帮我写一段自我介绍",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.40560488346449747,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 16.02808952331543,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "semantic": 0.3656,
+          "lexical": 15.3346,
+          "score": 0.4056
+        },
+        {
+          "chunk_id": "rag_cfccb93094e6ee7d04da",
+          "section_id": "c6career2",
+          "page_start": 102,
+          "page_end": 103,
+          "semantic": 0.3758,
+          "lexical": 12.4307,
+          "score": 0.4036
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "semantic": 0.356,
+          "lexical": 15.7889,
+          "score": 0.3997
+        },
+        {
+          "chunk_id": "rag_58e5f7b1842f6f26212d",
+          "section_id": "c7sts1",
+          "page_start": 123,
+          "page_end": 124,
+          "semantic": 0.3762,
+          "lexical": 10.9811,
+          "score": 0.3978
+        },
+        {
+          "chunk_id": "rag_62cca9a5e2d6ba35e293",
+          "section_id": "c7s1",
+          "page_start": 108,
+          "page_end": 108,
+          "semantic": 0.3547,
+          "lexical": 13.8467,
+          "score": 0.3928
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_3f3431fcdc2ead437fb3",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 58,
+          "score": 16.0281
+        },
+        {
+          "chunk_id": "rag_48aa795a4e796b54747f",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 15.7889
+        },
+        {
+          "chunk_id": "rag_1f1fe644a65c97c5ae9a",
+          "section_id": "c4s3",
+          "page_start": 72,
+          "page_end": 73,
+          "score": 15.3346
+        },
+        {
+          "chunk_id": "rag_62cca9a5e2d6ba35e293",
+          "section_id": "c7s1",
+          "page_start": 108,
+          "page_end": 108,
+          "score": 13.8467
+        },
+        {
+          "chunk_id": "rag_cfccb93094e6ee7d04da",
+          "section_id": "c6career2",
+          "page_start": 102,
+          "page_end": 103,
+          "score": 12.4307
+        }
+      ]
+    },
+    {
+      "id": "general-06",
+      "query": "什么是番茄工作法？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.42310383355817166,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 15.872421264648438,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_17f7de9b3990eabb6bcc",
+          "section_id": "c6s2",
+          "page_start": 98,
+          "page_end": 99,
+          "semantic": 0.3938,
+          "lexical": 14.1531,
+          "score": 0.4231
+        },
+        {
+          "chunk_id": "rag_a54787ccf49b0f38e8ae",
+          "section_id": "c6s2",
+          "page_start": 99,
+          "page_end": 100,
+          "semantic": 0.3802,
+          "lexical": 14.5418,
+          "score": 0.4142
+        },
+        {
+          "chunk_id": "rag_8298f24a91c7cb368502",
+          "section_id": "c5s2",
+          "page_start": 82,
+          "page_end": 82,
+          "semantic": 0.3271,
+          "lexical": 13.2842,
+          "score": 0.3701
+        },
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.3595,
+          "lexical": 6.5958,
+          "score": 0.36
+        },
+        {
+          "chunk_id": "rag_2ff6cc1b6bce9a5a8d3c",
+          "section_id": "c6career1",
+          "page_start": 96,
+          "page_end": 96,
+          "semantic": 0.3551,
+          "lexical": 6.6097,
+          "score": 0.3568
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_0d5d21c83d61c2b8cc6f",
+          "section_id": "c5s2",
+          "page_start": 82,
+          "page_end": 83,
+          "score": 15.8724
+        },
+        {
+          "chunk_id": "rag_a54787ccf49b0f38e8ae",
+          "section_id": "c6s2",
+          "page_start": 99,
+          "page_end": 100,
+          "score": 14.5418
+        },
+        {
+          "chunk_id": "rag_17f7de9b3990eabb6bcc",
+          "section_id": "c6s2",
+          "page_start": 98,
+          "page_end": 99,
+          "score": 14.1531
+        },
+        {
+          "chunk_id": "rag_8298f24a91c7cb368502",
+          "section_id": "c5s2",
+          "page_start": 82,
+          "page_end": 82,
+          "score": 13.2842
+        },
+        {
+          "chunk_id": "rag_af5cfd147356a040f38c",
+          "section_id": "frontmatter",
+          "page_start": 7,
+          "page_end": 8,
+          "score": 8.9617
+        }
+      ]
+    },
+    {
+      "id": "general-07",
+      "query": "如何和同学合作学习？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.49891012757076725,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 11.899535179138184,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.5209,
+          "lexical": 9.4323,
+          "score": 0.4989
+        },
+        {
+          "chunk_id": "rag_c80396f6c8af763cece7",
+          "section_id": "c2s1b",
+          "page_start": 18,
+          "page_end": 18,
+          "semantic": 0.434,
+          "lexical": 5.6561,
+          "score": 0.4083
+        },
+        {
+          "chunk_id": "rag_3f63b8e337a5e04c86d4",
+          "section_id": "c7sts1",
+          "page_start": 122,
+          "page_end": 122,
+          "semantic": 0.3791,
+          "lexical": 11.5597,
+          "score": 0.4025
+        },
+        {
+          "chunk_id": "rag_6b373690b627601df5d1",
+          "section_id": "c3sts1",
+          "page_start": 54,
+          "page_end": 55,
+          "semantic": 0.3657,
+          "lexical": 11.8995,
+          "score": 0.3939
+        },
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "semantic": 0.3773,
+          "lexical": 9.6716,
+          "score": 0.3925
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_6b373690b627601df5d1",
+          "section_id": "c3sts1",
+          "page_start": 54,
+          "page_end": 55,
+          "score": 11.8995
+        },
+        {
+          "chunk_id": "rag_3f63b8e337a5e04c86d4",
+          "section_id": "c7sts1",
+          "page_start": 122,
+          "page_end": 122,
+          "score": 11.5597
+        },
+        {
+          "chunk_id": "rag_87e3c59499b0c36b47c2",
+          "section_id": "c3s4",
+          "page_start": 50,
+          "page_end": 51,
+          "score": 11.1691
+        },
+        {
+          "chunk_id": "rag_3a7b3de653d70979f42a",
+          "section_id": "c5s3",
+          "page_start": 88,
+          "page_end": 88,
+          "score": 10.1034
+        },
+        {
+          "chunk_id": "rag_9b48c1d0a506ffde2f9b",
+          "section_id": "c3s2",
+          "page_start": 44,
+          "page_end": 45,
+          "score": 9.6716
+        }
+      ]
+    },
+    {
+      "id": "general-08",
+      "query": "怎样安排睡眠时间更合理？",
+      "expected_rag": false,
+      "expected_chapter_id": null,
+      "category": "general_learning",
+      "top_score": 0.41223231191005655,
+      "top_1_correct": false,
+      "top_3_correct": false,
+      "top_5_correct": false,
+      "lexical_top_score": 15.374737739562988,
+      "lexical_top_1_correct": false,
+      "top": [
+        {
+          "chunk_id": "rag_3f63b8e337a5e04c86d4",
+          "section_id": "c7sts1",
+          "page_start": 122,
+          "page_end": 122,
+          "semantic": 0.3775,
+          "lexical": 14.5766,
+          "score": 0.4122
+        },
+        {
+          "chunk_id": "rag_addc0f579c16bf5e57c3",
+          "section_id": "frontmatter",
+          "page_start": 9,
+          "page_end": 9,
+          "semantic": 0.4141,
+          "lexical": 5.5846,
+          "score": 0.3928
+        },
+        {
+          "chunk_id": "rag_67314ab8a2c59f757cb8",
+          "section_id": "c3s2",
+          "page_start": 43,
+          "page_end": 44,
+          "semantic": 0.3563,
+          "lexical": 12.3994,
+          "score": 0.3888
+        },
+        {
+          "chunk_id": "rag_870e8487a93f07a88276",
+          "section_id": "c4s1",
+          "page_start": 57,
+          "page_end": 57,
+          "semantic": 0.3889,
+          "lexical": 7.4419,
+          "score": 0.3881
+        },
+        {
+          "chunk_id": "rag_38be4fab7d12caacb610",
+          "section_id": "c3s4",
+          "page_start": 51,
+          "page_end": 52,
+          "semantic": 0.4024,
+          "lexical": 5.4118,
+          "score": 0.3825
+        }
+      ],
+      "lexical_top": [
+        {
+          "chunk_id": "rag_2a7864978f3ade008eb9",
+          "section_id": "c3s2",
+          "page_start": 42,
+          "page_end": 43,
+          "score": 15.3747
+        },
+        {
+          "chunk_id": "rag_3f63b8e337a5e04c86d4",
+          "section_id": "c7sts1",
+          "page_start": 122,
+          "page_end": 122,
+          "score": 14.5766
+        },
+        {
+          "chunk_id": "rag_67314ab8a2c59f757cb8",
+          "section_id": "c3s2",
+          "page_start": 43,
+          "page_end": 44,
+          "score": 12.3994
+        },
+        {
+          "chunk_id": "rag_9ec58850f00996ea2379",
+          "section_id": "c2story1",
+          "page_start": 27,
+          "page_end": 27,
+          "score": 10.5213
+        },
+        {
+          "chunk_id": "rag_eefee743a9bb75bd4704",
+          "section_id": "c3s3",
+          "page_start": 47,
+          "page_end": 47,
+          "score": 10.3295
+        }
+      ]
+    }
+  ]
+}
