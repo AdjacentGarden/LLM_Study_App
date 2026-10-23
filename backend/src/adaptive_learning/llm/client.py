@@ -14,7 +14,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC
 from email.utils import parsedate_to_datetime
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -370,7 +370,7 @@ class OpenAICompatibleClient:
                     {"role": "user", "content": response_parts},
                 ],
                 "max_output_tokens": max_tokens, "stream": False, "store": False,
-                "reasoning": {"effort": "low"},
+                "reasoning": {"effort": self.config.reasoning_effort or "low"},
                 "text": {"format": {"type": "json_object"}},
             }
         elif images:
@@ -412,7 +412,7 @@ class OpenAICompatibleClient:
                         sdk_response = self._responses_sdk.responses.create(
                             **payload, timeout=timeout
                         )
-                        return cast(dict[str, Any], sdk_response.model_dump(mode="json"))
+                        body = sdk_response.model_dump(mode="json")
                     else:
                         response = self._http.post(
                             endpoint,
@@ -421,7 +421,10 @@ class OpenAICompatibleClient:
                             timeout=timeout,
                         )
                         response.raise_for_status()
-                        return cast(dict[str, Any], response.json())
+                        body = response.json()
+                    if not isinstance(body, dict):
+                        raise ValueError("model response must be a JSON object")
+                    return body
 
                 body = _request_before_deadline(send, until)
                 if until is not None and time.monotonic() >= until:

@@ -13,6 +13,16 @@ def _bool(name: str, default: bool) -> bool:
     return default if value is None else value.lower() in {"1", "true", "yes", "on"}
 
 
+def _optional_bool(name: str) -> bool | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    normalized = value.strip().lower()
+    if normalized not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false")
+    return normalized == "true"
+
+
 def _int(name: str, default: int) -> int:
     value = os.getenv(name)
     return default if not value else int(value)
@@ -78,6 +88,10 @@ class Settings:
     teaching_review_provider: str = ""
     teaching_review_model: str = ""
 
+    text_thinking_enabled: bool | None = None
+    text_reasoning_effort: str | None = None
+    diagnostic_allow_grounded_answer_rewrite: bool = False
+
     def __post_init__(self) -> None:
         if not 1 <= self.rag_max_output_tokens <= 10000:
             raise ValueError("RAG_MAX_OUTPUT_TOKENS must be between 1 and 10000")
@@ -130,20 +144,6 @@ class Settings:
         if self.llm_provider == "minimax":
             return os.getenv("MINIMAX_MODEL", "MiniMax-M3")
         return self.pucoding_text_model if self.llm_provider == "pucoding" else self.deepseek_model
-
-    @property
-    def text_thinking_enabled(self) -> bool | None:
-        value = os.getenv("TEXT_LLM_THINKING_ENABLED")
-        if value is None:
-            return None
-        normalized = value.strip().lower()
-        if normalized not in {"true", "false"}:
-            raise ValueError("TEXT_LLM_THINKING_ENABLED must be true or false")
-        return normalized == "true"
-
-    @property
-    def text_reasoning_effort(self) -> str | None:
-        return os.getenv("TEXT_LLM_REASONING_EFFORT", "").strip() or None
 
 
 @lru_cache(maxsize=1)
@@ -219,4 +219,9 @@ def get_settings() -> Settings:
         assessment_max_items=_int("ASSESSMENT_MAX_ITEMS", 12),
         assessment_stop_uncertainty=_float("ASSESSMENT_STOP_UNCERTAINTY", 0.035),
         open_answer_min_confidence=_float("ASSESSMENT_OPEN_ANSWER_MIN_CONFIDENCE", 0.78),
+        text_thinking_enabled=_optional_bool("TEXT_LLM_THINKING_ENABLED"),
+        text_reasoning_effort=os.getenv("TEXT_LLM_REASONING_EFFORT", "").strip() or None,
+        diagnostic_allow_grounded_answer_rewrite=(
+            _optional_bool("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE") or False
+        ),
     )

@@ -95,6 +95,15 @@ export interface BookStatus {
   retryable: boolean;
 }
 
+export interface BookPreparation {
+  book_id: string;
+  status: "queued" | "running" | "failed" | "succeeded";
+  stage: "queued" | "indexing" | "structuring" | "diagnostics" | "ready";
+  error: string;
+  updated: number;
+  next_step: number;
+}
+
 export interface LearningRecords {
   book_id:string;
   knowledge:Array<{id:string;title:string;chapter:string;mastery:number;evidence_count:number;pages:number[]}>;

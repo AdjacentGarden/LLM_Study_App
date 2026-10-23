@@ -20,7 +20,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import TypeAdapter
 
-from ..accounts import Accounts
+from ..accounts import COOKIE, Accounts
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
@@ -172,7 +172,10 @@ if assessment_llm is not None:
         assessment_llm,
         minimum_confidence=settings.open_answer_min_confidence,
     )
-    item_generator = DiagnosticItemGenerator(assessment_llm, allow_grounded_answer_rewrite=True)
+    item_generator = DiagnosticItemGenerator(
+        assessment_llm,
+        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
+    )
 orchestrator = InterviewOrchestrator(engine, open_answer_scorer)
 personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
@@ -597,23 +600,38 @@ def generate_book_structure(
     return structure
 
 
+def _prepare_index(book_id: str) -> None:
+    # A text-only/local deployment can still prepare chapter learning content.
+    # Partial RAG configuration fails here instead of silently promising QA.
+    if any((settings.rag_index_dir, settings.rag_embedding_model_path, settings.rag_reranker_model_path)):
+        prepare_uploaded_book_index(book_id)
+
+
 def _prepare_structure(book_id: str) -> None:
-    generate_book_structure(book_id, require_chapter_reconstructor())
+    # Recovery after diagnostics failure should reuse the verified structure.
+    if job_repository.get_structure(book_id) is None:
+        generate_book_structure(book_id, require_chapter_reconstructor())
+
+
+def _prepare_diagnostics(book_id: str) -> None:
+    generate_diagnostic_bank(book_id)
 
 
 preparation_queue = PreparationQueue(settings.data_dir / "state" / "preparation.sqlite3", [
-    ("indexing", prepare_uploaded_book_index),
+    ("indexing", _prepare_index),
     ("structuring", _prepare_structure),
-    ("diagnostics", lambda book_id: generate_diagnostic_bank(book_id)),
+    ("diagnostics", _prepare_diagnostics),
 ])
 
 
 def _require_upload_owner(book_id: str, request: Request) -> None:
     from urllib.parse import urlsplit
-    if request.method == "POST" and request.headers.get("origin"):
+    if request.method not in {"GET", "HEAD"} and request.headers.get("origin"):
         if urlsplit(request.headers["origin"]).netloc != request.headers.get("host"):
             raise HTTPException(403, "请在 App 内执行此操作")
     owner = account_repository.request_owner(request)
+    if not owner and request.cookies.get(COOKIE):
+        raise HTTPException(401, "登录已过期，请重新登录")
     if not owner or not (
         account_repository.repo.owns_upload(owner, book_id)
         or account_repository.repo.owns(owner, book_id)
@@ -622,8 +640,9 @@ def _require_upload_owner(book_id: str, request: Request) -> None:
 
 
 @app.post("/api/books/{book_id}/prepare")
-def prepare_book(book_id: str, request: Request, retry: bool = False) -> dict:
+def prepare_book(book_id: str, request: Request, response: Response, retry: bool = False) -> dict:
     _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
     job = job_repository.get_job(book_id)
     if job is None or job.status != "ocr_ready":
         raise HTTPException(409, "教材仍在读取中，请稍后再试")
@@ -640,8 +659,9 @@ def prepare_book(book_id: str, request: Request, retry: bool = False) -> dict:
 
 
 @app.get("/api/books/{book_id}/prepare")
-def preparation_status(book_id: str, request: Request) -> dict:
+def preparation_status(book_id: str, request: Request, response: Response) -> dict:
     _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
     value = preparation_queue.get(book_id)
     if value is None:
         raise HTTPException(404, "尚未开始整理教材")

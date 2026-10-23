@@ -19,8 +19,7 @@ from ..rag.backends import TransformerPairReranker, TransformerQueryEncoder
 from ..rag.grounded_qa import GroundedAnswerGenerator
 from ..rag.index import PersistentRAGIndex, RAGIndexError
 from ..rag.service import TextbookQAService
-from ..rag.upload_index import build_upload_index, published_upload_index
-from ..rag.upload_index import ensure_upload_index
+from ..rag.upload_index import build_upload_index, ensure_upload_index, published_upload_index
 
 
 class QAConfigurationError(RuntimeError):
@@ -31,32 +30,20 @@ _service: TextbookQAService | None = None
 _service_lock = threading.Lock()
 _book_services: OrderedDict[str, TextbookQAService] = OrderedDict()
 _book_service_lock = threading.Lock()
-_upload_lock = threading.Lock()
-_upload_components: tuple[TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator] | None = None
+_components: tuple[
+    TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator
+] | None = None
+_components_lock = threading.Lock()
+_upload_indexes: OrderedDict[str, tuple[tuple[object, ...], Path]] = OrderedDict()
+_upload_index_lock = threading.Lock()
 
 
 def upload_components() -> tuple[TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator]:
-    global _upload_components
-    with _upload_lock:
-        if _service is not None:
-            return _service.index.encoder, _service.index.reranker, _service.generator  # type: ignore[return-value]
-        if _upload_components is None:
-            s = get_settings()
-            if not s.rag_embedding_model_path or not s.rag_reranker_model_path or not s.text_api_key:
-                raise QAConfigurationError("上传教材答疑需要配置向量模型、重排序模型和文本服务")
-            encoder = TransformerQueryEncoder(s.rag_embedding_model_path, device=s.rag_device)
-            reranker = TransformerPairReranker(s.rag_reranker_model_path, device=s.rag_device)
-            client = OpenAICompatibleClient(LLMConfig(base_url=s.text_base_url, api_key=s.text_api_key,
-                model=s.text_model, timeout_seconds=s.rag_generation_timeout_seconds,
-                max_retries=0, proxy_url=s.llm_https_proxy,
-                thinking_enabled=s.text_thinking_enabled,
-                reasoning_effort=s.text_reasoning_effort))
-            generator = GroundedAnswerGenerator(client, refusal_score_threshold=s.rag_refusal_score_threshold,
-                use_evidence_planner=s.rag_use_evidence_planner, use_semantic_review=s.rag_use_semantic_review,
-                max_output_tokens=s.rag_max_output_tokens,
-                draft_budget_seconds=s.rag_generation_timeout_seconds)
-            _upload_components = encoder, reranker, generator
-        return _upload_components
+    # Preserve the native index API while sharing one model pair without needing
+    # a published/default textbook index in upload-only deployments.
+    if _service is not None:
+        return _service.index.encoder, _service.index.reranker, _service.generator  # type: ignore[return-value]
+    return _shared_components()
 
 
 def prepare_upload_index(book_directory: Path) -> None:
@@ -64,10 +51,23 @@ def prepare_upload_index(book_directory: Path) -> None:
     build_upload_index(book_directory, encoder)
 
 
-def _create_qa_service() -> TextbookQAService:
+def _shared_components() -> tuple[
+    TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator
+]:
+    """Share models without requiring a pre-existing/default textbook index."""
+    global _components
+    if _components is not None:
+        return _components
+    with _components_lock:
+        if _components is None:
+            _components = _create_components()
+        return _components
+
+
+def _create_components() -> tuple[
+    TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator
+]:
     settings = get_settings()
-    if settings.rag_index_dir is None:
-        raise QAConfigurationError("RAG_INDEX_DIR is not configured")
     if settings.rag_embedding_model_path is None:
         raise QAConfigurationError("RAG_EMBEDDING_MODEL_PATH is not configured")
     if settings.rag_reranker_model_path is None:
@@ -77,7 +77,6 @@ def _create_qa_service() -> TextbookQAService:
 
     encoder = TransformerQueryEncoder(settings.rag_embedding_model_path, device=settings.rag_device)
     reranker = TransformerPairReranker(settings.rag_reranker_model_path, device=settings.rag_device)
-    index = PersistentRAGIndex.load(settings.rag_index_dir, encoder=encoder, reranker=reranker)
     client = OpenAICompatibleClient(
         LLMConfig(
             base_url=settings.text_base_url,
@@ -101,6 +100,15 @@ def _create_qa_service() -> TextbookQAService:
         max_output_tokens=settings.rag_max_output_tokens,
         draft_budget_seconds=settings.rag_generation_timeout_seconds,
     )
+    return encoder, reranker, generator
+
+
+def _create_qa_service() -> TextbookQAService:
+    settings = get_settings()
+    if settings.rag_index_dir is None:
+        raise QAConfigurationError("RAG_INDEX_DIR is not configured")
+    encoder, reranker, generator = _shared_components()
+    index = PersistentRAGIndex.load(settings.rag_index_dir, encoder=encoder, reranker=reranker)
     return TextbookQAService(
         book_id=settings.rag_book_id,
         index=index,
@@ -171,11 +179,11 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
         index_path = prepare_uploaded_book_index(book_id)
     # Keep one GPU model pair for all books; only document indexes and answer
     # caches are book-specific. Bound the number of resident CPU indexes.
-    if book_id in settings.published_book_ids:
+    if book_id in settings.published_book_ids and settings.rag_index_dir is not None:
         primary = build_qa_service()
         encoder, reranker, generator = primary.index.encoder, primary.index.reranker, primary.generator
     else:
-        encoder, reranker, generator = upload_components()
+        encoder, reranker, generator = _shared_components()
     with _book_service_lock:
         existing = _book_services.get(book_id)
         if existing is not None and getattr(existing.index, "index_dir", index_path) == index_path:
@@ -199,15 +207,35 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
 
 def prepare_uploaded_book_index(book_id: str) -> Path:
     settings = get_settings()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
+        raise HTTPException(status_code=404, detail="未找到该书的检索索引")
     jobs = SQLiteOCRJobRepository(settings.data_dir / "state" / "ocr_jobs.sqlite3")
     book = jobs.get_book(book_id)
     job = jobs.get_job(book_id)
     if book is None or job is None or job.status != "ocr_ready":
-        raise HTTPException(409, "教材仍在解析，请稍后再试")
-    encoder, reranker, _ = upload_components()
-    return ensure_upload_index(job.output_dir / "normalized" / "pages.jsonl",
-                               book.file_path.parent / "rag-index",
-                               encoder=encoder, reranker=reranker)
+        raise HTTPException(status_code=409, detail="教材仍在解析，请稍后再试")
+    encoder, reranker, _ = _shared_components()
+    pages_path = job.output_dir / "normalized" / "pages.jsonl"
+    info = pages_path.stat()
+    revision = (str(pages_path), info.st_mtime_ns, info.st_size, info.st_ino, id(encoder))
+    with _upload_index_lock:
+        cached = _upload_indexes.get(book_id)
+        if cached is not None and cached[0] == revision and cached[1].is_dir():
+            _upload_indexes.move_to_end(book_id)
+            return cached[1]
+    path = ensure_upload_index(
+        pages_path, book.file_path.parent / "rag-index", encoder=encoder, reranker=reranker
+    )
+    # Upload-only deployments have no default index to warm at startup. A real
+    # retrieval verifies the query encoder and reranker before preparation can
+    # advance; failed warmups remain uncached so the indexing stage can retry.
+    index = PersistentRAGIndex.load(path, encoder=encoder, reranker=reranker)
+    index.search("教材核心概念", top_pages=1, max_evidence=1, per_page=1)
+    with _upload_index_lock:
+        _upload_indexes[book_id] = (revision, path)
+        while len(_upload_indexes) > 16:
+            _upload_indexes.popitem(last=False)
+    return path
 
 
 def require_qa_service(

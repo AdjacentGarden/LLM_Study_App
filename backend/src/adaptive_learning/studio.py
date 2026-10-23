@@ -1604,9 +1604,9 @@ class Studio:
                 elif isinstance(item, dict):
                     description = next(
                         (
-                            item.get(key)
+                            value
                             for key in ("text", "description", "reason", "region")
-                            if isinstance(item.get(key), str) and str(item.get(key)).strip()
+                            if isinstance(value := item.get(key), str) and value.strip()
                         ),
                         None,
                     )
@@ -2161,8 +2161,8 @@ class Studio:
                             parsed.append(self.recognition(raw))
                         except (ValidationError, TypeError, ValueError):
                             parsed.append(None)
-                    output, verified = parsed
-                    if output is None and verified is None:
+                    parsed_output, parsed_verified = parsed
+                    if parsed_output is None and parsed_verified is None:
                         self.update(
                             row["id"],
                             status="failed",
@@ -2178,13 +2178,14 @@ class Studio:
                         )
                         return
                     structural_uncertain: list[str] = []
-                    if output is None:
-                        output = verified
+                    if parsed_output is None:
+                        parsed_output = parsed_verified
                         structural_uncertain.append("首次识别结果无法核验，请确认转写文字")
-                    if verified is None:
-                        verified = output
+                    if parsed_verified is None:
+                        parsed_verified = parsed_output
                         structural_uncertain.append("独立复核结果无法核验，请确认转写文字")
-                    assert output is not None and verified is not None
+                    assert parsed_output is not None and parsed_verified is not None
+                    output, verified = parsed_output, parsed_verified
                 else:
                     output = self.recognition(self.llm(recognition_prompt, ink))
             assert output is not None

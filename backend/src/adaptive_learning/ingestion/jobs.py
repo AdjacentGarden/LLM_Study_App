@@ -620,11 +620,15 @@ class SubprocessOCRRunner:
                     _terminate_process_group(process)
                     raise JobStateError("OCR worker lost its lease")
                 try:
-                    process.wait(timeout=self.heartbeat_interval)
+                    # Wake immediately when the OCR process exits; the interval
+                    # controls lease renewal, not completion latency.
+                    process.wait(
+                        timeout=min(self.heartbeat_interval, self.timeout_seconds - elapsed)
+                    )
                 except subprocess.TimeoutExpired:
                     pass
             if process.returncode != 0:
-                diagnostic = _log_tail(attempt_dir / "mineru.log")
+                diagnostic = _log_tail(log_path)
                 raise RuntimeError(
                     f"OCR subprocess exited with code {process.returncode}; {diagnostic}"
                 )
