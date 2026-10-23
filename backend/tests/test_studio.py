@@ -389,11 +389,11 @@ def test_media_plan_generation_review_private_asset(setup, monkeypatch):
     Image.new("RGB", (64, 64), "white").save(image, "PNG")
     called = []
 
-    def generate(path, payload):
+    def generate(payload):
         called.append(payload)
-        return {"data": {"image_base64": [base64.b64encode(image.getvalue()).decode()]}}
+        return {"data": [{"b64_json": base64.b64encode(image.getvalue()).decode()}]}
 
-    monkeypatch.setattr(s, "minimax", generate)
+    monkeypatch.setattr(s, "pucoding_image", generate)
     key = a.post("/api/studio/media", json=media()).json()["id"]
     run(s, a, key)
     assert a.get("/api/studio/jobs/" + key).json()["status"] == "reviewing"
@@ -402,7 +402,11 @@ def test_media_plan_generation_review_private_asset(setup, monkeypatch):
     value = a.get("/api/studio/jobs/" + key).json()
     assert value["status"] == "succeeded"
     assert "visual_prompt" not in value["result"]
-    assert len(called) == 1 and called[0]["n"] == 1 and not called[0]["prompt_optimizer"]
+    assert len(called) == 1 and called[0]["n"] == 1
+    assert called[0]["model"] == "gpt-image-2"
+    assert called[0]["response_format"] == "b64_json"
+    assert called[0]["size"] == "1024x768"
+    assert value["result"]["provider"] == "PUCODING"
     assert "Colorful modern educational illustration" in called[0]["prompt"]
     assert "no wireframe-only look" in called[0]["prompt"]
     asset = a.get(value["asset_url"])
@@ -438,11 +442,11 @@ def test_malformed_media_plan_is_repaired_once_before_factual_review(setup, monk
     image = io.BytesIO()
     Image.new("RGB", (64, 64), "#8bcab7").save(image, "PNG")
 
-    def minimax(path, payload):
-        calls.append((path, payload))
-        return {"data": {"image_base64": [base64.b64encode(image.getvalue()).decode()]}}
+    def generate(payload):
+        calls.append(payload)
+        return {"data": [{"b64_json": base64.b64encode(image.getvalue()).decode()}]}
 
-    monkeypatch.setattr(studio, "minimax", minimax)
+    monkeypatch.setattr(studio, "pucoding_image", generate)
     key = a.post("/api/studio/media", json=media()).json()["id"]
     run(studio, a, key)
     assert "video_suitable" in prompts[1]
@@ -478,6 +482,7 @@ def test_malformed_media_plan_never_skips_factual_review(setup, monkeypatch):
     )
     calls = []
     monkeypatch.setattr(studio, "minimax", lambda *args: calls.append(args))
+    monkeypatch.setattr(studio, "pucoding_image", lambda *args: calls.append(args))
     key = a.post("/api/studio/media", json=media()).json()["id"]
     run(studio, a, key)
     assert a.get("/api/studio/jobs/" + key).json()["status"] == "failed"
@@ -804,6 +809,7 @@ def test_failed_visual_review_retains_private_reason_and_hides_asset(setup, monk
         s, "llm", lambda *args: visual_review(objects_correct=False, reason="把器物误画成生物")
     )
     monkeypatch.setattr(s, "minimax", lambda *args: pytest.fail("must not regenerate"))
+    monkeypatch.setattr(s, "pucoding_image", lambda *args: pytest.fail("must not regenerate"))
     run(s, a, key)
     value = a.get("/api/studio/jobs/" + key).json()
     assert value["status"] == "failed" and value["asset_url"] is None
@@ -973,6 +979,7 @@ def test_plan_has_one_text_only_repair_before_generation(setup, monkeypatch):
     )
     monkeypatch.setattr(s, "llm", lambda *args: next(responses))
     monkeypatch.setattr(s, "minimax", lambda *args: pytest.fail("no paid call for diagram"))
+    monkeypatch.setattr(s, "pucoding_image", lambda *args: pytest.fail("no paid call for diagram"))
     key = a.post("/api/studio/media", json=media()).json()["id"]
     run(s, a, key)
     assert a.get("/api/studio/jobs/" + key).json()["status"] == "reviewing"
@@ -1004,6 +1011,7 @@ def test_caption_repair_does_not_redraw_or_bypass_review(setup, monkeypatch, fin
     )
     monkeypatch.setattr(s, "llm", lambda *args: next(responses))
     monkeypatch.setattr(s, "minimax", lambda *args: pytest.fail("must reuse existing image"))
+    monkeypatch.setattr(s, "pucoding_image", lambda *args: pytest.fail("must reuse existing image"))
     raw = (s.assets / f"{key}.jpg").read_bytes()
     run(s, a, key)
     assert a.get("/api/studio/jobs/" + key).json()["status"] == "reviewing"
@@ -1043,9 +1051,12 @@ def test_video_reuses_first_frame_without_extra_generation(setup, monkeypatch):
 
     def provider(path, payload):
         calls.append(path)
-        assert payload["first_frame_image"].startswith("data:image/jpeg;base64,")
+        assert payload["model"] == "MiniMax-H3-Max"
+        assert payload["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+        assert payload["content"][1]["role"] == "first_frame"
+        assert payload["ratio"] == "adaptive"
         assert payload["duration"] == 6
-        assert "Colorful modern educational illustration" in payload["prompt"]
+        assert "Colorful modern educational illustration" in payload["content"][0]["text"]
         return {"task_id": "12345"}
 
     monkeypatch.setattr(s, "minimax", provider)
@@ -1053,7 +1064,7 @@ def test_video_reuses_first_frame_without_extra_generation(setup, monkeypatch):
         "/api/studio/media", json=media(kind="video", request_id="video_reference_test")
     ).json()["id"]
     run(s, a, key)
-    assert calls == ["/v1/video_generation"]
+    assert calls == ["/v2/video_generation"]
     value = a.get("/api/studio/jobs/" + key).json()
     assert value["status"] == "polling" and value["result"]["reference_image_id"] == image_id
 
@@ -1077,6 +1088,30 @@ def test_video_poll_is_resumable_and_does_not_generate_again(setup, monkeypatch)
     assert a.get("/api/studio/jobs/" + key).json()["status"] == "reviewing"
     assert a.get("/api/studio/jobs/" + key + "/asset").status_code == 404
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("status,expected", [("succeeded", "reviewing"), ("failed", "failed"),
+                                            ("running", "polling"), ("queued", "polling")])
+def test_h3_video_poll_uses_v2_and_downloads_the_result_once(setup, monkeypatch, status, expected):
+    a, _, s = setup
+    key = a.post("/api/studio/media", json=media(kind="video")).json()["id"]
+    s.update(key, status="polling", provider_id="12345678",
+             result=json.dumps({"video_api_version": 2, "model": "MiniMax-H3-Max"}))
+    calls = []
+    downloads = []
+
+    def provider(path, payload=None):
+        calls.append(path)
+        assert payload is None
+        return {"task": {"status": status, "content": {"url": "https://cdn.example.com/test.mp4"}}}
+
+    monkeypatch.setattr(s, "minimax", provider)
+    monkeypatch.setattr(s, "download", lambda url, limit: downloads.append(url) or b"video")
+    run(s, a, key)
+    value = a.get("/api/studio/jobs/" + key).json()
+    assert value["status"] == expected
+    assert calls == ["/v2/query/video_generation/12345678"]
+    assert len(downloads) == (1 if status == "succeeded" else 0)
 
 
 def test_foreign_or_invented_note_citation_fails_closed(setup, monkeypatch):

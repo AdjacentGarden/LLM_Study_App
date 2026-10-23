@@ -38,6 +38,8 @@ python3 -m venv .venv
 
 开发脚本默认监听 `http://127.0.0.1:8100`，开启限本机回环访问的默认账号，无需邮箱、SMTP 或 `.env`。首次进入 App 显示“称呼 → 学习目标 → 每日时间 → 学习卡点 → 帮助方式 → 计划支持”六步引导。正常学习数据保存于后端持久化目录。
 
+工作台生图使用 PUCODING 的 `/v1/images/generations`，默认 `PUCODING_IMAGE_MODEL=gpt-image-2`、`PUCODING_IMAGE_SIZE=1024x768`、`PUCODING_IMAGE_QUALITY=auto`，每次生成一张图片。`PUCODING_API_KEY` 必须绑定支持图片生成的 Codex 分组。生视频使用 `MINIMAX_VIDEO_MODEL=MiniMax-H3-Max`，调用 H3 V2 提交与查询接口，生成 6 秒 / 768P 短片；已审核且与当前选段匹配的图片可作为首帧。配置 `MINIMAX_API_KEY`、`MINIMAX_BASE_URL` 和 `STUDIO_FFMPEG`；本地可安装 `.[media]` 后用 `imageio_ffmpeg.get_ffmpeg_exe()` 获取 FFmpeg 路径。Windows 可设置 `STUDIO_CJK_FONT=C:/Windows/Fonts/msyh.ttc` 供精确关系图本地渲染。生成和审核沿用原有任务状态与预算限制，请求结果不明确时不会自动重复付费生成。
+
 另开终端，在仓库根目录启动客户端：
 
 ```sh

@@ -18,6 +18,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+media = [
+  "imageio-ffmpeg>=0.6,<1",
+]
 pdf = [
   "pymupdf>=1.25,<2",
   "pypdf>=5,<7",

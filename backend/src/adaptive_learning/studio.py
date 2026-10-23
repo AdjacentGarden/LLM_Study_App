@@ -117,7 +117,9 @@ class Studio:
 
     def capabilities(self) -> dict[str, Any]:
         s = get_settings()
-        media = bool(os.getenv("MINIMAX_API_KEY")) and not os.getenv("STUDIO_MEDIA_PAUSED_REASON")
+        media_enabled = not os.getenv("STUDIO_MEDIA_PAUSED_REASON")
+        image_ready = bool(s.pucoding_api_key) and media_enabled
+        video_ready = bool(os.getenv("MINIMAX_API_KEY")) and media_enabled
         studio_provider = os.getenv("STUDIO_LLM_PROVIDER", "").strip().lower()
         if studio_provider == "minimax":
             text = vision = bool(os.getenv("MINIMAX_API_KEY"))
@@ -128,8 +130,12 @@ class Studio:
             text = bool(s.text_api_key)
             vision = bool(s.pucoding_api_key)
         return {
-            "image": media and text and vision,
-            "video": media and text and vision and bool(os.getenv("STUDIO_FFMPEG")),
+            "image": image_ready and text and vision,
+            "video": video_ready and text and vision and bool(os.getenv("STUDIO_FFMPEG")),
+            "image_provider": "PUCODING",
+            "image_model": os.getenv("PUCODING_IMAGE_MODEL", "gpt-image-2"),
+            "video_provider": "MiniMax",
+            "video_model": os.getenv("MINIMAX_VIDEO_MODEL", "MiniMax-H3-Max"),
             "notes_ai": text and vision,
             "voice_notes": text and self.voice_runtime_ready(),
             "video_seconds": 6,
@@ -871,10 +877,13 @@ class Studio:
             raise ValueError("no evidence")
         return result
 
-    def minimax(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        base = os.getenv("MINIMAX_BASE_URL", "https://api.minimaxi.com").rstrip("/")
-        with httpx.Client(timeout=180, follow_redirects=False) as client:
-            headers = {"Authorization": "Bearer " + os.environ["MINIMAX_API_KEY"]}
+    def media_request(
+        self, base: str, path: str, api_key: str, payload: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        # A paid submission is never automatically retried, including timeouts.
+        with httpx.Client(timeout=180, follow_redirects=False, trust_env=False,
+                          proxy=get_settings().llm_https_proxy) as client:
+            headers = {"Authorization": "Bearer " + api_key}
             response = (
                 client.post(base + path, headers=headers, json=payload)
                 if payload is not None
@@ -886,11 +895,22 @@ class Studio:
                 raise ProviderRejected("媒体服务暂未接受请求（额度、限流或内容限制），请稍后再试")
             response.raise_for_status()
             value: dict[str, Any] = response.json()
+            if value.get("error"):
+                raise ProviderRejected("媒体服务未接受请求，请检查模型权限、余额或调整生成内容")
             if value.get("base_resp", {}).get("status_code", 0) != 0:
                 raise ProviderRejected(
                     "媒体服务暂未接受请求（授权、额度或内容限制），请联系管理员核对"
                 )
             return value
+
+    def minimax(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.cn").rstrip("/")
+        return self.media_request(base, path, os.environ["MINIMAX_API_KEY"], payload)
+
+    def pucoding_image(self, payload: dict[str, Any]) -> dict[str, Any]:
+        settings = get_settings()
+        return self.media_request(settings.pucoding_base_url.rstrip("/"), "/images/generations",
+                                  settings.pucoding_api_key, payload)
 
     def download(self, url: str, limit: int) -> bytes:
         parsed = urlsplit(url)
@@ -907,7 +927,8 @@ class Studio:
             if not ipaddress.ip_address(address[4][0]).is_global:
                 raise ValueError("private asset URL")
         data = bytearray()
-        with httpx.stream("GET", url, timeout=60, follow_redirects=False) as response:
+        with httpx.stream("GET", url, timeout=60, follow_redirects=False, trust_env=False,
+                          proxy=get_settings().llm_https_proxy) as response:
             response.raise_for_status()
             for block in response.iter_bytes():
                 data.extend(block)
@@ -1014,36 +1035,35 @@ class Studio:
         result = {
             **plan.model_dump(),
             "evidence": evidence,
-            "provider": "MiniMax",
+            "provider": "PUCODING" if kind == "image" else "MiniMax",
+            "model": os.getenv("PUCODING_IMAGE_MODEL", "gpt-image-2") if kind == "image"
+            else os.getenv("MINIMAX_VIDEO_MODEL", "MiniMax-H3-Max"),
             "duration": 6 if kind == "video" else None,
-            "pipeline_version": 3,
+            "pipeline_version": 4,
         }
         if kind == "image" and plan.visual_mode == "diagram":
             result["provider"] = "source-grounded-diagram"
+            result.pop("model", None)
             self.update(key, result=json.dumps(result, ensure_ascii=False))
             self.publish_asset(key, "jpg", render_diagram(plan))
             self.update(key, status="reviewing")
             return
         self.update(key, result=json.dumps(result, ensure_ascii=False), status="submitting")
         if kind == "image":
-            value = self.minimax(
-                "/v1/image_generation",
+            value = self.pucoding_image(
                 {
-                    "model": "image-01",
+                    "model": result["model"],
                     "prompt": plan.visual_prompt + VISUAL_STYLE,
-                    "aspect_ratio": "4:3",
-                    "response_format": "base64",
+                    "size": os.getenv("PUCODING_IMAGE_SIZE", "1024x768"),
+                    "quality": os.getenv("PUCODING_IMAGE_QUALITY", "auto"),
+                    "response_format": "b64_json",
                     "n": 1,
-                    "prompt_optimizer": False,
                 },
             )
-            images = value["data"].get("image_base64", [])
-            if isinstance(images, str):
-                images = [images]
-            if images:
-                raw = base64.b64decode(images[0].split(",")[-1], validate=True)
-            else:
-                raw = self.download(value["data"]["image_urls"][0], 15_000_000)
+            encoded = value["data"][0]["b64_json"]
+            if not isinstance(encoded, str) or len(encoded) > 20_000_000:
+                raise ValueError("image response is too large or invalid")
+            raw = base64.b64decode(encoded, validate=True)
             image = Image.open(io.BytesIO(raw))
             if image.width * image.height > 10_000_000:
                 raise ValueError("image too large")
@@ -1053,28 +1073,31 @@ class Studio:
             self.update(key, status="reviewing")
         else:
             payload: dict[str, Any] = {
-                "model": "MiniMax-Hailuo-2.3",
-                "prompt": plan.visual_prompt + VISUAL_STYLE,
+                "model": result["model"],
+                "content": [{"type": "text", "text": plan.visual_prompt + VISUAL_STYLE}],
                 "duration": 6,
                 "resolution": "768P",
-                "prompt_optimizer": False,
+                "ratio": "4:3",
+                "extra": {"prompt_expansion_mode": "disabled"},
             }
             reference = self.reference_image(row["owner"], data)
             if reference:
                 image_id, raw = reference
-                payload["first_frame_image"] = (
-                    "data:image/jpeg;base64," + base64.b64encode(raw).decode()
-                )
-                payload["prompt"] = (
+                payload["content"].append({"type": "image_url", "role": "first_frame",
+                                           "image_url": {"url": "data:image/jpeg;base64,"
+                                                         + base64.b64encode(raw).decode()}})
+                payload["ratio"] = "adaptive"
+                payload["content"][0]["text"] = (
                     "Animate this educational reference gently for six seconds. Preserve the exact object categories, shapes and layout. "
                     "Show only the described motion. Fixed camera; no cuts, new objects, morphing, lettering or captions. "
                     + plan.visual_prompt
                     + VISUAL_STYLE
                 )
                 result["reference_image_id"] = image_id
-                self.update(key, result=json.dumps(result, ensure_ascii=False))
+            result["video_api_version"] = 2
+            self.update(key, result=json.dumps(result, ensure_ascii=False))
             value = self.minimax(
-                "/v1/video_generation",
+                "/v2/video_generation",
                 payload,
             )
             task = str(value["task_id"])
@@ -1115,6 +1138,20 @@ class Studio:
             )
             return
         try:
+            result = json.loads(row["result"])
+            if result.get("video_api_version") == 2:
+                value = self.minimax("/v2/query/video_generation/" + row["provider_id"])
+                task = value["task"]
+                if task["status"] in {"failed", "cancelled", "canceled"}:
+                    self.update(row["id"], status="failed", error="短片生成未完成，请稍后再试")
+                elif task["status"] == "succeeded":
+                    content = self.download(task["content"]["url"], 60_000_000)
+                    self.publish_asset(row["id"], "mp4", content)
+                    self.update(row["id"], status="reviewing")
+                else:
+                    self.update(row["id"], next_poll=time.time() + VIDEO_POLL_SECONDS)
+                return
+            # Existing Hailuo jobs still resume through their original V1 endpoint.
             value = self.minimax("/v1/query/video_generation?task_id=" + row["provider_id"])
             if value["status"] == "Fail":
                 self.update(row["id"], status="failed", error="短片生成未完成，请稍后再试")
