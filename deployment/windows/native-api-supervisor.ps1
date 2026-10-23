@@ -22,7 +22,7 @@ $SupervisorLog = Join-Path $RuntimeRoot 'logs\native-api-supervisor.log'
 $backend = $null
 $backendState = $null
 $hasMutex = $false
-$mutex = New-Object System.Threading.Mutex($false, 'Global\CloudPath-PrivatePreview-Supervisor')
+$mutex = $null
 function Write-PrivateLog([string]$Message) {
     Add-Content -LiteralPath $SupervisorLog -Value ('{0} {1}' -f (Get-Date -Format 'o'), $Message) -Encoding UTF8
 }
@@ -57,7 +57,6 @@ if ($Action -eq 'Status') {
     $running = $false
     if (Test-Path -LiteralPath $StateFile) { $running = Test-OwnedBackend (Get-Content -LiteralPath $StateFile -Raw | ConvertFrom-Json) }
     [ordered]@{running=$running;commit=$Commit;port=8100;api_only=$true} | ConvertTo-Json -Compress
-    $mutex.Dispose()
     exit 0
 }
 if ($Action -eq 'Stop') {
@@ -78,6 +77,9 @@ if ($Action -eq 'Stop') {
     Write-Output '{"stopped":true,"scope":"verified-native-api"}'
     exit 0
 }
+# Only Serve needs the global ownership mutex. An administrator may inspect or
+# request a verified stop of the SYSTEM service without opening its mutex ACL.
+$mutex = New-Object System.Threading.Mutex($false, 'Global\CloudPath-PrivatePreview-Supervisor')
 try {
     try { $hasMutex = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $hasMutex = $true }
     if (-not $hasMutex) { throw 'Another CloudPath supervisor still owns the service; stop its verified release first.' }
