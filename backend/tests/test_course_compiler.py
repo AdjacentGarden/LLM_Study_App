@@ -64,7 +64,7 @@ def test_compiler_prioritizes_unknown_and_weak_points_with_exact_citations() -> 
     assert bundle.summary == value.summary
 
 
-def test_course_changes_depth_and_size_for_different_profiles() -> None:
+def test_course_changes_depth_but_preserves_all_points_for_different_profiles() -> None:
     value = chapter()
     novice = LearnerProfile(
         user_id="novice",
@@ -95,8 +95,21 @@ def test_course_changes_depth_and_size_for_different_profiles() -> None:
     assert foundation.decision.depth == TeachingDepth.FOUNDATION
     assert challenge.decision.depth == TeachingDepth.ADVANCED
     assert len(foundation.knowledge_points) == 10
-    assert len(challenge.knowledge_points) == 6
+    assert len(challenge.knowledge_points) == 10
     assert foundation.flashcards[0].front != challenge.flashcards[0].front
+
+
+def test_daily_time_partitions_all_points_without_dropping_content() -> None:
+    value = chapter(14)
+    profile = LearnerProfile(user_id="u", book_id="b")
+    profile.constraints.minutes_per_day = 15
+    bundle = ChapterCourseCompiler().compile(chapter=value, profile=profile,
+        decision=PersonalizationPolicy().decide(profile, value.chapter_id))
+    assert len(bundle.knowledge_points) == 14
+    unit_ids = [point_id for unit in bundle.study_units for point_id in unit.point_ids]
+    assert unit_ids == [point.point_id for point in bundle.knowledge_points]
+    assert len(bundle.study_units) == 5
+    assert not any("其余内容" in warning for warning in bundle.unresolved_source_warnings)
 
 
 def test_public_course_never_contains_practice_answer_keys() -> None:

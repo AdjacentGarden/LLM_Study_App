@@ -10,7 +10,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 
 from pydantic import BaseModel, Field
 
-from ..llm.client import model_time_budget
+from ..llm.client import LLMError, model_time_budget
 from .grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
@@ -180,13 +180,21 @@ class TextbookQAService:
             for position, item in enumerate(retrieval.evidence, start=1)
         ]
         generation_started = time.monotonic()
-        with model_time_budget(self.generation_budget_seconds):
-            generated = self.generator.answer(
-                question=question,
-                evidence=evidence,
-                retrieval_score=retrieval.score,
-                lexical_support=retrieval.lexical_support,
-            )
+        try:
+            with model_time_budget(self.generation_budget_seconds):
+                generated = self.generator.answer(
+                    question=question,
+                    evidence=evidence,
+                    retrieval_score=retrieval.score,
+                    lexical_support=retrieval.lexical_support,
+                )
+        except LLMError as error:
+            # Timings survive failures without exposing prompt text/provider details.
+            error.qa_timings = {  # type: ignore[attr-defined]
+                "retrieval": retrieval_duration_ms,
+                "generation": round((time.monotonic() - generation_started) * 1000),
+            }
+            raise
         generation_duration_ms = round((time.monotonic() - generation_started) * 1000)
         logger.info(
             "grounded answer generation completed",

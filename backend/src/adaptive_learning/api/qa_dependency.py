@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from collections import OrderedDict
 from pathlib import Path
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
+from ..accounts import Accounts
+from ..community import CommunityRepository
 from ..config import get_settings
+from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..llm.client import LLMConfig, OpenAICompatibleClient
 from ..rag.backends import TransformerPairReranker, TransformerQueryEncoder
 from ..rag.grounded_qa import GroundedAnswerGenerator
 from ..rag.index import PersistentRAGIndex, RAGIndexError
 from ..rag.service import TextbookQAService
+from ..rag.upload_index import ensure_upload_index
 
 
 class QAConfigurationError(RuntimeError):
@@ -48,6 +53,8 @@ def _create_qa_service() -> TextbookQAService:
             timeout_seconds=25,
             max_retries=0,
             proxy_url=settings.llm_https_proxy,
+            thinking_enabled=settings.text_thinking_enabled,
+            reasoning_effort=settings.text_reasoning_effort,
         )
     )
     generator = GroundedAnswerGenerator(
@@ -87,20 +94,23 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
     settings = get_settings()
     if book_id == settings.rag_book_id:
         return build_qa_service()
-    if book_id not in settings.published_book_ids:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
         raise HTTPException(status_code=404, detail="未找到该书的检索索引")
-    manifest_path = os.getenv("RAG_BOOK_INDEX_MANIFEST", "")
-    try:
-        manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-        index_path = Path(manifest[book_id])
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        raise QAConfigurationError("Book index manifest is missing or invalid") from error
+    if book_id in settings.published_book_ids:
+        manifest_path = os.getenv("RAG_BOOK_INDEX_MANIFEST", "")
+        try:
+            manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+            index_path = Path(manifest[book_id])
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise QAConfigurationError("Book index manifest is missing or invalid") from error
+    else:
+        index_path = prepare_uploaded_book_index(book_id)
     # Keep one GPU model pair for all books; only document indexes and answer
     # caches are book-specific. Bound the number of resident CPU indexes.
     primary = build_qa_service()
     with _book_service_lock:
         existing = _book_services.get(book_id)
-        if existing is not None:
+        if existing is not None and getattr(existing.index, "index_dir", index_path) == index_path:
             _book_services.move_to_end(book_id)
             return existing
         index = PersistentRAGIndex.load(
@@ -112,13 +122,32 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
             retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
         )
         _book_services[book_id] = service
-        while len(_book_services) > 4:
+        while len(_book_services) > 16:
             _book_services.popitem(last=False)
         return service
 
 
-def require_qa_service(book_id: str) -> TextbookQAService:
+def prepare_uploaded_book_index(book_id: str) -> Path:
+    settings = get_settings()
+    jobs = SQLiteOCRJobRepository(settings.data_dir / "state" / "ocr_jobs.sqlite3")
+    book = jobs.get_book(book_id)
+    job = jobs.get_job(book_id)
+    if book is None or job is None or job.status != "ocr_ready":
+        raise HTTPException(409, "教材仍在解析，请稍后再试")
+    primary = build_qa_service()
+    return ensure_upload_index(job.output_dir / "normalized" / "pages.jsonl",
+                               book.file_path.parent / "rag-index",
+                               encoder=primary.index.encoder, reranker=primary.index.reranker)
+
+
+def require_qa_service(book_id: str, request: Request) -> TextbookQAService:
+    settings = get_settings()
+    if book_id != settings.rag_book_id and book_id not in settings.published_book_ids:
+        repo = CommunityRepository(settings.data_dir / "state" / "community.sqlite3")
+        owner = Accounts(repo).request_owner(request)
+        if not owner or not repo.owns(owner, book_id):
+            raise HTTPException(403, "请先将这本教材加入书架")
     try:
         return build_book_qa_service(book_id)
-    except (QAConfigurationError, RAGIndexError) as error:
+    except (QAConfigurationError, RAGIndexError, OSError, ValueError) as error:
         raise HTTPException(status_code=503, detail="教材答疑服务尚未就绪") from error

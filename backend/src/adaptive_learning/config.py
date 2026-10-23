@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -66,18 +67,63 @@ class Settings:
     assessment_max_items: int
     assessment_stop_uncertainty: float
     open_answer_min_confidence: float
+    teaching_review_provider: str = ""
+    teaching_review_model: str = ""
+
+    def __post_init__(self) -> None:
+        if bool(self.teaching_review_provider) != bool(self.teaching_review_model):
+            raise ValueError("TEACHING_REVIEW_PROVIDER and TEACHING_REVIEW_MODEL must be set together")
+        if self.teaching_review_provider not in {"", "pucoding"}:
+            raise ValueError("TEACHING_REVIEW_PROVIDER must be pucoding or unset")
+        if self.teaching_review_model and not re.fullmatch(r"(?:gpt|codex)-[A-Za-z0-9_.-]{1,100}", self.teaching_review_model):
+            raise ValueError("TEACHING_REVIEW_MODEL must be a valid explicitly configured Responses model name")
+
+    @property
+    def teaching_review_configured(self) -> bool:
+        return bool(self.teaching_review_provider and self.teaching_review_model and self.pucoding_api_key)
+
+    @property
+    def teaching_review_identity(self) -> dict[str, str]:
+        return {"provider": self.teaching_review_provider, "model": self.teaching_review_model,
+                "reasoning_effort": "low"}
+
+    @property
+    def teaching_review_revision(self) -> str:
+        # Credentials never enter cache identity or public metadata.
+        return "|".join((self.teaching_review_provider, self.teaching_review_model,
+                         self.pucoding_base_url if self.teaching_review_provider else "", "reasoning=low"))
 
     @property
     def text_base_url(self) -> str:
+        if self.llm_provider == "minimax":
+            return os.getenv("MINIMAX_BASE_URL", "https://api.minimaxi.com/v1")
         return self.pucoding_base_url if self.llm_provider == "pucoding" else self.deepseek_base_url
 
     @property
     def text_api_key(self) -> str:
+        if self.llm_provider == "minimax":
+            return os.getenv("MINIMAX_API_KEY", "")
         return self.pucoding_api_key if self.llm_provider == "pucoding" else self.deepseek_api_key
 
     @property
     def text_model(self) -> str:
+        if self.llm_provider == "minimax":
+            return os.getenv("MINIMAX_MODEL", "MiniMax-M3")
         return self.pucoding_text_model if self.llm_provider == "pucoding" else self.deepseek_model
+
+    @property
+    def text_thinking_enabled(self) -> bool | None:
+        value = os.getenv("TEXT_LLM_THINKING_ENABLED")
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        if normalized not in {"true", "false"}:
+            raise ValueError("TEXT_LLM_THINKING_ENABLED must be true or false")
+        return normalized == "true"
+
+    @property
+    def text_reasoning_effort(self) -> str | None:
+        return os.getenv("TEXT_LLM_REASONING_EFFORT", "").strip() or None
 
 
 @lru_cache(maxsize=1)
@@ -121,6 +167,8 @@ def get_settings() -> Settings:
         ocr_max_attempts=_int("OCR_MAX_ATTEMPTS", 3),
         ocr_backend=os.getenv("OCR_BACKEND", "vlm-auto-engine"),
         llm_provider=os.getenv("LLM_PROVIDER", "rules"),
+        teaching_review_provider=os.getenv("TEACHING_REVIEW_PROVIDER", "").strip(),
+        teaching_review_model=os.getenv("TEACHING_REVIEW_MODEL", "").strip(),
         llm_https_proxy=os.getenv("LLM_HTTPS_PROXY") or None,
         pucoding_base_url=os.getenv("PUCODING_BASE_URL", "https://pucoding.com/v1"),
         pucoding_api_key=os.getenv("PUCODING_API_KEY", ""),

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
+import math
 import os
 import re
 import subprocess
@@ -12,6 +14,8 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
+from urllib.request import ProxyHandler, Request, build_opener
 
 from .quality import evaluate_text_quality
 
@@ -214,10 +218,46 @@ def pdf_page_count(source: Path) -> int | None:
             return None
 
 
+def mineru_api_url() -> str | None:
+    """Accept only an explicitly configured local HTTP MinerU API."""
+    configured = os.environ.get("MINERU_API_URL", "").strip()
+    if not configured:
+        return None
+    message = "MINERU_API_URL must be a loopback HTTP URL without credentials, query, or fragment"
+    try:
+        parsed = urlsplit(configured)
+        hostname = parsed.hostname
+        port = parsed.port
+        if (
+            parsed.scheme != "http"
+            or not hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or any(character.isspace() for character in configured)
+            or (port is not None and port < 1)
+        ):
+            raise ValueError(message)
+        if hostname.lower() != "localhost" and not ipaddress.ip_address(hostname).is_loopback:
+            raise ValueError(message)
+    except ValueError as error:
+        raise ValueError(message) from error
+    return configured.rstrip("/")
+
+
 def mineru_subprocess_environment() -> dict[str, str]:
     """Keep MinerU's loopback API traffic away from the outbound LLM proxy."""
     environment = os.environ.copy()
-    loopback_hosts = ("localhost", "127.0.0.1", "::1")
+    # ORT 1.29's telemetry uploader can wait on network retries during native
+    # process teardown. Set this before the CLI (and its API child) imports ORT.
+    environment["ORT_DISABLE_TELEMETRY"] = "1"
+    loopback_hosts = ["localhost", "127.0.0.1", "::1"]
+    api_url = mineru_api_url()
+    if api_url:
+        api_host = urlsplit(api_url).hostname
+        if api_host and api_host not in loopback_hosts:
+            loopback_hosts.append(api_host)
     configured = environment.get("NO_PROXY", environment.get("no_proxy", ""))
     entries = [entry.strip() for entry in configured.split(",") if entry.strip()]
     lowered = {entry.lower() for entry in entries}
@@ -228,7 +268,47 @@ def mineru_subprocess_environment() -> dict[str, str]:
     return environment
 
 
+def mineru_engine_arguments() -> list[str]:
+    """Read bounded engine options without accepting arbitrary MinerU arguments."""
+    configured = os.environ.get("MINERU_ENGINE_ARGS_JSON", "[]")
+    try:
+        arguments = json.loads(configured)
+    except json.JSONDecodeError as error:
+        raise ValueError("MINERU_ENGINE_ARGS_JSON must be a JSON argument list") from error
+    if not isinstance(arguments, list) or len(arguments) % 2:
+        raise ValueError("MINERU_ENGINE_ARGS_JSON must contain option/value pairs")
+    fractions = {"--cache-max-entry-count", "--gpu-memory-utilization"}
+    integers = {"--max-batch-size", "--session-len"}
+    validated: list[str] = []
+    seen: set[str] = set()
+    for offset in range(0, len(arguments), 2):
+        option, value = arguments[offset : offset + 2]
+        if not isinstance(option, str) or option not in fractions | integers:
+            raise ValueError("MINERU_ENGINE_ARGS_JSON contains an unsupported engine option")
+        if option in seen:
+            raise ValueError(f"MINERU_ENGINE_ARGS_JSON repeats {option}")
+        seen.add(option)
+        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            raise ValueError(f"{option} requires a numeric value")
+        rendered = str(value)
+        if option in integers:
+            if not re.fullmatch(r"[0-9]+", rendered) or int(rendered) < 1:
+                raise ValueError(f"{option} requires a positive integer")
+        else:
+            try:
+                fraction = float(rendered)
+            except ValueError as error:
+                raise ValueError(
+                    f"{option} requires a fraction greater than 0 and at most 1"
+                ) from error
+            if not math.isfinite(fraction) or not 0 < fraction <= 1:
+                raise ValueError(f"{option} requires a fraction greater than 0 and at most 1")
+        validated.extend((option, rendered))
+    return validated
+
+
 def run_mineru(source: Path, raw_dir: Path, backend: str, language: str) -> tuple[float, Path]:
+    api_url = mineru_api_url()
     raw_dir.mkdir(parents=True, exist_ok=True)
     log_path = raw_dir.parent / "mineru.log"
     command = [
@@ -246,6 +326,12 @@ def run_mineru(source: Path, raw_dir: Path, backend: str, language: str) -> tupl
         "--image-analysis",
         "false",
     ]
+    if api_url:
+        # Model/runtime options belong to the resident service. A failed API call
+        # must remain a failure rather than silently loading a second local model.
+        command.extend(("--api-url", api_url))
+    else:
+        command.extend(mineru_engine_arguments())
     started = time.monotonic()
     with log_path.open("w", encoding="utf-8") as log:
         completed = subprocess.run(
@@ -263,6 +349,52 @@ def run_mineru(source: Path, raw_dir: Path, backend: str, language: str) -> tupl
     return duration, log_path
 
 
+def run_paddle_gpu(source: Path, raw_dir: Path) -> tuple[float, Path]:
+    """Request the resident GPU text-line engine; never fall back to another OCR."""
+    configured = os.getenv("FAST_OCR_API_URL", "http://127.0.0.1:18201").strip()
+    message = "FAST_OCR_API_URL must be a loopback HTTP origin without credentials or a path"
+    try:
+        parsed = urlsplit(configured)
+        hostname, port = parsed.hostname, parsed.port
+        if (parsed.scheme != "http" or not hostname or parsed.username is not None
+                or parsed.password is not None or parsed.path not in {"", "/"}
+                or parsed.query or parsed.fragment or (port is not None and port < 1)
+                or any(character.isspace() for character in configured)):
+            raise ValueError(message)
+        if hostname != "localhost" and not ipaddress.ip_address(hostname).is_loopback:
+            raise ValueError(message)
+    except ValueError as error:
+        raise ValueError(message) from error
+    request = Request(
+        configured.rstrip("/") + "/ocr",
+        data=json.dumps({"source": str(source.resolve()), "output": str(raw_dir.resolve())}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST",
+    )
+    # Local paths are passed over loopback; outbound model proxies see no PDF.
+    opener = build_opener(ProxyHandler({}))
+    with opener.open(request, timeout=4 * 60 * 60) as response:
+        result = json.loads(response.read(65_537))
+    if not isinstance(result, dict):
+        raise RuntimeError("Fast OCR did not return an object result")
+    duration = result.get("duration_seconds")
+    if (result.get("status") != "complete" or isinstance(duration, bool)
+            or not isinstance(duration, (int, float)) or not math.isfinite(duration) or duration < 0):
+        raise RuntimeError("Fast OCR did not return a completed, timed GPU result")
+    expected = raw_dir.resolve()
+    artifacts = {}
+    for name in ("content_list", "markdown", "log_path"):
+        value = result.get(name)
+        if not isinstance(value, str):
+            raise RuntimeError("Fast OCR omitted an output artifact")
+        path = Path(value).resolve(strict=True)
+        if not path.is_relative_to(expected) or not path.is_file():
+            raise RuntimeError("Fast OCR returned an artifact outside the requested output")
+        artifacts[name] = path
+    if not artifacts["content_list"].name.endswith("_content_list.json"):
+        raise RuntimeError("Fast OCR returned an invalid content-list artifact")
+    return float(duration), artifacts["log_path"]
+
+
 def write_report(
     *,
     source: Path,
@@ -276,6 +408,18 @@ def write_report(
     markdown = find_artifact(raw_dir, ".md")
     expected_pages = pdf_page_count(source)
     pages = load_pages(content_list, expected_pages)
+    fast_metadata = None
+    if backend == "paddle-gpu":
+        fast_metadata = json.loads((raw_dir / "fast_ocr_metadata.json").read_text(encoding="utf-8"))
+        if fast_metadata.get("status") != "complete" or fast_metadata.get("pages") != expected_pages:
+            raise RuntimeError("Fast OCR metadata does not cover the entire source PDF")
+        raw_blocks = json.loads(content_list.read_text(encoding="utf-8"))
+        raw_page_numbers = {int(block["page_idx"]) + 1 for block in raw_blocks}
+        if not raw_page_numbers <= set(range(1, (expected_pages or 0) + 1)):
+            raise RuntimeError("Fast OCR returned an out-of-range source page")
+        for page in pages:
+            page["extraction_method"] = "paddle_gpu"
+            page["ocr_capabilities"] = fast_metadata["capabilities"]
     page_reports = [evaluate_page(page) for page in pages]
     bands = Counter(report["band"] for report in page_reports)
     scores = [report["heuristic_score"] for report in page_reports if report["band"] != "missing"]
@@ -303,6 +447,11 @@ def write_report(
         },
         "pages": page_reports,
     }
+    if fast_metadata is not None:
+        manifest["ocr_capabilities"] = fast_metadata["capabilities"]
+        manifest["resident_ocr_pid"] = fast_metadata["pid"]
+        manifest["inferred_headings"] = fast_metadata["inferred_headings"]
+        manifest["reading_order_quality_verified"] = False
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "quality_report.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -338,6 +487,8 @@ def write_report(
 
 > 自动质量分用于发现乱码、碎片、漏页和版面异常，不等同于有人工真值对照的字符错误率（CER）。
 """
+    if fast_metadata is not None:
+        summary += "\n> 快速模式使用 PP-OCRv5 GPU 文本检测和识别，不执行 VLM 版面分析、表格结构还原或专用公式识别；跨栏阅读顺序未经验证，章标题提示由真实 OCR 大字和目录原文交叉推断。\n"
     (output_dir / "quality_report.md").write_text(summary, encoding="utf-8")
     artifact_paths = [
         output_dir / "quality_report.json",
@@ -372,8 +523,15 @@ def main() -> None:
     if not source.is_file():
         raise FileNotFoundError(source)
     if args.skip_run:
-        log_path = output / "mineru.log"
-        duration = infer_log_duration(log_path)
+        if args.backend == "paddle-gpu":
+            metadata = json.loads((raw_dir / "fast_ocr_metadata.json").read_text(encoding="utf-8"))
+            log_path = raw_dir / "paddle.log"
+            duration = float(metadata["duration_seconds"])
+        else:
+            log_path = output / "mineru.log"
+            duration = infer_log_duration(log_path)
+    elif args.backend == "paddle-gpu":
+        duration, log_path = run_paddle_gpu(source, raw_dir)
     else:
         duration, log_path = run_mineru(source, raw_dir, args.backend, args.language)
     report = write_report(

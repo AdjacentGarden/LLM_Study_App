@@ -1,26 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from test_qa_service import FakeClient, FakeIndex
 
-from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
 from adaptive_learning.rag.service import QABusyError, TextbookQAService
-
-
-class SlowIndex(FakeIndex):
-    def __init__(self) -> None:
-        super().__init__(3)
-        self.fast_calls = 0
-
-    def search(self, question: str, **kwargs):
-        time.sleep(0.08)
-        return super().search(question, **kwargs)
-
-    def search_fast(self, question: str, **kwargs):
-        self.fast_calls += 1
-        return super().search(question, **kwargs)
+from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
+from test_qa_service import FakeClient, FakeIndex
 
 
 def service(**kwargs):
@@ -52,19 +38,6 @@ def test_cache_expires_and_does_not_cache_refusals():
     qa.answer("unrelated")
     qa.index.score = 3
     assert qa.answer("unrelated").status == "supported"
-
-
-def test_default_cache_survives_reading_break_but_expires(monkeypatch):
-    qa, client = service()
-    qa.answer("Q1")
-    before = time.monotonic()
-    with monkeypatch.context() as clock:
-        clock.setattr(time, "monotonic", lambda: before + 600)
-        assert qa.answer("Q1").cache_hit
-    with monkeypatch.context() as clock:
-        clock.setattr(time, "monotonic", lambda: before + 1801)
-        assert not qa.answer("Q1").cache_hit
-    assert client.calls == 2
 
 
 def test_simultaneous_identical_questions_generate_once():
@@ -122,41 +95,9 @@ def test_book_services_never_share_answers():
     assert a.calls == b.calls == 1
 
 
-def test_slow_neural_retrieval_falls_back_within_the_latency_budget():
-    index = SlowIndex()
-    qa = TextbookQAService(
-        book_id="test-book",
-        index=index,  # type: ignore[arg-type]
-        generator=GroundedAnswerGenerator(FakeClient()),  # type: ignore[arg-type]
-        retrieval_budget_seconds=0.02,
-    )
-
-    started = time.monotonic()
-    result = qa.answer("减数分裂有什么特点？")
-    elapsed = time.monotonic() - started
-
-    assert result.status == "supported"
-    assert index.fast_calls == 1
-    assert elapsed < 0.07
-
-
 @pytest.mark.parametrize("question", ["", "   ", "x" * 2001])
 def test_service_validates_inputs(question):
     qa, client = service()
     with pytest.raises(ValueError):
         qa.answer(question)
     assert client.calls == 0
-
-
-def test_fallback_cache_never_overwrites_full_retrieval_and_expires_quickly():
-    qa, _ = service()
-    full = qa.index.search("question", top_pages=1, max_evidence=1)
-    qa._remember_retrieval("question", full)
-    full_entry = qa._retrieval_cache["question"]
-    fallback = qa.index.search("fallback", top_pages=1, max_evidence=1)
-    qa._remember_retrieval("question", fallback, degraded=True)
-    assert qa._retrieval_cache["question"] == full_entry
-    qa._remember_retrieval("other", fallback, degraded=True)
-    assert qa._retrieval_cache["other"][0] - time.monotonic() <= 5
-    qa._remember_retrieval("other", full)
-    assert qa._retrieval_cache["other"][2] is False

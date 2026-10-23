@@ -4,13 +4,22 @@ import json
 import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 
+import httpx
 import pytest
 from PIL import Image
+from studio_note_review_fixtures import note_review_fixture
 from test_community import community as community
 
 from adaptive_learning.config import get_settings
-from adaptive_learning.studio import Studio, get_studio, render_ink
+from adaptive_learning.studio import (
+    ProviderRejected,
+    Studio,
+    StudioPlanContractError,
+    get_studio,
+    render_ink,
+)
 from adaptive_learning.studio_diagram import render_diagram
 from adaptive_learning.studio_models import Recognition, TeachingPlan
 
@@ -93,6 +102,79 @@ def test_studio_json_mode_is_explicit_in_user_input(setup, monkeypatch):
     assert calls == [ink, "closed"]
 
 
+@pytest.mark.parametrize("failure", [httpx.ConnectTimeout, httpx.ReadTimeout])
+def test_media_submission_uses_configured_proxy_and_never_replays_transport_error(setup, monkeypatch, failure):
+    _, _, studio = setup
+    monkeypatch.setenv("LLM_HTTPS_PROXY", "http://127.0.0.1:8011")
+    monkeypatch.setenv("MINIMAX_API_KEY", "private-test-key")
+    monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimaxi.com/v1")
+    get_settings.cache_clear()
+    options=[]
+    requests=[]
+    class Client:
+        def __init__(self,**kwargs):options.append(kwargs)
+        def __enter__(self):return self
+        def __exit__(self,*args):return None
+        def post(self,url,**kwargs):
+            requests.append(url)
+            raise failure("request outcome unknown")
+    monkeypatch.setattr("adaptive_learning.studio.httpx.Client", Client)
+    try:
+        with pytest.raises(failure):
+            studio.minimax("/v1/image_generation", {"model":"image-01"})
+        assert requests==["https://api.minimaxi.com/v1/image_generation"]
+        assert options[0]["proxy"]=="http://127.0.0.1:8011"
+        assert options[0]["trust_env"] is False
+        assert options[0]["timeout"].connect==10
+        assert options[0]["timeout"].read==180
+    finally:
+        get_settings.cache_clear()
+
+
+def test_media_asset_download_uses_proxy_and_retains_private_address_guard(setup, monkeypatch):
+    _, _, studio = setup
+    monkeypatch.setenv("LLM_HTTPS_PROXY", "http://127.0.0.1:8011")
+    get_settings.cache_clear()
+    options=[]
+    class Response:
+        def __enter__(self):return self
+        def __exit__(self,*args):return None
+        def raise_for_status(self):pass
+        def iter_bytes(self):yield b"raw-video"
+    monkeypatch.setattr("adaptive_learning.studio.httpx.stream",lambda *args,**kwargs:options.append(kwargs) or Response())
+    monkeypatch.setattr("adaptive_learning.studio.socket.getaddrinfo",lambda *args,**kwargs:[(None,None,None,None,("8.8.8.8",443))])
+    try:
+        assert studio.download("https://assets.example/video",20)==b"raw-video"
+        assert options[0]["proxy"]=="http://127.0.0.1:8011"
+        assert options[0]["trust_env"] is False
+        with pytest.raises(ValueError,match="asset too large"):
+            studio.download("https://assets.example/video",2)
+        monkeypatch.setattr("adaptive_learning.studio.socket.getaddrinfo",lambda *args,**kwargs:[(None,None,None,None,("127.0.0.1",443))])
+        with pytest.raises(ValueError,match="private asset URL"):
+            studio.download("https://assets.example/video",20)
+        assert len(options)==2
+    finally:
+        get_settings.cache_clear()
+
+
+def test_media_provider_rejection_retains_only_numeric_safe_diagnostics(setup, monkeypatch):
+    _, _, studio = setup
+    monkeypatch.setenv("MINIMAX_API_KEY", "private-test-key")
+    class Client:
+        def __init__(self,**kwargs):pass
+        def __enter__(self):return self
+        def __exit__(self,*args):return None
+        def post(self,url,**kwargs):
+            return httpx.Response(200,json={"base_resp":{"status_code":1008,"status_msg":"untrusted private body"}},request=httpx.Request("POST",url))
+    monkeypatch.setattr("adaptive_learning.studio.httpx.Client", Client)
+    with pytest.raises(ProviderRejected) as caught:
+        studio.minimax("/v1/image_generation",{})
+    assert caught.value.http_status==200
+    assert caught.value.provider_code==1008
+    assert "untrusted private body" not in str(caught.value)
+    assert "private-test-key" not in str(caught.value)
+
+
 def test_studio_can_use_minimax_multimodal_fallback(setup, monkeypatch):
     _, _, studio = setup
     monkeypatch.setenv("STUDIO_LLM_PROVIDER", "minimax")
@@ -126,6 +208,116 @@ def test_studio_can_split_deepseek_planning_from_pucoding_vision(setup, monkeypa
         text.close()
         vision.close()
         get_settings.cache_clear()
+
+
+def test_studio_pucoding_route_overrides_global_deepseek_and_splits_vision(setup, monkeypatch):
+    _, _, studio = setup
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("STUDIO_LLM_PROVIDER", "pucoding")
+    monkeypatch.setenv("STUDIO_LLM_MODEL", "MiniMax-M3")
+    monkeypatch.setenv("STUDIO_VISION_MODEL", "vision-specific-model")
+    monkeypatch.setenv("PUCODING_API_KEY", "pucoding-test")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test")
+    get_settings.cache_clear()
+    text, vision = studio.client(), studio.client(vision=True)
+    try:
+        settings = get_settings()
+        assert text.config.base_url == settings.pucoding_base_url
+        assert text.config.api_key == "pucoding-test"
+        assert text.config.model == "MiniMax-M3"
+        assert vision.config.base_url == settings.pucoding_base_url
+        assert vision.config.api_key == "pucoding-test"
+        assert vision.config.model == "vision-specific-model"
+        assert settings.text_model == settings.deepseek_model
+    finally:
+        text.close()
+        vision.close()
+        get_settings.cache_clear()
+
+
+def test_studio_explicit_deepseek_keeps_configured_thinking_policy(setup, monkeypatch):
+    _, _, studio = setup
+    monkeypatch.setenv("STUDIO_LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("TEXT_LLM_THINKING_ENABLED", "false")
+    monkeypatch.setenv("TEXT_LLM_REASONING_EFFORT", "low")
+    get_settings.cache_clear()
+    client = studio.client()
+    try:
+        assert client.config.base_url == get_settings().deepseek_base_url
+        assert client.config.thinking_enabled is False
+        assert client.config.reasoning_effort == "low"
+    finally:
+        client.close()
+        get_settings.cache_clear()
+
+
+def test_studio_pucoding_capabilities_follow_studio_credentials_not_global_provider(community, monkeypatch):
+    _, _, repo, _ = community
+    studio = get_studio(repo.path.parent.parent)
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("STUDIO_LLM_PROVIDER", "pucoding")
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-test")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test")
+    monkeypatch.setenv("STUDIO_FFMPEG", "/test/ffmpeg")
+    monkeypatch.delenv("STUDIO_MEDIA_PAUSED_REASON", raising=False)
+    monkeypatch.setenv("PUCODING_API_KEY", "")
+    get_settings.cache_clear()
+    try:
+        assert studio.capabilities()["image"] is False
+        assert studio.capabilities()["video"] is False
+        assert studio.capabilities()["notes_ai"] is False
+        monkeypatch.setenv("PUCODING_API_KEY", "pucoding-test")
+        get_settings.cache_clear()
+        assert studio.capabilities()["image"] is True
+        assert studio.capabilities()["video"] is True
+    finally:
+        get_settings.cache_clear()
+
+
+def test_studio_official_minimax_text_can_keep_pucoding_vision_and_deepseek_notes(setup, monkeypatch):
+    _, _, studio = setup
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("STUDIO_LLM_PROVIDER", "minimax")
+    monkeypatch.setenv("STUDIO_LLM_MODEL", "MiniMax-M3")
+    monkeypatch.setenv("STUDIO_LLM_THINKING_ENABLED", "false")
+    monkeypatch.setenv("STUDIO_VISION_PROVIDER", "pucoding")
+    monkeypatch.setenv("STUDIO_VISION_MODEL", "vision-model")
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-test")
+    monkeypatch.setenv("PUCODING_API_KEY", "pucoding-test")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test")
+    monkeypatch.setenv("TEXT_LLM_THINKING_ENABLED", "false")
+    get_settings.cache_clear()
+    text, vision, note = studio.client(), studio.client(vision=True), studio.client(provider_override="deepseek")
+    try:
+        assert text.config.base_url == "https://api.minimaxi.com/v1"
+        assert text.config.api_key == "minimax-test"
+        assert text.config.model == "MiniMax-M3"
+        assert text.config.thinking_enabled is False
+        assert vision.config.api_key == "pucoding-test"
+        assert vision.config.model == "vision-model"
+        assert note.config.api_key == "deepseek-test"
+        assert note.config.model == get_settings().deepseek_model
+        assert note.config.thinking_enabled is False
+    finally:
+        text.close()
+        vision.close()
+        note.close()
+        get_settings.cache_clear()
+
+
+def test_studio_does_not_infer_minimax_thinking_policy_from_model_name(setup, monkeypatch):
+    _, _, studio = setup
+    monkeypatch.setenv("STUDIO_LLM_PROVIDER", "minimax")
+    monkeypatch.setenv("STUDIO_LLM_MODEL", "MiniMax-M3")
+    monkeypatch.delenv("STUDIO_LLM_THINKING_ENABLED", raising=False)
+    client = studio.client()
+    try:
+        assert client.config.thinking_enabled is None
+    finally:
+        client.close()
+    monkeypatch.setenv("STUDIO_LLM_THINKING_ENABLED", "invalid")
+    with pytest.raises(ValueError, match="STUDIO_LLM_THINKING_ENABLED"):
+        studio.client()
 
 
 def test_note_pipeline_can_use_a_faster_provider_without_changing_media_planning(
@@ -291,8 +483,8 @@ def test_voice_note_audio_is_private_versioned_and_processed(setup, monkeypatch)
         "suggestions": [],
         "polished": "DNA 分子边解旋边复制，需要模板、原料、能量和酶。",
     }
-    replies = iter([result, {"passed": True, "reason": ""}])
-    monkeypatch.setattr(studio, "llm", lambda *args: next(replies))
+    replies = iter([result, {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"}])
+    monkeypatch.setattr(studio, "llm", lambda *args: note_review_fixture(args[0], next(replies), global_failure="polished"))
     monkeypatch.setattr(
         studio,
         "evidence",
@@ -382,7 +574,7 @@ def test_media_plan_generation_review_private_asset(setup, monkeypatch):
         "supported": True,
         "video_suitable": False,
     }
-    responses = iter([plan, {"passed": True, "reason": ""}, visual_review()])
+    responses = iter([plan, {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"}, visual_review()])
     monkeypatch.setattr(s, "llm", lambda *args: next(responses))
     monkeypatch.setattr(s, "evidence", lambda *args: evidence)
     image = io.BytesIO()
@@ -484,6 +676,118 @@ def test_malformed_media_plan_never_skips_factual_review(setup, monkeypatch):
     assert calls == []
 
 
+def test_plan_root_constraint_repair_receives_actual_error_and_schema(setup, monkeypatch):
+    _, _, studio = setup
+    draft = {"title":"外观对比", "explanation":"只对比可见外观。", "points":["长"*121],
+             "visual_prompt":"Two colorful flowers with distinct visible shapes.", "caution":"仅作外观示意。",
+             "supported":True, "video_suitable":True, "visual_scope":"只比较花的可见外观。", "visual_checks":["花形不同"]}
+    prompts=[]
+    def llm(prompt):
+        prompts.append(prompt)
+        return draft if len(prompts)==1 else {**draft,"points":["两种花的可见形态不同"]}
+    monkeypatch.setattr(studio,"llm",llm)
+    assert studio.teaching_plan("基于教材证据为选中段落规划", "原文").points == ["两种花的可见形态不同"]
+    assert '"maxLength":1200' in prompts[0]
+    assert '"loc": []' in prompts[1]
+    assert "teaching points and visual checks must stay concise" in prompts[1]
+    assert '"input"' not in prompts[1]
+
+
+def test_factual_plan_revision_uses_schema_repair_and_is_independently_reviewed(setup, monkeypatch):
+    a, _, studio = setup
+    plan={"title":"花形对比","explanation":"只对比外观，不推断遗传或物种。","points":["只比较可见的代表性外观"],
+        "visual_prompt":"Two groups of consistent representative flowers, with different forms and colors.",
+        "caution":"示意分组不表示自然种群完全没有变异。","supported":True,"video_suitable":True,
+        "visual_scope":"仅比较两组花的可见外观。","visual_checks":["两组外观不同"]}
+    replies=iter([plan,{"passed":False,"reason":"需更清晰地区分两组"},{**plan,"points":["长"*121]},
+                  plan,{"passed":True,"reason":"已核对"}])
+    prompts=[]
+    def llm(prompt,*args):
+        prompts.append(prompt)
+        return next(replies)
+    monkeypatch.setattr(studio,"llm",llm)
+    monkeypatch.setattr(studio,"evidence",lambda *args:[{"page":1,"text":"两组植株的形态和花色不同。"}])
+    calls=[]
+    monkeypatch.setattr(studio,"minimax",lambda *args:calls.append(args) or {"task_id":"123"})
+    key=a.post("/api/studio/media",json=media(kind="video")).json()["id"]
+    run(studio,a,key)
+    assert prompts[2].startswith("根据审核意见最小修改")
+    assert "JSON schema" in prompts[2]
+    assert prompts[3].startswith("修复上一份教学画面方案")
+    assert prompts[4].startswith("审核以下教学方案")
+    assert len(calls)==1
+    assert a.get("/api/studio/jobs/"+key).json()["status"]=="polling"
+
+
+@pytest.mark.parametrize("changed",[False,True])
+def test_plan_review_format_repair_cannot_turn_rejection_into_approval(setup,monkeypatch,changed):
+    _, _, studio=setup
+    replies=iter([{"passed":False,"reason":"拒绝原因"*300},{"passed":changed,"reason":"压缩后的拒绝依据"}])
+    monkeypatch.setattr(studio,"llm",lambda *args:next(replies))
+    if changed:
+        with pytest.raises(StudioPlanContractError,match="contract"):
+            studio.review_plan("审核以下教学方案")
+    else:
+        assert studio.review_plan("审核以下教学方案").passed is False
+
+
+def test_media_raw_output_trace_precedes_validation_and_excludes_credentials(setup,monkeypatch):
+    from pydantic import ValidationError
+
+    from adaptive_learning.studio_models import Review
+    a, _, studio=setup
+    key=a.post("/api/studio/media",json=media()).json()["id"]
+    studio._media_trace.job_id=key
+    raw={"passed":False,"reason":"拒绝原因"*300}
+    class Client:
+        config=SimpleNamespace(model="MiniMax-M3",base_url="https://api.minimaxi.com/v1",api_key="private-never-store")
+        def structured(self,**kwargs):return raw
+        def close(self):pass
+    monkeypatch.setattr(studio,"client",lambda *args:Client())
+    result=studio.llm("审核以下教学方案")
+    with pytest.raises(ValidationError):
+        Review.model_validate(result)
+    directory=studio.assets/"private-media-traces"
+    files=list(directory.glob(key+"-*.json"))
+    assert len(files)==1
+    saved=files[0].read_text()
+    assert json.loads(saved)["response"]==raw
+    assert "private-never-store" not in saved
+    assert files[0].stat().st_mode & 0o777==0o600
+    assert directory.stat().st_mode & 0o777==0o700
+    assert "private-media-traces" not in json.dumps(a.get("/api/studio/jobs/"+key).json())
+
+
+def test_invalid_repair_keeps_private_feedback_and_never_submits_media(setup, monkeypatch):
+    a, _, studio = setup
+    draft = {"title":"外观对比", "explanation":"只对比可见外观。", "points":["长"*121],
+             "visual_prompt":"Two colorful flowers with distinct visible shapes.", "caution":"仅作外观示意。",
+             "supported":True, "video_suitable":True, "visual_scope":"只比较花的可见外观。", "visual_checks":["花形不同"]}
+    calls=[]
+    monkeypatch.setattr(studio,"llm",lambda *args:draft)
+    monkeypatch.setattr(studio,"evidence",lambda *args:[{"page":1,"text":"两种花的形态不同。"}])
+    monkeypatch.setattr(studio,"minimax",lambda *args:calls.append(args))
+    key=a.post("/api/studio/media",json=media()).json()["id"]
+    update=studio.update
+    def update_then_stop(job_id,**fields):
+        update(job_id,**fields)
+        if fields.get("status")=="failed":
+            studio.stop_event.set()
+    monkeypatch.setattr(studio,"update",update_then_stop)
+    studio.loop("media")
+    public=a.get("/api/studio/jobs/"+key).json()
+    assert public["status"]=="failed"
+    assert "_diagnostic" not in public["result"]
+    assert "candidate" not in json.dumps(public)
+    with studio.repo.connect() as db:
+        stored=json.loads(db.execute("SELECT result FROM studio_jobs WHERE id=?",(key,)).fetchone()[0])
+    private=stored["_diagnostic"]["plan_contract"]
+    assert private["repaired_candidate"]["points"]==draft["points"]
+    assert private["repair_errors"][0]["loc"]==[]
+    assert "input" not in private["repair_errors"][0]
+    assert calls==[]
+
+
 def test_ink_render_and_note_analysis_confirmation_accept_undo(setup, monkeypatch):
     a, b, s = setup
     a.post("/api/studio/notes", json=note())
@@ -503,9 +807,9 @@ def test_ink_render_and_note_analysis_confirmation_accept_undo(setup, monkeypatc
         "polished": "函数调用自身，需要终止条件。",
     }
     responses = iter(
-        [{"transcript": "函数调用自己", "uncertain": []}, output, {"passed": True, "reason": ""}]
+        [{"transcript": "函数调用自己", "uncertain": []}, output, {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"}]
     )
-    monkeypatch.setattr(s, "llm", lambda *args: next(responses))
+    monkeypatch.setattr(s, "llm", lambda *args: note_review_fixture(args[0], next(responses), global_failure="polished"))
     monkeypatch.setattr(s, "evidence", lambda *args: evidence)
     action = {"action": "recognize", "request_id": "analysis_111", "revision": 1, "consent": True}
     key = a.post("/api/studio/notes/note_123456/analyze", json=action).json()["id"]
@@ -563,14 +867,14 @@ def test_complete_one_request_and_uncertainty_gate(setup, monkeypatch, unclear):
                 "uncertain": ["第二字"] if unclear else [],
             },
             output,
-            {"passed": True, "reason": ""},
+            {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"},
         ]
     )
     calls = []
 
     def llm(prompt, images=None):
         calls.append(bool(images))
-        return next(replies)
+        return note_review_fixture(prompt, next(replies), global_failure="polished")
 
     monkeypatch.setattr(s, "llm", llm)
     monkeypatch.setattr(s, "evidence", lambda *args: [{"page": 1, "text": "函数需要终止条件。"}])
@@ -602,7 +906,7 @@ def test_complete_runs_independent_vision_reads_concurrently(setup, monkeypatch)
     text_replies = iter(
         [
             {"summary": "提纲", "suggestions": [], "polished": "函数"},
-            {"passed": True, "reason": ""},
+            {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"},
         ]
     )
 
@@ -610,7 +914,7 @@ def test_complete_runs_independent_vision_reads_concurrently(setup, monkeypatch)
         if images:
             barrier.wait(timeout=1)
             return {"transcript": "函数", "uncertain": []}
-        return next(text_replies)
+        return note_review_fixture(prompt, next(text_replies))
 
     monkeypatch.setattr(s, "llm", llm)
     monkeypatch.setattr(s, "evidence", lambda *args: [{"page": 1, "text": "函数"}])
@@ -661,7 +965,7 @@ def test_complete_keeps_valid_read_when_independent_shape_is_invalid(setup, monk
     a.post("/api/studio/notes", json=note())
 
     def llm(prompt, images=None):
-        if images and prompt.startswith("独立逐笔识别"):
+        if images and prompt.startswith("独立逐笔转写"):
             return {"message": "gateway returned an incomplete object"}
         if images:
             return {"transcript": "函数", "uncertain": [], "confidence": 0.99}
@@ -691,7 +995,7 @@ def test_complete_repairs_malformed_improvement_without_repeating_vision(setup, 
         [
             {"summary": "字段不完整"},
             {"summary": "提纲", "suggestions": [], "polished": "函数"},
-            {"passed": True, "reason": ""},
+            {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"},
         ]
     )
     calls = {"vision": 0, "text": 0}
@@ -701,7 +1005,7 @@ def test_complete_repairs_malformed_improvement_without_repeating_vision(setup, 
             calls["vision"] += 1
             return {"transcript": "函数", "uncertain": []}
         calls["text"] += 1
-        return next(text_replies)
+        return note_review_fixture(prompt, next(text_replies))
 
     monkeypatch.setattr(s, "llm", llm)
     monkeypatch.setattr(s, "evidence", lambda *args: [{"page": 1, "text": "函数"}])
@@ -735,7 +1039,7 @@ def test_note_review_repairs_once_and_rechecks(setup, monkeypatch, repair_passes
             {"passed": repair_passes, "reason": "复核"},
         ]
     )
-    monkeypatch.setattr(s, "llm", lambda *args: next(replies))
+    monkeypatch.setattr(s, "llm", lambda *args: note_review_fixture(args[0], next(replies), global_failure="polished"))
     monkeypatch.setattr(s, "evidence", lambda *args: [{"page": 1, "text": "A 与 B 同时进行。"}])
     key = a.post(
         "/api/studio/notes/note_123456/analyze",
@@ -763,7 +1067,7 @@ def test_complete_never_publishes_result_after_ink_changes(setup, monkeypatch):
         [{"transcript": "函数", "uncertain": []}] * 2
         + [
             {"summary": "提纲", "suggestions": [], "polished": "函数"},
-            {"passed": True, "reason": ""},
+            {"passed": True, "reason": "offline explicit approval fixture; not measured model quality"},
         ]
     )
 
@@ -771,7 +1075,7 @@ def test_complete_never_publishes_result_after_ink_changes(setup, monkeypatch):
         result = next(responses)
         if "passed" in result:
             a.post("/api/studio/notes", json=note(revision=1, title="新的笔记"))
-        return result
+        return note_review_fixture(args[0], result)
 
     monkeypatch.setattr(s, "llm", llm)
     monkeypatch.setattr(s, "evidence", lambda *args: [{"page": 1, "text": "函数"}])
@@ -787,12 +1091,60 @@ def test_restart_never_resubmits_paid_request(setup, monkeypatch):
     a, _, s = setup
     key = a.post("/api/studio/media", json=media()).json()["id"]
     s.update(key, status="submitting")
-    monkeypatch.setattr(s, "loop", lambda: None)
+    monkeypatch.setattr(s, "loop", lambda lane='all': None)
     s.start()
     s.stop()
     value = a.get("/api/studio/jobs/" + key).json()
     assert value["status"] == "uncertain"
     assert a.post("/api/studio/media", json=media(request_id="after_restart")).json()["id"] == key
+
+
+def test_planning_failure_releases_reserve_but_unknown_submission_retains_it(setup):
+    a, _, studio = setup
+    first=a.post("/api/studio/media",json=media()).json()["id"]
+    studio.update(first,status="planning")
+    studio.update(first,status="failed",error="方案不适合")
+    second=a.post("/api/studio/media",json=media(request_id="other_plan",excerpt="另一个有依据的选段")).json()["id"]
+    studio.update(second,status="submitting")
+    studio.update(second,status="uncertain",error="回复丢失")
+    third=a.post("/api/studio/media",json=media(request_id="asset_already_exists",excerpt="已经有资产的原文")).json()["id"]
+    (studio.assets/(third+".jpg")).write_bytes(b"an existing asset")
+    studio.update(third,status="planning")
+    studio.update(third,status="failed",error="保守保留已有资产的占额")
+    with studio.repo.connect() as db:
+        rows={row["id"]:row["reserved"] for row in db.execute("SELECT id,reserved FROM studio_jobs")}
+    assert rows[first]==0
+    assert rows[second]==0.025
+    assert rows[third]==0.025
+
+
+@pytest.mark.parametrize("status,stage,provider,provider_id,asset,refunded",[
+    ("failed","planning",None,"",False,True),
+    ("failed","plan_review",None,"",False,True),
+    ("failed","submitting","MiniMax","",False,False),
+    ("failed","reviewing","MiniMax","",False,False),
+    ("uncertain","planning",None,"",False,False),
+    ("failed","planning",None,"123",False,False),
+    ("failed","planning",None,"",True,False),
+    ("failed","planning","MiniMax","",False,False),
+])
+def test_restart_reconciles_only_proven_unsubmitted_reserves(setup,monkeypatch,status,stage,provider,provider_id,asset,refunded):
+    a, _, studio=setup
+    key=a.post("/api/studio/media",json=media()).json()["id"]
+    result={"_diagnostic":{"stage":stage}}
+    if provider:
+        result["provider"]=provider
+    with studio.repo.connect() as db:
+        db.execute("UPDATE studio_jobs SET status=?,result=?,provider_id=? WHERE id=?",
+                   (status,json.dumps(result),provider_id,key))
+    if asset:
+        (studio.assets/(key+".jpg")).write_bytes(b"existing provider asset")
+    monkeypatch.setattr(studio,"loop",lambda lane="all":None)
+    studio.start()
+    studio.stop()
+    with studio.repo.connect() as db:
+        row=db.execute("SELECT reserved FROM studio_jobs WHERE id=?",(key,)).fetchone()
+    assert row["reserved"]==(0 if refunded else 0.025)
 
 
 def test_failed_visual_review_retains_private_reason_and_hides_asset(setup, monkeypatch):

@@ -1,3 +1,5 @@
+> 2026-10-23 optimization candidate: this branch preserves the tested native iPhone + fast resident GPU OCR candidate based on `6d01e7f`. See [current status and limits](docs/optimization-status-20261023.md) and [native build instructions](ios/README-build.md). It is a source snapshot; no signed IPA or production release is claimed. New PostgreSQL/SwiftUI changes on the current main branch are preserved separately and have not been merged here.
+
 # 云径 CloudPath
 
 > 同一本书，不同的起点，不同的学习路径。

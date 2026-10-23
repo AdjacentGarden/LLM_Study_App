@@ -21,7 +21,7 @@ class SourceCitation(BaseModel):
 class KnowledgePoint(BaseModel):
     point_id: str
     title: str = Field(min_length=1, max_length=180)
-    explanation: str = Field(min_length=1, max_length=300)
+    explanation: str = Field(min_length=1, max_length=1200)
     importance: str
     mastery: float = Field(ge=0, le=1)
     state: str
@@ -48,11 +48,11 @@ class LessonSection(BaseModel):
 class PracticeItem(BaseModel):
     item_id: str
     point_id: str
-    prompt: str = Field(min_length=1, max_length=180)
+    prompt: str = Field(min_length=1, max_length=300)
     response_type: str = "explanation"
     options: list[str] = Field(default_factory=list)
     correct_option_ids: list[str] = Field(default_factory=list)
-    expected_answer: str = Field(min_length=1, max_length=360)
+    expected_answer: str = Field(min_length=1, max_length=800)
     rubric: list[str] = Field(default_factory=list, max_length=6)
     difficulty: float = Field(ge=-3, le=3)
     estimated_seconds: int = Field(ge=10, le=600)
@@ -90,6 +90,13 @@ class PersonalizationDecision(BaseModel):
     explanation: str = Field(min_length=1, max_length=600)
 
 
+class StudyUnit(BaseModel):
+    unit_id: str
+    title: str
+    point_ids: list[str] = Field(min_length=1)
+    estimated_minutes: int = Field(ge=1, le=600)
+
+
 class ChapterLearningBundle(BaseModel):
     course_id: str
     version: int = Field(ge=1)
@@ -110,6 +117,14 @@ class ChapterLearningBundle(BaseModel):
     estimated_minutes: int = Field(ge=1, le=600)
     created_at: datetime
     unresolved_source_warnings: list[str] = Field(default_factory=list)
+    study_units: list[StudyUnit] = Field(default_factory=list)
+    teaching_quality_version: str = ""
+    teaching_evidence_fingerprint: str = ""
+    teaching_review: dict[str, object] = Field(default_factory=dict)
+    teaching_fact_review: dict[str, object] = Field(default_factory=dict)
+    # Untrusted planning hints, not approval; intentionally absent from public output.
+    teaching_scope_version: str = ""
+    teaching_scope_plan: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
 
 
 class PublicChapterLearningBundle(BaseModel):
@@ -129,6 +144,7 @@ class PublicChapterLearningBundle(BaseModel):
     estimated_minutes: int
     created_at: datetime
     unresolved_source_warnings: list[str]
+    study_units: list[StudyUnit] = Field(default_factory=list)
 
     @classmethod
     def from_private(cls, bundle: ChapterLearningBundle) -> PublicChapterLearningBundle:
@@ -151,4 +167,5 @@ class PublicChapterLearningBundle(BaseModel):
             estimated_minutes=bundle.estimated_minutes,
             created_at=bundle.created_at,
             unresolved_source_warnings=bundle.unresolved_source_warnings,
+            study_units=bundle.study_units,
         )

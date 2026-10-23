@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from ..ingestion.models import BookStructure, ChapterDraft, SourceQuote
+from ..llm.book_parallel import ordered_book_map
 from ..llm.client import LLMError, OpenAICompatibleClient
 from .models import DiagnosticItem, ResponseType
 
@@ -107,12 +108,16 @@ class DiagnosticItemGenerator:
         self.allow_grounded_answer_rewrite = allow_grounded_answer_rewrite
 
     def generate(self, structure: BookStructure) -> list[DiagnosticItem]:
-        items: list[DiagnosticItem] = []
-        for chapter in structure.chapters:
+        def generate_chapter(chapter: ChapterDraft) -> list[DiagnosticItem]:
             selected = self._select_points(chapter)
             if not selected:
-                continue
-            items.extend(self._generate_chapter(structure.title, chapter, selected))
+                return []
+            # Generation and its mandatory semantic review stay together; a
+            # different chapter may progress independently through the same gate.
+            return self._generate_chapter(structure.title, chapter, selected)
+
+        batches = ordered_book_map(generate_chapter, structure.chapters)
+        items = [item for batch in batches for item in batch]
         if not items:
             raise DiagnosticGenerationError(
                 "structure contains no evidence-backed knowledge points"

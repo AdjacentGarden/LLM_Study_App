@@ -16,6 +16,7 @@ from .models import (
     PracticeItem,
     SourceCitation,
     TeachingDepth,
+    StudyUnit,
 )
 
 
@@ -36,13 +37,17 @@ def profile_fingerprint(profile: LearnerProfile) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def chapter_fingerprint(chapter: ChapterDraft) -> str:
+def chapter_fingerprint(chapter: ChapterDraft, evidence_fingerprint: str = "") -> str:
     # Invalidate compiled drafts when teaching-text semantics change.
-    return hashlib.sha256(("complete-titles-v2:" + chapter.model_dump_json()).encode()).hexdigest()
+    return hashlib.sha256(("full-evidence-pedagogy-v1:" + evidence_fingerprint + ":" + chapter.model_dump_json()).encode()).hexdigest()
 
 
 class ChapterCourseCompiler:
-    """Compiles a profile-specific course from verified chapter evidence."""
+    """Build a private draft covering every supported extracted point.
+
+    This draft is not publishable until TeachingContentGenerator has generated
+    substantive instruction and independently reviewed the complete chapter.
+    """
 
     def compile(
         self,
@@ -52,14 +57,17 @@ class ChapterCourseCompiler:
         decision: PersonalizationDecision,
         version: int = 1,
         instance_key: str = "",
+        source_fingerprint: str | None = None,
     ) -> ChapterLearningBundle:
         if version < 1:
             raise ValueError("course version must be positive")
         candidates = self._rank_points(chapter, profile)
         if not candidates:
             raise ValueError("chapter has no evidence-backed knowledge points")
-        selected = candidates[: self._point_limit(profile, decision.depth, len(candidates))]
-        source_hash = chapter_fingerprint(chapter)
+        if len(candidates) != len(chapter.knowledge_points):
+            raise ValueError("chapter has knowledge points without evidence")
+        selected = candidates
+        source_hash = source_fingerprint or chapter_fingerprint(chapter)
         profile_hash = profile_fingerprint(profile)
         course_digest = hashlib.sha256(
             f"{instance_key}:{chapter.chapter_id}:{source_hash}:{profile_hash}".encode()
@@ -143,30 +151,27 @@ class ChapterCourseCompiler:
                     )
                 )
 
-        reading_limit = {
-            TeachingDepth.FOUNDATION: 12,
-            TeachingDepth.STANDARD: 8,
-            TeachingDepth.ADVANCED: 6,
-        }[decision.depth]
-        reading = reading[:reading_limit]
         estimated = max(
             5,
             round(sum(len(section.content) for section in reading) / 300)
             + round(len(flashcards) * 0.7)
             + round(len(practices) * 1.5),
         )
-        warnings = []
-        if len(selected) < len(chapter.knowledge_points):
-            warnings.append(
-                f"本次按每日 {profile.constraints.minutes_per_day} 分钟选取 {len(selected)}/{len(chapter.knowledge_points)} 个知识点；其余内容将在后续单元继续。"
-            )
+        points_per_unit = max(1, profile.constraints.minutes_per_day // 4)
+        units = [StudyUnit(
+            unit_id=f"unit_{course_digest}_{offset // points_per_unit + 1}",
+            title=f"学习单元 {offset // points_per_unit + 1}",
+            point_ids=[point.point_id for point in knowledge_points[offset:offset + points_per_unit]],
+            estimated_minutes=min(600, 4 * len(knowledge_points[offset:offset + points_per_unit])),
+        ) for offset in range(0, len(knowledge_points), points_per_unit)]
         return ChapterLearningBundle(
             course_id=course_id,
             version=version,
             chapter_id=chapter.chapter_id,
             chapter_title=chapter.title,
             decision=decision,
-            opening=_opening(profile, decision, len(selected)),
+            opening=(_opening(profile, decision, len(selected)) +
+                     f"本章已按证据整理全部 {len(selected)} 个提炼知识点，建议分 {len(units)} 个学习单元完成。")[:300],
             summary=chapter.summary,
             original_reading=reading,
             knowledge_points=knowledge_points,
@@ -179,7 +184,8 @@ class ChapterCourseCompiler:
             source_fingerprint=source_hash,
             estimated_minutes=min(600, estimated),
             created_at=datetime.now(UTC),
-            unresolved_source_warnings=warnings,
+            unresolved_source_warnings=[],
+            study_units=units,
         )
 
     @staticmethod
@@ -203,17 +209,6 @@ class ChapterCourseCompiler:
                 item[1],
             ),
         )
-
-    @staticmethod
-    def _point_limit(profile: LearnerProfile, depth: TeachingDepth, available: int) -> int:
-        depth_limit = {
-            TeachingDepth.FOUNDATION: 12,
-            TeachingDepth.STANDARD: 8,
-            TeachingDepth.ADVANCED: 6,
-        }[depth]
-        time_limit = max(3, profile.constraints.minutes_per_day // 4)
-        return min(available, depth_limit, time_limit)
-
 
 def _citation(quote: SourceQuote) -> SourceCitation:
     return SourceCitation(page_number=quote.page_number, quote=quote.quote)

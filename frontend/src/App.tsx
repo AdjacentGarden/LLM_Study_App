@@ -1,3 +1,5 @@
+import { CourseTaskNotice, type CourseWork } from "./components/CourseTaskNotice";
+import { readCourseTask } from "./components/courseTaskStatus";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api/client";
 import { ApiError } from "./api/transport";
@@ -34,6 +36,8 @@ import {
 } from "./components/StudioShell";
 import type { Anchor } from "./api/learningStudio";
 import { useAnimatedView } from "./components/useAnimatedView";
+import { CourseTaskCancelled, CourseTaskFailure, loadChapterCourse, operationId,
+  PendingOperations, reconcileInterviewFailure, type CourseJob } from "./components/learningReliability";
 import type {
   BookCatalogItem,
   BookStructure,
@@ -65,8 +69,6 @@ const preloadSocial = () => { void import("./components/SocialPage"); };
 
 const SESSION_KEY = "zhiwo.active-session";
 const ACTIVE_BOOK_KEY = "zhiwo.active-book";
-const eventId = () =>
-  `event_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 const depthLabel = {
   foundation: "基础支架",
   standard: "结构理解",
@@ -74,20 +76,33 @@ const depthLabel = {
 };
 
 function App() {
-  const { safeGet, safeSet } = useMemo(captureStorage, []);
+  const storage = useMemo(captureStorage, []);
+  const { safeGet, safeSet } = storage;
+  const pendingOperations = useMemo(() => new PendingOperations(storage), [storage]);
   const [books, setBooks] = useState<BookCatalogItem[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [book, setBook] = useState<BookCatalogItem | null>(null);
   const [structure, setStructure] = useState<BookStructure | null>(null);
   const [session, setSession] = useState<InterviewResponse | null>(null);
-  const [view, setView] = useAnimatedView<View>("home");
+  const [view, navigate] = useAnimatedView<View>("home");
+  const navigationRevision = useRef(0);
+  function setView(next: View) { ++navigationRevision.current; navigate(next); }
   const [course, setCourse] = useState<Course | null>(null);
   const [courseTab, setCourseTab] = useState<CourseTab>("guide");
   const [selected, setSelected] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [confidence, setConfidence] = useState(0.65);
   const [busy, setBusy] = useState(false);
+  const learningMutationLock = useRef(false);
+  const [courseWork, setCourseWork] = useState<CourseWork | null>(null);
+  const [courseLoading, setCourseLoading] = useState(false);
+  const courseGeneration = useRef(0), currentSession = useRef(session?.session_id);
+  currentSession.current = session?.session_id;
+  useEffect(() => {
+    ++courseGeneration.current; setCourseWork(null); setCourseLoading(false);
+    return () => { ++courseGeneration.current; };
+  }, [session?.session_id]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -202,6 +217,16 @@ function App() {
       setStructure(chapters);
       setSession(matching);
       setCourse(null);
+      if (matching) {
+        try {
+          const draft = JSON.parse(safeGet(`zhiwo.interview-draft:${matching.session_id}`) ?? "null");
+          if (draft?.turnId === matching.turn.turn_id) {
+            setInput(typeof draft.input === "string" ? draft.input : "");
+            setSelected(Array.isArray(draft.selected) ? draft.selected.filter((id: unknown) => typeof id === "string") : []);
+            setConfidence(typeof draft.confidence === "number" ? draft.confidence : .65);
+          }
+        } catch { /* Keep the server turn when a local draft is malformed. */ }
+      }
       safeSet(SESSION_KEY, matching?.session_id ?? null);
       safeSet(ACTIVE_BOOK_KEY, active?.book_id ?? null);
       if (matching)
@@ -269,6 +294,17 @@ function App() {
   const turn = session?.turn;
   const diagnosed = profile?.diagnostic_observations.length ?? 0;
   const completed = session?.phase === "complete";
+  useEffect(() => {
+    if (!session || !course) return;
+    const item = course.practice_items[practiceIndex];
+    if (!item) return;
+    const payload = pendingOperations.pending(`${session.session_id}:practice:${course.course_id}:${item.item_id}`);
+    if (typeof payload?.answer === "string") {
+      setInput(payload.answer);
+      if (typeof payload.confidence === "number") setConfidence(payload.confidence);
+      setNotice("已恢复上次尚未确认的作答，重新提交会核对同一次记录。");
+    }
+  }, [session?.session_id, course?.course_id, practiceIndex, pendingOperations]);
   const canSubmit = useMemo(() => {
     if (!turn || busy) return false;
     if (turn.phase === "adaptive_diagnosis" && !turn.item) return true;
@@ -278,6 +314,7 @@ function App() {
 
   function acceptInterview(next: InterviewResponse) {
     setSession(next);
+    safeSet(`zhiwo.interview-draft:${next.session_id}`, null);
     safeSet(SESSION_KEY, next.session_id);
     safeSet(`${SESSION_KEY}:${next.profile.book_id}`, next.session_id);
     setSelected([]);
@@ -307,7 +344,9 @@ function App() {
   }
 
   async function submitInterview() {
-    if (!session || !turn || !canSubmit) return;
+    if (!session || !turn || !canSubmit || learningMutationLock.current) return;
+    learningMutationLock.current = true;
+    safeSet(`zhiwo.interview-draft:${session.session_id}`, JSON.stringify({ turnId: turn.turn_id, input, selected, confidence }));
     setBusy(true);
     setError("");
     try {
@@ -361,6 +400,7 @@ function App() {
           turn: next.next_turn,
           profile: next.profile,
         });
+        safeSet(`zhiwo.interview-draft:${session.session_id}`, null);
         setSelected([]);
         setInput("");
         setConfidence(0.65);
@@ -370,56 +410,92 @@ function App() {
         );
       }
     } catch (value) {
-      setError((value as Error).message);
+      // A timed-out POST may already have advanced the persisted interview.
+      // Re-read before allowing another answer; retain input when it did not save.
+      try {
+        const recovered = await reconcileInterviewFailure(() => api.resume(session.session_id), turn.turn_id);
+        if (recovered.advanced) {
+          acceptInterview(recovered.interview);
+          setError(""); setNotice("上次回答已保存，已恢复到当前步骤。");
+          if (recovered.interview.phase === "complete") setView("home");
+        } else { setSession(recovered.interview); setError((value as Error).message); }
+      } catch { setError(`${(value as Error).message} 本题尚未确认，已保留你的输入。`); }
     } finally {
+      learningMutationLock.current = false;
       setBusy(false);
     }
+  }
+
+  // Status checks are GET-only, including for exhausted terminal jobs.
+  async function checkCourseTask() {
+    if (!session || !courseWork?.jobId || courseLoading) return;
+    const sessionId = session.session_id, chapterId = courseWork.chapterId;
+    const serial = ++courseGeneration.current;
+    const active = () => courseGeneration.current === serial && currentSession.current === sessionId;
+    setCourseLoading(true);
+    try {
+      const job = await readCourseTask(api, sessionId, chapterId, courseWork.jobId);
+      if (active()) setCourseWork({ chapterId, status: job.status, error: job.error ?? "", retryable: job.retryable, jobId: job.job_id });
+    } catch {
+      if (active()) setNotice("暂时无法查询任务状态，原任务已保留。请检查服务连接。");
+    } finally { if (active()) setCourseLoading(false); }
   }
 
   async function openCourse(
     chapterId: string,
     initialTab: "guide" | "cards" = "guide",
+    refresh = false,
+    retryFailed = false,
   ) {
-    if (!session || busy) return;
-    setBusy(true);
+    if (!session) return;
+    if (courseLoading && courseWork?.chapterId === chapterId) {
+      setNotice("本章仍在准备，你可以继续浏览其他内容。"); return;
+    }
+    const sessionId = session.session_id, navigationAtStart = navigationRevision.current;
+    const serial = ++courseGeneration.current;
+    const active = () => courseGeneration.current === serial && currentSession.current === sessionId;
+    setCourseLoading(true);
+    setCourseWork({ chapterId, status: "checking", error: "", retryable: false });
     setError("");
     try {
-      const next = await api.compileCourse(session.session_id, chapterId);
-      setCourse(next);
-      setCourseTab(initialTab);
-      setCardIndex(0);
-      setCardFlipped(false);
-      setPracticeIndex(0);
-      setActivity(null);
-      setCourseNeedsRefresh(false);
-      setView("course");
+      const next = await loadChapterCourse(sessionId, chapterId, {
+        api, storage, active, refresh, retryFailed,
+        wait: milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds)),
+        onJob: (job: CourseJob) => { if (active()) setCourseWork({ chapterId, status: job.status, error: job.error ?? "", retryable: job.retryable, jobId: job.job_id }); },
+      });
+      if (!active()) return;
+      setCourseWork({ chapterId, status: "succeeded", error: "", retryable: false });
+      if (navigationRevision.current === navigationAtStart) {
+        setCourse(next); setCourseTab(initialTab); setCardIndex(0); setCardFlipped(false);
+        setPracticeIndex(0); setActivity(null); setCourseNeedsRefresh(false); setView("course");
+      } else setNotice("章节学习内容已准备好，可从章节列表打开。");
     } catch (value) {
-      setError((value as Error).message);
+      if (!active() || value instanceof CourseTaskCancelled) return;
+      setCourseWork({ chapterId, status: value instanceof CourseTaskFailure ? "failed" : "paused",
+        error: (value as Error).message, retryable: value instanceof CourseTaskFailure && value.job.retryable,
+        jobId: value instanceof CourseTaskFailure ? value.job.job_id : undefined });
     } finally {
-      setBusy(false);
+      if (active()) setCourseLoading(false);
     }
   }
 
   async function reviewCard(rating: "again" | "hard" | "good" | "easy") {
-    if (!session || !course || busy) return;
+    if (!session || !course || busy || learningMutationLock.current) return;
     const card = course.flashcards[cardIndex];
     if (!card) return;
+    learningMutationLock.current = true;
     setBusy(true);
     setError("");
     try {
-      const result = await api.reviewFlashcard(
-        session.session_id,
-        course.course_id,
-        card.card_id,
-        {
-          event_id: eventId(),
+      const operationKey = `${session.session_id}:review:${course.course_id}:${card.card_id}`;
+      const result = await pendingOperations.run(operationKey, () => ({
+          event_id: operationId(),
           rating,
           response_seconds: Math.max(
             1,
             (Date.now() - startedAt.current) / 1000,
           ),
-        },
-      );
+        }), payload => api.reviewFlashcard(session.session_id, course.course_id, card.card_id, payload));
       setActivity(result);
       setCourseNeedsRefresh((current) => current || result.course_stale);
       setSession({ ...session, profile: result.profile });
@@ -431,23 +507,24 @@ function App() {
     } catch (value) {
       setError((value as Error).message);
     } finally {
+      learningMutationLock.current = false;
       setBusy(false);
     }
   }
 
   async function submitPractice() {
-    if (!session || !course || busy || !input.trim()) return;
+    if (!session || !course || busy || !input.trim() || learningMutationLock.current) return;
     const item = course.practice_items[practiceIndex];
     if (!item) return;
+    learningMutationLock.current = true;
     setBusy(true);
     setError("");
     try {
-      const result = await api.practice(
-        session.session_id,
-        course.course_id,
-        item.item_id,
-        {
-          event_id: eventId(),
+      const operationKey = `${session.session_id}:practice:${course.course_id}:${item.item_id}`;
+      const previous = pendingOperations.pending(operationKey);
+      const submittedAnswer = typeof previous?.answer === "string" ? previous.answer : input.trim();
+      const result = await pendingOperations.run(operationKey, () => ({
+          event_id: operationId(),
           answer: input.trim(),
           selected_option_ids: selected,
           confidence,
@@ -457,15 +534,15 @@ function App() {
           ),
           hints_used: 0,
           revisions: 0,
-        },
-      );
+        }), payload => api.practice(session.session_id, course.course_id, item.item_id, payload));
       setActivity(result);
       setCourseNeedsRefresh((current) => current || result.course_stale);
       setSession({ ...session, profile: result.profile });
-      setInput("");
+      setInput(current => current.trim() === submittedAnswer ? "" : current);
     } catch (value) {
       setError((value as Error).message);
     } finally {
+      learningMutationLock.current = false;
       setBusy(false);
     }
   }
@@ -558,6 +635,9 @@ function App() {
                 当前离线，部分功能暂不可用。
               </div>
             )}
+            {courseWork && <CourseTaskNotice work={courseWork} loading={courseLoading}
+              onCheck={() => void checkCourseTask()}
+              onOpen={() => void openCourse(courseWork.chapterId, "guide", false, courseWork.status === "failed" && courseWork.retryable)}/>}
             {initializing && (
               <div
                 className="home-skeleton"
@@ -736,7 +816,7 @@ function App() {
                 onInput={setInput}
                 onConfidence={setConfidence}
                 onSubmitPractice={submitPractice}
-                onRefresh={() => openCourse(course.chapter_id)}
+                onRefresh={() => openCourse(course.chapter_id, "guide", true)}
               />
             )}
             {view === "qa" && !initializing && (

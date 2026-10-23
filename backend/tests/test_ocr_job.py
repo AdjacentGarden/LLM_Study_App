@@ -1,12 +1,7 @@
 import json
 from pathlib import Path
 
-from adaptive_learning.ingestion.ocr_job import (
-    evaluate_page,
-    infer_log_duration,
-    load_pages,
-    mineru_subprocess_environment,
-)
+from adaptive_learning.ingestion.ocr_job import evaluate_page, infer_log_duration, load_pages
 
 
 def test_load_pages_preserves_page_boundaries_and_blocks(tmp_path: Path) -> None:
@@ -94,14 +89,3 @@ def test_load_pages_removes_vlm_refusal_artifacts(tmp_path: Path) -> None:
 
     assert page["text"] == "可核验的教材正文。"
     assert len(page["discarded_blocks"]) == 2
-
-
-def test_mineru_environment_bypasses_proxy_for_loopback(monkeypatch) -> None:
-    monkeypatch.setenv("NO_PROXY", "internal.example")
-    monkeypatch.setenv("no_proxy", "stale.example")
-
-    environment = mineru_subprocess_environment()
-
-    assert environment["NO_PROXY"] == environment["no_proxy"]
-    entries = set(environment["NO_PROXY"].split(","))
-    assert {"internal.example", "localhost", "127.0.0.1", "::1"} <= entries

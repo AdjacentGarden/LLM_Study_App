@@ -94,21 +94,6 @@ def test_exact_identifiers_keep_table_evidence_available(tmp_path: Path) -> None
     assert any(item.page_number == 3 for item in result.evidence)
 
 
-def test_fast_search_preserves_relevant_evidence_without_neural_models(
-    tmp_path: Path,
-) -> None:
-    index_dir = tmp_path / "index"
-    _write_index(index_dir)
-    index = _load(index_dir)
-
-    result = index.search_fast("减数分裂有什么特点？", top_pages=2, max_evidence=2)
-
-    assert result.score > 0
-    assert result.lexical_support
-    assert result.pages[0] == 1
-    assert "染色体只复制一次" in result.evidence[0].text
-
-
 def test_index_rejects_duplicate_chunk_ids(tmp_path: Path) -> None:
     index_dir = tmp_path / "index"
     _write_index(index_dir, duplicate=True)
@@ -151,30 +136,3 @@ def test_search_rejects_empty_question(tmp_path: Path, question: str) -> None:
 
     with pytest.raises(ValueError, match="empty"):
         index.search(question)
-
-
-def test_definition_route_keeps_qualifying_third_page_despite_dense_distractors(tmp_path):
-    from adaptive_learning.rag.index import IndexedChunk
-    chunks = [
-        IndexedChunk('a', 10, 'alpha: the first concept; beta: the second concept', 'parent'),
-        IndexedChunk('b', 20, 'alpha: overview; beta: overview', 'parent'),
-        IndexedChunk('c', 30, 'alpha: a necessary qualification. ' + 'background ' * 300, 'parent'),
-        *[IndexedChunk(f'd{i}', i * 10, 'alpha beta 区别 ' * 30, 'parent') for i in (4, 5, 6)],
-    ]
-    index = PersistentRAGIndex(index_dir=tmp_path, chunks=chunks,
-        embeddings=np.array([[0, 1, 0]] * 3 + [[1, 0, 0]] * 3, dtype=np.float32),
-        encoder=FakeEncoder(), reranker=FakeReranker())
-    result = index.search('alpha beta 区别', top_pages=5)
-    assert {10, 20, 30} <= set(result.pages)
-    assert len(result.pages) == 5
-    assert any('necessary qualification' in e.text for e in result.evidence)
-
-
-@pytest.mark.parametrize('limit', [1, 2, 3, 5])
-def test_protected_pages_respects_budget_when_primary_is_full(limit):
-    from adaptive_learning.rag.index import IndexedChunk, _protected_pages
-    chunks = [IndexedChunk(str(i), i + 1, f'page {i}', 'parent') for i in range(6)]
-    pages = _protected_pages([0, 1, 2], [3, 4, 5], chunks,
-                             primary_pages=min(3, limit), limit=limit)
-    assert len(pages) == limit
-    assert pages[:min(3, limit)] == list(range(min(3, limit)))

@@ -1,0 +1,52 @@
+{
+  "type": "json_object",
+  "candidate_id": "eba442ee08a0279384d93c820ac846189caae95446f72256c9c121a5e33f3059",
+  "passed": false,
+  "reason": "建议0称“教材本章小结指出”，但引文为正文叙述，出处归属无据；建议1“据此提出基因位于染色体上的假说”及“类比推理结论需观察和实验检验”超出本条引文，属自身引文支持不足。",
+  "global_checks": {
+    "fidelity": true,
+    "summary": true,
+    "polished": true
+  },
+  "clause_checks": [
+    [
+      "s0c0",
+      true
+    ],
+    [
+      "s0c1",
+      false
+    ],
+    [
+      "s0c2",
+      true
+    ],
+    [
+      "s1c0",
+      true
+    ],
+    [
+      "s1c1",
+      false
+    ],
+    [
+      "s1c2",
+      false
+    ]
+  ],
+  "findings": [
+    [
+      "s0c1",
+      "S"
+    ],
+    [
+      "s1c1",
+      "S"
+    ],
+    [
+      "s1c2",
+      "S"
+    ]
+  ],
+  "failure_scope": "other_or_uncertain"
+}
