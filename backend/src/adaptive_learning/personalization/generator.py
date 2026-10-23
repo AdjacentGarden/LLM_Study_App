@@ -17,6 +17,7 @@ from .models import (
     PersonalizationDecision,
     PracticeItem,
     SourceCitation,
+    StudyUnit,
     TeachingDepth,
 )
 
@@ -49,15 +50,19 @@ def profile_fingerprint(profile: LearnerProfile) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def chapter_fingerprint(chapter: ChapterDraft) -> str:
+def chapter_fingerprint(chapter: ChapterDraft, evidence_fingerprint: str = "") -> str:
     # Invalidate compiled drafts when teaching-text semantics change.
     return hashlib.sha256(
-        ("complete-coverage-units-v3:" + chapter.model_dump_json()).encode()
+        ("complete-coverage-evidence-units-v4:" + evidence_fingerprint + ":" + chapter.model_dump_json()).encode()
     ).hexdigest()
 
 
 class ChapterCourseCompiler:
-    """Compiles a profile-specific course from verified chapter evidence."""
+    """Build a private draft covering every supported extracted point.
+
+    This draft is not publishable until TeachingContentGenerator has generated
+    substantive instruction and independently reviewed the complete chapter.
+    """
 
     def compile(
         self,
@@ -67,16 +72,19 @@ class ChapterCourseCompiler:
         decision: PersonalizationDecision,
         version: int = 1,
         instance_key: str = "",
+        source_fingerprint: str | None = None,
     ) -> ChapterLearningBundle:
         if version < 1:
             raise ValueError("course version must be positive")
         candidates = self._rank_points(chapter, profile)
         if not candidates:
             raise ValueError("chapter has no evidence-backed knowledge points")
-        # Time controls the number of points in a unit, never silently drops the rest.
+        if len(candidates) != len(chapter.knowledge_points):
+            raise ValueError("chapter has knowledge points without evidence")
+        # Daily time and learning design partition all points; neither drops coverage.
         selected = candidates
         design = profile.learning_design
-        source_hash = chapter_fingerprint(chapter)
+        source_hash = source_fingerprint or chapter_fingerprint(chapter)
         profile_hash = profile_fingerprint(profile)
         course_digest = hashlib.sha256(
             f"{instance_key}:{chapter.chapter_id}:{source_hash}:{profile_hash}".encode()
@@ -182,13 +190,21 @@ class ChapterCourseCompiler:
             design or LearningDesignConfig(minutes_per_day=profile.constraints.minutes_per_day),
             point_limit,
         )
+        points_per_unit = max(1, profile.constraints.minutes_per_day // 4)
+        study_units = [StudyUnit(
+            unit_id=f"unit_{course_digest}_{offset // points_per_unit + 1}",
+            title=f"学习单元 {offset // points_per_unit + 1}",
+            point_ids=[point.point_id for point in knowledge_points[offset:offset + points_per_unit]],
+            estimated_minutes=min(600, 4 * len(knowledge_points[offset:offset + points_per_unit])),
+        ) for offset in range(0, len(knowledge_points), points_per_unit)]
         return ChapterLearningBundle(
             course_id=course_id,
             version=version,
             chapter_id=chapter.chapter_id,
             chapter_title=chapter.title,
             decision=decision,
-            opening=_opening(profile, decision, len(selected)),
+            opening=(_opening(profile, decision, len(selected)) +
+                     f"本章已按证据整理全部 {len(selected)} 个提炼知识点，建议分 {len(units)} 个学习单元完成。")[:300],
             summary=chapter.summary,
             original_reading=reading,
             knowledge_points=knowledge_points,
@@ -206,6 +222,7 @@ class ChapterCourseCompiler:
             design_fingerprint=design.fingerprint if design else "",
             units=units,
             coverage_point_ids=[p.point_id for p in knowledge_points],
+            study_units=study_units,
         )
 
     @staticmethod

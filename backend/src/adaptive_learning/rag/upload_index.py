@@ -6,17 +6,24 @@ import hashlib
 import json
 import os
 import shutil
+import sqlite3
 import tempfile
-import threading
+from collections.abc import Sequence
+from contextlib import closing
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
+from numpy.typing import NDArray
 
-from .index import IndexedChunk, RAGIndexError
+from .index import IndexedChunk, PairReranker, PersistentRAGIndex, QueryEncoder, RAGIndexError
 
-_build_lock = threading.Lock()
+_INDEX_VERSION = b"upload-index-v2"
+
+
+class DocumentEncoder(QueryEncoder, Protocol):
+    def encode_documents(self, texts: Sequence[str]) -> NDArray[np.float32]: ...
 
 
 def _split(text: str, limit: int, overlap: int = 60) -> list[str]:
@@ -71,15 +78,57 @@ def published_upload_index(book_directory: Path) -> Path | None:
         return None
 
 
+def _remove_index_artifact(path: Path) -> None:
+    # An interrupted build can leave a file or dangling link at the fingerprint
+    # path. Never follow a link while repairing a private index artifact.
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
+
+
+def _clean_abandoned_builds(root: Path) -> None:
+    # Both builders hold the same cross-process lock before removing staging
+    # directories. Published versions have hash names and are never removed here.
+    for pattern in ("building-*", ".building-*"):
+        for abandoned in root.glob(pattern):
+            if abandoned.is_dir() and not abandoned.is_symlink():
+                shutil.rmtree(abandoned)
+
+
+def _valid_vectors(vectors: NDArray[np.float32]) -> bool:
+    if not np.isfinite(vectors).all():
+        return False
+    with np.errstate(over="ignore", invalid="ignore"):
+        norms = np.linalg.norm(vectors, axis=1)
+    return bool(np.isfinite(norms).all() and np.all(norms > 0))
+
+
+def _valid_native_index(target: Path, encoder: Any) -> bool:
+    try:
+        index = PersistentRAGIndex.load(target, encoder=encoder, reranker=None)
+        return _valid_vectors(index.embeddings)
+    except (RAGIndexError, OSError, ValueError, TypeError):
+        return False
+
+
 def build_upload_index(book_directory: Path, encoder: Any) -> Path:
-    with _build_lock:
+    root = book_directory / "rag"
+    root.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(root / ".build.sqlite3", timeout=3600)) as lock:
+        lock.execute("BEGIN EXCLUSIVE")
+        _clean_abandoned_builds(root)
         source = book_directory / "ocr" / "normalized" / "pages.jsonl"
         source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
         model = str(getattr(encoder, "model_path", "test"))
-        version = hashlib.sha256(f"{source_hash}|{model}|native-v1".encode()).hexdigest()
+        version = hashlib.sha256(f"{source_hash}|{model}|{encoder.dimensions}|native-v2".encode()).hexdigest()
         root = book_directory / "rag"
-        root.mkdir(exist_ok=True)
+        root.mkdir(parents=True, exist_ok=True)
         target = root / version
+        if (target.exists() or target.is_symlink()) and (
+            target.is_symlink() or not _valid_native_index(target, encoder)
+        ):
+            _remove_index_artifact(target)
         if not target.is_dir():
             staging = Path(tempfile.mkdtemp(prefix="building-", dir=root))
             try:
@@ -89,15 +138,13 @@ def build_upload_index(book_directory: Path, encoder: Any) -> Path:
                 )
                 if (
                     embeddings.shape != (len(chunks), encoder.dimensions)
-                    or not np.isfinite(embeddings).all()
+                    or not _valid_vectors(embeddings)
                 ):
                     raise RAGIndexError("invalid document embeddings")
                 norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-                if np.any(norms <= 0):
-                    raise RAGIndexError("empty document embeddings")
                 np.save(staging / "embeddings.npy", embeddings / norms)
                 (staging / "chunks.json").write_text(
-                    json.dumps([asdict(c) for c in chunks], ensure_ascii=False)
+                    json.dumps([asdict(c) for c in chunks], ensure_ascii=False), encoding="utf-8"
                 )
                 (staging / "index_manifest.json").write_text(
                     json.dumps(
@@ -106,17 +153,136 @@ def build_upload_index(book_directory: Path, encoder: Any) -> Path:
                             "embedding_dimensions": encoder.dimensions,
                             "source_sha256": source_hash,
                             "embedding_model": model,
-                            "chunker_version": "native-v1",
+                            "chunker_version": "native-v2",
                         }
                     )
                 )
-                try:
-                    staging.rename(target)
-                except FileExistsError:
-                    pass
+                PersistentRAGIndex.load(staging, encoder=encoder, reranker=None)
+                staging.rename(target)
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
         pointer = root / ("current-" + os.urandom(8).hex() + ".tmp")
         pointer.write_text(json.dumps({"version": version, "source_sha256": source_hash}))
         os.replace(pointer, root / "current.json")
         return target
+
+
+def split_text(text: str, limit: int) -> list[str]:
+    if limit <= 60:
+        raise ValueError("chunk limit must exceed the overlap")
+    result: list[str] = []
+    start = 0
+    while start < len(text):
+        end = min(start + limit, len(text))
+        if end < len(text):
+            boundary = max(text.rfind(mark, start + limit // 2, end) for mark in "。！？\n")
+            if boundary >= 0:
+                end = boundary + 1
+        piece = text[start:end].strip()
+        if piece:
+            result.append(piece)
+        if end == len(text):
+            break
+        start = end - 60
+    return result
+
+
+def _page_text(page: dict[str, Any]) -> str:
+    for key in ("cleaned_text", "text", "raw_text"):
+        value = page.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return "\n".join(
+        str(block.get("text", ""))
+        for block in page.get("blocks", [])
+        if isinstance(block, dict)
+        and block.get("type", block.get("block_type")) not in {"footer", "page_number"}
+    )
+
+
+def _chunks(raw: bytes) -> list[IndexedChunk]:
+    chunks: list[IndexedChunk] = []
+    seen_pages: set[int] = set()
+    try:
+        for line in raw.decode("utf-8").splitlines():
+            if not line.strip():
+                continue
+            page = json.loads(line)
+            number = int(page["page_number"])
+            if number < 1 or number in seen_pages:
+                raise ValueError("invalid or repeated page number")
+            seen_pages.add(number)
+            for index, text in enumerate(split_text(_page_text(page), 900), 1):
+                key = f"p{number:03d}-c{index:02d}"
+                chunks.append(IndexedChunk(key, number, text, "parent"))
+                if len(text) > 360:
+                    chunks.extend(
+                        IndexedChunk(f"{key}-s{child:02d}", number, value, "child")
+                        for child, value in enumerate(split_text(text, 360), 1)
+                    )
+    except (UnicodeError, ValueError, KeyError, TypeError, AttributeError) as error:
+        raise RAGIndexError("uploaded OCR pages are invalid") from error
+    if not chunks:
+        raise RAGIndexError("no usable text in uploaded book")
+    return chunks
+
+
+def ensure_upload_index(
+    pages_path: Path,
+    root: Path,
+    *,
+    encoder: DocumentEncoder,
+    reranker: PairReranker,
+) -> Path:
+    raw = pages_path.read_bytes()
+    model_identity = str(getattr(encoder, "model_path", "")).encode("utf-8")
+    fingerprint = hashlib.sha256(
+        raw + model_identity + str(encoder.dimensions).encode("ascii") + _INDEX_VERSION
+    ).hexdigest()
+    root.mkdir(parents=True, exist_ok=True)
+    target = root / fingerprint
+    # A separate SQLite file provides a cross-process lock on Linux, macOS and
+    # Windows without holding the application's job database during GPU work.
+    with closing(sqlite3.connect(root / ".build.sqlite3", timeout=3600)) as lock:
+        lock.execute("BEGIN EXCLUSIVE")
+        _clean_abandoned_builds(root)
+        if target.exists() or target.is_symlink():
+            try:
+                if target.is_symlink():
+                    raise RAGIndexError("uploaded-book index must be a local immutable directory")
+                index = PersistentRAGIndex.load(target, encoder=encoder, reranker=reranker)
+                if not _valid_vectors(index.embeddings):
+                    raise RAGIndexError("invalid uploaded-book embeddings")
+                return target
+            except (RAGIndexError, OSError, ValueError):
+                # Failed/corrupt artifacts must be repairable by the retry path.
+                _remove_index_artifact(target)
+        chunks = _chunks(raw)
+        staging = Path(tempfile.mkdtemp(prefix=".building-", dir=root))
+        try:
+            vectors = np.asarray(encoder.encode_documents([chunk.text for chunk in chunks]), dtype=np.float32)
+            if (
+                vectors.shape != (len(chunks), encoder.dimensions)
+                or not _valid_vectors(vectors)
+            ):
+                raise RAGIndexError("invalid uploaded-book embeddings")
+            np.save(staging / "embeddings.npy", vectors)
+            (staging / "chunks.json").write_text(
+                json.dumps([asdict(chunk) for chunk in chunks], ensure_ascii=False), encoding="utf-8"
+            )
+            (staging / "index_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "chunk_count": len(chunks),
+                        "embedding_dimensions": encoder.dimensions,
+                        "source_fingerprint": fingerprint,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            PersistentRAGIndex.load(staging, encoder=encoder, reranker=reranker)
+            staging.rename(target)
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging)
+    return target

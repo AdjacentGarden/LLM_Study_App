@@ -125,6 +125,21 @@ fi
 if [[ -r "${RUNTIME_ROOT}/secrets/learning-studio.env" ]]; then
   source "${RUNTIME_ROOT}/secrets/learning-studio.env"
 fi
+if [[ -r "${RUNTIME_ROOT}/config/gpu.env" ]]; then
+  source "${RUNTIME_ROOT}/config/gpu.env"
+fi
+if [[ -r "${RUNTIME_ROOT}/config/ingestion-performance.env" ]]; then
+  source "${RUNTIME_ROOT}/config/ingestion-performance.env"
+fi
+# Release-owned, non-secret routing overrides win after legacy runtime profiles.
+# The default checkout remains unchanged; versioned service units set this path.
+if [[ -n "${RELEASE_ENV_FILE:-}" ]]; then
+  if [[ ! -r "${RELEASE_ENV_FILE}" ]]; then
+    echo "release environment override file is missing or unreadable" >&2
+    exit 1
+  fi
+  source "${RELEASE_ENV_FILE}"
+fi
 set +a
 
 export APP_ENV="production"
@@ -152,6 +167,8 @@ export VOICE_ASR_PYTHON="${VOICE_ASR_PYTHON:-/usr/bin/python3}"
 export VOICE_ASR_PYTHONPATH="${VOICE_ASR_PYTHONPATH:-${RUNTIME_ROOT}/studio-runtime/asr-lib}"
 export VOICE_ASR_MODEL="${VOICE_ASR_MODEL:-${RUNTIME_ROOT}/models/faster-whisper-small}"
 export VOICE_ASR_SCRIPT="${VOICE_ASR_SCRIPT:-${APP_ROOT}/deployment/server/transcribe_voice_note.py}"
+export VOICE_ASR_DEVICE="${VOICE_ASR_DEVICE:-cpu}"
+export VOICE_ASR_COMPUTE_TYPE="${VOICE_ASR_COMPUTE_TYPE:-int8}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}"
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 export PYTHONPATH="${APP_ROOT}/backend/src:${RUNTIME_ROOT}/runtime-patches/lib/python3.12/site-packages:${RUNTIME_ROOT}/runtime/lib/python3.12/site-packages"
@@ -170,6 +187,36 @@ cd "${APP_ROOT}"
 # Keep enough headroom for concurrent uploads, model sockets and SQLite WAL files.
 # Repositories still close every connection explicitly; this is only a production guardrail.
 ulimit -n 65536 2>/dev/null || true
+
+# Keep the GPU OCR model loaded between jobs.
+if [[ "${OCR_BACKEND}" == "paddle-gpu" ]]; then
+  export FAST_OCR_API_URL="${FAST_OCR_API_URL:-http://127.0.0.1:${FAST_OCR_PORT:-18201}}"
+  if [[ "${FAST_OCR_API_URL}" != "http://127.0.0.1:${FAST_OCR_PORT:-18201}" ]]; then
+    echo "FAST_OCR_API_URL must match the managed loopback service port" >&2
+    exit 1
+  fi
+  # A versioned backend can reuse the stable runtime OCR manager only when it
+  # matches the reviewed copy;
+  # its PID verifier intentionally rejects managers launched from other paths.
+  fast_ocr_manager="${FAST_OCR_MANAGER_SCRIPT:-${APP_ROOT}/deployment/server/fast_ocr_service.py}"
+  if [[ ! -f "${fast_ocr_manager}" || ! -r "${fast_ocr_manager}" ]]; then
+    echo "fast OCR manager is missing or unreadable" >&2
+    exit 1
+  fi
+  if [[ -n "${FAST_OCR_MANAGER_SHA256:-}" ]]; then
+    /usr/bin/python3 - "${fast_ocr_manager}" "${FAST_OCR_MANAGER_SHA256}" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+if hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest() != sys.argv[2]:
+    raise SystemExit("fast OCR manager differs from the reviewed release")
+PY
+  fi
+  RUNTIME_ROOT="${RUNTIME_ROOT}" APP_ROOT="${APP_ROOT}" \
+    /usr/bin/python3 "${fast_ocr_manager}" start
+elif [[ "${MINERU_API_URL:-}" == "http://127.0.0.1:${OCR_RESIDENT_PORT:-18200}" ]]; then
+  /usr/bin/python3 "${APP_ROOT}/deployment/server/ocr_resident_service.py" start
+fi
 
 exec /home/zhenghang/download/enter/bin/python -m uvicorn \
   adaptive_learning.api.app:app \

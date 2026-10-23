@@ -10,6 +10,7 @@ class ExtractionMethod(StrEnum):
     NATIVE = "native"
     MINERU_PIPELINE = "mineru_pipeline"
     MINERU_VLM = "mineru_vlm"
+    PADDLE_GPU = "paddle_gpu"
     VISION_RESCUE = "vision_rescue"
     CONSENSUS = "consensus"
 

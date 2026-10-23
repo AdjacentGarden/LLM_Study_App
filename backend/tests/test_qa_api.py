@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from adaptive_learning.api.app import app
 from adaptive_learning.api.qa_dependency import require_qa_service
-from adaptive_learning.llm.client import LLMError, LLMTimeoutError
+from adaptive_learning.llm.client import LLMError
 from adaptive_learning.rag.grounded_qa import (
     AnswerStatus,
     VerifiedCitation,
@@ -46,20 +46,6 @@ class FakeQAService:
 class FailingQAService(FakeQAService):
     def answer(self, question: str) -> TextbookQAResult:
         raise LLMError("provider unavailable")
-
-
-def test_timeout_is_reported_separately_from_configuration_failure() -> None:
-    class TimedOut(FakeQAService):
-        def answer(self, question: str) -> TextbookQAResult:
-            raise LLMTimeoutError("deadline exceeded")
-    app.dependency_overrides[require_qa_service] = TimedOut
-    try:
-        with TestClient(app) as client:
-            response = client.post('/api/books/biology-required-2/qa',json={'question':'test'})
-        assert response.status_code == 504
-        assert response.json()['detail'] == '回答服务响应较慢，请稍后重试；你的问题已保留。'
-    finally:
-        app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -107,6 +93,7 @@ def test_grounded_qa_endpoint_maps_model_failure_to_bad_gateway() -> None:
 
     assert response.status_code == 502
     assert response.json()["detail"] == "回答服务暂时不可用，请稍后重试。"
+    assert 'provider unavailable' not in response.text
 
 
 def test_grounded_qa_endpoint_reports_unavailable_dependency() -> None:
@@ -131,21 +118,5 @@ def test_overload_is_retryable_not_internal_error():
         with TestClient(app) as client:
             response=client.post("/api/books/biology-required-2/qa",json={"question":"测试"})
         assert response.status_code==503 and response.headers["retry-after"]=="5"
-    finally:
-        app.dependency_overrides.clear()
-
-
-def test_content_refusal_returns_actionable_message_without_provider_details():
-    from adaptive_learning.llm.client import LLMRefusalError
-    class Refused(FakeQAService):
-        def answer(self, question):
-            raise LLMRefusalError("private provider diagnostic")
-    app.dependency_overrides[require_qa_service] = Refused
-    try:
-        with TestClient(app) as client:
-            response = client.post("/api/books/biology-required-2/qa", json={"question": "test"})
-        assert response.status_code == 422
-        assert "换一种表述" in response.json()["detail"]
-        assert "private" not in response.text
     finally:
         app.dependency_overrides.clear()

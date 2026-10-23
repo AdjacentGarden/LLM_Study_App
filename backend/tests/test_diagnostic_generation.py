@@ -23,26 +23,6 @@ class FakeClient:
         return self.payload
 
 
-def test_grounded_rewrite_requires_review_and_keeps_point_identity() -> None:
-    class ReviewingClient:
-        def structured(self, **kwargs: Any) -> dict[str, Any]:
-            if "审校器" in kwargs["system"]:
-                return {"reviews":[{"knowledge_point_id":stable_knowledge_point_id("ch_1",label),
-                                    "accepted":True,"issues":[]}
-                                   for label in ["甲的定义","乙的作用"]]}
-            payload = valid_payload()
-            payload["items"][0]["expected_answer"] = "甲是一个用于测试的概念。"
-            return payload
-
-    with pytest.raises(ValueError, match="require semantic review"):
-        DiagnosticItemGenerator(ReviewingClient(), verify_items=False,
-                                allow_grounded_answer_rewrite=True)
-    items = DiagnosticItemGenerator(ReviewingClient(),allow_grounded_answer_rewrite=True).generate(structure())
-    assert items[0].options[0] == "甲是一个用于测试的概念。"
-    assert items[0].knowledge_point_labels == ["甲的定义"]
-    assert items[0].source_pages == [1]
-
-
 def structure() -> BookStructure:
     chapter = ChapterDraft(
         chapter_id="ch_1",

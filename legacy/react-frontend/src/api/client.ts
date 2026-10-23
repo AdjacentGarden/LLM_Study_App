@@ -14,6 +14,8 @@ import type {
 } from "../types/api";
 
 import { request } from "./transport";
+import type { PreparationStatus } from "../components/uploadFlow";
+import type { CourseJob } from "../components/learningReliability";
 
 const post = <T>(path: string, body?: object) =>
   request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
@@ -42,6 +44,8 @@ export const api = {
   processBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process`),
   retryBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process/retry`),
   bookStatus:(bookId:string)=>request<BookStatus>(`/api/books/${bookId}/status`,{},30_000),
+  prepareBook:(bookId:string,retry=false)=>request<PreparationStatus>(`/api/books/${bookId}/prepare?retry=${retry}`,{method:"POST"},30_000),
+  preparationStatus:(bookId:string)=>request<PreparationStatus>(`/api/books/${bookId}/prepare`,{},30_000),
   buildStructure,
   buildDiagnostics:(bookId:string)=>post<{ready:boolean}>(`/api/books/${bookId}/diagnostics`),
   claimBook:(bookId:string)=>post<BookCatalogItem>(`/api/library/books/${bookId}/claim`),
@@ -94,7 +98,11 @@ export const api = {
   compileCourse: (sessionId: string, chapterId: string) =>
     post<Course>(`/api/interviews/${sessionId}/courses/${chapterId}`),
   getCourse: (sessionId: string, chapterId: string) =>
-    request<Course>(`/api/interviews/${sessionId}/courses/${chapterId}`),
+    request<Course>(`/api/interviews/${sessionId}/courses/${chapterId}`, {}, 30_000),
+  startCourseJob: (sessionId: string, chapterId: string, requestId: string, retry = false) =>
+    request<CourseJob>(`/api/interviews/${sessionId}/course-jobs`, { method: "POST", body: JSON.stringify({ chapter_id: chapterId, request_id: requestId, retry }) }, 30_000),
+  courseJob: (sessionId: string, jobId: string) =>
+    request<CourseJob>(`/api/interviews/${sessionId}/course-jobs/${jobId}`, {}, 30_000),
   practice: (
     sessionId: string,
     courseId: string,

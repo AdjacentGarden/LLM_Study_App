@@ -7,16 +7,20 @@ import threading
 from collections import OrderedDict
 from pathlib import Path
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from .. import native_catalog
+from ..accounts import COOKIE, Accounts
+from ..community import CommunityRepository
 from ..config import get_settings
+from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..llm.client import LLMConfig, OpenAICompatibleClient
 from ..rag.backends import TransformerPairReranker, TransformerQueryEncoder
 from ..rag.grounded_qa import GroundedAnswerGenerator
 from ..rag.index import PersistentRAGIndex, RAGIndexError
 from ..rag.service import TextbookQAService
 from ..rag.upload_index import build_upload_index, published_upload_index
+from ..rag.upload_index import ensure_upload_index
 
 
 class QAConfigurationError(RuntimeError):
@@ -44,7 +48,9 @@ def upload_components() -> tuple[TransformerQueryEncoder, TransformerPairReranke
             reranker = TransformerPairReranker(s.rag_reranker_model_path, device=s.rag_device)
             client = OpenAICompatibleClient(LLMConfig(base_url=s.text_base_url, api_key=s.text_api_key,
                 model=s.text_model, timeout_seconds=s.rag_generation_timeout_seconds,
-                max_retries=0, proxy_url=s.llm_https_proxy))
+                max_retries=0, proxy_url=s.llm_https_proxy,
+                thinking_enabled=s.text_thinking_enabled,
+                reasoning_effort=s.text_reasoning_effort))
             generator = GroundedAnswerGenerator(client, refusal_score_threshold=s.rag_refusal_score_threshold,
                 use_evidence_planner=s.rag_use_evidence_planner, use_semantic_review=s.rag_use_semantic_review,
                 max_output_tokens=s.rag_max_output_tokens,
@@ -80,6 +86,8 @@ def _create_qa_service() -> TextbookQAService:
             timeout_seconds=settings.rag_generation_timeout_seconds,
             max_retries=0,
             proxy_url=settings.llm_https_proxy,
+            thinking_enabled=settings.text_thinking_enabled,
+            reasoning_effort=settings.text_reasoning_effort,
         )
     )
     generator = GroundedAnswerGenerator(
@@ -150,27 +158,34 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
             return service
     if book_id == settings.rag_book_id:
         return build_qa_service()
-    if book_id not in settings.published_book_ids:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
         raise HTTPException(status_code=404, detail="未找到该书的检索索引")
-    manifest_path = os.getenv("RAG_BOOK_INDEX_MANIFEST", "")
-    try:
-        manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-        index_path = Path(manifest[book_id])
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        raise QAConfigurationError("Book index manifest is missing or invalid") from error
+    if book_id in settings.published_book_ids:
+        manifest_path = os.getenv("RAG_BOOK_INDEX_MANIFEST", "")
+        try:
+            manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+            index_path = Path(manifest[book_id])
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise QAConfigurationError("Book index manifest is missing or invalid") from error
+    else:
+        index_path = prepare_uploaded_book_index(book_id)
     # Keep one GPU model pair for all books; only document indexes and answer
     # caches are book-specific. Bound the number of resident CPU indexes.
-    primary = build_qa_service()
+    if book_id in settings.published_book_ids:
+        primary = build_qa_service()
+        encoder, reranker, generator = primary.index.encoder, primary.index.reranker, primary.generator
+    else:
+        encoder, reranker, generator = upload_components()
     with _book_service_lock:
         existing = _book_services.get(book_id)
-        if existing is not None:
+        if existing is not None and getattr(existing.index, "index_dir", index_path) == index_path:
             _book_services.move_to_end(book_id)
             return existing
         index = PersistentRAGIndex.load(
-            index_path, encoder=primary.index.encoder, reranker=primary.index.reranker
+            index_path, encoder=encoder, reranker=reranker
         )
         service = TextbookQAService(
-            book_id=book_id, index=index, generator=primary.generator,
+            book_id=book_id, index=index, generator=generator,
             top_pages=settings.rag_top_pages, max_evidence=settings.rag_max_evidence,
             retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
             generation_budget_seconds=settings.rag_generation_timeout_seconds,
@@ -182,8 +197,34 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
         return service
 
 
-def require_qa_service(book_id: str) -> TextbookQAService:
+def prepare_uploaded_book_index(book_id: str) -> Path:
+    settings = get_settings()
+    jobs = SQLiteOCRJobRepository(settings.data_dir / "state" / "ocr_jobs.sqlite3")
+    book = jobs.get_book(book_id)
+    job = jobs.get_job(book_id)
+    if book is None or job is None or job.status != "ocr_ready":
+        raise HTTPException(409, "教材仍在解析，请稍后再试")
+    encoder, reranker, _ = upload_components()
+    return ensure_upload_index(job.output_dir / "normalized" / "pages.jsonl",
+                               book.file_path.parent / "rag-index",
+                               encoder=encoder, reranker=reranker)
+
+
+def require_qa_service(
+    book_id: str, request: Request = None,  # type: ignore[assignment]
+) -> TextbookQAService:
+    # Native routes call directly after workspace/resource authorization.
+    # FastAPI dependencies always inject Request and enforce legacy shelf ownership.
+    settings = get_settings()
+    if (request is not None and book_id != native_catalog.BOOK_ID
+            and book_id != settings.rag_book_id and book_id not in settings.published_book_ids):
+        repo = CommunityRepository(settings.data_dir / "state" / "community.sqlite3")
+        owner = Accounts(repo).request_owner(request)
+        if not owner and request.cookies.get(COOKIE):
+            raise HTTPException(401, "登录已过期，请重新登录")
+        if not owner or not (repo.owns(owner, book_id) or repo.owns_upload(owner, book_id)):
+            raise HTTPException(403, "请先将这本教材加入书架")
     try:
         return build_book_qa_service(book_id)
-    except (QAConfigurationError, RAGIndexError) as error:
+    except (QAConfigurationError, RAGIndexError, OSError, ValueError) as error:
         raise HTTPException(status_code=503, detail="教材答疑服务尚未就绪") from error

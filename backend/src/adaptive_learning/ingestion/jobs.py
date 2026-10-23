@@ -619,7 +619,10 @@ class SubprocessOCRRunner:
                 if not heartbeat(estimated, "正在识别页面并重建阅读顺序"):
                     _terminate_process_group(process)
                     raise JobStateError("OCR worker lost its lease")
-                time.sleep(self.heartbeat_interval)
+                try:
+                    process.wait(timeout=self.heartbeat_interval)
+                except subprocess.TimeoutExpired:
+                    pass
             if process.returncode != 0:
                 diagnostic = _log_tail(attempt_dir / "mineru.log")
                 raise RuntimeError(

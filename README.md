@@ -116,3 +116,5 @@ NATIVE_E2E_LOCAL_LOGIN=1 ./scripts/test-cloud.sh --device SIMULATOR_UDID \
 - [React 前端归档说明](legacy/react-frontend/README.md)
 
 历史文档与截图仅代表记录时点。仓库没有覆盖所有业务代码与教材内容的统一开源授权；依赖、模型和教材的许可分别以对应来源记录为准。
+
+分支整合与兼容决策见 [Branch consolidation](docs/BRANCH_CONSOLIDATION.md)；历史优化报告仅对应其记录的候选版本。

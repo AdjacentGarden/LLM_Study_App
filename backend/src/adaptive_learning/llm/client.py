@@ -2,24 +2,37 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import re
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from datetime import UTC
+from email.utils import parsedate_to_datetime
 from typing import Any, cast
 from urllib.parse import urlsplit
 
 import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
+from .model_admission import AdmissionDenied, admission, overload_wait, route_key
+
 
 class LLMError(RuntimeError):
     pass
+
+
+class LLMCooldownError(LLMError):
+    """No inference was sent because this configured route is cooling down."""
+
+    def __init__(self, retry_after_seconds: float) -> None:
+        super().__init__("configured model route is temporarily cooling down")
+        self.retry_after_seconds = retry_after_seconds
 
 
 class LLMRefusalError(LLMError):
@@ -28,6 +41,8 @@ class LLMRefusalError(LLMError):
 
 class LLMTimeoutError(LLMError):
     """An upstream timeout or the shared generation deadline was exhausted."""
+
+    _draining_future: Future[dict[str, Any]] | None = None
 
 
 class LLMOutputLimitError(LLMError):
@@ -41,7 +56,9 @@ _transport_slots = threading.BoundedSemaphore(8)
 
 def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | None) -> dict[str, Any]:
     if until is None:
-        return call()
+        # The same process-wide cap applies without a whole-operation deadline.
+        with _transport_slots:
+            return call()
     remaining = until - time.monotonic()
     if remaining <= 0 or not _transport_slots.acquire(timeout=max(0, remaining)):
         raise LLMTimeoutError("model time budget exceeded")
@@ -68,10 +85,18 @@ def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | 
     try:
         return future.result(timeout=max(0, until - time.monotonic()))
     except FutureTimeout as error:
-        raise LLMTimeoutError("model time budget exceeded") from error
+        timeout_error = LLMTimeoutError("model time budget exceeded")
+        timeout_error._draining_future = future
+        raise timeout_error from error
 
 
 _deadline: ContextVar[float | None] = ContextVar("model_deadline", default=None)
+
+
+def remaining_model_time() -> float | None:
+    """Seconds left in the shared deadline, including time spent in a queue."""
+    until = _deadline.get()
+    return None if until is None else max(0.0, until - time.monotonic())
 
 
 @contextmanager
@@ -86,6 +111,76 @@ def model_time_budget(seconds: float) -> Iterator[None]:
         _deadline.reset(token)
 
 
+def _retry_after_delay(headers: Mapping[str, str], body: object) -> float | None:
+    """Read a bounded server delay only after an existing retryable HTTP error."""
+    def seconds(value: object) -> float | None:
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            return None
+        try:
+            delay = float(value)
+        except (OverflowError, ValueError):
+            return None
+        if not math.isfinite(delay) or delay < 0:
+            return None
+        return min(delay, 30.0)
+
+    header = headers.get("Retry-After", headers.get("retry-after"))
+    if isinstance(header, str):
+        delay = seconds(header)
+        if delay is not None:
+            return delay
+        try:
+            date = parsedate_to_datetime(header)
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=UTC)
+            return seconds(max(0.0, date.timestamp() - time.time()))
+        except (OverflowError, TypeError, ValueError):
+            pass
+    if isinstance(body, dict):
+        error = body.get("error")
+        values = [error.get("retry_after_seconds")] if isinstance(error, dict) else []
+        values.append(body.get("retry_after_seconds"))
+        for value in values:
+            delay = seconds(value)
+            if delay is not None:
+                return delay
+    return None
+
+
+def _known_overload_wait(error: BaseException) -> float | None:
+    """Classify only an actual final HTTP 429/503, never a timeout or parse error."""
+    cause: BaseException | None = error
+    seen: set[int] = set()
+    while cause is not None and id(cause) not in seen:
+        seen.add(id(cause))
+        response = getattr(cause, "response", None)
+        if isinstance(cause, (httpx.HTTPStatusError, APIStatusError)):
+            status = response.status_code if response is not None else None
+            if status not in {429, 503}:
+                return None
+            body = getattr(cause, "body", None)
+            if body is None and response is not None:
+                try:
+                    body = response.json()
+                except (ValueError, TypeError):
+                    pass
+            headers = response.headers if response is not None else {}
+            return overload_wait(headers, body, time.time())
+        cause = cause.__cause__
+    return None
+
+
+def _draining_request(error: BaseException) -> Future[dict[str, Any]] | None:
+    cause: BaseException | None = error
+    seen: set[int] = set()
+    while cause is not None and id(cause) not in seen:
+        seen.add(id(cause))
+        if isinstance(cause, LLMTimeoutError) and cause._draining_future is not None:
+            return cause._draining_future
+        cause = cause.__cause__
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class LLMConfig:
     base_url: str
@@ -94,6 +189,8 @@ class LLMConfig:
     timeout_seconds: int = 60
     max_retries: int = 1
     proxy_url: str | None = None
+    thinking_enabled: bool | None = None
+    reasoning_effort: str | None = None
 
     def __post_init__(self) -> None:
         if self.timeout_seconds < 1:
@@ -109,7 +206,10 @@ class OpenAICompatibleClient:
         self._usage = {"responses": 0, "input_tokens": 0, "output_tokens": 0, "cached_input_tokens": 0}
         self._http = httpx.Client(
             timeout=httpx.Timeout(config.timeout_seconds, connect=10, pool=10),
-            limits=httpx.Limits(max_connections=8, max_keepalive_connections=8, keepalive_expiry=60),
+            # Each idle CONNECT tunnel occupies a Windows relay slot. Book
+            # analysis and teaching use distinct clients, so retain only a small
+            # idle pool while preserving eight concurrent active requests.
+            limits=httpx.Limits(max_connections=8, max_keepalive_connections=2, keepalive_expiry=5),
             proxy=config.proxy_url,
             # Model traffic follows LLM_HTTPS_PROXY, independently of shell/git proxies.
             trust_env=False,
@@ -148,7 +248,58 @@ class OpenAICompatibleClient:
                 if isinstance(value, int) and value >= 0:
                     self._usage[key] += value
 
+    def check_admission(self) -> None:
+        """No-cost prerequisite check; never a paid health probe."""
+        try:
+            admission.check(route_key(self.config.base_url, self.config.model, self.config.api_key))
+        except AdmissionDenied as error:
+            raise LLMCooldownError(error.retry_after_seconds) from error
+
     def structured(
+        self,
+        *,
+        system: str,
+        user: str,
+        temperature: float = 0,
+        max_tokens: int = 4096,
+        images: list[tuple[str, bytes]] | None = None,
+    ) -> dict[str, Any]:
+        key = route_key(self.config.base_url, self.config.model, self.config.api_key)
+        gate = admission
+        until = _deadline.get()
+        admission_wait = min(
+            self.config.timeout_seconds,
+            max(0.0, until - time.monotonic()) if until is not None else self.config.timeout_seconds,
+        )
+        try:
+            lease = gate.begin(key, admission_wait)
+        except AdmissionDenied as error:
+            raise LLMCooldownError(error.retry_after_seconds) from error
+        try:
+            result = self._structured_transport(
+                system=system, user=user, temperature=temperature, max_tokens=max_tokens, images=images
+            )
+        except BaseException as error:
+            draining = _draining_request(error)
+            if draining is not None:
+                def finish_drained(done: Future[dict[str, Any]]) -> None:
+                    try:
+                        late_error = done.exception()
+                    except BaseException as completion_error:
+                        late_error = completion_error
+                    # A late body is never parsed, returned, or marked healthy.
+                    # A late explicit 429/503 may update known cooldown only.
+                    wait_for = _known_overload_wait(late_error) if late_error else None
+                    gate.finish(lease, overload=wait_for)
+
+                draining.add_done_callback(finish_drained)
+            else:
+                gate.finish(lease, overload=_known_overload_wait(error))
+            raise
+        gate.finish(lease, completed=True)
+        return result
+
+    def _structured_transport(
         self,
         *,
         system: str,
@@ -208,7 +359,7 @@ class OpenAICompatibleClient:
             endpoint = f"{base_url}/responses"
             response_parts: list[dict[str, Any]] = [{"type": "input_text", "text": user}]
             response_parts.extend(
-                {"type": "input_image", "image_url":
+                {"type": "input_image", "detail": "high", "image_url":
                     f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"}
                 for mime, data in images or []
             )
@@ -228,6 +379,15 @@ class OpenAICompatibleClient:
                     "url": f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"}}
                 for mime, data in images
             ] + [{"type": "text", "text": user}]
+        if not anthropic and not responses:
+            # These are explicit Chat Completions settings: providers differ in
+            # supported values, so do not infer them from a provider/model name.
+            if self.config.thinking_enabled is not None:
+                payload["thinking"] = {
+                    "type": "enabled" if self.config.thinking_enabled else "disabled"
+                }
+            if self.config.reasoning_effort is not None:
+                payload["reasoning_effort"] = self.config.reasoning_effort
         last_error: Exception | None = None
         upstream_detail = ""
         for attempt in range(self.config.max_retries + 1):
@@ -239,6 +399,7 @@ class OpenAICompatibleClient:
             )
             if remaining <= 0:
                 raise LLMTimeoutError("model time budget exceeded")
+            retry_after: float | None = None
             try:
                 timeout = httpx.Timeout(
                     remaining, connect=min(10, remaining), pool=min(10, remaining)
@@ -300,9 +461,11 @@ class OpenAICompatibleClient:
             except httpx.HTTPStatusError as error:
                 last_error = error
                 status = error.response.status_code
-                raw_error = {}
+                raw_error: object = {}
+                error_body: object = None
                 try:
-                    raw_error = error.response.json().get("error", {})
+                    error_body = error.response.json()
+                    raw_error = error_body.get("error", {}) if isinstance(error_body, dict) else {}
                     message = raw_error.get("message", "") if isinstance(raw_error, dict) else ""
                     if isinstance(message, str):
                         upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
@@ -313,6 +476,9 @@ class OpenAICompatibleClient:
                 retryable = status == 429 or status >= 500
                 if not retryable or attempt >= self.config.max_retries:
                     break
+                retry_after = _retry_after_delay(
+                    getattr(error.response, "headers", {}), error_body
+                )
             except APIStatusError as error:
                 last_error = error
                 status = error.status_code
@@ -325,11 +491,13 @@ class OpenAICompatibleClient:
                 retryable = status == 429 or status >= 500
                 if not retryable or attempt >= self.config.max_retries:
                     break
+                retry_after = _retry_after_delay(error.response.headers, error.body)
             except (
                 APITimeoutError,
                 APIConnectionError,
                 httpx.TimeoutException,
                 httpx.NetworkError,
+                httpx.ProxyError,
                 httpx.RemoteProtocolError,
                 httpx.PoolTimeout,
                 KeyError,
@@ -341,7 +509,7 @@ class OpenAICompatibleClient:
                 last_error = error
                 if attempt >= self.config.max_retries:
                     break
-            delay = 0.25 * (attempt + 1)
+            delay = retry_after if retry_after is not None else 0.25 * (attempt + 1)
             if until is not None:
                 remaining = until - time.monotonic()
                 if remaining <= delay:

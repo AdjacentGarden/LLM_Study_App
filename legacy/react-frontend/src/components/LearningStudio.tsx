@@ -12,7 +12,10 @@ import {
 } from "../api/learningStudio";
 import type { StudioOpening } from "./StudioShell";
 import { GeneratedText } from "./GeneratedText";
+import { NoteResultNotice, canKeepNoteResult } from "./NoteResultNotice";
 import { Icon } from "./Icon";
+import { browserVoiceDraftStore, stopAndWaitForRecording, VoiceDraftWriter, type VoiceDraft } from "./audioDrafts";
+const voiceDraftStore = browserVoiceDraftStore();
 const statusText: Record<string, string> = {
   queued: "准备中",
   planning: "正在准备",
@@ -56,6 +59,8 @@ export function StudioDialog({
     [caps, setCaps] = useState<StudioCaps | null>(null),
     [jobs, setJobs] = useState<StudioJob[]>([]),
     [notes, setNotes] = useState<InkNote[]>([]),
+    [voiceDrafts, setVoiceDrafts] = useState<VoiceDraft[]>([]),
+    [draftStorageError, setDraftStorageError] = useState(""),
     [note, setNote] = useState<InkNote | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -69,6 +74,10 @@ export function StudioDialog({
     mounted = useRef(true),
     editorClose = useRef<(() => Promise<boolean>) | null>(null);
   const syncStudio = async () => {
+    if (caps?.draft_scope) {
+      try { setVoiceDrafts(await voiceDraftStore.list(caps.draft_scope, opening.anchor.book_id)); }
+      catch (value) { setDraftStorageError((value as Error).message); }
+    }
     const [jobPage, notePage] = await Promise.all([
       studioApi.jobs(opening.anchor.book_id),
       studioApi.notes(opening.anchor.book_id),
@@ -80,7 +89,15 @@ export function StudioDialog({
   async function loadStudio() {
     setReloading(true);
     const results = await Promise.allSettled([
-      studioApi.caps().then(value => { if (mounted.current) setCaps(value); }),
+      studioApi.caps().then(async value => {
+        if (mounted.current) setCaps(value);
+        if (value.draft_scope) {
+          try {
+            const local = await voiceDraftStore.list(value.draft_scope, opening.anchor.book_id);
+            if (mounted.current) { setVoiceDrafts(local); setDraftStorageError(""); }
+          } catch (error) { if (mounted.current) setDraftStorageError((error as Error).message); }
+        }
+      }),
       studioApi.jobs(opening.anchor.book_id).then(value => { if (mounted.current) setJobs(value.items); }),
       studioApi.notes(opening.anchor.book_id).then(value => { if (mounted.current) setNotes(value.items); }),
     ]);
@@ -182,13 +199,18 @@ export function StudioDialog({
   }
   async function openNote(id: string) {
     setError("");
+    const local = voiceDrafts.find(draft => draft.note.id === id);
     try {
       setNote(await studioApi.note(id));
     } catch (e) {
-      setError((e as Error).message);
+      if (local) setNote(local.note);
+      else setError((e as Error).message);
     }
   }
   const unsynced: InkNote[] = [];
+  for (const local of voiceDrafts) {
+    if (!notes.some(candidate => candidate.id === local.note.id)) unsynced.push(local.note);
+  }
   if (caps) {
     try {
       const prefix = `zhiwo.studio.${caps.draft_scope}.`;
@@ -201,7 +223,7 @@ export function StudioDialog({
         if (
           draft?.book_id === opening.anchor.book_id &&
           Array.isArray(draft.strokes) &&
-          !notes.some((n) => n.id === draft.id)
+          !notes.some((n) => n.id === draft.id) && !unsynced.some(n => n.id === draft.id)
         )
           unsynced.push(draft);
       }
@@ -228,6 +250,7 @@ export function StudioDialog({
         </button>
       </header>
       <div className="studio-scroll">
+        {mode === "notes" && draftStorageError && <p className="studio-error" role="alert">{draftStorageError}</p>}
         {!note && (
           <>
             <nav className="studio-segments" aria-label="学习方式">
@@ -443,6 +466,8 @@ export function StudioDialog({
 }
 function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
   const r = job.result;
+  const noteResult = ["recognize", "improve", "complete"].includes(job.kind);
+  const noteNeedsReview = noteResult && job.status === "succeeded" && !canKeepNoteResult(r, job.status);
   return (
     <article className={`studio-job ${pendingStudio(job) ? "is-working" : ""}`}>
       <div className="studio-job-head">
@@ -456,7 +481,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
                   ? "短片讲解"
                   : "图解讲解")}
         </strong>
-        <small role="status">{(pendingStudio(job) && notePhase[job.result.phase ?? ""]) || statusText[job.status] || job.status}</small>
+        <small role="status">{noteNeedsReview ? "整理尚未通过核对" : (pendingStudio(job) && notePhase[job.result.phase ?? ""]) || statusText[job.status] || job.status}</small>
       </div>
       {pendingStudio(job) && ["image", "video"].includes(job.kind) && (
         <MediaJobProgress job={job} />
@@ -469,6 +494,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
         </details>
       )}
       {job.error && <p className="studio-error">{job.error}</p>}
+      {noteResult && <NoteResultNotice result={r} status={job.status} />}
       {r.visual_scope && <p className="studio-focus">这次看懂：{r.visual_scope}</p>}
       {job.asset_url && job.kind === "image" && <span className="studio-eyebrow">{r.visual_mode === "diagram" ? "知识图解" : "辅助插画"}</span>}
       {job.asset_url &&
@@ -487,7 +513,7 @@ function JobCard({ job, onNote }: { job: StudioJob; onNote?: () => void }) {
       )}
       {r.caution && <p className="studio-caution">{r.caution}</p>}
       {job.asset_url && job.kind === "video" && <p className="studio-caution">动画中的速度、幅度与背景经过示意化处理；原文的动作含义、时长和事实以教材与文字讲解为准。</p>}
-      {r.review && <small>{r.review}</small>}
+      {typeof r.review === "string" && (!noteResult || canKeepNoteResult(r, job.status)) && <small>{r.review}</small>}
       {r.evidence && (
         <details>
           <summary>对照教材出处</summary>
@@ -624,8 +650,14 @@ function InkEditor({
     recordingStream = useRef<MediaStream | null>(null),
     recordingStarted = useRef(0),
     recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null),
+    recordingFinished = useRef<Promise<void> | null>(null),
+    recordingLock = useRef(false),
     audioDurationRef = useRef(initial.audio_duration_seconds ?? 0),
-    audioBlobRef = useRef<Blob | null>(null);
+    audioBlobRef = useRef<Blob | null>(null),
+    durableAudio = useRef<Blob | null>(null),
+    audioUploadBase = useRef<InkNote | undefined>(undefined),
+    audioWriter = useRef(new VoiceDraftWriter(voiceDraftStore)),
+    editVersion = useRef(0);
   const [tool, setTool] = useState<"pen" | "erase" | "move">("pen"),
     [finger, setFinger] = useState(true),
     [color, setColor] = useState<InkStroke["color"]>("#243148"),
@@ -639,6 +671,9 @@ function InkEditor({
     ),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
+    [saving, setSaving] = useState(false),
+    [restoringAudio, setRestoringAudio] = useState((initial.input_mode ?? "ink") === "voice"),
+    [storageWarning, setStorageWarning] = useState(""),
     [transcript, setTranscript] = useState(""),
     [accepted, setAccepted] = useState(initial.edition?.job_id ?? ""),
     [zoom, setZoom] = useState(1),
@@ -662,7 +697,30 @@ function InkEditor({
             j.result.phase === "checking" &&
             Boolean(j.result.polished))),
     );
+  const improvementReady = improvement ? canKeepNoteResult(improvement.result, improvement.status) : false;
   const working = relevant.some(pendingStudio);
+  useEffect(() => {
+    if ((initial.input_mode ?? "ink") !== "voice") return;
+    let cancelled = false;
+    void voiceDraftStore.get(scope, initial.id).then(async draft => {
+      if (cancelled || !draft || editVersion.current !== 0) return;
+      if (initial.audio_ready && initial.audio_sha256 && globalThis.crypto?.subtle) {
+        const digest = await globalThis.crypto.subtle.digest("SHA-256", await draft.blob.arrayBuffer());
+        const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+        if (hash === initial.audio_sha256) {
+          await voiceDraftStore.remove(scope, initial.id); return;
+        }
+      }
+      if (cancelled || editVersion.current !== 0) return;
+      latest.current = draft.note; audioBlobRef.current = draft.blob; durableAudio.current = draft.blob;
+      audioDurationRef.current = draft.duration; audioUploadBase.current = draft.uploadBase;
+      dirty.current = true; ++editVersion.current;
+      setNote(draft.note); setAudioPreview(URL.createObjectURL(draft.blob)); setRecordingSeconds(draft.duration);
+      setMessage(draft.recording ? "已恢复意外中断前的本地录音，请播放核对后保存。" : "已恢复本地录音草稿，尚未同步。");
+    }).catch(value => { if (!cancelled) setStorageWarning((value as Error).message); })
+      .finally(() => { if (!cancelled) setRestoringAudio(false); });
+    return () => { cancelled = true; };
+  }, [scope, initial.id]);
   useEffect(() => {
     if (recognition?.result.transcript)
       setTranscript(recognition.result.transcript);
@@ -673,28 +731,47 @@ function InkEditor({
     },
     [audioPreview],
   );
-  function setVoiceBlob(blob: Blob, duration: number) {
-    if (audioPreview) URL.revokeObjectURL(audioPreview);
+  async function persistVoice(blob: Blob, duration: number, isRecording: boolean, metadata = latest.current) {
+    try {
+      await audioWriter.current.put({ scope, note: metadata, blob, duration,
+        recording: isRecording, updated: Date.now(), uploadBase: audioUploadBase.current });
+      if (audioBlobRef.current === blob) durableAudio.current = blob;
+      if (alive.current) setStorageWarning("");
+      return true;
+    } catch (value) {
+      if (alive.current) setStorageWarning((value as Error).message);
+      return false;
+    }
+  }
+  async function setVoiceBlob(blob: Blob, duration: number) {
     audioBlobRef.current = blob;
     audioDurationRef.current = Math.min(600, Math.max(0, duration));
-    setAudioPreview(URL.createObjectURL(blob));
-    setRecordingSeconds(audioDurationRef.current);
-    setMessage("录音已准备好，点击“完成并整理”即可处理");
-    setError("");
+    change({ ...latest.current, input_mode: "voice" }, false);
+    if (alive.current) {
+      setAudioPreview(URL.createObjectURL(blob)); setRecordingSeconds(audioDurationRef.current); setError("");
+      setMessage("正在保存本地录音…");
+    }
+    const stored = await persistVoice(blob, audioDurationRef.current, false);
+    if (alive.current) setMessage(stored ? "录音已保存到本机，尚未同步。" : "录音仅在当前页面，请先同步或下载，不要刷新。");
   }
-  function stopRecording() {
-    if (recorder.current?.state === "recording") recorder.current.stop();
+  async function stopRecording() {
+    await stopAndWaitForRecording(recorder.current, recordingFinished.current);
+    await audioWriter.current.flush().catch(() => {});
   }
   async function startRecording() {
+    if (recordingLock.current || recorder.current || saving || restoringAudio) return;
+    if (audioUploadBase.current) { setError("上次录音尚未确认同步，请先保存并核对后再重新录制。"); return; }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("当前浏览器不能直接录音，你仍可选择已有音频文件。");
       return;
     }
     setError("");
+    recordingLock.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
+      if (!alive.current) { stream.getTracks().forEach(track => track.stop()); return; }
       recordingStream.current = stream;
       const preferred = [
         "audio/webm;codecs=opus",
@@ -704,10 +781,18 @@ function InkEditor({
       const current = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined);
       const chunks: BlobPart[] = [];
       recorder.current = current;
+      let complete: () => void = () => {};
+      recordingFinished.current = new Promise<void>(resolve => { complete = resolve; });
       current.ondataavailable = (event) => {
-        if (event.data.size) chunks.push(event.data);
+        if (!event.data.size) return;
+        chunks.push(event.data);
+        const blob = new Blob(chunks, { type: current.mimeType || preferred || "audio/webm" });
+        const duration = Math.min(600, (Date.now() - recordingStarted.current) / 1000);
+        audioBlobRef.current = blob; audioDurationRef.current = duration; dirty.current = true;
+        void persistVoice(blob, duration, true);
+        if (blob.size > 20 * 1024 * 1024 && current.state !== "inactive") current.stop();
       };
-      current.onstop = () => {
+      current.onstop = async () => {
         const seconds = Math.min(600, (Date.now() - recordingStarted.current) / 1000);
         const blob = new Blob(chunks, { type: current.mimeType || preferred || "audio/webm" });
         recordingStream.current?.getTracks().forEach((track) => track.stop());
@@ -715,27 +800,39 @@ function InkEditor({
         recorder.current = null;
         if (recordingTimer.current) clearInterval(recordingTimer.current);
         recordingTimer.current = null;
-        setRecording(false);
-        if (blob.size >= 32) setVoiceBlob(blob, seconds);
-        else setError("没有录到清晰声音，请重新录制。");
+        try {
+          if (blob.size >= 32) await setVoiceBlob(blob, seconds);
+          else if (alive.current) setError("没有录到清晰声音，请重新录制。");
+        } finally {
+          if (alive.current) setRecording(false);
+          recordingFinished.current = null; complete();
+        }
+      };
+      current.onerror = () => {
+        if (alive.current) setError("录音发生中断，正在保留已收到的声音片段。");
+        if (current.state !== "inactive") current.stop();
       };
       recordingStarted.current = Date.now();
       setRecordingSeconds(0);
       setRecording(true);
+      change({ ...latest.current, input_mode: "voice" }, false);
       current.start(500);
       recordingTimer.current = setInterval(() => {
         const seconds = (Date.now() - recordingStarted.current) / 1000;
         setRecordingSeconds(Math.min(600, seconds));
-        if (seconds >= 600) stopRecording();
+        if (seconds >= 600) void stopRecording().catch(value => setError((value as Error).message));
       }, 250);
     } catch {
       recordingStream.current?.getTracks().forEach((track) => track.stop());
       recordingStream.current = null;
       setError("没有获得麦克风权限。你可以允许访问后重试，或选择已有录音。");
+    } finally {
+      recordingLock.current = false;
     }
   }
   function chooseAudio(file?: File) {
     if (!file) return;
+    if (saving || restoringAudio || audioUploadBase.current) { setError("请先确认当前录音的保存结果，再选择新的录音。"); return; }
     if (file.size > 20 * 1024 * 1024) {
       setError("单条录音需小于 20 MB。");
       return;
@@ -749,7 +846,7 @@ function InkEditor({
         setError("单条语音笔记最长 10 分钟。");
         return;
       }
-      setVoiceBlob(file, Number.isFinite(probe.duration) ? probe.duration : 0);
+      void setVoiceBlob(file, Number.isFinite(probe.duration) ? probe.duration : 0);
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
@@ -785,23 +882,44 @@ function InkEditor({
   useEffect(() => {
     draw();
   }, [note.strokes]);
-  function change(n: InkNote) {
+  function change(n: InkNote, persistAudio = true) {
     latest.current = n;
-    setNote(n);
+    if (alive.current) setNote(n);
     dirty.current = true;
+    ++editVersion.current;
     requestId.current = studioId();
     try {
       sessionStorage.setItem(draftKey, JSON.stringify(n));
-      setMessage("草稿已暂存");
+      if (alive.current) setMessage("文字草稿已暂存");
     } catch {
-      setMessage("暂存失败，请先不要关闭页面");
+      if (alive.current) setMessage("文字暂存失败，请先不要关闭页面");
     }
-    setError("");
+    if (persistAudio && audioBlobRef.current && (n.input_mode ?? "ink") === "voice") {
+      void persistVoice(audioBlobRef.current, audioDurationRef.current, Boolean(recorder.current), n);
+    }
+    if (alive.current) setError("");
   }
   async function saveDraftAsNew() {
-    if (busy) return;
+    if (busy || saving || restoringAudio) return;
     setBusy(true);
     try {
+      if ((latest.current.input_mode ?? "ink") === "voice") {
+        await stopRecording();
+        const blob = audioBlobRef.current;
+        if (!blob) throw new Error("当前页面没有原始录音，无法另存录音副本。请重试保存，或先下载原录音。");
+        const previousId = latest.current.id;
+        const copy = { ...latest.current, id: studioId(), revision: 0,
+          title: (latest.current.title || "语音笔记").slice(0, 100) + " · 草稿副本",
+          audio_ready: false, audio_sha256: undefined, edition: null };
+        audioUploadBase.current = undefined;
+        change(copy, false);
+        // Keep the original draft until the entire copy (including raw audio)
+        // is acknowledged. A lost reply can resume this copy's same note ID.
+        await persistVoice(blob, audioDurationRef.current, false, copy);
+        await save();
+        await audioWriter.current.remove(scope, previousId).catch(() => {});
+        return;
+      }
       const saved = await studioApi.save({
         ...latest.current,
         id: studioId(),
@@ -828,79 +946,96 @@ function InkEditor({
       if (dirty.current) return save();
       return latest.current;
     }
-    if (!dirty.current && latest.current.revision > 0 && !audioBlobRef.current)
+    if (!recorder.current && !dirty.current && latest.current.revision > 0 && !audioBlobRef.current)
       return latest.current;
-    const snapshot = latest.current;
-    setMessage("正在保存…");
+    setSaving(true);
+    if (alive.current) setMessage("正在保存…");
     const task = (async () => {
-      let saved = await studioApi.save(snapshot);
-      const audio = audioBlobRef.current;
-      if ((snapshot.input_mode ?? "ink") === "voice" && audio) {
-        setMessage("正在保存录音…");
-        saved = await studioApi.audio(saved, audio, audioDurationRef.current);
-        audioBlobRef.current = null;
+      // Controlled navigation must include the final dataavailable/onstop chunk.
+      await stopRecording();
+      const snapshot = latest.current, version = editVersion.current;
+      const audio = audioBlobRef.current, duration = audioDurationRef.current;
+      let saved: InkNote;
+      if ((snapshot.input_mode ?? "ink") === "voice" && audio && audioUploadBase.current) {
+        // Replay the same PUT base after a lost response; the server compares SHA.
+        saved = await studioApi.audio(audioUploadBase.current, audio, duration);
+      } else {
+        saved = await studioApi.save(snapshot);
+        latest.current = { ...latest.current, revision: saved.revision };
+        if ((snapshot.input_mode ?? "ink") === "voice" && audio) {
+          audioUploadBase.current = saved;
+          await persistVoice(audio, duration, false, latest.current);
+          if (alive.current) setMessage("正在同步录音…");
+          saved = await studioApi.audio(saved, audio, duration);
+        }
       }
-      return saved;
-    })();
-    savePromise.current = task;
-    try {
-      const saved = await task;
-      const next = { ...latest.current, revision: saved.revision };
-      dirty.current = latest.current !== snapshot;
+      if (audio && audioBlobRef.current === audio) {
+        audioBlobRef.current = null; durableAudio.current = null; audioUploadBase.current = undefined;
+        if (alive.current) setStorageWarning("");
+        await audioWriter.current.remove(scope, snapshot.id).catch(() => {
+          if (alive.current) setStorageWarning("录音已保存到服务器，但本地草稿暂未清理；重新打开时会核对保存状态。");
+        });
+      }
+      const next = { ...saved, ...latest.current, revision: saved.revision,
+        audio_ready: saved.audio_ready, audio_mime: saved.audio_mime,
+        audio_duration_seconds: saved.audio_duration_seconds, audio_sha256: saved.audio_sha256 };
+      dirty.current = editVersion.current !== version || audioBlobRef.current !== null;
       latest.current = next;
       if (alive.current) {
-        setNote(next);
-        onSaved(next);
-        setMessage(dirty.current ? "还有修改待保存" : voice ? "录音已保存" : "已保存");
+        setNote(next); onSaved(next);
+        setMessage(dirty.current ? "还有修改待保存" : (snapshot.input_mode ?? "ink") === "voice" ? "录音已保存并同步" : "已保存");
       }
       try {
-        if (dirty.current)
-          sessionStorage.setItem(draftKey, JSON.stringify(next));
+        if (dirty.current) sessionStorage.setItem(draftKey, JSON.stringify(next));
         else sessionStorage.removeItem(draftKey);
-      } catch {
-        /* Browser storage must not turn a successful server save into a failure. */
-      }
+      } catch { /* A server acknowledgement is still durable without browser storage. */ }
       return next;
-    } catch (e) {
+    })();
+    savePromise.current = task;
+    try { return await task; }
+    catch (value) {
       if (alive.current) {
-        setError((e as Error).message);
-        setMessage("尚未保存，草稿仍保留");
+        setError((value as Error).message);
+        setMessage(audioBlobRef.current ? durableAudio.current === audioBlobRef.current
+          ? "尚未同步，录音仍保存在本机。" : "尚未同步；录音仅在当前页面，请勿刷新或关闭。" : "尚未同步，文字草稿仍在当前页面。");
       }
-      throw e;
-    } finally {
-      savePromise.current = null;
+      throw value;
+    } finally { savePromise.current = null; if (alive.current) setSaving(false); }
+  }
+  async function closeSafely(): Promise<boolean> {
+    try { await save(); return true; }
+    catch {
+      // Offline local audio remains discoverable in this account's draft list.
+      return Boolean(!recorder.current && !recordingFinished.current
+        && audioBlobRef.current && durableAudio.current === audioBlobRef.current);
     }
   }
   useEffect(() => {
+    if (recording || restoringAudio) return;
     const t = setTimeout(() => {
       if (dirty.current) void save().catch(() => {});
     }, 1200);
     return () => clearTimeout(t);
-  }, [note]);
+  }, [note, recording, restoringAudio]);
   useEffect(() => {
     alive.current = true;
     const leave = (e: BeforeUnloadEvent) => {
-      if (dirty.current) {
+      if (dirty.current || recorder.current || recordingFinished.current) {
         e.preventDefault();
         e.returnValue = "";
+        void stopRecording().catch(() => {});
       }
     };
     window.addEventListener("beforeunload", leave);
-    closeRef.current = async () => {
-      try {
-        await save();
-        return true;
-      } catch {
-        return false;
-      }
-    };
+    closeRef.current = closeSafely;
     return () => {
       alive.current = false;
       closeRef.current = null;
       window.removeEventListener("beforeunload", leave);
       if (recordingTimer.current) clearInterval(recordingTimer.current);
-      if (recorder.current?.state === "recording") recorder.current.stop();
-      recordingStream.current?.getTracks().forEach((track) => track.stop());
+      void stopRecording().catch(() => {}).finally(() => {
+        recordingStream.current?.getTracks().forEach((track) => track.stop());
+      });
     };
   }, []);
   function point(e: React.PointerEvent<HTMLCanvasElement>): InkPoint {
@@ -1008,12 +1143,7 @@ function InkEditor({
       <button
         className="ink-back"
         onClick={async () => {
-          try {
-            await save();
-            onBack();
-          } catch {
-            /* retain editor */
-          }
+          if (await closeSafely()) onBack();
         }}
       >
         ← 返回我的笔记
@@ -1043,17 +1173,17 @@ function InkEditor({
                 <i /><i /><i /><i /><i />
               </div>
               <span className="studio-eyebrow">想到什么，就直接说</span>
-              <h3>{recording ? "正在听你说…" : audioBlobRef.current || note.audio_ready ? "这段想法已经记下" : "录一段语音笔记"}</h3>
+              <h3>{restoringAudio ? "正在恢复录音草稿…" : recording ? "正在听你说…" : audioBlobRef.current ? "录音等待同步" : note.audio_ready ? "录音已保存" : "录一段语音笔记"}</h3>
               <time aria-label="录音时长">
                 {`${Math.floor(recordingSeconds / 60)}`.padStart(2, "0")}:
                 {`${Math.floor(recordingSeconds % 60)}`.padStart(2, "0")}
               </time>
               {recording ? (
-                <button className="voice-record stop" onClick={stopRecording}>
+                <button className="voice-record stop" onClick={() => void stopRecording().catch(value => setError((value as Error).message))}>
                   <span aria-hidden="true">■</span> 停止录音
                 </button>
               ) : (
-                <button className="voice-record" disabled={busy} onClick={() => void startRecording()}>
+                <button className="voice-record" disabled={busy || saving || restoringAudio} onClick={() => void startRecording()}>
                   <span aria-hidden="true">●</span> {audioBlobRef.current || note.audio_ready ? "重新录制" : "开始录音"}
                 </button>
               )}
@@ -1062,7 +1192,7 @@ function InkEditor({
                 <input
                   type="file"
                   accept="audio/*,.aiff,.aif,.m4a,.mp3,.wav,.webm,.ogg"
-                  disabled={busy || recording}
+                  disabled={busy || saving || recording || restoringAudio}
                   onChange={(event) => {
                     chooseAudio(event.target.files?.[0]);
                     event.currentTarget.value = "";
@@ -1079,10 +1209,12 @@ function InkEditor({
               )}
               <div className="ink-save">
                 <small role="status">{message}</small>
-                <button disabled={busy || recording || (!audioBlobRef.current && !note.audio_ready)} onClick={() => void save().catch(() => {})}>
+                <button disabled={busy || saving || recording || restoringAudio || (!audioBlobRef.current && !note.audio_ready)} onClick={() => void save().catch(() => {})}>
                   保存录音
                 </button>
               </div>
+              {storageWarning && <p className="studio-error" role="alert">{storageWarning}</p>}
+              {audioPreview && !recording && <a href={audioPreview} download={`语音笔记.${audioBlobRef.current?.type.includes("mp4") ? "m4a" : audioBlobRef.current?.type.includes("wav") ? "wav" : "webm"}`}>下载录音备份</a>}
               <small className="ink-hint">安静环境下靠近麦克风自然说话即可；停顿会自动过滤，教材术语会在整理时再次核对。</small>
             </div>
           ) : <>
@@ -1240,12 +1372,11 @@ function InkEditor({
           )}
           {improvement && (
             <div className="ink-feedback">
-              <h3>{improvement.result.provisional ? "整理结果" : "完善建议"}</h3>
-              <small role={improvement.result.provisional ? "status" : undefined}>
-                {improvement.result.provisional
-                  ? "内容仍在完善，你可以先阅读。"
-                  : "已保存，原笔迹保持不变。"}
+              <h3>{improvementReady ? "完善建议" : "整理结果"}</h3>
+              <small role="status">
+                {improvementReady ? "已保存，原笔迹保持不变。" : "以下内容尚不能作为完成结果保留。"}
               </small>
+              <NoteResultNotice result={improvement.result} status={improvement.status} />
               <details>
                 <summary>查看识别文字</summary>
                 <GeneratedText value={improvement.result.transcript ?? ""} className="ink-polished" />
@@ -1268,11 +1399,11 @@ function InkEditor({
               </details>
               <button
                 className="studio-primary"
-                disabled={busy || improvement.result.provisional}
+                disabled={busy || !improvementReady}
                 onClick={() => void accept(accepted !== improvement.id)}
               >
-                {improvement.result.provisional
-                  ? "整理完成后可以保留"
+                {!improvementReady
+                  ? "整理完成并通过核对后可以保留"
                   : accepted === improvement.id
                   ? "撤回这个整理版"
                   : "保留整理版（原笔迹不变）"}
@@ -1282,6 +1413,7 @@ function InkEditor({
           {!improvement && initial.edition && (
             <details>
               <summary>已保存的整理版（历史版本）</summary>
+              <NoteResultNotice result={initial.edition} />
               <GeneratedText value={initial.edition.polished ?? ""} className="ink-polished" />
             </details>
           )}
@@ -1295,7 +1427,7 @@ function InkEditor({
       {error && (
         <div role="alert" className="studio-error">
           <p>{error}</p>
-          <button disabled={busy} onClick={() => void saveDraftAsNew()}>
+          <button disabled={busy || saving || restoringAudio} onClick={() => void saveDraftAsNew()}>
             把当前草稿另存为新笔记
           </button>
         </div>

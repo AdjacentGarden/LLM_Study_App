@@ -7,6 +7,7 @@ import {
 import { ApiError } from "../api/transport";
 import { savedLearningSessions } from "./bookContext";
 import { Icon } from "./Icon";
+import { acceptedCodeDelivery } from "./accountDelivery";
 
 export function RegisterPage({
   state,
@@ -80,7 +81,7 @@ export function RegisterPage({
     setCode("");
     try {
       const result = await accountsApi.code(email.trim(), mode);
-      if (result.delivery !== "email") {
+      if (!acceptedCodeDelivery(result, email, state.demo_available)) {
         setError("邮箱验证服务暂时不可用，请稍后再试。");
         return;
       }
@@ -282,7 +283,16 @@ export function RegisterPage({
                       </button>
                     </div>
                   </label>
-                  {challenge && (
+                  {challenge?.delivery === "demo" ? (
+                    <div className="auth-demo-code" role="status">
+                      <b>演示验证码，未发送邮件</b>
+                      <strong>{challenge.demo_code}</strong>
+                      <small>
+                        仅用于私有预览演示账号，有效期 {Math.ceil(challenge.expires_in / 60)} 分钟。
+                        演示账号是公共测试身份，请勿保存隐私。
+                      </small>
+                    </div>
+                  ) : challenge && (
                     <div className="auth-code-note" role="status">
                       <b>请查收邮箱验证码</b>
                       <span>
@@ -404,7 +414,9 @@ export function RegisterPage({
           </form>
           {!state.email_available && (
             <p className="auth-service-note">
-              邮箱验证服务暂时不可用，请稍后再试。
+              {state.demo_available
+                ? "当前为私有预览，可使用 reader@zhiwo.test 体验；真实邮箱验证暂未配置。"
+                : "邮箱验证服务暂时不可用，请稍后再试。"}
             </p>
           )}
         </div>
