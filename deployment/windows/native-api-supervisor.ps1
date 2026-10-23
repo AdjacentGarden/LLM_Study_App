@@ -73,7 +73,6 @@ if ($Action -eq 'Stop') {
             Remove-Item -LiteralPath $StateFile -Force
         }
     }
-    $mutex.Dispose()
     Write-Output '{"stopped":true,"scope":"verified-native-api"}'
     exit 0
 }
