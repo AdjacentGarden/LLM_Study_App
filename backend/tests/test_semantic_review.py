@@ -25,6 +25,32 @@ def verdict(supported=True):
     }
 
 
+@pytest.mark.parametrize("use_planner", [False, True])
+@pytest.mark.parametrize("budget", [4096, 10000])
+def test_qa_review_and_planning_reserve_the_configured_thinking_budget(use_planner, budget):
+    source = "按下蓝色按钮时，计数器增加七。"
+    calls = []
+
+    class Client:
+        def structured(self, **kwargs):
+            calls.append(kwargs)
+            if "覆盖规划器" in kwargs["system"]:
+                return {"items": [{"focus": "操作结果", "source_id": "E1", "quote": source}]}
+            if "审校员" in kwargs["system"]:
+                return verdict()
+            return draft(source, source)
+
+    answer = GroundedAnswerGenerator(
+        Client(), use_evidence_planner=use_planner, use_semantic_review=True,
+        max_output_tokens=budget,
+    ).answer(question="如何使用这个装置？", evidence=[
+        EvidenceChunk(source_id="E1", page_number=1, text=source)
+    ], retrieval_score=1)
+    assert answer.semantic_checked
+    assert len(calls) == (3 if use_planner else 2)
+    assert all(call["max_tokens"] == budget for call in calls)
+
+
 @pytest.mark.parametrize(
     "text",
     [

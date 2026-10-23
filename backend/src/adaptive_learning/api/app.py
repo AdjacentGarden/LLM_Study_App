@@ -255,6 +255,8 @@ def rag_health() -> dict[str, object]:
         "answer_provider": settings.llm_provider,
         "evidence_planner": settings.rag_use_evidence_planner,
         "semantic_review": settings.rag_use_semantic_review,
+        "max_output_tokens": settings.rag_max_output_tokens,
+        "generation_timeout_seconds": settings.rag_generation_timeout_seconds,
     }
 
 

@@ -71,8 +71,14 @@ class Settings:
     ocr_page_quality_accept: float = 0.82
     ocr_page_quality_review: float = 0.66
     ocr_page_structured_review: float = 0.50
+    rag_max_output_tokens: int = 10000
+    rag_generation_timeout_seconds: int = 120
 
     def __post_init__(self) -> None:
+        if not 1 <= self.rag_max_output_tokens <= 10000:
+            raise ValueError("RAG_MAX_OUTPUT_TOKENS must be between 1 and 10000")
+        if self.rag_generation_timeout_seconds <= 0:
+            raise ValueError("RAG_GENERATION_TIMEOUT_SECONDS must be positive")
         if not 0 <= self.quality_review <= self.quality_accept <= 1:
             raise ValueError("OCR quality thresholds require 0 <= review <= accept <= 1")
         if not 0 <= self.ocr_page_structured_review <= self.ocr_page_quality_review <= self.ocr_page_quality_accept <= 1:
@@ -117,6 +123,8 @@ def get_settings() -> Settings:
         return Path(value).resolve() if value else None
 
     return Settings(
+        rag_max_output_tokens=_int("RAG_MAX_OUTPUT_TOKENS", 10000),
+        rag_generation_timeout_seconds=_int("RAG_GENERATION_TIMEOUT_SECONDS", 120),
         studio_worker_enabled=_bool("STUDIO_WORKER_ENABLED", True),
         ocr_page_quality_accept=_float("OCR_PAGE_QUALITY_ACCEPT", 0.82),
         ocr_page_quality_review=_float("OCR_PAGE_QUALITY_REVIEW", 0.66),

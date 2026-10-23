@@ -43,9 +43,12 @@ def upload_components() -> tuple[TransformerQueryEncoder, TransformerPairReranke
             encoder = TransformerQueryEncoder(s.rag_embedding_model_path, device=s.rag_device)
             reranker = TransformerPairReranker(s.rag_reranker_model_path, device=s.rag_device)
             client = OpenAICompatibleClient(LLMConfig(base_url=s.text_base_url, api_key=s.text_api_key,
-                model=s.text_model, timeout_seconds=25, max_retries=0, proxy_url=s.llm_https_proxy))
+                model=s.text_model, timeout_seconds=s.rag_generation_timeout_seconds,
+                max_retries=0, proxy_url=s.llm_https_proxy))
             generator = GroundedAnswerGenerator(client, refusal_score_threshold=s.rag_refusal_score_threshold,
-                use_evidence_planner=s.rag_use_evidence_planner, use_semantic_review=s.rag_use_semantic_review)
+                use_evidence_planner=s.rag_use_evidence_planner, use_semantic_review=s.rag_use_semantic_review,
+                max_output_tokens=s.rag_max_output_tokens,
+                draft_budget_seconds=s.rag_generation_timeout_seconds)
             _upload_components = encoder, reranker, generator
         return _upload_components
 
@@ -74,7 +77,7 @@ def _create_qa_service() -> TextbookQAService:
             base_url=settings.text_base_url,
             api_key=settings.text_api_key,
             model=settings.text_model,
-            timeout_seconds=25,
+            timeout_seconds=settings.rag_generation_timeout_seconds,
             max_retries=0,
             proxy_url=settings.llm_https_proxy,
         )
@@ -87,6 +90,8 @@ def _create_qa_service() -> TextbookQAService:
         # improving deterministic citation checks, so production keeps it opt-in.
         use_evidence_planner=settings.rag_use_evidence_planner,
         use_semantic_review=settings.rag_use_semantic_review,
+        max_output_tokens=settings.rag_max_output_tokens,
+        draft_budget_seconds=settings.rag_generation_timeout_seconds,
     )
     return TextbookQAService(
         book_id=settings.rag_book_id,
@@ -95,6 +100,8 @@ def _create_qa_service() -> TextbookQAService:
         top_pages=settings.rag_top_pages,
         max_evidence=settings.rag_max_evidence,
         retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
+        generation_budget_seconds=settings.rag_generation_timeout_seconds,
+        wait_seconds=settings.rag_generation_timeout_seconds + 5,
     )
 
 
@@ -134,6 +141,8 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
             index = PersistentRAGIndex.load(upload_path, encoder=encoder, reranker=reranker)
             service = TextbookQAService(book_id=book_id, index=index, generator=generator,
                 top_pages=settings.rag_top_pages, max_evidence=settings.rag_max_evidence,
+                generation_budget_seconds=settings.rag_generation_timeout_seconds,
+                wait_seconds=settings.rag_generation_timeout_seconds + 5,
                 retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000)
             _book_services[key] = service
             while len(_book_services) > 4:
@@ -164,6 +173,8 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
             book_id=book_id, index=index, generator=primary.generator,
             top_pages=settings.rag_top_pages, max_evidence=settings.rag_max_evidence,
             retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
+            generation_budget_seconds=settings.rag_generation_timeout_seconds,
+            wait_seconds=settings.rag_generation_timeout_seconds + 5,
         )
         _book_services[book_id] = service
         while len(_book_services) > 4:

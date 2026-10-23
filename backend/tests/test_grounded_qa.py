@@ -9,6 +9,7 @@ from adaptive_learning.rag.grounded_qa import (
     EvidenceChunk,
     GroundedAnswerGenerator,
     GroundedAnswerValidationError,
+    _citation_repair_hints,
 )
 
 
@@ -276,9 +277,77 @@ def test_invalid_model_citation_is_retried_without_relaxing_verification() -> No
     assert client.calls == 2
 
 
+def test_retry_receives_rejected_draft_and_preserves_interleaved_source_text():
+    source = "蓝色按钮每按一次，\n旁注：这是虚构设备。\n计数器增加7。"
+    rejected = {"status": "supported", "claims": [{
+        "text": "蓝色按钮每按一次，计数器增加7。",
+        "citations": [{"source_id": "E1", "quote": "蓝色按钮每按一次，计数器增加7。"}],
+    }], "confidence": 0.9}
+    calls = []
+
+    class RepairClient:
+        def structured(self, **kwargs):
+            payload = json.loads(kwargs["user"])
+            calls.append(payload)
+            if len(calls) == 1:
+                return rejected
+            assert payload["previous_draft_for_correction"] == rejected
+            assert payload["evidence"][0]["text"] == source
+            assert "不得跳过" in payload["validation_feedback"]
+            assert payload["citation_repair_hints"] == [
+                {"source_id": "E1", "original_span": source}
+            ]
+            return {"status": "supported", "claims": [{
+                "text": "蓝色按钮每按一次，计数器增加7。",
+                "citations": [{"source_id": "E1", "quote": source}],
+            }], "confidence": 0.9}
+
+    answer = GroundedAnswerGenerator(RepairClient()).answer(
+        question="蓝色按钮的作用是什么？",
+        evidence=[EvidenceChunk(source_id="E1", page_number=1, text=source)],
+        retrieval_score=1,
+    )
+    assert answer.generation_attempts == 2
+    assert answer.claims[0].citations[0].quote == source
+
+
+@pytest.mark.parametrize("raw", [
+    {"claims": None},
+    {"claims": [None, {"citations": None}]},
+    {"claims": [{"citations": [{"source_id": [], "quote": "invalid"}]}]},
+    {"claims": [{"citations": [{"source_id": "E1", "quote": "这是完全不存在的虚构引文内容。"}]}]},
+])
+def test_citation_repair_hints_do_not_invent_sources_or_fail_on_bad_schema(raw):
+    assert _citation_repair_hints(raw, _evidence()) == []
+
+
 def test_negative_retry_configuration_is_rejected() -> None:
     with pytest.raises(ValueError, match="must not be negative"):
         GroundedAnswerGenerator(FakeClient({}), max_validation_retries=-1)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("question", ["减数分裂是什么？", "请详细比较本章所述过程及其条件。"])
+@pytest.mark.parametrize("budget", [4096, 10000])
+def test_answer_output_budget_is_applied_to_both_short_and_detailed_questions(question, budget):
+    calls = []
+
+    class BudgetClient:
+        def structured(self, **kwargs):
+            calls.append(kwargs)
+            return {"status": "insufficient", "claims": [], "confidence": 0,
+                    "insufficiency_reason": "测试证据不足"}
+
+    result = GroundedAnswerGenerator(BudgetClient(), max_output_tokens=budget).answer(
+        question=question, evidence=_evidence(), retrieval_score=1,
+    )
+    assert result.status == AnswerStatus.INSUFFICIENT
+    assert calls[0]["max_tokens"] == budget
+
+
+@pytest.mark.parametrize("budget", [0, -1, 10001])
+def test_answer_output_budget_must_be_within_supported_limits(budget):
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        GroundedAnswerGenerator(FakeClient({}), max_output_tokens=budget)
 
 
 def test_mobile_answer_contract_rejects_single_report_length_claim() -> None:

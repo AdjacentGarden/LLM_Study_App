@@ -9,6 +9,7 @@ import pytest
 from adaptive_learning.llm.client import (
     LLMConfig,
     LLMError,
+    LLMOutputLimitError,
     OpenAICompatibleClient,
     model_time_budget,
 )
@@ -60,6 +61,62 @@ def test_structured_call_retries_truncated_json(monkeypatch: pytest.MonkeyPatch)
     assert calls == 2
 
 
+@pytest.mark.parametrize(
+    ("base_url", "model", "configure_thinking"),
+    [
+        ("https://api.deepseek.com/v1", "deepseek-flash", True),
+        ("https://api.deepseek.com", "deepseek-v4-pro", True),
+        ("https://api.deepseek.com/v1", "deepseek-reasoner", True),
+        ("https://example.test/v1", "deepseek-flash", False),
+        ("https://api.deepseek.com.example.test/v1", "deepseek-flash", False),
+    ],
+)
+def test_official_deepseek_json_calls_enable_low_effort_thinking(
+    monkeypatch, base_url, model, configure_thinking
+):
+    captured = {}
+
+    def post(*args, **kwargs):
+        captured.update(kwargs["json"])
+        return FakeResponse(content='{"ok": true}')
+
+    monkeypatch.setattr(httpx.Client, "post", post)
+    client = OpenAICompatibleClient(LLMConfig(base_url, "test-key", model))
+    try:
+        assert client.structured(system="Return JSON.", user="test", max_tokens=700) == {"ok": True}
+        assert captured["max_tokens"] == 700
+        assert captured["response_format"] == {"type": "json_object"}
+        if configure_thinking:
+            assert captured["thinking"] == {"type": "enabled"}
+            assert captured["reasoning_effort"] == "low"
+        else:
+            assert "thinking" not in captured
+            assert "reasoning_effort" not in captured
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("content", [None, '{"ok": true}'])
+def test_token_limit_output_is_rejected_without_replaying_or_accepting_partial_json(monkeypatch, content):
+    calls = []
+
+    class TruncatedResponse(FakeResponse):
+        def json(self):
+            return {"choices": [{"finish_reason": "length", "message": {
+                "content": content, "reasoning_content": "private provider reasoning",
+            }}]}
+
+    monkeypatch.setattr(httpx.Client, "post", lambda *a, **k: calls.append(1) or TruncatedResponse())
+    client = _client(max_retries=3)
+    try:
+        with pytest.raises(LLMOutputLimitError, match="max_tokens") as caught:
+            client.structured(system="Return JSON.", user="test")
+        assert len(calls) == 1
+        assert "private provider reasoning" not in str(caught.value)
+    finally:
+        client.close()
+
+
 def test_structured_call_uses_explicit_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
@@ -84,6 +141,17 @@ def test_structured_call_uses_explicit_proxy(monkeypatch: pytest.MonkeyPatch) ->
 
     assert client.structured(system="s", user="u") == {"ok": True}
     assert captured["proxy"] == "http://127.0.0.1:17897"
+    assert captured["trust_env"] is False
+
+
+def test_unconfigured_llm_proxy_does_not_inherit_shell_proxies(monkeypatch):
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:1")
+    monkeypatch.setenv("ALL_PROXY", "socks5://127.0.0.1:1")
+    client = _client()
+    try:
+        assert not client._http._mounts
+    finally:
+        client.close()
 
 
 def test_structured_call_does_not_retry_non_retryable_401(

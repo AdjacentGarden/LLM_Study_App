@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
@@ -27,6 +28,10 @@ class LLMRefusalError(LLMError):
 
 class LLMTimeoutError(LLMError):
     """An upstream timeout or the shared generation deadline was exhausted."""
+
+
+class LLMOutputLimitError(LLMError):
+    """The provider exhausted the output budget before completing the response."""
 
 
 # A timed-out synchronous transport can still be draining a socket. Keep its slot
@@ -106,6 +111,8 @@ class OpenAICompatibleClient:
             timeout=httpx.Timeout(config.timeout_seconds, connect=10, pool=10),
             limits=httpx.Limits(max_connections=8, max_keepalive_connections=8, keepalive_expiry=60),
             proxy=config.proxy_url,
+            # Model traffic follows LLM_HTTPS_PROXY, independently of shell/git proxies.
+            trust_env=False,
         )
         self._responses_sdk = (
             OpenAI(
@@ -164,6 +171,14 @@ class OpenAICompatibleClient:
             ],
         }
         base_url = self.config.base_url.rstrip("/")
+        if (
+            urlsplit(base_url).hostname == "api.deepseek.com"
+            and self.config.model.startswith("deepseek-")
+        ):
+            # Keep reasoning enabled at the requested low effort. Thinking shares
+            # max_tokens with the final JSON, so callers must budget for both.
+            payload["thinking"] = {"type": "enabled"}
+            payload["reasoning_effort"] = "low"
         endpoint = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.config.api_key}"}
         anthropic = self.config.model.startswith("claude-")
@@ -276,6 +291,10 @@ class OpenAICompatibleClient:
                     choice = body["choices"][0]
                     if choice.get("finish_reason") == "content_filter" or choice["message"].get("refusal"):
                         raise LLMRefusalError("model refused the request")
+                    if choice.get("finish_reason") == "length":
+                        # Even syntactically valid JSON can describe a partial
+                        # answer. Do not accept it or replay the same capped call.
+                        raise LLMOutputLimitError("model output reached max_tokens before completion")
                     content = choice["message"]["content"]
                 return self._parse_object(content)
             except httpx.HTTPStatusError as error:
