@@ -1,0 +1,11 @@
+# Resource manifests contain byte hashes. Keep text identical on every checkout.
+* text=auto eol=lf
+*.json text eol=lf
+*.ps1 text eol=lf
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ttf binary
+*.otf binary

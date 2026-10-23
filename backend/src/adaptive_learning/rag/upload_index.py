@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ntpath
 import os
 import shutil
 import sqlite3
@@ -20,6 +21,24 @@ from numpy.typing import NDArray
 from .index import IndexedChunk, PairReranker, PersistentRAGIndex, QueryEncoder, RAGIndexError
 
 _INDEX_VERSION = b"upload-index-v2"
+
+
+def _windows_extended_path(absolute: str) -> str:
+    """Apply Windows extended-length syntax without changing path identity."""
+    normalized = ntpath.normpath(absolute)
+    if normalized.startswith("\\\\?\\"):
+        return normalized
+    if normalized.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + normalized[2:]
+    return "\\\\?\\" + normalized
+
+
+def _artifact_path(path: Path) -> Path:
+    if os.name != "nt":
+        return path
+    # Do not resolve through the filesystem before adding the prefix: resolving
+    # an existing >MAX_PATH filename can itself fail on unconfigured Windows.
+    return Path(_windows_extended_path(os.path.abspath(path)))
 
 
 class DocumentEncoder(QueryEncoder, Protocol):
@@ -64,6 +83,7 @@ def upload_chunks(path: Path) -> list[IndexedChunk]:
 
 
 def published_upload_index(book_directory: Path) -> Path | None:
+    book_directory = _artifact_path(book_directory)
     source = book_directory / "ocr" / "normalized" / "pages.jsonl"
     try:
         pointer = json.loads((book_directory / "rag" / "current.json").read_text())
@@ -113,6 +133,7 @@ def _valid_native_index(target: Path, encoder: Any) -> bool:
 
 
 def build_upload_index(book_directory: Path, encoder: Any) -> Path:
+    book_directory = _artifact_path(book_directory)
     root = book_directory / "rag"
     root.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(root / ".build.sqlite3", timeout=3600)) as lock:
@@ -234,6 +255,8 @@ def ensure_upload_index(
     encoder: DocumentEncoder,
     reranker: PairReranker,
 ) -> Path:
+    pages_path = _artifact_path(pages_path)
+    root = _artifact_path(root)
     raw = pages_path.read_bytes()
     model_identity = str(getattr(encoder, "model_path", "")).encode("utf-8")
     fingerprint = hashlib.sha256(
