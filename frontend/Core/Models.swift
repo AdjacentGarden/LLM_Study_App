@@ -245,8 +245,8 @@ struct CommunityBook: Codable, Identifiable, Hashable, Sendable {
   var grade: String
   var version: String
   var volume: String?
-  var learners: Int
-  var progress: Double
+  var learners: Int?
+  var progress: Double?
   var flashcardCount: Int
   var recommended: Bool?
   var tags: [String]
@@ -524,14 +524,14 @@ struct AppSnapshot: Codable, Sendable {
   var selectedBookID: String?
   var locations: [String: StudyLocation] = [:]
   var mastery: Set<String> = []
-  var credits = 100
+  var credits = 0
   var creditReservations: [String: Int] = [:]
   var mistakes: [MistakeRecord] = []
   var dismissedSourceIDs: Set<String> = []
 }
 
 struct CreditLedger: Codable, Sendable {
-  var balance = 100
+  var balance = 0
   var reservations: [String: Int] = [:]
   var revision = 0
 }

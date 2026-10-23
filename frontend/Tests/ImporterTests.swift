@@ -22,26 +22,25 @@ final class ImporterTests: XCTestCase {
     return url
   }
 
-  func testPDFTextKeepsPageNumbersAndOriginalCitations() throws {
+  func testPDFTextKeepsPageNumbersAndOriginalSourceAnchors() throws {
     let source = try extract("text.pdf")
     XCTAssertEqual(source.summary.page_count, 2)
-    XCTAssertEqual(source.lessons.count, 2)
+    XCTAssertTrue(source.lessons.isEmpty)
+    XCTAssertTrue(source.chapters.isEmpty)
     XCTAssertEqual(source.chunks.map(\.page_start), [1, 2])
     XCTAssertTrue(source.chunks[0].text.contains("Native learning page one"))
     XCTAssertTrue(source.chunks[1].text.contains("Native learning page two"))
-    XCTAssertEqual(source.chapters.first?.page_end, 2)
-    for lesson in source.lessons {
-      for block in lesson.blocks {
-        XCTAssertFalse(block.ai_generated)
-        XCTAssertTrue(
-          block.citations.allSatisfy {
-            $0.page_start == lesson.page_start && $0.page_end == lesson.page_end
-          })
-        XCTAssertTrue(
-          block.source_chunk_ids.allSatisfy { id in
-            source.chunks.contains { $0.id == id && $0.book_id == "book_local_test" }
-          })
-      }
+    XCTAssertEqual(source.summary.status, "source_ready")
+    XCTAssertEqual(source.summary.content_mode, "local_original")
+    XCTAssertEqual(source.summary.chapter_count, 0)
+    XCTAssertEqual(source.summary.average_confidence, 0)
+    XCTAssertTrue(source.plan.tasks.isEmpty)
+    for chunk in source.chunks {
+      XCTAssertTrue(chunk.chapter_id.isEmpty)
+      XCTAssertEqual(chunk.source_metadata?["locator_kind"], .string("pdf_page"))
+      XCTAssertEqual(chunk.source_metadata?["physical_page_verified"], .bool(true))
+      XCTAssertEqual(chunk.page_start, chunk.page_end)
+      XCTAssertTrue(chunk.chunk_id.hasPrefix("book_local_test:p\(chunk.page_start):"))
     }
   }
 
@@ -50,8 +49,11 @@ final class ImporterTests: XCTestCase {
       let source = try extract(name)
       XCTAssertEqual(source.summary.page_count, 1, name)
       XCTAssertTrue(source.chunks.isEmpty, name)
-      XCTAssertTrue(source.lessons.first?.blocks.isEmpty == true, name)
-      XCTAssertFalse(source.lessons.first?.warnings.isEmpty ?? true, name)
+      XCTAssertTrue(source.lessons.isEmpty, name)
+      XCTAssertTrue(source.chapters.isEmpty, name)
+      XCTAssertTrue(source.plan.tasks.isEmpty, name)
+      XCTAssertEqual(source.summary.status, "source_ready", name)
+      XCTAssertTrue(source.summary.next_title?.contains("暂无可提取文本") == true, name)
     }
     let pdf = try XCTUnwrap(PDFDocument(url: fixture("scan.pdf")))
     XCTAssertEqual(pdf.pageCount, 1)
@@ -78,7 +80,11 @@ final class ImporterTests: XCTestCase {
       XCTAssertEqual(source.chunks.map(\.text).joined(), expected, name)
       XCTAssertEqual(source.summary.page_count, 1, name)
       XCTAssertEqual(source.chunks.first?.page_start, 1, name)
-      XCTAssertTrue(source.lessons.allSatisfy { $0.warnings.isEmpty }, name)
+      XCTAssertTrue(source.lessons.isEmpty, name)
+      XCTAssertTrue(source.chapters.isEmpty, name)
+      XCTAssertEqual(source.summary.status, "source_ready", name)
+      XCTAssertEqual(source.summary.average_confidence, 0, name)
+      XCTAssertEqual(source.chunks.first?.source_metadata?["physical_page_verified"], .bool(false), name)
     }
   }
 
@@ -100,7 +106,9 @@ final class ImporterTests: XCTestCase {
     XCTAssertEqual(source.summary.title, "renamed")
     XCTAssertTrue(
       source.chunks.allSatisfy { $0.book_id == "my-book" && $0.chunk_id.hasPrefix("my-book:") })
-    XCTAssertEqual(source.plan.tasks.map(\.day), [1, 2])
+    XCTAssertTrue(source.plan.tasks.isEmpty)
+    XCTAssertEqual(source.plan.days, 0)
+    XCTAssertEqual(source.plan.daily_minutes, 0)
   }
 
   func testCorruptUnsupportedMissingXMLAndOversizedOfficeEntriesFail() throws {
@@ -123,6 +131,10 @@ final class ImporterTests: XCTestCase {
     XCTAssertTrue(first.source.id.hasPrefix("book_local_"))
     XCTAssertNotEqual(first.relativePath, second.relativePath)
     XCTAssertEqual(first.source.summary.status, "uploaded")
+    XCTAssertEqual(first.source.summary.average_confidence, 0)
+    XCTAssertTrue(first.source.chapters.isEmpty && first.source.lessons.isEmpty)
+    XCTAssertTrue(first.source.plan.tasks.isEmpty)
+    XCTAssertEqual(first.source.plan.daily_minutes, 0)
     let expected = try Data(contentsOf: fixture("plain.txt"))
     XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(first.relativePath)), expected)
     XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(second.relativePath)), expected)
@@ -184,4 +196,72 @@ final class ImporterTests: XCTestCase {
       at: folder.appendingPathComponent("repository/attachments"), includingPropertiesForKeys: nil)
     XCTAssertTrue(attachments.isEmpty)
   }
+
+  func testEveryLocalFormatRemainsSourceOnlyWithoutInventedTeachingOrPlan() throws {
+    for name in ["text.pdf", "scan.pdf", "image.png", "document.docx", "slides.pptx",
+                 "workbook.xlsx", "plain.txt", "notes.md", "table.csv", "long.txt"] {
+      let source = try extract(name)
+      XCTAssertEqual(source.summary.status, "source_ready", name)
+      XCTAssertEqual(source.summary.chapter_count, 0, name)
+      XCTAssertEqual(source.summary.average_confidence, 0, name)
+      XCTAssertTrue(source.chapters.isEmpty && source.lessons.isEmpty, name)
+      XCTAssertTrue(source.flashcards.isEmpty && source.quizzes.isEmpty, name)
+      XCTAssertTrue(source.plan.tasks.isEmpty, name)
+      XCTAssertEqual(source.plan.days, 0, name)
+      XCTAssertEqual(source.plan.daily_minutes, 0, name)
+      XCTAssertTrue(source.chunks.allSatisfy { $0.chapter_id.isEmpty }, name)
+    }
+  }
+
+  func testOfficeLocationKindsAreNotClaimedAsPhysicalPdfPages() throws {
+    for (name, kind) in [("document.docx", "document"), ("slides.pptx", "slide"),
+                         ("workbook.xlsx", "worksheet")] {
+      let source = try extract(name)
+      XCTAssertTrue(source.chunks.allSatisfy {
+        $0.source_metadata?["locator_kind"] == .string(kind)
+          && $0.source_metadata?["physical_page_verified"] == .bool(false)
+      }, name)
+    }
+  }
+
+  func testUploadedServerDirectoryHasUnknownQualityAndNoInventedLessonSchedule() {
+    let chapter = CloudChapter(chapter_id: "actual-chapter", order: 1, title: "真实目录标题",
+      start_page: 2, end_page: 4, summary: "服务端原文摘要", knowledge_points: [], source_block_ids: [])
+    let resource = CloudResource(id: "actual-resource", book_id: "actual-book", workspace_id: "workspace",
+      revision: 0, filename: "actual.pdf", status: "ocr_ready",
+      structure: CloudStructure(title: "Actual source", summary: "", source_page_count: 5, chapters: [chapter]),
+      courses: [], progress: CloudProgress())
+    let source = CloudMapping.source(resource)
+    XCTAssertEqual(source.summary.status, "source_ready")
+    XCTAssertEqual(source.summary.average_confidence, 0)
+    XCTAssertEqual(source.chapters[0].confidence, 0)
+    XCTAssertNotEqual(source.chapters[0].status, "confirmed")
+    XCTAssertEqual(source.lessons[0].status, "pending")
+    XCTAssertEqual(source.lessons[0].confidence, 0)
+    XCTAssertFalse(source.lessons[0].warnings.isEmpty)
+    XCTAssertTrue(source.plan.tasks.isEmpty)
+    XCTAssertEqual(source.plan.daily_minutes, 0)
+  }
+
+  func testPublishedServerLessonKeepsRealContentAndWarningsWithoutInventedQuality() {
+    let chapter = CloudChapter(chapter_id: "actual-chapter", order: 1, title: "真实目录标题",
+      start_page: 2, end_page: 4, summary: "原文摘要", knowledge_points: [], source_block_ids: [])
+    let lesson = CloudCourse(course_id: "published-course", version: 2, chapter_id: chapter.chapter_id,
+      chapter_title: "已发布教学", opening: "服务端导学", summary: "已发布摘要", original_reading: [],
+      knowledge_points: [], flashcards: [], worked_examples: [], checkpoint_questions: [],
+      practice_items: [], estimated_minutes: 17, created_at: "2026-10-23T00:00:00Z",
+      unresolved_source_warnings: ["原始来源警告"])
+    let resource = CloudResource(id: "actual-resource", book_id: "actual-book", workspace_id: "workspace",
+      revision: 0, filename: "actual.pdf", status: "ocr_ready",
+      structure: CloudStructure(title: "Actual source", summary: "", source_page_count: 5, chapters: [chapter]),
+      courses: [lesson], progress: CloudProgress())
+    let source = CloudMapping.source(resource)
+    XCTAssertEqual(source.summary.status, "ready")
+    XCTAssertEqual(source.lessons[0].id, lesson.course_id)
+    XCTAssertEqual(source.lessons[0].summary, lesson.summary)
+    XCTAssertEqual(source.lessons[0].confidence, 0)
+    XCTAssertTrue(source.lessons[0].warnings.contains("原始来源警告"))
+    XCTAssertTrue(source.plan.tasks.isEmpty)  // The course DTO does not contain a real daily plan.
+  }
+
 }

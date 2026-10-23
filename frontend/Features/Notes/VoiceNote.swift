@@ -30,7 +30,7 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
     }
     guard allowed else {
       state = .idle
-      error = "未获得麦克风权限。请在系统设置中允许录音，或使用示例录音。"
+      error = "未获得麦克风权限。请在系统设置中允许录音，已有文字笔记仍可编辑。"
       return
     }
     do {
@@ -101,7 +101,7 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
     timer?.invalidate()
     timer = nil
     state = .ready
-    if seconds < 0.1 { error = "录音过短，请重新录制或使用示例录音。" }
+    if seconds < 0.1 { error = "录音过短，请重新录制。" }
     onFinish?()
   }
   func load(url: URL, duration: Double) {
@@ -184,6 +184,8 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
     }
     if playing { playbackPosition = player?.currentTime ?? 0 }
   }
+  #if DEBUG
+  // A file fixture for recorder persistence tests; no production UI calls this helper.
   func makeSample() {
     reset()
     isSample = true
@@ -224,6 +226,7 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
       onFinish?()
     } catch { self.error = error.localizedDescription }
   }
+  #endif
   func shutdown() {
     stop()
     onFinish = nil
@@ -279,6 +282,12 @@ struct NotesVoiceNoteView: View {
   @State private var capturePosition: UnitPointValue?
   @State private var captureTitle = ""
   @State private var voiceWidth: CGFloat = 834
+  @State private var studioTask: Task<Void, Never>?
+  @State private var studioError: String?
+  @State private var remoteNote: StudioNote?
+  @State private var resultJob: StudioJob?
+  @State private var organizedAccepted = true
+  @State private var recordingGeneration = UUID()
   private var anchor: NoteAnchor? { captureAnchor ?? currentNote?.anchor }
   private var linkedChapterTitle: String {
     if let anchor,
@@ -307,7 +316,7 @@ struct NotesVoiceNoteView: View {
           if !embedded {
             BCCard {
               VStack(alignment: .leading, spacing: 10) {
-                NotesBadge(title: "真实录音 · 本地整理演示")
+                NotesBadge(title: "原始录音保存在本机")
                 HStack(spacing: 10) {
                   BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 20, height: 20)
                   VStack(alignment: .leading, spacing: 3) {
@@ -359,7 +368,7 @@ struct NotesVoiceNoteView: View {
         audio.interrupt()
       }
     }
-    .onDisappear { audio.shutdown() }
+    .onDisappear { studioTask?.cancel(); audio.shutdown() }
     .onChange(of: closeRequest) { _, _ in finishAndClose() }
     .interactiveDismissDisabled(
       audio.state == .recording || audio.state == .paused || saving
@@ -368,12 +377,17 @@ struct NotesVoiceNoteView: View {
     .alert("重新录制？", isPresented: $showReset) {
       Button("取消", role: .cancel) {}
       Button("重新录制", role: .destructive) {
+        studioTask?.cancel()
+        recordingGeneration = UUID()
         audio.reset()
         saved = false
         transcript = ""
         organized = ""
         phase = "idle"
         currentNote = nil
+        remoteNote = nil
+        resultJob = nil
+        studioError = nil
       }
     } message: {
       Text("已保存的旧录音仍可在笔记列表中找到。")
@@ -407,7 +421,6 @@ struct NotesVoiceNoteView: View {
       Text(audio.state == .ready ? "先回放确认，再生成可编辑逐字稿。" : "最长 10 分钟；原始录音会与整理版分别保留。")
         .font(DS.font(embedded ? 13 : 20)).foregroundStyle(DS.muted).lineSpacing(5)
         .multilineTextAlignment(.center)
-      if audio.isSample { BCPill("示例静音录音 · 非真实语音", color: DS.warning) }
       if let error = saveError ?? audio.error {
         VStack(alignment: .leading, spacing: 8) {
           Text("录音提示").font(DS.font(14, weight: .bold))
@@ -418,7 +431,6 @@ struct NotesVoiceNoteView: View {
             } else {
               BCButton("重新尝试", style: .secondary) { Task { await audio.start() } }
             }
-            BCButton("使用示例录音", style: .text) { audio.makeSample() }
           }
         }.padding(12).foregroundStyle(DS.danger).background(
           Color(hex: 0xfff0f3), in: RoundedRectangle(cornerRadius: 14))
@@ -427,22 +439,21 @@ struct NotesVoiceNoteView: View {
       if audio.state == .ready {
         if saving { ProgressView("正在保存原始录音…").font(DS.font(13)) }
         if phase == "idle" {
-          BCButton("完成并整理", icon: "Sparkles") { transcribe() }.disabled(!saved || saving)
+          Text("转写时会将这段录音发送到你连接的学习服务；原始录音继续保存在本机。").font(DS.font(12)).foregroundStyle(DS.muted)
+          BCButton("上传录音并转写", icon: "Sparkles") { transcribe() }.disabled(!saved || saving)
+          BCButton("手动填写逐字稿", style: .text) { phase = "needs_confirmation" }
         }
         BCTextField("补充这段录音的想法", text: $annotation)
         BCButton("保存批注文字", style: .text) { Task { _ = await saveCurrent() } }.disabled(saving)
       }
-      if audio.state == .idle && audio.error == nil {
-        Button {
-          audio.makeSample()
-        } label: {
-          Text("使用示例录音").font(DS.font(embedded ? 13 : 20, weight: .bold)).foregroundStyle(
-            DS.primary
-          ).frame(minHeight: 48)
+      if let studioError {
+        Text(studioError).font(DS.font(13)).foregroundStyle(DS.danger)
+        if phase != "transcribing" && phase != "organizing" {
+          BCButton("重新查询转写", style: .secondary) { transcribe() }.disabled(!saved || saving)
         }
       }
       if phase == "transcribing" || phase == "organizing" {
-        ProgressView(phase == "transcribing" ? "正在载入演示逐字稿…" : "正在整理笔记…").font(DS.font(13))
+        ProgressView(phase == "transcribing" ? "正在上传并转写真实录音…" : "正在按确认后的文字整理…").font(DS.font(13))
           .foregroundStyle(DS.primary)
       }
     }.padding(2).padding(.bottom, embedded ? 0 : 7)
@@ -496,24 +507,24 @@ struct NotesVoiceNoteView: View {
           VStack(alignment: .leading, spacing: 14) {
             BCPill("请确认逐字稿", color: Color(hex: 0x3c9fcc))
             Text("AI 不会替你猜测原话").font(DS.font(20, weight: .bold))
-            Text("本 Demo 使用固定转写夹具，请按刚才的真实录音修正后再继续。").font(DS.font(13)).foregroundStyle(DS.muted)
+            Text("请回放原始录音并核对文字，无法确定的内容请手动修正后再整理。").font(DS.font(13)).foregroundStyle(DS.muted)
             BCTextEditor(text: $transcript, placeholder: "请修正逐字稿").frame(minHeight: 190)
               .accessibilityIdentifier("voice.transcript")
             BCButton("确认并继续整理", icon: "Save") { organize() }.disabled(
               transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || saving)
+            BCButton("只保存逐字稿", style: .secondary) { Task { _ = await saveCurrent() } }.disabled(saving)
           }
         }
       }
       if phase == "complete" && !organized.isEmpty {
         BCCard {
           VStack(alignment: .leading, spacing: 14) {
-            BCPill("独立整理版 · 本地演示", color: DS.mint)
+            BCPill(organizedAccepted ? "已保留的独立整理版" : "服务端整理建议 · 待确认", color: DS.mint)
             Text("独立整理版").font(DS.font(20, weight: .bold))
             Text(organized).font(DS.font(14)).lineSpacing(6).textSelection(.enabled)
-            if anchor?.bookID == "book_biology_2" { NotesDemoEvidence() }
             Text("原始录音与确认后的逐字稿均已保留，整理版不会覆盖它们。").font(DS.font(12)).foregroundStyle(DS.muted)
             BCButton("保留整理版", style: .secondary) {
-              Task { if await saveCurrent() { store.showToast("整理版已保留") } }
+              keepOrganized()
             }
             BCButton("修改逐字稿", style: .text) { phase = "needs_confirmation" }
           }
@@ -552,6 +563,8 @@ struct NotesVoiceNoteView: View {
     guard let url = audio.audioURL else { return true }
     guard !saving else { return false }
     saving = true
+    let generation = recordingGeneration
+    let epoch = store.cloudState.epoch
     saveError = nil
     var note =
       currentNote
@@ -565,7 +578,7 @@ struct NotesVoiceNoteView: View {
     note.duration = audio.seconds
     note.updatedAt = .now
     note.transcript = transcript.isEmpty ? nil : transcript
-    note.organizedText = organized.isEmpty ? nil : organized
+    if organizedAccepted { note.organizedText = organized.isEmpty ? nil : organized }
     note.position = capturePosition
     do {
       if note.audioPath == nil || !saved {
@@ -578,6 +591,7 @@ struct NotesVoiceNoteView: View {
           bytes, extension: url.pathExtension.isEmpty ? "m4a" : url.pathExtension)
       }
       try await store.saveNote(note)
+      guard generation == recordingGeneration, epoch == store.cloudState.epoch else { saving = false; return false }
       currentNote = note
       saved = true
       saving = false
@@ -602,57 +616,107 @@ struct NotesVoiceNoteView: View {
     }
   }
   private func transcribe() {
+    guard studioTask == nil else { return }
+    studioError = nil
     phase = "transcribing"
-    Task {
-      try? await Task.sleep(for: .milliseconds(500))
-      transcript = NotesFixtures.voiceTranscript
-      phase = "needs_confirmation"
-      _ = await saveCurrent()
+    let generation = recordingGeneration
+    let epoch = store.cloudState.epoch
+    studioTask = Task { @MainActor in
+      defer { studioTask = nil }
+      do {
+        guard await saveCurrent(), let note = currentNote, let path = note.audioPath else {
+          throw CloudError(status: 409, message: "请先保存原始录音，再重试转写。")
+        }
+        guard let api = store.cloud, store.cloudState.authenticated else {
+          throw CloudError(status: 503, message: "尚未连接学习服务，录音已保存在本机；连接后可转写，也可以手动填写逐字稿。")
+        }
+        let service = StudioService(api: api)
+        let remote = try await service.prepareVoice(note: note, fileURL: store.attachmentURL(path))
+        let submitted = try await service.analyze(note: remote, action: "recognize")
+        let result = try await service.waitForJob(submitted)
+        try Task.checkCancellation()
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch, currentNote?.id == note.id else { return }
+        guard !result.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+          throw CloudError(status: 422, message: "未识别到可用文字，请回放录音并手动补充；原始录音仍保留。")
+        }
+        remoteNote = remote
+        transcript = result.transcript
+        phase = "needs_confirmation"
+        _ = await saveCurrent()
+      } catch is CancellationError {
+        if generation == recordingGeneration { phase = transcript.isEmpty ? "idle" : "needs_confirmation" }
+        return
+      }
+      catch {
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+        studioError = error.localizedDescription
+        phase = transcript.isEmpty ? "idle" : "needs_confirmation"
+      }
     }
   }
   private func organize() {
+    guard studioTask == nil else { return }
+    studioError = nil
     phase = "organizing"
-    Task {
-      guard await saveCurrent() else {
-        phase = "needs_confirmation"
+    let confirmed = transcript
+    let generation = recordingGeneration
+    let epoch = store.cloudState.epoch
+    studioTask = Task { @MainActor in
+      defer { studioTask = nil }
+      do {
+        guard await saveCurrent(), let note = currentNote, let path = note.audioPath else {
+          throw CloudError(status: 409, message: "请先保存原始录音和逐字稿。")
+        }
+        guard let api = store.cloud, store.cloudState.authenticated else {
+          throw CloudError(status: 503, message: "整理服务尚未连接，确认后的逐字稿与原始录音已保存在本机。")
+        }
+        let service = StudioService(api: api)
+        let remote = try await service.prepareVoice(note: note, fileURL: store.attachmentURL(path))
+        let submitted = try await service.analyze(note: remote, action: "improve", transcript: confirmed)
+        let result = try await service.waitForJob(submitted)
+        try Task.checkCancellation()
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch, currentNote?.id == note.id, transcript == confirmed else { return }
+        guard result.status == "succeeded", !result.polished.isEmpty else {
+          throw CloudError(status: 409, message: "服务没有返回可采用的整理版，请继续核对逐字稿；原稿仍保留。")
+        }
+        remoteNote = remote
+        resultJob = result
+        organized = result.polished
+        organizedAccepted = false
+        phase = "complete"
+      } catch is CancellationError {
+        if generation == recordingGeneration { phase = "needs_confirmation" }
         return
       }
-      try? await Task.sleep(for: .milliseconds(700))
-      organized =
-        anchor?.bookID == "book_biology_2"
-        ? NotesFixtures.organizedVoice : "## 语音笔记整理（演示）\n\n\(transcript)\n\n请结合教材原文核对以上记录。"
-      phase = "complete"
-      _ = await saveCurrent()
+      catch {
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+        studioError = error.localizedDescription
+        phase = "needs_confirmation"
+      }
+    }
+  }
+  private func keepOrganized() {
+    guard studioTask == nil else { return }
+    let epoch = store.cloudState.epoch
+    studioTask = Task { @MainActor in
+      defer { studioTask = nil }
+      do {
+        if !organizedAccepted {
+          guard let api = store.cloud, let remoteNote, let resultJob else {
+            throw CloudError(status: 409, message: "整理结果尚未确认，请重新查询。")
+          }
+          try await StudioService(api: api).accept(note: remoteNote, job: resultJob)
+        }
+        guard epoch == store.cloudState.epoch else { return }
+        organizedAccepted = true
+        if await saveCurrent() { store.showToast("整理版已保存在本机") }
+      } catch {
+        if epoch == store.cloudState.epoch { studioError = error.localizedDescription }
+      }
     }
   }
   private func formatTime(_ value: Double) -> String {
     let value = max(0, Int(value))
     return String(format: "%02d:%02d", value / 60, value % 60)
-  }
-}
-
-enum NotesFixtures {
-  static let voiceTranscript = "我想记住，减数第一次分裂时同源染色体分离，减数第二次分裂时姐妹染色单体分离。这样形成的配子染色体数目会减半。"
-  static let recognizedInk = "DNA 在复制时边解旋边复制；减数分裂使配子中的染色体数目减半。"
-  static let organizedVoice =
-    "## 两次分裂的核心区别\n\n1. 减数第一次分裂：同源染色体彼此分离，染色体数目减半。\n2. 减数第二次分裂：着丝粒分裂，姐妹染色单体彼此分开。\n3. 复习时应先判断题目询问的是“同源染色体”还是“姐妹染色单体”，再确定发生在哪一次分裂。"
-  static let organizedInk =
-    "## 减数分裂与 DNA 复制\n\n- DNA 在减数分裂开始前完成一次复制，复制过程表现为边解旋边复制。\n- 随后的细胞连续分裂两次，因此最终形成的配子中染色体数目减半。\n- 这条笔记记录的是过程关键词，仍需要结合教材图区分同源染色体与姐妹染色单体。"
-}
-struct NotesDemoEvidence: View {
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      evidence("教材第 16 页", text: "减数分裂过程中，染色体只复制一次，而细胞连续分裂两次。")
-      evidence("教材第 18 页", text: "减数第一次分裂后期同源染色体分离，减数第二次分裂后期姐妹染色单体分开。")
-      Text("以上为固定演示核验片段，并非实时识别结果。").font(DS.font(11)).foregroundStyle(DS.muted)
-    }
-  }
-  private func evidence(_ title: String, text: String) -> some View {
-    VStack(alignment: .leading, spacing: 3) {
-      Text(title).font(DS.font(12, weight: .bold)).foregroundStyle(DS.primary)
-      Text(text).font(DS.font(12)).foregroundStyle(DS.secondary)
-    }
-    .padding(10).frame(maxWidth: .infinity, alignment: .leading).background(
-      Color(hex: 0xf3f8ff), in: RoundedRectangle(cornerRadius: 12))
   }
 }

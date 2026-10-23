@@ -8,7 +8,7 @@ final class NoteTests: XCTestCase {
   func testNoteMediaAndCourseIdentitySurviveRepositoryReopen() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
-    let repository = try LocalBookCourseRepository(directory: directory)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let audio = Data([0x52, 0x49, 0x46, 0x46])
     let path = try await repository.saveAttachment(audio, extension: "wav")
     let note = StudyNote(
@@ -22,7 +22,7 @@ final class NoteTests: XCTestCase {
       anchor: NoteAnchor(courseID: "course-b", bookID: "biology", page: 16))
     try await repository.saveNote(note)
     try await repository.saveNote(other)
-    let reopened = try LocalBookCourseRepository(directory: directory)
+    let reopened = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let restored = try await reopened.loadNotes()
     XCTAssertEqual(restored.count, 2)
     XCTAssertEqual(restored.first { $0.id == "first" }, note)
@@ -36,7 +36,7 @@ final class NoteTests: XCTestCase {
   @MainActor func testOriginalPageRestoresAcrossRestartWithoutCrossingCourseOrBook() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
-    let repository = try LocalBookCourseRepository(directory: directory)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let store = AppStore(repository: repository)
     await store.boot()
     store.selectedCourseID = "course-a"
@@ -47,7 +47,7 @@ final class NoteTests: XCTestCase {
     NotesReadingPosition.save(18, courseID: "course-b", bookID: "book_biology_2", store: store)
     NotesReadingPosition.save(6, courseID: "course-a", bookID: "another-book", store: store)
     await store.flush()
-    let reopened = try LocalBookCourseRepository(directory: directory)
+    let reopened = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let loaded = try await reopened.loadSnapshot()
     let snapshot = try XCTUnwrap(loaded)
     XCTAssertEqual(
@@ -82,7 +82,7 @@ final class NoteTests: XCTestCase {
   @MainActor func testTextAutosaveDebouncesToLatestAndSurvivesRepositoryReopen() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let repository = try LocalBookCourseRepository(directory: folder)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let saved = expectation(description: "Debounced draft saved")
     var writes: [String] = []
     let note = StudyNote(
@@ -104,7 +104,7 @@ final class NoteTests: XCTestCase {
     await fulfillment(of: [saved], timeout: 3)
     XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(lastEdit), 0.45)
     XCTAssertEqual(writes, ["Latest durable understanding"])
-    let reopened = try LocalBookCourseRepository(directory: folder)
+    let reopened = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let restored = try await reopened.loadNotes()
     XCTAssertEqual(restored.count, 1)
     XCTAssertEqual(restored.first?.id, "autosave")
@@ -116,7 +116,7 @@ final class NoteTests: XCTestCase {
   @MainActor func testLateTextWriteCannotOverwriteNewerDraft() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let repository = try LocalBookCourseRepository(directory: folder)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let firstStarted = expectation(description: "First save started")
     var writes: [String] = []
     let note = StudyNote(id: "serial", kind: .text, title: "Serial", body: "")
@@ -145,7 +145,7 @@ final class NoteTests: XCTestCase {
   @MainActor func testTextUpgradeToVoiceKeepsIDBodyAnchorAndSingleRecord() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let repository = try LocalBookCourseRepository(directory: folder)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let note = StudyNote(
       id: "one-annotation", kind: .text, title: "My thought", body: "",
       anchor: NoteAnchor(courseID: "course-a", bookID: "biology", chapterID: "c2s1", page: 11),
@@ -177,7 +177,7 @@ final class NoteTests: XCTestCase {
     // The departing text editor must not revert the recorder's new kind/media.
     draft.stage(title: "Old editor", body: "Late text callback", anchor: nil, position: nil)
     _ = await draft.flush()
-    let reopened = try LocalBookCourseRepository(directory: folder)
+    let reopened = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let restored = try await reopened.loadNotes()
     XCTAssertEqual(restored.count, 1)
     XCTAssertEqual(restored.first, voice)
@@ -190,7 +190,7 @@ final class NoteTests: XCTestCase {
     enum Failure: Error { case simulatedDiskFailure }
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let repository = try LocalBookCourseRepository(directory: folder)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     var shouldFail = true
     let draft = NotesTextDraftPersistence(
       note: StudyNote(id: "retry-text", kind: .text, title: "Retry", body: "")
@@ -215,7 +215,7 @@ final class NoteTests: XCTestCase {
   func testAnnotationConversationSurvivesBodyEditUpgradeAndRepositoryReopen() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
-    let repository = try LocalBookCourseRepository(directory: directory)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let original = StudyNote(id: "annotation", kind: .text, title: "原文批注", body: "最初理解",
       anchor: NoteAnchor(courseID: "course", bookID: "biology", page: 11))
     try await repository.saveNote(original)
@@ -230,7 +230,7 @@ final class NoteTests: XCTestCase {
     XCTAssertEqual(merged.conversation, replied.conversation)
     merged.kind = .voice
     try await repository.saveNote(merged)
-    let reopened = try LocalBookCourseRepository(directory: directory)
+    let reopened = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let restored = try await reopened.loadNotes()
     XCTAssertEqual(restored.count, 1)
     XCTAssertEqual(restored[0].id, original.id)

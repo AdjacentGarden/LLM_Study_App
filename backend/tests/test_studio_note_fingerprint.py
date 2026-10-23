@@ -96,17 +96,26 @@ def test_same_request_matches_parsed_original_json_not_storage_format_and_checks
 
 
 @pytest.mark.parametrize("kind", ["recognize", "image", "video", "diagram"])
-def test_media_and_recognition_fingerprints_are_exactly_the_original_algorithm(tmp_path, monkeypatch, kind):
+def test_media_policy_and_recognition_fingerprints_are_independent_of_note_revision(tmp_path, monkeypatch, kind):
     studio = Studio(tmp_path)
     data = spec(kind)
     key = studio.submit("owner", data, kind)["id"]
     before = row(studio, key)
-    assert before["fingerprint"] == old_fingerprint(data)
+    expected = old_fingerprint(data)
+    if kind in {"image", "video"}:
+        from adaptive_learning.studio import media_review_mode
+        expected = hashlib.sha256(json.dumps({
+            "body": {k: v for k, v in data.items() if k != "request_id"},
+            "media_review_mode": media_review_mode(), "media_review_revision": 1,
+        }, sort_keys=True).encode()).hexdigest()
+    assert before["fingerprint"] == expected
     monkeypatch.setattr("adaptive_learning.studio.NOTE_REVIEW_REVISION", "unrelated-note-revision")
     assert studio.submit("owner", {**data, "request_id": "unchanged_media_222"}, kind)["id"] == key
     assert row(studio, key) == before
     with studio.repo.connect() as db:
-        assert db.execute("SELECT COUNT(*) FROM studio_note_request_aliases").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM studio_note_request_aliases").fetchone()[0] == (
+            2 if kind in {"image", "video"} else 0
+        )
 
 
 def test_corrupt_stored_request_data_fails_closed_without_new_submission(tmp_path):

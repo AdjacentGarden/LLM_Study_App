@@ -863,6 +863,7 @@ class Studio:
         result.pop("_review_retries", None)
         return {
             "id": row["id"],
+            "request_id": row["request_id"],
             "book_id": row["book_id"],
             "kind": row["kind"],
             "status": row["status"],
@@ -904,8 +905,11 @@ class Studio:
             db.begin_write()
             self._release_unsubmitted_reserves(db)
 
-            def remember_note_request(job_id: str) -> None:
-                if kind in {"improve", "complete"}:
+            def remember_request(job_id: str) -> None:
+                # The historical table name is retained for migration compatibility.
+                # Media coalescing also needs durable aliases: a lost reply must
+                # remain recoverable without another paid submission.
+                if kind in {"improve", "complete", "image", "video"}:
                     db.execute("INSERT INTO studio_note_request_aliases VALUES (?,?,?,?,?,?)",
                         (owner, data["request_id"], kind, body_json, job_id, now))
 
@@ -944,14 +948,14 @@ class Studio:
                     same_body = False
                 if not same_body or old["kind"] != kind:
                     raise HTTPException(409, "请求编号已用于其他内容，请重新打开")
-                remember_note_request(old["id"])
+                remember_request(old["id"])
                 return self.public_job(old)
             old = db.execute(
                 "SELECT * FROM studio_jobs WHERE owner=? AND fingerprint=? AND kind=? AND status IN ('queued','planning','submitting','polling','reviewing','succeeded','uncertain') ORDER BY created DESC LIMIT 1",
                 (owner, fingerprint, kind),
             ).fetchone()
             if old:
-                remember_note_request(old["id"])
+                remember_request(old["id"])
                 return self.public_job(old)
             count = db.execute(
                 "SELECT COUNT(*) FROM studio_jobs WHERE owner=? AND created>?", (owner, now - 86400)
@@ -988,10 +992,46 @@ class Studio:
             if kind in {"image", "video"}:
                 db.execute("UPDATE studio_jobs SET result=? WHERE id=?",
                     (json.dumps({"media_review_mode": media_review_mode()}), key))
-            remember_note_request(key)
+            remember_request(key)
             return self.public_job(
                 db.execute("SELECT * FROM studio_jobs WHERE id=?", (key,)).fetchone()
             )
+
+    def job_by_request(self, owner: str, book_id: str, request_id: str) -> dict[str, Any] | None:
+        """Read an exact owner-scoped receipt, including coalesced request aliases."""
+        with self.repo.connect() as db:
+            alias = db.execute(
+                "SELECT * FROM studio_note_request_aliases WHERE owner=? AND request_id=?",
+                (owner, request_id),
+            ).fetchone()
+            direct = db.execute(
+                "SELECT * FROM studio_jobs WHERE owner=? AND request_id=?",
+                (owner, request_id),
+            ).fetchone()
+            target = direct
+            if alias:
+                target = db.execute(
+                    "SELECT * FROM studio_jobs WHERE owner=? AND id=?", (owner, alias["job_id"])
+                ).fetchone()
+                try:
+                    original = json.loads(target["data"]) if target else None
+                    submitted = json.loads(alias["body_json"])
+                    valid = (isinstance(original, dict) and isinstance(submitted, dict)
+                             and submitted.get("request_id") == request_id
+                             and _studio_request_json({k: v for k, v in original.items() if k != "request_id"})
+                             == _studio_request_json({k: v for k, v in submitted.items() if k != "request_id"}))
+                except (ValueError, TypeError):
+                    valid = False
+                if (not valid or not target or target["kind"] != alias["kind"]
+                        or (direct and direct["id"] != target["id"])):
+                    raise HTTPException(409, "原请求回执暂不可核对，请保留请求编号并联系管理员")
+            if target is None or target["book_id"] != book_id:
+                return None
+            result = self.public_job(target)
+            # This response is the receipt for the queried alias, while its job
+            # ID remains the canonical execution identity used by later reads.
+            result["request_id"] = request_id
+            return result
 
     def _release_unsubmitted_reserves(self, db: sqlite3.Connection) -> None:
         """Reconcile only historical failures proven to precede media submission."""

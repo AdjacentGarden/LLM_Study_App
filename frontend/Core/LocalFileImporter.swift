@@ -32,13 +32,14 @@ enum LocalFileImporter {
     let summary = SourceSummary(
       book_id: id, title: url.deletingPathExtension().lastPathComponent,
       filename: url.lastPathComponent, status: "uploaded", page_count: 0, chapter_count: 0,
-      chunk_count: 0, asset_count: 0, average_confidence: 100,
-      updated_at: Date().timeIntervalSince1970)
+      chunk_count: 0, asset_count: 0, average_confidence: 0,
+      updated_at: Date().timeIntervalSince1970, content_mode: "local_original",
+      directory_unit_label: "资料原文", next_title: "原文件已保存，尚未提取文字或生成教学内容")
     return StagedSource(
       source: SourceContent(
         summary: summary, chapters: [], lessons: [], chunks: [], assets: [], flashcards: [],
         quizzes: [],
-        plan: StudyPlan(user_id: "local_user", book_id: id, days: 1, daily_minutes: 25, tasks: [])),
+        plan: StudyPlan(user_id: "", book_id: id, days: 0, daily_minutes: 0, tasks: [])),
       relativePath: relative)
   }
   static func extract(url: URL, bookID: String, filename: String) async throws -> SourceContent {
@@ -124,74 +125,49 @@ enum LocalFileImporter {
     }
     guard !pages.isEmpty else { throw ContentError.invalid("未找到可读取的页面，原文件仍保留在课程资料中") }
     let title = (filename as NSString).deletingPathExtension
-    let rootID = bookID + ":root"
-    var chapters = [
-      Chapter(
-        chapter_id: rootID, level: 1, source_title: title, ai_title: title, page_start: 1,
-        page_end: pages.count, confidence: 100, status: "confirmed", source: "local-original")
-    ]
     var chunks: [SourceChunk] = []
-    var lessons: [Lesson] = []
-    var tasks: [StudyTask] = []
     let hasText = pages.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    let locatorKind: String
+    switch ext {
+    case "pdf": locatorKind = "pdf_page"
+    case "pptx": locatorKind = "slide"
+    case "xlsx": locatorKind = "worksheet"
+    case "png", "jpg", "jpeg", "webp", "gif", "heic", "heif": locatorKind = "image"
+    default: locatorKind = "document"
+    }
     for (index, text) in pages.enumerated() {
       try Task.checkCancellation()
       let page = index + 1
-      let chapterID = "\(bookID):page:\(page)"
-      let heading = String(
-        (text.split(separator: "\n").first.map(String.init) ?? "第 \(page) 页原文").prefix(32))
-      chapters.append(
-        Chapter(
-          chapter_id: chapterID, level: 2, source_title: heading, ai_title: heading,
-          page_start: page, page_end: page, confidence: 100, status: "confirmed",
-          source: "local-original", parent_id: rootID))
-      var pageChunks: [SourceChunk] = []
       var cursor = text.startIndex
       var part = 0
       while cursor < text.endIndex {
         try Task.checkCancellation()
         let end = text.index(cursor, offsetBy: 1200, limitedBy: text.endIndex) ?? text.endIndex
-        pageChunks.append(
+        chunks.append(
           SourceChunk(
-            chunk_id: "\(bookID):p\(page):\(part)", book_id: bookID, chapter_id: chapterID,
+            chunk_id: "\(bookID):p\(page):\(part)", book_id: bookID, chapter_id: "",
             page_start: page, page_end: page, content_type: "text",
             text: String(text[cursor..<end]), asset_ids: [], key_concepts: [],
-            source_metadata: ["filename": .string(filename), "parser": .string("local-original")]))
+            source_metadata: ["filename": .string(filename), "parser": .string("local-original"),
+                              "locator_kind": .string(locatorKind),
+                              "physical_page_verified": .bool(ext == "pdf")]))
         cursor = end
         part += 1
       }
-      chunks += pageChunks
-      let blocks = pageChunks.map { c in
-        LessonBlock(
-          block_id: c.id + ":block", block_type: "source", title: "资料原文", content: c.text,
-          citations: [
-            LessonCitation(chunk_id: c.id, page_start: page, page_end: page, quote: c.text)
-          ], source_chunk_ids: [c.id], asset_ids: [], ai_generated: false)
-      }
-      let lessonID = chapterID + ":reading"
-      lessons.append(
-        Lesson(
-          book_id: bookID, lesson_id: lessonID, chapter_id: chapterID, title: heading,
-          source_title: heading, page_start: page, page_end: page, lesson_kind: "lesson",
-          status: "ready", confidence: 100, objectives: [], key_concepts: [],
-          summary: String(text.prefix(160)), blocks: blocks, source_chunk_ids: pageChunks.map(\.id),
-          asset_ids: [], warnings: hasText ? [] : ["此资料没有可提取的文字，可以阅读原文；AI 暂无文字依据。 "]))
-      tasks.append(
-        StudyTask(
-          task_id: lessonID + ":task", user_id: "local_user", day: page, title: heading,
-          task_type: "lesson", minutes: 25, chapter_id: chapterID, lesson_id: lessonID,
-          status: "pending", weak_points: []))
     }
+    // Text extraction is a source operation. Page/slide/worksheet order is not
+    // a detected textbook chapter, an AI lesson, a quality score or a study plan.
     let summary = SourceSummary(
-      book_id: bookID, title: title, filename: filename, status: "ready", page_count: pages.count,
-      chapter_count: chapters.count, chunk_count: chunks.count, asset_count: 0,
-      average_confidence: 100, updated_at: Date().timeIntervalSince1970)
+      book_id: bookID, title: title, filename: filename, status: "source_ready", page_count: pages.count,
+      chapter_count: 0, chunk_count: chunks.count, asset_count: 0,
+      average_confidence: 0, updated_at: Date().timeIntervalSince1970,
+      content_mode: "local_original", directory_unit_label: "资料原文",
+      next_title: hasText ? "原文可阅读，尚未识别教材章节或生成教学内容"
+        : "原文件可阅读，暂无可提取文本；尚未生成教学内容")
     return SourceContent(
-      summary: summary, chapters: chapters, lessons: lessons, chunks: chunks, assets: [],
+      summary: summary, chapters: [], lessons: [], chunks: chunks, assets: [],
       flashcards: [], quizzes: [],
-      plan: StudyPlan(
-        user_id: "local_user", book_id: bookID, days: max(1, pages.count), daily_minutes: 25,
-        tasks: tasks))
+      plan: StudyPlan(user_id: "", book_id: bookID, days: 0, daily_minutes: 0, tasks: []))
   }
 }
 private final class XMLTextReader: NSObject, XMLParserDelegate {

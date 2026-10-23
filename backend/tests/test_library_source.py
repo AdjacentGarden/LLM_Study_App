@@ -1,8 +1,6 @@
-from pathlib import Path
-
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import pytest
 
 from adaptive_learning.api.community_routes import community_router
 from adaptive_learning.api.schemas import BookCatalogItem
@@ -89,12 +87,16 @@ def test_missing_or_invalid_registered_sources_fail_without_exposing_local_paths
     assert str(path) not in response.text and "PRIVATE" not in response.text
 
 
-def test_first_source_read_keeps_the_new_visitor_cookie(source_environment):
-    _, stranger, _, _ = source_environment
+def test_first_source_read_cannot_implicitly_grant_a_new_visitor_the_book(source_environment):
+    _, stranger, repo, files = source_environment
     response = stranger.get("/api/library/books/book-0/source")
-    assert response.status_code == 200
-    assert "zhiwo_visitor=" in response.headers["set-cookie"]
+    assert response.status_code == 403 and b"%PDF" not in response.content
+    assert stranger.get("/api/library").json() == []
     assert stranger.cookies.get("zhiwo_visitor")
+    visitor_id = repo.visitor(stranger.cookies.get("zhiwo_visitor"))[0]
+    assert not repo.owns(visitor_id, "book-0")
+    repo.add_book(visitor_id, "book-0")
+    assert stranger.get("/api/library/books/book-0/source").content == files["book-0"].read_bytes()
 
 
 def test_private_upload_survives_router_restart_with_no_public_catalog(source_environment):

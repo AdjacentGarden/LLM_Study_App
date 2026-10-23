@@ -55,7 +55,7 @@ actor AssistantService {
   ) async throws -> AssistantAnswer {
     try Task.checkCancellation()
     if !forceOffline, let key = DeveloperSecrets.key(),
-      !ProcessInfo.processInfo.arguments.contains("--fixture")
+      !ContentBundle.fixtureMode
     {
       return try await online(
         question: question, bookID: bookID, bookIDs: bookIDs, chapterID: chapterID,
@@ -78,7 +78,7 @@ actor AssistantService {
       "\(i+1). \(String(hit.chunk.text.prefix(450)))"
     }.joined(separator: "\n\n")
     return AssistantAnswer(
-      answer: "结合当前课程的教材原文，可以这样理解：\n\n" + evidence + "\n\n可以点击下方引用，回到原文核对。", citations: citations)
+      answer: "离线原文检索结果（未调用大模型）：\n\n" + evidence + "\n\n可以点击下方引用，回到原文核对。", citations: citations)
   }
   private func retrieve(
     question: String, bookID: String, bookIDs: [String], chapterID: String?,

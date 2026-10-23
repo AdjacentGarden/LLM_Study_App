@@ -7,7 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import Field
 
@@ -174,8 +174,15 @@ def studio_router(
         return {"ok": True}
 
     @router.get("/studio/jobs")
-    def jobs(book_id: str, owner: str = Depends(visitor)) -> dict[str, Any]:
+    def jobs(
+        book_id: str, owner: str = Depends(visitor),
+        request_id: str | None = Query(default=None, min_length=1, max_length=100,
+                                      pattern=r"^[a-zA-Z0-9_-]+$"),
+    ) -> dict[str, Any]:
         owned_book(owner, book_id)
+        if request_id is not None:
+            receipt = studio.job_by_request(owner, book_id, request_id)
+            return {"items": [receipt] if receipt is not None else []}
         with studio.repo.connect() as db:
             rows = db.execute(
                 "SELECT * FROM studio_jobs WHERE owner=? AND book_id=? ORDER BY created DESC LIMIT 100",

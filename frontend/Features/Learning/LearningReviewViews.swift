@@ -377,17 +377,20 @@ struct LearningFlashcardsView: View {
 
 struct LearningExportView: View {
   @Environment(AppStore.self) private var store
-  private let modules = ["本章学习目标", "AI 导学笔记", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户个人笔记"]
+  private let modules = ["本章学习目标", "AI 导学笔记", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户文字笔记"]
   @State private var selected: Set<String> = [
-    "本章学习目标", "AI 导学笔记", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户个人笔记",
+    "本章学习目标", "AI 导学笔记", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户文字笔记",
   ]
+
+  @State private var exportURL: URL?
+  @State private var exportError: String?
 
   var body: some View {
     LearningScroll(width: 1120) {
       BCCard {
         VStack(alignment: .leading, spacing: 20) {
           Text("导出 PDF 预览").font(DS.font(20.8, weight: .bold))
-          Text("默认不导出整本原书内容，避免版权风险。")
+          Text("导出当前章节已有的学习内容与文字笔记。尚未生成的模块会跳过，手写和录音原件保留在本机。")
             .font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(5).padding(.bottom, 25)
         }.frame(maxWidth: .infinity, alignment: .leading)
       }.padding(.bottom, 5)
@@ -427,7 +430,50 @@ struct LearningExportView: View {
       }.background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
         .padding(.bottom, -5)
-      BCButton("确认导出", icon: "arrow.down.to.line") { store.showToast("导学笔记 PDF 已生成") }
+      if let exportError { Text(exportError).foregroundStyle(DS.danger) }
+      BCButton("生成 PDF", icon: "arrow.down.to.line") {
+        exportURL = nil
+        exportError = nil
+        do {
+          guard let source = store.currentSource else { throw ContentError.invalid("请先选择教材。") }
+          exportURL = try LearningPDFExporter.write(title: source.summary.title, sections: sections(source))
+        } catch { exportError = error.localizedDescription }
+      }
+      .disabled(selected.isEmpty || store.currentSource == nil)
+      if let exportURL {
+        ShareLink(item: exportURL) { Label("保存或分享 PDF", systemImage: "square.and.arrow.up") }
+          .font(DS.font(18, weight: .bold)).padding(12)
+      }
     }
   }
+  private func sections(_ source: SourceContent) -> [(String, String)] {
+    let lesson = store.activeLesson
+    let chapterID = store.selectedChapterID
+    let quizzes = source.quizzes.filter { chapterID == nil || $0.chapter_id == chapterID }
+    let tasks = source.plan.tasks.filter { chapterID == nil || $0.chapter_id == chapterID }
+    let notes = store.notes.filter {
+      $0.anchor?.bookID == source.id && (chapterID == nil || $0.anchor?.chapterID == chapterID)
+        && ($0.anchor?.courseID == nil || $0.anchor?.courseID == store.selectedCourseID)
+    }
+    let citations = lesson?.blocks.flatMap(\.citations) ?? []
+    let values: [String: String] = [
+      "本章学习目标": lesson?.objectives.joined(separator: "\n") ?? "",
+      "AI 导学笔记": lesson?.blocks.filter(\.ai_generated).map { $0.title + "\n" + $0.content }.joined(separator: "\n\n") ?? "",
+      "原文引用页码": citations.map {
+        "PDF 第 \($0.page_start)–\($0.page_end) 页" + ($0.quote.map { "：" + $0 } ?? "")
+      }.joined(separator: "\n"),
+      "重点概念": lesson?.key_concepts.joined(separator: "、") ?? "",
+      "小测与错题诊断": (quizzes.map { $0.prompt + "\n" + $0.choices.joined(separator: "\n") + "\n" + $0.explanation }
+        + store.mistakes.filter { $0.book_id == source.id && ($0.course_id == nil || $0.course_id == store.selectedCourseID) }.map {
+          $0.question + "\n我的答案：" + $0.answer + "\n" + ($0.explanation ?? $0.stuck_point)
+        }).joined(separator: "\n\n"),
+      "复习建议": tasks.map { $0.title + "（" + $0.status + "）" }.joined(separator: "\n"),
+      "用户文字笔记": notes.compactMap { note in
+        let body = note.organizedText ?? note.transcript ?? note.body
+        return body.isEmpty ? nil : note.title + "\n" + body
+      }.joined(separator: "\n\n"),
+    ]
+    return modules.filter { selected.contains($0) }.map { ($0, values[$0] ?? "") }
+  }
+
 }

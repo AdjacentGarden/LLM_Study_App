@@ -1,6 +1,18 @@
+import pytest
+from demo_book_fixture import install_demo_book
 from fastapi.testclient import TestClient
 
-from adaptive_learning.api.app import app
+from adaptive_learning.api.app import app, store
+
+
+@pytest.fixture(autouse=True)
+def interview_specimen():
+    previous = store.books.pop("demo_book", None)
+    install_demo_book()
+    yield
+    store.books.pop("demo_book", None)
+    if previous is not None:
+        store.books["demo_book"] = previous
 
 
 def test_native_api_entry_has_no_web_frontend_fallback(monkeypatch, tmp_path) -> None:

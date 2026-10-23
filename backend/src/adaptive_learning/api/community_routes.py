@@ -6,7 +6,7 @@ import os
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -63,8 +63,6 @@ def community_router(
     accounts = Accounts(repo)
     initialized = False
     lock = threading.Lock()
-    initial: list[str] = []
-    published: set[str] = set()
 
     def prepare() -> None:
         nonlocal initialized
@@ -81,7 +79,9 @@ def community_router(
                     manifest = json.loads(Path(manifest_path).read_text())
                 except (OSError, ValueError):
                     pass  # PDF fingerprint still provides safe exact-file deduplication.
-            for index, entry in enumerate(entries):
+            # Configured books can register their actual source asset. Catalog
+            # order grants no personal ownership and does not publish a post.
+            for entry in entries:
                 source = jobs().source_fingerprint(entry.book_id)
                 if not source:
                     continue
@@ -99,21 +99,9 @@ def community_router(
                         except (OSError, ValueError, TypeError, KeyError):
                             pass
                 old = repo.asset(entry.book_id)
-                canonical = repo.register_asset(
+                repo.register_asset(
                     entry.model_dump(), source, old["text_hash"] if old else normalized
                 )
-                published.add(entry.book_id)
-                if index < 5:
-                    initial.append(canonical)
-                else:
-                    repo.publish(
-                        "curated",
-                        "book",
-                        entry.book_id,
-                        entry.title,
-                        "已完成解析，可直接加入书架，建立你自己的学习路径。",
-                        {},
-                    )
             initialized = True
 
     def visitor(request: Request, response: Response) -> str:
@@ -132,7 +120,7 @@ def community_router(
                 raise HTTPException(401, "登录已过期，请重新登录")
             response.headers["Cache-Control"] = "private, no-store"
             return account_owner
-        owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"), initial)
+        owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"))
         if accounts.account(owner):
             raise HTTPException(401, "请使用邮箱验证码登录")
         response.headers["Cache-Control"] = "private, no-store"
@@ -275,7 +263,6 @@ def community_router(
             catalog, source_hash, text_fingerprint("\n".join(normalized_text))
         )
         repo.add_book(owner, canonical)
-        published.add(canonical)
         canonical_asset = repo.asset(canonical)
         if canonical_asset is None:
             raise HTTPException(500, "教材加入书架失败")

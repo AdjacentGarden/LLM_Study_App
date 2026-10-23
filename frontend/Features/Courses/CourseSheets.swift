@@ -92,7 +92,7 @@ struct EditCourseChapterView: View {
               .background(goodMatch ? Color(hex: 0xECFDF5) : Color(hex: 0xFFF3E6), in: Capsule())
               .overlay(Capsule().stroke(goodMatch ? Color(hex: 0xB8EBD8) : Color(hex: 0xF7CBA4)))
             Spacer()
-            Text("\(Int(chapter.confidence))% 综合置信度").font(DS.font(16, weight: .bold))
+            Text(chapter.confidence > 0 ? "\(Int(chapter.confidence))% 综合置信度" : "识别置信度未知，需核对原文").font(DS.font(16, weight: .bold))
               .foregroundStyle(Color(hex: 0x4D5C77))
           }.frame(height: 40)
           VStack(alignment: .leading, spacing: 9) {

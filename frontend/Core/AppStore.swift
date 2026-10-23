@@ -179,7 +179,7 @@ import SwiftUI
   var activeLesson: Lesson? {
     lessons.first { $0.id == selectedLessonID } ?? lessons.first {
       $0.chapter_id == selectedChapterID
-    } ?? lessons.first { $0.chapter_id == "c2s1" } ?? lessons.first
+    } ?? (selectedChapterID == nil ? lessons.first : nil)
   }
   var flashcards: [Flashcard] {
     guard let s = currentSource else { return [] }
@@ -203,15 +203,17 @@ import SwiftUI
     }
   }
   var locationKey: String { "\(selectedCourseID ?? "")::\(selectedBookID ?? "")" }
-  /// Reload the bundled discovery catalog while preserving the view's search and category.
+  /// Reload the real server discovery catalog; only Debug tests inject a fixture.
   func refreshCommunity() async throws {
     if cloud != nil {
       try await refreshCloudCatalog()
       return
     }
-    let refreshed = try await Task.detached(priority: .userInitiated) {
-      try ContentBundle.load([CommunityBook].self, name: "community")
-    }.value
+    guard repository.includesFixtureContent else {
+      community = []
+      throw CloudError(status: 503, message: "社区课程需要连接服务；本机教材仍可使用。")
+    }
+    let refreshed = try ContentBundle.load([CommunityBook].self, name: "community")
     try Task.checkCancellation()
     community = refreshed
   }
@@ -227,9 +229,13 @@ import SwiftUI
     var startupError: String?
     do {
       sources = try await repository.loadSources()
-      community = try ContentBundle.load([CommunityBook].self, name: "community")
-      shelf = try ContentBundle.load([ShelfBook].self, name: "shelf")
+      community = repository.includesFixtureContent
+        ? try ContentBundle.load([CommunityBook].self, name: "community") : []
       filePaths = try await repository.filePaths()
+      shelf = sources.filter { sourceFileURL($0.id) != nil }.map {
+        ShelfBook(bookId: $0.id, title: $0.summary.title,
+                  filename: $0.summary.filename ?? $0.summary.title, coverUrl: $0.summary.cover_url ?? "")
+      }
       if let snapshot = try await repository.loadSnapshot() {
         importJob = snapshot.importJob
         chapterDrafts = snapshot.chapterDrafts ?? [:]
@@ -268,9 +274,9 @@ import SwiftUI
         processingMessage = importJob?.message ?? "整理中断"
         if preferences?.hasCompletedOnboarding == true { route = .parseReady }
       }
-      seedMistakeIfNeeded()
+      if repository.includesFixtureContent { seedMistakeIfNeeded() }
       let arguments = ProcessInfo.processInfo.arguments
-      if arguments.contains("--fixture") {
+      if repository.includesFixtureContent && ContentBundle.fixtureMode {
         preferences = LearnerPreferences(displayName: "小明同学", primaryGoal: nil, dailyTime: nil)
         if let i = arguments.firstIndex(of: "--book"), arguments.indices.contains(i + 1) {
           selectSource(arguments[i + 1])
@@ -344,7 +350,7 @@ import SwiftUI
           }
         }
       }
-      if arguments.contains("--visual-baseline"),
+      if repository.includesFixtureContent && arguments.contains("--visual-baseline"),
         !notes.contains(where: { $0.id == "baseline-note" })
       {
         let note = StudyNote(
@@ -528,13 +534,14 @@ import SwiftUI
     go(.source)
   }
   func openCitation(_ citation: LessonCitation) {
+    guard let bookID = selectedBookID else { showToast("请先选择教材"); return }
     guard citation.page_start > 0 else {
       showToast("此内容为 AI 补充，暂无原文页")
       return
     }
     openSource(
       SourcePageTarget(
-        bookID: selectedBookID ?? "book_biology_2",
+        bookID: bookID,
         title: currentSource?.summary.title ?? currentTitle, page: citation.page_start,
         pageEnd: citation.page_end, printedPage: citation.printed_page_start,
         sourceText: citation.quote, from: route))
@@ -569,7 +576,9 @@ import SwiftUI
     route = .onboarding
   }
   func createCourse(name: String, resourceIDs: [String], diagnosis: [String: [String]] = [:]) {
-    if cloud != nil {
+    let localOnly = resourceIDs.contains { $0.hasPrefix("book_local_") }
+      || draft.editingCourseID?.hasPrefix("local-course:") == true
+    if cloud != nil && !localOnly {
       Task {
         do {
           try await saveCloudCourse(name: name, resourceIDs: resourceIDs, diagnosis: diagnosis)
@@ -586,6 +595,7 @@ import SwiftUI
       selectedCourseID = edit
     } else {
       let course = Course(
+        id: cloud != nil ? "local-course:" + UUID().uuidString : UUID().uuidString,
         name: name.isEmpty ? "我的课程" : name, resourceIDs: validIDs, activeResourceID: validIDs.first,
         diagnosis: diagnosis)
       courses.append(course)
@@ -596,7 +606,7 @@ import SwiftUI
     persist()
   }
   func removeCourse(_ id: String) {
-    if cloud != nil {
+    if cloud != nil && !id.hasPrefix("local-course:") {
       Task { await removeCloudCourse(id) }
       return
     }
@@ -609,24 +619,32 @@ import SwiftUI
     }
     persist()
   }
-  func addSource(_ bookID: String, to courseID: String?) {
-    if cloud != nil {
-      Task { await addCloudResource(bookID: bookID, workspaceID: courseID) }
+  func addSource(_ bookID: String, to courseID: String?) async throws {
+    let targetID = courseID ?? selectedCourseID
+    if cloud != nil, targetID?.hasPrefix("local-course:") != true {
+      guard !bookID.hasPrefix("book_local_") else {
+        throw ContentError.invalid("原文件已保存在本机，请完成上传后再加入在线课程。")
+      }
+      try await addCloudResource(bookID: bookID, workspaceID: targetID)
       return
     }
-    guard sources.contains(where: { $0.id == bookID }) else { return }
-    if let id = courseID ?? selectedCourseID, let i = courses.firstIndex(where: { $0.id == id }) {
+    guard sources.contains(where: { $0.id == bookID }) else { throw ContentError.missing("教材资料") }
+    if let id = targetID, let i = courses.firstIndex(where: { $0.id == id }) {
       if !courses[i].resourceIDs.contains(bookID) { courses[i].resourceIDs.append(bookID) }
       courses[i].updatedAt = .now
       persist()
+      await persistTask?.value
+      if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
     } else {
       createCourse(
         name: sources.first(where: { $0.id == bookID })?.summary.title ?? "新课程",
         resourceIDs: [bookID])
+      await persistTask?.value
     }
   }
+
   func removeSource(_ bookID: String, from courseID: String) {
-    if cloud != nil {
+    if cloud != nil && !courseID.hasPrefix("local-course:") {
       Task { await removeCloudResource(bookID: bookID, workspaceID: courseID) }
       return
     }
@@ -639,6 +657,16 @@ import SwiftUI
     persist()
   }
   func importCommunity(_ book: CommunityBook) {
+    if cloud != nil {
+      Task {
+        do { try await importCloudCommunity(book) } catch { handleCloudError(error) }
+      }
+      return
+    }
+    guard repository.includesFixtureContent else {
+      showToast("请连接社区服务后导入真实课程")
+      return
+    }
     let mapping = [
       "community_genetics": "book_biology_2",
       "community_high_school_mathematics_2": "catalog_high_school_math_required_2",
@@ -714,7 +742,7 @@ import SwiftUI
       await processCloudImport()
       return
     }
-    if ProcessInfo.processInfo.arguments.contains("--fixture"),
+    if ContentBundle.fixtureMode,
       !draft.resourceIDs.contains(where: { $0.hasPrefix("book_local_") })
     {
       return
@@ -736,7 +764,7 @@ import SwiftUI
       for (n, id) in ids.enumerated() {
         guard !Task.isCancelled else { return }
         guard let file = sourceFileURL(id), let index = sources.firstIndex(where: { $0.id == id }),
-          sources[index].summary.status != "ready"
+          !["ready", "source_ready"].contains(sources[index].summary.status)
         else { continue }
         processingMessage = "正在读取 \(sources[index].summary.filename ?? "资料")"
         do {
@@ -967,7 +995,7 @@ import SwiftUI
   }
   func makeAnchor(page: Int? = nil) -> NoteAnchor {
     NoteAnchor(
-      courseID: selectedCourseID, bookID: selectedBookID ?? "book_biology_2",
+      courseID: selectedCourseID, bookID: selectedBookID ?? "",
       chapterID: selectedChapterID,
       page: page ?? (sourceTarget?.bookID == selectedBookID ? sourceTarget?.page : nil)
         ?? activeLesson?.page_start ?? 1,
@@ -976,6 +1004,7 @@ import SwiftUI
   }
   func saveNote(_ note: StudyNote) async throws {
     var updated = note
+    if updated.anchor?.bookID.isEmpty == true { updated.anchor = nil }
     updated.updatedAt = .now
     if cloud != nil {
       if let index = notes.firstIndex(where: { $0.id == updated.id }) {
@@ -1038,7 +1067,7 @@ import SwiftUI
     }
   }
   func ask(_ question: String) async {
-    if cloud != nil {
+    if cloud != nil && !(selectedBookID?.hasPrefix("book_local_") ?? false) {
       await askCloud(question)
       return
     }
@@ -1049,23 +1078,18 @@ import SwiftUI
     let generation = selectionGeneration
     let scope = currentCourse?.resourceIDs ?? [selectedBookID].compactMap { $0 }
     let book = selectedBookID ?? ""
-    var reservation: String?
     do {
-      reservation = try await reserveCredits(1)
       chatMessages.append(ChatMessage(role: "user", text: question))
       let result = try await assistant.ask(
         question: question, bookID: book, bookIDs: scope, chapterID: selectedChapterID,
         sources: sources, history: Array(chatMessages.suffix(8)))
       guard generation == selectionGeneration, !Task.isCancelled else {
-        if let reservation { await refundCredits(reservation) }
         chatLoading = false
         return
       }
       chatMessages.append(
         ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
-      if let reservation { await completeCredits(reservation) }
     } catch {
-      if let reservation { await refundCredits(reservation) }
       showToast(error.localizedDescription)
     }
     chatLoading = false
@@ -1103,6 +1127,7 @@ import SwiftUI
     }
   }
   func makeSampleCourse() {
+    guard repository.includesFixtureContent else { return }
     if let c = courses.first(where: { $0.resourceIDs.contains("book_biology_2") }) {
       selectCourse(c.id)
     }

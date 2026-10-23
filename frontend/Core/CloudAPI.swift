@@ -69,7 +69,7 @@ actor CloudAPI {
   #endif
 
   nonisolated static func configured() -> CloudAPI? {
-    guard !ProcessInfo.processInfo.arguments.contains("--fixture") else { return nil }
+    guard !ContentBundle.fixtureMode else { return nil }
     let value =
       ProcessInfo.processInfo.environment["BOOKCOURSE_API_BASE_URL"]
       ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? "http://127.0.0.1:8100"
@@ -143,6 +143,39 @@ actor CloudAPI {
     return bytes
   }
 
+  func uploadStudioAudio(noteID: String, revision: Int, duration: Double, fileURL: URL) async throws -> Data {
+    guard Self.validStudioID(noteID), revision >= 1, duration.isFinite, (0...602).contains(duration) else {
+      throw CloudError(status: 422, message: "录音信息不完整，原始文件仍保留在本机。")
+    }
+    let values = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+    guard fileURL.isFileURL, values.isRegularFile == true, let size = values.fileSize,
+      size >= 32, size <= 20 * 1024 * 1024 else {
+      throw CloudError(status: 413, message: "录音必须为有效且小于 20 MB 的本机文件。")
+    }
+    let mime = fileURL.pathExtension.lowercased() == "wav" ? "audio/wav" : "audio/mp4"
+    let (bytes, _) = try await send(
+      "/api/studio/notes/\(noteID)/audio", method: "PUT", data: nil, contentType: mime,
+      headers: ["X-Note-Revision": String(revision), "X-Audio-Duration": String(duration)],
+      uploadFile: fileURL)
+    return bytes
+  }
+
+  func downloadStudioAsset(jobID: String) async throws -> Data {
+    guard Self.validStudioID(jobID) else { throw CloudError(status: 422, message: "媒体任务标识无效") }
+    let (bytes, response) = try await send(
+      "/api/studio/jobs/\(jobID)/asset", method: "GET", data: nil, contentType: nil)
+    guard !bytes.isEmpty, ["image/jpeg", "image/png", "video/mp4"].contains(response.mimeType ?? "") else {
+      throw CloudError(status: 422, message: "服务未返回有效媒体文件，请稍后查询原任务。")
+    }
+    return bytes
+  }
+
+  private nonisolated static func validStudioID(_ value: String) -> Bool {
+    !value.isEmpty && value.count <= 100 && value.unicodeScalars.allSatisfy {
+      CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-").contains($0)
+    }
+  }
+
   func clearCredentials() {
     cookies = [:]
     for key in credentialKeys {
@@ -151,7 +184,8 @@ actor CloudAPI {
     }
   }
 
-  private func send(_ path: String, method: String, data: Data?, contentType: String?) async throws
+  private func send(_ path: String, method: String, data: Data?, contentType: String?,
+    headers: [String: String] = [:], uploadFile: URL? = nil) async throws
     -> (Data, HTTPURLResponse)
   {
     guard path.hasPrefix("/api/"), let url = URL(string: path, relativeTo: baseURL) else {
@@ -164,15 +198,19 @@ actor CloudAPI {
     } else if path.hasSuffix("/qa") {
       request.timeoutInterval = 60
     }
-    request.httpBody = data
+    if uploadFile == nil { request.httpBody = data }
     if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+    for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
     if !cookies.isEmpty {
       request.setValue(
         cookies.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "; "),
         forHTTPHeaderField: "Cookie")
     }
     let (bytes, raw): (Data, URLResponse)
-    do { (bytes, raw) = try await session.data(for: request) } catch is CancellationError {
+    do {
+      if let uploadFile { (bytes, raw) = try await session.upload(for: request, fromFile: uploadFile) }
+      else { (bytes, raw) = try await session.data(for: request) }
+    } catch is CancellationError {
       throw CancellationError()
     } catch let error as URLError where error.code == .cancelled { throw CancellationError() } catch
     { throw CloudError(status: 0, message: "无法连接学习服务，请检查服务地址和网络；已保存的进度仍然保留。", transportFailure: true) }

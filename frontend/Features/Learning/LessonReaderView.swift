@@ -1,4 +1,5 @@
 import AVKit
+import CryptoKit
 import SwiftUI
 import UIKit
 
@@ -208,11 +209,7 @@ struct LessonReaderView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var page = 0
-  @State private var pendingVideo: BookAsset?
-  @State private var playingVideo = false
-  @State private var videoError: String?
-  @State private var videoReservation: String?
-  @State private var videoReserving = false
+  @State private var mediaRequest: LessonMediaRequest?
   @State private var concept: String?
 
   private var lesson: Lesson? {
@@ -278,6 +275,7 @@ struct LessonReaderView: View {
               .frame(maxWidth: 1120, alignment: .leading)
               .padding(.horizontal, store.isPad ? 32 : 16).padding(.top, 6).padding(.bottom, 28)
               .frame(maxWidth: .infinity)
+              mediaActions.padding(.horizontal, 20).padding(.bottom, 16)
             }
             .background(DS.background)
             .simultaneousGesture(
@@ -332,41 +330,17 @@ struct LessonReaderView: View {
       store.learningState.readerCompletionVisible = false
       store.learningState.readerOverlayVisible = false
     }
-    .onChange(of: pendingVideo?.id) { _, _ in
-      store.learningState.readerOverlayVisible = pendingVideo != nil || concept != nil
+    .onChange(of: mediaRequest?.id) { _, _ in
+      store.learningState.readerOverlayVisible = mediaRequest != nil || concept != nil
     }
     .onChange(of: concept) { _, _ in
-      store.learningState.readerOverlayVisible = pendingVideo != nil || concept != nil
-    }
-    .overlay {
-      if let pendingVideo { videoConfirmation(pendingVideo) }
+      store.learningState.readerOverlayVisible = mediaRequest != nil || concept != nil
     }
     .overlay {
       if let concept { conceptPanel(concept) }
     }
-    .fullScreenCover(
-      isPresented: $playingVideo,
-      onDismiss: {
-        if let reservation = videoReservation {
-          videoReservation = nil
-          Task { await store.refundCredits(reservation) }
-        }
-      }
-    ) {
-      LearningVideoPlayerView(
-        onReady: {
-          guard let reservation = videoReservation else { return false }
-          videoReservation = nil
-          Task { await store.completeCredits(reservation) }
-          return true
-        },
-        onFailure: {
-          if let reservation = videoReservation {
-            videoReservation = nil
-            Task { await store.refundCredits(reservation) }
-          }
-        }
-      ).presentationBackground(.clear)
+    .sheet(item: $mediaRequest) { request in
+      LessonMediaJobView(request: request, api: store.cloud ?? CloudAPI.configured())
     }
   }
 
@@ -523,12 +497,11 @@ struct LessonReaderView: View {
           .font(DS.font(20)).foregroundStyle(DS.secondary)
           Spacer(minLength: 0)
           Button {
-            videoError = nil
-            pendingVideo = asset
+            openMedia(kind: "video", asset: asset)
           } label: {
             HStack(spacing: 5) {
               Image(systemName: "play.circle").font(.system(size: 14))
-              Text(asset.id == "asset_ai_meiosis_dna_replication_v1" ? "看懂减数分裂" : "看懂这张图")
+              Text("生成讲解短片")
             }.font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
           }.buttonStyle(.plain).accessibilityIdentifier("lesson.video.open.\(asset.id)")
         }.frame(height: 28).frame(maxWidth: activeSection == nil ? 272 : 272).fixedSize(
@@ -618,72 +591,28 @@ struct LessonReaderView: View {
     store.openSource(SourcePageTarget(bookID: id, title: asset.caption, page: start, from: .lesson))
   }
 
-  private func videoConfirmation(_ asset: BookAsset) -> some View {
-    let available = asset.id == "asset_ai_meiosis_dna_replication_v1"
-    return ZStack {
-      Color(hex: 0x181c2c).opacity(0.66).ignoresSafeArea().onTapGesture { pendingVideo = nil }
-      VStack(spacing: 18) {
-        StickerIcon("Video", tone: "pink", size: 64)
-        Text(available ? "是否生成讲解视频？" : "这张图暂时无法生成视频")
-          .font(DS.font(20.8, weight: .bold)).multilineTextAlignment(.center)
-        Text(
-          available
-            ? "为“\(asset.caption)”准备讲解视频。" : "“\(asset.caption)”目前没有可用视频。当前离线 Demo 尚未接入通用视频生成服务。"
-        )
-        .font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(4).multilineTextAlignment(
-          .center)
-        if available {
-          VStack(spacing: 7) {
-            Text("本次生成消耗 10 积分").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primaryPressed)
-            Text("当前剩余 \(store.credits) 积分").accessibilityIdentifier("lesson.video.credits").font(
-              DS.font(20)
-            ).foregroundStyle(DS.secondary)
-          }.frame(maxWidth: .infinity).padding(16).background(
-            DS.primarySoft, in: RoundedRectangle(cornerRadius: 14))
-        }
-        if let videoError { Text(videoError).font(DS.font(12)).foregroundStyle(DS.danger) }
-        HStack(spacing: 10) {
-          BCButton(available ? "否，暂不生成" : "知道了", style: .secondary) { pendingVideo = nil }
-            .accessibilityIdentifier("lesson.video.cancel")
-          if available {
-            BCButton(videoReserving ? "正在准备……" : "是，生成视频") {
-              guard store.credits >= 10 else {
-                videoError = "积分不足：本次需要 10 积分。"
-                return
-              }
-              guard learningResourceURL("/assets/lesson/meiosis-explainer-demo-v1.mp4") != nil
-              else {
-                videoError = "视频资源暂不可用，积分未扣除。"
-                return
-              }
-              guard !videoReserving else { return }
-              videoReserving = true
-              Task { @MainActor in
-                do {
-                  let reservation = try await store.reserveCredits(10)
-                  videoReserving = false
-                  guard pendingVideo != nil else {
-                    await store.refundCredits(reservation)
-                    return
-                  }
-                  videoReservation = reservation
-                  pendingVideo = nil
-                  playingVideo = true
-                } catch {
-                  videoReserving = false
-                  videoError = error.localizedDescription
-                }
-              }
-            }.accessibilityIdentifier("lesson.video.confirm")
-          }
-        }
-      }
-      .padding(24).frame(maxWidth: 416)
-      .background(DS.surface, in: RoundedRectangle(cornerRadius: 28))
-      .overlay(RoundedRectangle(cornerRadius: 28).stroke(DS.border, lineWidth: 1))
-      .padding(24)
-      .accessibilityAddTraits(.isModal)
+  private var mediaActions: some View {
+    HStack(spacing: 12) {
+      BCButton("生成辅助图", icon: "photo", style: .secondary) { openMedia(kind: "image") }
+      BCButton("生成讲解短片", icon: "video", style: .secondary) { openMedia(kind: "video") }
     }
+  }
+
+  private func openMedia(kind: String, asset: BookAsset? = nil) {
+    guard let lesson, let bookID = store.selectedBookID else { return }
+    let linked = asset?.source_chunk_ids.compactMap { id in
+      store.currentSource?.chunks.first { $0.id == id }?.text
+    }.first
+    let sourceQuote = citation?.quote.flatMap { $0.isEmpty ? nil : $0 }
+    let excerpt = linked ?? sourceQuote ?? activeSection?.block.content ?? lesson.summary
+    let sourcePages = asset?.page.map { [$0] } ?? citation.map { [$0.page_start] } ?? [lesson.page_start]
+    mediaRequest = LessonMediaRequest(
+      kind: kind, bookID: bookID, chapterID: lesson.chapter_id,
+      chapterTitle: chapter?.source_title ?? lesson.source_title,
+      title: asset?.caption ?? lesson.title,
+      excerpt: String(excerpt.trimmingCharacters(in: .whitespacesAndNewlines).prefix(3000)),
+      pages: sourcePages.filter { $0 > 0 }, lessonID: lesson.id,
+      courseID: store.selectedCourseID ?? "")
   }
 
   private func conceptPanel(_ title: String) -> some View {
@@ -732,127 +661,393 @@ struct LessonReaderView: View {
   }
 }
 
-private struct LearningVideoPlayerView: View {
-  @Environment(\.dismiss) private var dismiss
-  let onReady: () -> Bool
-  let onFailure: () -> Void
-  @State private var player: AVPlayer?
-  @State private var item: AVPlayerItem?
-  @State private var charged = false
-  @State private var error: String?
-  @State private var statusObservation: NSKeyValueObservation?
-  @State private var preparationTimeout: Task<Void, Never>?
-  @State private var playbackSeconds: Double = 0
-  @State private var timeObserver: Any?
+struct LessonMediaRequest: Identifiable {
+  let kind: String
+  let bookID: String
+  let chapterID: String
+  let chapterTitle: String
+  let title: String
+  let excerpt: String
+  let pages: [Int]
+  let lessonID: String
+  let courseID: String
 
-  var body: some View {
-    ZStack {
-      Color(hex: 0x181c2c).opacity(0.66).ignoresSafeArea().onTapGesture { dismiss() }
-      if !charged && error == nil {
-        VStack(spacing: 16) {
-          ZStack {
-            Circle().stroke(DS.primarySoft, lineWidth: 4).frame(width: 98, height: 98)
-            ProgressView().controlSize(.large).tint(DS.primary).frame(width: 98, height: 98)
-            StickerIcon("Video", tone: "pink", size: 64)
-          }
-          Text("正在生成讲解视频").font(DS.font(20.8, weight: .bold))
-          Text("请稍等，准备好后会自动打开。").font(DS.font(20)).foregroundStyle(DS.secondary)
-            .multilineTextAlignment(.center)
-          BCButton("取消生成", style: .secondary) { dismiss() }
-        }.padding(28).frame(maxWidth: 384).background(
-          DS.surface, in: RoundedRectangle(cornerRadius: 28)
-        ).padding(24)
-      } else {
-        VStack(spacing: 0) {
-          HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-              Label("AI 教学动画 · 7 秒", systemImage: "sparkles").font(DS.font(20, weight: .bold))
-                .foregroundStyle(DS.primary)
-              Text("看懂减数分裂").font(DS.font(20.8, weight: .bold))
-            }
-            Spacer()
-            Button {
-              dismiss()
-            } label: {
-              Image(systemName: "xmark").font(.system(size: 21)).foregroundStyle(DS.secondary)
-                .frame(width: 44, height: 44)
-                .background(Color(hex: 0xf3f6fb), in: Circle())
-            }.buttonStyle(.plain).accessibilityLabel("关闭教学动画").accessibilityIdentifier(
-              "lesson.video.close")
-          }.padding(18)
-          if let player {
-            VideoPlayer(player: player).aspectRatio(16 / 9, contentMode: .fit).background(
-              Color(hex: 0x161829)
-            )
-            .accessibilityIdentifier("lesson.video.player")
-            .accessibilityValue(String(format: "%.2f", playbackSeconds))
-          }
-          VStack(alignment: .leading, spacing: 10) {
-            Text("一次复制，两次分裂").font(DS.font(16, weight: .bold))
-            Text(error ?? "沿着一次复制、两次分裂，观察同源染色体和姐妹染色单体先后发生的变化。")
-              .font(DS.font(20)).lineSpacing(4).foregroundStyle(DS.secondary)
-          }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        }.frame(maxWidth: 720).background(DS.surface, in: RoundedRectangle(cornerRadius: 28))
-          .clipShape(RoundedRectangle(cornerRadius: 28)).padding(12)
-      }
-    }
-    .foregroundStyle(DS.text)
-    .onAppear { prepare() }
-    .onDisappear {
-      preparationTimeout?.cancel()
-      player?.pause()
-      if let timeObserver { player?.removeTimeObserver(timeObserver) }
-      timeObserver = nil
-      statusObservation?.invalidate()
-      statusObservation = nil
-      item = nil
-      player = nil
+  var id: String {
+    let parts = [kind, bookID, chapterID, lessonID, courseID, excerpt,
+                 pages.map(String.init).joined(separator: ",")]
+    let data = (try? JSONEncoder().encode(parts)) ?? Data()
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+}
+
+struct LessonMediaReceipt: Codable, Equatable {
+  var requestID: String
+  var jobID: String?
+  var state: String
+  var submissionUncertain: Bool
+
+  var permitsNewGeneration: Bool {
+    !submissionUncertain && ["failed", "cancelled", "rejected"].contains(state)
+  }
+
+  func validate() throws {
+    guard LessonMediaJobContract.validRequestID(requestID),
+          LessonMediaJobContract.states.contains(state),
+          jobID == nil || LessonMediaJobContract.validJobID(jobID!) else {
+      throw ContentError.invalid("媒体任务回执无法核验，请保留原请求并联系管理员。")
     }
   }
 
-  private func prepare() {
-    guard let url = learningResourceURL("/assets/lesson/meiosis-explainer-demo-v1.mp4") else {
-      error = "视频暂时无法播放，积分未扣除。"
-      onFailure()
+  mutating func accept(_ value: StudioJob, bookID: String, kind: String) throws {
+    try validate()
+    guard ["image", "video"].contains(kind), value.book_id == bookID, value.kind == kind,
+          LessonMediaJobContract.validJobID(value.id),
+          LessonMediaJobContract.states.contains(value.status),
+          jobID == nil || value.id == jobID,
+          state != "succeeded" || value.status == "succeeded" else {
+      throw ContentError.invalid("返回任务与当前教材、类型或状态不一致，已停止显示。")
+    }
+    // Content coalescing may return a canonical job's older request_id. Keep
+    // our durable alias and bind all subsequent reads to the returned job ID.
+    jobID = value.id
+    state = value.status
+    submissionUncertain = false
+  }
+}
+
+enum LessonMediaJobContract {
+  static let states: Set<String> = [
+    "queued", "planning", "submitting", "polling", "reviewing", "succeeded",
+    "failed", "cancelled", "rejected", "uncertain",
+  ]
+
+  static func validJobID(_ value: String) -> Bool {
+    value.utf8.count == 32 && value.utf8.allSatisfy {
+      (48...57).contains($0) || (97...102).contains($0)
+    }
+  }
+
+  static func validRequestID(_ value: String) -> Bool {
+    (8...100).contains(value.utf8.count) && value.utf8.allSatisfy {
+      (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0)
+        || $0 == 45 || $0 == 95
+    }
+  }
+}
+
+/// Only explicit button presses submit media. Reopening a sheet reads the saved
+/// receipt and resumes GET requests, including reconciliation after a lost reply.
+private struct LessonMediaJobView: View {
+  @Environment(\.dismiss) private var dismiss
+  @Environment(AppStore.self) private var store
+  let request: LessonMediaRequest
+  let api: CloudAPI?
+  @State private var receipt: LessonMediaReceipt?
+  @State private var job: StudioJob?
+  @State private var receiptURL: URL?
+  @State private var cacheURL: URL?
+  @State private var accountID: String?
+  @State private var canGenerate = false
+  @State private var initialized = false
+  @State private var busy = false
+  @State private var error: String?
+  @State private var player: AVPlayer?
+  @State private var playerObservation: NSKeyValueObservation?
+  @State private var image: UIImage?
+  @State private var operation: Task<Void, Never>?
+  @State private var identityInvalidated = false
+
+  private var mediaName: String { request.kind == "image" ? "辅助图" : "讲解短片" }
+  private var maySubmit: Bool {
+    initialized && canGenerate && !busy
+      && (receipt == nil || receipt?.permitsNewGeneration == true)
+  }
+  private var phase: String {
+    if receipt?.submissionUncertain == true { return "正在核对原任务是否已被服务器接受" }
+    switch job?.status ?? receipt?.state {
+    case "queued": return "已排队，等待服务器处理"
+    case "planning": return "正在准备生成提示"
+    case "submitting": return "正在提交模型请求"
+    case "polling": return "模型正在生成，请稍后查看"
+    case "reviewing": return "正在下载并校验成品"
+    case "succeeded": return "生成完成"
+    case "failed", "rejected": return "本次生成未完成"
+    case "cancelled": return "任务已取消"
+    case "uncertain": return "提供方结果尚未确认，请继续核对原任务"
+    default: return busy ? "正在连接服务" : "准备生成" + mediaName
+    }
+  }
+
+  var body: some View {
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 18) {
+          Text(request.title).font(DS.font(22, weight: .bold))
+          Text(request.excerpt).font(DS.font(15)).foregroundStyle(DS.secondary)
+            .lineLimit(6).textSelection(.enabled)
+          if busy { ProgressView(phase) }
+          else if receipt != nil { Label(phase, systemImage: "clock") }
+          if let image {
+            Image(uiImage: image).resizable().scaledToFit()
+              .clipShape(RoundedRectangle(cornerRadius: 12))
+              .accessibilityIdentifier("lesson.media.image")
+          }
+          if let player {
+            VideoPlayer(player: player).aspectRatio(4 / 3, contentMode: .fit)
+              .accessibilityIdentifier("lesson.video.player")
+            Text("已下载服务器生成的短片，可播放或稍后继续查看。")
+              .font(DS.font(13)).foregroundStyle(DS.secondary)
+          }
+          if let notice = job?.result["review"]?.stringValue {
+            Text(notice).font(DS.font(13)).foregroundStyle(DS.secondary)
+          }
+          if let error {
+            Text(error).font(DS.font(14)).foregroundStyle(DS.danger).textSelection(.enabled)
+              .accessibilityIdentifier("lesson.media.error")
+          }
+          if maySubmit {
+            Text("点击后将调用服务器模型，并使用对应服务额度。生成失败不影响原文阅读。")
+              .font(DS.font(13)).foregroundStyle(DS.secondary)
+            BCButton(receipt == nil ? "确认生成" + mediaName : "重新生成" + mediaName,
+                     icon: "sparkles") { run { await submit() } }
+              .accessibilityIdentifier("lesson.video.confirm")
+          }
+          if receipt != nil && !busy {
+            BCButton("核对并刷新原任务", icon: "arrow.clockwise", style: .secondary) {
+              run { await refresh() }
+            }.accessibilityIdentifier("lesson.media.refresh")
+          }
+          if !canGenerate && !busy {
+            BCButton("重新检查服务", icon: "arrow.clockwise", style: .secondary) {
+              run { initialized = false; await initialize() }
+            }
+          }
+          if let receipt {
+            Text("请求编号：" + receipt.requestID).font(DS.font(11)).foregroundStyle(DS.muted)
+              .textSelection(.enabled)
+          }
+          Text("关闭页面会停止查询，服务器已接受的任务会继续执行。")
+            .font(DS.font(13)).foregroundStyle(DS.secondary)
+        }.padding(20)
+      }
+      .navigationTitle(mediaName)
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } } }
+    }
+    .task { await initialize() }
+    .onDisappear { operation?.cancel(); player?.pause(); playerObservation?.invalidate() }
+    .onChange(of: store.cloudState.account?.user_id) { _, _ in invalidateIdentity() }
+    .onChange(of: api?.baseURL.absoluteString) { _, _ in invalidateIdentity() }
+  }
+
+  private func invalidateIdentity() {
+    identityInvalidated = true
+    operation?.cancel()
+    playerObservation?.invalidate()
+    player?.pause(); player = nil; image = nil
+    canGenerate = false
+    error = "服务或账号已变化，请关闭此页面后重新打开。"
+  }
+
+  private func run(_ action: @escaping @MainActor () async -> Void) {
+    guard !busy else { return }
+    operation?.cancel()
+    operation = Task { await action() }
+  }
+
+  private func initialize() async {
+    guard !initialized else { return }
+    busy = true
+    error = nil
+    defer { busy = false }
+    do {
+      guard !identityInvalidated else { throw ContentError.invalid("服务或账号已变化，请重新打开此页面。") }
+      guard let api else { throw ContentError.invalid("请先配置并连接教材服务器。") }
+      guard !request.bookID.hasPrefix("book_local_") else {
+        throw ContentError.invalid("这份资料仅保存在本机，尚未绑定服务器教材，暂不能生成媒体。原文件仍可阅读。")
+      }
+      guard request.excerpt.count >= 4 else {
+        throw ContentError.invalid("当前内容缺少可用选段，请先选择至少四个字的教材原文。")
+      }
+      guard let identity = await api.verifiedAccount(), identity.account != nil else {
+        throw ContentError.invalid("请先登录已配置的服务器账号，再生成辅助素材。")
+      }
+      accountID = identity.user_id
+      let service = StudioService(api: api)
+      let scope = [api.baseURL.absoluteString, identity.user_id, request.id]
+      let key = SHA256.hash(data: try JSONEncoder().encode(scope))
+        .map { String(format: "%02x", $0) }.joined()
+      let files = FileManager.default
+      let receipts = files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("CloudPath/MediaReceipts", isDirectory: true)
+      let cache = files.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("CloudPath/MediaArtifacts", isDirectory: true)
+      try files.createDirectory(at: receipts, withIntermediateDirectories: true)
+      try files.createDirectory(at: cache, withIntermediateDirectories: true)
+      receiptURL = receipts.appendingPathComponent(key + ".json")
+      cacheURL = cache.appendingPathComponent(key + (request.kind == "image" ? ".jpg" : ".mp4"))
+      if let receiptURL, files.fileExists(atPath: receiptURL.path) {
+        receipt = try JSONDecoder().decode(LessonMediaReceipt.self, from: Data(contentsOf: receiptURL))
+        try receipt?.validate()
+      }
+      initialized = true
+      if receipt?.state == "succeeded", let cacheURL, files.fileExists(atPath: cacheURL.path) {
+        let bytes = try Data(contentsOf: cacheURL, options: .mappedIfSafe)
+        if request.kind == "image" { image = UIImage(data: bytes) }
+        else { preparePlayer(cacheURL) }
+      }
+      let capabilities = try await service.capabilities()
+      try await requireIdentity(api)
+      canGenerate = request.kind == "image" ? capabilities.image : capabilities.video
+      if receipt != nil { try await reconcileAndObserve(service) }
+      else if !canGenerate { error = "服务器的" + mediaName + "服务尚未就绪，请检查连接与模型配置后重试。" }
+    } catch is CancellationError { }
+    catch { await handleFailure(error) }
+  }
+
+  private func requireIdentity(_ api: CloudAPI) async throws {
+    try Task.checkCancellation()
+    guard !identityInvalidated, let accountID, await api.verifiedAccount()?.user_id == accountID else {
+      playerObservation?.invalidate(); player?.pause(); player = nil; image = nil
+      throw ContentError.invalid("服务账号已变化，请关闭此页面后重新打开。")
+    }
+  }
+
+  private func handleFailure(_ failure: Error) async {
+    if let authentication = failure as? CloudError, authentication.status == 401 {
+      invalidateIdentity()
+      if let api { await api.clearCredentials() }
+      store.handleCloudError(failure)
       return
     }
-    let nextItem = AVPlayerItem(url: url)
-    item = nextItem
-    let nextPlayer = AVPlayer(playerItem: nextItem)
-    nextPlayer.isMuted = true
-    player = nextPlayer
-    timeObserver = nextPlayer.addPeriodicTimeObserver(
-      forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main
-    ) { time in
-      Task { @MainActor in
-        guard time.seconds.isFinite else { return }
-        playbackSeconds = time.seconds
+    error = failure.localizedDescription
+  }
+
+  private func saveReceipt() throws {
+    guard let receiptURL, let receipt else { throw ContentError.storage("无法保存媒体任务回执。") }
+    try JSONEncoder().encode(receipt).write(
+      to: receiptURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+  }
+
+  private func submit() async {
+    guard maySubmit, let api else { return }
+    busy = true
+    error = nil
+    defer { busy = false }
+    var sent = false
+    do {
+      try await requireIdentity(api)
+      let service = StudioService(api: api)
+      let capabilities = try await service.capabilities()
+      try await requireIdentity(api)
+      guard request.kind == "image" ? capabilities.image : capabilities.video else {
+        throw ContentError.invalid("服务器的" + mediaName + "服务暂不可用，未提交生成。")
+      }
+      // Persist before sending. A lost response can only trigger a lookup by this
+      // ID, never an implicit second POST or a new paid generation.
+      receipt = LessonMediaReceipt(requestID: "media_" + UUID().uuidString.replacingOccurrences(of: "-", with: ""),
+                                   state: "submitting", submissionUncertain: true)
+      job = nil
+      playerObservation?.invalidate(); player?.pause(); player = nil; image = nil
+      try saveReceipt()
+      sent = true
+      let accepted = try await service.submitMedia(
+        kind: request.kind, bookID: request.bookID, chapterID: request.chapterID,
+        chapterTitle: request.chapterTitle, excerpt: request.excerpt, pages: request.pages,
+        requestID: receipt!.requestID)
+      try await requireIdentity(api)
+      try accept(accepted)
+      try await observe(service)
+    } catch is CancellationError { }
+    catch {
+      if !sent, receipt?.jobID == nil {
+        receipt?.submissionUncertain = false
+        receipt?.state = "failed"
+      }
+      if let failure = error as? CloudError,
+         [400, 401, 403, 404, 409, 422, 429].contains(failure.status), receipt?.jobID == nil {
+        receipt?.submissionUncertain = false
+        receipt?.state = "failed"
+        try? saveReceipt()
+      }
+      await handleFailure(error)
+      if !identityInvalidated, receipt?.submissionUncertain == true {
+        self.error = "提交结果尚未确认，已保留请求编号。请核对原任务，避免重复生成。"
       }
     }
-    preparationTimeout = Task { @MainActor in
-      do { try await Task.sleep(for: .seconds(12)) } catch { return }
-      guard !charged, item === nextItem else { return }
-      error = "视频准备超时，积分已退回，请关闭后重试。"
-      nextPlayer.pause()
-      item = nil
-      onFailure()
+  }
+
+  private func refresh() async {
+    guard let api else { return }
+    busy = true
+    error = nil
+    defer { busy = false }
+    do {
+      try await requireIdentity(api)
+      try await reconcileAndObserve(StudioService(api: api))
+    } catch is CancellationError { }
+    catch { await handleFailure(error) }
+  }
+
+  private func reconcileAndObserve(_ service: StudioService) async throws {
+    guard let receipt else { return }
+    if receipt.jobID == nil {
+      guard let found = try await service.job(requestID: receipt.requestID, bookID: request.bookID) else {
+        error = "服务器尚未查到已确认任务。原请求编号已保留，请稍后继续核对。"
+        return
+      }
+      if let api { try await requireIdentity(api) }
+      try accept(found)
     }
-    statusObservation = nextItem.observe(\.status, options: [.new, .initial]) { observed, _ in
+    try await observe(service)
+  }
+
+  private func accept(_ value: StudioJob) throws {
+    guard var receipt else { throw ContentError.storage("缺少原请求回执，已停止显示任务。") }
+    try receipt.accept(value, bookID: request.bookID, kind: request.kind)
+    self.receipt = receipt
+    job = value
+    try saveReceipt()
+  }
+
+  private func observe(_ service: StudioService) async throws {
+    guard let api, let jobID = receipt?.jobID else { return }
+    for _ in 0..<300 {
+      try await requireIdentity(api)
+      let latest = try await service.job(id: jobID)
+      try await requireIdentity(api)
+      try accept(latest)
+      if latest.status == "succeeded" {
+        let bytes = try await service.downloadAsset(jobID: jobID)
+        try await requireIdentity(api)
+        guard let cacheURL else { throw ContentError.storage("无法保存生成的素材。") }
+        if request.kind == "image", UIImage(data: bytes) == nil {
+          throw ContentError.invalid("服务器返回的图片无法读取，请刷新原任务后重试下载。")
+        }
+        try bytes.write(to: cacheURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        if request.kind == "image" { image = UIImage(data: bytes) }
+        else { preparePlayer(cacheURL) }
+        return
+      }
+      if ["failed", "cancelled", "rejected", "uncertain"].contains(latest.status) {
+        error = latest.error.flatMap { $0.isEmpty ? nil : $0 } ?? "服务器未能确认生成完成，请核对原任务。"
+        return
+      }
+      try await Task.sleep(for: .seconds(2))
+    }
+    error = "任务仍在服务器处理中，可以关闭页面，稍后刷新原任务。"
+  }
+
+  private func preparePlayer(_ url: URL) {
+    playerObservation?.invalidate()
+    player?.pause()
+    let item = AVPlayerItem(url: url)
+    player = AVPlayer(playerItem: item)
+    playerObservation = item.observe(\.status, options: [.new, .initial]) { observed, _ in
       let status = observed.status
       Task { @MainActor in
-        guard item === observed else { return }
-        if status == .readyToPlay && !charged {
-          guard onReady() else {
-            error = "积分不足，请关闭后重试。"
-            return
-          }
-          charged = true
-          preparationTimeout?.cancel()
-          nextPlayer.play()
-        } else if status == .failed {
-          preparationTimeout?.cancel()
-          if !charged { onFailure() }
-          error = "视频暂时无法播放\(charged ? "，请稍后重试" : "，积分未扣除")。"
+        guard player?.currentItem === observed else { return }
+        if status == .failed {
+          error = "视频文件暂时无法播放，请刷新原任务后重新下载。"
         }
       }
     }

@@ -5,10 +5,54 @@ import XCTest
 @testable import BookCourse
 
 final class CoreTests: XCTestCase {
+  @MainActor func testProductionFirstLaunchDoesNotSeedContentOrBalance() async throws {
+    let repo = try LocalBookCourseRepository(
+      directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo)
+    await store.boot()
+    XCTAssertFalse(repo.includesFixtureContent)
+    XCTAssertTrue(store.sources.isEmpty)
+    XCTAssertTrue(store.courses.isEmpty)
+    XCTAssertTrue(store.community.isEmpty)
+    XCTAssertTrue(store.notes.isEmpty)
+    XCTAssertTrue(store.mistakes.isEmpty)
+    XCTAssertEqual(store.credits, 0)
+    do { try await store.refreshCommunity(); XCTFail("No configured backend") }
+    catch { XCTAssertTrue(store.community.isEmpty) }
+    await store.flush()
+  }
+
+
+  func testLegacyPreviewRetirementPreservesEditedContentAndActualOriginals() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let old = try LocalBookCourseRepository(directory: root, includeFixtures: true)
+    var previews = try ContentBundle.load([SourceContent].self, name: "sources")
+    let importedID = previews[0].id
+    let editedID = previews[1].id
+    previews[1].summary.title = "用户修改后的教材名称"
+    try await old.saveSources(previews)
+    let actualBytes = Data("the user's original".utf8)
+    let path = try await old.saveAttachment(actualBytes, extension: "pdf")
+    try await old.saveFilePaths([importedID: path])
+    try await old.seedDemoNotesIfNeeded()
+    let personal = StudyNote(id: "personal", kind: .text, title: "用户笔记", body: "保留用户输入")
+    try await old.saveNote(personal)
+    let current = try LocalBookCourseRepository(directory: root)
+    let sources = try await current.loadSources()
+    let notes = try await current.loadNotes()
+    XCTAssertEqual(Set(sources.map(\.id)), [importedID, editedID])
+    XCTAssertEqual(sources.first { $0.id == editedID }?.summary.title, "用户修改后的教材名称")
+    XCTAssertEqual(notes, [personal])
+    XCTAssertEqual(try Data(contentsOf: current.attachmentURL(path)), actualBytes)
+    let reopened = try LocalBookCourseRepository(directory: root)
+    let afterRestart = try await reopened.loadSources()
+    XCTAssertEqual(Set(afterRestart.map(\.id)), [importedID, editedID])
+  }
+
   @MainActor func testLastSelectedLearningCourseSurvivesRelaunch() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
-    let store = AppStore(repository: try LocalBookCourseRepository(directory: directory))
+    let store = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: directory))
     await store.boot()
     let course = try XCTUnwrap(store.courses.first {
       $0.resourceIDs.contains("catalog_high_school_math_required_2")
@@ -17,7 +61,7 @@ final class CoreTests: XCTestCase {
     store.go(.study)
     await store.flush()
 
-    let reopened = AppStore(repository: try LocalBookCourseRepository(directory: directory))
+    let reopened = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: directory))
     await reopened.boot()
     XCTAssertEqual(reopened.currentCourse?.id, course.id)
     XCTAssertEqual(reopened.selectedBookID, "catalog_high_school_math_required_2")
@@ -62,7 +106,7 @@ final class CoreTests: XCTestCase {
   @MainActor func testChapterEditsRemainDraftUntilExplicitConfirmation() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let repository = try LocalBookCourseRepository(directory: folder)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let store = AppStore(repository: repository)
     await store.boot()
     store.makeSampleCourse()
@@ -77,7 +121,7 @@ final class CoreTests: XCTestCase {
       before.first(where: { $0.id == "book_biology_2" })?.chapters.first(where: {
         $0.id == original.id
       })?.title, original.title)
-    let reopened = AppStore(repository: try LocalBookCourseRepository(directory: folder))
+    let reopened = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: folder))
     await reopened.boot()
     reopened.selectSource("book_biology_2")
     XCTAssertEqual(reopened.chapters.first(where: { $0.id == original.id })?.title, edited.title)
@@ -96,7 +140,7 @@ final class CoreTests: XCTestCase {
   @MainActor func testCrossSourceCitationReturnsToOriginalCourseAndLesson() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let store = AppStore(repository: try LocalBookCourseRepository(directory: folder))
+    let store = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: folder))
     await store.boot()
     store.makeSampleCourse()
     let originCourse = try XCTUnwrap(store.selectedCourseID)
@@ -130,7 +174,7 @@ final class CoreTests: XCTestCase {
   @MainActor func testInterruptedImportRetainsOriginalAndResumes() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let repository = try LocalBookCourseRepository(directory: folder)
+    let repository = try LocalBookCourseRepository(includeFixtures: true, directory: folder)
     let original = Data("Recovered original text".utf8)
     let relative = try await repository.saveAttachment(original, extension: "txt")
     let file = repository.attachmentURL(relative)
@@ -145,7 +189,7 @@ final class CoreTests: XCTestCase {
     snapshot.draft = CourseDraft(name: "Recovered", resourceIDs: [source.id])
     snapshot.importJob = ImportJob(bookIDs: [source.id], status: .running, progress: 0.4)
     try await repository.saveSnapshot(snapshot)
-    let store = AppStore(repository: try LocalBookCourseRepository(directory: folder))
+    let store = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: folder))
     await store.boot()
     XCTAssertEqual(store.route, .parseReady)
     XCTAssertEqual(store.importJob?.status, .interrupted)
@@ -163,14 +207,14 @@ final class CoreTests: XCTestCase {
 
   func testSQLiteSnapshotAndSourceSurviveReopen() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    let a = try LocalBookCourseRepository(directory: directory)
+    let a = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     var snapshot = AppSnapshot()
     snapshot.preferences = LearnerPreferences(displayName: "小明同学", primaryGoal: nil, dailyTime: nil)
     snapshot.credits = 82
     snapshot.locations["course-a::book-a"] = StudyLocation(
       chapterID: "chapter-1", lessonID: "lesson-1", page: 9)
     try await a.saveSnapshot(snapshot)
-    let b = try LocalBookCourseRepository(directory: directory)
+    let b = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
     let restored = try await b.loadSnapshot()
     XCTAssertEqual(restored?.credits, 82)
     XCTAssertEqual(restored?.locations["course-a::book-a"]?.page, 9)
@@ -178,7 +222,7 @@ final class CoreTests: XCTestCase {
   }
   @MainActor func testSourceSelectionAndCitationKeepResourceIdentity() async throws {
     let store = AppStore(
-      repository: try LocalBookCourseRepository(
+      repository: try LocalBookCourseRepository(includeFixtures: true,
         directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     )
     await store.boot()
@@ -201,7 +245,8 @@ final class CoreTests: XCTestCase {
   }
   @MainActor func testCreditReservationRefundAndInterruptedRecovery() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    let a = AppStore(repository: try LocalBookCourseRepository(directory: directory))
+    let a = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: directory))
+    _ = try await a.repository.recoverCredits(startingBalance: 100)
     await a.boot()
     let token = try await a.reserveCredits(10)
     XCTAssertEqual(a.credits, 90)
@@ -212,14 +257,14 @@ final class CoreTests: XCTestCase {
     XCTAssertEqual(a.credits, 99)
     _ = try await a.reserveCredits(10)
     await a.flush()
-    let b = AppStore(repository: try LocalBookCourseRepository(directory: directory))
+    let b = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: directory))
     await b.boot()
     XCTAssertEqual(b.credits, 99)
     await b.flush()
   }
   @MainActor func testLogoutPreservesCoursesNotesAndCredits() async throws {
     let store = AppStore(
-      repository: try LocalBookCourseRepository(
+      repository: try LocalBookCourseRepository(includeFixtures: true,
         directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     )
     await store.boot()
@@ -244,8 +289,9 @@ final class CoreTests: XCTestCase {
     XCTAssertEqual(SheetRoute.allCases.count, 6)
   }
   @MainActor func testFailedCreditWriteDoesNotSpendOrStartOperation() async throws {
-    let repository = try LocalBookCourseRepository(
+    let repository = try LocalBookCourseRepository(includeFixtures: true,
       directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    _ = try await repository.recoverCredits(startingBalance: 100)
     let store = AppStore(repository: repository)
     await store.boot()
     await store.flush()
@@ -263,7 +309,7 @@ final class CoreTests: XCTestCase {
     async throws
   {
     let store = AppStore(
-      repository: try LocalBookCourseRepository(
+      repository: try LocalBookCourseRepository(includeFixtures: true,
         directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     )
     await store.boot()
@@ -281,7 +327,7 @@ final class CoreTests: XCTestCase {
   }
   @MainActor func testAllCommunityEntriesUseExactContentOrTheirOwnDirectory() async throws {
     let store = AppStore(
-      repository: try LocalBookCourseRepository(
+      repository: try LocalBookCourseRepository(includeFixtures: true,
         directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     )
     await store.boot()
@@ -303,7 +349,7 @@ final class CoreTests: XCTestCase {
     await store.flush()
   }
   func testDeletedDemoNoteIsNotSeededAgain() async throws {
-    let repository = try LocalBookCourseRepository(
+    let repository = try LocalBookCourseRepository(includeFixtures: true,
       directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     try await repository.seedDemoNotesIfNeeded()
     try await repository.deleteNote("ink-demo-needs-confirmation")
