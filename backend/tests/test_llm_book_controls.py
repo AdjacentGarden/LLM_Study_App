@@ -153,6 +153,9 @@ def test_api_wires_grounded_diagnostic_rewrite_to_generator(
         "APP_DATA_DIR": str(tmp_path),
         "LLM_PROVIDER": "deepseek",
         "DEEPSEEK_API_KEY": "test-key",
+        "TEACHING_REVIEW_PROVIDER": "pucoding",
+        "TEACHING_REVIEW_MODEL": "gpt-6-sol",
+        "PUCODING_API_KEY": "test-review-key",
     }
     if value is None:
         environment.pop("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE", None)
@@ -160,10 +163,12 @@ def test_api_wires_grounded_diagnostic_rewrite_to_generator(
         environment["DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE"] = value
     subprocess.run(
         [sys.executable, "-c", (
-            "from adaptive_learning.api.app import item_generator; "
+            "from adaptive_learning.api.app import item_generator, teaching_review_client, assessment_llm; "
             "assert item_generator is not None; "
             f"assert item_generator.allow_grounded_answer_rewrite is {expected}; "
-            "assert item_generator.verify_items"
+            "assert item_generator.verify_items; "
+            "assert item_generator.review_client is teaching_review_client; "
+            "assert item_generator.review_client is not assessment_llm"
         )],
         env=environment,
         check=True,

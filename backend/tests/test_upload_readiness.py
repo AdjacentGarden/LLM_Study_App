@@ -6,7 +6,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from adaptive_learning.api.community_routes import community_router
-from adaptive_learning.assessment.item_generation import structure_fingerprint
+from adaptive_learning.assessment.item_generation import (
+    diagnostic_bank_fingerprint,
+    diagnostic_bank_key,
+)
 from adaptive_learning.assessment.models import DiagnosticItem, ResponseType
 from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
 from adaptive_learning.community import CommunityRepository
@@ -44,7 +47,7 @@ def uploads(tmp_path):
         return structure
 
     def bank(book_id, structure, response_type=ResponseType.SINGLE_CHOICE):
-        assessments.save_bank(book_id=book_id, structure_fingerprint=structure_fingerprint(structure),
+        assessments.save_bank(book_id=diagnostic_bank_key(book_id), structure_fingerprint=diagnostic_bank_fingerprint(structure),
             items=[DiagnosticItem(item_id=f"{book_id}-q", chapter_id="chapter",
                 knowledge_point_ids=["point"], prompt="选择正确陈述", response_type=response_type,
                 options=["正确", "错误"], correct_option_ids=["0"])])
@@ -93,7 +96,7 @@ def test_invalid_historical_bank_does_not_block_library_or_announce_ready(upload
     # Simulate an older persisted schema, rather than mocking readiness itself.
     assessments = SQLiteAssessmentRepository(tmp_path / "assessments.sqlite3")
     with assessments._connect() as connection:
-        connection.execute("UPDATE diagnostic_banks SET items_json='[{\"old\":true}]' WHERE book_id='new'")
+        connection.execute("UPDATE diagnostic_banks SET items_json='[{\"old\":true}]' WHERE book_id='diagnostic:new'")
     response = owner.get("/api/library")
     assert response.status_code == 200
     assert response.json()[0]["diagnostics_ready"] is False

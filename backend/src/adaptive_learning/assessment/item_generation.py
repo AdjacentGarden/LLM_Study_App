@@ -35,7 +35,9 @@ _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证�
 3. 所有题都必须是有且只有一个正确答案的四选一题；出现解释题、简答题或要求用户输入文字时应拒绝。
 4. 不允许借助常识补足证据，不允许出现 OCR、RAG、chunk 等内部词。
 5. 单纯要求认出或逐字复述定义应拒绝。若原文只提供定义，可以用原文已有的条件设计一个简单观察，检查该观察能支持什么判断；不得要求题目额外测量 evidence 未提供的机制。不能因为题目未考查题干没问、原文也未支持的知识而拒绝。
-6. 干扰项应表达可区分的理解错误，不能只把定义的一个词替换、其余整句复制。正确项不能独自最长、最具体或重复题干原文而泄露答案；问题应说明具体缺陷及可依原文修复的方向。
+6. 干扰项必须与正确项处于同一概念层级、属于同一类别并回答同一个判断；不能将过程名称、疾病类别和染色体结构混作选项来送分。干扰项应表达可区分的理解错误，不能只把定义的一个词替换、其余整句复制。正确项不能独自最长、最具体或重复题干原文而泄露答案；问题应说明具体缺陷及可依原文修复的方向。
+7. 问题反馈应短引有问题的选项原文，不得仅用 A/B/C/D 或位置号指代，因为选项会被稳定打散。
+8. 情境外壳不等于理解题：若题干已给出定义的全部识别条件，只让用户给该定义命名，或正确项再次完整复述题干，应拒绝。要求在证据范围内比较条件、区分相近关系或判断一个结论是否得到支持；不得为增加难度引入证据未包含的学科事实。
 只返回 JSON：{"reviews":[{"knowledge_point_id":"kp_...","accepted":true,"issues":[]}]}
 """
 
@@ -107,6 +109,75 @@ def structure_fingerprint(structure: BookStructure) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+# Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v3+balanced-options-v1"
+
+
+def _item_system(allow_grounded_answer_rewrite: bool) -> str:
+    system = _ITEM_SYSTEM
+    if allow_grounded_answer_rewrite:
+        system = system.replace(
+            "correct_index 指向的选项文字必须与输入的 label 逐字相同",
+            "label 仅用于标识待测知识点，不能当作事实依据。正确选项必须与 expected_answer 逐字相同，"
+            "且只包含 evidence 明确支持的一条完整结论；若 label 概括过度，必须缩小到有依据的范围",
+        )
+        system = system.replace(
+            "只返回 JSON：",
+            "设计顺序：先从 evidence 中找出一个可以区分的条件、关系或过程，再让学习者依据它判断一个具体情境。"
+            "情境只组合原文已有的对象和条件，也可设定满足原文定义的假想观察，不得引入额外学科事实。"
+            "题干不得把定义全部识别条件讲完后再问名称，也不得将完整定义放入情境后让正确项再复述一遍；应留出一个确实需要依据证据完成的条件比较或关系判断。不要问‘用一句话概括’‘何为’或要求认出原文定义；不要把整段定义原封不动作为正确项。"
+            "先确定一个最小判断目标，把已知条件放在题干；正确选项只回答这个判断，不把定义、类别和全部机制塞入一项。"
+            "四个选项必须处于同一概念层级、属于同一类别并回答题干中的同一个判断，不能用过程名、疾病类和结构名混杂送分；语法结构与长度接近，分别体现适用条件、推理方向或过程关系的不同理解；"
+            "每个干扰项要有独立的错误推理，不能把正确项只换一两个术语，不能靠‘只有/全部/立即’等显眼绝对词凑错误。"
+            "不要让正确项独自最长或独有详细限定；所有选项都应保留各自判断所需条件。"
+            "例如原文说明某过程需要条件甲时，可以给出甲成立或不成立的情境，考查能否据此判断该过程，"
+            "但不能据此添加原文没有的数量关系或结果。\n只返回 JSON：",
+        )
+    return system
+
+
+def diagnostic_bank_key(book_id: str) -> str:
+    # Leave historical unversioned banks intact for sessions without snapshots.
+    return f"diagnostic:{book_id}"
+
+
+def diagnostic_bank_fingerprint(
+    structure: BookStructure,
+    *,
+    writer_revision: str = "",
+    review_revision: str = "",
+    allow_grounded_answer_rewrite: bool = True,
+    points_per_chapter: int = 3,
+) -> str:
+    """Protocol identity, separate from structure/source identity; never includes secrets."""
+    payload = {
+        "structure": structure_fingerprint(structure),
+        "protocol": DIAGNOSTIC_BANK_VERSION,
+        "writer_prompt": _item_system(allow_grounded_answer_rewrite),
+        "review_prompt": _ITEM_REVIEW_SYSTEM,
+        "writer_revision": writer_revision,
+        "review_revision": review_revision,
+        "grounded_rewrite": allow_grounded_answer_rewrite,
+        "points_per_chapter": points_per_chapter,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def balanced_choice_order(item: DiagnosticItem, *, seed: str, ordinal: int) -> list[int]:
+    """Deterministic four-position blocks, preserving original option ID mappings."""
+    seed = f"{DIAGNOSTIC_BANK_VERSION}:{seed}"
+    positions = sorted(range(4), key=lambda index: hashlib.sha256(
+        f"{seed}:block:{ordinal // 4}:position:{index}".encode()).digest())
+    correct = int(item.correct_option_ids[0])
+    distractors = sorted(
+        (index for index in range(4) if index != correct),
+        key=lambda index: hashlib.sha256(
+            f"{seed}:{item.item_id}:{item.options[index]}".encode()).digest(),
+    )
+    distractors.insert(positions[ordinal % 4], correct)
+    return distractors
+
+
 class DiagnosticItemGenerator:
     """Creates a balanced, evidence-locked item bank from a verified book structure."""
 
@@ -114,6 +185,7 @@ class DiagnosticItemGenerator:
         self,
         client: OpenAICompatibleClient,
         *,
+        review_client: OpenAICompatibleClient | None = None,
         points_per_chapter: int = 3,
         validation_retries: int = 2,
         verify_items: bool = True,
@@ -123,7 +195,16 @@ class DiagnosticItemGenerator:
             raise ValueError("points_per_chapter must be between 1 and 6")
         if validation_retries < 0:
             raise ValueError("validation_retries must not be negative")
+        if verify_items and (review_client is None or review_client is client):
+            raise ValueError("diagnostic generation requires a separate independent review client")
+        writer_config = getattr(client, "config", None)
+        review_config = getattr(review_client, "config", None)
+        if verify_items and writer_config is not None and review_config is not None and (
+            writer_config.base_url.rstrip("/"), writer_config.model
+        ) == (review_config.base_url.rstrip("/"), review_config.model):
+            raise ValueError("diagnostic writer and reviewer must use different model routes")
         self.client = client
+        self.review_client = review_client
         self.points_per_chapter = points_per_chapter
         self.validation_retries = validation_retries
         self.verify_items = verify_items
@@ -148,7 +229,19 @@ class DiagnosticItemGenerator:
             )
         if len({item.item_id for item in items}) != len(items):
             raise DiagnosticGenerationError("diagnostic item ids are not unique")
-        return items
+        return self._balance_options(items, seed=structure_fingerprint(structure))
+
+    @staticmethod
+    def _balance_options(items: list[DiagnosticItem], *, seed: str) -> list[DiagnosticItem]:
+        """Only permute approved choices; preserve IDs/content and never mutate reviewed items."""
+        output = []
+        for ordinal, item in enumerate(items):
+            order = balanced_choice_order(item, seed=seed, ordinal=ordinal)
+            output.append(item.model_copy(update={
+                "options": [item.options[index] for index in order],
+                "correct_option_ids": [str(order.index(int(item.correct_option_ids[0])))],
+            }, deep=True))
+        return output
 
     def _select_points(self, chapter: ChapterDraft) -> list[tuple[str, str, list[SourceQuote]]]:
         candidates: list[tuple[str, str, list[SourceQuote]]] = []
@@ -211,25 +304,7 @@ class DiagnosticItemGenerator:
         by_id = {point[0]: point for point in points}
         last_error: Exception | None = None
         preserved: dict[str, dict[str, object]] = {}
-        system = _ITEM_SYSTEM
-        if self.allow_grounded_answer_rewrite:
-            system = system.replace(
-                "correct_index 指向的选项文字必须与输入的 label 逐字相同",
-                "label 仅用于标识待测知识点，不能当作事实依据。正确选项必须与 expected_answer 逐字相同，"
-                "且只包含 evidence 明确支持的一条完整结论；若 label 概括过度，必须缩小到有依据的范围",
-            )
-            system = system.replace(
-                "只返回 JSON：",
-                "设计顺序：先从 evidence 中找出一个可以区分的条件、关系或过程，再让学习者依据它判断一个具体情境。"
-                "情境只组合原文已有的对象和条件，也可设定满足原文定义的假想观察，不得引入额外学科事实。"
-                "不要问‘用一句话概括’‘何为’或要求认出原文定义；不要把整段定义原封不动作为正确项。"
-                "先确定一个最小判断目标，把已知条件放在题干；正确选项只回答这个判断，不把定义、类别和全部机制塞入一项。"
-                "四个选项应回答题干中的同一个判断，语法结构与长度接近，分别体现适用条件、推理方向或过程关系的不同理解；"
-                "每个干扰项要有独立的错误推理，不能把正确项只换一两个术语，不能靠‘只有/全部/立即’等显眼绝对词凑错误。"
-                "不要让正确项独自最长或独有详细限定；所有选项都应保留各自判断所需条件。"
-                "例如原文说明某过程需要条件甲时，可以给出甲成立或不成立的情境，考查能否据此判断该过程，"
-                "但不能据此添加原文没有的数量关系或结果。\n只返回 JSON：",
-            )
+        system = _item_system(self.allow_grounded_answer_rewrite)
         for attempt in range(self.validation_retries + 1):
             candidate: list[dict[str, object]] | None = None
             try:
@@ -302,6 +377,7 @@ class DiagnosticItemGenerator:
         items: list[DiagnosticItem],
         expected_ids: list[str],
     ) -> None:
+        review_items = self._balance_options(items, seed=f"review:{source_payload['chapter_id']}")
         review_payload = {
             # Prior verdicts/candidates are writer repair context, never hints
             # to the independent reviewer about how it should judge this one.
@@ -317,10 +393,11 @@ class DiagnosticItemGenerator:
                     "expected_answer": item.expected_answer,
                     "rubric": item.rubric,
                 }
-                for item in items
+                for item in review_items
             ],
         }
-        raw = self.client.structured(
+        assert self.review_client is not None
+        raw = self.review_client.structured(
             system=_ITEM_REVIEW_SYSTEM,
             user=json.dumps(review_payload, ensure_ascii=False),
             temperature=0,

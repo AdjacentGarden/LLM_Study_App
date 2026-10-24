@@ -30,7 +30,10 @@ FLAGS_ORDER = (
 GENERAL_CLAIM_RULE = (
     "第一项is_class_definition包括类定义、通用性质、作用、数量和过程规则概括；"
     "不能因只是过程或性质而标false。同类反例代入仍须核验。"
-    "is_factual=false只适用于不增加学科事实的教学安排、问题或学习建议，不能用它豁免事实。"
+    "is_factual=false只适用于不增加学科事实的教学安排、纯问题、学习建议，"
+    "以及同组件教师答复已明确反驳或纠正的被引述错误命题；这需要语义核验，不能按字段名自动豁免。"
+    "题目中的真实前提仍是事实；answer/expected_answer/back/step_N/rubric_N中的教师结论仍须原文核验。"
+    "若答复认可错误、未明确纠正或真假不明，不得将该命题视为已纠正；必须保留事实或范围否决。"
     "同一片段混有安排与事实时，只要包含实际学科事实就必须is_factual=true，不能按主旨豁免。"
 )
 KINDS = {
@@ -56,6 +59,26 @@ def _check(condition: bool, message: str) -> None:
 def _strict_bool(value: Any, name: str) -> bool:
     _check(type(value) is bool, name + " must be a strict boolean")
     return value
+
+
+def component_role_context(fields: dict[str, str]) -> dict[str, Any]:
+    """Describe where to compare a question and its answer, never its truth.
+
+    A misconception quoted for correction is not automatically an endorsed
+    textbook claim. Only the semantic reviewer can decide whether the same
+    component actually corrects it; the complete fields and assertions remain.
+    """
+    question_fields = [key for key in fields if key in {"problem", "question", "prompt", "front"}]
+    response_fields = [
+        key for key in fields
+        if key in {"answer", "expected_answer", "back"} or re.fullmatch(r"(?:step|rubric)_\d+", key)
+    ]
+    return {
+        "question_fields": question_fields,
+        "teacher_response_fields": response_fields,
+        "semantic_classification_verified": False,
+        "question_fields_automatically_nonfactual": False,
+    }
 
 
 def _source_quote(sources: dict[str, dict[str, Any]], source_id: str) -> str:
@@ -174,6 +197,7 @@ def build_assertion_contract(
         "allowed_support_span_ids": allowed,
         "flags_order": list(FLAGS_ORDER),
         "general_claim_rule": GENERAL_CLAIM_RULE,
+        "component_roles": component_role_context(fields),
     }
 
 

@@ -10,7 +10,9 @@ import pytest
 from adaptive_learning.assessment.item_generation import (
     DiagnosticGenerationError,
     DiagnosticItemGenerator,
+    diagnostic_bank_fingerprint,
     stable_knowledge_point_id,
+    structure_fingerprint,
 )
 from adaptive_learning.assessment.models import ResponseType
 from adaptive_learning.ingestion.models import BookStructure, ChapterDraft, SourceQuote
@@ -25,6 +27,22 @@ class FakeClient:
     def structured(self, **_: object) -> dict[str, Any]:
         self.calls += 1
         return self.payload
+
+
+class ReviewBoundary:
+    """Explicit second client boundary for existing scripted two-role fixtures."""
+    def __init__(self, scripted):
+        self.scripted = scripted
+
+    def structured(self, **kwargs):
+        assert "审校器" in kwargs["system"]
+        return self.scripted.structured(**kwargs)
+
+
+def make_generator(client, **kwargs):
+    if kwargs.get("verify_items", True):
+        kwargs.setdefault("review_client", ReviewBoundary(client))
+    return DiagnosticItemGenerator(client, **kwargs)
 
 
 def structure() -> BookStructure:
@@ -94,7 +112,7 @@ def valid_payload() -> dict[str, Any]:
 
 def test_generator_builds_balanced_private_items_from_verified_evidence() -> None:
     client = FakeClient(valid_payload())
-    generator = DiagnosticItemGenerator(
+    generator = make_generator(
         client,
         points_per_chapter=2,
         verify_items=False,  # type: ignore[arg-type]
@@ -106,10 +124,11 @@ def test_generator_builds_balanced_private_items_from_verified_evidence() -> Non
         ResponseType.SINGLE_CHOICE,
         ResponseType.SINGLE_CHOICE,
     ]
-    assert items[0].correct_option_ids == ["0"]
+    assert items[0].options[int(items[0].correct_option_ids[0])] == "甲的定义"
     assert items[0].source_pages == [1]
     assert items[1].source_pages == [2]
-    assert items[1].correct_option_ids == ["0"]
+    assert items[1].options[int(items[1].correct_option_ids[0])] == "乙的作用"
+    assert items[0].correct_option_ids != items[1].correct_option_ids
     assert client.calls == 1
 
 
@@ -122,7 +141,7 @@ def test_generator_rejects_duplicate_choice_options_after_retry() -> None:
         "这是另一个不同干扰项",
     ]
     client = FakeClient(payload)
-    generator = DiagnosticItemGenerator(
+    generator = make_generator(
         client,
         points_per_chapter=2,
         validation_retries=1,
@@ -142,7 +161,7 @@ def test_generator_ignores_points_without_verified_evidence() -> None:
     first_only["items"] = first_only["items"][:1]
     client = FakeClient(first_only)
 
-    items = DiagnosticItemGenerator(
+    items = make_generator(
         client,
         points_per_chapter=2,
         verify_items=False,  # type: ignore[arg-type]
@@ -175,7 +194,7 @@ def test_independent_review_rejects_unanswerable_item() -> None:
             }
 
     client = ReviewClient()
-    generator = DiagnosticItemGenerator(
+    generator = make_generator(
         client,  # type: ignore[arg-type]
         points_per_chapter=2,
         validation_retries=0,
@@ -203,7 +222,7 @@ def test_visually_guessable_choice_is_rejected_instead_of_becoming_open_answer()
     client = FakeClient(payload)
 
     with pytest.raises(DiagnosticGenerationError, match="distractors are too short"):
-        DiagnosticItemGenerator(
+        make_generator(
             client,
             points_per_chapter=2,
             validation_retries=0,
@@ -240,7 +259,7 @@ def test_parallel_chapters_keep_semantic_review_and_return_only_a_complete_order
                 item["knowledge_point_id"] = point["knowledge_point_id"]
             return result
 
-    generator = DiagnosticItemGenerator(
+    generator = make_generator(
         ParallelClient(),  # type: ignore[arg-type]
         points_per_chapter=2, validation_retries=0,
     )
@@ -279,13 +298,14 @@ def test_empty_tail_choices_are_format_only_and_do_not_bypass_semantic_review(
                 for item in source["items"]
             ]}
 
-    generator = DiagnosticItemGenerator(
+    generator = make_generator(
         ReviewingClient(), validation_retries=0,  # type: ignore[arg-type]
     )
     if accepted:
         items = generator.generate(structure())
-        assert [item.correct_option_ids for item in items] == [["0"], ["0"]]
-        assert [item.options for item in items] == [item["options"][:4] for item in payload["items"]]
+        for item, original in zip(items, payload["items"], strict=True):
+            assert sorted(item.options) == sorted(original["options"][:4])
+            assert item.options[int(item.correct_option_ids[0])] == original["expected_answer"]
     else:
         with pytest.raises(DiagnosticGenerationError, match="review rejected"):
             generator.generate(structure())
@@ -309,7 +329,7 @@ def test_extra_real_choices_or_ambiguous_answer_positions_are_never_repaired(cas
         item["options"].append(None)
     client = FakeClient(payload)
     with pytest.raises(DiagnosticGenerationError):
-        DiagnosticItemGenerator(
+        make_generator(
             client, validation_retries=0, verify_items=False,  # type: ignore[arg-type]
         ).generate(structure())
     assert client.calls == 1
@@ -322,7 +342,7 @@ def test_grounded_rewrite_cannot_replace_a_valid_option_with_blank_or_overlong_t
     payload = valid_payload()
     payload["items"][0]["expected_answer"] = answer
     with pytest.raises(DiagnosticGenerationError, match="1 to 180"):
-        DiagnosticItemGenerator(
+        make_generator(
             FakeClient(payload), validation_retries=0,  # type: ignore[arg-type]
             allow_grounded_answer_rewrite=True,
         ).generate(structure())
@@ -351,11 +371,11 @@ def test_grounded_rewrite_uses_answer_length_instead_of_a_broad_label_for_readab
             result["items"][0]["options"][0] = "甲是一个用于测试的概念。"
             return result
 
-    items = DiagnosticItemGenerator(
+    items = make_generator(
         ReviewingClient(), allow_grounded_answer_rewrite=True,  # type: ignore[arg-type]
     ).generate(value)
     assert captured[0]["knowledge_points"][0]["minimum_distractor_characters"] == 8
-    assert items[0].options[0] == "甲是一个用于测试的概念。"
+    assert items[0].options[int(items[0].correct_option_ids[0])] == "甲是一个用于测试的概念。"
     assert items[0].knowledge_point_labels == [label]
 
 
@@ -382,7 +402,7 @@ def test_grounded_answer_mismatch_is_rejected_without_rewriting_or_reviewing_it(
     client = FakeClient(payload)
 
     with pytest.raises(DiagnosticGenerationError, match="do not silently replace"):
-        DiagnosticItemGenerator(
+        make_generator(
             client, allow_grounded_answer_rewrite=True, validation_retries=0,
         ).generate(structure())  # type: ignore[arg-type]
 
@@ -441,7 +461,7 @@ def test_rejected_concept_question_receives_full_previous_candidate_and_localize
             assert payload["previous_candidate"]["items"][1] == initial["items"][1]
             return deepcopy(repaired)
 
-    items = DiagnosticItemGenerator(
+    items = make_generator(
         RepairClient(), allow_grounded_answer_rewrite=True, validation_retries=2,
     ).generate(structure())  # type: ignore[arg-type]
 
@@ -465,4 +485,101 @@ def test_reviewer_truthy_string_is_not_an_approval() -> None:
                                 for row in valid_payload()["items"]]}
 
     with pytest.raises(DiagnosticGenerationError, match="review schema is invalid"):
-        DiagnosticItemGenerator(InvalidReviewer(), validation_retries=0).generate(structure())  # type: ignore[arg-type]
+        make_generator(InvalidReviewer(), validation_retries=0).generate(structure())  # type: ignore[arg-type]
+
+
+def test_answer_positions_are_balanced_deterministic_and_preserve_reviewed_semantics() -> None:
+    from collections import Counter
+
+    original = make_generator(FakeClient(valid_payload()), verify_items=False).generate(structure())
+    bank = [item.model_copy(update={"item_id": f"reviewed_{i}"}, deep=True)
+            for i in range(19) for item in original[:1]]
+    before = [item.model_dump() for item in bank]
+    first = DiagnosticItemGenerator._balance_options(bank, seed="book-source")
+    second = DiagnosticItemGenerator._balance_options(bank, seed="book-source")
+    assert first == second
+    assert [item.model_dump() for item in bank] == before
+    counts = Counter(item.correct_option_ids[0] for item in first)
+    assert set(counts) == {"0", "1", "2", "3"}
+    assert max(counts.values()) - min(counts.values()) == 1
+    for old, shuffled in zip(bank, first, strict=True):
+        assert sorted(old.options) == sorted(shuffled.options)
+        assert old.options[int(old.correct_option_ids[0])] == shuffled.options[int(shuffled.correct_option_ids[0])]
+        assert old.model_dump(exclude={"options", "correct_option_ids"}) == shuffled.model_dump(exclude={"options", "correct_option_ids"})
+    assert first != DiagnosticItemGenerator._balance_options(bank, seed="other-book")
+
+
+def test_semantic_review_never_falls_back_to_writer_or_same_model_route() -> None:
+    from adaptive_learning.llm.client import LLMConfig
+
+    writer = FakeClient(valid_payload())
+    with pytest.raises(ValueError, match="separate independent"):
+        DiagnosticItemGenerator(writer)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="separate independent"):
+        DiagnosticItemGenerator(writer, review_client=writer)  # type: ignore[arg-type]
+    writer.config = LLMConfig(base_url="https://writer.invalid/v1", api_key="unused", model="same")
+    reviewer = FakeClient({})
+    reviewer.config = LLMConfig(base_url="https://writer.invalid/v1/", api_key="unused-other", model="same")
+    with pytest.raises(ValueError, match="different model routes"):
+        DiagnosticItemGenerator(writer, review_client=reviewer)  # type: ignore[arg-type]
+    assert writer.calls == reviewer.calls == 0
+
+
+def test_reviewer_failure_is_not_replaced_by_a_writer_verdict() -> None:
+    from adaptive_learning.llm.client import LLMError
+
+    writer = FakeClient(valid_payload())
+    class UnavailableReviewer:
+        def structured(self, **kwargs):
+            assert "同一概念层级" in kwargs["system"]
+            assert "题干已给出定义的全部识别条件" in kwargs["system"]
+            raise LLMError("independent reviewer unavailable")
+    with pytest.raises(DiagnosticGenerationError, match="independent reviewer unavailable"):
+        DiagnosticItemGenerator(writer, review_client=UnavailableReviewer(), validation_retries=0).generate(structure())  # type: ignore[arg-type]
+    assert writer.calls == 1
+
+
+def test_bank_protocol_identity_invalidates_model_prompt_and_mode_changes(monkeypatch) -> None:
+    import adaptive_learning.assessment.item_generation as module
+
+    value = structure()
+    structure_hash = structure_fingerprint(value)
+    arguments = {"writer_revision": "deepseek:model-a", "review_revision": "pucoding:gpt-6-sol"}
+    baseline = diagnostic_bank_fingerprint(value, **arguments)
+    assert baseline == diagnostic_bank_fingerprint(value, **arguments)
+    for change in ({"writer_revision": "deepseek:model-b"}, {"review_revision": "pucoding:gpt-other"},
+                   {"allow_grounded_answer_rewrite": False}, {"points_per_chapter": 2}):
+        assert diagnostic_bank_fingerprint(value, **(arguments | change)) != baseline
+    monkeypatch.setattr(module, "_ITEM_REVIEW_SYSTEM", module._ITEM_REVIEW_SYSTEM + " new criteria")
+    assert diagnostic_bank_fingerprint(value, **arguments) != baseline
+    assert structure_fingerprint(value) == structure_hash
+    prompt_revision = diagnostic_bank_fingerprint(value, **arguments)
+    monkeypatch.setattr(module, "DIAGNOSTIC_BANK_VERSION", module.DIAGNOSTIC_BANK_VERSION + "+revision")
+    assert diagnostic_bank_fingerprint(value, **arguments) != prompt_revision
+
+
+def test_public_shuffle_keeps_original_option_ids_and_replays_pending_turn_verbatim() -> None:
+    from adaptive_learning.assessment.engine import AdaptiveAssessmentEngine
+    from adaptive_learning.assessment.interview import InterviewOrchestrator
+    from adaptive_learning.assessment.models import AssessmentResponse, InterviewPhase
+
+    item = make_generator(FakeClient(valid_payload()), verify_items=False).generate(structure())[0]
+    orchestrator = InterviewOrchestrator(AdaptiveAssessmentEngine(min_items=1, max_items=1))
+    positions = set()
+    for number in range(16):
+        session = orchestrator.start(user_id='reader', book_id='book', book_title='教材',
+                                     chapter_titles=['第一章'], items=[item])
+        session.session_id = f'deterministic-session-{number}'
+        session.phase = InterviewPhase.ADAPTIVE_DIAGNOSIS
+        session.pending_turn = None
+        turn = orchestrator.next_diagnostic(session, [item])
+        for option in turn.options:
+            assert option['label'] == item.options[int(option['id'])]
+        positions.add(next(index for index, option in enumerate(turn.options)
+                           if option['id'] == item.correct_option_ids[0]))
+        restored = type(session).model_validate_json(session.model_dump_json())
+        assert orchestrator.next_diagnostic(restored, [item]) == turn
+        answer = AssessmentResponse(item_id=item.item_id, answer='', selected_option_ids=item.correct_option_ids,
+                                    confidence=0.8, response_seconds=12)
+        assert orchestrator.record_diagnostic(restored, answer, [item]).score == 1
+    assert positions == {0, 1, 2, 3}

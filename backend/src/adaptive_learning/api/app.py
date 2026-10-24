@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import faulthandler
 import hashlib
+import json
 import logging
 import math
 import os
@@ -27,7 +28,8 @@ from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
     DiagnosticGenerationError,
     DiagnosticItemGenerator,
-    structure_fingerprint,
+    diagnostic_bank_fingerprint,
+    diagnostic_bank_key,
 )
 from ..assessment.models import (
     AssessmentResponse,
@@ -173,10 +175,6 @@ if assessment_llm is not None:
         assessment_llm,
         minimum_confidence=settings.open_answer_min_confidence,
     )
-    item_generator = DiagnosticItemGenerator(
-        assessment_llm,
-        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
-    )
 orchestrator = InterviewOrchestrator(engine, open_answer_scorer)
 personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
@@ -205,7 +203,34 @@ def _create_teaching_review_client(configuration, client_type=OpenAICompatibleCl
         return None
 
 
+def _create_diagnostic_generator(configuration, writer, reviewer):
+    if writer is None or reviewer is None:
+        return None
+    try:
+        return DiagnosticItemGenerator(
+            writer, review_client=reviewer,
+            allow_grounded_answer_rewrite=configuration.diagnostic_allow_grounded_answer_rewrite,
+        )
+    except ValueError:
+        logger.warning("independent diagnostic reviewer could not be initialized")
+        return None
+
+
+def diagnostic_fingerprint(structure: BookStructure) -> str:
+    return diagnostic_bank_fingerprint(
+        structure,
+        writer_revision=json.dumps({
+            "provider": settings.llm_provider, "base_url": settings.text_base_url,
+            "model": settings.text_model, "thinking": settings.text_thinking_enabled,
+            "reasoning_effort": settings.text_reasoning_effort,
+        }, sort_keys=True),
+        review_revision=settings.teaching_review_revision,
+        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
+    )
+
+
 teaching_review_client = _create_teaching_review_client(settings)
+item_generator = _create_diagnostic_generator(settings, assessment_llm, teaching_review_client)
 teaching_audit = PrivateTeachingAudit(settings.data_dir / "private-audits",
     context={"provider": settings.llm_provider, "model": settings.text_model,
              "teaching_version": TEACHING_CONTENT_VERSION},
@@ -650,7 +675,7 @@ def prepare_book(book_id: str, request: Request, response: Response, retry: bool
     existing = preparation_queue.get(book_id)
     structure = job_repository.get_structure(book_id)
     bank = assessment_repository.get_bank(
-        book_id, expected_fingerprint=structure_fingerprint(structure)
+        diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
     ) if structure is not None else None
     ready = bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
     return preparation_queue.enqueue(
@@ -684,8 +709,8 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     structure = job_repository.get_structure(book_id)
     if structure is None:
         raise HTTPException(status_code=409, detail="书籍尚未生成可核验章节结构")
-    fingerprint = structure_fingerprint(structure)
-    existing = assessment_repository.get_bank(book_id, expected_fingerprint=fingerprint)
+    fingerprint = diagnostic_fingerprint(structure)
+    existing = assessment_repository.get_bank(diagnostic_bank_key(book_id), expected_fingerprint=fingerprint)
     if existing is not None and all(
         item.response_type == ResponseType.SINGLE_CHOICE for item in existing
     ):
@@ -695,7 +720,7 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     try:
         items = item_generator.generate(structure)
         assessment_repository.save_bank(
-            book_id=book_id,
+            book_id=diagnostic_bank_key(book_id),
             structure_fingerprint=fingerprint,
             items=items,
         )
@@ -747,6 +772,12 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
         chapter_titles=chapter_titles,
         items=items,
         chapter_options=chapter_options,
+    )
+    # Persist the exact option order before exposing a session. Protocol upgrades
+    # must not alter the meaning of an answer/event in a historical interview.
+    assessment_repository.save_bank(
+        book_id=f"interview:{session.session_id}",
+        structure_fingerprint="session-snapshot-v1", items=items,
     )
     assessment_repository.create_session(session)
     owner = account_repository.request_owner(http_request)
@@ -1028,6 +1059,7 @@ def _runtime_snapshot() -> RuntimeSnapshot:
     return RuntimeSnapshot(
         text_configured=assessment_llm is not None,
         review_configured=teaching_review_client is not None,
+        diagnostics_configured=item_generator is not None,
         ocr_configured=bool(settings.ocr_worker_enabled),
         ocr_worker_alive=ocr_worker.is_alive(),
         preparation_worker_alive=bool(preparation_queue.thread and preparation_queue.thread.is_alive()),
@@ -1340,6 +1372,14 @@ def _items_for_session(session: InterviewSession) -> list[DiagnosticItem]:
     context = native_repository.session_context(session.session_id)
     if context:
         return TypeAdapter(list[DiagnosticItem]).validate_json(context["items_json"])
+    snapshot = assessment_repository.get_bank(f"interview:{session.session_id}")
+    if snapshot is not None:
+        return snapshot
+    # Unversioned banks are never overwritten by the new generation protocol.
+    # They preserve old non-native sessions that predate per-session snapshots.
+    historical = assessment_repository.get_bank(session.profile.book_id)
+    if historical is not None:
+        return [item for item in historical if item.response_type == ResponseType.SINGLE_CHOICE]
     return _items_for_book(session.profile.book_id)
 
 
@@ -1352,7 +1392,7 @@ def _items_for_book(book_id: str) -> list[DiagnosticItem]:
         return []
     items = (
         assessment_repository.get_bank(
-            book_id, expected_fingerprint=structure_fingerprint(structure)
+            diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
         )
         or []
     )
@@ -1419,6 +1459,7 @@ app.include_router(
         list_published_books,
         lambda: job_repository,
         lambda: assessment_repository,
+        diagnostic_fingerprint=diagnostic_fingerprint,
     )
 )
 app.include_router(native_router(sys.modules[__name__]))

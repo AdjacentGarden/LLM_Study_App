@@ -14,11 +14,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..accounts import COOKIE, Accounts
-from ..assessment.item_generation import structure_fingerprint
+from ..assessment.item_generation import diagnostic_bank_fingerprint, diagnostic_bank_key
 from ..assessment.models import InterviewSession, ResponseType
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.jobs import SQLiteOCRJobRepository
+from ..ingestion.models import BookStructure
 from ..social import SocialRepository
 from .account_routes import account_router
 from .retention_routes import retention_router
@@ -56,6 +57,8 @@ def community_router(
     catalog: Callable[[], list[BookCatalogItem]],
     jobs: Callable[[], SQLiteOCRJobRepository],
     assessments: Callable[[], SQLiteAssessmentRepository],
+    *,
+    diagnostic_fingerprint: Callable[[BookStructure], str] = diagnostic_bank_fingerprint,
 ) -> APIRouter:
     router = APIRouter(prefix="/api", tags=["community"])
     repo = CommunityRepository(data_dir / "state" / "community.sqlite3")
@@ -162,7 +165,7 @@ def community_router(
             structure = jobs().get_structure(book_id)
             if structure is not None:
                 bank = assessments().get_bank(
-                    book_id, expected_fingerprint=structure_fingerprint(structure)
+                    diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
                 )
         except (ValueError, TypeError):
             # Legacy/corrupt artifacts cannot announce readiness or prevent the

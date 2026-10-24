@@ -27,6 +27,7 @@ from .lesson_review_contract import (
     associate_lesson_boundaries,
     build_assertion_contract,
     build_scope_matrix_contract,
+    component_role_context,
     materialize_scope_matrix,
     validate_assertion_review,
 )
@@ -55,7 +56,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1"
 POINT_BATCH_SIZE = 6
 FACT_BATCH_SIZE = 3
 FACT_FORMAT_ATTEMPTS = 2
@@ -84,6 +85,14 @@ class TeachingContentError(RuntimeError):
 
 class TeachingServiceUnavailableError(TeachingContentError):
     """Provider/format/storage failure; no finding that learner content is bad."""
+
+
+class _LessonRepairUnchangedError(TeachingContentError):
+    """All point repairs passed mechanical checks; a lesson target is unchanged.
+
+    This permits draft reuse, never semantic approval. Every resulting
+    candidate still goes through the independent factual and teacher reviews.
+    """
 
 
 @dataclass
@@ -474,6 +483,14 @@ missing_condition专指某段文字未出现，另给missing_text（对照原文
 若限定词虽出现但逻辑范围仍错误，用scope_overreach明确错误命题和正确范围，不要伪装为文字缺失。
 判断闪卡/练习的范围时连同其题干、答案、评分点一起看；题干明确设定的范围可以约束本题答案，
 不能要求已经给出的限定每句话重复。不能将讲解的一条错误同时复制给其他实际正确的组件。
+题干与教师答复的语义角色必须区分：component_roles只指出字段位置，不预先批准其事实性。
+先连同本组件answer/expected_answer/back/step_N/rubric_N检查problem/question/prompt/front。
+若题干明确引述待判断或改正的错误说法，且本组件教师答复确实逐条反驳或纠正这些错误，
+则被引错误命题是辨析对象，不是教师肯定的事实；不能仅因它与原文相反而否决整道辨错题。
+例如题干引述“染色体复制两次”并要求改正，而步骤和答案明确纠正为“只复制一次”，
+需核验纠正后的教师结论，不能把被否定的引述当作作者的无条件概括。
+题目中的真实现象、数值及其他前提仍须逐项核验；教师答案、步骤、评分点也必须完整核对原文与范围。
+若答复认可错误、没有明确纠正或真假不明，仍应拒绝；不能按引号或字段名通用忽略problem/question。
 false标志、failed_components和findings必须一一对应；point.issues只汇总这些具体问题。
 输入 support_spans 是程序预先构造的不可变短原文，每个ID对应parent source_id和连续rawquote。
 只返回已有 support_span_ids，不要重复列source_ids，不要复制、改写或新造引文，程序会派生父来源。
@@ -598,7 +615,8 @@ FACT_REVIEW_PROMPT += """
 若本批output_contract.lesson_component_ids非空，采用lesson专属response_json_schema：每组件只返回
 point_id:null、component_id、assertion_checks、scope_matrix。不得再返回父级true、support_span_ids、findings或scope_checks。
 assertion_contract.assertions覆盖组件全部真实字段，每条必须有assertion_id/is_factual/source_entailment/support_span_ids/findings。
-事实断言必须is_factual=true；无新增学科事实的教学安排、纯提问、建议或纯空白才可false，混合事实的句子不能按主旨豁免。
+事实断言必须is_factual=true；无新增学科事实的教学安排、纯提问、建议、纯空白，或已由同组件教师答复明确反驳纠正的被引错误命题才可false。
+这种语义角色需要结合完整component_fields核验；真实前提及教师答案/步骤不随题干一并豁免，混合事实的句子不能按主旨豁免。
 完整目录全部为nonfactual时不必编造支持span；纯空白目录行仍须保留，其scope_matrix各格四项false且索引null。
 逐条检查该断言全部事实只能由本组件实际引用的原文span支持；一个span只支持一句不能替同组件其他断言背书。
 正确的定义、机制和由原文+题设必要推出的结论均可；不可把仅可能变为必然、反推原因或把例子推广为所有情况。
@@ -1062,7 +1080,11 @@ class TeachingContentGenerator:
                         # Whole-candidate groups are evaluated only after all
                         # batches. Reuse the same allowed set and rejection
                         # baseline; a format retry never becomes new evidence.
-                        pending_ids.update(repair_fields)
+                        if not isinstance(error, _LessonRepairUnchangedError):
+                            pending_ids.update(repair_fields)
+                        # A lesson-only unchanged guard runs after every point
+                        # guard. Keep those current point drafts, but do not
+                        # mark them reviewed or replace the rejection baseline.
                         if lesson_repairs:
                             lesson = None
                     elif validation_phase == "lesson_validation":
@@ -1243,6 +1265,9 @@ class TeachingContentGenerator:
                                         source_ids, evidence, visible_spans
                                     ),
                                     "component_fields": self._point_component_fields(point, name),
+                                    "component_roles": component_role_context(
+                                        self._point_component_fields(point, name)
+                                    ),
                                 }
                                 for name, source_ids in (
                                     ("explanation", point.source_ids),
@@ -1259,6 +1284,9 @@ class TeachingContentGenerator:
                     component_id: {
                         **part,
                         "component_fields": self._lesson_component_fields(lesson, component_id),
+                        "component_roles": component_role_context(
+                            self._lesson_component_fields(lesson, component_id)
+                        ),
                         **self._actual_source_context(part["source_ids"], evidence, visible_spans),
                     }
                     for component_id, part in parts.items()
@@ -1847,7 +1875,7 @@ class TeachingContentGenerator:
                 else getattr(old_lesson, name) != getattr(lesson, name)
             )
             if not changed:
-                raise TeachingContentError(f"lesson.{name} 未修改上次被拒绝的组件")
+                raise _LessonRepairUnchangedError(f"lesson.{name} 未修改上次被拒绝的组件")
         for category in requirements.lesson_categories:
             if category == "reading":
                 changed = any(old_parts[name] != new_parts[name] for name in ("opening", "summary"))
@@ -1860,7 +1888,7 @@ class TeachingContentGenerator:
             else:
                 raise TeachingContentError("未知的修复类别要求")
             if not changed:
-                raise TeachingContentError(f"lesson.{category} 未修改上次被拒绝的类别")
+                raise _LessonRepairUnchangedError(f"lesson.{category} 未修改上次被拒绝的类别")
         current = {"points": [point.model_dump() for point in points], "lesson": lesson.model_dump()}
         if requirements.global_any and current == baseline:
             raise TeachingContentError("整课候选未修改上次被拒绝的内容")

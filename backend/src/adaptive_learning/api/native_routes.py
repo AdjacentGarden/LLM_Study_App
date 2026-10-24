@@ -15,7 +15,11 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from .. import native_catalog as curated
 from ..accounts import COOKIE, TTL
-from ..assessment.item_generation import DiagnosticGenerationError, structure_fingerprint
+from ..assessment.item_generation import (
+    DiagnosticGenerationError,
+    diagnostic_bank_key,
+    structure_fingerprint,
+)
 from ..assessment.models import DiagnosticItem
 from ..bootstrap import BootstrapService, builtin_content_version
 from ..ingestion.chaptering import load_normalized_pages
@@ -811,12 +815,12 @@ def native_router(services: Any) -> APIRouter:
         structure = effective_structure(row)
         if structure is None:
             raise HTTPException(409, "请先完成教材解析并确认目录")
-        fingerprint = structure_fingerprint(structure)
-        bank_key = f"native:{rid}:{row['revision']}"
+        fingerprint = services.diagnostic_fingerprint(structure)
+        bank_key = diagnostic_bank_key(f"native:{rid}:{row['revision']}")
         original = services.job_repository.get_structure(row["book_id"])
-        if original is not None and structure_fingerprint(original) == fingerprint:
+        if original is not None and structure_fingerprint(original) == structure_fingerprint(structure):
             items = services.assessment_repository.get_bank(
-                row["book_id"], expected_fingerprint=fingerprint
+                diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint
             )
         else:
             items = None
