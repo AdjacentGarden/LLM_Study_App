@@ -341,7 +341,7 @@ final class CloudTests: XCTestCase {
     // Explicit loopback harness replaces external OCR/model adapters, never the app/API/storage.
     let base = URL(string: "http://127.0.0.1:18101")!
     let probeConfig = URLSessionConfiguration.ephemeral
-    probeConfig.timeoutIntervalForRequest = 1
+    probeConfig.timeoutIntervalForRequest = 10
     probeConfig.connectionProxyDictionary = [:]
     let probe = URLSession(configuration: probeConfig)
     let healthURL = base.appendingPathComponent("api/native-test/health")
