@@ -62,6 +62,7 @@ class TextbookQAService:
         retrieval_budget_seconds: float = 2.5,
         retrieval_cache_seconds: float = 900,
         retrieval_cache_size: int = 128,
+        source_coverage: dict[str, Any] | None = None,
     ) -> None:
         if not book_id.strip():
             raise ValueError("book_id must not be empty")
@@ -79,6 +80,7 @@ class TextbookQAService:
         self.book_id = book_id
         self.index = index
         self.generator = generator
+        self.source_coverage = source_coverage or {}
         self.top_pages = top_pages
         self.max_evidence = max_evidence
         self._ready = False
@@ -159,7 +161,7 @@ class TextbookQAService:
             )
             with self._lock:
                 if (
-                    result.status == AnswerStatus.SUPPORTED
+                    result.status in {AnswerStatus.SUPPORTED, AnswerStatus.GENERAL}
                     and self.cache_size
                     and self.cache_seconds
                 ):
@@ -220,6 +222,7 @@ class TextbookQAService:
                     lexical_support=retrieval.lexical_support,
                     **({"teaching_context": teaching_context} if teaching_context is not None else {}),
                     **({"conversation_context": conversation_context} if conversation_context else {}),
+                    **({"source_coverage": self.source_coverage} if self.source_coverage else {}),
                 )
         except LLMError as error:
             # Keep failure timings without exposing prompt or provider details.

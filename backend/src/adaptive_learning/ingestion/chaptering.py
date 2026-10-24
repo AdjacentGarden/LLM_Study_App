@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from ..llm.book_parallel import ordered_book_map
 from ..llm.client import LLMError, OpenAICompatibleClient
+from .coverage import OUTPUT_POLICY, coverage_context, page_is_skipped
 from .evidence_context import expand_source_quote
 from .models import (
     BookStructure,
@@ -19,6 +20,7 @@ from .models import (
     ExtractionMethod,
     PageExtraction,
     PageKind,
+    QualityBand,
     SourceQuote,
     TextBlock,
 )
@@ -322,6 +324,12 @@ class ChapterReconstructor:
 
     def reconstruct_book(self, pages: list[PageExtraction], fallback_title: str) -> BookStructure:
         chapters, used_fallback = self.detector.detect(pages)
+        chapters = [chapter.model_copy(update={"source_coverage": coverage_context(
+            pages, start=chapter.start_page, end=chapter.end_page)}) for chapter in chapters
+            if any(page.raw_text.strip() and not page_is_skipped(page) for page in pages
+                   if chapter.start_page <= page.page_number <= chapter.end_page)]
+        if not chapters:
+            raise ChapteringValidationError("document contains no readable chapter content")
         if self.client is not None:
             chapters = ordered_book_map(lambda chapter: self._summarize(chapter, pages), chapters)
             book_summary = self._summarize_book(chapters)
@@ -333,6 +341,7 @@ class ChapterReconstructor:
             chapters=chapters,
             source_page_count=len(pages),
             used_fallback_chapter=used_fallback,
+            source_coverage=coverage_context(pages),
         )
 
     def reconstruct(
@@ -350,12 +359,13 @@ class ChapterReconstructor:
         payload: dict[str, object] = {
             "chapter_title": chapter.title,
             "evidence": evidence_payload,
+            "source_coverage": chapter.source_coverage,
         }
         last_error: Exception | None = None
         for attempt in range(self.validation_retries + 1):
             try:
                 result = self.client.structured(
-                    system=_CHAPTER_SUMMARY_SYSTEM,
+                    system=_CHAPTER_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
                     max_tokens=2400,
@@ -406,7 +416,7 @@ class ChapterReconstructor:
         if not usable:
             return ""
         raw = self.client.structured(
-            system=_BOOK_SUMMARY_SYSTEM,
+            system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
             user=json.dumps(
                 {
                     "chapters": [
@@ -414,6 +424,7 @@ class ChapterReconstructor:
                             "chapter_id": chapter.chapter_id,
                             "title": chapter.title,
                             "summary": chapter.summary,
+                            "source_coverage": chapter.source_coverage,
                         }
                         for chapter in usable
                     ]
@@ -490,9 +501,15 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
             try:
                 raw: Any = json.loads(line)
                 page_number = int(raw["page_number"])
+                if page_is_skipped(raw):
+                    raw = {**raw, "text": "", "raw_text": "", "cleaned_text": "", "blocks": []}
                 raw_blocks = raw.get("blocks", [])
-                method = (ExtractionMethod.PADDLE_GPU if raw.get("extraction_method") == "paddle_gpu"
-                          else ExtractionMethod.MINERU_VLM)
+                method = {
+                    "paddle_gpu": ExtractionMethod.PADDLE_GPU,
+                    "rapidocr_onnx": ExtractionMethod.RAPIDOCR_ONNX,
+                    "vision_rescue": ExtractionMethod.VISION_RESCUE,
+                }.get(raw.get("extraction_method"), ExtractionMethod.MINERU_VLM)
+                text_line_ocr = method in {ExtractionMethod.PADDLE_GPU, ExtractionMethod.RAPIDOCR_ONNX}
             except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"invalid normalized page at line {line_number}") from error
             blocks: list[TextBlock] = []
@@ -519,7 +536,7 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                         bbox=normalized_bbox,
                         text=str(block["text"]).strip(),
                         source_method=method,
-                        confidence=raw_source.get("confidence") if method == ExtractionMethod.PADDLE_GPU else None,
+                        confidence=raw_source.get("confidence") if text_line_ocr else None,
                         metadata={
                             "source_block_index": block_index,
                             "text_level": raw_source.get("text_level"),
@@ -528,7 +545,7 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                                 "source_ocr_line_ids": raw_source.get("source_ocr_line_ids"),
                                 "toc_evidence": raw_source.get("toc_evidence"),
                                 "ocr_capabilities": raw.get("ocr_capabilities")}
-                               if method == ExtractionMethod.PADDLE_GPU else {}),
+                               if text_line_ocr else {}),
                         },
                     )
                 )
@@ -540,9 +557,11 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                     page_kind=PageKind.SCANNED,
                     method=method,
                     raw_text=text,
+                    processing_status=str(raw.get("processing_status", "")),
                     blocks=blocks,
                     quality=signals,
-                    band=quality_band(signals.overall_score, accept=0.9, review=0.72),
+                    band=(QualityBand.ACCEPTED if raw.get("processing_status") in {"accepted", "corrected", "blank_confirmed", "skipped"}
+                          else quality_band(signals.overall_score, accept=0.9, review=0.72)),
                 )
             )
     if not pages:

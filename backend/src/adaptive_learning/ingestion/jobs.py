@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+import shutil
 import signal
 import sqlite3
 import subprocess
@@ -392,14 +393,19 @@ class SQLiteOCRJobRepository:
             if result.artifact_dir is not None:
                 row = connection.execute("SELECT output_dir FROM ocr_jobs WHERE job_id=?", (job_id,)).fetchone()
                 canonical = Path(row["output_dir"]) / "normalized"
-                staging = canonical.with_name(".normalized-" + uuid.uuid4().hex)
-                try:
-                    staging.symlink_to(os.path.relpath(result.artifact_dir, canonical.parent), target_is_directory=True)
-                    if canonical.exists() and not canonical.is_symlink():
-                        canonical.rename(canonical.with_name("normalized-legacy-" + uuid.uuid4().hex))
-                    os.replace(staging, canonical)
-                finally:
-                    staging.unlink(missing_ok=True)
+                if os.name == "nt":
+                    _publish_normalized_copy(result.artifact_dir, canonical)
+                else:
+                    staging = canonical.with_name(".normalized-" + uuid.uuid4().hex)
+                    try:
+                        staging.symlink_to(os.path.relpath(result.artifact_dir, canonical.parent), target_is_directory=True)
+                        if canonical.exists() and not canonical.is_symlink():
+                            canonical.rename(canonical.with_name("normalized-legacy-" + uuid.uuid4().hex))
+                        os.replace(staging, canonical)
+                    finally:
+                        staging.unlink(missing_ok=True)
+                # Invalidate chapter quotations whenever reviewed OCR is published.
+                connection.execute("DELETE FROM book_structures WHERE book_id=(SELECT book_id FROM ocr_jobs WHERE job_id=?)", (job_id,))
             connection.execute(
                 """UPDATE books SET status=?, progress=1, current_step=?, updated_at=?
                 WHERE book_id=(SELECT book_id FROM ocr_jobs WHERE job_id=?)""",
@@ -586,6 +592,45 @@ class SubprocessOCRRunner:
         self.timeout_seconds = timeout_seconds
 
     def run(self, job: OCRJob, heartbeat: Callable[[float, str], bool]) -> OCRRunResult:
+        from ..config import get_settings
+        from .ocr_job import sha256_file
+        from .ocr_review import _atomic, review_pages
+
+        checkpoint = job.output_dir / "extraction-checkpoint.json"
+        source_hash = sha256_file(job.source_path)
+        normalized = None
+        if checkpoint.is_file():
+            saved = json.loads(checkpoint.read_text(encoding="utf-8"))
+            candidate = Path(saved["normalized"])
+            if (saved.get("source_hash") == source_hash and saved.get("backend") == self.backend
+                    and candidate.resolve().is_relative_to(job.output_dir.resolve())
+                    and (candidate / "quality_report.json").is_file()):
+                normalized = candidate
+        # Old review-required jobs can reuse completed OCR without re-uploading or re-running OCR.
+        if normalized is None:
+            candidate = job.output_dir / "normalized"
+            if (candidate / "quality_report.json").is_file():
+                report = json.loads((candidate / "quality_report.json").read_text(encoding="utf-8"))
+                if report.get("source_sha256") == source_hash and report.get("backend") == self.backend:
+                    normalized = candidate.resolve()
+        if normalized is None:
+            extracted = self._extract(job, heartbeat)
+            assert extracted.artifact_dir is not None
+            normalized = extracted.artifact_dir
+            _atomic(checkpoint, {"source_hash": source_hash, "backend": self.backend,
+                                 "normalized": str(normalized.resolve())})
+        if get_settings().vision_rescue_enabled:
+            normalized = review_pages(job.source_path, normalized, job.output_dir / "review", heartbeat)
+        report = json.loads((normalized / "quality_report.json").read_text(encoding="utf-8"))
+        _write_canonical_hashes(normalized)
+        unresolved = report.get("quality_band_counts", {})
+        needs_review = (not report.get("review_version")
+                        and any(int(unresolved.get(k, 0)) for k in ("missing", "rescue")))
+        return OCRRunResult(quality_score=float(report["mean_heuristic_score"]),
+                            needs_human_review=bool(needs_review),
+                            page_count=int(report["page_count_normalized"]), artifact_dir=normalized)
+
+    def _extract(self, job: OCRJob, heartbeat: Callable[[float, str], bool]) -> OCRRunResult:
         job.output_dir.mkdir(parents=True, exist_ok=True)
         attempt_dir = job.output_dir / (
             f"attempt-{job.attempts:02d}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
@@ -665,6 +710,18 @@ def estimate_ocr_progress(elapsed_seconds: float, page_count: int | None) -> flo
 def _terminate_process_group(process: subprocess.Popen[str]) -> None:
     if process.poll() is not None:
         return
+    if os.name == "nt":
+        # The handle belongs to the OCR subprocess created above. Windows has
+        # neither killpg nor /proc; terminate its complete owned process tree.
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            capture_output=True, check=False, timeout=15,
+        )
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError("OCR subprocess tree could not be terminated") from error
+        return
     descendants = _descendant_pids(process.pid)
     try:
         for pid in reversed(descendants):
@@ -722,6 +779,35 @@ def _log_tail(path: Path, lines: int = 24) -> str:
         return "MinerU diagnostic log is unavailable"
     content = path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
     return " | ".join(line.strip() for line in content if line.strip())[-4000:]
+
+
+def _publish_normalized_copy(source: Path, canonical: Path) -> None:
+    """Publish leased OCR results without Windows symlink privileges.
+
+    Copy into a fresh sibling first; retain any previous result for rollback.
+    This runs only after the repository has checked the active worker's lease.
+    """
+    staging = canonical.with_name(".normalized-" + uuid.uuid4().hex)
+    backup = canonical.with_name("normalized-legacy-" + uuid.uuid4().hex)
+    moved_previous = False
+    try:
+        shutil.copytree(source, staging)
+        if canonical.exists() or canonical.is_symlink():
+            os.replace(canonical, backup)
+            moved_previous = True
+        try:
+            os.replace(staging, canonical)
+        except OSError:
+            if moved_previous:
+                os.replace(backup, canonical)
+            raise
+    finally:
+        if staging.exists():
+            # Only remove the new, verified sibling created by this publication.
+            parent = canonical.parent.resolve()
+            if staging.is_symlink() or not staging.resolve().is_relative_to(parent):
+                raise RuntimeError("Unexpected OCR publication staging path")
+            shutil.rmtree(staging)
 
 
 def _write_canonical_hashes(normalized_dir: Path) -> None:

@@ -353,7 +353,7 @@ extension AppStore {
             throw CloudError(
               status: 409,
               message: status.needs_human_review
-                ? "教材解析需要复核，请检查原 PDF 后重试。" : "教材处理未完成，可以稍后重试。")
+                ? "自动复核暂未完成，已保存进度，可以稍后继续。" : "教材处理未完成，可以稍后重试。")
           }
           processingMessage = status.current_step
           processingProgress = (Double(index) + status.progress * 0.8) / Double(max(1, ids.count))

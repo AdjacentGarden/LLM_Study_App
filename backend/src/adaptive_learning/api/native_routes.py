@@ -468,9 +468,11 @@ def native_router(services: Any) -> APIRouter:
         if len(results) == 1:
             return results[0][1]
         supported = [result for _, result in results if result["status"] == "supported"]
+        general = any(result["status"] == "general" for _, result in results)
         return {
-            "book_id": row["book_id"], "status": "supported" if supported else "insufficient",
-            "answer": "\n\n".join(f"{title}\n{result['answer']}" for title, result in results),
+            "book_id": row["book_id"], "status": "general" if general else "supported" if supported else "insufficient",
+            "answer": "\n\n".join(f"{title}\n{result['answer']}" for title, result in results
+                                      if not general or result["status"] != "insufficient"),
             "claims": [claim for _, result in results for claim in result["claims"]],
             "confidence": min((result["confidence"] for result in supported), default=0),
         }

@@ -138,7 +138,6 @@ enum CloudMapping {
           blocks: blocks,
           source_chunk_ids: chapter.source_block_ids, asset_ids: [],
           warnings: (bundle?.unresolved_source_warnings ?? [])
-            + ["内容准确性尚未量化评估，请结合原文核对。"]
             + (bundle == nil ? ["此章仅有资料目录，尚未生成教学内容。"] : [])))
     }
     let publishedCount = lessons.filter { $0.status == "ready" }.count

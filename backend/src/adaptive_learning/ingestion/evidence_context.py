@@ -12,6 +12,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from .coverage import coverage_context, page_is_skipped
 from .models import BookStructure, PageExtraction, SourceQuote, TextBlock
 
 logger = logging.getLogger(__name__)
@@ -127,7 +128,16 @@ def contextualize_structure(structure: BookStructure, pages: list[PageExtraction
             duplicates.add(page.page_number)
         by_page[page.page_number] = page
     result = structure.model_copy(deep=True)
+    reviewed = any(page.processing_status for page in pages)
+    if reviewed:
+        result.source_coverage = coverage_context(pages)
     for chapter in result.chapters:
+        if reviewed:
+            chapter.source_coverage = coverage_context(pages, start=chapter.start_page, end=chapter.end_page)
+        chapter.knowledge_points = [label for label in chapter.knowledge_points
+            if not (chapter.knowledge_point_evidence.get(label)
+                    and all(page_is_skipped(by_page.get(source.page_number, {}))
+                            for source in chapter.knowledge_point_evidence[label]))]
         def expand(source: SourceQuote, start_page: int = chapter.start_page,
                    end_page: int = chapter.end_page) -> SourceQuote:
             page = by_page.get(source.page_number)
@@ -135,9 +145,11 @@ def contextualize_structure(structure: BookStructure, pages: list[PageExtraction
                 or not start_page <= source.page_number <= end_page):
                 return source
             return expand_source_quote(source, page)
-        chapter.evidence = [expand(source) for source in chapter.evidence]
+        chapter.evidence = [expand(source) for source in chapter.evidence
+                            if not page_is_skipped(by_page.get(source.page_number, {}))]
         chapter.knowledge_point_evidence = {
-            label: [expand(source) for source in sources]
+            label: [expand(source) for source in sources
+                    if not page_is_skipped(by_page.get(source.page_number, {}))]
             for label, sources in chapter.knowledge_point_evidence.items()
         }
     return result

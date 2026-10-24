@@ -18,6 +18,7 @@ from typing import Any, Protocol
 import numpy as np
 from numpy.typing import NDArray
 
+from ..ingestion.coverage import page_is_skipped
 from .index import IndexedChunk, PairReranker, PersistentRAGIndex, QueryEncoder, RAGIndexError
 
 _INDEX_VERSION = b"upload-index-v2"
@@ -66,6 +67,8 @@ def upload_chunks(path: Path) -> list[IndexedChunk]:
     chunks = []
     for line in path.read_text(encoding="utf-8").splitlines():
         page = json.loads(line)
+        if page_is_skipped(page):
+            continue
         number = int(page["page_number"])
         # The normalized page text retains markup and exact quotation characters.
         text = str(page.get("cleaned_text") or page.get("raw_text") or "")
@@ -209,6 +212,8 @@ def split_text(text: str, limit: int) -> list[str]:
 
 
 def _page_text(page: dict[str, Any]) -> str:
+    if page_is_skipped(page):
+        return ""
     for key in ("cleaned_text", "text", "raw_text"):
         value = page.get(key)
         if isinstance(value, str) and value.strip():

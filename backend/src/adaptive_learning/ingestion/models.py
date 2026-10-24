@@ -11,6 +11,7 @@ class ExtractionMethod(StrEnum):
     MINERU_PIPELINE = "mineru_pipeline"
     MINERU_VLM = "mineru_vlm"
     PADDLE_GPU = "paddle_gpu"
+    RAPIDOCR_ONNX = "rapidocr_onnx"
     VISION_RESCUE = "vision_rescue"
     CONSENSUS = "consensus"
 
@@ -59,6 +60,7 @@ class PageExtraction(BaseModel):
     band: QualityBand
     edit_ledger: list[dict[str, Any]] = Field(default_factory=list)
     unresolved_fragments: list[str] = Field(default_factory=list)
+    processing_status: str = ""
 
 
 class SourceQuote(BaseModel):
@@ -84,6 +86,7 @@ class ChapterDraft(BaseModel):
     source_block_ids: list[str]
     evidence: list[SourceQuote] = Field(default_factory=list)
     knowledge_point_evidence: dict[str, list[SourceQuote]] = Field(default_factory=dict)
+    source_coverage: dict[str, Any] = Field(default_factory=dict)
 
 
 class BookStructure(BaseModel):
@@ -92,6 +95,7 @@ class BookStructure(BaseModel):
     chapters: list[ChapterDraft]
     source_page_count: int = Field(ge=1)
     used_fallback_chapter: bool = False
+    source_coverage: dict[str, Any] = Field(default_factory=dict)
 
 
 class BookReconstruction(BaseModel):

@@ -352,6 +352,11 @@ def run_mineru(source: Path, raw_dir: Path, backend: str, language: str) -> tupl
 
 def run_paddle_gpu(source: Path, raw_dir: Path) -> tuple[float, Path]:
     """Request the resident GPU text-line engine; never fall back to another OCR."""
+    return run_fast_ocr(source, raw_dir)
+
+
+def run_fast_ocr(source: Path, raw_dir: Path) -> tuple[float, Path]:
+    """Request the explicitly selected loopback text-line OCR service."""
     configured = os.getenv("FAST_OCR_API_URL", "http://127.0.0.1:18201").strip()
     message = "FAST_OCR_API_URL must be a loopback HTTP origin without credentials or a path"
     try:
@@ -398,7 +403,7 @@ def run_paddle_gpu(source: Path, raw_dir: Path) -> tuple[float, Path]:
         or not math.isfinite(duration)
         or duration < 0
     ):
-        raise RuntimeError("Fast OCR did not return a completed, timed GPU result")
+        raise RuntimeError("Fast OCR did not return a completed, timed result")
     expected = raw_dir.resolve()
     artifacts = {}
     for name in ("content_list", "markdown", "log_path"):
@@ -427,7 +432,7 @@ def write_report(
     markdown = find_artifact(raw_dir, ".md")
     expected_pages = pdf_page_count(source)
     fast_metadata = None
-    if backend == "paddle-gpu":
+    if backend in {"paddle-gpu", "rapidocr-onnx"}:
         fast_metadata = json.loads((raw_dir / "fast_ocr_metadata.json").read_text(encoding="utf-8"))
         if (
             not isinstance(fast_metadata, dict)
@@ -441,6 +446,12 @@ def write_report(
         capabilities = fast_metadata.get("capabilities")
         if not isinstance(capabilities, dict) or not isinstance(capabilities.get("engine"), str):
             raise RuntimeError("Fast OCR metadata omitted engine capabilities")
+        if backend == "rapidocr-onnx" and (
+            not capabilities["engine"].startswith("rapidocr-")
+            or capabilities.get("resident_gpu") is not False
+            or capabilities.get("execution_provider") != "CPUExecutionProvider"
+        ):
+            raise RuntimeError("Configured RapidOCR CPU backend does not match the OCR service")
         raw_blocks = json.loads(content_list.read_text(encoding="utf-8"))
         if not isinstance(raw_blocks, list) or any(
             not isinstance(block, dict)
@@ -462,7 +473,7 @@ def write_report(
     pages = load_pages(content_list, expected_pages)
     if fast_metadata is not None:
         for page in pages:
-            page["extraction_method"] = "paddle_gpu"
+            page["extraction_method"] = backend.replace("-", "_")
             page["ocr_capabilities"] = fast_metadata["capabilities"]
     page_reports = [evaluate_page(page) for page in pages]
     bands = Counter(report["band"] for report in page_reports)
@@ -532,7 +543,8 @@ def write_report(
 > 自动质量分用于发现乱码、碎片、漏页和版面异常，不等同于有人工真值对照的字符错误率（CER）。
 """
     if fast_metadata is not None:
-        summary += "\n> 快速模式使用 PP-OCRv5 GPU 文本检测和识别，不执行 VLM 版面分析、表格结构还原或专用公式识别；跨栏阅读顺序未经验证，章标题提示由真实 OCR 大字和目录原文交叉推断。\n"
+        engine = fast_metadata["capabilities"]["engine"]
+        summary += f"\n> 快速模式使用 {engine} 文本检测和识别，不执行 VLM 版面分析、表格结构还原或专用公式识别；跨栏阅读顺序未经验证，章标题提示由真实 OCR 大字和目录原文交叉推断。\n"
     (output_dir / "quality_report.md").write_text(summary, encoding="utf-8")
     artifact_paths = [
         output_dir / "quality_report.json",
@@ -567,7 +579,7 @@ def main() -> None:
     if not source.is_file():
         raise FileNotFoundError(source)
     if args.skip_run:
-        if args.backend == "paddle-gpu":
+        if args.backend in {"paddle-gpu", "rapidocr-onnx"}:
             metadata = json.loads((raw_dir / "fast_ocr_metadata.json").read_text(encoding="utf-8"))
             log_path = raw_dir / "paddle.log"
             duration = float(metadata["duration_seconds"])
@@ -576,6 +588,8 @@ def main() -> None:
             duration = infer_log_duration(log_path)
     elif args.backend == "paddle-gpu":
         duration, log_path = run_paddle_gpu(source, raw_dir)
+    elif args.backend == "rapidocr-onnx":
+        duration, log_path = run_fast_ocr(source, raw_dir)
     else:
         duration, log_path = run_mineru(source, raw_dir, args.backend, args.language)
     report = write_report(

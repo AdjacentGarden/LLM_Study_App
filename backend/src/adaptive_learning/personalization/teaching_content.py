@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StrictBool
 
+from ..ingestion.coverage import OUTPUT_POLICY
 from ..llm.client import LLMError
 from ..llm.teaching_parallel import ordered_review_map
 from .lesson_review_contract import (
@@ -57,7 +58,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+page-coverage-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -691,6 +692,11 @@ scope_matrix每条断言一行{assertion_id,checks}，checks与scope_matrix_cont
 """
 
 
+GENERATION_PROMPT += "\n" + OUTPUT_POLICY
+REVIEW_PROMPT += "\n" + OUTPUT_POLICY
+FACT_REVIEW_PROMPT += "\n" + OUTPUT_POLICY
+
+
 class TeachingContentGenerator:
     def __init__(
         self,
@@ -916,6 +922,7 @@ class TeachingContentGenerator:
                             key: value.model_dump() for key, value in evidence.sources.items()
                         },
                         "source_warnings": evidence.warnings,
+                "source_coverage": evidence.source_coverage,
                         "batch_points": batch,
                         "include_lesson": include_lesson,
                         "output_contract": {
@@ -1346,6 +1353,7 @@ class TeachingContentGenerator:
                 },
                 "sources": {key: value.model_dump() for key, value in evidence.sources.items()},
                 "source_warnings": evidence.warnings,
+                "source_coverage": evidence.source_coverage,
                 "support_spans": visible_spans,
                 "previous_review_feedback": self._fact_batch_feedback(
                     previous_feedback, {point.point_id for point in batch}, set(parts)
@@ -1695,6 +1703,7 @@ class TeachingContentGenerator:
             ],
             "sources": {key: value.model_dump() for key, value in evidence.sources.items()},
             "source_warnings": evidence.warnings,
+                "source_coverage": evidence.source_coverage,
             "previous_review_feedback": teaching_feedback,
             "candidate": candidate,
         }

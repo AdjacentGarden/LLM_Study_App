@@ -12,9 +12,11 @@ import math
 import re
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from ..assessment.item_generation import stable_knowledge_point_id
+from ..ingestion.coverage import coverage_context, page_is_skipped
 from ..ingestion.models import ChapterDraft, PageExtraction
 from .models import LessonSection, SourceCitation
 
@@ -31,6 +33,7 @@ class TeachingEvidence:
     point_sources: dict[str, list[str]]
     warnings: list[str]
     fingerprint: str
+    source_coverage: dict[str, Any] = field(default_factory=dict)
 
 
 _SCOPE_MARKERS = re.compile(
@@ -239,8 +242,10 @@ def build_teaching_evidence(chapter: ChapterDraft, pages: list[PageExtraction]) 
                 continue
             if page.page_number in raw_pages:
                 raise ValueError(f"duplicate chapter page: {page.page_number}")
-            raw_pages[page.page_number] = page.raw_text
-            fingerprint_pages.append((page.page_number, page.raw_text))
+            raw_pages[page.page_number] = "" if page_is_skipped(page) else page.raw_text
+            fingerprint_pages.append((page.page_number, raw_pages[page.page_number]))
+            if page_is_skipped(page) or page.processing_status == "blank_confirmed":
+                continue
             warnings.extend(_page_warnings(page))
             if not page.raw_text.strip():
                 warnings.append(f"第 {page.page_number} 页无可读文字，文字教学无法覆盖其图像内容。")
@@ -293,9 +298,11 @@ def build_teaching_evidence(chapter: ChapterDraft, pages: list[PageExtraction]) 
         "sources": {key: source.model_dump() for key, source in sources.items()},
         "point_sources": point_sources,
         "warnings": warnings,
+        "source_coverage": coverage_context(pages or [], start=chapter.start_page, end=chapter.end_page),
     }
     fingerprint = hashlib.sha256(json.dumps(fingerprint_data, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    return TeachingEvidence(sources=sources, point_sources=point_sources, warnings=list(dict.fromkeys(warnings)), fingerprint=fingerprint)
+    return TeachingEvidence(sources=sources, point_sources=point_sources, warnings=list(dict.fromkeys(warnings)), fingerprint=fingerprint,
+                            source_coverage=coverage_context(pages or [], start=chapter.start_page, end=chapter.end_page))
 
 
 def _display_reflow(text: str) -> str:

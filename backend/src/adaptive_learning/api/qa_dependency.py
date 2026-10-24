@@ -13,6 +13,7 @@ from .. import native_catalog
 from ..accounts import COOKIE, Accounts
 from ..community import CommunityRepository
 from ..config import get_settings
+from ..ingestion.coverage import load_coverage
 from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..llm.client import LLMConfig, OpenAICompatibleClient
 from ..rag.backends import TransformerPairReranker, TransformerQueryEncoder
@@ -36,6 +37,13 @@ _components: tuple[
 _components_lock = threading.Lock()
 _upload_indexes: OrderedDict[str, tuple[tuple[object, ...], Path]] = OrderedDict()
 _upload_index_lock = threading.Lock()
+
+
+def _book_coverage(data_dir: Path | None, book_id: str) -> dict:
+    if data_dir is None:
+        return {}
+    path = data_dir / "books" / book_id / "ocr/normalized/pages.jsonl"
+    return load_coverage(path) if path.is_file() else {}
 
 
 def upload_components() -> tuple[TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator]:
@@ -156,6 +164,7 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
                 return existing
             index = PersistentRAGIndex.load(upload_path, encoder=encoder, reranker=reranker)
             service = TextbookQAService(book_id=book_id, index=index, generator=generator,
+                source_coverage=_book_coverage(data_dir, book_id),
                 top_pages=settings.rag_top_pages, max_evidence=settings.rag_max_evidence,
                 generation_budget_seconds=settings.rag_generation_timeout_seconds,
                 wait_seconds=settings.rag_generation_timeout_seconds + 5,
@@ -194,6 +203,7 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
         )
         service = TextbookQAService(
             book_id=book_id, index=index, generator=generator,
+            source_coverage=_book_coverage(data_dir, book_id),
             top_pages=settings.rag_top_pages, max_evidence=settings.rag_max_evidence,
             retrieval_budget_seconds=settings.rag_retrieval_budget_ms / 1000,
             generation_budget_seconds=settings.rag_generation_timeout_seconds,

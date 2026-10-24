@@ -19,6 +19,7 @@ from pydantic import (
     model_validator,
 )
 
+from ..ingestion.coverage import OUTPUT_POLICY
 from ..ingestion.models import BookStructure, ChapterDraft, SourceQuote
 from ..llm.book_parallel import ordered_book_map
 from ..llm.client import (
@@ -390,6 +391,10 @@ def balanced_choice_order(item: DiagnosticItem, *, seed: str, ordinal: int) -> l
     return distractors
 
 
+_ITEM_SYSTEM += "\n" + OUTPUT_POLICY
+_ITEM_REVIEW_SYSTEM += "\n" + OUTPUT_POLICY
+
+
 class DiagnosticItemGenerator:
     """Creates a balanced, evidence-locked item bank from a verified book structure."""
 
@@ -628,6 +633,8 @@ class DiagnosticItemGenerator:
             raise DiagnosticGenerationError("structured applications require independent semantic review")
         payload: dict[str, object] = {
             "book_title": book_title,
+            "source_coverage": chapter.source_coverage,
+            "output_policy": OUTPUT_POLICY,
             "chapter_id": chapter.chapter_id,
             "chapter_title": chapter.title,
             "question_contract": _QUESTION_CONTRACT,
@@ -821,6 +828,7 @@ class DiagnosticItemGenerator:
             for point in cast(list[dict[str, object]], source_payload["knowledge_points"])
         }
         review_payload = {
+            "source_coverage": source_payload.get("source_coverage", {}),
             "question_contract": _QUESTION_CONTRACT,
             "application_contract": _APPLICATION_CONTRACT,
             "application_plan_contract": _APPLICATION_PLAN_CONTRACT,
