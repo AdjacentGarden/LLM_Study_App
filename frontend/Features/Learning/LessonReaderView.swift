@@ -1,4 +1,5 @@
 import AVKit
+import CryptoKit
 import SwiftUI
 import UIKit
 
@@ -208,12 +209,7 @@ struct LessonReaderView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var page = 0
-  @State private var pendingVideo: BookAsset?
-  @State private var playingVideo = false
-  @State private var videoError: String?
-  @State private var videoReservation: String?
-  @State private var videoReserving = false
-  @State private var mediaContext: LearningMediaContext?
+  @State private var mediaRequest: LessonMediaRequest?
   @State private var concept: String?
 
   private var lesson: Lesson? {
@@ -279,6 +275,7 @@ struct LessonReaderView: View {
               .frame(maxWidth: 1120, alignment: .leading)
               .padding(.horizontal, store.isPad ? 32 : 16).padding(.top, 6).padding(.bottom, 28)
               .frame(maxWidth: .infinity)
+              mediaActions.padding(.horizontal, 20).padding(.bottom, 16)
             }
             .background(DS.background)
             .simultaneousGesture(
@@ -333,47 +330,17 @@ struct LessonReaderView: View {
       store.learningState.readerCompletionVisible = false
       store.learningState.readerOverlayVisible = false
     }
-    .onChange(of: pendingVideo?.id) { _, _ in
-      store.learningState.readerOverlayVisible = pendingVideo != nil || concept != nil
+    .onChange(of: mediaRequest?.id) { _, _ in
+      store.learningState.readerOverlayVisible = mediaRequest != nil || concept != nil
     }
     .onChange(of: concept) { _, _ in
-      store.learningState.readerOverlayVisible = pendingVideo != nil || concept != nil
+      store.learningState.readerOverlayVisible = mediaRequest != nil || concept != nil
     }
-    .overlay {
-      if let pendingVideo { videoConfirmation(pendingVideo) }
-    }
-    .sheet(item: $mediaContext) { context in
-      if let api = store.cloud {
-        LearningMediaSheet(api: api, context: context)
-      }
-    }
-    .onChange(of: store.cloudState.epoch) { _, _ in mediaContext = nil }
     .overlay {
       if let concept { conceptPanel(concept) }
     }
-    .fullScreenCover(
-      isPresented: $playingVideo,
-      onDismiss: {
-        if let reservation = videoReservation {
-          videoReservation = nil
-          Task { await store.refundCredits(reservation) }
-        }
-      }
-    ) {
-      LearningVideoPlayerView(
-        onReady: {
-          guard let reservation = videoReservation else { return false }
-          videoReservation = nil
-          Task { await store.completeCredits(reservation) }
-          return true
-        },
-        onFailure: {
-          if let reservation = videoReservation {
-            videoReservation = nil
-            Task { await store.refundCredits(reservation) }
-          }
-        }
-      ).presentationBackground(.clear)
+    .sheet(item: $mediaRequest) { request in
+      LearningMediaSheet(request: request, api: store.cloud ?? CloudAPI.configured())
     }
   }
 
@@ -530,20 +497,11 @@ struct LessonReaderView: View {
           .font(DS.font(20)).foregroundStyle(DS.secondary)
           Spacer(minLength: 0)
           Button {
-            if store.cloud != nil, store.cloudState.authenticated,
-              let lesson, lesson.book_id == store.selectedBookID {
-              mediaContext = LearningMediaContext(
-                lesson: lesson, section: activeSection?.block, asset: asset, kind: .video)
-            } else if store.cloud == nil {
-              videoError = nil
-              pendingVideo = asset
-            } else {
-              store.showToast("请先登录学习服务，再生成讲解视频")
-            }
+            openMedia(kind: "video", asset: asset)
           } label: {
             HStack(spacing: 5) {
               Image(systemName: "play.circle").font(.system(size: 14))
-              Text(asset.id == "asset_ai_meiosis_dna_replication_v1" ? "看懂减数分裂" : "看懂这张图")
+              Text("生成讲解短片")
             }.font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
           }.buttonStyle(.plain).accessibilityIdentifier("lesson.video.open.\(asset.id)")
         }.frame(height: 28).frame(maxWidth: activeSection == nil ? 272 : 272).fixedSize(
@@ -633,72 +591,32 @@ struct LessonReaderView: View {
     store.openSource(SourcePageTarget(bookID: id, title: asset.caption, page: start, from: .lesson))
   }
 
-  private func videoConfirmation(_ asset: BookAsset) -> some View {
-    let available = asset.id == "asset_ai_meiosis_dna_replication_v1"
-    return ZStack {
-      Color(hex: 0x181c2c).opacity(0.66).ignoresSafeArea().onTapGesture { pendingVideo = nil }
-      VStack(spacing: 18) {
-        StickerIcon("Video", tone: "pink", size: 64)
-        Text(available ? "是否生成讲解视频？" : "这张图暂时无法生成视频")
-          .font(DS.font(20.8, weight: .bold)).multilineTextAlignment(.center)
-        Text(
-          available
-            ? "为“\(asset.caption)”准备讲解视频。" : "“\(asset.caption)”目前没有可用视频。当前离线 Demo 尚未接入通用视频生成服务。"
-        )
-        .font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(4).multilineTextAlignment(
-          .center)
-        if available {
-          VStack(spacing: 7) {
-            Text("本次生成消耗 10 积分").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primaryPressed)
-            Text("当前剩余 \(store.credits) 积分").accessibilityIdentifier("lesson.video.credits").font(
-              DS.font(20)
-            ).foregroundStyle(DS.secondary)
-          }.frame(maxWidth: .infinity).padding(16).background(
-            DS.primarySoft, in: RoundedRectangle(cornerRadius: 14))
-        }
-        if let videoError { Text(videoError).font(DS.font(12)).foregroundStyle(DS.danger) }
-        HStack(spacing: 10) {
-          BCButton(available ? "否，暂不生成" : "知道了", style: .secondary) { pendingVideo = nil }
-            .accessibilityIdentifier("lesson.video.cancel")
-          if available {
-            BCButton(videoReserving ? "正在准备……" : "是，生成视频") {
-              guard store.credits >= 10 else {
-                videoError = "积分不足：本次需要 10 积分。"
-                return
-              }
-              guard learningResourceURL("/assets/lesson/meiosis-explainer-demo-v1.mp4") != nil
-              else {
-                videoError = "视频资源暂不可用，积分未扣除。"
-                return
-              }
-              guard !videoReserving else { return }
-              videoReserving = true
-              Task { @MainActor in
-                do {
-                  let reservation = try await store.reserveCredits(10)
-                  videoReserving = false
-                  guard pendingVideo != nil else {
-                    await store.refundCredits(reservation)
-                    return
-                  }
-                  videoReservation = reservation
-                  pendingVideo = nil
-                  playingVideo = true
-                } catch {
-                  videoReserving = false
-                  videoError = error.localizedDescription
-                }
-              }
-            }.accessibilityIdentifier("lesson.video.confirm")
-          }
-        }
-      }
-      .padding(24).frame(maxWidth: 416)
-      .background(DS.surface, in: RoundedRectangle(cornerRadius: 28))
-      .overlay(RoundedRectangle(cornerRadius: 28).stroke(DS.border, lineWidth: 1))
-      .padding(24)
-      .accessibilityAddTraits(.isModal)
+  private var mediaActions: some View {
+    HStack(spacing: 12) {
+      BCButton("生成辅助图", icon: "photo", style: .secondary) { openMedia(kind: "image") }
+      BCButton("生成讲解短片", icon: "video", style: .secondary) { openMedia(kind: "video") }
     }
+  }
+
+  private func openMedia(kind: String, asset: BookAsset? = nil) {
+    guard let lesson, let bookID = store.selectedBookID else { return }
+    let linked = asset?.source_chunk_ids.compactMap { id in
+      store.currentSource?.chunks.first { $0.id == id }?.text
+    }.first
+    let sourceQuote = citation?.quote.flatMap { $0.isEmpty ? nil : $0 }
+    let excerpt = linked ?? sourceQuote ?? activeSection?.block.content ?? lesson.summary
+    let sourcePages = asset?.page.map { [$0] } ?? citation.map { [$0.page_start] } ?? [lesson.page_start]
+    mediaRequest = LessonMediaRequest(
+      kind: kind, bookID: bookID, chapterID: lesson.chapter_id,
+      chapterTitle: chapter?.source_title ?? lesson.source_title,
+      title: asset?.caption ?? lesson.title,
+      excerpt: String(excerpt.trimmingCharacters(in: .whitespacesAndNewlines).prefix(3000)),
+      pages: sourcePages.filter { $0 > 0 }, lessonID: lesson.id,
+      courseID: store.selectedCourseID ?? "")
+    let previous = LessonMediaRequest(lesson: lesson, section: activeSection?.block,
+      asset: asset, kind: kind == "image" ? .image : .video)
+    mediaRequest?.legacyExcerpt = previous.excerpt
+    mediaRequest?.legacyChapterTitle = previous.chapterTitle
   }
 
   private func conceptPanel(_ title: String) -> some View {
@@ -747,129 +665,79 @@ struct LessonReaderView: View {
   }
 }
 
-private struct LearningVideoPlayerView: View {
-  @Environment(\.dismiss) private var dismiss
-  let onReady: () -> Bool
-  let onFailure: () -> Void
-  @State private var player: AVPlayer?
-  @State private var item: AVPlayerItem?
-  @State private var charged = false
-  @State private var error: String?
-  @State private var statusObservation: NSKeyValueObservation?
-  @State private var preparationTimeout: Task<Void, Never>?
-  @State private var playbackSeconds: Double = 0
-  @State private var timeObserver: Any?
+struct LessonMediaRequest: Identifiable {
+  let kind: String
+  let bookID: String
+  let chapterID: String
+  let chapterTitle: String
+  let title: String
+  let excerpt: String
+  let pages: [Int]
+  let lessonID: String
+  let courseID: String
+  // Lookup compatibility for tasks created before the cloud request model was adopted.
+  var legacyExcerpt: String? = nil
+  var legacyChapterTitle: String? = nil
 
-  var body: some View {
-    ZStack {
-      Color(hex: 0x181c2c).opacity(0.66).ignoresSafeArea().onTapGesture { dismiss() }
-      if !charged && error == nil {
-        VStack(spacing: 16) {
-          ZStack {
-            Circle().stroke(DS.primarySoft, lineWidth: 4).frame(width: 98, height: 98)
-            ProgressView().controlSize(.large).tint(DS.primary).frame(width: 98, height: 98)
-            StickerIcon("Video", tone: "pink", size: 64)
-          }
-          Text("正在生成讲解视频").font(DS.font(20.8, weight: .bold))
-          Text("请稍等，准备好后会自动打开。").font(DS.font(20)).foregroundStyle(DS.secondary)
-            .multilineTextAlignment(.center)
-          BCButton("取消生成", style: .secondary) { dismiss() }
-        }.padding(28).frame(maxWidth: 384).background(
-          DS.surface, in: RoundedRectangle(cornerRadius: 28)
-        ).padding(24)
-      } else {
-        VStack(spacing: 0) {
-          HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-              Label("AI 教学动画 · 7 秒", systemImage: "sparkles").font(DS.font(20, weight: .bold))
-                .foregroundStyle(DS.primary)
-              Text("看懂减数分裂").font(DS.font(20.8, weight: .bold))
-            }
-            Spacer()
-            Button {
-              dismiss()
-            } label: {
-              Image(systemName: "xmark").font(.system(size: 21)).foregroundStyle(DS.secondary)
-                .frame(width: 44, height: 44)
-                .background(Color(hex: 0xf3f6fb), in: Circle())
-            }.buttonStyle(.plain).accessibilityLabel("关闭教学动画").accessibilityIdentifier(
-              "lesson.video.close")
-          }.padding(18)
-          if let player {
-            VideoPlayer(player: player).aspectRatio(16 / 9, contentMode: .fit).background(
-              Color(hex: 0x161829)
-            )
-            .accessibilityIdentifier("lesson.video.player")
-            .accessibilityValue(String(format: "%.2f", playbackSeconds))
-          }
-          VStack(alignment: .leading, spacing: 10) {
-            Text("一次复制，两次分裂").font(DS.font(16, weight: .bold))
-            Text(error ?? "沿着一次复制、两次分裂，观察同源染色体和姐妹染色单体先后发生的变化。")
-              .font(DS.font(20)).lineSpacing(4).foregroundStyle(DS.secondary)
-          }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        }.frame(maxWidth: 720).background(DS.surface, in: RoundedRectangle(cornerRadius: 28))
-          .clipShape(RoundedRectangle(cornerRadius: 28)).padding(12)
-      }
-    }
-    .foregroundStyle(DS.text)
-    .onAppear { prepare() }
-    .onDisappear {
-      preparationTimeout?.cancel()
-      player?.pause()
-      if let timeObserver { player?.removeTimeObserver(timeObserver) }
-      timeObserver = nil
-      statusObservation?.invalidate()
-      statusObservation = nil
-      item = nil
-      player = nil
+  var id: String {
+    let parts = [kind, bookID, chapterID, lessonID, courseID, excerpt,
+                 pages.map(String.init).joined(separator: ",")]
+    let data = (try? JSONEncoder().encode(parts)) ?? Data()
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+}
+
+struct LessonMediaReceipt: Codable, Equatable {
+  var requestID: String
+  var jobID: String?
+  var state: String
+  var submissionUncertain: Bool
+
+  var permitsNewGeneration: Bool {
+    !submissionUncertain && ["failed", "cancelled", "rejected"].contains(state)
+  }
+
+  func validate() throws {
+    guard LessonMediaJobContract.validRequestID(requestID),
+          LessonMediaJobContract.states.contains(state),
+          jobID == nil || LessonMediaJobContract.validJobID(jobID!) else {
+      throw ContentError.invalid("媒体任务回执无法核验，请保留原请求并联系管理员。")
     }
   }
 
-  private func prepare() {
-    guard let url = learningResourceURL("/assets/lesson/meiosis-explainer-demo-v1.mp4") else {
-      error = "视频暂时无法播放，积分未扣除。"
-      onFailure()
-      return
+  mutating func accept(_ value: StudioJob, bookID: String, kind: String) throws {
+    try validate()
+    guard ["image", "video"].contains(kind), value.book_id == bookID, value.kind == kind,
+          LessonMediaJobContract.validJobID(value.id),
+          LessonMediaJobContract.states.contains(value.status),
+          jobID == nil || value.id == jobID,
+          state != "succeeded" || value.status == "succeeded" else {
+      throw ContentError.invalid("返回任务与当前教材、类型或状态不一致，已停止显示。")
     }
-    let nextItem = AVPlayerItem(url: url)
-    item = nextItem
-    let nextPlayer = AVPlayer(playerItem: nextItem)
-    nextPlayer.isMuted = true
-    player = nextPlayer
-    timeObserver = nextPlayer.addPeriodicTimeObserver(
-      forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main
-    ) { time in
-      Task { @MainActor in
-        guard time.seconds.isFinite else { return }
-        playbackSeconds = time.seconds
-      }
+    // Content coalescing may return a canonical job's older request_id. Keep
+    // our durable alias and bind all subsequent reads to the returned job ID.
+    jobID = value.id
+    state = value.status
+    submissionUncertain = false
+  }
+}
+
+enum LessonMediaJobContract {
+  static let states: Set<String> = [
+    "queued", "planning", "submitting", "polling", "reviewing", "succeeded",
+    "failed", "cancelled", "rejected", "uncertain",
+  ]
+
+  static func validJobID(_ value: String) -> Bool {
+    value.utf8.count == 32 && value.utf8.allSatisfy {
+      (48...57).contains($0) || (97...102).contains($0)
     }
-    preparationTimeout = Task { @MainActor in
-      do { try await Task.sleep(for: .seconds(12)) } catch { return }
-      guard !charged, item === nextItem else { return }
-      error = "视频准备超时，积分已退回，请关闭后重试。"
-      nextPlayer.pause()
-      item = nil
-      onFailure()
-    }
-    statusObservation = nextItem.observe(\.status, options: [.new, .initial]) { observed, _ in
-      let status = observed.status
-      Task { @MainActor in
-        guard item === observed else { return }
-        if status == .readyToPlay && !charged {
-          guard onReady() else {
-            error = "积分不足，请关闭后重试。"
-            return
-          }
-          charged = true
-          preparationTimeout?.cancel()
-          nextPlayer.play()
-        } else if status == .failed {
-          preparationTimeout?.cancel()
-          if !charged { onFailure() }
-          error = "视频暂时无法播放\(charged ? "，请稍后重试" : "，积分未扣除")。"
-        }
-      }
+  }
+
+  static func validRequestID(_ value: String) -> Bool {
+    (8...100).contains(value.utf8.count) && value.utf8.allSatisfy {
+      (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0)
+        || $0 == 45 || $0 == 95
     }
   }
 }

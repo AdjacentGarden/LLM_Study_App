@@ -1,5 +1,6 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -13,13 +14,12 @@ from adaptive_learning.assessment.models import InterviewSession, LearnerProfile
 from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
 from adaptive_learning.community import CommunityRepository, text_fingerprint
 from adaptive_learning.ingestion.jobs import SQLiteOCRJobRepository
-from adaptive_learning.ingestion.models import BookStructure, ChapterDraft
 from adaptive_learning.personalization.generator import ChapterCourseCompiler
 from adaptive_learning.personalization.policy import PersonalizationPolicy
 
 
-@pytest.fixture
-def community(tmp_path, monkeypatch):
+@contextmanager
+def community_environment(tmp_path, monkeypatch):
     monkeypatch.delenv("RAG_BOOK_INDEX_MANIFEST", raising=False)
     jobs = SQLiteOCRJobRepository(tmp_path / "jobs.sqlite3")
     assessments = SQLiteAssessmentRepository(tmp_path / "assessments.sqlite3")
@@ -52,6 +52,34 @@ def community(tmp_path, monkeypatch):
         yield a, b, repo, assessments
 
 
+def install_explicit_community_fixture(a, b, repo):
+    """Test-only setup; production identity creation never installs these books."""
+    for client in (a, b):
+        assert client.get("/api/library").json() == []
+        owner, _, _ = repo.visitor(client.cookies.get("zhiwo_visitor"))
+        for i in range(5):
+            repo.add_book(owner, f"book-{i}")
+    for i in range(5, 10):
+        repo.publish("fixture-publisher", "book", f"book-{i}", f"教材{i}",
+                     "Explicit test specimen", {})
+
+
+@pytest.fixture
+def community(tmp_path, monkeypatch):
+    # Other test modules import this fixture directly, so all its dependencies
+    # remain built-in pytest fixtures rather than module-local fixture names.
+    with community_environment(tmp_path, monkeypatch) as value:
+        a, b, repo, _ = value
+        install_explicit_community_fixture(a, b, repo)
+        yield value
+
+
+@pytest.fixture
+def unseeded_community(tmp_path, monkeypatch):
+    with community_environment(tmp_path, monkeypatch) as value:
+        yield value
+
+
 def feed(client, kind="all"):
     response = client.get("/api/community", params={"kind": kind})
     assert response.status_code == 200, response.text
@@ -77,12 +105,69 @@ def private_note(client):
     return response.json()
 
 
-def test_default_five_and_five_cookie_and_persistence(community):
+def test_new_visitors_receive_no_implicit_books_or_publications(unseeded_community):
+    a, b, repo, _ = unseeded_community
+    response = a.get("/api/library")
+    assert response.status_code == 200 and response.json() == []
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert "SameSite=lax" in response.headers["set-cookie"]
+    assert response.headers["cache-control"] == "private, no-store"
+    assert b.get("/api/library").json() == []
+    assert feed(a) == feed(b) == []
+    assert a.cookies.get("zhiwo_visitor") != b.cookies.get("zhiwo_visitor")
+    # Real configured sources still register, without granting access or
+    # announcing them as a user publication by catalog order.
+    assert all(repo.asset(f"book-{i}") is not None for i in range(10))
+    with repo.connect() as db:
+        assert db.execute("SELECT count(*) FROM library_books").fetchone()[0] == 0
+        assert db.execute("SELECT count(*) FROM posts").fetchone()[0] == 0
+    assert share(a, kind="book").status_code == 403
+
+
+def test_legacy_visitor_initial_argument_cannot_grant_ownership(unseeded_community):
+    a, _, repo, _ = unseeded_community
+    assert a.get("/api/library").json() == []
+    owner, token, new = repo.visitor(None, ["book-0", "book-9"])
+    assert new and repo.library(owner) == []
+    assert not repo.owns(owner, "book-0")
+    repo.add_book(owner, "book-0")
+    recovered, _, new = repo.visitor(token, ["book-9"])
+    assert recovered == owner and not new
+    assert [book["book_id"] for book in repo.library(owner)] == ["book-0"]
+
+
+def test_catalog_reordering_and_restart_preserve_only_explicit_records(
+    unseeded_community, tmp_path
+):
+    a, b, repo, assessments = unseeded_community
+    assert a.get("/api/library").json() == []
+    owner, _, _ = repo.visitor(a.cookies.get("zhiwo_visitor"))
+    repo.add_book(owner, "book-7")
+    post = repo.publish(owner, "book", "book-7", "显式发布的真实记录", "真实来源", {})[0]
+    before = a.get("/api/library").json()
+    entries = [BookCatalogItem.model_validate_json(repo.asset(f"book-{i}")["catalog"])
+               for i in reversed(range(10))]
+    jobs = SQLiteOCRJobRepository(tmp_path / "jobs.sqlite3")
+    restarted = FastAPI()
+    restarted.include_router(community_router(
+        tmp_path, lambda: entries, lambda: jobs, lambda: assessments
+    ))
+    with TestClient(restarted) as existing, TestClient(restarted) as newcomer:
+        existing.cookies.update(a.cookies)
+        assert existing.get("/api/library").json() == before
+        assert [item["id"] for item in feed(existing)] == [post]
+        assert newcomer.get("/api/library").json() == []
+        assert [item["id"] for item in feed(newcomer)] == [post]
+        assert newcomer.post(f"/api/community/{post}/acquire").json()["status"] == "added"
+        assert [book["book_id"] for book in newcomer.get("/api/library").json()] == ["book-7"]
+    assert b.get("/api/library").json() == []
+    assert repo.owns(owner, "book-7")
+
+
+def test_explicit_fixture_five_and_five_persists(community):
     a, b, repo, _ = community
     response = a.get("/api/library")
     assert [x["book_id"] for x in response.json()] == [f"book-{i}" for i in range(5)]
-    assert "HttpOnly" in response.headers["set-cookie"]
-    assert "SameSite=lax" in response.headers["set-cookie"]
     assert response.headers["cache-control"] == "private, no-store"
     assert len(feed(a)) == 5
     token = a.cookies.get("zhiwo_visitor")
@@ -109,7 +194,7 @@ def test_acquisition_is_isolated_idempotent_and_no_assessment_copy(community):
         assert db.execute("SELECT count(*) FROM interview_sessions").fetchone()[0] == 0
 
 
-def test_all_five_books_acquired_and_removed_without_reseeding(community):
+def test_explicit_fixture_books_acquired_and_removed_without_reseeding(community):
     a, _, repo, _ = community
     posts = feed(a)
     for post in posts:
@@ -120,7 +205,7 @@ def test_all_five_books_acquired_and_removed_without_reseeding(community):
         assert repo.asset(post["book_id"]) is not None
     assert len(a.get("/api/library").json()) == 5
     a.post("/api/library/books/book-0/remove")
-    assert len(a.get("/api/library").json()) == 4  # Defaults apply only to new visitors.
+    assert len(a.get("/api/library").json()) == 4
 
 
 def test_concurrent_acquisition_inserts_once(community):
@@ -132,50 +217,6 @@ def test_concurrent_acquisition_inserts_once(community):
     assert sum(result["status"] == "added" for result in results) == 1
     assert len(repo.library(owner)) == 6
     assert next(p for p in feed(a) if p["id"] == post["id"])["downloads"] == 1
-
-
-def test_structured_private_upload_can_be_claimed_by_current_user(community, tmp_path):
-    a, b, _, _ = community
-    # Use the fixture repository captured by the router rather than the app-global queue.
-    jobs_path = tmp_path / "jobs.sqlite3"
-    jobs = SQLiteOCRJobRepository(jobs_path)
-    source = tmp_path / "private.pdf"
-    source.write_bytes(b"%PDF-1.7\nprivate")
-    jobs.register_book(
-        book_id="private-book",
-        original_name="我的新书.pdf",
-        file_path=source,
-        source_sha256="private-hash",
-    )
-    jobs.save_structure(
-        "private-book",
-        BookStructure(
-            title="我的新书",
-            summary="这是用户上传教材的摘要。",
-            source_page_count=12,
-            chapters=[
-                ChapterDraft(
-                    chapter_id="chapter-1",
-                    order=1,
-                    title="第一章",
-                    start_page=1,
-                    end_page=12,
-                    summary="章节摘要",
-                    knowledge_points=["知识点"],
-                    source_block_ids=["block-1"],
-                )
-            ],
-        ),
-    )
-    assert a.post("/api/library/books/private-book/bind-upload").status_code == 200
-    assert b.post("/api/library/books/private-book/bind-upload").status_code == 403
-    assert b.post("/api/library/books/private-book/claim").status_code == 403
-    claimed = a.post("/api/library/books/private-book/claim")
-    assert claimed.status_code == 200, claimed.text
-    assert claimed.json()["title"] == "我的新书"
-    assert any(book["book_id"] == "private-book" for book in a.get("/api/library").json())
-    assert not any(book["book_id"] == "private-book" for book in b.get("/api/library").json())
-    assert a.post("/api/library/books/private-book/claim").status_code == 200
 
 
 def test_restore_only_previously_owned_books(community):
@@ -207,7 +248,8 @@ def test_asset_dedup_is_by_file_or_long_text_not_title(tmp_path):
         )
         == "d"
     )
-    owner, _, _ = repo.visitor(None, ["a"])
+    owner, _, _ = repo.visitor(None)
+    repo.add_book(owner, "a")
     assert repo.owns(owner, "b") and repo.owns(owner, "c")
     p1, _ = repo.publish(owner, "book", "b", "别名", "", {})
     p2, duplicate = repo.publish(owner, "book", "a", "原书", "", {})

@@ -26,13 +26,15 @@ export interface Suggestion {
 export interface StudioResult {
   phase?: string;
   provisional?: boolean;
+  quality_notice?: string;
+  excluded_optional_count?: number;
   title?: string;
   visual_scope?: string;
   visual_mode?: "illustration" | "diagram";
   explanation?: string;
   points?: string[];
   caution?: string;
-  review?: string;
+  review?: string | { passed?: boolean; reason?: string };
   transcript?: string;
   uncertain?: string[];
   summary?: string;

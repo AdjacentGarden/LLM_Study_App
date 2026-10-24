@@ -279,50 +279,22 @@ final class LearningFunctionalUITests: XCTestCase {
       "Reading position must survive relaunch")
   }
 
-  private func creditBalance(_ app: XCUIApplication) -> Int {
-    let credits = app.staticTexts["lesson.video.credits"].firstMatch
-    XCTAssertTrue(credits.waitForExistence(timeout: 10))
-    return Int(credits.label.filter(\.isNumber)) ?? -1
-  }
-
-  func testVideoCancelPreservesCreditsAndBundledMP4ActuallyPlays() throws {
-    let session = UUID().uuidString
-    let app = launch("lesson", session: session)
+  func testMediaSheetRequiresConfiguredBackendAndClosingPreservesReadingPosition() {
+    let app = launch("lesson", session: UUID().uuidString)
     returnToIntroduction(app)
     let open = app.buttons["lesson.video.open.asset_ai_meiosis_dna_replication_v1"]
+    let initialPage = app.staticTexts["lesson.page"].firstMatch.value as? String
     tap(open, app: app)
-    let initialBalance = creditBalance(app)
-    XCTAssertGreaterThanOrEqual(initialBalance, 10)
-    tap(app.buttons["lesson.video.cancel"], app: app)
-    wait("Cancellation must close the confirmation") { !app.buttons["lesson.video.confirm"].exists }
+    XCTAssertTrue(app.staticTexts["lesson.media.error"].waitForExistence(timeout: 15))
+    XCTAssertFalse(app.buttons["lesson.media.generate"].exists,
+      "Fixture data must not submit an unconfigured provider job")
+    XCTAssertEqual(app.buttons.matching(identifier: "lesson.media.close").count, 1)
+    evidence("learning-single-cloud-media-sheet", app: app)
+    tap(app.buttons["lesson.media.close"], app: app)
+    XCTAssertEqual(app.staticTexts["lesson.page"].firstMatch.value as? String, initialPage)
     tap(open, app: app)
-    XCTAssertEqual(
-      creditBalance(app), initialBalance, "Cancelling the confirmation must not spend credits")
-    tap(app.buttons["lesson.video.confirm"], app: app)
-    let player = app.descendants(matching: .any)["lesson.video.player"].firstMatch
-    XCTAssertTrue(player.waitForExistence(timeout: 20))
-    wait("Real AVPlayer time must advance while playing the bundled MP4", timeout: 15) {
-      (Double(player.value as? String ?? "") ?? 0) >= 0.5
-    }
-    let playback = XCTAttachment(
-      string:
-        "AVPlayer periodic currentTime: \(player.value as? String ?? "missing") seconds; asserted >= 0.5. Credit balance before confirmation: \(initialBalance)."
-    )
-    playback.name = "learning-video-live-playback-measurement"
-    playback.lifetime = .keepAlways
-    add(playback)
-    evidence("learning-bundled-mp4-real-playback", app: app)
-    tap(app.buttons["lesson.video.close"], app: app)
-    tap(open, app: app)
-    XCTAssertEqual(
-      creditBalance(app), initialBalance - 10, "Successful playback must charge exactly once")
-    tap(app.buttons["lesson.video.cancel"], app: app)
-    app.terminate()
-    let reopened = launch("lesson", session: session)
-    tap(reopened.buttons["lesson.video.open.asset_ai_meiosis_dna_replication_v1"], app: reopened)
-    XCTAssertEqual(
-      creditBalance(reopened), initialBalance - 10,
-      "The completed video credit transaction must persist")
-    tap(reopened.buttons["lesson.video.cancel"], app: reopened)
+    XCTAssertTrue(app.staticTexts["lesson.media.error"].waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["lesson.media.generate"].exists)
+    tap(app.buttons["lesson.media.close"], app: app)
   }
 }

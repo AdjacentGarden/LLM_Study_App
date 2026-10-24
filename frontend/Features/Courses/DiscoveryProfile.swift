@@ -3,15 +3,17 @@ import SwiftUI
 struct CourseDiscoveryView: View {
   @Environment(AppStore.self) private var store
   @State private var query = ""
-  @State private var category = "推荐"
+  @State private var category = "全部"
   @State private var allCategories = false
   @FocusState private var searchFocused: Bool
-  private let categories = ["推荐", "生物", "数学", "物理", "化学", "历史", "地理", "语文", "英语"]
+  private var categories: [String] {
+    ["全部", "推荐"] + Set(store.community.map(\.subject).filter { !$0.isEmpty }).sorted()
+  }
   private var books: [CommunityBook] {
     let search = query.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
     return store.community.filter { book in
       if search.isEmpty {
-        return category == "推荐" ? book.recommended == true : book.subject == category
+        return category == "全部" || (category == "推荐" ? book.recommended == true : book.subject == category)
       }
       return
         ([
@@ -39,9 +41,7 @@ struct CourseDiscoveryView: View {
             Section {
               VStack(alignment: .leading, spacing: 4) {
                 if books.isEmpty {
-                  EmptyStateView(
-                    title: "没有找到相关课程", message: "换个关键词，或查看其他课程分类。",
-                    asset: "/assets/brand/empty-states/no-results-v1.png")
+                  discoveryEmptyState
                 }
                 LazyVGrid(
                   columns: [
@@ -95,6 +95,29 @@ struct CourseDiscoveryView: View {
             .allowsHitTesting(false)
         }
       }
+    }
+  }
+
+  @ViewBuilder private var discoveryEmptyState: some View {
+    if store.cloud == nil {
+      EmptyStateView(
+        title: "连接后查看社区课程", message: "社区课程需要连接服务。本机保存的教材仍可在“我的课程”中查看。",
+        asset: "/assets/brand/empty-states/connection-error-v1.png")
+    } else if refreshPhase == .failed || (store.community.isEmpty && store.cloudState.syncError != nil) {
+      EmptyStateView(
+        title: "社区课程暂时无法加载", message: "请检查连接后重试。本机教材和学习记录会继续保留。",
+        asset: "/assets/brand/empty-states/connection-error-v1.png")
+    } else if store.cloudState.isHydrating || refreshPhase == .loading {
+      HStack(spacing: 10) { ProgressView(); Text("正在读取社区课程…") }
+        .padding(.vertical, 28)
+    } else if store.community.isEmpty {
+      EmptyStateView(
+        title: "社区暂无课程", message: "服务当前没有返回可浏览的课程。你也可以先使用自己的教材。",
+        asset: "/assets/brand/empty-states/no-results-v1.png")
+    } else {
+      EmptyStateView(
+        title: "没有找到相关课程", message: "换个关键词，或查看其他课程分类。",
+        asset: "/assets/brand/empty-states/no-results-v1.png")
     }
   }
 
@@ -182,8 +205,6 @@ private struct CommunityCourseTile: View {
       Text(book.catalogTitle).font(DS.font(16, weight: .bold)).foregroundStyle(DS.text).lineLimit(2)
         .frame(maxWidth: .infinity, minHeight: 20.8, alignment: .topLeading)
       HStack(spacing: 4) {
-        Text("\(book.learners) 人学习").font(DS.font(14)).foregroundStyle(DS.secondary)
-          .lineLimit(1).minimumScaleFactor(0.75)
         Spacer(minLength: 0)
         Text("进入").font(DS.font(14, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 12)
           .frame(minWidth: 56, minHeight: 36).background(DS.primary, in: Capsule())
@@ -194,52 +215,33 @@ private struct CommunityCourseTile: View {
 
 struct CommunityBookDetailView: View {
   @Environment(AppStore.self) private var store
-  @State private var selectedTab = "课程简介"
   private var book: CommunityBook? {
-    store.community.first { $0.id == store.selectedCommunityID } ?? store.community.first
+    store.community.first { $0.id == store.selectedCommunityID }
   }
   var body: some View {
     if let book {
       CourseCoverToContent(cover: book.cover) {
         VStack(spacing: 8) {
-          Text(book.owner).font(DS.font(14)).foregroundStyle(DS.secondary)
+          if !book.owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text("来源：\(book.owner)").font(DS.font(14)).foregroundStyle(DS.secondary)
+          }
           Text(book.title).font(DS.font(20.8, weight: .bold)).multilineTextAlignment(.center).frame(
             maxWidth: 220)
           Text(
             [book.subject, book.grade, book.version, book.volume].compactMap { $0 }.joined(
               separator: " · ")
           ).font(DS.font(14)).foregroundStyle(DS.secondary)
-          HStack(spacing: 0) {
-            stat("正在学习", "\(book.learners) 人")
-            stat("课程章节", "\(book.chapters.count) 章")
-            stat("概念闪卡", "\(book.flashcardCount) 张")
-            stat("学习进度", "\(Int(book.progress))%")
-          }.padding(.vertical, 14).frame(maxWidth: .infinity).background(
-            DS.background, in: RoundedRectangle(cornerRadius: 12))
-          HStack(spacing: 24) {
-            ForEach(["课程简介", "评论"], id: \.self) { tab in
-              Button {
-                withAnimation { selectedTab = tab }
-              } label: {
-                Text(tab).font(DS.font(16, weight: .bold)).foregroundStyle(
-                  selectedTab == tab ? DS.primary : DS.secondary
-                ).padding(.vertical, 12).overlay(alignment: .bottom) {
-                  if selectedTab == tab { Capsule().fill(DS.primary).frame(height: 3) }
-                }
-              }.buttonStyle(.plain)
-            }
-          }.frame(maxWidth: .infinity, alignment: .leading)
-          if selectedTab == "课程简介" {
-            Text(book.description).font(DS.font(20)).lineSpacing(7).frame(
-              maxWidth: .infinity, alignment: .leading)
-          } else {
-            if store.cloud != nil {
-              Text("暂无评论").font(DS.font(14)).foregroundStyle(DS.secondary)
-            } else {
-              comment("周", name: "周同学", text: "重点整理得很清楚，适合复习\(book.catalogTitle)。")
-              comment("陈", name: "陈同学", text: "课程结构简洁，导入后继续学习很方便。")
-            }
+          if !book.chapters.isEmpty || book.flashcardCount > 0 {
+            HStack(spacing: 0) {
+              if !book.chapters.isEmpty { stat("目录章节", "\(book.chapters.count) 章") }
+              if book.flashcardCount > 0 { stat("概念闪卡", "\(book.flashcardCount) 张") }
+            }.padding(.vertical, 14).frame(maxWidth: .infinity).background(
+              DS.background, in: RoundedRectangle(cornerRadius: 12))
           }
+          Text("课程简介").font(DS.font(16, weight: .bold)).frame(
+            maxWidth: .infinity, alignment: .leading).padding(.vertical, 12)
+          Text(book.description).font(DS.font(20)).lineSpacing(7).frame(
+            maxWidth: .infinity, alignment: .leading)
         }
       } action: {
         BCButton("导入到我的课程", icon: "square.and.arrow.down") {
@@ -260,16 +262,7 @@ struct CommunityBookDetailView: View {
       Text(title).font(DS.font(14)).foregroundStyle(DS.secondary)
     }.frame(maxWidth: .infinity)
   }
-  private func comment(_ initial: String, name: String, text: String) -> some View {
-    HStack(alignment: .top, spacing: 12) {
-      Text(initial).font(DS.font(16, weight: .bold)).frame(width: 40, height: 40).background(
-        DS.primarySoft, in: Circle())
-      VStack(alignment: .leading, spacing: 8) {
-        Text(name).font(DS.font(16, weight: .bold))
-        Text(text).font(DS.font(14)).foregroundStyle(DS.secondary)
-      }
-    }.padding(.vertical, 10)
-  }
+
 }
 
 struct LearnerProfileView: View {
@@ -394,23 +387,7 @@ struct LearnerProfileView: View {
           }
         }
       }
-      BCCard {
-        VStack(alignment: .leading, spacing: 14) {
-          HStack(spacing: 12) {
-            CourseBadgeIcon(name: "Coins", index: 0, size: 46)
-            VStack(alignment: .leading, spacing: 3) {
-              Text("CREDITS").font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
-              Text("我的积分").font(DS.font(20.8, weight: .bold))
-            }
-            Spacer()
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-              Text("\(store.credits)").font(DS.font(16, weight: .bold))
-              Text("积分").font(DS.font(14))
-            }.foregroundStyle(DS.primary)
-          }
-          Text("AI 对话每次 1 积分 · 视频生成每次 10 积分").font(DS.font(20)).foregroundStyle(DS.secondary)
-        }
-      }
+
       BCCard {
         VStack(alignment: .leading, spacing: 18) {
           HStack {

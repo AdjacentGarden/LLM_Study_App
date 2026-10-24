@@ -91,6 +91,20 @@ def test_slow_optional_planner_does_not_skip_answer_review() -> None:
     assert result.status == AnswerStatus.SUPPORTED
     assert result.semantic_checked
     assert client.calls == 3
+def test_missing_self_score_still_requires_literal_and_semantic_evidence():
+    draft = {'status': 'supported', 'claims': [{'text':'染色体只复制一次。',
+        'citations':[{'source_id':'E1', 'quote':'染色体只复制一次'}]}]}
+    client = SequenceFakeClient([draft, {'relevant':True, 'reviews':[
+        {'claim_index':0, 'supported':True, 'reason':'该陈述与所引教材一致'}]}])
+    answer = GroundedAnswerGenerator(client, use_semantic_review=True).answer(
+        question='复制几次？', evidence=_evidence(), retrieval_score=4)
+    assert answer.semantic_checked and answer.confidence == 0
+    assert client.calls == 2
+    # An absent self-score never excuses a fabricated quotation.
+    draft['claims'][0]['citations'][0]['quote'] = '染色体复制十次'
+    with pytest.raises(GroundedAnswerValidationError):
+        GroundedAnswerGenerator(FakeClient(draft), max_validation_retries=0).answer(
+            question='复制几次？', evidence=_evidence(), retrieval_score=4)
 
 
 def test_supported_answer_exposes_page_citation_without_internal_source_id() -> None:

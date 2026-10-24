@@ -150,7 +150,7 @@ struct NotesHubView: View {
     NotesPrimaryAction(title: "新建笔记", symbol: "plus") { store.openSheet(.noteType) }
   }
   @ViewBuilder private var noteActions: some View {
-    NotesPrimaryAction(title: "从笔记生成闪卡", symbol: "book") { store.go(.flashcards) }
+    NotesPrimaryAction(title: "查看课程闪卡", symbol: "book") { store.go(.flashcards) }
       .accessibilityIdentifier("notes.flashcards")
     NotesPrimaryAction(title: "导出 PDF", symbol: "doc.badge.arrow.up", secondary: true) {
       store.go(.export)
@@ -235,8 +235,7 @@ struct NotesHubView: View {
               Text(note.title).font(DS.font(20, weight: .bold)).lineSpacing(5).fixedSize(
                 horizontal: false, vertical: true)
               Text(
-                note.anchor?.chapterID == "chapter-2" || note.id == "ink-demo-needs-confirmation"
-                  ? "减数分裂和受精作用" : note.anchor.map { "第 \($0.printedPage ?? $0.page) 页" } ?? "本地学习笔记"
+                note.anchor.map { "第 \($0.printedPage ?? $0.page) 页" } ?? "本地学习笔记"
               ).font(DS.font(12)).foregroundStyle(DS.muted).frame(minHeight: 18, alignment: .top)
             }
           }

@@ -13,7 +13,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
-from ..llm.client import model_time_budget
+from ..llm.client import LLMError, model_time_budget
 from .grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
@@ -211,15 +211,23 @@ class TextbookQAService:
             for position, item in enumerate(retrieval.evidence, start=1)
         ]
         generation_started = time.monotonic()
-        with model_time_budget(self.generation_budget_seconds):
-            generated = self.generator.answer(
-                question=question,
-                evidence=evidence,
-                retrieval_score=retrieval.score,
-                lexical_support=retrieval.lexical_support,
-                **({"teaching_context": teaching_context} if teaching_context is not None else {}),
-                **({"conversation_context": conversation_context} if conversation_context else {}),
-            )
+        try:
+            with model_time_budget(self.generation_budget_seconds):
+                generated = self.generator.answer(
+                    question=question,
+                    evidence=evidence,
+                    retrieval_score=retrieval.score,
+                    lexical_support=retrieval.lexical_support,
+                    **({"teaching_context": teaching_context} if teaching_context is not None else {}),
+                    **({"conversation_context": conversation_context} if conversation_context else {}),
+                )
+        except LLMError as error:
+            # Keep failure timings without exposing prompt or provider details.
+            error.qa_timings = {  # type: ignore[attr-defined]
+                "retrieval": retrieval_duration_ms,
+                "generation": round((time.monotonic() - generation_started) * 1000),
+            }
+            raise
         generation_duration_ms = round((time.monotonic() - generation_started) * 1000)
         logger.info(
             "grounded answer generation completed",
@@ -304,11 +312,11 @@ class TextbookQAService:
                 top_pages=self.top_pages,
                 max_evidence=self.max_evidence,
             )
-        result = fast(
+        result = cast(RetrievalResult, fast(
             question,
             top_pages=self.top_pages,
             max_evidence=self.max_evidence,
-        )
+        ))
         self._remember_retrieval(question, result, degraded=True)
         return cast(RetrievalResult, result)
 

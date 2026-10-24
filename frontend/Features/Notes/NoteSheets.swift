@@ -50,7 +50,7 @@ struct NotesTypePicker: View {
       VStack(spacing: 10) {
         option(.text, title: "文字笔记", copy: "点击原文任意位置，输入文字批注")
         option(.ink, title: "手写批注", copy: "打开教材原页，用触控笔圈画")
-        option(.voice, title: "语音笔记", copy: "录下想法，确认逐字稿后自动整理")
+        option(.voice, title: "语音笔记", copy: "保存原始录音，连接学习服务后转写整理")
       }
       Text("原始内容会一直保留，整理版不会覆盖你的记录。").font(DS.font(13)).foregroundStyle(DS.secondary).padding(
         .top, 30)
@@ -116,8 +116,7 @@ struct NotesConceptSheet: View {
   }
   private var explanation: String {
     if parts.count > 1 { return parts.dropFirst().joined(separator: "\n") }
-    if concept == "减数分裂" { return "理解一次复制与两次分裂的关系。" }
-    return "围绕“\(concept)”梳理本节教材中的定义、过程和关键作用。"
+    return citation?.quote ?? ""
   }
   private var citation: LessonCitation? {
     store.noteState.contextCitation ?? store.activeLesson?.blocks.flatMap(\.citations).first

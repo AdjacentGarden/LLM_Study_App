@@ -1,0 +1,55 @@
+{
+  "type": "json_object",
+  "passed": false,
+  "reason": "建议1称“体细胞中成对的基因一个来自父方、一个来自母方，同源染色体也是如此”，但该条自身引文只支持配子中成对基因/染色体各一个，未支持体细胞基因来源及同源染色体对应关系，属引文不足的增补。",
+  "global_checks": {
+    "fidelity": true,
+    "summary": true,
+    "polished": true
+  },
+  "clause_checks": [
+    [
+      "s0c0",
+      true
+    ],
+    [
+      "s0c1",
+      true
+    ],
+    [
+      "s0c2",
+      true
+    ],
+    [
+      "s1c0",
+      true
+    ],
+    [
+      "s1c1",
+      true
+    ],
+    [
+      "s1c2",
+      false
+    ],
+    [
+      "s2c0",
+      true
+    ],
+    [
+      "s2c1",
+      true
+    ],
+    [
+      "s2c2",
+      true
+    ]
+  ],
+  "findings": [
+    [
+      "s1c2",
+      "S"
+    ]
+  ],
+  "failure_scope": "other_or_uncertain"
+}

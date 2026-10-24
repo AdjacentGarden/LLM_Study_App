@@ -28,6 +28,7 @@ extension AppStore {
         cloudState.pendingSelection = cached.pendingSelection
         cloudState.creationWorkspaceID = cached.creationWorkspaceID
         notes = cached.notes ?? []
+        courses = cached.snapshot.courses
         draft = cached.snapshot.draft
         chapterDrafts = cached.snapshot.chapterDrafts ?? [:]
         importJob = cached.snapshot.importJob
@@ -87,7 +88,7 @@ extension AppStore {
     bootError = nil
     defer { isLoading = false }
     do {
-      community = try BuiltinCourseCatalog.merging([])
+      community = []
       // Present only the last verified identity for this normalized service origin.
       // Credentials and identity live together in Keychain and are cleared together.
       let remembered = await cloud.verifiedAccount()
@@ -220,17 +221,10 @@ extension AppStore {
     community = try BuiltinCourseCatalog.merging(bootstrap.catalog ?? [])
     cloudState.confirmedSelection = bootstrap.selection
     rebuildCloudCourses()
-    for book in bootstrap.library ?? [] where !sources.contains(where: { $0.id == book.book_id }) {
-      let resource = CloudResource(
-        id: "library:\(book.book_id)", book_id: book.book_id,
-        workspace_id: "", revision: 0, filename: book.title + ".pdf", status: book.status,
-        structure: book.structure, courses: [], progress: CloudProgress())
-      sources.append(CloudMapping.source(resource))
-    }
-    shelf = (bootstrap.library ?? []).map {
-      ShelfBook(
-        bookId: $0.book_id, title: $0.title, filename: $0.title + ".pdf",
-        coverUrl: $0.cover_url ?? "")
+    // "My books" contains actual device files, never every published server book.
+    shelf = sources.filter { sourceFileURL($0.id) != nil }.map {
+      ShelfBook(bookId: $0.id, title: $0.summary.title,
+                filename: $0.summary.filename ?? $0.summary.title, coverUrl: $0.summary.cover_url ?? "")
     }
     restoreCloudMastery()
     for workspace in bootstrap.workspaces {

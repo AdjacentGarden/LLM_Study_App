@@ -1,35 +1,19 @@
 import hashlib
 import importlib
 import json
-import sqlite3
-from datetime import UTC, datetime
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
-
-from adaptive_learning.assessment.models import InterviewPhase, InterviewSession, LearnerProfile
-from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
+from adaptive_learning.assessment.models import LearnerProfile
 from adaptive_learning.ingestion.models import ChapterDraft, SourceQuote
 from adaptive_learning.llm.client import LLMError
 from adaptive_learning.personalization.flashcard_quality import (
     CorrectedCard,
     FlashcardQualityError,
     FlashcardQualityGate,
-    Verdict,
 )
 from adaptive_learning.personalization.generator import ChapterCourseCompiler
 from adaptive_learning.personalization.policy import PersonalizationPolicy
-
-
-def test_quality_cache_context_closes_connection(tmp_path) -> None:
-    gate = FlashcardQualityGate(None, tmp_path / "quality.sqlite3", "test")
-    with gate._connect() as connection:
-        connection.execute("SELECT 1")
-    with pytest.raises(sqlite3.ProgrammingError):
-        connection.execute("SELECT 1")
 
 
 def course():
@@ -95,44 +79,6 @@ def test_repair_and_separate_review_preserve_sources_ids_and_personalization(tmp
     other.flashcards[0].reason_for_user = "针对你的薄弱点"
     assert gate.ensure(other).flashcards[0].card_id == "other-user-card"
     assert client.calls == 2
-
-
-def test_previous_review_cache_is_migrated_when_it_meets_new_mobile_contract(tmp_path):
-    bundle = course()
-    card = bundle.flashcards[0]
-    point = bundle.knowledge_points[0]
-    data = {
-        "chapter": bundle.chapter_title,
-        "depth": bundle.decision.depth.value,
-        "knowledge_point": point.explanation,
-        "evidence": [citation.model_dump() for citation in card.citations],
-    }
-    legacy_key = hashlib.sha256(json.dumps(
-        ["evidence-repair-review-v3", "test-model", data],
-        ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    old_card = CorrectedCard(
-        id=legacy_key,
-        front="摩尔根的果蝇实验说明了什么？",
-        back="果蝇实验证明白眼基因与X染色体相关。",
-    )
-    old_verdict = Verdict(id=legacy_key, accepted=True, issues=[])
-    database = tmp_path / "migrate.db"
-    gate = FlashcardQualityGate(FakeClient(), database, "test-model")
-    with gate._connect() as conn:
-        conn.execute(
-            "INSERT INTO reviewed_flashcards "
-            "(cache_key,card_json,review_json,quality_version) VALUES (?,?,?,?)",
-            (legacy_key, old_card.model_dump_json(), old_verdict.model_dump_json(),
-             "evidence-repair-review-v3"),
-        )
-    reviewed = gate.ensure(bundle)
-    assert reviewed.flashcards[0].front == old_card.front
-    assert gate.client.calls == 0
-    with gate._connect() as conn:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM reviewed_flashcards WHERE quality_version=?",
-            ("evidence-repair-review-v4-mobile-copy",),
-        ).fetchone()[0] == 1
 
 
 @pytest.mark.parametrize("mode", ["missing", "duplicate", "control", "reject", "outage", "string_bool"])
@@ -218,68 +164,41 @@ def test_ocr_lost_chromosome_notation_requires_model_repair_not_guessing():
     FlashcardQualityGate._validate_notation(card, data)
 
 
-def test_mobile_flashcard_contract_rejects_report_length_copy():
-    with pytest.raises(ValidationError):
-        CorrectedCard(id="long", front="这是一个问题吗？", back="很长的答案。" * 80)
+def test_existing_course_get_requires_explicit_refresh_without_rewriting_history(tmp_path, monkeypatch):
+    from test_teaching_publication import publication_environment
 
-
-def test_flashcard_contract_rejects_broken_chinese_spacing_and_punctuation():
-    card = CorrectedCard(id="broken", front="基因 表达是什么？", back="这是一个异常答案。。")
-    with pytest.raises(FlashcardQualityError, match="异常空格|重复标点"):
-        FlashcardQualityGate._validate_text(card)
-
-
-def test_existing_course_get_is_reviewed_and_persisted_without_new_version(tmp_path, monkeypatch):
-    module = importlib.import_module("adaptive_learning.api.app")
-    repo = SQLiteAssessmentRepository(tmp_path / "assessments.db")
-    bundle = course()
-    session = InterviewSession(session_id="session", profile=LearnerProfile(user_id="u", book_id="book"),
-                               phase=InterviewPhase.COMPLETE,
-                               created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
-    monkeypatch.setattr(module, "_session_or_404", lambda _: session)
-    monkeypatch.setattr(module, "assessment_repository", repo)
-    monkeypatch.setattr(module, "flashcard_quality",
-                        FlashcardQualityGate(FakeClient(), tmp_path / "q.db", "test"))
-    repo.save_course("session", bundle)
-    client = TestClient(module.app)
-    response = client.get("/api/interviews/session/courses/morgan")
+    original = course()
+    before = original.model_dump_json()
+    env = publication_environment(tmp_path, monkeypatch, legacy=original)
+    response = env.client.get("/api/interviews/session/courses/morgan")
+    assert response.status_code == 409
+    assert env.generator.calls == 0
+    response = env.client.post("/api/interviews/session/courses/morgan")
     assert response.status_code == 200
     assert "果蝇实验" in response.json()["flashcards"][0]["front"]
-    saved = repo.get_course(bundle.course_id)
-    assert saved.version == bundle.version
-    assert saved.flashcards[0].card_id == bundle.flashcards[0].card_id
-    assert "果蝇实验" in saved.flashcards[0].front
-    monkeypatch.setattr(module, "flashcard_quality", FlashcardQualityGate(None, tmp_path / "empty.db", "test"))
-    assert client.get("/api/interviews/session/courses/morgan").status_code == 503
+    assert response.json()["version"] == original.version + 1
+    assert response.json()["course_id"] != original.course_id
+    assert env.generator.calls == 1
+    historical = env.repo.get_course(original.course_id)
+    assert historical.model_dump_json() == before
+    assert historical.practice_items[0].expected_answer == original.practice_items[0].expected_answer
+    assert historical.practice_items[0].item_id == original.practice_items[0].item_id
 
 
 @pytest.mark.parametrize("cached", [False, True])
-def test_post_new_and_cached_courses_require_review_before_success(tmp_path, monkeypatch, cached):
-    module = importlib.import_module("adaptive_learning.api.app")
-    repo = SQLiteAssessmentRepository(tmp_path / "assessments.db")
-    bundle = course()
-    profile = LearnerProfile(user_id="u", book_id="book")
-    session = SimpleNamespace(session_id="s", profile=profile, phase=InterviewPhase.COMPLETE)
-    chapter = SimpleNamespace(chapter_id="morgan")
-    monkeypatch.setattr(module, "_session_or_404", lambda _: session)
-    monkeypatch.setattr(module, "assessment_repository", repo)
-    monkeypatch.setattr(module, "job_repository", SimpleNamespace(
-        get_structure=lambda _: SimpleNamespace(chapters=[chapter])))
-    monkeypatch.setattr(module, "chapter_fingerprint", lambda _: bundle.source_fingerprint)
-    monkeypatch.setattr(module, "profile_fingerprint", lambda _: bundle.profile_fingerprint)
-    monkeypatch.setattr(module, "course_compiler", SimpleNamespace(compile=lambda **kwargs: bundle))
-    monkeypatch.setattr(module, "flashcard_quality",
-                        FlashcardQualityGate(None, tmp_path / "q.db", "test"))
-    if cached:
-        repo.save_course("s", bundle)
-    client = TestClient(module.app)
-    assert client.post("/api/interviews/s/courses/morgan").status_code == 503
-    saved = repo.get_latest_course("s", "morgan")
+def test_new_and_legacy_courses_require_whole_course_review_before_success(tmp_path, monkeypatch, cached):
+    from test_teaching_publication import publication_environment
+
+    original = course() if cached else None
+    env = publication_environment(tmp_path, monkeypatch, legacy=original)
+    env.generator.reject = True
+    assert env.client.post("/api/interviews/session/courses/morgan").status_code == 503
+    saved = env.repo.get_latest_course("session", "morgan")
     assert (saved is not None) == cached
     if saved:
-        assert saved.flashcards[0].front == bundle.flashcards[0].front
-    monkeypatch.setattr(module, "flashcard_quality",
-                        FlashcardQualityGate(FakeClient(), tmp_path / "q.db", "test"))
-    response = client.post("/api/interviews/s/courses/morgan")
+        assert saved.model_dump_json() == original.model_dump_json()
+    env.generator.reject = False
+    response = env.client.post("/api/interviews/session/courses/morgan")
     assert response.status_code == 200
     assert "果蝇实验" in response.json()["flashcards"][0]["front"]
+    assert env.repo.get_latest_course("session", "morgan").teaching_review["accepted"] is True

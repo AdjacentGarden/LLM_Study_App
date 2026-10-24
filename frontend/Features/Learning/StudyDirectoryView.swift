@@ -105,6 +105,12 @@ struct StudyDirectoryView: View {
                 : "你可以查看解析进度，或先选择另一门已经就绪的课程。",
               asset: store.courses.isEmpty ? "/assets/brand/empty-states/no-courses-v1.png" : nil,
               icon: store.courses.isEmpty ? nil : "LibraryBig")
+            if let source = store.currentSource, store.sourceFileURL(source.id) != nil {
+              BCButton("阅读原文件", icon: "book") {
+                store.openSource(SourcePageTarget(bookID: source.id, title: source.summary.title, page: 1,
+                  sourceText: source.chunks.map(\.text).joined(separator: "\n\n"), from: .study))
+              }
+            }
             BCButton(store.courses.isEmpty ? "创建课程" : "查看课程资料", icon: "plus") {
               store.go(store.courses.isEmpty ? .upload : .library)
             }
@@ -192,7 +198,7 @@ struct StudyDirectoryView: View {
         }
       }
       if directoryOnly {
-        Text("演示课程 · 仅展示教材封面、标题和原书目录")
+        Text("教材目录 · 当前尚无生成的教学内容")
           .font(DS.font(14)).foregroundStyle(DS.secondary)
       } else if !directory.isEmpty {
         VStack(alignment: .leading, spacing: compact ? 0 : 4) {
@@ -214,7 +220,7 @@ struct StudyDirectoryView: View {
               HStack(spacing: 12) {
                 StickerIcon("Check", size: 30, glyphSize: 16)
                 VStack(alignment: .leading, spacing: 4) {
-                  Text("今日建议 · \(currentTask?.minutes ?? store.plan?.daily_minutes ?? 25) 分钟")
+                  Text((currentTask?.minutes ?? store.plan?.daily_minutes ?? 0) > 0 ? "今日建议 · \(currentTask?.minutes ?? store.plan?.daily_minutes ?? 0) 分钟" : "尚无每日学习安排")
                     .font(DS.font(14)).foregroundStyle(DS.secondary)
                   Text(currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始")
                     .font(DS.font(16, weight: .bold)).lineLimit(2)
@@ -340,7 +346,7 @@ struct StudyDirectoryView: View {
       if expanded {
         if directoryOnly {
           Text(
-            "目录演示 · \(learningPageLabel(chapter.page_start, end: chapter.page_end, printed: chapter.printed_page_start, printedEnd: chapter.printed_page_end))"
+            "目录 · \(learningPageLabel(chapter.page_start, end: chapter.page_end, printed: chapter.printed_page_start, printedEnd: chapter.printed_page_end))"
           )
           .font(DS.font(14)).foregroundStyle(DS.secondary).padding(.bottom, 16)
         } else {
@@ -462,8 +468,8 @@ struct StudyDirectoryView: View {
         case .assignment:
           VStack(alignment: .leading, spacing: small ? 4 : 8) {
             Text("知识检测").font(DS.font(unit, weight: .bold)).foregroundStyle(DS.secondary)
-            Text("这一节的核心概念是？").font(DS.font(unit, weight: .bold)).lineLimit(1)
-            Text("A  选择你的答案").font(DS.font(unit)).foregroundStyle(DS.secondary)
+            Text(store.quizzes.first { $0.chapter_id == chapter.id }?.prompt ?? "本节尚无小测").font(DS.font(unit, weight: .bold)).lineLimit(1)
+            Text(store.quizzes.first { $0.chapter_id == chapter.id }?.choices.first ?? "完成教学内容生成后练习").font(DS.font(unit)).foregroundStyle(DS.secondary)
               .padding(small ? 4 : 7).frame(maxWidth: .infinity, alignment: .leading).background(
                 Color(hex: 0xeafaf4), in: RoundedRectangle(cornerRadius: 6))
           }.padding(small ? 7 : 11).frame(width: geometry.size.width * 0.88)
@@ -472,16 +478,16 @@ struct StudyDirectoryView: View {
         case .mistakes:
           VStack(alignment: .leading, spacing: small ? 5 : 9) {
             HStack {
-              Text("今日待复习").foregroundStyle(DS.secondary)
+              Text("本书错题").foregroundStyle(DS.secondary)
               Spacer()
-              Text("3 道").foregroundStyle(DS.primary)
+              Text("\(store.mistakes.filter { $0.book_id == store.selectedBookID && ($0.course_id == nil || $0.course_id == store.selectedCourseID) }.count) 道").foregroundStyle(DS.primary)
             }.font(DS.font(unit, weight: .bold))
-            ForEach(Array(["减数分裂", "同源染色体"].enumerated()), id: \.offset) { i, name in
+            ForEach(store.mistakes.filter { $0.book_id == store.selectedBookID && ($0.course_id == nil || $0.course_id == store.selectedCourseID) }.prefix(2)) { mistake in
               HStack(spacing: 2) {
                 Text("• ").foregroundStyle(DS.primary)
-                Text(name).foregroundStyle(DS.secondary)
+                Text(mistake.question).foregroundStyle(DS.secondary)
                 Spacer(minLength: 0)
-                Text(i == 0 ? "错 2 次" : "待复习").foregroundStyle(DS.primary).fontWeight(.bold)
+                Text("待复习").foregroundStyle(DS.primary).fontWeight(.bold)
               }
               .font(DS.font(small ? 9 : 20)).padding(small ? 3 : 5).background(
                 Color(hex: 0xf8f3ff), in: RoundedRectangle(cornerRadius: 5))
@@ -520,7 +526,7 @@ struct StudyDirectoryView: View {
   }
 
   private func restorePosition() {
-    if !ProcessInfo.processInfo.arguments.contains("--fixture"),
+    if !ContentBundle.fixtureMode,
       let saved = UserDefaults.standard.dictionary(forKey: positionKey) as? [String: String]
     {
       expandedChapter = saved["chapter"].flatMap { $0.isEmpty ? nil : $0 }
@@ -576,7 +582,7 @@ struct LearningPlanView: View {
             VStack(alignment: .leading, spacing: 7) {
               Text(store.currentCourse?.name ?? store.currentTitle).font(
                 DS.font(20.8, weight: .bold))
-              Text("\(days) 天 · 每天 \(store.plan?.daily_minutes ?? 30) 分钟").font(DS.font(20))
+              Text((store.plan?.daily_minutes ?? 0) > 0 ? "\(days) 天 · 每天 \(store.plan?.daily_minutes ?? 0) 分钟" : "\(days) 天 · 每日时间尚未设定").font(DS.font(20))
                 .foregroundStyle(DS.secondary)
               Text("按课程资料汇总学习任务，完成状态会保存到对应资料。")
                 .font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(4)
@@ -631,8 +637,6 @@ struct LearningPlanView: View {
           }.buttonStyle(.plain).accessibilityHint("标记任务为完成")
         }
 
-        BCButton("加入日历", icon: "calendar.badge.plus") { store.showToast("已加入学习日历") }
-          .padding(.top, 4)
         BCButton("开始今天学习", style: .secondary) { startToday() }
       }
     }

@@ -127,6 +127,27 @@ class FixtureBank:
         ]
 
 
+class FixtureTeachingGenerator:
+    """Deterministic model boundary for native API and learning-design tests.
+
+    Real generation, independent fact review, and rejection paths are covered by
+    the teaching suites. Native integration still exercises the publication gate,
+    evidence fingerprints, persisted revisions, and per-workspace design.
+    """
+
+    def generate(self, bundle, chapter, evidence):
+        from adaptive_learning.personalization.teaching_content import TEACHING_CONTENT_VERSION
+        from adaptive_learning.personalization.teaching_scope import TEACHING_SCOPE_VERSION
+
+        output = bundle.model_copy(deep=True)
+        output.teaching_quality_version = TEACHING_CONTENT_VERSION
+        output.teaching_fact_review = {"accepted": True, "issues": []}
+        output.teaching_review = {"accepted": True, "issues": []}
+        output.teaching_scope_version = TEACHING_SCOPE_VERSION
+        output.teaching_scope_plan = {point.point_id: [] for point in output.knowledge_points}
+        return output
+
+
 def configure(root: Path, patch) -> FastAPI:
     patch.setenv("AUTH_DEMO_MODE", "1")
     patch.setenv("NATIVE_LOCAL_LOGIN_ENABLED", "0")
@@ -154,6 +175,7 @@ def configure(root: Path, patch) -> FastAPI:
         "orchestrator": InterviewOrchestrator(AdaptiveAssessmentEngine(min_items=1, max_items=1)),
         "item_generator": FixtureBank(),
         "flashcard_quality": SimpleNamespace(ensure=lambda b: b),
+        "teaching_generator": FixtureTeachingGenerator(),
         "open_answer_scorer": SimpleNamespace(
             score=lambda item, answer: ScoredEvidence(score=0.8, scoring_confidence=0.9)
         ),

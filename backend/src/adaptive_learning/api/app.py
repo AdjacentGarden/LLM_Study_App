@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import faulthandler
+import hashlib
 import logging
+import math
 import shutil
 import signal
 import sys
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
@@ -14,10 +17,10 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import TypeAdapter
 
-from ..accounts import Accounts
+from ..accounts import COOKIE, Accounts
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
@@ -45,13 +48,16 @@ from ..ingestion.chaptering import (
     load_normalized_pages,
 )
 from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRunner
-from ..ingestion.models import BookStructure
+from ..ingestion.models import BookStructure, ChapterDraft
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
+from ..ingestion.preparation import PreparationQueue
 from ..learning_design import NativeLearningDesign, resolved_profile
 from ..learning_preferences import resolve_learning_design
+from ..llm.book_parallel import ordered_book_map
 from ..llm.client import (
     LLMConfig,
+    LLMCooldownError,
     LLMError,
     LLMRefusalError,
     LLMTimeoutError,
@@ -67,6 +73,19 @@ from ..personalization.generator import (
 from ..personalization.models import ChapterLearningBundle, PublicChapterLearningBundle
 from ..personalization.policy import PersonalizationPolicy
 from ..personalization.review import rating_score, review_state_for_point, schedule_review
+from ..personalization.teaching_content import (
+    TEACHING_CONTENT_VERSION,
+    TeachingContentError,
+    TeachingContentGenerator,
+    TeachingServiceUnavailableError,
+)
+from ..personalization.teaching_evidence import TeachingEvidence, build_teaching_evidence
+from ..personalization.teaching_scope import (
+    TEACHING_SCOPE_VERSION,
+    TeachingScopeError,
+    TeachingScopePlanner,
+    validate_scope_plan,
+)
 from ..rag.grounded_qa import GroundedAnswerValidationError
 from ..rag.index import RAGIndexError
 from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
@@ -74,8 +93,21 @@ from ..worker_presence import WorkerPresence, readiness
 from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
+from .course_jobs import (
+    CourseAdmissionDeferred,
+    CourseJobFailure,
+    CourseJobInput,
+    CourseJobQueue,
+    CourseRetryLimit,
+)
 from .native_routes import native_router
-from .qa_dependency import build_qa_service, qa_service_ready, require_qa_service
+from .qa_dependency import (
+    build_qa_service,
+    prepare_uploaded_book_index,
+    qa_service_ready,
+    require_qa_service,
+)
+from .runtime_routes import RuntimeSnapshot, runtime_router
 from .schemas import (
     BookCatalogItem,
     BookQuestionRequest,
@@ -94,6 +126,7 @@ from .schemas import (
     UploadResponse,
 )
 from .store import BookRecord, MemoryStore
+from .teaching_audit import PrivateTeachingAudit
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +161,8 @@ if settings.text_api_key:
             api_key=settings.text_api_key,
             model=settings.text_model,
             proxy_url=settings.llm_https_proxy,
+            thinking_enabled=settings.text_thinking_enabled,
+            reasoning_effort=settings.text_reasoning_effort,
         )
     )
 open_answer_scorer = None
@@ -137,7 +172,10 @@ if assessment_llm is not None:
         assessment_llm,
         minimum_confidence=settings.open_answer_min_confidence,
     )
-    item_generator = DiagnosticItemGenerator(assessment_llm)
+    item_generator = DiagnosticItemGenerator(
+        assessment_llm,
+        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
+    )
 orchestrator = InterviewOrchestrator(engine, open_answer_scorer)
 personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
@@ -148,6 +186,48 @@ flashcard_quality = FlashcardQualityGate(
     settings.data_dir / "state" / "flashcard_quality.sqlite3",
     f"{settings.text_base_url}|{settings.text_model}",
 )
+teaching_client = (
+    OpenAICompatibleClient(replace(assessment_llm.config, timeout_seconds=120))
+    if assessment_llm is not None else None
+)
+def _create_teaching_review_client(configuration, client_type=OpenAICompatibleClient):
+    if not configuration.teaching_review_configured:
+        return None
+    try:
+        return client_type(LLMConfig(
+            base_url=configuration.pucoding_base_url, api_key=configuration.pucoding_api_key,
+            model=configuration.teaching_review_model, proxy_url=configuration.llm_https_proxy,
+            timeout_seconds=120, reasoning_effort="low"))
+    except Exception:
+        # An unavailable independent reviewer must not silently reuse generation.
+        logger.warning("independent teaching reviewer could not be initialized")
+        return None
+
+
+teaching_review_client = _create_teaching_review_client(settings)
+teaching_audit = PrivateTeachingAudit(settings.data_dir / "private-audits",
+    context={"provider": settings.llm_provider, "model": settings.text_model,
+             "teaching_version": TEACHING_CONTENT_VERSION},
+    secrets=tuple(str(value) for value in (
+        settings.text_api_key, settings.deepseek_api_key, settings.pucoding_api_key,
+        getattr(settings, "minimax_api_key", "")) if value))
+teaching_generator = TeachingContentGenerator(
+    teaching_client, scope_planner=TeachingScopePlanner(teaching_client),
+    audit_callback=teaching_audit, review_client=teaching_review_client,
+    review_identity=settings.teaching_review_identity,
+)
+_course_generation_locks = [threading.RLock() for _ in range(64)]
+
+
+def _current_scope_plan(bundle, evidence) -> bool:
+    if bundle.teaching_scope_version != TEACHING_SCOPE_VERSION:
+        return False
+    try:
+        validate_scope_plan(bundle.teaching_scope_plan,
+                            TeachingContentGenerator._inputs(bundle, evidence), evidence)
+    except (TeachingScopeError, TeachingContentError):
+        return False
+    return True
 
 
 def _reviewed_course(bundle: ChapterLearningBundle) -> ChapterLearningBundle:
@@ -165,7 +245,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from ..studio import get_studio
 
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    _install_demo_book()
     recovered = job_repository.recover_expired()
     if recovered:
         logger.warning("recovered interrupted OCR jobs", extra={"count": recovered})
@@ -183,9 +262,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         ocr_worker.start()
     if settings.studio_worker_enabled:
         get_studio(settings.data_dir).start()
+    preparation_queue.start()
+    course_job_queue.start()
     try:
         yield
     finally:
+        course_job_queue.stop()
+        preparation_queue.stop()
         if settings.studio_worker_enabled:
             get_studio(settings.data_dir).stop()
         if settings.ocr_worker_enabled:
@@ -470,7 +553,8 @@ def answer_book_question(
     except LLMTimeoutError as error:
         logger.warning("grounded QA model timed out", exc_info=error)
         raise HTTPException(
-            status_code=504, detail="回答服务响应较慢，请稍后重试；你的问题已保留。"
+            status_code=504, detail="回答服务响应较慢，请稍后重试；你的问题已保留。",
+            headers={f"X-QA-{stage}-Ms": str(value) for stage, value in getattr(error, "qa_timings", {}).items()},
         ) from error
     except LLMError as error:
         logger.warning("grounded QA model call failed", exc_info=error)
@@ -494,12 +578,18 @@ def generate_book_structure(
     reconstructor: Annotated[ChapterReconstructor, Depends(require_chapter_reconstructor)],
 ) -> BookStructure:
     book = _book_or_404(book_id)
+    existing = job_repository.get_structure(book_id)
+    if existing is not None:
+        return existing
     job = job_repository.get_job(book_id)
     if job is None or job.status != "ocr_ready":
         raise HTTPException(status_code=409, detail="书籍内容尚未准备完成。")
     pages_path = job.output_dir / "normalized" / "pages.jsonl"
     try:
         pages = load_normalized_pages(pages_path)
+        # Do not announce an uploaded book as ready while its QA path is missing.
+        if settings.rag_index_dir is not None:
+            prepare_uploaded_book_index(book_id)
         structure = reconstructor.reconstruct_book(pages, Path(book.original_name).stem)
         job_repository.save_structure(book_id, structure)
     except (OSError, ValueError, LLMError) as error:
@@ -507,6 +597,74 @@ def generate_book_structure(
         raise HTTPException(status_code=502, detail="章节结构生成未通过证据校验") from error
     _sync_book_from_job(book, "structured", 1, "章节结构与摘要已生成")
     return structure
+
+
+def _prepare_index(book_id: str) -> None:
+    # A text-only/local deployment can still prepare chapter learning content.
+    # Partial RAG configuration fails here instead of silently promising QA.
+    if any((settings.rag_index_dir, settings.rag_embedding_model_path, settings.rag_reranker_model_path)):
+        prepare_uploaded_book_index(book_id)
+
+
+def _prepare_structure(book_id: str) -> None:
+    # Recovery after diagnostics failure should reuse the verified structure.
+    if job_repository.get_structure(book_id) is None:
+        generate_book_structure(book_id, require_chapter_reconstructor())
+
+
+def _prepare_diagnostics(book_id: str) -> None:
+    generate_diagnostic_bank(book_id)
+
+
+preparation_queue = PreparationQueue(settings.data_dir / "state" / "preparation.sqlite3", [
+    ("indexing", _prepare_index),
+    ("structuring", _prepare_structure),
+    ("diagnostics", _prepare_diagnostics),
+])
+
+
+def _require_upload_owner(book_id: str, request: Request) -> None:
+    from urllib.parse import urlsplit
+    if request.method not in {"GET", "HEAD"} and request.headers.get("origin"):
+        if urlsplit(request.headers["origin"]).netloc != request.headers.get("host"):
+            raise HTTPException(403, "请在 App 内执行此操作")
+    owner = account_repository.request_owner(request)
+    if not owner and request.cookies.get(COOKIE):
+        raise HTTPException(401, "登录已过期，请重新登录")
+    if not owner or not (
+        account_repository.repo.owns_upload(owner, book_id)
+        or account_repository.repo.owns(owner, book_id)
+    ):
+        raise HTTPException(403, "请先上传这本教材或将它加入自己的书架")
+
+
+@app.post("/api/books/{book_id}/prepare")
+def prepare_book(book_id: str, request: Request, response: Response, retry: bool = False) -> dict:
+    _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
+    job = job_repository.get_job(book_id)
+    if job is None or job.status != "ocr_ready":
+        raise HTTPException(409, "教材仍在读取中，请稍后再试")
+    existing = preparation_queue.get(book_id)
+    structure = job_repository.get_structure(book_id)
+    bank = assessment_repository.get_bank(
+        book_id, expected_fingerprint=structure_fingerprint(structure)
+    ) if structure is not None else None
+    ready = bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
+    return preparation_queue.enqueue(
+        book_id, retry=retry,
+        refresh=bool(existing and existing['status'] == 'succeeded' and not ready),
+    )
+
+
+@app.get("/api/books/{book_id}/prepare")
+def preparation_status(book_id: str, request: Request, response: Response) -> dict:
+    _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
+    value = preparation_queue.get(book_id)
+    if value is None:
+        raise HTTPException(404, "尚未开始整理教材")
+    return value
 
 
 @app.get("/api/books/{book_id}/structure", response_model=BookStructure)
@@ -692,6 +850,12 @@ def confirm(session_id: str, request: ProfileConfirmationRequest) -> InterviewRe
 
 @app.post("/api/interviews/{session_id}/courses/{chapter_id}", response_model=CourseResponse)
 def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBundle:
+    digest = hashlib.sha256(f"{session_id}:{chapter_id}".encode()).digest()
+    with _course_generation_locks[digest[0] % len(_course_generation_locks)]:
+        return _compile_course(session_id, chapter_id)
+
+
+def _course_context(session_id: str, chapter_id: str) -> tuple[InterviewSession, ChapterDraft, TeachingEvidence, str, str]:
     session = _session_or_404(session_id)
     if session.phase != InterviewPhase.COMPLETE:
         raise HTTPException(status_code=409, detail="请先确认学习画像再生成课程")
@@ -705,16 +869,39 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
     )
     if chapter is None:
         raise HTTPException(status_code=404, detail="未找到该章节")
+    try:
+        job = job_repository.get_job(session.profile.book_id)
+        if job is None:
+            raise ValueError("missing source OCR job")
+        pages = load_normalized_pages(job.output_dir / "normalized" / "pages.jsonl")
+        evidence = build_teaching_evidence(chapter, pages)
+    except (OSError, ValueError) as error:
+        logger.warning("teaching source context unavailable", exc_info=error)
+        raise HTTPException(status_code=409, detail="本章原文上下文不完整，暂时不能生成课程") from error
+    current_profile_hash = profile_fingerprint(resolved_profile(sys.modules[__name__], session))
+    current_source_hash = hashlib.sha256((
+        chapter_fingerprint(chapter, evidence.fingerprint) + "|" + TEACHING_CONTENT_VERSION
+        + "|" + settings.text_base_url + "|" + settings.text_model
+        + "|review=" + settings.teaching_review_revision
+    ).encode()).hexdigest()
+    return session, chapter, evidence, current_profile_hash, current_source_hash
+
+
+def _compile_course(session_id: str, chapter_id: str, *, refresh_profile: bool = True) -> PublicChapterLearningBundle:
+    session, chapter, evidence, current_profile_hash, current_source_hash = _course_context(session_id, chapter_id)
     latest = assessment_repository.get_latest_course(session_id, chapter_id)
     profile = resolved_profile(sys.modules[__name__], session)
-    current_profile_hash = profile_fingerprint(profile)
-    current_source_hash = chapter_fingerprint(chapter)
     if (
         latest is not None
-        and latest.profile_fingerprint == current_profile_hash
+        and (not refresh_profile or latest.profile_fingerprint == current_profile_hash)
         and latest.source_fingerprint == current_source_hash
+        and latest.teaching_quality_version == TEACHING_CONTENT_VERSION
+        and latest.teaching_evidence_fingerprint == evidence.fingerprint
+        and latest.teaching_review.get("accepted") is True
+        and latest.teaching_fact_review.get("accepted") is True
+        and _current_scope_plan(latest, evidence)
     ):
-        return PublicChapterLearningBundle.from_private(_reviewed_course(latest))
+        return PublicChapterLearningBundle.from_private(latest)
     version = assessment_repository.next_course_version(session_id, chapter_id)
     decision = personalization_policy.decide(profile, chapter_id)
     try:
@@ -724,16 +911,59 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
             decision=decision,
             version=version,
             instance_key=session_id,
+            source_fingerprint=current_source_hash,
         )
-        bundle = _reviewed_course(bundle)
+        # A model/source/profile can return to an earlier combination. Its
+        # deterministic course ID already exists even when it is not the latest
+        # version, so reuse that approved content before spending another model
+        # call or colliding with the immutable historical row.
+        historical = assessment_repository.get_course_for_session(session_id, bundle.course_id)
+        if historical is not None:
+            if (
+                historical.profile_fingerprint == current_profile_hash
+                and historical.source_fingerprint == current_source_hash
+                and historical.teaching_quality_version == TEACHING_CONTENT_VERSION
+                and historical.teaching_evidence_fingerprint == evidence.fingerprint
+                and historical.teaching_review.get("accepted") is True
+                and historical.teaching_fact_review.get("accepted") is True
+                and _current_scope_plan(historical, evidence)
+            ):
+                return PublicChapterLearningBundle.from_private(historical)
+            # Never overwrite attempted questions, or publish an incomplete
+            # historical draft merely because its content ID matches.
+            raise HTTPException(status_code=409, detail="已有课程缺少当前完整审核，请更新课程版本后重试")
+        bundle = teaching_generator.generate(bundle, chapter, evidence)
+        if not _current_scope_plan(bundle, evidence):
+            raise TeachingContentError("课程缺少有效的当前范围规划")
+        bundle.teaching_evidence_fingerprint = evidence.fingerprint
         inserted = assessment_repository.save_course(session_id, bundle)
+    except TeachingContentError as error:
+        try:
+            teaching_audit({"event": "publication_failed", "error_type": type(error).__name__,
+                "detail": str(error), "review_feedback": getattr(error, "review_feedback", None),
+                "chapter_id": chapter_id, "session_hash": hashlib.sha256(session_id.encode()).hexdigest(),
+                "source_fingerprint": current_source_hash, "evidence_fingerprint": evidence.fingerprint})
+        except (OSError, ValueError, TypeError):
+            logger.warning("private teaching failure audit unavailable")
+        logger.warning("whole chapter teaching review failed", exc_info=error)
+        if isinstance(error, TeachingServiceUnavailableError):
+            raise HTTPException(status_code=503, detail="教学服务暂时不可用，课程尚未完成审核，请稍后重试") from error
+        raise HTTPException(status_code=503, detail="本章教学内容未通过完整性与原文审核，请稍后重试") from error
     except ValueError as error:
         raise HTTPException(status_code=409, detail="该章证据不足，暂时不能生成课程") from error
     if not inserted:
-        concurrent = assessment_repository.get_latest_course(session_id, chapter_id)
+        concurrent = assessment_repository.get_course_for_session(session_id, bundle.course_id)
         if concurrent is None:
             raise HTTPException(status_code=409, detail="课程版本发生并发冲突，请重试")
-        return PublicChapterLearningBundle.from_private(_reviewed_course(concurrent))
+        if (concurrent.profile_fingerprint != current_profile_hash
+                or concurrent.teaching_quality_version != TEACHING_CONTENT_VERSION
+                or concurrent.source_fingerprint != current_source_hash
+                or concurrent.teaching_evidence_fingerprint != evidence.fingerprint
+                or concurrent.teaching_review.get("accepted") is not True
+                or concurrent.teaching_fact_review.get("accepted") is not True
+                or not _current_scope_plan(concurrent, evidence)):
+            raise HTTPException(status_code=409, detail="课程版本发生变化，请重试")
+        return PublicChapterLearningBundle.from_private(concurrent)
     return PublicChapterLearningBundle.from_private(bundle)
 
 
@@ -743,7 +973,137 @@ def get_course(session_id: str, chapter_id: str) -> PublicChapterLearningBundle:
     bundle = assessment_repository.get_latest_course(session_id, chapter_id)
     if bundle is None:
         raise HTTPException(status_code=404, detail="该章尚未生成个人课程")
-    return PublicChapterLearningBundle.from_private(_reviewed_course(bundle))
+    # A read must never create a paid model request or block on generation.
+    # Preserve the learner's current lesson after practice, but fail closed if
+    # its source/model/review revision changed. Explicit background POST refreshes it.
+    _, _, evidence, _, current_source_hash = _course_context(session_id, chapter_id)
+    candidates = [bundle, *sorted(assessment_repository.courses_for_session(session_id),
+                                  key=lambda item: item.version, reverse=True)]
+    for candidate in candidates:
+        if (
+            candidate.chapter_id == chapter_id
+            and candidate.source_fingerprint == current_source_hash
+            and candidate.teaching_quality_version == TEACHING_CONTENT_VERSION
+            and candidate.teaching_evidence_fingerprint == evidence.fingerprint
+            and candidate.teaching_review.get('accepted') is True
+            and candidate.teaching_fact_review.get('accepted') is True
+            and _current_scope_plan(candidate, evidence)
+        ):
+            return PublicChapterLearningBundle.from_private(candidate)
+    raise HTTPException(409, '教材或课程审核版本已更新，请重新生成本章课程。')
+
+
+def _generate_course_task(session_id: str, chapter_id: str) -> dict:
+    try:
+        return compile_course(session_id, chapter_id).model_dump(mode='json')
+    except HTTPException as error:
+        raise CourseJobFailure(str(error.detail)) from error
+
+
+def _check_course_admission() -> None:
+    # This only reads recent route cooldown, not configuration or model health.
+    # It cannot reserve the recovery probe or issue a paid request.
+    try:
+        for prerequisite in (teaching_client, teaching_review_client):
+            check = getattr(prerequisite, 'check_admission', None)
+            if callable(check):
+                check()
+    except LLMCooldownError as error:
+        raise CourseAdmissionDeferred(error.retry_after_seconds) from error
+
+
+course_job_queue = CourseJobQueue(
+    settings.data_dir / 'state' / 'course_jobs.sqlite3', _generate_course_task,
+    admission_check=_check_course_admission,
+)
+
+
+def _runtime_snapshot() -> RuntimeSnapshot:
+    from ..studio import get_studio
+
+    studio = get_studio(settings.data_dir)
+    capabilities = studio.capabilities()
+    return RuntimeSnapshot(
+        text_configured=assessment_llm is not None,
+        review_configured=teaching_review_client is not None,
+        ocr_configured=bool(settings.ocr_worker_enabled),
+        ocr_worker_alive=ocr_worker.is_alive(),
+        preparation_worker_alive=bool(preparation_queue.thread and preparation_queue.thread.is_alive()),
+        course_worker_alive=course_job_queue.is_alive(),
+        rag_configured=bool(all((settings.rag_index_dir, settings.rag_embedding_model_path,
+                                settings.rag_reranker_model_path, settings.text_api_key))),
+        rag_ready=qa_service_ready(),
+        note_worker_alive=bool(studio.note_thread and studio.note_thread.is_alive()),
+        media_worker_alive=bool(studio.thread and studio.thread.is_alive()),
+        image_configured=bool(capabilities.get('image')),
+        video_configured=bool(capabilities.get('video')),
+        notes_configured=bool(capabilities.get('notes_ai')),
+        voice_configured=bool(capabilities.get('voice_notes')),
+    )
+
+
+app.include_router(runtime_router(_runtime_snapshot))
+
+
+def _require_course_actor(session_id: str, request: Request) -> None:
+    _session_or_404(session_id)
+    owner = account_repository.request_owner(request)
+    if not owner or not account_repository.repo.claim_session(owner, session_id):
+        raise HTTPException(403, '请先恢复自己的学习身份。')
+
+
+@app.post('/api/interviews/{session_id}/course-jobs')
+def start_course_task(session_id: str, body: CourseJobInput, request: Request) -> JSONResponse:
+    _require_course_actor(session_id, request)
+    _, _, _, profile_hash, source_hash = _course_context(session_id, body.chapter_id)
+    try:
+        job = course_job_queue.enqueue(session_id, body.chapter_id,
+            profile_hash + '|' + source_hash, retry=body.retry, request_id=body.request_id)
+    except CourseAdmissionDeferred as error:
+        raise HTTPException(503, str(error), headers={
+            'Retry-After': str(max(1, math.ceil(error.retry_after_seconds)))}) from error
+    except (CourseRetryLimit, CourseJobFailure) as error:
+        raise HTTPException(409, str(error)) from error
+    if job['status'] == 'succeeded':
+        job['course'] = get_course(session_id, body.chapter_id).model_dump(mode='json')
+    return JSONResponse(job, status_code=202 if job['status'] in {'queued', 'running'} else 200)
+
+
+@app.get('/api/interviews/{session_id}/course-jobs/{job_id}')
+def course_task_status(session_id: str, job_id: str, request: Request) -> dict:
+    _require_course_actor(session_id, request)
+    job = course_job_queue.get(session_id, job_id)
+    if job is None:
+        raise HTTPException(404, '课程任务不存在。')
+    if job['status'] == 'succeeded':
+        # Reuse only the current approved publication; never leak the queue's
+        # historical snapshot after a source/model/review revision change.
+        job['course'] = get_course(session_id, job['chapter_id']).model_dump(mode='json')
+    return job
+
+
+@app.post("/api/interviews/{session_id}/courses", response_model=list[CourseResponse])
+def compile_book_courses(session_id: str) -> list[PublicChapterLearningBundle]:
+    session = _session_or_404(session_id)
+    if session.phase != InterviewPhase.COMPLETE:
+        raise HTTPException(status_code=409, detail="请先确认学习画像再生成课程")
+    context = native_repository.session_context(session_id)
+    structure = (BookStructure.model_validate_json(context["structure_json"]) if context
+                 else job_repository.get_structure(session.profile.book_id))
+    if structure is None:
+        raise HTTPException(status_code=409, detail="书籍尚未完成章节重建")
+    # Teaching batches are sequential inside each chapter; the shared executor
+    # bounds total chapter work and preserves source order in this response.
+    def generate(chapter):
+        try:
+            return compile_course(session_id, chapter.chapter_id)
+        except Exception as error:
+            return error
+    results = ordered_book_map(generate, structure.chapters)
+    for result in results:
+        if isinstance(result, Exception):
+            raise result
+    return results
 
 
 @app.post(
@@ -1045,95 +1405,6 @@ def _sync_book_from_job(book: BookRecord, status: str, progress: float, step: st
     book.current_step = step
 
 
-def _install_demo_book() -> None:
-    if "demo_book" in store.books:
-        return
-    items = [
-        DiagnosticItem(
-            item_id="diag_1",
-            chapter_id="ch_1",
-            knowledge_point_ids=["system_definition"],
-            prompt="下面哪项最符合“系统”的含义？",
-            response_type=ResponseType.SINGLE_CHOICE,
-            options=[
-                "若干事物的简单集合",
-                "相互作用并形成整体行为的要素集合",
-                "只有机器才是系统",
-                "任何复杂对象",
-            ],
-            correct_option_ids=["1"],
-            difficulty=-0.7,
-            discrimination=1.2,
-        ),
-        DiagnosticItem(
-            item_id="diag_2",
-            chapter_id="ch_2",
-            knowledge_point_ids=["feedback"],
-            prompt="一个变化会进一步强化自身，这通常属于哪类反馈？",
-            response_type=ResponseType.SINGLE_CHOICE,
-            options=["负反馈", "正反馈", "无反馈", "随机反馈"],
-            correct_option_ids=["1"],
-            difficulty=-0.2,
-            discrimination=1.4,
-        ),
-        DiagnosticItem(
-            item_id="diag_3",
-            chapter_id="ch_3",
-            knowledge_point_ids=["delay", "emergence"],
-            prompt="系统中的时间延迟为什么容易导致判断失误？",
-            response_type=ResponseType.SINGLE_CHOICE,
-            options=[
-                "行动与结果存在间隔，容易造成错误归因和过度调整",
-                "所有结果都会立即出现，因此人们通常反应不足",
-                "时间延迟会消除反馈，所以系统不再发生变化",
-                "时间延迟只改变记录方式，不影响人的判断过程",
-            ],
-            correct_option_ids=["0"],
-            difficulty=0.6,
-            discrimination=1.5,
-        ),
-        DiagnosticItem(
-            item_id="diag_4",
-            chapter_id="ch_4",
-            knowledge_point_ids=["intervention"],
-            prompt="解决复杂问题时，为什么不应只处理最明显的症状？",
-            response_type=ResponseType.SINGLE_CHOICE,
-            options=[
-                "症状可能源于深层结构，局部处理还可能转移问题或产生反作用",
-                "最明显的症状通常与系统结构完全无关，也不需要继续观察",
-                "复杂问题没有可以分析的原因，所以只能等待症状自行消失",
-                "处理症状一定会解决所有结构问题，不需要检查后续影响",
-            ],
-            correct_option_ids=["0"],
-            difficulty=0.9,
-            discrimination=1.4,
-        ),
-        DiagnosticItem(
-            item_id="diag_5",
-            chapter_id="ch_1",
-            knowledge_point_ids=["boundary"],
-            prompt="分析一个问题时，系统边界的主要作用是什么？",
-            response_type=ResponseType.SINGLE_CHOICE,
-            options=[
-                "证明问题很简单",
-                "决定暂时纳入哪些要素和关系",
-                "排除所有外部影响",
-                "找到唯一正确答案",
-            ],
-            correct_option_ids=["1"],
-            difficulty=0.1,
-            discrimination=1.3,
-        ),
-    ]
-    store.books["demo_book"] = BookRecord(
-        book_id="demo_book",
-        original_name="理解复杂系统.pdf",
-        file_path=Path("demo.pdf"),
-        status="ready",
-        progress=1,
-        current_step="已生成章节结构与诊断题",
-        diagnostic_items=items,
-    )
 
 
 account_repository = Accounts(

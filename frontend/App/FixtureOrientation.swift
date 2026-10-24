@@ -8,7 +8,7 @@ import UIKit
     subsystem: "com.littleri.bookcourseai.swiftui", category: "visual-fixture")
   static func apply() {
     let arguments = ProcessInfo.processInfo.arguments
-    guard arguments.contains("--fixture"),
+    guard ContentBundle.fixtureMode,
       let index = arguments.firstIndex(of: "--fixture-orientation"),
       arguments.indices.contains(index + 1)
     else { return }

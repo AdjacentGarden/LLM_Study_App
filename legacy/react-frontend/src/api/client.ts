@@ -10,13 +10,14 @@ import type {
   QAResult,
   Turn,
   UserProfile, UserProfileUpdate,
-  UploadResponse, BookStatus,
+  UploadResponse, BookStatus, BookPreparation,
 } from "../types/api";
 
 import { request } from "./transport";
+import type { CourseJob } from "../components/learningReliability";
 
-const post = <T>(path: string, body?: object) =>
-  request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
+const post = <T>(path: string, body?: object, signal?: AbortSignal) =>
+  request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined, signal });
 
 const structureCache = new Map<string, Promise<BookStructure>>();
 function structure(bookId: string) {
@@ -37,14 +38,16 @@ async function buildStructure(bookId: string) {
 }
 
 export const api = {
-  uploadBook:(file:File)=>{const body=new FormData();body.append("file",file);return request<UploadResponse>("/api/books",{method:"POST",body},600_000);},
-  bindUpload:(bookId:string)=>post<{ok:boolean}>(`/api/library/books/${bookId}/bind-upload`),
-  processBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process`),
-  retryBook:(bookId:string)=>post<BookStatus>(`/api/books/${bookId}/process/retry`),
-  bookStatus:(bookId:string)=>request<BookStatus>(`/api/books/${bookId}/status`,{},30_000),
+  uploadBook:(file:File,signal?:AbortSignal)=>{const body=new FormData();body.append("file",file);return request<UploadResponse>("/api/books",{method:"POST",body,signal},600_000);},
+  bindUpload:(bookId:string,signal?:AbortSignal)=>post<{ok:boolean}>(`/api/library/books/${bookId}/bind-upload`,undefined,signal),
+  processBook:(bookId:string,signal?:AbortSignal)=>post<BookStatus>(`/api/books/${bookId}/process`,undefined,signal),
+  retryBook:(bookId:string,signal?:AbortSignal)=>post<BookStatus>(`/api/books/${bookId}/process/retry`,undefined,signal),
+  bookStatus:(bookId:string,signal?:AbortSignal)=>request<BookStatus>(`/api/books/${bookId}/status`,{signal},30_000),
+  prepareBook:(bookId:string,retry=false,signal?:AbortSignal)=>post<BookPreparation>(`/api/books/${bookId}/prepare${retry?"?retry=true":""}`,undefined,signal),
+  preparationStatus:(bookId:string,signal?:AbortSignal)=>request<BookPreparation>(`/api/books/${bookId}/prepare`,{signal},30_000),
   buildStructure,
   buildDiagnostics:(bookId:string)=>post<{ready:boolean}>(`/api/books/${bookId}/diagnostics`),
-  claimBook:(bookId:string)=>post<BookCatalogItem>(`/api/library/books/${bookId}/claim`),
+  claimBook:(bookId:string,signal?:AbortSignal)=>post<BookCatalogItem>(`/api/library/books/${bookId}/claim`,undefined,signal),
   userProfile:()=>request<UserProfile>("/api/user/profile"),
   saveUserProfile:(body:UserProfileUpdate)=>post<UserProfile>("/api/user/profile",body),
   learningRecords:(sessionId:string)=>request<LearningRecords>(`/api/interviews/${sessionId}/learning-records`),
@@ -94,7 +97,11 @@ export const api = {
   compileCourse: (sessionId: string, chapterId: string) =>
     post<Course>(`/api/interviews/${sessionId}/courses/${chapterId}`),
   getCourse: (sessionId: string, chapterId: string) =>
-    request<Course>(`/api/interviews/${sessionId}/courses/${chapterId}`),
+    request<Course>(`/api/interviews/${sessionId}/courses/${chapterId}`, {}, 30_000),
+  startCourseJob: (sessionId: string, chapterId: string, requestId: string, retry = false) =>
+    request<CourseJob>(`/api/interviews/${sessionId}/course-jobs`, { method: "POST", body: JSON.stringify({ chapter_id: chapterId, request_id: requestId, retry }) }, 30_000),
+  courseJob: (sessionId: string, jobId: string) =>
+    request<CourseJob>(`/api/interviews/${sessionId}/course-jobs/${jobId}`, {}, 30_000),
   practice: (
     sessionId: string,
     courseId: string,

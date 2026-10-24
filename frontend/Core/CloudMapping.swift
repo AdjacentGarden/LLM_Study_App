@@ -1,15 +1,13 @@
 import Foundation
 
-/// Shipped course listings are independent of a learner's imported workspaces.
+/// The server catalog is the sole source of online community listings.
 enum BuiltinCourseCatalog {
   static func merging(_ remote: [CommunityBook]) throws -> [CommunityBook] {
-    var entries = try ContentBundle.load([CommunityBook].self, name: "builtin-catalog")
+    var entries: [CommunityBook] = []
     for book in remote {
       if let index = entries.firstIndex(where: { $0.id == book.id }) {
         entries[index] = book
-      } else {
-        entries.append(book)
-      }
+      } else { entries.append(book) }
     }
     return entries
   }
@@ -60,13 +58,12 @@ enum CloudMapping {
       Chapter(
         chapter_id: chapter.chapter_id, level: 1, source_title: chapter.title,
         ai_title: chapter.title,
-        page_start: chapter.start_page, page_end: chapter.end_page, confidence: 100,
-        status: "confirmed", source: "server")
+        page_start: chapter.start_page, page_end: chapter.end_page, confidence: 0,
+        status: "source_available", source: "server")
     }
     var lessons: [Lesson] = []
     var cards: [Flashcard] = []
     var quizzes: [QuizQuestion] = []
-    var tasks: [StudyTask] = []
     for chapter in structure?.chapters ?? [] {
       let bundle = resource.courses.first { $0.chapter_id == chapter.chapter_id }
       let lessonID = bundle?.course_id ?? "pending:\(resource.id):\(chapter.chapter_id)"
@@ -123,37 +120,38 @@ enum CloudMapping {
           book_id: bookID, lesson_id: lessonID, chapter_id: chapter.chapter_id,
           title: bundle?.chapter_title ?? chapter.title, source_title: chapter.title,
           page_start: chapter.start_page, page_end: chapter.end_page, lesson_kind: "chapter",
-          status: bundle == nil ? "pending" : "ready", confidence: 100,
+          status: bundle == nil ? "pending" : "ready", confidence: 0,
           objectives: bundle?.knowledge_points.map(\.title) ?? chapter.knowledge_points,
           key_concepts: chapter.knowledge_points, summary: bundle?.summary ?? chapter.summary,
           blocks: blocks,
           source_chunk_ids: chapter.source_block_ids, asset_ids: [],
-          warnings: bundle?.unresolved_source_warnings ?? []))
-      let taskID = "task:\(resource.id):\(chapter.chapter_id)"
-      tasks.append(
-        StudyTask(
-          task_id: taskID, user_id: "", day: tasks.count + 1, title: chapter.title,
-          task_type: "lesson", minutes: bundle?.estimated_minutes ?? 25,
-          chapter_id: chapter.chapter_id,
-          lesson_id: lessonID,
-          status: resource.progress.task_status[taskID]
-            ?? (resource.progress.completed_chapters.contains(chapter.chapter_id)
-              ? "done" : "pending"),
-          weak_points: []))
+          warnings: (bundle?.unresolved_source_warnings ?? [])
+            + ["内容准确性尚未量化评估，请结合原文核对。"]
+            + (bundle == nil ? ["此章仅有资料目录，尚未生成教学内容。"] : [])))
+    }
+    let publishedCount = lessons.filter { $0.status == "ready" }.count
+    let status: String
+    if publishedCount > 0 {
+      status = publishedCount == lessons.count ? "ready" : "partial_ready"
+    } else if structure != nil || resource.status == "ready" {
+      status = "source_ready"
+    } else {
+      status = resource.status
     }
     return SourceContent(
       summary: SourceSummary(
         book_id: bookID, title: structure?.title ?? resource.filename,
-        filename: resource.filename, status: structure == nil ? resource.status : "ready",
+        filename: resource.filename, status: status,
         page_count: structure?.source_page_count ?? 0, chapter_count: chapters.count,
         chunk_count: 0,
-        asset_count: 0, average_confidence: 100, updated_at: Date().timeIntervalSince1970,
+        asset_count: 0, average_confidence: 0, updated_at: Date().timeIntervalSince1970,
         content_mode: "remote"),
       chapters: chapters, lessons: lessons, chunks: [], assets: [],
       flashcards: cards.map { reviewedCard($0, resource: resource) },
       quizzes: quizzes,
-      plan: StudyPlan(
-        user_id: "", book_id: bookID, days: max(1, chapters.count), daily_minutes: 30, tasks: tasks)
+      // This DTO carries teaching content, not a confirmed daily schedule.
+      // A real supplied source_content plan is retained by the early return above.
+      plan: StudyPlan(user_id: "", book_id: bookID, days: 0, daily_minutes: 0, tasks: [])
     )
   }
 }

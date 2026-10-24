@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..accounts import COOKIE, Accounts
-from ..assessment.models import InterviewSession
+from ..assessment.item_generation import structure_fingerprint
+from ..assessment.models import InterviewSession, ResponseType
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.jobs import SQLiteOCRJobRepository
@@ -23,6 +26,8 @@ from .schemas import BookCatalogItem
 from .social_routes import social_router
 from .studio_routes import studio_router
 from .user_profile import UserProfileInput, normalize_avatar, public_profile
+
+logger = logging.getLogger(__name__)
 
 
 class NoteInput(BaseModel):
@@ -58,8 +63,6 @@ def community_router(
     accounts = Accounts(repo)
     initialized = False
     lock = threading.Lock()
-    initial: list[str] = []
-    published: set[str] = set()
 
     def prepare() -> None:
         nonlocal initialized
@@ -76,7 +79,9 @@ def community_router(
                     manifest = json.loads(Path(manifest_path).read_text())
                 except (OSError, ValueError):
                     pass  # PDF fingerprint still provides safe exact-file deduplication.
-            for index, entry in enumerate(entries):
+            # Configured books can register their actual source asset. Catalog
+            # order grants no personal ownership and does not publish a post.
+            for entry in entries:
                 source = jobs().source_fingerprint(entry.book_id)
                 if not source:
                     continue
@@ -94,21 +99,9 @@ def community_router(
                         except (OSError, ValueError, TypeError, KeyError):
                             pass
                 old = repo.asset(entry.book_id)
-                canonical = repo.register_asset(
+                repo.register_asset(
                     entry.model_dump(), source, old["text_hash"] if old else normalized
                 )
-                published.add(entry.book_id)
-                if index < 5:
-                    initial.append(canonical)
-                else:
-                    repo.publish(
-                        "curated",
-                        "book",
-                        entry.book_id,
-                        entry.title,
-                        "已完成解析，可直接加入书架，建立你自己的学习路径。",
-                        {},
-                    )
             initialized = True
 
     def visitor(request: Request, response: Response) -> str:
@@ -127,7 +120,7 @@ def community_router(
                 raise HTTPException(401, "登录已过期，请重新登录")
             response.headers["Cache-Control"] = "private, no-store"
             return account_owner
-        owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"), initial)
+        owner, token, new = repo.visitor(request.cookies.get("zhiwo_visitor"))
         if accounts.account(owner):
             raise HTTPException(401, "请使用邮箱验证码登录")
         response.headers["Cache-Control"] = "private, no-store"
@@ -145,7 +138,10 @@ def community_router(
         return owner
 
     def owned_book(owner: str, book_id: str) -> None:
-        if not repo.owns(owner, book_id):
+        # Upload assets and shelf membership are durable. The in-memory set of
+        # configured public books does not include private uploads after restart.
+        # Native catalog import registers its asset before adding the owned shelf row.
+        if repo.asset(book_id) is None or not repo.owns(owner, book_id):
             raise HTTPException(403, "请先将这本书加入自己的书架")
 
     def owned_session(owner: str, session_id: str) -> InterviewSession:
@@ -157,9 +153,70 @@ def community_router(
             raise HTTPException(403, "该学习档案不属于当前浏览器身份")
         return session
 
+    def current_catalog(entry: dict[str, Any]) -> dict[str, Any]:
+        """Read readiness from durable products, never the earlier claim snapshot."""
+        value = dict(entry)
+        book_id = str(value["book_id"])
+        structure, bank = None, None
+        try:
+            structure = jobs().get_structure(book_id)
+            if structure is not None:
+                bank = assessments().get_bank(
+                    book_id, expected_fingerprint=structure_fingerprint(structure)
+                )
+        except (ValueError, TypeError):
+            # Legacy/corrupt artifacts cannot announce readiness or prevent the
+            # rest of the owner's library from loading. Preparation reports its
+            # actual repair/generation failure separately.
+            logger.warning(
+                "invalid book preparation artifact", extra={"book_id": book_id}
+            )
+        value["diagnostics_ready"] = bool(bank) and all(
+            item.response_type == ResponseType.SINGLE_CHOICE for item in bank or []
+        )
+        if structure is not None:
+            value.update(
+                title=structure.title.removesuffix(".pdf"),
+                page_count=structure.source_page_count,
+                chapter_count=len(structure.chapters),
+                summary=structure.summary,
+            )
+        return value
+
     @router.get("/library", response_model=list[BookCatalogItem])
     def library(owner: str = Depends(visitor)) -> list[dict[str, Any]]:
-        return repo.library(owner)
+        return [current_catalog(entry) for entry in repo.library(owner)]
+
+    @router.get("/library/books/{book_id}/source")
+    def original_book_source(book_id: str, response: Response,
+                             owner: str = Depends(visitor)) -> FileResponse:
+        owned_book(owner, book_id)
+        asset = repo.asset(book_id)
+        if asset is None:
+            raise HTTPException(404, "教材原文件暂不可用")
+        # Canonical shelf IDs may differ from duplicate upload IDs. Never
+        # concatenate a request ID/path into a filesystem location or scan for
+        # similarly named documents; only the registered canonical book wins.
+        stored = jobs().get_book(str(asset["canonical"]))
+        if stored is None:
+            raise HTTPException(404, "教材原文件暂不可用")
+        path = stored.file_path
+        try:
+            if path.suffix.lower() != ".pdf" or not path.is_file():
+                raise OSError("registered source is unavailable")
+            with path.open("rb") as source:
+                if not source.read(1024).lstrip().startswith(b"%PDF-"):
+                    raise OSError("registered source is not a PDF")
+        except OSError as error:
+            raise HTTPException(404, "教材原文件暂不可用") from error
+        filename = Path(stored.original_name.replace("\\", "/")).name
+        result = FileResponse(path, media_type="application/pdf", filename=filename,
+            content_disposition_type="inline", headers={"Cache-Control": "private, no-store",
+                "Vary": "Cookie", "X-Content-Type-Options": "nosniff"})
+        # Dependencies wrote visitor cookies onto the injected Response. A
+        # returned FileResponse is separate, so carry those cookies forward.
+        result.raw_headers.extend((key, value) for key, value in response.raw_headers if key == b"set-cookie")
+        return result
 
     @router.post("/library/books/{book_id}/claim", response_model=BookCatalogItem)
     def claim_uploaded_book(
@@ -180,30 +237,36 @@ def community_router(
             "page_count": structure.source_page_count,
             "chapter_count": len(structure.chapters),
             "summary": structure.summary,
-            "diagnostics_ready": bool(
-                assessments().get_bank(book_id, expected_fingerprint=None)
-            ),
+            "diagnostics_ready": False,
             "cover_url": None,
         }
-        pages_path = stored.file_path.parent / "ocr" / "normalized" / "pages.jsonl"
+        job = jobs().get_job(book_id)
+        output_dir = job.output_dir if job is not None else stored.file_path.parent / "ocr"
+        pages_path = output_dir / "normalized" / "pages.jsonl"
         normalized_text: list[str] = []
         try:
             for line in pages_path.read_text(encoding="utf-8").splitlines():
                 page = json.loads(line)
-                normalized_text.append(
-                    str(page.get("cleaned_text") or page.get("raw_text") or "")
-                )
+                if not isinstance(page, dict):
+                    raise ValueError("normalized page is not an object")
+                text = page.get("cleaned_text") or page.get("text") or page.get("raw_text")
+                if not isinstance(text, str):
+                    text = "\n".join(
+                        block["text"] for block in page.get("blocks", [])
+                        if isinstance(block, dict) and isinstance(block.get("text"), str)
+                        and block.get("block_type", block.get("type")) not in {"footer", "page_number"}
+                    )
+                normalized_text.append(text)
         except (OSError, ValueError, TypeError):
             normalized_text = []
         canonical = repo.register_asset(
             catalog, source_hash, text_fingerprint("\n".join(normalized_text))
         )
         repo.add_book(owner, canonical)
-        published.add(canonical)
         canonical_asset = repo.asset(canonical)
         if canonical_asset is None:
             raise HTTPException(500, "教材加入书架失败")
-        return cast(dict[str, Any], json.loads(canonical_asset["catalog"]))
+        return current_catalog(json.loads(canonical_asset["catalog"]))
 
     @router.post("/library/books/{book_id}/bind-upload")
     def bind_uploaded_book(

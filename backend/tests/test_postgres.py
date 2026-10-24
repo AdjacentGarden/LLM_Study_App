@@ -15,6 +15,7 @@ from psycopg import sql
 
 from adaptive_learning import native_catalog
 from adaptive_learning.accounts import LOCAL_OWNER, Accounts
+from adaptive_learning.api.course_jobs import CourseJobQueue
 from adaptive_learning.assessment.models import (
     DiagnosticItem,
     InterviewSession,
@@ -25,7 +26,7 @@ from adaptive_learning.assessment.repository import SessionConflictError, SQLite
 from adaptive_learning.community import CommunityRepository
 from adaptive_learning.database import close_pools, connect
 from adaptive_learning.ingestion.jobs import JobStateError, OCRRunResult, SQLiteOCRJobRepository
-from adaptive_learning.migrate import import_sqlite, upgrade
+from adaptive_learning.migrate import TABLES, import_sqlite, upgrade
 from adaptive_learning.native import NativeConflict, NativeRepository
 from adaptive_learning.personalization.models import ChapterLearningBundle
 from adaptive_learning.personalization.policy import PersonalizationPolicy
@@ -152,6 +153,69 @@ def test_studio_budget_leases_and_asset_fence(pg, tmp_path, monkeypatch):
     studio.update(new['id'], status='submitting')
     studio.claim_next(now=future+100)
     assert studio.job('owner', new['id'])['status'] == 'uncertain'
+
+
+def test_course_queue_pg_identity_and_cross_process_lock_contract(pg, tmp_path):
+    expected = {table for tables in TABLES.values() for table in tables}
+    with connect(tmp_path / 'schema-inventory') as db:
+        actual = {row[0] for row in db.execute(
+            'SELECT tablename FROM pg_tables WHERE schemaname=current_schema()'
+        )}
+    assert len(expected) == 47
+    assert actual == expected | {'schema_migrations', 'worker_presence'}
+    queue = CourseJobQueue(tmp_path / 'one/course_jobs.sqlite3', lambda *_: {'course_id': 'approved'})
+    other = CourseJobQueue(tmp_path / 'two/course_jobs.sqlite3', lambda *_: pytest.fail('no duplicate'))
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        jobs = list(pool.map(lambda _: queue.enqueue('session', 'chapter', 'profile',
+                                                    request_id='same-operation'), range(6)))
+    assert len({job['job_id'] for job in jobs}) == 1
+    key = jobs[0]['job_id']
+    with queue._worker_lock() as acquired:
+        assert acquired
+        with other._worker_lock() as contender:
+            assert not contender
+        queue.recover()
+        assert queue.process_one()
+    saved = other.enqueue('session', 'chapter', 'changed-profile', request_id='same-operation')
+    assert saved['job_id'] == key and saved['attempts'] == 1
+    assert saved['course'] == {'course_id': 'approved'}
+    with other._worker_lock() as acquired:
+        assert acquired
+
+
+def test_import_keeps_course_aliases_note_aliases_and_preparation_stage(pg, tmp_path, monkeypatch):
+    import sqlite3
+
+    monkeypatch.delenv('DATABASE_URL')
+    source = tmp_path / 'source'
+    queue = CourseJobQueue(source / 'state/course_jobs.sqlite3', lambda *_: {'course_id': 'approved'})
+    job = queue.enqueue('session', 'chapter', 'profile', request_id='durable-course-operation')
+    queue.process_one()
+    studio = Studio(source)
+    note_job = studio.submit('owner', {
+        'book_id': 'book', 'request_id': 'durable-note-operation',
+        'note_id': 'note_123456', 'revision': 0,
+    }, 'improve')
+    # This is the existing on-disk queue format presented to the cutover tool.
+    with sqlite3.connect(source / 'state/preparation.sqlite3') as db:
+        db.execute("CREATE TABLE preparation(book_id TEXT PRIMARY KEY,status TEXT NOT NULL,"
+                   "stage TEXT NOT NULL,error TEXT NOT NULL DEFAULT '',updated REAL NOT NULL,"
+                   "next_step INTEGER NOT NULL DEFAULT 0)")
+        db.execute("INSERT INTO preparation VALUES('book','queued','building_rag','',1,2)")
+    monkeypatch.setenv('DATABASE_URL', pg)
+    report = import_sqlite(data_dir=source, backup_dir=tmp_path / 'backup', url=pg,
+                           writes_stopped=True)
+    assert report['verified'] and report['schema_version'] == 6
+    assert report['tables']['course_jobs']['rows'] == 1
+    assert report['tables']['course_job_requests']['rows'] == 1
+    assert report['tables']['studio_note_request_aliases']['rows'] == 1
+    assert report['tables']['preparation']['rows'] == 1
+    restored = CourseJobQueue(tmp_path / 'irrelevant', lambda *_: pytest.fail('do not regenerate'))
+    assert restored.enqueue('session', 'chapter', 'new-profile',
+                            request_id='durable-course-operation')['job_id'] == job['job_id']
+    with connect(tmp_path / 'irrelevant') as db:
+        assert db.execute('SELECT job_id FROM studio_note_request_aliases').fetchone()[0] == note_job['id']
+        assert db.execute('SELECT next_step FROM preparation').fetchone()[0] == 2
 
 def test_import_preserves_ids_content_and_future_writes(pg, tmp_path, monkeypatch):
     monkeypatch.delenv('DATABASE_URL')

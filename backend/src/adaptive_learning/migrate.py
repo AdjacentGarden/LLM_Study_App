@@ -21,13 +21,14 @@ from psycopg import sql
 from .database import WRITE_LOCK, database_url
 
 MIGRATIONS = Path(__file__).with_name("migrations")
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 TABLES = {
     "community.sqlite3": (
         "visitors", "user_profiles", "assets", "library_books", "removed_books", "resources",
         "posts", "acquisitions", "session_owners", "upload_owners", "accounts", "account_sessions",
         "email_codes", "email_rate", "social_users", "friendships", "social_blocks", "chat_messages",
         "chat_reads", "social_rate", "studio_notes", "studio_jobs", "studio_note_editions", "reading_doubts",
+        "studio_note_request_aliases",
     ),
     "native.sqlite3": (
         "native_workspaces", "native_resources", "native_session_context", "native_progress",
@@ -36,6 +37,8 @@ TABLES = {
     ),
     "assessments.sqlite3": ("diagnostic_banks", "interview_sessions", "course_bundles", "learning_events"),
     "ocr_jobs.sqlite3": ("books", "ocr_jobs", "book_structures"),
+    "course_jobs.sqlite3": ("course_jobs", "course_job_requests"),
+    "preparation.sqlite3": ("preparation",),
 }
 
 JSON_COLUMNS = {
@@ -46,6 +49,7 @@ JSON_COLUMNS = {
     "diagnostic_banks": {"items_json"}, "interview_sessions": {"session_json"},
     "course_bundles": {"bundle_json"}, "learning_events": {"payload_json"},
     "ocr_jobs": {"result_json"}, "book_structures": {"structure_json"},
+    "course_jobs": {"result"}, "studio_note_request_aliases": {"body_json"},
 }
 
 
@@ -55,7 +59,7 @@ def upgrade(connection: Any) -> None:
     versions = [r[0] for r in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
     if any(v > SCHEMA_VERSION for v in versions):
         raise RuntimeError("Target schema is newer than this tool")
-    for version, filename in ((1, "001_initial.sql"), (2, "002_content_digest.sql"), (3, "003_studio_note_editions.sql"), (4, "004_chat_cursor_bigint.sql"), (5, "005_worker_presence.sql")):
+    for version, filename in ((1, "001_initial.sql"), (2, "002_content_digest.sql"), (3, "003_studio_note_editions.sql"), (4, "004_chat_cursor_bigint.sql"), (5, "005_worker_presence.sql"), (6, "006_course_preparation_note_aliases.sql")):
         if version not in versions:
             connection.execute((MIGRATIONS / filename).read_text())
             connection.execute("INSERT INTO schema_migrations(version) VALUES (%s)", (version,))

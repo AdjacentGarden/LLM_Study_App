@@ -46,7 +46,7 @@ struct GlobalAssistantOverlay: View {
               ).overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border, lineWidth: 1))
             }.accessibilityLabel("收起 AI 助手").accessibilityIdentifier("global-assistant-close")
           }
-          Text(error ?? (store.cloud == nil ? "剩余 \(store.credits) 积分 · 每次提问消耗 1 积分" : "基于当前教材原文回答")).font(DS.font(20)).foregroundStyle(
+          Text(error ?? (store.cloud == nil ? "离线检索当前教材原文" : "基于当前教材原文回答")).font(DS.font(20)).foregroundStyle(
             error == nil ? DS.secondary : DS.danger
           ).frame(maxWidth: .infinity).lineLimit(2)
           ScrollViewReader { proxy in
@@ -232,9 +232,7 @@ struct GlobalAssistantOverlay: View {
     error = nil
     guideMessages.append(ChatMessage(role: "user", text: question))
     request = Task { @MainActor in
-      var reservation: String?
       do {
-        if store.cloud == nil { reservation = try await store.reserveCredits(1) }
         try Task.checkCancellation()
         if discovery {
           let answer = answerCommunityCourseQuery(question, books: store.community)
@@ -250,9 +248,7 @@ struct GlobalAssistantOverlay: View {
           guideMessages.append(
             ChatMessage(role: "assistant", text: response.answer, citations: response.citations))
         }
-        if let reservation { await store.completeCredits(reservation) }
       } catch {
-        if let reservation { await store.refundCredits(reservation) }
         if !Task.isCancelled { self.error = error.localizedDescription }
       }
       busy = false

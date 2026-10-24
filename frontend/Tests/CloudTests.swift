@@ -117,20 +117,18 @@ final class CloudTests: XCTestCase {
     XCTAssertEqual(saved?.notes?.first?.body, note.body)
   }
 
-  func testBuiltinBiologyCatalogSurvivesEmptyRemoteCatalogAndDeduplicatesRefresh() throws {
-    let bundled = try BuiltinCourseCatalog.merging([])
-    let biology = try XCTUnwrap(bundled.first { $0.id == "community_genetics" })
-    XCTAssertEqual(biology.owner, "原项目已有课程")
-    XCTAssertEqual(biology.flashcardCount, 90)
-    XCTAssertTrue(biology.recommended == true)
-    XCTAssertEqual(biology.progress, 0)
-    XCTAssertNotNil(ContentBundle.image(biology.cover))
-    var updated = biology
-    updated.description = "服务端更新的课程说明"
-    let refreshed = try BuiltinCourseCatalog.merging([updated, updated])
-    XCTAssertEqual(refreshed.filter { $0.id == biology.id }.count, 1)
-    XCTAssertEqual(refreshed.first { $0.id == biology.id }?.description, updated.description)
-    XCTAssertEqual(try BuiltinCourseCatalog.merging([]).first { $0.id == biology.id }, biology)
+  func testCatalogOnlyUsesServerEntriesAndDeduplicatesRefresh() throws {
+    XCTAssertTrue(try BuiltinCourseCatalog.merging([]).isEmpty,
+                  "A missing server catalog must not resurrect local preview courses")
+    var entry = CommunityBook(id: "remote-book", title: "实际公开教材", catalogTitle: "目录", owner: "作者",
+      cover: "", subject: "其他", grade: "", version: "1", learners: nil, progress: nil,
+      flashcardCount: 0, tags: [], description: "服务端说明", chapters: [])
+    entry.description = "更新的服务端说明"
+    let refreshed = try BuiltinCourseCatalog.merging([entry, entry])
+    XCTAssertEqual(refreshed, [entry])
+    XCTAssertNil(refreshed.first?.learners)
+    XCTAssertNil(refreshed.first?.progress)
+    XCTAssertTrue(try BuiltinCourseCatalog.merging([]).isEmpty)
   }
 
   // SQLite actors can outlive a test's async frame. Leave their databases in the
@@ -382,8 +380,11 @@ final class CloudTests: XCTestCase {
     let (pdf, _) = try await probe.data(from: base.appendingPathComponent("api/native-test/pdf"))
     let file = root.appendingPathComponent("生物教材.pdf")
     try pdf.write(to: file)
-    await store.importFile(file)
+    var progress: [CloudUploadProgress] = []
+    await store.importFile(file) { progress.append($0) }
     XCTAssertNil(store.importError)
+    XCTAssertEqual(progress.first?.totalBytes, Int64(pdf.count))
+    XCTAssertTrue(progress.contains { $0.sentBytes > 0 }, "The real file upload must report sent bytes")
     XCTAssertEqual(store.draft.resourceIDs.count, 1)
     await store.processImport()
     XCTAssertNil(store.importError, store.importError ?? "")
@@ -551,6 +552,126 @@ extension CloudTests {
     let store = AppStore(repository: repo, cloud: api)
     try await repo.saveCloudState(state, key: store.cloudCacheKey(account, origin: origin))
     return state
+  }
+
+  @MainActor func testUploadBindingDoesNotDuplicateBookAndPreservesLocalAnchors() throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo)
+    let pending = "book_local_filehash"
+    let remote = CloudResource(id: "r", book_id: "server-book", workspace_id: "w", revision: 0,
+      filename: "原件.pdf", status: "uploaded", courses: [], progress: CloudProgress())
+    var local = CloudMapping.source(remote)
+    local.summary.book_id = pending
+    local.plan.book_id = pending
+    store.sources = [CloudMapping.source(remote), local]
+    store.courses = [Course(id: "local-course:filehash", name: "我的书", resourceIDs: [pending], activeResourceID: pending)]
+    store.notes = [StudyNote(kind: .text, title: "本机笔记", body: "原稿",
+      anchor: NoteAnchor(bookID: pending, page: 2))]
+    store.locations["local-course:filehash::" + pending] = StudyLocation(page: 2)
+    store.selectedBookID = pending
+    store.sourceTarget = SourcePageTarget(bookID: pending, title: "原文", page: 2)
+    store.importJob = ImportJob(bookIDs: [pending], status: .running)
+    store.bindUploadedBook(localID: pending, uploaded: CloudUpload(book_id: "server-book", filename: "原件.pdf", status: "uploaded"))
+    XCTAssertEqual(store.sources.map(\.id), ["server-book"])
+    XCTAssertEqual(store.notes.first?.anchor?.bookID, "server-book")
+    XCTAssertEqual(store.locations["local-course:filehash::server-book"]?.page, 2)
+    XCTAssertEqual(store.sourceTarget?.bookID, "server-book")
+    XCTAssertEqual(store.importJob?.bookIDs, ["server-book"])
+  }
+
+  @MainActor func testFailedUploadRetainsPrivateOriginalAcrossCacheReload() async throws {
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let repo = try LocalBookCourseRepository(directory: root)
+    let api = CloudAPI(baseURL: URL(string: "https://local-original.example")!, session: isolatedCloudSession())
+    let store = AppStore(repository: repo, cloud: api)
+    let account = cachedAccount()
+    let key = store.cloudCacheKey(account)
+    store.cloudState.authenticated = true
+    store.cloudState.account = account
+    store.cloudState.cacheKey = key
+    let original = Data("%PDF-1.4\nreal-original-bytes".utf8)
+    let file = root.appendingPathComponent("用户原件.pdf")
+    try original.write(to: file)
+    await store.importFile(file)
+    XCTAssertNotNil(store.importError)
+    let id = try XCTUnwrap(store.sources.first?.id)
+    let path = try XCTUnwrap(store.sourceFileURL(id))
+    XCTAssertEqual(try Data(contentsOf: path), original)
+    XCTAssertTrue(id.hasPrefix("book_local_"))
+    XCTAssertEqual(store.courses.first?.resourceIDs, [id])
+    store.rebuildCloudCourses()
+    XCTAssertEqual(store.courses.first?.resourceIDs, [id], "Server refresh must preserve pending local imports")
+    await store.flush()
+    let cached = try await repo.loadCloudState(key)
+    let restored = AppStore(repository: try LocalBookCourseRepository(directory: root), cloud: api)
+    restored.restoreCloudCache(try XCTUnwrap(cached))
+    XCTAssertEqual(restored.sources.map(\.id), [id])
+    XCTAssertEqual(restored.courses.first?.resourceIDs, [id])
+    XCTAssertEqual(try Data(contentsOf: XCTUnwrap(restored.sourceFileURL(id))), original)
+  }
+
+  @MainActor func testAddingPDFToExistingLocalCourseRetainsOriginalWithoutDuplicateCourse() async throws {
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let repo = try LocalBookCourseRepository(directory: root)
+    let api = CloudAPI(baseURL: URL(string: "https://existing-course.example")!, session: isolatedCloudSession())
+    let store = AppStore(repository: repo, cloud: api)
+    store.cloudState.authenticated = true
+    store.cloudState.account = cachedAccount()
+    store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount())
+    let courseID = "local-course:existing"
+    store.courses = [Course(id: courseID, name: "已有课程", resourceIDs: [])]
+    store.draft.parseCompleted = true
+    let original = Data("%PDF-1.4\nretained-original".utf8)
+    let file = root.appendingPathComponent("新资料.pdf")
+    try original.write(to: file)
+    await store.importFile(file, targetCourseID: courseID)
+    XCTAssertNotNil(store.importError)
+    XCTAssertEqual(store.courses.map(\.id), [courseID])
+    let localID = try XCTUnwrap(store.sources.first?.id)
+    XCTAssertEqual(store.courses.first?.resourceIDs, [localID])
+    XCTAssertFalse(store.draft.parseCompleted)
+    XCTAssertEqual(try Data(contentsOf: XCTUnwrap(store.sourceFileURL(localID))), original)
+    store.bindUploadedBook(localID: localID,
+      uploaded: CloudUpload(book_id: "uploaded-book", filename: "新资料.pdf", status: "uploaded"))
+    XCTAssertEqual(store.courses.map(\.id), [courseID])
+    XCTAssertEqual(store.courses.first?.resourceIDs, ["uploaded-book"])
+    await store.flush()
+  }
+
+  @MainActor func testOnlineCourseFailedAttachmentSurvivesReloadAndSuccessfulBindingRemovesPlaceholder() async throws {
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let repo = try LocalBookCourseRepository(directory: root)
+    let api = CloudAPI(baseURL: URL(string: "https://online-attachment.example")!, session: isolatedCloudSession())
+    let store = AppStore(repository: repo, cloud: api)
+    let account = cachedAccount(), key = store.cloudCacheKey(cachedAccount())
+    store.cloudState.authenticated = true; store.cloudState.account = account; store.cloudState.cacheKey = key
+    let workspace = CloudWorkspace(id: "existing-online-course", name: "在线课程", preferences: [:],
+      created: 0, updated: 0, resources: [])
+    store.cloudState.workspaces = [workspace]
+    store.rebuildCloudCourses()
+    let file = root.appendingPathComponent("保留的原件.pdf")
+    let original = Data("%PDF-1.4\nprivate-original".utf8)
+    try original.write(to: file)
+    await store.importFile(file, targetCourseID: workspace.id)
+    let localID = try XCTUnwrap(store.sources.first?.id)
+    await store.flush()
+    let restored = AppStore(repository: try LocalBookCourseRepository(directory: root), cloud: api)
+    let cached = try await repo.loadCloudState(key)
+    restored.restoreCloudCache(try XCTUnwrap(cached))
+    XCTAssertEqual(try Data(contentsOf: XCTUnwrap(restored.sourceFileURL(localID))), original)
+    XCTAssertTrue(restored.courses.contains { $0.resourceIDs.contains(localID) })
+    restored.bindUploadedBook(localID: localID,
+      uploaded: CloudUpload(book_id: "server-attachment", filename: "原件.pdf", status: "uploaded"))
+    let resource = CloudResource(id: "r", book_id: "server-attachment", workspace_id: workspace.id,
+      revision: 0, filename: "原件.pdf", status: "uploaded", courses: [], progress: CloudProgress())
+    restored.cloudState.workspaces[0].resources = [resource]
+    restored.rebuildCloudCourses()
+    XCTAssertEqual(restored.courses.map(\.id), [workspace.id])
+    XCTAssertEqual(restored.courses.first?.resourceIDs, ["server-attachment"])
+    await restored.flush()
   }
 
   @MainActor func testOfflineRestartMigratesLegacyOriginAndKeepsLocalEdits() async throws {

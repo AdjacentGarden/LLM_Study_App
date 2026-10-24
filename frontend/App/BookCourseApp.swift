@@ -18,7 +18,7 @@ import UIKit
       #endif
       if let i = args.firstIndex(of: "--data-directory"), args.indices.contains(i + 1) {
         directory = URL(fileURLWithPath: args[i + 1], isDirectory: true)
-      } else if args.contains("--fixture") {
+      } else if ContentBundle.fixtureMode {
         let i = args.firstIndex(of: "--fixture-session")
         let session = i.flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil } ?? "default"
         directory = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -29,7 +29,7 @@ import UIKit
         directory = nil
       }
       self._store = State(
-        initialValue: AppStore(repository: try LocalBookCourseRepository(directory: directory), cloud: CloudAPI.configured()))
+        initialValue: AppStore(repository: try LocalBookCourseRepository(directory: directory, includeFixtures: ContentBundle.fixtureMode), cloud: CloudAPI.configured()))
     } catch { startupError = error.localizedDescription }
   }
   var body: some Scene {

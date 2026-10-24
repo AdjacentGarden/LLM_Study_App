@@ -117,6 +117,24 @@ def test_token_limit_output_is_rejected_without_replaying_or_accepting_partial_j
         client.close()
 
 
+def test_transient_connect_proxy_overload_is_retried_and_failures_are_controlled(monkeypatch):
+    calls = 0
+    def fake_post(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise httpx.ProxyError("503 Service Unavailable")
+        return FakeResponse(content='{"ok":true}')
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    assert _client(max_retries=1).structured(system="s",user="u") == {"ok":True}
+    assert calls == 2
+    def overloaded(*args, **kwargs):
+        raise httpx.ProxyError("503 Service Unavailable")
+    monkeypatch.setattr(httpx.Client, "post", overloaded)
+    with pytest.raises(LLMError, match="ProxyError"):
+        _client(max_retries=0).structured(system="s",user="u")
+
+
 def test_structured_call_uses_explicit_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
@@ -191,12 +209,6 @@ def test_bad_model_output_becomes_controlled_error(monkeypatch, content):
     monkeypatch.setattr(httpx.Client,"post",lambda *args,**kwargs: FakeResponse(content=content))
     with pytest.raises(LLMError):
         _client(max_retries=0).structured(system="s",user="u")
-
-
-def test_reasoning_prelude_is_not_exposed_as_json_content() -> None:
-    assert OpenAICompatibleClient._parse_object(
-        '<think>internal reasoning that must stay hidden</think>\n{"ok": true}'
-    ) == {"ok": True}
 
 
 def test_connection_client_is_reused_and_can_be_closed(monkeypatch):

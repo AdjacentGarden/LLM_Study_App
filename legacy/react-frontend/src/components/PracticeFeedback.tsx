@@ -2,6 +2,12 @@ import type { EvidenceResult } from "../types/api";
 import { Icon } from "./Icon";
 
 export function PracticeFeedback({ evidence }: { evidence: EvidenceResult }) {
+  if (!Number.isFinite(evidence.scoring_confidence) || evidence.scoring_confidence <= 0) {
+    return <section className="feedback review" role="status">
+      <strong><Icon name="spark" size={18}/> 本次未能完成评分</strong>
+      <p>学习掌握记录未更新。你可以稍后重新作答。</p>
+    </section>;
+  }
   const confirmed = evidence.scoring_confidence >= .78 && !evidence.needs_follow_up;
   const good = confirmed && evidence.score >= .7;
   return <section className={`feedback ${good ? "good" : "review"}`} role="status">
@@ -12,6 +18,6 @@ export function PracticeFeedback({ evidence }: { evidence: EvidenceResult }) {
       {evidence.missing_rubric.length > 0 && <div><h3>下次试着补上</h3><ul>{evidence.missing_rubric.map((text,i)=><li key={i}>{text}</li>)}</ul></div>}
       {!evidence.matched_rubric.length && !evidence.missing_rubric.length && <p>可以回到原文，核对定义、条件和推理过程，再试一次。</p>}
     </div>
-    <small>本次作答评分 {Math.round(evidence.score * 100)}% · 不是全章掌握率</small>
+    <small>{confirmed ? "本次作答评分" : "初步判断 · 本次作答参考评分"} {Math.round(evidence.score * 100)}% · 不是全章掌握率</small>
   </section>;
 }

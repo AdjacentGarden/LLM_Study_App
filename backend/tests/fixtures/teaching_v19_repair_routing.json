@@ -1,0 +1,1992 @@
+{
+  "status": "actual unpublished failed v19 routing fixture; fact proof directories projected only for routing (no quality approval)",
+  "candidate_sha256": "003a721fe53cb949593388519f2baae77f60e55a42e9502ca90ec7a26349eb8a",
+  "candidate": {
+    "points": [
+      {
+        "point_id": "kp_e54a48da99a35e27",
+        "title": "基因与性状的复杂关系",
+        "explanation": "基因与性状之间并不都是简单的一一对应关系。有些性状由多个基因共同决定，例如人的身高可能是由多个基因决定的，其中每一个基因对身高都有一定的作用；有的基因则可决定或影响多种性状。同时，性状一般是基因与环境共同作用的结果：人的身高也不完全由基因决定，后天的营养和体育锻炼等也有重要作用。果蝇实验中，长翅幼虫在35～37℃处理后出现某些残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅，说明环境可影响性状表现，但并未改变遗传物质。因此不能把基因决定性状绝对化。",
+        "source_ids": [
+          "src_p65_481_937_6cef31f84b66",
+          "src_p65_514_1014_020b2a0813b5",
+          "src_p71_478_729_56f313a3ece0",
+          "src_p66_0_489_6750f559b21e"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_1",
+          "front": "基因与性状之间是简单的一一对应关系吗？请说明理由并举出环境影响的实例。",
+          "back": "不都是。有些性状由多个基因共同决定，有的基因可决定或影响多种性状；性状一般是基因与环境共同作用的结果。例如人的身高可能由多个基因决定，且后天营养和体育锻炼也有重要作用。果蝇实验中，长翅幼虫经35～37℃处理后可出现残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅，说明环境能影响性状表现。",
+          "source_ids": [
+            "src_p65_481_937_6cef31f84b66",
+            "src_p71_478_729_56f313a3ece0",
+            "src_p66_0_489_6750f559b21e"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_1",
+          "prompt": "某同学看到“长翅果蝇幼虫经35～37℃处理后出现残翅”这一现象，便认为这些残翅果蝇的翅型基因已经发生了改变。请判断这一推论是否合理，并说明理由；再据此说明基因、环境与性状之间的关系。",
+          "expected_answer": "不合理。该实验只说明高温处理可使长翅幼虫表现出残翅，而这些残翅果蝇在正常温度下产生的后代仍然是长翅，说明其遗传物质并未因此改变，残翅是环境条件影响性状表现的结果。由此可知，性状一般是基因与环境共同作用的结果，不能把观察到的某一表型直接归因于基因改变；基因与性状也不都是简单的一一对应关系，有些性状由多个基因共同决定，有的基因可影响多种性状。",
+          "rubric": [
+            "指出该推论不合理，残翅果蝇后代在正常温度下仍为长翅",
+            "说明高温处理影响的是性状表现，不能据此断定基因已改变",
+            "归纳出性状一般是基因与环境共同作用的结果",
+            "指出基因与性状不都是简单一一对应，有些性状由多个基因决定"
+          ],
+          "source_ids": [
+            "src_p66_0_489_6750f559b21e",
+            "src_p65_481_937_6cef31f84b66",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_876deca6f6081f84",
+        "title": "RNA与DNA的化学组成差异",
+        "explanation": "RNA是另一类核酸，与DNA一样由核苷酸连接而成，核苷酸也含4种碱基，可以储存遗传信息。与DNA相比，RNA的组成有五碳糖是核糖而不是脱氧核糖；碱基组成中没有T（胸腺嘧啶），而替换成U（尿嘧啶）。此外，RNA一般是单链，而且比DNA短，因此能够通过核孔从细胞核转移到细胞质中。这里“一般是单链、比DNA短”是通常情况，不能理解为所有RNA都必然如此。RNA主要有mRNA、tRNA和rRNA三类，其中mRNA作为DNA的信使。",
+        "source_ids": [
+          "src_p57_444_712_fcabc5cd6a65",
+          "src_p58_0_475_34fb0b8a9bf8"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_2",
+          "front": "与DNA相比，RNA在五碳糖、碱基组成和链结构上有哪些主要区别？",
+          "back": "RNA的五碳糖是核糖，DNA是脱氧核糖；RNA的碱基中没有T而含U，DNA含T而不含U；RNA一般是单链，而且比DNA短，因此能通过核孔从细胞核转移到细胞质中。“一般”表明单链、较短是通常情况，并非所有RNA的必然属性。",
+          "source_ids": [
+            "src_p57_444_712_fcabc5cd6a65",
+            "src_p58_0_475_34fb0b8a9bf8"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_2",
+          "prompt": "某同学比较DNA与RNA后得出结论：“RNA都是单链，而且都比DNA短。”请判断这一表述是否准确，并说明RNA与DNA在五碳糖和碱基组成上的区别。",
+          "expected_answer": "不准确。教材指出RNA一般是单链，而且比DNA短，这是通常情况，不能扩大为所有RNA都必然单链且比DNA短。在化学组成上，RNA的五碳糖是核糖，DNA的是脱氧核糖；RNA的碱基中没有T而含U，DNA含T而不含U。两者都由核苷酸连接而成，核苷酸都含4种碱基，都可储存遗传信息。",
+          "rubric": [
+            "判断该表述不准确，指出“一般”不能扩大为“都”",
+            "说明RNA五碳糖为核糖、DNA为脱氧核糖",
+            "说明RNA无T含U、DNA含T不含U",
+            "指出两者均由核苷酸构成并可储存遗传信息"
+          ],
+          "source_ids": [
+            "src_p58_0_475_34fb0b8a9bf8",
+            "src_p57_444_712_fcabc5cd6a65"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_99f5c72053bacb73",
+        "title": "克里克中心法则及其方向性",
+        "explanation": "1957年克里克提出中心法则：遗传信息可以从DNA流向DNA，即DNA的自我复制；也可以从DNA流向RNA，进而流向蛋白质，即遗传信息的转录和翻译。该法则同时指出方向性限制：遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA。此后五六年，科学家揭示了蛋白质的合成过程，中心法则由此获得公认。但随实验数据积累，人们注意到传统中心法则存在不足，后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径，使中心法则更加完善。因此克里克最初提出的内容并非最终完整版本。",
+        "source_ids": [
+          "src_p63_45_545_8eebbc24cf3b",
+          "src_p64_0_483_4d5b9d076f35",
+          "src_p71_478_729_56f313a3ece0"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_3",
+          "front": "克里克1957年提出的中心法则包含哪些信息流向？有哪些方向被明确排除？后来又有何补充？",
+          "back": "包含：遗传信息从DNA流向DNA（DNA自我复制），以及从DNA流向RNA进而流向蛋白质（转录和翻译）。明确排除：遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA。后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径，使中心法则更完善，原有途径仍保留。",
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_3",
+          "prompt": "有人根据“某些RNA病毒能以RNA为模板合成DNA”这一事实，认为克里克最初提出的中心法则被推翻了。请判断这一说法是否恰当，并说明修改后的中心法则与克里克原初中心法则的关系。",
+          "expected_answer": "不恰当。克里克1957年提出的中心法则指出遗传信息可从DNA流向DNA，也可从DNA流向RNA进而流向蛋白质，但不能从蛋白质流向核酸或蛋白质。后来科学家发现RNA复制酶和逆转录酶，补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径。这是对传统中心法则的扩展和完善，原有DNA复制、转录和翻译等途径仍然保留，并非推翻。",
+          "rubric": [
+            "判断该说法不恰当，补充途径不等于推翻原法则",
+            "准确写出克里克原初中心法则的两条主要流向",
+            "指出补充的是RNA→RNA和RNA→DNA两条途径",
+            "说明原有DNA→DNA、DNA→RNA→蛋白质途径仍保留"
+          ],
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_ce650dd4c9ab597b",
+        "title": "tRNA与反密码子",
+        "explanation": "tRNA是氨基酸的运载工具，分子比mRNA小得多，RNA链折叠后呈三叶草叶形。其一端是携带氨基酸的部位，另一端有3个碱基，这3个碱基可与mRNA上的密码子互补配对，因而叫反密码子。tRNA种类很多，但每种tRNA只识别并转运一种氨基酸。翻译时，核糖体与mRNA的结合部位形成2个tRNA结合位点：携带氨基酸的tRNA按反密码子与密码子配对进入位点，肽键形成后核糖体沿mRNA移动，原占据位点1的tRNA离开，新的tRNA进入位点2，如此重复，直至读取到终止密码才终止。",
+        "source_ids": [
+          "src_p61_0_350_60adad10c52e",
+          "src_p60_468_790_acde685522bc",
+          "src_p61_350_617_5338e6acd0cc",
+          "src_p62_0_387_2232c69883a4"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_4",
+          "front": "tRNA的结构有什么特点？反密码子如何与mRNA上的密码子配对？每种tRNA能转运几种氨基酸？",
+          "back": "tRNA一端是携带氨基酸的部位，另一端有3个碱基组成的反密码子，可与mRNA上的密码子互补配对。tRNA种类很多，但每种tRNA只识别并转运一种氨基酸。翻译时tRNA按位点进入核糖体与mRNA的结合部位，肽键形成后离开，肽链沿mRNA延伸，直至读取到终止密码才终止。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p60_468_790_acde685522bc",
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_4",
+          "prompt": "某同学说：“一种tRNA可以携带多种氨基酸，只要反密码子与mRNA上的密码子互补配对就能一直配对下去。”请指出其中的错误，并简述tRNA参与肽链合成的过程。",
+          "expected_answer": "错误有两处：一是每种tRNA只识别并转运一种氨基酸，不能携带多种氨基酸；二是反密码子与密码子的配对不是无终止的静态过程，肽链合成沿mRNA不断进行，直至读取到终止密码才终止。翻译时，核糖体与mRNA结合部位形成2个tRNA结合位点，携带氨基酸的tRNA按反密码子与密码子互补配对进入位点，肽键形成后核糖体沿mRNA移动，原占据位点1的tRNA离开，新的tRNA进入位点2，重复进行。",
+          "rubric": [
+            "指出每种tRNA只转运一种氨基酸",
+            "指出配对和延伸有终止条件，读取到终止密码才终止",
+            "说明核糖体与mRNA结合部位形成2个tRNA结合位点",
+            "描述tRNA进入位点、肽键形成、核糖体移动后tRNA离开的过程"
+          ],
+          "source_ids": [
+            "src_p60_468_790_acde685522bc",
+            "src_p61_0_350_60adad10c52e",
+            "src_p62_0_387_2232c69883a4"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_f7e0f2c6d8b4d9dd",
+        "title": "多核糖体与高效翻译",
+        "explanation": "在细胞质中，翻译是一个快速的过程。在37℃时，细菌细胞内合成肽链的速度约为每秒连接15个氨基酸。通常，一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量的mRNA分子就可以迅速合成出大量的蛋白质。这里“通常”表明多核糖体同时翻译是常见情形，并非所有mRNA的必然状态；每秒约15个氨基酸也是特定温度下细菌细胞内的近似值，不能当作无条件的精确速率。多核糖体提高的是翻译效率，并不改变每条肽链的氨基酸序列。",
+        "source_ids": [
+          "src_p62_0_387_2232c69883a4"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_5",
+          "front": "为什么少量的mRNA就能迅速合成大量蛋白质？这一说法有哪些范围限定？",
+          "back": "通常一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量mRNA即可迅速合成大量蛋白质。“通常”说明这是常见情形而非所有mRNA的必然状态；教材给出的“37℃时细菌细胞内每秒约连接15个氨基酸”是特定温度与细胞类型下的近似速度，不是无条件精确值。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_5",
+          "prompt": "某同学读到“一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成”，便认为“所有mRNA都必然结合多个核糖体，且翻译速度都是每秒15个氨基酸”。请评价这一理解，并说明多核糖体翻译的意义。",
+          "expected_answer": "这一理解扩大了适用范围。教材用“通常”限定一个mRNA分子上可相继结合多个核糖体，并非所有mRNA的必然情形；每秒约连接15个氨基酸是37℃时细菌细胞内合成肽链的近似速度，不能推广为所有细胞、所有温度下的精确速率。多核糖体同时翻译的意义在于：少量mRNA分子就可以迅速合成出大量的蛋白质，提高翻译效率。",
+          "rubric": [
+            "指出“通常”不能扩大为所有mRNA必然如此",
+            "指出每秒约15个氨基酸是37℃细菌细胞内的近似值",
+            "说明多核糖体翻译可提高效率",
+            "得出少量mRNA即可迅速合成大量蛋白质的结论"
+          ],
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_ac295e912ea66413",
+        "title": "核糖体移动与翻译终止",
+        "explanation": "翻译时，核糖体与mRNA结合，其结合部位形成2个tRNA结合位点。携带氨基酸的tRNA按反密码子与密码子互补配对进入位点，肽键形成后，核糖体沿着mRNA移动，读取下一个密码子；原占据位点1的tRNA离开核糖体，占据位点2的tRNA进入位点1，一个新的携带氨基酸的tRNA进入位点2，继续肽链的合成。上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。可见移动方向是核糖体沿mRNA移动，而不是mRNA移动；终止密码是肽链合成的明确终止情形。",
+        "source_ids": [
+          "src_p61_0_350_60adad10c52e",
+          "src_p62_0_387_2232c69883a4",
+          "src_p61_350_617_5338e6acd0cc"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_6",
+          "front": "翻译过程中核糖体如何移动？肽链合成在什么情况下终止？",
+          "back": "核糖体沿着mRNA移动，读取下一个密码子。肽键形成后，原占据位点1的tRNA离开核糖体，占据位点2的tRNA进入位点1，新的携带氨基酸的tRNA进入位点2，继续肽链合成。上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。移动的是核糖体，不是mRNA。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_6",
+          "prompt": "有同学描述翻译过程时说：“mRNA沿着核糖体移动，不断读取密码子，肽链会一直延伸下去。”请指出其中的错误，并正确描述核糖体读取密码子及肽链终止的过程。",
+          "expected_answer": "错误有两处：一是移动方向说反了，应是核糖体沿着mRNA移动，读取下一个密码子；二是肽链不会一直延伸，上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。正确过程是：核糖体与mRNA结合部位形成2个tRNA结合位点，携带氨基酸的tRNA按反密码子与密码子配对进入位点，肽键形成后核糖体沿mRNA移动，原占据位点1的tRNA离开，占据位点2的tRNA进入位点1，新的tRNA进入位点2，重复进行直至读取到终止密码。",
+          "rubric": [
+            "指出应是核糖体沿mRNA移动而非mRNA移动",
+            "指出肽链合成在读取到终止密码时终止",
+            "描述tRNA进入位点、肽键形成后核糖体移动的过程",
+            "说明位点1与位点2中tRNA的移位关系"
+          ],
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p62_0_387_2232c69883a4",
+            "src_p61_350_617_5338e6acd0cc"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_46253f72a986db6c",
+        "title": "密码子与三联体编码",
+        "explanation": "mRNA上3个相邻的碱基决定1个氨基酸，每3个这样的碱基称为1个密码子。这一编码关系是在固定起点、以非重叠方式阅读、编码之间没有分隔符的框架下成立的；若按重叠方式或任意起点阅读，同一碱基序列会被解读出不同含义。因此，判断某段mRNA编码的氨基酸序列时，必须先确定阅读起点和阅读方式，不能把任意三个相邻碱基都当作一个密码子。",
+        "source_ids": [
+          "src_p59_466_685_765b60d35650",
+          "src_p70_0_436_2b4f2b099fb1"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_7",
+          "front": "mRNA上的碱基与氨基酸之间是怎样对应的？这种对应需要什么阅读条件？",
+          "back": "mRNA上3个相邻的碱基决定1个氨基酸，每3个这样的碱基称为1个密码子。该对应在遗传密码从固定起点开始、以非重叠方式阅读、编码之间没有分隔符的条件下成立；重叠阅读或任意起点阅读会改变解读结果。",
+          "source_ids": [
+            "src_p59_466_685_765b60d35650",
+            "src_p70_0_436_2b4f2b099fb1"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_7",
+          "prompt": "某同学看到一段mRNA序列后，从第一个碱基开始每3个碱基划为一组，并据此推断氨基酸序列。请说明这种做法依据的遗传密码阅读规则是什么，以及如果改从第二个碱基开始划分，为什么不能直接沿用原来的推断。",
+          "expected_answer": "这种做法依据的是：mRNA上3个相邻碱基决定1个氨基酸，每3个碱基为1个密码子；并且遗传密码从一个固定的起点开始，以非重叠方式阅读，编码之间没有分隔符。若改从第二个碱基开始划分，阅读起点改变，三联体的分组随之改变，同一序列会被切成不同的密码子组合，因此不能直接沿用原来的氨基酸推断。",
+          "rubric": [
+            "指出3个相邻碱基决定1个氨基酸、每3个碱基为1个密码子",
+            "指出阅读从固定起点开始且为非重叠阅读、编码间无分隔符",
+            "说明改变起点会改变三联体分组，故不能沿用原推断"
+          ],
+          "source_ids": [
+            "src_p59_466_685_765b60d35650",
+            "src_p70_0_436_2b4f2b099fb1"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_1470b66b433404af",
+        "title": "基因通过蛋白质结构直接控制性状",
+        "explanation": "除通过控制酶的合成影响代谢外，基因还能通过控制蛋白质的结构直接控制生物体的性状。例如囊性纤维病中，编码CFTR蛋白的基因缺失3个碱基，使CFTR蛋白在第508位缺少苯丙氨酸，蛋白结构改变、转运氯离子功能异常，进而出现支气管黏液增多等症状。需注意，这类直接控制是就特定实例而言；基因与性状并不都是简单线性关系，有些性状由多个基因共同决定，且性状一般是基因与环境共同作用的结果，如长翅果蝇幼虫在35～37℃处理后出现残翅，其后代在正常温度下仍为长翅。",
+        "source_ids": [
+          "src_p65_0_481_371dc5be62b8",
+          "src_p71_478_729_56f313a3ece0",
+          "src_p66_0_489_6750f559b21e"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_8",
+          "front": "基因通过控制蛋白质结构直接控制性状的实例是什么？这一命题有何范围限制？",
+          "back": "实例：囊性纤维病中编码CFTR蛋白的基因缺失3个碱基，使CFTR蛋白第508位缺少苯丙氨酸，结构改变、功能异常，导致支气管黏液增多等。范围限制：基因与性状不都是简单线性关系，有些性状由多个基因共同决定，性状一般是基因与环境共同作用的结果；如长翅果蝇幼虫经35～37℃处理出现残翅，正常温度下其后代仍为长翅。",
+          "source_ids": [
+            "src_p65_0_481_371dc5be62b8",
+            "src_p71_478_729_56f313a3ece0",
+            "src_p66_0_489_6750f559b21e"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_8",
+          "prompt": "囊性纤维病患者中，约70%的人编码CFTR蛋白的基因缺失3个碱基，导致该蛋白第508位缺少苯丙氨酸，蛋白结构异常、转运氯离子功能异常。另有人发现，长翅果蝇幼虫在35～37℃处理后出现残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅。请分别说明两个实例中基因与性状的关系，并指出不能由第一个实例推出什么结论。",
+          "expected_answer": "第一个实例说明基因可通过控制蛋白质的结构直接控制性状：基因缺失3个碱基使CFTR蛋白结构异常，功能随之异常，进而出现病症。第二个实例说明环境温度也能影响性状表现，且这种影响未改变后代在正常温度下的长翅表现，说明性状并非完全由基因单独决定。不能由第一个实例推出所有性状都由单个基因直接决定，因为基因与性状不都是简单线性关系，有些性状由多个基因共同决定，性状一般是基因与环境共同作用的结果。",
+          "rubric": [
+            "说明CFTR实例体现基因通过控制蛋白质结构直接控制性状",
+            "说明果蝇实例体现环境温度对性状表现的影响",
+            "指出不能推出所有性状均由单个基因直接决定，需保留多基因与环境共同作用的限制"
+          ],
+          "source_ids": [
+            "src_p65_0_481_371dc5be62b8",
+            "src_p66_0_489_6750f559b21e",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_a9e36b6f0861c03e",
+        "title": "基因表达的概念",
+        "explanation": "基因表达指基因通过指导蛋白质的合成来控制性状的过程。人们认识到性状的形成离不开蛋白质（特别是酶）的作用，因此把基因指导蛋白质合成并由此控制性状的过程称为基因的表达。理解这一概念时要把握两点：一是基因对性状的控制以蛋白质为中介；二是性状并不完全由基因决定，后天营养、体育锻炼等环境因素也有重要作用，因此不能把“基因表达控制性状”理解为性状完全由基因单独决定。",
+        "source_ids": [
+          "src_p56_0_255_dd0ee7c58a12",
+          "src_p66_0_489_6750f559b21e"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_9",
+          "front": "什么是基因的表达？它是否意味着性状完全由基因决定？",
+          "back": "基因的表达是指基因通过指导蛋白质的合成来控制性状的过程。它不意味着性状完全由基因决定：身高就不完全由基因决定，后天的营养和体育锻炼等也有重要作用，性状一般是基因与环境共同作用的结果。",
+          "source_ids": [
+            "src_p56_0_255_dd0ee7c58a12",
+            "src_p66_0_489_6750f559b21e"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_9",
+          "prompt": "有同学说：“既然基因的表达就是基因指导蛋白质合成来控制性状，那么一个人的性状就完全由他的基因决定了。”请判断这一说法是否准确，并说明理由。",
+          "expected_answer": "不准确。基因的表达确实指基因通过指导蛋白质的合成来控制性状，但性状并不完全由基因决定。例如人的身高可能由多个基因决定，同时身高也不完全由基因决定，后天的营养和体育锻炼等也有重要作用。因此，基因表达是基因控制性状的途径，但不能据此断言性状完全由基因决定。",
+          "rubric": [
+            "正确表述基因表达是基因指导蛋白质合成来控制性状",
+            "指出性状不完全由基因决定并给出环境因素作用的依据",
+            "结论明确：不能由基因表达推出性状完全由基因决定"
+          ],
+          "source_ids": [
+            "src_p56_0_255_dd0ee7c58a12",
+            "src_p66_0_489_6750f559b21e"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_20301305a1b8dff7",
+        "title": "中心法则的补充途径",
+        "explanation": "克里克1957年提出的中心法则认为遗传信息可从DNA流向DNA，也可从DNA流向RNA进而流向蛋白质，但不能从蛋白质流向核酸。后来，科学家发现RNA复制酶能对RNA进行复制，逆转录酶能以RNA为模板合成DNA，于是修改后的中心法则补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径。这是对原有法则的扩展而非推翻：DNA→DNA、DNA→RNA→蛋白质等原有途径仍然保留，蛋白质不能反向流向核酸的限制也仍然成立。",
+        "source_ids": [
+          "src_p64_0_483_4d5b9d076f35",
+          "src_p63_45_545_8eebbc24cf3b",
+          "src_p71_478_729_56f313a3ece0"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_10",
+          "front": "修改后的中心法则补充了哪两条信息流向？这是否推翻了原有途径？",
+          "back": "补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径。这不是推翻原有中心法则，而是使其更完善：DNA→DNA、DNA→RNA→蛋白质等原有途径仍保留，蛋白质不能流向RNA或DNA的限制也仍成立。",
+          "source_ids": [
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_10",
+          "prompt": "科学家在RNA肿瘤病毒中发现RNA复制酶，能对RNA进行复制；又在致癌的RNA病毒中发现逆转录酶，能以RNA为模板合成DNA。请说明这些发现对中心法则的影响，并判断“中心法则已被推翻”这一说法是否正确。",
+          "expected_answer": "这些发现表明遗传信息还可以从RNA流向RNA、从RNA流向DNA，因此修改后的中心法则补充了这两条途径，使其比以往更加完善。说“中心法则已被推翻”不正确：原有DNA→DNA、DNA→RNA→蛋白质等途径仍然保留，蛋白质不能流向RNA或DNA的限制也仍然成立，补充途径是对原法则的扩展而非否定。",
+          "rubric": [
+            "指出RNA复制与逆转录分别对应RNA→RNA和RNA→DNA两条补充途径",
+            "说明原有DNA→DNA、DNA→RNA→蛋白质途径仍保留",
+            "判断“已被推翻”不正确，理由是扩展而非否定"
+          ],
+          "source_ids": [
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_f31a91f60999a100",
+        "title": "基因通过酶控制代谢与性状",
+        "explanation": "基因可以通过控制酶的合成来控制代谢过程，进而控制生物体的性状。皱粒豌豆中插入的外来DNA序列打乱了编码淀粉分支酶的基因，淀粉分支酶不能合成，细胞内淀粉含量降低、游离蔗糖升高，成熟时因失水而皱缩；人的白化症状则因控制酪氨酸酶的基因异常、缺少酪氨酸酶而不能合成黑色素。需注意，这不是基因控制性状的唯一方式：基因还能通过控制蛋白质的结构直接控制性状；也不能把它扩展为控制所有性状，有些性状由多个基因协同作用，如果蝇红眼的形成就涉及多个基因。",
+        "source_ids": [
+          "src_p64_483_966_2bd366071914",
+          "src_p71_478_729_56f313a3ece0",
+          "src_p65_0_481_371dc5be62b8",
+          "src_p66_0_489_6750f559b21e"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_11",
+          "front": "基因通过控制酶的合成控制性状的实例有哪些？这一途径是唯一的吗？",
+          "back": "实例：皱粒豌豆因编码淀粉分支酶的基因被打乱，酶不能合成，淀粉含量降低、蔗糖升高而皱缩；白化症状因控制酪氨酸酶的基因异常，缺少酪氨酸酶而不能合成黑色素。这不是唯一途径：基因还能通过控制蛋白质的结构直接控制性状，且有些性状由多个基因协同作用。",
+          "source_ids": [
+            "src_p64_483_966_2bd366071914",
+            "src_p71_478_729_56f313a3ece0",
+            "src_p65_0_481_371dc5be62b8"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_11",
+          "prompt": "皱粒豌豆的DNA中插入一段外来序列，打乱了编码淀粉分支酶的基因，导致淀粉分支酶不能合成，细胞内淀粉含量降低、游离蔗糖升高，成熟时失水皱缩。请据此说明基因控制该性状的途径，并指出能否由此得出“基因只通过控制酶的合成来控制性状”。",
+          "expected_answer": "该实例中基因通过控制淀粉分支酶的合成来控制淀粉与蔗糖的代谢过程，进而控制豌豆圆粒与皱粒这一性状。不能得出“基因只通过控制酶的合成来控制性状”：基因还能通过控制蛋白质的结构直接控制性状，如囊性纤维病中CFTR蛋白结构异常；此外有些性状由多个基因协同作用，该途径也不能扩展为控制所有性状。",
+          "rubric": [
+            "说明基因控制淀粉分支酶合成进而影响代谢与皱缩性状",
+            "指出基因还可通过控制蛋白质结构直接控制性状",
+            "指出不能把该途径扩展为控制所有性状，需保留多基因协同的限制"
+          ],
+          "source_ids": [
+            "src_p64_483_966_2bd366071914",
+            "src_p65_0_481_371dc5be62b8",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_0d811232f25fadef",
+        "title": "转录的过程与场所",
+        "explanation": "转录是在细胞核中以DNA双链中的一条链为模板合成mRNA的过程。转录时编码某蛋白质的一段DNA双链解开，游离的核糖核苷酸与作为模板的那条链上的碱基互补配对，在RNA聚合酶作用下依次连接形成mRNA分子，合成后mRNA从DNA链上释放，DNA双链恢复。需注意，线粒体和叶绿体中的DNA也能进行转录和翻译，控制某些蛋白质的合成，因此不能把“在细胞核内进行”绝对化为转录只发生在细胞核。",
+        "source_ids": [
+          "src_p58_0_475_34fb0b8a9bf8",
+          "src_p58_475_739_b7fafce0a584",
+          "src_p65_481_937_6cef31f84b66"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_12",
+          "front": "转录的模板和产物是什么？转录只发生在细胞核内吗？",
+          "back": "转录是以DNA双链中的一条链为模板合成mRNA的过程，在细胞核内进行。但不能说转录只发生在细胞核：线粒体和叶绿体中的DNA也能进行转录和翻译，控制某些蛋白质的合成。",
+          "source_ids": [
+            "src_p58_0_475_34fb0b8a9bf8",
+            "src_p58_475_739_b7fafce0a584",
+            "src_p65_481_937_6cef31f84b66"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_12",
+          "prompt": "某同学总结转录时写道：“转录是以DNA双链为模板合成mRNA，并且只发生在细胞核内。”请指出其中的错误并改正。",
+          "expected_answer": "错误有两处：一是模板不是DNA双链，而是DNA双链中的一条链；二是转录并非只发生在细胞核内，线粒体和叶绿体中的DNA也能进行转录和翻译，控制某些蛋白质的合成。正确表述为：转录是在细胞核中以DNA双链中的一条链为模板合成mRNA的过程，同时细胞质中的线粒体和叶绿体DNA也能进行转录。",
+          "rubric": [
+            "指出模板应为DNA双链中的一条链而非双链",
+            "指出转录不只发生在细胞核，线粒体和叶绿体DNA也能转录",
+            "给出改正后的完整表述"
+          ],
+          "source_ids": [
+            "src_p58_0_475_34fb0b8a9bf8",
+            "src_p58_475_739_b7fafce0a584",
+            "src_p65_481_937_6cef31f84b66"
+          ]
+        }
+      },
+      {
+        "point_id": "kp_6af0f7754dfe4239",
+        "title": "翻译：以mRNA为模板合成蛋白质",
+        "explanation": "翻译发生在细胞质中：mRNA合成后经核孔进入细胞质，游离的氨基酸以mRNA为模板，合成具有一定氨基酸顺序的蛋白质。其实质是把mRNA中的碱基序列转换为蛋白质的氨基酸序列，即核酸的碱基序列信息被解读为氨基酸排列顺序。翻译并非一次配对就完成，核糖体沿mRNA移动，逐个读取密码子，肽链不断延伸，直至读取到mRNA上的终止密码，合成才告终止。因此描述翻译时既要说明模板与产物，也要说明其终止情形，不能把它理解为可无限延伸的过程。",
+        "source_ids": [
+          "src_p59_0_466_4632b3631f7d",
+          "src_p61_350_617_5338e6acd0cc",
+          "src_p62_0_387_2232c69883a4"
+        ],
+        "flashcard": {
+          "card_id": "card_8793ec2a508171c99c49_13",
+          "front": "翻译的模板和产物分别是什么？其实质是什么？",
+          "back": "翻译是以mRNA为模板合成具有一定氨基酸顺序的蛋白质的过程，实质是将mRNA中的碱基序列翻译为蛋白质的氨基酸序列。翻译沿mRNA不断进行，直至读取到mRNA上的终止密码，合成才告终止。",
+          "source_ids": [
+            "src_p59_0_466_4632b3631f7d",
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        "practice": {
+          "item_id": "practice_8793ec2a508171c99c49_13",
+          "prompt": "某同学说：“翻译就是以mRNA为模板把碱基序列变成氨基酸序列，核糖体一旦结合mRNA就会一直合成下去。”请判断这一说法是否准确，并说明翻译的模板、实质以及合成在什么情况下终止。",
+          "expected_answer": "该说法前半部分基本正确，后半部分不准确。翻译是以mRNA为模板合成具有一定氨基酸顺序的蛋白质的过程，实质是将mRNA中的碱基序列翻译为蛋白质的氨基酸序列。但肽链合成不会无限进行：核糖体沿mRNA移动并逐个读取密码子，肽链不断延伸，直至读取到mRNA上的终止密码，合成才告终止。",
+          "rubric": [
+            "指出翻译以mRNA为模板、产物是具有一定氨基酸顺序的蛋白质",
+            "说明翻译实质是将碱基序列翻译为氨基酸序列",
+            "指出“一直合成下去”不准确，肽链合成有终止情形",
+            "说明终止条件是读取到mRNA上的终止密码"
+          ],
+          "source_ids": [
+            "src_p59_0_466_4632b3631f7d",
+            "src_p61_350_617_5338e6acd0cc",
+            "src_p62_0_387_2232c69883a4"
+          ]
+        }
+      }
+    ],
+    "lesson": {
+      "opening": "本章围绕“基因如何起作用”展开。DNA主要存在于细胞核中，而蛋白质的合成在细胞质中进行，遗传信息需要由RNA充当信使传递。基因通过指导蛋白质的合成来控制性状，这一过程称为基因的表达。本章依次讨论RNA适于作信使的结构特点、转录与翻译的过程、遗传密码的阅读方式，以及中心法则的提出与补充，最后分析基因控制性状的两条途径和基因与性状之间的复杂关系。",
+      "summary": "基因的表达是通过DNA控制蛋白质的合成来实现的。RNA与DNA相比，五碳糖是核糖，碱基中无T而含U，一般是单链且比DNA短，因而能通过核孔进入细胞质。转录在细胞核中以DNA双链中的一条链为模板合成mRNA；翻译在细胞质中以mRNA为模板合成具有一定氨基酸顺序的蛋白质，实质是将碱基序列翻译为氨基酸序列。mRNA上3个相邻碱基决定1个氨基酸，每3个这样的碱基称为1个密码子；遗传密码从固定起点开始、以非重叠方式阅读、编码之间没有分隔符。tRNA一端携带氨基酸，另一端以3个碱基的反密码子与密码子互补配对，每种tRNA只识别并转运一种氨基酸。核糖体沿mRNA移动读取密码子，直至读取到终止密码才终止；通常一个mRNA可相继结合多个核糖体，少量mRNA即可迅速合成大量蛋白质。中心法则最初由克里克提出：遗传信息可从DNA流向DNA，也可从DNA流向RNA进而流向蛋白质，但不能从蛋白质流向核酸；后来补充了RNA→RNA和RNA→DNA两条途径，原有途径仍保留。基因控制性状有两条途径：通过控制酶的合成控制代谢过程，或通过控制蛋白质的结构直接控制。基因与性状并不都是简单的一一对应关系，有些性状由多个基因共同决定，有的基因可影响多种性状，性状一般是基因与环境共同作用的结果。",
+      "reading_source_ids": [
+        "src_p56_0_255_dd0ee7c58a12",
+        "src_p57_444_712_fcabc5cd6a65",
+        "src_p58_0_475_34fb0b8a9bf8",
+        "src_p58_475_739_b7fafce0a584",
+        "src_p59_0_466_4632b3631f7d",
+        "src_p59_466_685_765b60d35650",
+        "src_p61_0_350_60adad10c52e",
+        "src_p62_0_387_2232c69883a4",
+        "src_p63_45_545_8eebbc24cf3b",
+        "src_p64_0_483_4d5b9d076f35",
+        "src_p65_0_481_371dc5be62b8",
+        "src_p71_478_729_56f313a3ece0",
+        "src_p64_483_966_2bd366071914",
+        "src_p65_514_1014_020b2a0813b5"
+      ],
+      "worked_examples": [
+        {
+          "title": "由DNA模板链推导mRNA与密码子数",
+          "problem": "已知DNA分子一条链的碱基排列顺序是…ACGGATCTT…，若以这条链为模板转录，转录出的mRNA碱基顺序是什么？这段mRNA中包含几个密码子？",
+          "steps": [
+            "转录以DNA双链中的一条链为模板，游离的核糖核苷酸与模板链上的碱基互补配对，并按碱基互补配对原则依次连接。",
+            "按A配U、T配A、C配G、G配C的配对关系，将模板链ACGGATCTT逐位转换，得到mRNA序列UGCCUAGAA。",
+            "mRNA上3个相邻碱基为1个密码子，该序列共9个碱基，9÷3=3，故包含3个密码子。"
+          ],
+          "answer": "转录出的mRNA碱基顺序为UGCCUAGAA，其中包含3个密码子。该推导以这条DNA链作为转录模板为前提。",
+          "source_ids": [
+            "src_p58_0_475_34fb0b8a9bf8",
+            "src_p59_466_685_765b60d35650"
+          ]
+        },
+        {
+          "title": "判断残翅果蝇能否说明基因已改变",
+          "problem": "长翅果蝇幼虫正常培养温度为25℃，将孵化后4～7d的幼虫在35～37℃处理6～24h后，得到某些残翅果蝇；这些残翅果蝇在正常温度下产生的后代仍然是长翅果蝇。仅根据这些结果，能否断定这些残翅果蝇的翅型基因已经发生改变？说明理由。",
+          "steps": [
+            "实验中的变量是幼虫期的培养温度，结果是部分个体出现残翅，说明温度条件与残翅表现相关。",
+            "若翅型基因已经改变，这种改变应能随生殖传递给后代；但残翅果蝇在正常温度下产生的后代仍是长翅。",
+            "后代恢复长翅表明残翅表现与温度处理相关，现有结果不足以证明翅型基因发生了改变。"
+          ],
+          "answer": "不能断定。现有结果说明高温处理可使长翅幼虫表现出残翅，而这些残翅果蝇在正常温度下的后代仍为长翅，因此不能把残翅表型直接归因于翅型基因改变；它支持性状表现受环境影响，性状一般是基因与环境共同作用的结果。",
+          "source_ids": [
+            "src_p66_0_489_6750f559b21e",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        },
+        {
+          "title": "判断补充途径是否推翻中心法则",
+          "problem": "科学家在RNA肿瘤病毒中发现RNA复制酶，能对RNA进行复制；在致癌的RNA病毒中发现逆转录酶，能以RNA为模板合成DNA。据此能否说传统中心法则被推翻了？修改后的中心法则与原有内容是什么关系？",
+          "steps": [
+            "克里克1957年提出的中心法则包括DNA→DNA以及DNA→RNA→蛋白质，并指出遗传信息不能从蛋白质流向RNA或DNA。",
+            "RNA复制酶对RNA进行复制对应RNA→RNA，逆转录酶以RNA为模板合成DNA对应RNA→DNA，这两条是原法则未包含的新途径。",
+            "修改后的中心法则补充了上述两条途径，而DNA→DNA、DNA→RNA→蛋白质等原有途径仍然保留，蛋白质不能反向流向核酸的限制也仍成立。"
+          ],
+          "answer": "不能说传统中心法则被推翻。这些发现使中心法则补充了RNA→RNA和RNA→DNA两条途径，是对原有法则的扩展和完善，原有途径仍保留。",
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      ],
+      "checkpoints": [
+        {
+          "question": "某同学说：“既然一个mRNA分子上可以结合多个核糖体，那么所有mRNA都必然如此，而且翻译速度都是每秒15个氨基酸。”请评价这一说法，并说明教材中相关表述的范围限定。",
+          "expected_answer": "该说法扩大了适用范围。教材指出通常一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量mRNA即可迅速合成大量蛋白质；“通常”表明这是常见情形，并非所有mRNA的必然状态。每秒约连接15个氨基酸是37℃时细菌细胞内合成肽链的近似速度，不能推广为所有细胞、所有温度下的精确速率。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        {
+          "question": "皱粒豌豆因编码淀粉分支酶的基因被打乱而不能合成该酶，淀粉含量降低、蔗糖升高，成熟时皱缩；囊性纤维病中CFTR基因缺失3个碱基使CFTR蛋白结构异常、功能异常。请分别指出两个实例中基因控制性状的途径，并说明能否据此认为基因只通过控制酶的合成来控制性状。",
+          "expected_answer": "皱粒豌豆实例中，基因通过控制淀粉分支酶的合成来控制淀粉与蔗糖的代谢过程，进而控制性状；囊性纤维病实例中，基因通过控制CFTR蛋白的结构直接控制性状。因此不能认为基因只通过控制酶的合成来控制性状，基因还可通过控制蛋白质的结构直接控制性状；同时基因与性状不都是简单的一一对应关系，有些性状由多个基因共同决定，性状一般是基因与环境共同作用的结果。",
+          "source_ids": [
+            "src_p64_483_966_2bd366071914",
+            "src_p65_0_481_371dc5be62b8",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        },
+        {
+          "question": "某同学从一段mRNA的第一个碱基开始，每3个碱基划为一组推断氨基酸序列。请说明这种做法依据的遗传密码阅读规则；若改从第二个碱基开始划分，为什么不能直接沿用原来的推断？",
+          "expected_answer": "依据的规则是：mRNA上3个相邻碱基决定1个氨基酸，每3个这样的碱基称为1个密码子；遗传密码从一个固定的起点开始，以非重叠的方式阅读，编码之间没有分隔符。若改从第二个碱基开始划分，阅读起点改变，三联体的分组随之改变，同一序列会被切成不同的密码子组合，因此不能直接沿用原来的氨基酸推断。",
+          "source_ids": [
+            "src_p59_466_685_765b60d35650",
+            "src_p70_0_436_2b4f2b099fb1"
+          ]
+        }
+      ]
+    }
+  },
+  "fact_review_routing_projection": {
+    "accepted": false,
+    "issues": [],
+    "points": [
+      {
+        "accepted": false,
+        "source_entailment": false,
+        "scope_exceptions": true,
+        "issues": [
+          "kp_e54a48da99a35e27.explanation: 原文只记载高温处理后某些果蝇出现残翅、这些果蝇在正常环境中产生的后代仍为长翅；后代表型不能证明亲代遗传物质没有改变。可改为不能仅凭残翅表型断定基因发生改变。",
+          "kp_e54a48da99a35e27.practice: 后代在正常温度下仍为长翅，不足以证明受处理果蝇的遗传物质未发生改变；实验仅不支持凭残翅表型直接断定基因改变。"
+        ],
+        "support_summary": "src_p65_481_937_6cef31f84b66；src_p71_478_729_56f313a3ece0；src_p66_0_489_6750f559b21e；程序汇总各组件独立原文证明与范围判定；多基因与环境作用的表述有依据；但后代仍为长翅不能证明亲代遗传物质未改变。；；不能断定基因已改变，但后代仍为长翅也不能证明亲代遗传物质没有改变。",
+        "point_id": "kp_e54a48da99a35e27",
+        "failed_components": [
+          "explanation",
+          "practice"
+        ],
+        "components": {
+          "explanation": {
+            "source_entailment": false,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": false,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p57_444_712_fcabc5cd6a65；src_p58_0_475_34fb0b8a9bf8；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_876deca6f6081f84",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p63_45_545_8eebbc24cf3b；src_p64_0_483_4d5b9d076f35；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_99f5c72053bacb73",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p60_468_790_acde685522bc；src_p61_0_350_60adad10c52e；src_p62_0_387_2232c69883a4；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_ce650dd4c9ab597b",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "source_entailment": false,
+        "scope_exceptions": true,
+        "issues": [
+          "kp_f7e0f2c6d8b4d9dd.explanation: 本组件引用只说明多个核糖体同时合成多条肽链及产量，没有说明各肽链的序列是否相同，也不足以据此断定多核糖体不改变每条肽链的序列；需补充支持序列关系的来源或删除此句。"
+        ],
+        "support_summary": "src_p62_0_387_2232c69883a4；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_f7e0f2c6d8b4d9dd",
+        "failed_components": [
+          "explanation"
+        ],
+        "components": {
+          "explanation": {
+            "source_entailment": false,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p61_0_350_60adad10c52e；src_p62_0_387_2232c69883a4；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_ac295e912ea66413",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p59_466_685_765b60d35650；src_p70_0_436_2b4f2b099fb1；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_46253f72a986db6c",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p65_0_481_371dc5be62b8；src_p71_478_729_56f313a3ece0；src_p66_0_489_6750f559b21e；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_1470b66b433404af",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": false,
+        "source_entailment": false,
+        "scope_exceptions": true,
+        "issues": [
+          "kp_a9e36b6f0861c03e.explanation: 本组件引用的原文可支持环境温度影响果蝇性状，但没有陈述后天营养和体育锻炼的作用；须增引载有该事实的来源，或改用已引用的果蝇实例。",
+          "kp_a9e36b6f0861c03e.flashcard: 身高、营养和体育锻炼的具体关系及‘一般是基因与环境共同作用’均未见于本闪卡所引原文；须加入实际陈述这些关系的来源，或改为已有引用支持的实例及结论。",
+          "kp_a9e36b6f0861c03e.practice: 本练习所引原文未陈述身高的多基因关系，也未陈述营养、体育锻炼对身高的作用；须增引载有这些事实的来源，或换用已引用的果蝇温度实例。"
+        ],
+        "support_summary": "src_p56_0_255_dd0ee7c58a12；src_p66_0_489_6750f559b21e；程序汇总各组件独立原文证明与范围判定；；；",
+        "point_id": "kp_a9e36b6f0861c03e",
+        "failed_components": [
+          "explanation",
+          "flashcard",
+          "practice"
+        ],
+        "components": {
+          "explanation": {
+            "source_entailment": false,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": false,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": false,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p63_45_545_8eebbc24cf3b；src_p64_0_483_4d5b9d076f35；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；明确区分新增途径与保留的原有途径，并保留蛋白质不能流向核酸的限制。；答案明确保留原有途径及蛋白质不能流向核酸的限制。；题设中的酶及其作用有据，答案和评分点均将变化限定为扩展。",
+        "point_id": "kp_20301305a1b8dff7",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p64_483_966_2bd366071914；src_p65_0_481_371dc5be62b8；src_p66_0_489_6750f559b21e；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；实例、另一控制方式及多基因限制均有相应依据。；所举实例和两项范围限制均由闪卡自身引用支持。；豌豆实例及CFTR实例均有依据；多基因限制也获本组件引用支持。",
+        "point_id": "kp_f31a91f60999a100",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p58_0_475_34fb0b8a9bf8；src_p58_475_739_b7fafce0a584；src_p65_481_937_6cef31f84b66；程序汇总各组件独立原文证明与范围判定；细胞核内转录的机制有据，同时明确说明细胞器内也能转录。；模板、产物及细胞器例外均有据，答案没有将场所限定为仅细胞核。；题干引用错误说法供辨析；答案与评分点正确区分单链模板和细胞器转录。",
+        "point_id": "kp_0d811232f25fadef",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      },
+      {
+        "accepted": true,
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "issues": [],
+        "support_summary": "src_p59_0_466_4632b3631f7d；src_p62_0_387_2232c69883a4；程序汇总各组件独立原文证明与范围判定；定义、信息转换和沿mRNA读取至终止密码的过程均有本项引文支持；已明确合成的终止情形。；模板、产物、实质和读取终止密码时结束，均获闪卡自身引文支持。；题干要求判断的无限合成说法被答案否定；模板、实质、逐个读取和终止条件均由本题引文支持，评分点与答案一致。",
+        "point_id": "kp_6af0f7754dfe4239",
+        "failed_components": [],
+        "components": {
+          "explanation": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "flashcard": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          },
+          "practice": {
+            "source_entailment": true,
+            "scope_exceptions": true,
+            "findings": []
+          }
+        }
+      }
+    ],
+    "lesson": {
+      "accepted": false,
+      "source_entailment": false,
+      "scope_exceptions": false,
+      "issues": [
+        "lesson.opening: 本组件所引来源说明细胞核中的DNA参与转录，但未说明DNA主要存在于细胞核中；需补充直接支持这一分布判断的来源，或删去“主要”。",
+        "lesson.summary: 将转录的位置无条件限定为细胞核；同章说明线粒体和叶绿体中的DNA也能够转录。应限定为细胞核内的转录，或同时说明细胞质基因的情形。",
+        "lesson.summary: 不能概括为每组相邻碱基都决定氨基酸：同章明确有终止密码，读取到它时肽链合成终止。应将决定氨基酸的表述限定于编码氨基酸的密码子。",
+        "lesson.summary: 本组件所引原文没有给出这三项阅读规则；应加入直接陈述该规则的src_p70_0_436_2b4f2b099fb1，或删除此句。",
+        "lesson.summary: 当前断言作一般性质或过程概括，已有同类反例而未限缩。需处理原文边界：线粒体和叶绿体中的DNA也能进行转录和翻译控制某些蛋白质合成",
+        "lesson.example_1: 给出的九个碱基只是DNA链的一个片段，未指定该片段是否从密码子的阅读起点开始；不能仅凭9÷3断定片段包含三个完整密码子。",
+        "lesson.example_1: 九个碱基可分为三组，并不足以证明所给片段恰好从固定阅读起点开始、包含三个完整密码子；题设没有给出阅读起点。",
+        "lesson.example_1: 当前断言作一般性质或过程概括，已有同类反例而未限缩。需处理原文边界：遗传密码从一个固定的起点开始，以非重叠的方式阅读，编码之间没有分隔符",
+        "lesson.example_1: 当前断言作一般性质或过程概括，已有同类反例而未限缩。需处理原文边界：遗传密码从一个固定的起点开始，以非重叠的方式阅读，编码之间没有分隔符",
+        "lesson.example_2: 基因发生改变不必然意味着改变发生于可遗传给后代的细胞；所引实验也未证明任何翅型基因改变都应传给后代。应删除这一必然推断，或另行限定为可遗传的改变。"
+      ],
+      "support_summary": "src_p58_0_475_34fb0b8a9bf8；src_p59_0_466_4632b3631f7d；src_p56_0_255_dd0ee7c58a12；src_p57_444_712_fcabc5cd6a65；src_p59_466_685_765b60d35650；src_p63_45_545_8eebbc24cf3b；src_p64_0_483_4d5b9d076f35；src_p64_483_966_2bd366071914；src_p65_0_481_371dc5be62b8；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p56_0_255_dd0ee7c58a12；src_p57_444_712_fcabc5cd6a65；src_p58_0_475_34fb0b8a9bf8；src_p58_475_739_b7fafce0a584；src_p59_0_466_4632b3631f7d；src_p59_466_685_765b60d35650；src_p61_0_350_60adad10c52e；src_p62_0_387_2232c69883a4；src_p63_45_545_8eebbc24cf3b；src_p64_0_483_4d5b9d076f35；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p58_0_475_34fb0b8a9bf8；src_p59_466_685_765b60d35650；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p66_0_489_6750f559b21e；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p64_0_483_4d5b9d076f35；src_p63_45_545_8eebbc24cf3b；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p62_0_387_2232c69883a4；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p64_483_966_2bd366071914；src_p65_0_481_371dc5be62b8；src_p71_478_729_56f313a3ece0；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。；src_p59_466_685_765b60d35650；src_p70_0_436_2b4f2b099fb1；程序汇总各组件独立原文证明与范围判定；程序逐条核对当前组件全部断言的自身原文证明及每个全章边界；具体语义判断保留于逐断言审校记录。",
+      "components": {
+        "opening": {
+          "source_entailment": false,
+          "scope_exceptions": true,
+          "findings": []
+        },
+        "summary": {
+          "source_entailment": false,
+          "scope_exceptions": false,
+          "findings": []
+        },
+        "example_1": {
+          "source_entailment": false,
+          "scope_exceptions": false,
+          "findings": []
+        },
+        "example_2": {
+          "source_entailment": false,
+          "scope_exceptions": true,
+          "findings": []
+        },
+        "example_3": {
+          "source_entailment": true,
+          "scope_exceptions": true,
+          "findings": []
+        },
+        "checkpoint_1": {
+          "source_entailment": true,
+          "scope_exceptions": true,
+          "findings": []
+        },
+        "checkpoint_2": {
+          "source_entailment": true,
+          "scope_exceptions": true,
+          "findings": []
+        },
+        "checkpoint_3": {
+          "source_entailment": true,
+          "scope_exceptions": true,
+          "findings": []
+        }
+      }
+    }
+  },
+  "teacher_review": {
+    "accepted": false,
+    "issues": [
+      "explanation kp_e54a48da99a35e27：由残翅果蝇在正常温度下产生的后代仍为长翅，不能断定高温处理“并未改变遗传物质”。可改为：实验表明温度能影响性状表现，但不足以证明翅型基因发生改变。",
+      "practice kp_e54a48da99a35e27：参考答案同样将后代为长翅推断为“遗传物质并未因此改变”，结论过强；保留“不能据此断定基因已改变”即可。",
+      "practice kp_876deca6f6081f84：题干只要求判断“都是单链且都较短”是否准确，并说明五碳糖和碱基区别。评分点“指出两者均由核苷酸构成并可储存遗传信息”不是完成题目所必需，应删除。",
+      "practice kp_f31a91f60999a100：题干要求说明豌豆实例的途径，并判断能否据此推出“只通过控制酶的合成”。指出还有控制蛋白质结构的途径已足以回答；评分点中的“需保留多基因协同的限制”是额外要求，应删除。",
+      "lesson.reading_source_ids：opening 所说“DNA主要存在于细胞核中，而蛋白质的合成在细胞质中进行”见 src_p57_0_444_6b143d08d3ab；summary 所说遗传密码从固定起点非重叠阅读、编码间无分隔符见 src_p70_0_436_2b4f2b099fb1。这两项来源均未列入实际阅读列表，应补入以支撑相应断言。",
+      "lesson.worked_examples[0]：只给出 DNA 片段和转录模板，未给出密码子的阅读起点，不能仅凭9个碱基就断定该片段包含3个完整密码子。可在题设明确这段 mRNA 从密码子阅读起点开始，再划分并计数。",
+      "lesson.worked_examples[1]：第二步断言“若翅型基因已经改变，这种改变应能随生殖传递给后代”，据此利用后代长翅排除基因改变，推理不成立。删除该必然遗传的前提，结论限于现有结果不足以证明基因改变。",
+      "lesson.checkpoints[0]：与 practice_8793ec2a508171c99c49_5 的题设、作答目标和答案实质相同。应改为有独立作答目标的检查题。",
+      "lesson.checkpoints[1]：题干已给出两例，最小充分答案是分别指出两条控制途径，并否定“只通过酶”的结论。参考答案末尾的多基因及环境限制并非本题所问，可删去。",
+      "lesson.checkpoints[2]：与 practice_8793ec2a508171c99c49_7 的题设和作答目标实质相同，应换成不同的检查题。"
+    ],
+    "points": [
+      {
+        "point_id": "kp_e54a48da99a35e27",
+        "explanation_ok": false,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": false,
+        "issues": [
+          "explanation：后代在正常温度下为长翅，不足以证明亲代遗传物质未改变；将该句改为不能据此断定翅型基因发生改变。",
+          "practice：参考答案中“说明其遗传物质并未因此改变”超出了实验结果所能支持的结论；改为现有证据不足以断定基因改变。",
+          "practice_practice_8793ec2a508171c99c49_1 题目的最小充分答案为：不合理。幼虫经高温处理后出现残翅，只能说明温度改变了翅型的表现，不能据此断定翅型基因发生改变。性状由基因和环境共同作用形成，相同基因型在不同环境下也可能表现出不同性状。。评分第1项“指出该推论不合理，残翅果蝇后代在正常温度下仍为长翅”（题干定位“请判断这一推论是否合理，并说明理由”、待改子句“残翅果蝇后代在正常温度下仍为长翅”）：判断推论不合理是必答，但题目没有给出或要求预测后代的实验结果。仅凭高温影响性状表现，就能完整说明不能断定基因改变。。省略该要求仍完整作答的反例：不合理。高温处理后出现残翅，表明环境能影响翅型表现，不能仅凭这一现象认定翅型基因发生了改变。性状是基因与环境共同作用的结果。。修复：拆分评分点，保留“不合理”的判断；删去必须说明后代在正常温度下仍为长翅的要求。；评分第4项“指出基因与性状不都是简单一一对应，有些性状由多个基因决定”（题干定位“再据此说明基因、环境与性状之间的关系”、待改子句“有些性状由多个基因决定”）：题目聚焦温度对翅型表现的影响，并未询问性状涉及多少基因；省略多基因性状知识仍能答全两问。。省略该要求仍完整作答的反例：不合理。高温使幼虫表现为残翅，不足以证明翅型基因改变；环境可以影响基因所决定性状的表现。性状由基因和环境共同作用形成。。修复：删去基因与性状并非一一对应及多基因决定性状的要求；若要考查，应在题干另行明确提问。"
+        ]
+      },
+      {
+        "point_id": "kp_876deca6f6081f84",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice：删除与题干作答目标无关的“均由核苷酸构成并可储存遗传信息”强制评分点。",
+          "practice_practice_8793ec2a508171c99c49_2 题目的最小充分答案为：不准确。“都”过于绝对：RNA通常为单链，但也有双链RNA；RNA通常较短，不能断言每条RNA都比每条DNA短。RNA含核糖，DNA含脱氧核糖；RNA通常含A、U、G、C，DNA含A、T、G、C。。评分第4项“指出两者均由核苷酸构成并可储存遗传信息”（题干定位“并说明RNA与DNA在五碳糖和碱基组成上的区别”、待改子句“两者均由核苷酸构成并可储存遗传信息”）：题目要判断链数和长度的绝对表述，并比较五碳糖、碱基；不要求说明共同构成单位或遗传信息功能。。省略该要求仍完整作答的反例：不准确：RNA通常是单链，但存在双链RNA；也不能说所有RNA都比所有DNA短。RNA的五碳糖是核糖，碱基通常为A、U、G、C；DNA的是脱氧核糖，碱基为A、T、G、C。。修复：删去“两者均由核苷酸构成并可储存遗传信息”；若要评分这些共同点，应在题干增加相应问题。"
+        ]
+      },
+      {
+        "point_id": "kp_99f5c72053bacb73",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_3 题目的最小充分答案为：不恰当。某些RNA病毒能以RNA为模板合成DNA，说明中心法则需要补充RNA→DNA这一途径，而不是推翻原有的DNA→DNA及DNA→RNA→蛋白质等信息流向。修改后的中心法则扩展了原初中心法则，原有途径仍然成立。。评分第2项“准确写出克里克原初中心法则的两条主要流向”（题干定位“说明修改后的中心法则与克里克原初中心法则的关系”、待改子句“准确写出克里克原初中心法则的两条主要流向”）：说明原有途径仍保留即可交代二者关系，不必以“两条主要流向”的形式另行完整写出原初法则。。省略该要求仍完整作答的反例：不恰当。RNA→DNA是后来补充的信息流向；修改后的中心法则扩展了原初法则，原初法则所描述的信息传递途径并未因此失效。。修复：删去独立写出原初中心法则两条流向的要求，改为评判是否说明新增途径是扩展而非否定原有途径。；评分第3项“指出补充的是RNA→RNA和RNA→DNA两条途径”（题干定位“说明修改后的中心法则与克里克原初中心法则的关系”、待改子句“RNA→RNA和RNA→DNA两条途径”）：题干仅以RNA为模板合成DNA为依据，说明RNA→DNA是补充途径已足以解释为何不是推翻；未要求列全其他补充途径。。省略该要求仍完整作答的反例：不恰当。RNA病毒以RNA为模板合成DNA，表明修改后的中心法则补充了RNA→DNA的信息流向；这并不否定原初法则中DNA复制以及DNA经RNA指导蛋白质合成的途径。。修复：将本项缩减为根据题干事实指出RNA→DNA是补充途径；删去必须同时列举RNA→RNA的要求。"
+        ]
+      },
+      {
+        "point_id": "kp_ce650dd4c9ab597b",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_4 题目的最小充分答案为：一种tRNA只能携带与其对应的一种氨基酸，反密码子配对并不意味着翻译会无限持续。携带氨基酸的tRNA依密码子进入核糖体，与已有肽链形成肽键；核糖体沿mRNA移动，空载tRNA离开，循环延伸，直到遇到终止密码子，肽链合成结束。。评分第3项“说明核糖体与mRNA结合部位形成2个tRNA结合位点”（题干定位“简述tRNA参与肽链合成的过程”、待改子句“形成2个tRNA结合位点”）：简述tRNA参与肽链合成，可以用进位、形成肽键、移位和离开来完成；结合位点的具体数目并非题目所问或必需推导。。省略该要求仍完整作答的反例：每种tRNA只携带一种对应氨基酸。携带氨基酸的tRNA按反密码子与密码子配对进入核糖体，氨基酸接入肽链；核糖体移位后空载tRNA离开。遇到终止密码子时翻译结束，不会一直配对延伸。。修复：删去“形成2个tRNA结合位点”这一独立得分要求；可改为考查tRNA配对进入、肽键形成及移位离开的过程。"
+        ]
+      },
+      {
+        "point_id": "kp_f7e0f2c6d8b4d9dd",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_5 题目的最小充分答案为：这种理解不对：一个mRNA可以结合多个核糖体，不等于所有mRNA必然如此；翻译速度也不是一律每秒15个氨基酸，它会随生物和条件而变化。多核糖体使同一mRNA同时合成多条肽链，提高蛋白质合成效率，使少量mRNA也能较快产出大量蛋白质。。评分第2项“指出每秒约15个氨基酸是37℃细菌细胞内的近似值”（题干定位“翻译速度都是每秒15个氨基酸”、待改子句“是37℃细菌细胞内的近似值”）：评价速度“一律每秒15个”只需说明翻译速率随生物与条件变化；37℃细菌细胞这一具体数值出处并非必答。。省略该要求仍完整作答的反例：不能把“一个mRNA可以结合多个核糖体”理解为所有mRNA必然如此；翻译速度也随生物种类和环境条件改变，并非统一为每秒15个氨基酸。多个核糖体同时翻译同一mRNA，能提高合成效率，使少量mRNA较快产生大量蛋白质。。修复：删去必须交代“37℃细菌细胞内的近似值”的限定，改为要求指出每秒15个氨基酸不是所有翻译情形的固定速度。；评分第4项“得出少量mRNA即可迅速合成大量蛋白质的结论”（题干定位“说明多核糖体翻译的意义”、待改子句“少量mRNA即可迅速合成大量蛋白质”）：说明多个核糖体能同时利用同一mRNA、提高合成效率，已完整回答意义；无需另行给出少量mRNA迅速合成大量蛋白质这一结论。。省略该要求仍完整作答的反例：一个mRNA可以结合多个核糖体，不表示每个mRNA必然如此；每秒15个氨基酸也不是各种生物和条件下的统一速率。多核糖体让多个核糖体同时翻译同一mRNA，因此提高了蛋白质合成效率。。修复：删去“少量mRNA即可迅速合成大量蛋白质”的独立得分要求；保留同时翻译同一mRNA及提高效率即可。"
+        ]
+      },
+      {
+        "point_id": "kp_ac295e912ea66413",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_6 题目的最小充分答案为：应是核糖体沿mRNA移动并依次读取密码子，而非mRNA沿核糖体移动。携带氨基酸的tRNA按密码子进入核糖体，氨基酸通过肽键接入肽链，随后核糖体移位以读取下一个密码子；遇到终止密码子时，翻译终止并释放肽链，不会一直延伸。。评分第3项“描述tRNA进入位点、肽键形成后核糖体移动的过程”（题干定位“正确描述核糖体读取密码子及肽链终止的过程”、待改子句“tRNA进入位点、肽键形成后核糖体移动”）：题目要求正确描述核糖体如何读取密码子和肽链如何终止；可以通过核糖体逐密码子移位及终止因子作用回答，不必描述tRNA进位和肽键形成。。省略该要求仍完整作答的反例：不是mRNA沿核糖体移动，而是核糖体沿mRNA逐个读取密码子，每读取一个密码子便继续向下一个密码子移位。读到终止密码子时，终止因子促使翻译结束并释放肽链，因此肽链不会无限延伸。。修复：删去必须描述“tRNA进入位点、肽键形成”的要求；仅要求说明核糖体沿mRNA依次读取、移位及遇终止密码子结束。；评分第4项“说明位点1与位点2中tRNA的移位关系”（题干定位“正确描述核糖体读取密码子及肽链终止的过程”、待改子句“位点1与位点2中tRNA的移位关系”）：位点编号和两处tRNA的具体移位关系不是正确说明读取方向与终止条件所必需；省略后仍能完整纠正原说法。。省略该要求仍完整作答的反例：核糖体沿mRNA移动，按顺序逐个读取密码子，而不是mRNA沿核糖体移动。翻译随核糖体向下一个密码子移位而推进；当核糖体读到终止密码子，翻译结束，肽链被释放。。修复：删去“位点1与位点2中tRNA的移位关系”的独立要求；如要考查位点间移位，应在题目中明确提出。"
+        ]
+      },
+      {
+        "point_id": "kp_46253f72a986db6c",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_7 题目的最小充分答案为：遗传密码按固定起点连续读取，每三个相邻碱基构成一个密码子，各组不重叠。若改从第二个碱基开始，三联体组合就会改变，所对应的氨基酸也可能改变，不能直接沿用原来的推断。。评分第2项“指出阅读从固定起点开始且为非重叠阅读、编码间无分隔符”（题干定位“如果改从第二个碱基开始划分，为什么不能直接沿用原来的推断”、待改子句“编码间无分隔符”）：固定起点和非重叠分组有助于解释换起点的影响；但即使不说明编码间无分隔符，也能完整回答两问，因此整条不能作为必答。。省略该要求仍完整作答的反例：遗传密码从确定的起点按不重叠的三碱基密码子读取，每个密码子对应一种氨基酸或终止信号。改从第二个碱基分组会得到不同的密码子序列，因而不能直接照搬原来的氨基酸推断。。修复：删去“编码间无分隔符”，保留固定起点和非重叠阅读；若希望考查无分隔符，应在题干中另行明确提问。"
+        ]
+      },
+      {
+        "point_id": "kp_1470b66b433404af",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_8 题目的最小充分答案为：CFTR基因缺失使蛋白质少了一个氨基酸，改变其结构及氯离子转运功能，说明基因可通过影响蛋白质结构影响性状。果蝇在高温下出现残翅、正常温度下的后代仍为长翅，说明环境温度也会影响性状表现。不能由CFTR这一个实例推断所有性状都由单个基因直接决定。。评分第3项“指出不能推出所有性状均由单个基因直接决定，需保留多基因与环境共同作用的限制”（题干定位“并指出不能由第一个实例推出什么结论”、待改子句“需保留多基因与环境共同作用的限制”）：题目要求指出不能从单个CFTR实例推广到所有性状；明确这一点即可，额外要求说明多基因与环境共同作用并非完成该问所必需。。省略该要求仍完整作答的反例：CFTR基因缺失改变蛋白质结构和氯离子转运功能，体现基因可通过蛋白质结构影响性状。果蝇高温时出现残翅、正常温度下后代为长翅，说明温度会影响性状表现。不能仅凭CFTR这一例就断言所有性状都由单个基因直接决定。。修复：将“不能推出所有性状均由单个基因直接决定”单列为评分点；删除必须说明“多基因与环境共同作用”的附加要求。"
+        ]
+      },
+      {
+        "point_id": "kp_a9e36b6f0861c03e",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_9 题目的最小充分答案为：不准确。基因指导蛋白质合成可以影响性状，但性状并非完全由基因决定，环境因素也能影响其表现，例如营养条件会影响身高。因此不能由基因表达推出一个人的性状完全由基因决定。。评分第1项“正确表述基因表达是基因指导蛋白质合成来控制性状”（题干定位“既然基因的表达就是基因指导蛋白质合成来控制性状”、待改子句“正确表述基因表达是基因指导蛋白质合成来控制性状”）：这一表述已经由题干中的同学给出；回答可以直接承认基因影响性状，再以环境影响反驳结论，无须单独复述该定义。。省略该要求仍完整作答的反例：不准确。基因会影响人的性状，但不能单凭这一点断定性状完全由基因决定。例如营养状况会影响身高的表现，因此同学的推论不成立。。修复：删除独立复述基因表达定义的得分要求；只考查是否正确判断推论，并说明基因之外的环境因素也影响性状。"
+        ]
+      },
+      {
+        "point_id": "kp_20301305a1b8dff7",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_10 题目的最小充分答案为：RNA复制和逆转录分别补充了RNA→RNA、RNA→DNA的信息传递途径。中心法则因此得到扩展，原有的DNA复制以及DNA→RNA→蛋白质途径并未失效，所以“中心法则已被推翻”不正确。。评分第2项“说明原有DNA→DNA、DNA→RNA→蛋白质途径仍保留”（题干定位“并判断“中心法则已被推翻”这一说法是否正确”、待改子句“原有DNA→DNA、DNA→RNA→蛋白质途径仍保留”）：判断并解释并未推翻，说明新增途径与原有信息传递规律相容即可；不必逐条列出原有两条途径。。省略该要求仍完整作答的反例：RNA复制对应RNA→RNA，逆转录对应RNA→DNA，它们扩展了中心法则允许的信息传递方向，并不否定原有规律。因此，“中心法则已被推翻”的说法不正确。。修复：删去必须逐项写出DNA→DNA和DNA→RNA→蛋白质的要求；可要求说明新增途径并不否定原有规律。"
+        ]
+      },
+      {
+        "point_id": "kp_f31a91f60999a100",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice：删除“需保留多基因协同的限制”这一额外强制评分要求；题目只需借另一条基因控制性状的途径否定“只通过酶”。",
+          "practice_practice_8793ec2a508171c99c49_11 题目的最小充分答案为：外来序列破坏相关基因，使淀粉分支酶无法合成，淀粉合成受影响、游离蔗糖增加，最终成熟豌豆失水皱缩。这说明基因可通过控制酶的合成影响代谢，进而控制性状；不能据此断言基因只通过这一途径控制性状，单个例子不能排除其他途径。。评分第2项“指出基因还可通过控制蛋白质结构直接控制性状”（题干定位“指出能否由此得出“基因只通过控制酶的合成来控制性状””、待改子句“通过控制蛋白质结构直接控制性状”）：否定“只通过控制酶的合成”可以指出该实例不能证明途径具有排他性；题目未要求列举另一条具体途径。。省略该要求仍完整作答的反例：基因受外来序列插入而失去正常功能，导致淀粉分支酶不能合成，淀粉减少、蔗糖增多，成熟时失水皱缩。这表明基因可经控制酶的合成影响代谢和性状；不能从这一个实例推出所有基因都只能以此方式控制性状。。修复：删去必须举出“控制蛋白质结构直接控制性状”的要求；仅要求判断该实例不能证明酶合成途径具有唯一性。；评分第3项“指出不能把该途径扩展为控制所有性状，需保留多基因协同的限制”（题干定位“指出能否由此得出“基因只通过控制酶的合成来控制性状””、待改子句“需保留多基因协同的限制”）：不能将本例途径推及所有性状是必要判断，但多基因协同并非回答“是否只通过酶合成”所必需，整条合取要求过多。。省略该要求仍完整作答的反例：插入序列破坏了淀粉分支酶基因，使酶不能合成，进而改变淀粉和蔗糖含量，导致成熟时皱缩。该例说明基因可通过控制酶的合成影响代谢和性状，但不足以推出这是基因控制性状的唯一途径。。修复：拆开评分点，保留不得由个例推断所有基因只经酶合成控制性状；删去必须说明多基因协同的限制。"
+        ]
+      },
+      {
+        "point_id": "kp_0d811232f25fadef",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_12 题目的最小充分答案为：错在把DNA双链都当作模板，以及断言转录只在细胞核内发生。转录以DNA双链中的一条链为模板合成RNA；除细胞核外，线粒体和叶绿体中也可发生转录。。评分第2项“指出转录不只发生在细胞核，线粒体和叶绿体DNA也能转录”（题干定位“并且只发生在细胞核内”、待改子句“线粒体和叶绿体DNA也能转录”）：必须纠正“只发生在细胞核内”，但不必同时列举线粒体和叶绿体；一个准确的核外转录例子已足以改正绝对化表述。。省略该要求仍完整作答的反例：模板不是DNA双链同时参与，而是其中一条链；转录以该链为模板合成RNA。转录也不只发生在细胞核，例如线粒体DNA能在线粒体中转录。。修复：保留“转录不只发生在细胞核”的要求；将同时列举线粒体和叶绿体改为举出一个正确的核外转录场所即可。；评分第3项“给出改正后的完整表述”（题干定位“请指出其中的错误并改正”、待改子句“给出改正后的完整表述”）：逐项指出两处错误并分别给出正确说法，已经完整回答“指出错误并改正”；无需额外重写成一条完整定义。。省略该要求仍完整作答的反例：“DNA双链为模板”有误，应是DNA双链中的一条链充当模板；“只发生在细胞核内”也有误，线粒体和叶绿体中同样可以发生转录。。修复：删去另写一段完整表述的独立要求；接受逐处指出错误并给出对应正确说法的回答。"
+        ]
+      },
+      {
+        "point_id": "kp_6af0f7754dfe4239",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_8793ec2a508171c99c49_13 题目的最小充分答案为：这一说法不完全准确。翻译以mRNA为模板，实质是按mRNA的碱基序列确定氨基酸的排列顺序，合成多肽链。核糖体读到mRNA上的终止密码子时，肽链合成终止，并不会一直合成下去。。评分第1项“指出翻译以mRNA为模板、产物是具有一定氨基酸顺序的蛋白质”（题干定位“说明翻译的模板、实质以及合成在什么情况下终止”、待改子句“产物是具有一定氨基酸顺序的蛋白质”）：题目要求说明模板和翻译实质，但不要求把产物表述为“蛋白质”；说明依照碱基序列合成具有特定顺序的多肽链，已能完整作答。。省略该要求仍完整作答的反例：说法不完全准确。翻译以mRNA为模板，实质是将其碱基序列对应为氨基酸的排列顺序并合成多肽链。核糖体读到mRNA上的终止密码子时，合成就会停止。。修复：拆开合取要求：保留“以mRNA为模板”；将产物部分改为可接受“按一定氨基酸顺序合成多肽链”，不强制称为蛋白质。"
+        ]
+      }
+    ],
+    "lesson": {
+      "reading_ok": false,
+      "examples_ok": false,
+      "checkpoints_ok": false,
+      "evidence_ok": false,
+      "issues": [
+        "lesson.reading_source_ids：补入 src_p57_0_444_6b143d08d3ab 和 src_p70_0_436_2b4f2b099fb1，分别支撑 opening 的细胞核与细胞质断言，以及 summary 的遗传密码阅读规则。",
+        "lesson.worked_examples[0]：明确给定密码子阅读起点后，才能从这段9碱基片段得出“3个密码子”。",
+        "lesson.worked_examples[1]：删除“基因改变应能随生殖传递给后代”的必然性前提；依据实验只能判断基因改变尚未得到证明。",
+        "lesson.checkpoints[0]：与第5项练习重复，需另设检查题。",
+        "lesson.checkpoints[1]：删去参考答案中题干未要求的多基因和环境限制。",
+        "lesson.checkpoints[2]：与第7项练习重复，需另设检查题。"
+      ]
+    }
+  },
+  "inputs": [
+    {
+      "point_id": "kp_e54a48da99a35e27",
+      "label": "基因与性状之间并不都是简单的一一对应关系，有些性状由多个基因共同决定，性状还受环境影响。",
+      "card_id": "card_8793ec2a508171c99c49_1",
+      "item_id": "practice_8793ec2a508171c99c49_1",
+      "point_source_ids": [
+        "src_p65_514_1014_020b2a0813b5",
+        "src_p65_481_937_6cef31f84b66",
+        "src_p71_478_729_56f313a3ece0"
+      ],
+      "scope_context_source_ids": [
+        "src_p66_0_489_6750f559b21e",
+        "src_p64_483_966_2bd366071914",
+        "src_p63_0_471_286b45930c0c"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "exception",
+          "condition": "人的身高不完全由基因决定，后天营养和体育锻炼等也有重要作用",
+          "scope_effect": "省略此条件会把“基因与性状不都是一一对应”窄化为仅多基因决定，忽略环境因素对性状的作用。",
+          "source_ids": [
+            "src_p65_481_937_6cef31f84b66",
+            "src_p65_514_1014_020b2a0813b5"
+          ]
+        },
+        {
+          "boundary_type": "quantifier",
+          "condition": "有些性状由多个基因共同决定，有的基因可决定或影响多种性状",
+          "scope_effect": "省略“有些/有的”会误把多基因决定或一因多效说成所有性状的普遍情形。",
+          "source_ids": [
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        },
+        {
+          "boundary_type": "exception",
+          "condition": "长翅果蝇幼虫在35-37℃处理后可出现残翅，正常温度下产生的后代仍为长翅",
+          "scope_effect": "省略此温度处理实例会削弱“性状还受环境影响”的证据，把基因决定性状绝对化。",
+          "source_ids": [
+            "src_p66_0_489_6750f559b21e"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_876deca6f6081f84",
+      "label": "RNA与DNA相比，五碳糖是核糖，碱基中无T而含U，一般为单链且比DNA短。",
+      "card_id": "card_8793ec2a508171c99c49_2",
+      "item_id": "practice_8793ec2a508171c99c49_2",
+      "point_source_ids": [
+        "src_p57_444_712_fcabc5cd6a65",
+        "src_p58_0_475_34fb0b8a9bf8"
+      ],
+      "scope_context_source_ids": [
+        "src_p62_387_819_3757ca626a14",
+        "src_p63_45_545_8eebbc24cf3b",
+        "src_p71_478_729_56f313a3ece0"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "quantifier",
+          "condition": "RNA一般是单链，而且比DNA短",
+          "scope_effect": "省略“一般”会把单链、较短说成所有RNA的必然属性，排除存在其他结构或长度的RNA。",
+          "source_ids": [
+            "src_p58_0_475_34fb0b8a9bf8"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_99f5c72053bacb73",
+      "label": "克里克提出中心法则：遗传信息可从DNA流向DNA，也可从DNA流向RNA进而流向蛋白质，但不能从蛋白质流向核酸。",
+      "card_id": "card_8793ec2a508171c99c49_3",
+      "item_id": "practice_8793ec2a508171c99c49_3",
+      "point_source_ids": [
+        "src_p63_45_545_8eebbc24cf3b"
+      ],
+      "scope_context_source_ids": [
+        "src_p71_478_729_56f313a3ece0",
+        "src_p63_0_471_286b45930c0c",
+        "src_p64_0_483_4d5b9d076f35"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "process_scale",
+          "condition": "修改后的中心法则补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径",
+          "scope_effect": "省略此后续补充会把克里克1957年原初中心法则当作完整结论，忽略RNA复制和逆转录两条信息流向。",
+          "source_ids": [
+            "src_p71_478_729_56f313a3ece0",
+            "src_p64_0_483_4d5b9d076f35"
+          ]
+        },
+        {
+          "boundary_type": "direction",
+          "condition": "遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA",
+          "scope_effect": "省略此方向性限制会误以为蛋白质可反向传递遗传信息给核酸或蛋白质。",
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_ce650dd4c9ab597b",
+      "label": "tRNA一端携带氨基酸，另一端有3个碱基组成的反密码子，可与mRNA上的密码子互补配对。",
+      "card_id": "card_8793ec2a508171c99c49_4",
+      "item_id": "practice_8793ec2a508171c99c49_4",
+      "point_source_ids": [
+        "src_p61_0_350_60adad10c52e"
+      ],
+      "scope_context_source_ids": [
+        "src_p62_0_387_2232c69883a4",
+        "src_p61_350_617_5338e6acd0cc",
+        "src_p60_468_790_acde685522bc"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "process_scale",
+          "condition": "核糖体与mRNA结合部位形成2个tRNA结合位点，tRNA按位点进入、肽键形成后离开",
+          "scope_effect": "省略此过程尺度会把反密码子与密码子配对说成脱离核糖体位点的静态结合，忽略延伸的动态步骤。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p61_350_617_5338e6acd0cc"
+          ]
+        },
+        {
+          "boundary_type": "quantifier",
+          "condition": "每种tRNA只识别并转运一种氨基酸",
+          "scope_effect": "省略“每种只一种”会误以为tRNA可携带多种氨基酸，扩大其转运对象。",
+          "source_ids": [
+            "src_p60_468_790_acde685522bc"
+          ]
+        },
+        {
+          "boundary_type": "process_scale",
+          "condition": "肽链合成沿mRNA不断进行，直至读取到终止密码才终止",
+          "scope_effect": "省略终止条件会误以为tRNA与密码子配对和肽链延伸可无终止地持续。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4",
+            "src_p61_350_617_5338e6acd0cc"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_f7e0f2c6d8b4d9dd",
+      "label": "一个mRNA分子上可相继结合多个核糖体同时合成多条肽链，少量mRNA即可迅速合成大量蛋白质。",
+      "card_id": "card_8793ec2a508171c99c49_5",
+      "item_id": "practice_8793ec2a508171c99c49_5",
+      "point_source_ids": [
+        "src_p62_0_387_2232c69883a4"
+      ],
+      "scope_context_source_ids": [
+        "src_p61_350_617_5338e6acd0cc",
+        "src_p69_450_867_5b7ef2503488",
+        "src_p66_0_489_6750f559b21e"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "quantifier",
+          "condition": "原文用“通常”限定：一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成",
+          "scope_effect": "省略“通常”会把多核糖体同时翻译说成所有mRNA的普遍必然情形，扩大了命题的适用范围。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        {
+          "boundary_type": "process_scale",
+          "condition": "在37℃时，细菌细胞内合成肽链的速度约为每秒连接15个氨基酸",
+          "scope_effect": "该速度是特定温度下细菌细胞内的近似值，省略温度与细胞类型会把“迅速合成大量蛋白质”误作无条件的精确速率。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_ac295e912ea66413",
+      "label": "核糖体沿mRNA移动读取密码子，肽链合成直至读取到终止密码才终止。",
+      "card_id": "card_8793ec2a508171c99c49_6",
+      "item_id": "practice_8793ec2a508171c99c49_6",
+      "point_source_ids": [
+        "src_p61_0_350_60adad10c52e",
+        "src_p62_0_387_2232c69883a4"
+      ],
+      "scope_context_source_ids": [
+        "src_p61_350_617_5338e6acd0cc",
+        "src_p71_0_478_0944c44b2b7e",
+        "src_p73_0_496_45ea62b18172"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "direction",
+          "condition": "核糖体沿着mRNA移动，读取下一个密码子",
+          "scope_effect": "省略移动方向会把翻译说成mRNA移动或方向不明，改变对核糖体读取顺序的描述。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p62_0_387_2232c69883a4"
+          ]
+        },
+        {
+          "boundary_type": "process_scale",
+          "condition": "上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止",
+          "scope_effect": "省略终止密码这一终止情形，会把肽链合成描述为无明确终点的持续过程。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4",
+            "src_p61_350_617_5338e6acd0cc"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_46253f72a986db6c",
+      "label": "mRNA上3个相邻的碱基决定1个氨基酸，每3个这样的碱基称为1个密码子。",
+      "card_id": "card_8793ec2a508171c99c49_7",
+      "item_id": "practice_8793ec2a508171c99c49_7",
+      "point_source_ids": [
+        "src_p59_466_685_765b60d35650"
+      ],
+      "scope_context_source_ids": [
+        "src_p71_0_478_0944c44b2b7e",
+        "src_p70_0_436_2b4f2b099fb1",
+        "src_p62_0_387_2232c69883a4"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "precondition",
+          "condition": "遗传密码从一个固定的起点开始，以非重叠的方式阅读，编码之间没有分隔符",
+          "scope_effect": "省略该阅读框架，会把“3个相邻碱基决定1个氨基酸”误用于重叠阅读或任意起点阅读的情形，扩大命题适用范围。",
+          "source_ids": [
+            "src_p70_0_436_2b4f2b099fb1"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_1470b66b433404af",
+      "label": "基因还能通过控制蛋白质的结构直接控制生物体的性状。",
+      "card_id": "card_8793ec2a508171c99c49_8",
+      "item_id": "practice_8793ec2a508171c99c49_8",
+      "point_source_ids": [
+        "src_p65_0_481_371dc5be62b8"
+      ],
+      "scope_context_source_ids": [
+        "src_p66_0_489_6750f559b21e",
+        "src_p71_478_729_56f313a3ece0",
+        "src_p64_483_966_2bd366071914"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "exception",
+          "condition": "基因与性状的关系并不都是简单的线性关系；有些性状由多个基因共同决定，性状一般是基因与环境共同作用的结果",
+          "scope_effect": "省略该限制会把“基因通过控制蛋白质结构直接控制性状”推广为所有性状均由单个基因直接决定，扩大命题适用范围。",
+          "source_ids": [
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        },
+        {
+          "boundary_type": "exception",
+          "condition": "长翅果蝇幼虫在35～37℃处理后可出现残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅",
+          "scope_effect": "省略温度条件会把残翅表型直接归因于基因结构改变，忽略环境对性状的影响，改变“直接控制”的推理方向。",
+          "source_ids": [
+            "src_p66_0_489_6750f559b21e"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_a9e36b6f0861c03e",
+      "label": "基因通过指导蛋白质的合成来控制性状，这一过程称为基因的表达。",
+      "card_id": "card_8793ec2a508171c99c49_9",
+      "item_id": "practice_8793ec2a508171c99c49_9",
+      "point_source_ids": [
+        "src_p56_0_255_dd0ee7c58a12"
+      ],
+      "scope_context_source_ids": [
+        "src_p66_0_489_6750f559b21e",
+        "src_p64_483_966_2bd366071914",
+        "src_p61_350_617_5338e6acd0cc"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "exception",
+          "condition": "性状不完全由基因决定，后天营养、体育锻炼等环境因素也有重要作用",
+          "scope_effect": "省略此条件会把“基因通过指导蛋白质合成控制性状”过度概括为性状完全由基因决定，忽略环境因素对性状的影响。",
+          "source_ids": [
+            "src_p66_0_489_6750f559b21e"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_20301305a1b8dff7",
+      "label": "中心法则后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA的途径。",
+      "card_id": "card_8793ec2a508171c99c49_10",
+      "item_id": "practice_8793ec2a508171c99c49_10",
+      "point_source_ids": [
+        "src_p64_0_483_4d5b9d076f35"
+      ],
+      "scope_context_source_ids": [
+        "src_p71_478_729_56f313a3ece0",
+        "src_p63_45_545_8eebbc24cf3b",
+        "src_p57_444_712_fcabc5cd6a65"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "direction",
+          "condition": "补充的是RNA→RNA和RNA→DNA两条途径，传统DNA→DNA、DNA→RNA→蛋白质途径仍保留",
+          "scope_effect": "省略此条件会误认为补充途径取代或推翻了传统中心法则，而原文是扩展使其更完善。",
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p71_478_729_56f313a3ece0"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_f31a91f60999a100",
+      "label": "基因通过控制酶的合成来控制代谢过程，进而控制生物体的性状。",
+      "card_id": "card_8793ec2a508171c99c49_11",
+      "item_id": "practice_8793ec2a508171c99c49_11",
+      "point_source_ids": [
+        "src_p64_483_966_2bd366071914"
+      ],
+      "scope_context_source_ids": [
+        "src_p71_478_729_56f313a3ece0",
+        "src_p66_0_489_6750f559b21e",
+        "src_p65_0_481_371dc5be62b8"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "exception",
+          "condition": "基因还能通过控制蛋白质的结构直接控制性状，并非只通过控制酶的合成",
+          "scope_effect": "省略此条件会把“通过控制酶合成控制代谢”误当成基因控制性状的唯一途径，遗漏结构蛋白直接控制的实例。",
+          "source_ids": [
+            "src_p71_478_729_56f313a3ece0",
+            "src_p65_0_481_371dc5be62b8"
+          ]
+        },
+        {
+          "boundary_type": "quantifier",
+          "condition": "该方式不能扩展为控制生物体的所有性状，有的性状由多个基因协同作用",
+          "scope_effect": "省略此条件会将该命题过度概括为基因通过酶控制所有性状、且单一基因即可决定性状。",
+          "source_ids": [
+            "src_p66_0_489_6750f559b21e"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_0d811232f25fadef",
+      "label": "转录是在细胞核内以DNA双链中的一条链为模板合成mRNA的过程。",
+      "card_id": "card_8793ec2a508171c99c49_12",
+      "item_id": "practice_8793ec2a508171c99c49_12",
+      "point_source_ids": [
+        "src_p58_0_475_34fb0b8a9bf8",
+        "src_p58_475_739_b7fafce0a584"
+      ],
+      "scope_context_source_ids": [
+        "src_p62_387_819_3757ca626a14",
+        "src_p72_0_478_de3916058347",
+        "src_p65_481_937_6cef31f84b66"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "exception",
+          "condition": "线粒体和叶绿体中的DNA也能进行转录和翻译控制某些蛋白质合成",
+          "scope_effect": "省略此条件会把“转录在细胞核内进行”绝对化为转录只发生在细胞核，忽略细胞质基因的转录。",
+          "source_ids": [
+            "src_p65_481_937_6cef31f84b66"
+          ]
+        }
+      ]
+    },
+    {
+      "point_id": "kp_6af0f7754dfe4239",
+      "label": "翻译是以mRNA为模板合成具有一定氨基酸顺序的蛋白质的过程，实质是将碱基序列翻译为氨基酸序列。",
+      "card_id": "card_8793ec2a508171c99c49_13",
+      "item_id": "practice_8793ec2a508171c99c49_13",
+      "point_source_ids": [
+        "src_p59_0_466_4632b3631f7d"
+      ],
+      "scope_context_source_ids": [
+        "src_p69_450_867_5b7ef2503488",
+        "src_p64_0_483_4d5b9d076f35",
+        "src_p61_350_617_5338e6acd0cc"
+      ],
+      "scope_conditions": [
+        {
+          "boundary_type": "process_scale",
+          "condition": "翻译沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止",
+          "scope_effect": "省略该终止条件会把“以mRNA为模板合成蛋白质”误解为可无限延伸、没有终止情形的过程。",
+          "source_ids": [
+            "src_p61_350_617_5338e6acd0cc"
+          ]
+        }
+      ]
+    }
+  ],
+  "repair_responses": [
+    {
+      "points": [
+        {
+          "point_id": "kp_e54a48da99a35e27",
+          "title": "基因与性状的复杂关系",
+          "explanation": "基因与性状之间并不都是简单的一一对应关系。有些性状由多个基因共同决定，例如人的身高可能是由多个基因决定的，其中每一个基因对身高都有一定的作用；有的基因则可决定或影响多种性状。同时，性状一般是基因与环境共同作用的结果：人的身高也不完全由基因决定，后天的营养和体育锻炼等也有重要作用。果蝇实验中，长翅幼虫在35～37℃处理后出现某些残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅，说明温度能影响性状表现，但不能仅凭残翅表型断定翅型基因发生了改变。因此不能把基因决定性状绝对化。",
+          "source_ids": [
+            "src_p65_481_937_6cef31f84b66",
+            "src_p65_514_1014_020b2a0813b5",
+            "src_p71_478_729_56f313a3ece0",
+            "src_p66_0_489_6750f559b21e"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_1",
+            "front": "基因与性状之间是简单的一一对应关系吗？请说明理由并举出环境影响的实例。",
+            "back": "不都是。有些性状由多个基因共同决定，有的基因可决定或影响多种性状；性状一般是基因与环境共同作用的结果。例如人的身高可能由多个基因决定，且后天营养和体育锻炼也有重要作用。果蝇实验中，长翅幼虫经35～37℃处理后可出现残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅，说明环境能影响性状表现。",
+            "source_ids": [
+              "src_p65_481_937_6cef31f84b66",
+              "src_p71_478_729_56f313a3ece0",
+              "src_p66_0_489_6750f559b21e"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_1",
+            "prompt": "某同学看到“长翅果蝇幼虫经35～37℃处理后出现残翅”这一现象，便认为这些残翅果蝇的翅型基因已经发生了改变。请判断这一推论是否合理，并说明理由；再据此说明基因、环境与性状之间的关系。",
+            "expected_answer": "不合理。该实验只说明高温处理可使长翅幼虫表现出残翅，现有证据不足以断定翅型基因发生了改变，残翅可以理解为环境条件影响性状表现的结果。由此可知，性状一般是基因与环境共同作用的结果，不能把观察到的某一表型直接归因于基因改变；基因与性状也不都是简单的一一对应关系，有些性状由多个基因共同决定，有的基因可影响多种性状。",
+            "rubric": [
+              "判断该推论不合理",
+              "说明高温处理影响的是性状表现，不能据此断定基因已改变",
+              "归纳出性状一般是基因与环境共同作用的结果"
+            ],
+            "source_ids": [
+              "src_p66_0_489_6750f559b21e",
+              "src_p65_481_937_6cef31f84b66",
+              "src_p71_478_729_56f313a3ece0"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_876deca6f6081f84",
+          "title": "RNA与DNA的化学组成差异",
+          "explanation": "RNA是另一类核酸，与DNA一样由核苷酸连接而成，核苷酸也含4种碱基，可以储存遗传信息。与DNA相比，RNA的组成有五碳糖是核糖而不是脱氧核糖；碱基组成中没有T（胸腺嘧啶），而替换成U（尿嘧啶）。此外，RNA一般是单链，而且比DNA短，因此能够通过核孔从细胞核转移到细胞质中。这里“一般是单链、比DNA短”是通常情况，不能理解为所有RNA都必然如此。RNA主要有mRNA、tRNA和rRNA三类，其中mRNA作为DNA的信使。",
+          "source_ids": [
+            "src_p57_444_712_fcabc5cd6a65",
+            "src_p58_0_475_34fb0b8a9bf8"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_2",
+            "front": "与DNA相比，RNA在五碳糖、碱基组成和链结构上有哪些主要区别？",
+            "back": "RNA的五碳糖是核糖，DNA是脱氧核糖；RNA的碱基中没有T而含U，DNA含T而不含U；RNA一般是单链，而且比DNA短，因此能通过核孔从细胞核转移到细胞质中。“一般”表明单链、较短是通常情况，并非所有RNA的必然属性。",
+            "source_ids": [
+              "src_p57_444_712_fcabc5cd6a65",
+              "src_p58_0_475_34fb0b8a9bf8"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_2",
+            "prompt": "某同学比较DNA与RNA后得出结论：“RNA都是单链，而且都比DNA短。”请判断这一表述是否准确，并说明RNA与DNA在五碳糖和碱基组成上的区别。",
+            "expected_answer": "不准确。教材指出RNA一般是单链，而且比DNA短，这是通常情况，不能扩大为所有RNA都必然单链且比DNA短。在化学组成上，RNA的五碳糖是核糖，DNA的是脱氧核糖；RNA的碱基中没有T而含U，DNA含T而不含U。",
+            "rubric": [
+              "判断该表述不准确，指出“一般”不能扩大为“都”",
+              "说明RNA五碳糖为核糖、DNA为脱氧核糖",
+              "说明RNA无T含U、DNA含T不含U"
+            ],
+            "source_ids": [
+              "src_p58_0_475_34fb0b8a9bf8",
+              "src_p57_444_712_fcabc5cd6a65"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_99f5c72053bacb73",
+          "title": "克里克中心法则及其方向性",
+          "explanation": "1957年克里克提出中心法则：遗传信息可以从DNA流向DNA，即DNA的自我复制；也可以从DNA流向RNA，进而流向蛋白质，即遗传信息的转录和翻译。该法则同时指出方向性限制：遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA。此后五六年，科学家揭示了蛋白质的合成过程，中心法则由此获得公认。但随实验数据积累，人们注意到传统中心法则存在不足，后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径，使中心法则更加完善。因此克里克最初提出的内容并非最终完整版本。",
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p71_478_729_56f313a3ece0"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_3",
+            "front": "克里克1957年提出的中心法则包含哪些信息流向？有哪些方向被明确排除？后来又有何补充？",
+            "back": "包含：遗传信息从DNA流向DNA（DNA自我复制），以及从DNA流向RNA进而流向蛋白质（转录和翻译）。明确排除：遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA。后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径，使中心法则更完善，原有途径仍保留。",
+            "source_ids": [
+              "src_p63_45_545_8eebbc24cf3b",
+              "src_p64_0_483_4d5b9d076f35",
+              "src_p71_478_729_56f313a3ece0"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_3",
+            "prompt": "有人根据“某些RNA病毒能以RNA为模板合成DNA”这一事实，认为克里克最初提出的中心法则被推翻了。请判断这一说法是否恰当，并说明修改后的中心法则与克里克原初中心法则的关系。",
+            "expected_answer": "不恰当。RNA病毒能以RNA为模板合成DNA，表明修改后的中心法则补充了RNA→DNA这一信息流向；这是对原初中心法则的扩展和完善，而不是推翻。原初中心法则所描述的DNA复制以及DNA经RNA指导蛋白质合成的途径仍然保留。",
+            "rubric": [
+              "判断该说法不恰当，补充途径不等于推翻原法则",
+              "根据题干事实指出RNA→DNA是补充途径",
+              "说明原有DNA→DNA、DNA→RNA→蛋白质途径仍保留"
+            ],
+            "source_ids": [
+              "src_p63_45_545_8eebbc24cf3b",
+              "src_p64_0_483_4d5b9d076f35",
+              "src_p71_478_729_56f313a3ece0"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_ce650dd4c9ab597b",
+          "title": "tRNA与反密码子",
+          "explanation": "tRNA是氨基酸的运载工具，分子比mRNA小得多，RNA链折叠后呈三叶草叶形。其一端是携带氨基酸的部位，另一端有3个碱基，这3个碱基可与mRNA上的密码子互补配对，因而叫反密码子。tRNA种类很多，但每种tRNA只识别并转运一种氨基酸。翻译时，核糖体与mRNA的结合部位形成2个tRNA结合位点：携带氨基酸的tRNA按反密码子与密码子配对进入位点，肽键形成后核糖体沿mRNA移动，原占据位点1的tRNA离开，新的tRNA进入位点2，如此重复，直至读取到终止密码才终止。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p60_468_790_acde685522bc",
+            "src_p61_350_617_5338e6acd0cc",
+            "src_p62_0_387_2232c69883a4"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_4",
+            "front": "tRNA的结构有什么特点？反密码子如何与mRNA上的密码子配对？每种tRNA能转运几种氨基酸？",
+            "back": "tRNA一端是携带氨基酸的部位，另一端有3个碱基组成的反密码子，可与mRNA上的密码子互补配对。tRNA种类很多，但每种tRNA只识别并转运一种氨基酸。翻译时tRNA按位点进入核糖体与mRNA的结合部位，肽键形成后离开，肽链沿mRNA延伸，直至读取到终止密码才终止。",
+            "source_ids": [
+              "src_p61_0_350_60adad10c52e",
+              "src_p60_468_790_acde685522bc",
+              "src_p62_0_387_2232c69883a4"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_4",
+            "prompt": "某同学说：“一种tRNA可以携带多种氨基酸，只要反密码子与mRNA上的密码子互补配对就能一直配对下去。”请指出其中的错误，并简述tRNA参与肽链合成的过程。",
+            "expected_answer": "错误有两处：一是每种tRNA只识别并转运一种氨基酸，不能携带多种氨基酸；二是反密码子与密码子的配对不是无终止的静态过程，肽链合成沿mRNA不断进行，直至读取到终止密码才终止。翻译时，携带氨基酸的tRNA按反密码子与密码子互补配对进入核糖体，氨基酸通过肽键接入肽链；核糖体沿mRNA移动后，空载tRNA离开，新的携带氨基酸的tRNA进入，如此重复延伸。",
+            "rubric": [
+              "指出每种tRNA只转运一种氨基酸",
+              "指出配对和延伸有终止条件，读取到终止密码才终止",
+              "描述tRNA按密码子进入、肽键形成、核糖体移动后tRNA离开的过程"
+            ],
+            "source_ids": [
+              "src_p60_468_790_acde685522bc",
+              "src_p61_0_350_60adad10c52e",
+              "src_p62_0_387_2232c69883a4"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_f7e0f2c6d8b4d9dd",
+          "title": "多核糖体与高效翻译",
+          "explanation": "在细胞质中，翻译是一个快速的过程。在37℃时，细菌细胞内合成肽链的速度约为每秒连接15个氨基酸。通常，一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量的mRNA分子就可以迅速合成出大量的蛋白质。这里“通常”表明多核糖体同时翻译是常见情形，并非所有mRNA的必然状态；每秒约15个氨基酸也是特定温度下细菌细胞内的近似值，不能当作无条件的精确速率。多核糖体提高的是翻译效率，使少量mRNA较快产出大量蛋白质。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_5",
+            "front": "为什么少量的mRNA就能迅速合成大量蛋白质？这一说法有哪些范围限定？",
+            "back": "通常一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量mRNA即可迅速合成大量蛋白质。“通常”说明这是常见情形而非所有mRNA的必然状态；教材给出的“37℃时细菌细胞内每秒约连接15个氨基酸”是特定温度与细胞类型下的近似速度，不是无条件精确值。",
+            "source_ids": [
+              "src_p62_0_387_2232c69883a4"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_5",
+            "prompt": "某同学读到“一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成”，便认为“所有mRNA都必然结合多个核糖体，且翻译速度都是每秒15个氨基酸”。请评价这一理解，并说明多核糖体翻译的意义。",
+            "expected_answer": "这一理解扩大了适用范围。教材用“通常”限定一个mRNA分子上可相继结合多个核糖体，并非所有mRNA的必然情形；每秒约连接15个氨基酸是特定温度下细菌细胞内合成肽链的近似速度，不能推广为所有细胞、所有温度下的精确速率。多核糖体同时翻译的意义在于：多个核糖体同时利用同一mRNA合成多条肽链，提高翻译效率，使少量mRNA较快产出大量蛋白质。",
+            "rubric": [
+              "指出“通常”不能扩大为所有mRNA必然如此",
+              "指出每秒约15个氨基酸不是所有翻译情形的固定速度",
+              "说明多个核糖体同时翻译同一mRNA可提高合成效率"
+            ],
+            "source_ids": [
+              "src_p62_0_387_2232c69883a4"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_ac295e912ea66413",
+          "title": "核糖体移动与翻译终止",
+          "explanation": "翻译时，核糖体与mRNA结合，其结合部位形成2个tRNA结合位点。携带氨基酸的tRNA按反密码子与密码子互补配对进入位点，肽键形成后，核糖体沿着mRNA移动，读取下一个密码子；原占据位点1的tRNA离开核糖体，占据位点2的tRNA进入位点1，一个新的携带氨基酸的tRNA进入位点2，继续肽链的合成。上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。可见移动方向是核糖体沿mRNA移动，而不是mRNA移动；终止密码是肽链合成的明确终止情形。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p62_0_387_2232c69883a4",
+            "src_p61_350_617_5338e6acd0cc"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_6",
+            "front": "翻译过程中核糖体如何移动？肽链合成在什么情况下终止？",
+            "back": "核糖体沿着mRNA移动，读取下一个密码子。肽键形成后，原占据位点1的tRNA离开核糖体，占据位点2的tRNA进入位点1，新的携带氨基酸的tRNA进入位点2，继续肽链合成。上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。移动的是核糖体，不是mRNA。",
+            "source_ids": [
+              "src_p61_0_350_60adad10c52e",
+              "src_p62_0_387_2232c69883a4"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_6",
+            "prompt": "有同学描述翻译过程时说：“mRNA沿着核糖体移动，不断读取密码子，肽链会一直延伸下去。”请指出其中的错误，并正确描述核糖体读取密码子及肽链终止的过程。",
+            "expected_answer": "错误有两处：一是移动方向说反了，应是核糖体沿着mRNA移动，读取下一个密码子；二是肽链不会一直延伸，上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。正确过程是：核糖体沿mRNA依次读取密码子，每读取一个密码子便继续向下一个密码子移位，肽链随之延伸；当读取到终止密码时，肽链合成终止。",
+            "rubric": [
+              "指出应是核糖体沿mRNA移动而非mRNA移动",
+              "指出肽链合成在读取到终止密码时终止",
+              "说明核糖体沿mRNA依次读取密码子并移位推进翻译"
+            ],
+            "source_ids": [
+              "src_p61_0_350_60adad10c52e",
+              "src_p62_0_387_2232c69883a4",
+              "src_p61_350_617_5338e6acd0cc"
+            ]
+          }
+        }
+      ],
+      "lesson": null
+    },
+    {
+      "points": [
+        {
+          "point_id": "kp_e54a48da99a35e27",
+          "title": "基因与性状的复杂关系",
+          "explanation": "基因与性状之间并不都是简单的一一对应关系。有些性状由多个基因共同决定，例如人的身高可能是由多个基因决定的，其中每一个基因对身高都有一定的作用；有的基因则可决定或影响多种性状。同时，性状一般是基因与环境共同作用的结果：人的身高也不完全由基因决定，后天的营养和体育锻炼等也有重要作用。果蝇实验中，长翅幼虫在35～37℃处理后出现某些残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅；这只能说明温度可影响翅型表现，不能仅凭残翅表型断定翅型基因发生了改变。因此不能把基因决定性状绝对化。",
+          "source_ids": [
+            "src_p65_481_937_6cef31f84b66",
+            "src_p65_514_1014_020b2a0813b5",
+            "src_p71_478_729_56f313a3ece0",
+            "src_p66_0_489_6750f559b21e"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_1",
+            "front": "基因与性状之间是简单的一一对应关系吗？请说明理由并举出环境影响的实例。",
+            "back": "不都是。有些性状由多个基因共同决定，有的基因可决定或影响多种性状；性状一般是基因与环境共同作用的结果。例如人的身高可能由多个基因决定，且后天营养和体育锻炼也有重要作用。果蝇实验中，长翅幼虫经35～37℃处理后可出现残翅，而这些残翅果蝇在正常温度下产生的后代仍是长翅，说明温度能影响翅型表现，但不能仅凭残翅表型断定翅型基因发生了改变。",
+            "source_ids": [
+              "src_p65_481_937_6cef31f84b66",
+              "src_p71_478_729_56f313a3ece0",
+              "src_p66_0_489_6750f559b21e"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_1",
+            "prompt": "某同学看到“长翅果蝇幼虫经35～37℃处理后出现残翅”这一现象，便认为这些残翅果蝇的翅型基因已经发生了改变。请判断这一推论是否合理，并说明理由；再据此说明基因、环境与性状之间的关系。",
+            "expected_answer": "不合理。该实验只说明高温处理可使长翅幼虫表现出残翅，不能仅凭残翅这一表型断定翅型基因已经发生改变；性状是基因与环境共同作用的结果，环境条件可以影响基因所决定性状的表现。由此可知，不能把观察到的某一表型直接归因于基因改变；基因与性状也不都是简单的一一对应关系，有些性状由多个基因共同决定，有的基因可影响多种性状。",
+            "rubric": [
+              "判断该推论不合理",
+              "说明高温处理影响的是性状表现，不能据此断定基因已改变",
+              "归纳出性状一般是基因与环境共同作用的结果"
+            ],
+            "source_ids": [
+              "src_p66_0_489_6750f559b21e",
+              "src_p65_481_937_6cef31f84b66",
+              "src_p71_478_729_56f313a3ece0"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_876deca6f6081f84",
+          "title": "RNA与DNA的化学组成差异",
+          "explanation": "RNA是另一类核酸，与DNA一样由核苷酸连接而成，核苷酸也含4种碱基，可以储存遗传信息。与DNA相比，RNA的组成有五碳糖是核糖而不是脱氧核糖；碱基组成中没有T（胸腺嘧啶），而替换成U（尿嘧啶）。此外，RNA一般是单链，而且比DNA短，因此能够通过核孔从细胞核转移到细胞质中。这里“一般是单链、比DNA短”是通常情况，不能理解为所有RNA都必然如此。RNA主要有mRNA、tRNA和rRNA三类，其中mRNA作为DNA的信使。",
+          "source_ids": [
+            "src_p57_444_712_fcabc5cd6a65",
+            "src_p58_0_475_34fb0b8a9bf8"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_2",
+            "front": "与DNA相比，RNA在五碳糖、碱基组成和链结构上有哪些主要区别？",
+            "back": "RNA的五碳糖是核糖，DNA是脱氧核糖；RNA的碱基中没有T而含U，DNA含T而不含U；RNA一般是单链，而且比DNA短，因此能通过核孔从细胞核转移到细胞质中。“一般”表明单链、较短是通常情况，并非所有RNA的必然属性。",
+            "source_ids": [
+              "src_p57_444_712_fcabc5cd6a65",
+              "src_p58_0_475_34fb0b8a9bf8"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_2",
+            "prompt": "某同学比较DNA与RNA后得出结论：“RNA都是单链，而且都比DNA短。”请判断这一表述是否准确，并说明RNA与DNA在五碳糖和碱基组成上的区别。",
+            "expected_answer": "不准确。教材指出RNA一般是单链，而且比DNA短，这是通常情况，不能扩大为所有RNA都必然单链且比DNA短。在化学组成上，RNA的五碳糖是核糖，DNA的是脱氧核糖；RNA的碱基中没有T而含U，DNA含T而不含U。",
+            "rubric": [
+              "判断该表述不准确，指出“一般”不能扩大为“都”",
+              "说明RNA五碳糖为核糖、DNA为脱氧核糖",
+              "说明RNA无T含U、DNA含T不含U"
+            ],
+            "source_ids": [
+              "src_p58_0_475_34fb0b8a9bf8",
+              "src_p57_444_712_fcabc5cd6a65"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_99f5c72053bacb73",
+          "title": "克里克中心法则及其方向性",
+          "explanation": "1957年克里克提出中心法则：遗传信息可以从DNA流向DNA，即DNA的自我复制；也可以从DNA流向RNA，进而流向蛋白质，即遗传信息的转录和翻译。该法则同时指出方向性限制：遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA。此后五六年，科学家揭示了蛋白质的合成过程，中心法则由此获得公认。但随实验数据积累，人们注意到传统中心法则存在不足，后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径，使中心法则更加完善。因此克里克最初提出的内容并非最终完整版本。",
+          "source_ids": [
+            "src_p63_45_545_8eebbc24cf3b",
+            "src_p64_0_483_4d5b9d076f35",
+            "src_p71_478_729_56f313a3ece0"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_3",
+            "front": "克里克1957年提出的中心法则包含哪些信息流向？有哪些方向被明确排除？后来又有何补充？",
+            "back": "包含：遗传信息从DNA流向DNA（DNA自我复制），以及从DNA流向RNA进而流向蛋白质（转录和翻译）。明确排除：遗传信息不能从蛋白质传递到蛋白质，也不能从蛋白质流向RNA或DNA。后来补充了遗传信息从RNA流向RNA以及从RNA流向DNA两条途径，使中心法则更完善，原有途径仍保留。",
+            "source_ids": [
+              "src_p63_45_545_8eebbc24cf3b",
+              "src_p64_0_483_4d5b9d076f35",
+              "src_p71_478_729_56f313a3ece0"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_3",
+            "prompt": "有人根据“某些RNA病毒能以RNA为模板合成DNA”这一事实，认为克里克最初提出的中心法则被推翻了。请判断这一说法是否恰当，并说明修改后的中心法则与克里克原初中心法则的关系。",
+            "expected_answer": "不恰当。RNA病毒能以RNA为模板合成DNA，表明修改后的中心法则补充了RNA→DNA这一信息流向；这是对原初中心法则的扩展和完善，原初法则所描述的DNA复制以及DNA经RNA指导蛋白质合成的途径并未因此失效，并非推翻。",
+            "rubric": [
+              "判断该说法不恰当，补充途径不等于推翻原法则",
+              "根据题干事实指出RNA→DNA是补充的信息流向",
+              "说明原有DNA复制及DNA→RNA→蛋白质途径仍保留"
+            ],
+            "source_ids": [
+              "src_p63_45_545_8eebbc24cf3b",
+              "src_p64_0_483_4d5b9d076f35",
+              "src_p71_478_729_56f313a3ece0"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_ce650dd4c9ab597b",
+          "title": "tRNA与反密码子",
+          "explanation": "tRNA是氨基酸的运载工具，分子比mRNA小得多，RNA链折叠后呈三叶草叶形。其一端是携带氨基酸的部位，另一端有3个碱基，这3个碱基可与mRNA上的密码子互补配对，因而叫反密码子。tRNA种类很多，但每种tRNA只识别并转运一种氨基酸。翻译时，核糖体与mRNA的结合部位形成2个tRNA结合位点：携带氨基酸的tRNA按反密码子与密码子配对进入位点，肽键形成后核糖体沿mRNA移动，原占据位点1的tRNA离开，新的tRNA进入位点2，如此重复，直至读取到终止密码才终止。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p60_468_790_acde685522bc",
+            "src_p61_350_617_5338e6acd0cc",
+            "src_p62_0_387_2232c69883a4"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_4",
+            "front": "tRNA的结构有什么特点？反密码子如何与mRNA上的密码子配对？每种tRNA能转运几种氨基酸？",
+            "back": "tRNA一端是携带氨基酸的部位，另一端有3个碱基组成的反密码子，可与mRNA上的密码子互补配对。tRNA种类很多，但每种tRNA只识别并转运一种氨基酸。翻译时tRNA按位点进入核糖体与mRNA的结合部位，肽键形成后离开，肽链沿mRNA延伸，直至读取到终止密码才终止。",
+            "source_ids": [
+              "src_p61_0_350_60adad10c52e",
+              "src_p60_468_790_acde685522bc",
+              "src_p62_0_387_2232c69883a4"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_4",
+            "prompt": "某同学说：“一种tRNA可以携带多种氨基酸，只要反密码子与mRNA上的密码子互补配对就能一直配对下去。”请指出其中的错误，并简述tRNA参与肽链合成的过程。",
+            "expected_answer": "错误有两处：一是每种tRNA只识别并转运一种氨基酸，不能携带多种氨基酸；二是反密码子与密码子的配对不是无终止的静态过程，肽链合成沿mRNA不断进行，直至读取到终止密码才终止。翻译时，携带氨基酸的tRNA按反密码子与密码子互补配对进入核糖体，氨基酸通过肽键接入肽链；核糖体沿mRNA移动后，空载的tRNA离开，新的携带氨基酸的tRNA进入，如此重复延伸。",
+            "rubric": [
+              "指出每种tRNA只转运一种氨基酸",
+              "指出配对和延伸有终止条件，读取到终止密码才终止",
+              "说明tRNA按反密码子与密码子配对进入、肽键形成后核糖体移动、空载tRNA离开的过程"
+            ],
+            "source_ids": [
+              "src_p60_468_790_acde685522bc",
+              "src_p61_0_350_60adad10c52e",
+              "src_p62_0_387_2232c69883a4"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_f7e0f2c6d8b4d9dd",
+          "title": "多核糖体与高效翻译",
+          "explanation": "在细胞质中，翻译是一个快速的过程。在37℃时，细菌细胞内合成肽链的速度约为每秒连接15个氨基酸。通常，一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量的mRNA分子就可以迅速合成出大量的蛋白质。这里“通常”表明多核糖体同时翻译是常见情形，并非所有mRNA的必然状态；每秒约15个氨基酸也是特定温度下细菌细胞内的近似值，不能当作无条件的精确速率。多核糖体提高的是翻译效率，使少量mRNA较快产出大量蛋白质。",
+          "source_ids": [
+            "src_p62_0_387_2232c69883a4"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_5",
+            "front": "为什么少量的mRNA就能迅速合成大量蛋白质？这一说法有哪些范围限定？",
+            "back": "通常一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成，因此少量mRNA即可迅速合成大量蛋白质。“通常”说明这是常见情形而非所有mRNA的必然状态；教材给出的“37℃时细菌细胞内每秒约连接15个氨基酸”是特定温度与细胞类型下的近似速度，不是无条件精确值。",
+            "source_ids": [
+              "src_p62_0_387_2232c69883a4"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_5",
+            "prompt": "某同学读到“一个mRNA分子上可以相继结合多个核糖体，同时进行多条肽链的合成”，便认为“所有mRNA都必然结合多个核糖体，且翻译速度都是每秒15个氨基酸”。请评价这一理解，并说明多核糖体翻译的意义。",
+            "expected_answer": "这一理解扩大了适用范围。教材用“通常”限定一个mRNA分子上可相继结合多个核糖体，并非所有mRNA的必然情形；翻译速度也不是一律每秒15个氨基酸，它会随生物种类和环境条件而变化。多核糖体同时翻译同一mRNA，能提高蛋白质合成效率，使少量mRNA较快产出大量蛋白质。",
+            "rubric": [
+              "指出“通常”不能扩大为所有mRNA必然如此",
+              "指出每秒15个氨基酸不是所有翻译情形的固定速度",
+              "说明多个核糖体同时翻译同一mRNA可提高合成效率"
+            ],
+            "source_ids": [
+              "src_p62_0_387_2232c69883a4"
+            ]
+          }
+        },
+        {
+          "point_id": "kp_ac295e912ea66413",
+          "title": "核糖体移动与翻译终止",
+          "explanation": "翻译时，核糖体与mRNA结合，其结合部位形成2个tRNA结合位点。携带氨基酸的tRNA按反密码子与密码子互补配对进入位点，肽键形成后，核糖体沿着mRNA移动，读取下一个密码子；原占据位点1的tRNA离开核糖体，占据位点2的tRNA进入位点1，一个新的携带氨基酸的tRNA进入位点2，继续肽链的合成。上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。可见移动方向是核糖体沿mRNA移动，而不是mRNA移动；终止密码是肽链合成的明确终止情形。",
+          "source_ids": [
+            "src_p61_0_350_60adad10c52e",
+            "src_p62_0_387_2232c69883a4",
+            "src_p61_350_617_5338e6acd0cc"
+          ],
+          "flashcard": {
+            "card_id": "card_8793ec2a508171c99c49_6",
+            "front": "翻译过程中核糖体如何移动？肽链合成在什么情况下终止？",
+            "back": "核糖体沿着mRNA移动，读取下一个密码子。肽键形成后，原占据位点1的tRNA离开核糖体，占据位点2的tRNA进入位点1，新的携带氨基酸的tRNA进入位点2，继续肽链合成。上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。移动的是核糖体，不是mRNA。",
+            "source_ids": [
+              "src_p61_0_350_60adad10c52e",
+              "src_p62_0_387_2232c69883a4"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_8793ec2a508171c99c49_6",
+            "prompt": "有同学描述翻译过程时说：“mRNA沿着核糖体移动，不断读取密码子，肽链会一直延伸下去。”请指出其中的错误，并正确描述核糖体读取密码子及肽链终止的过程。",
+            "expected_answer": "错误有两处：一是移动方向说反了，应是核糖体沿着mRNA移动，读取下一个密码子；二是肽链不会一直延伸，上述步骤沿mRNA链不断进行，直至读取到mRNA上的终止密码，合成才告终止。正确过程是：核糖体沿mRNA依次读取密码子，每读取一个密码子便继续向下一个密码子移位；读到终止密码时，肽链合成结束。",
+            "rubric": [
+              "指出应是核糖体沿mRNA移动而非mRNA移动",
+              "指出肽链合成在读取到终止密码时终止",
+              "说明核糖体沿mRNA依次读取密码子并逐段移位推进"
+            ],
+            "source_ids": [
+              "src_p61_0_350_60adad10c52e",
+              "src_p62_0_387_2232c69883a4",
+              "src_p61_350_617_5338e6acd0cc"
+            ]
+          }
+        }
+      ],
+      "lesson": null
+    }
+  ],
+  "before_v19": {
+    "all_point_components": [
+      "explanation",
+      "flashcard",
+      "practice"
+    ],
+    "point_ids": [
+      "kp_e54a48da99a35e27",
+      "kp_876deca6f6081f84",
+      "kp_99f5c72053bacb73",
+      "kp_ce650dd4c9ab597b",
+      "kp_f7e0f2c6d8b4d9dd",
+      "kp_ac295e912ea66413",
+      "kp_46253f72a986db6c",
+      "kp_1470b66b433404af",
+      "kp_a9e36b6f0861c03e",
+      "kp_20301305a1b8dff7",
+      "kp_f31a91f60999a100",
+      "kp_0d811232f25fadef",
+      "kp_6af0f7754dfe4239"
+    ],
+    "repair_component_count": 39
+  },
+  "provenance": {
+    "baseline_content_sha256": "9c049c3bafdee7ba2b43b41e7486bf09d5455bdedb0288d428297764c14c6311",
+    "events_sha256": {
+      "1792659476963921228-a007f3ba29e4479da98e93d24946d3a0.json": "99fc48aa384085605942301ca901868e6338cb2f253fb7e40f3634f105da4554",
+      "1792659670406386192-e9879b9cd5a84706a4e80a35bf55e4ec.json": "879a09bbeff0ce6f94ccacc02b0c1f1bd4ab86b96e5f9221f0fbbf12eecf63db",
+      "1792659670425406162-824406d8ed104bef85332101e3c095aa.json": "f1562ba4a54c57836923c228436e13ea7dad22a21913b4f96a5859f48c733794"
+    },
+    "omitted_fact_fields": [
+      "support quotes",
+      "assertions and scope matrices",
+      "rationale/source proof directories"
+    ],
+    "preserved_fact_fields": [
+      "all accepted/source/scope flags",
+      "issues",
+      "failed_components",
+      "per-component source/scope flags"
+    ],
+    "scope": "projection is only suitable for repair routing, not evidence or semantic validation"
+  }
+}

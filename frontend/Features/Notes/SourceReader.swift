@@ -101,6 +101,12 @@ struct NotesSourceReaderView: View {
   @State private var recognizedText = ""
   @State private var organizedText = ""
   @State private var inkPhase = "idle"
+  @State private var inkTask: Task<Void, Never>?
+  @State private var inkServiceError: String?
+  @State private var inkRemoteNote: StudioNote?
+  @State private var inkResultJob: StudioJob?
+  @State private var reviewedDrawing = Data()
+  @State private var organizedAccepted = true
   @State private var loadGeneration = UUID()
   @State private var capturedTarget: SourcePageTarget?
   @State private var capturedCourseID: String?
@@ -202,15 +208,8 @@ struct NotesSourceReaderView: View {
             if showInkReview && mode == .ink {
               ScrollView { inkReview }.frame(maxWidth: 380, maxHeight: 440).padding(8)
             } else if mode == .ink {
-              BCButton("识别并整理", icon: "Sparkles", style: .secondary) {
-                Task {
-                  guard await flushInk() else { return }
-                  recognizedText =
-                    inkNote?.body.isEmpty == false && inkNote?.body != "手写笔迹已保存，尚未整理。"
-                    ? inkNote!.body : NotesFixtures.recognizedInk
-                  showInkReview = true
-                  inkPhase = "confirmation"
-                }
+              BCButton("上传笔迹并识别", icon: "Sparkles", style: .secondary) {
+                recognizeInk()
               }.frame(maxWidth: 220).padding(12)
             } else if mode == .ai {
               Text("用笔圈出区域，松手后弹出 AI 对话").font(DS.font(13)).foregroundStyle(DS.primary).padding(10)
@@ -225,6 +224,14 @@ struct NotesSourceReaderView: View {
       .task { await initialize() }
       .onChange(of: drawingData) { _, _ in
         guard ready, drawingData != lastSavedDrawing else { return }
+        if showInkReview, drawingData != reviewedDrawing {
+          inkTask?.cancel()
+          showInkReview = false
+          inkServiceError = nil
+          inkRemoteNote = nil
+          inkResultJob = nil
+          inkPhase = "idle"
+        }
         inkDirty = true
         saveTask?.cancel()
         saveTask = Task {
@@ -235,6 +242,7 @@ struct NotesSourceReaderView: View {
       }
       .onDisappear {
         saveTask?.cancel()
+        inkTask?.cancel()
         if inkDirty { Task { _ = await flushInk() } }
       }
       .onChange(of: store.sourceTarget) { _, value in
@@ -544,47 +552,28 @@ struct NotesSourceReaderView: View {
   private var inkReview: some View {
     BCCard {
       VStack(alignment: .leading, spacing: 12) {
-        if !showInkReview {
-          Text("原始笔迹会自动保存在本机，整理版不会覆盖它们。").font(DS.font(12)).foregroundStyle(DS.muted)
-          BCButton("识别并整理", icon: "Sparkles", style: .secondary) {
-            Task {
-              guard await flushInk() else { return }
-              recognizedText =
-                inkNote?.body == "手写笔迹已保存，尚未整理。"
-                ? NotesFixtures.recognizedInk : inkNote?.body ?? NotesFixtures.recognizedInk
-              organizedText = inkNote?.organizedText ?? ""
-              showInkReview = true
-              inkPhase = "confirmation"
-            }
-          }.disabled(drawingData.isEmpty)
-        } else {
-          BCPill("手写识别 · 固定演示")
-          Text("请确认识别文字").font(DS.font(18, weight: .bold))
-          Text("本 Demo 不识别你的真实笔迹，以下为演示文字。请按原始笔迹修正后继续。").font(DS.font(12)).foregroundStyle(DS.muted)
-          BCTextEditor(text: $recognizedText, placeholder: "修正识别结果").frame(minHeight: 120)
-          BCButton("确认并继续整理", icon: "Save") {
-            Task {
-              guard var note = inkNote else { return }
-              note.body = recognizedText
-              note.updatedAt = .now
-              note.organizedText =
-                bookID == "book_biology_2"
-                ? NotesFixtures.organizedInk : "## 手写笔记整理（演示）\n\n\(recognizedText)"
-              do {
-                try await store.saveNote(note)
-                inkNote = note
-                organizedText = note.organizedText ?? ""
-                inkPhase = "complete"
-              } catch { self.error = error.localizedDescription }
-            }
-          }.disabled(recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-          if inkPhase == "complete" {
-            Text("独立整理版").font(DS.font(15, weight: .bold)).foregroundStyle(DS.primary)
-            Text(organizedText).font(DS.font(14)).lineSpacing(5).textSelection(.enabled)
-            if bookID == "book_biology_2" { NotesDemoEvidence() }
-          }
-          BCButton("收起整理面板", style: .text) { showInkReview = false }
+        BCPill("原始笔迹保存在本机")
+        Text("请确认识别文字").font(DS.font(18, weight: .bold))
+        Text("识别和整理会将这页笔迹发送到学习服务。请核对返回文字，也可手动填写；原始笔迹不会被覆盖。").font(DS.font(12)).foregroundStyle(DS.muted)
+        if inkPhase == "recognizing" || inkPhase == "organizing" {
+          ProgressView(inkPhase == "recognizing" ? "正在识别真实笔迹…" : "正在整理确认后的文字…")
         }
+        if let inkServiceError { Text(inkServiceError).font(DS.font(12)).foregroundStyle(DS.danger) }
+        BCTextEditor(text: $recognizedText, placeholder: "确认或手动填写笔记文字").frame(minHeight: 120)
+          .disabled(inkTask != nil)
+        BCButton("只保存确认文字", style: .secondary) { Task { _ = await saveConfirmedInk() } }
+          .disabled(inkTask != nil || recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        BCButton("确认并继续整理", icon: "Save") { organizeInk() }
+          .disabled(inkTask != nil || recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        BCButton("重新查询识别", style: .text) { recognizeInk() }.disabled(inkTask != nil)
+        if !organizedText.isEmpty {
+          Text(organizedAccepted ? "已保留的独立整理版" : "整理建议 · 待确认").font(DS.font(15, weight: .bold)).foregroundStyle(DS.primary)
+          Text(organizedText).font(DS.font(14)).lineSpacing(5).textSelection(.enabled)
+          if !organizedAccepted {
+            BCButton("保留整理版", style: .secondary) { keepInkOrganized() }.disabled(inkTask != nil)
+          }
+        }
+        BCButton("收起整理面板", style: .text) { inkTask?.cancel(); showInkReview = false }
       }
     }
   }
@@ -735,15 +724,140 @@ struct NotesSourceReaderView: View {
     lastSavedDrawing = data
     drawingData = data
     inkDirty = false
-    if record?.id == "ink-demo-needs-confirmation", mode == .ink {
-      recognizedText = record?.body ?? ""
-      organizedText = record?.organizedText ?? ""
-      showInkReview = true
-      inkPhase = "confirmation"
-    }
+    inkTask?.cancel()
+    showInkReview = false
+    inkServiceError = nil
+    inkRemoteNote = nil
+    inkResultJob = nil
+    recognizedText = record?.transcript ?? (record?.body == "手写笔迹已保存，尚未整理。" ? "" : record?.body ?? "")
+    organizedText = record?.organizedText ?? ""
+    organizedAccepted = true
+    inkPhase = "idle"
     await Task.yield()
     guard loadGeneration == generation else { return }
     ready = true
+  }
+  private func recognizeInk() {
+    guard inkTask == nil else { return }
+    showInkReview = true
+    inkServiceError = nil
+    inkPhase = "recognizing"
+    reviewedDrawing = drawingData
+    let original = drawingData
+    let generation = loadGeneration
+    let epoch = store.cloudState.epoch
+    inkTask = Task { @MainActor in
+      defer { inkTask = nil }
+      do {
+        guard await flushInk(), let note = inkNote else {
+          throw CloudError(status: 409, message: "请先写下并保存笔迹，正在保存时可稍后重试。")
+        }
+        guard let api = store.cloud, store.cloudState.authenticated else {
+          throw CloudError(status: 503, message: "尚未连接手写识别服务，原始笔迹已保存在本机；也可以手动填写文字。")
+        }
+        let service = StudioService(api: api)
+        let remote = try await service.prepareInk(note: note, drawingData: original)
+        let submitted = try await service.analyze(note: remote, action: "recognize")
+        let result = try await service.waitForJob(submitted)
+        try Task.checkCancellation()
+        guard generation == loadGeneration, epoch == store.cloudState.epoch,
+          drawingData == original, inkNote?.id == note.id else { return }
+        guard !result.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+          throw CloudError(status: 422, message: "未返回可确认的识别文字，请按原始笔迹手动填写。")
+        }
+        inkRemoteNote = remote
+        recognizedText = result.transcript
+        inkPhase = "confirmation"
+      } catch is CancellationError { return }
+      catch {
+        guard generation == loadGeneration, epoch == store.cloudState.epoch else { return }
+        inkServiceError = error.localizedDescription
+        inkPhase = "confirmation"
+      }
+    }
+  }
+  @discardableResult private func saveConfirmedInk() async -> Bool {
+    guard var note = inkNote else { return false }
+    let generation = loadGeneration
+    let epoch = store.cloudState.epoch
+    note = NotesAnnotationRecord.mergingConversation(draft: note, stored: store.notes.first { $0.id == note.id })
+    note.body = recognizedText
+    note.transcript = recognizedText
+    note.updatedAt = .now
+    do {
+      try await store.saveNote(note)
+      guard generation == loadGeneration, epoch == store.cloudState.epoch, inkNote?.id == note.id else { return false }
+      inkNote = note
+      return true
+    } catch {
+      guard generation == loadGeneration, epoch == store.cloudState.epoch else { return false }
+      inkServiceError = "笔记文字尚未保存，请重试：" + error.localizedDescription
+      return false
+    }
+  }
+  private func organizeInk() {
+    guard inkTask == nil else { return }
+    inkServiceError = nil
+    inkPhase = "organizing"
+    let original = drawingData
+    let confirmed = recognizedText
+    let generation = loadGeneration
+    let epoch = store.cloudState.epoch
+    inkTask = Task { @MainActor in
+      defer { inkTask = nil }
+      do {
+        guard await saveConfirmedInk(), let note = inkNote else {
+          throw CloudError(status: 409, message: "请先保存确认后的文字。")
+        }
+        guard let api = store.cloud, store.cloudState.authenticated else {
+          throw CloudError(status: 503, message: "整理服务尚未连接，原始笔迹和确认文字仍保存在本机。")
+        }
+        let service = StudioService(api: api)
+        let remote = try await service.prepareInk(note: note, drawingData: original)
+        let submitted = try await service.analyze(note: remote, action: "improve", transcript: confirmed)
+        let result = try await service.waitForJob(submitted)
+        try Task.checkCancellation()
+        guard generation == loadGeneration, epoch == store.cloudState.epoch,
+          drawingData == original, inkNote?.id == note.id, recognizedText == confirmed else { return }
+        guard result.status == "succeeded", !result.polished.isEmpty else {
+          throw CloudError(status: 409, message: "服务没有返回可采用的整理版，请继续核对原稿。")
+        }
+        inkRemoteNote = remote
+        inkResultJob = result
+        organizedText = result.polished
+        organizedAccepted = false
+        inkPhase = "complete"
+      } catch is CancellationError { return }
+      catch {
+        guard generation == loadGeneration, epoch == store.cloudState.epoch else { return }
+        inkServiceError = error.localizedDescription
+        inkPhase = "confirmation"
+      }
+    }
+  }
+  private func keepInkOrganized() {
+    guard inkTask == nil else { return }
+    let generation = loadGeneration
+    let epoch = store.cloudState.epoch
+    inkTask = Task { @MainActor in
+      defer { inkTask = nil }
+      do {
+        guard let api = store.cloud, let inkRemoteNote, let inkResultJob, var note = inkNote else {
+          throw CloudError(status: 409, message: "整理结果尚未确认，请重新查询。")
+        }
+        try await StudioService(api: api).accept(note: inkRemoteNote, job: inkResultJob)
+        guard generation == loadGeneration, epoch == store.cloudState.epoch else { return }
+        note = NotesAnnotationRecord.mergingConversation(draft: note, stored: store.notes.first { $0.id == note.id })
+        note.organizedText = organizedText
+        note.updatedAt = .now
+        try await store.saveNote(note)
+        inkNote = note
+        organizedAccepted = true
+      } catch {
+        guard generation == loadGeneration, epoch == store.cloudState.epoch else { return }
+        inkServiceError = "整理版尚未保存：" + error.localizedDescription
+      }
+    }
   }
   @discardableResult private func flushInk() async -> Bool {
     guard inkDirty else { return true }
@@ -912,7 +1026,6 @@ struct NotesRegionAIView: View {
   @State private var issue: String?
   @State private var failedQuestion: String?
   @State private var request: Task<Void, Never>?
-  @State private var reservationID: String?
   @FocusState private var inputFocused: Bool
   private var isTextNote: Bool { note != nil }
   private var referenceLabel: String { "PDF 第 \(page) 页 · \(isTextNote ? "文字批注" : "圈选区域")" }
@@ -933,7 +1046,9 @@ struct NotesRegionAIView: View {
         }.frame(height: 40)
         }
         if !compact {
-        Text("剩余 \(store.credits) 积分 · 每次提问消耗 1 积分")
+        Text(bookID.hasPrefix("book_local_") || store.cloud == nil
+          ? "从本机资料查找原文依据，离线结果以引用摘录呈现"
+          : "由已连接的学习服务检索教材并回答")
           .font(DS.font(12)).foregroundStyle(DS.secondary)
         }
         if !compact && (!inputFocused || viewport.size.height >= 430) {
@@ -945,7 +1060,7 @@ struct NotesRegionAIView: View {
               if messages.isEmpty {
                 bubble(isTextNote
                   ? "我会结合你的批注和所在教材页一起讨论。可以检查你的理解，也可以继续追问。"
-                  : "已收到你圈出的这一块原文。想问什么？例如这一处讲了什么、图里的箭头代表什么。",
+                  : "可以针对当前页提问。我会使用可提取的教材文字和检索依据；圈选图片暂作参照，请用文字补充图片中的细节。",
                   user: false)
               }
               ForEach(messages) { message in
@@ -1029,11 +1144,6 @@ struct NotesRegionAIView: View {
     }.task { messages = note?.conversation ?? [] }
       .onDisappear {
         request?.cancel()
-        if let reservationID {
-          self.reservationID = nil
-          // Refund immediately even if native model inference is still finishing.
-          Task { await store.refundCredits(reservationID) }
-        }
       }
   }
   @ViewBuilder private var reference: some View {
@@ -1083,31 +1193,31 @@ struct NotesRegionAIView: View {
     let selectedBookID = store.selectedBookID
     let sourceBookIDs = store.currentCourse?.resourceIDs ?? [bookID]
     let sources = store.sources
+    let epoch = store.cloudState.epoch
     request = Task { @MainActor in
-      var reservation: String?
       do {
-        if store.cloud == nil { reservation = try await store.reserveCredits(1) }
-        reservationID = reservation
         try Task.checkCancellation()
         if question.trimmingCharacters(in: .whitespacesAndNewlines) == input { question = "" }
         messages.append(ChatMessage(role: "user", text: input))
         await persistConversation()
         let context = note.map { "文字批注：\($0.body)\n" } ?? ""
         let contextualQuestion = "\(input)\n\(context)（PDF 第 \(page) 页；当前页文字上下文：\(String(pageText.prefix(1200)))）"
-        let result = try await store.answerAssistant(question: contextualQuestion, bookID: bookID,
-          bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
+        let result: AssistantAnswer
+        if bookID.hasPrefix("book_local_") || store.cloud == nil {
+          result = try await store.assistant.ask(question: contextualQuestion, bookID: bookID,
+            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
+        } else {
+          result = try await store.answerAssistant(question: contextualQuestion, bookID: bookID,
+            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
+        }
         try Task.checkCancellation()
-        guard store.selectedCourseID == courseID, store.selectedBookID == selectedBookID else {
+        guard store.selectedCourseID == courseID, store.selectedBookID == selectedBookID,
+          epoch == store.cloudState.epoch else {
           throw CancellationError()
         }
-        if let reservation { await store.completeCredits(reservation) }
-        reservation = nil
-        reservationID = nil
         messages.append(ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
         await persistConversation()
       } catch {
-        if let reservation { await store.refundCredits(reservation) }
-        reservationID = nil
         if !Task.isCancelled {
           issue = error.localizedDescription
           failedQuestion = input

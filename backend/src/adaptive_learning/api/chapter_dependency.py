@@ -27,6 +27,8 @@ def build_chapter_reconstructor() -> ChapterReconstructor:
                 timeout_seconds=120,
                 max_retries=1,
                 proxy_url=settings.llm_https_proxy,
+                thinking_enabled=settings.text_thinking_enabled,
+                reasoning_effort=settings.text_reasoning_effort,
             )
         )
     )

@@ -47,7 +47,7 @@ private enum CommunityAssistantRules {
     let recommended = Array(books.filter { $0.recommended == true }.prefix(4))
     let fallback = recommended.isEmpty ? Array(books.prefix(4)) : recommended
     return CommunityAssistantAnswer(
-      courseIds: fallback.map(\.id), text: "我只根据发现页的课程目录回答。你可以输入课程名，也可以告诉我学科、年级或学习目标；先为你列出几门热门课程。")
+      courseIds: fallback.map(\.id), text: "我只根据发现页的课程目录回答。你可以输入课程名，也可以告诉我学科、年级或学习目标；先为你列出几门目录中的课程。")
   }
 }
 
@@ -65,10 +65,11 @@ func answerCommunityCourseQuery(_ question: String, books: [CommunityBook])
   }
   if direct.count == 1, let book = direct.first {
     let volume = (book.volume?.isEmpty == false) ? " · \(book.volume!)" : ""
+    let details = [book.grade, book.version].filter { !$0.isEmpty }.joined(separator: " · ")
+    let metadata = details.isEmpty ? "" : "课程信息：\(details)\(volume)。"
     return CommunityAssistantAnswer(
       courseIds: [book.id],
-      text:
-        "“\(book.catalogTitle)”面向\(book.grade)，版本为\(book.version)\(volume)。\(book.description) 当前有 \(book.learners) 人学习。"
+      text: "“\(book.catalogTitle)”。\(metadata)\(book.description)"
     )
   }
   if direct.count > 1 { return Rules.summarize(direct, label: "相关") }
@@ -100,7 +101,7 @@ func answerCommunityCourseQuery(_ question: String, books: [CommunityBook])
     }
     return CommunityAssistantAnswer(
       courseIds: Rules.fallback(books).courseIds,
-      text: "发现页暂时没有完全符合这些条件的课程。你可以换一个学科、年级或学习目标；也可以先看看这些热门课程。")
+      text: "发现页暂时没有完全符合这些条件的课程。你可以换一个学科、年级或学习目标；也可以先看看这些已发布课程。")
   }
   let stripped = question.replacingOccurrences(
     of: "请|帮我|推荐|介绍|一下|课程|想学|我要学|怎么样|如何|是什么|适合我吗|的", with: "", options: .regularExpression)

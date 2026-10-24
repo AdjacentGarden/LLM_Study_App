@@ -134,7 +134,7 @@ actor CloudAPI {
   #endif
 
   nonisolated static func configured() -> CloudAPI? {
-    guard !ProcessInfo.processInfo.arguments.contains("--fixture") else { return nil }
+    guard !ContentBundle.fixtureMode else { return nil }
     let value =
       ProcessInfo.processInfo.environment["BOOKCOURSE_API_BASE_URL"]
       ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? "http://127.0.0.1:8100"
@@ -240,6 +240,44 @@ actor CloudAPI {
     return bytes
   }
 
+  func uploadStudioAudio(noteID: String, revision: Int, duration: Double, fileURL: URL) async throws -> Data {
+    guard Self.validStudioID(noteID), revision >= 1, duration.isFinite, (0...602).contains(duration) else {
+      throw CloudError(status: 422, message: "录音信息不完整，原始文件仍保留在本机。")
+    }
+    let values = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+    guard fileURL.isFileURL, values.isRegularFile == true, let size = values.fileSize,
+      size >= 32, size <= 20 * 1024 * 1024 else {
+      throw CloudError(status: 413, message: "录音必须为有效且小于 20 MB 的本机文件。")
+    }
+    let mime = fileURL.pathExtension.lowercased() == "wav" ? "audio/wav" : "audio/mp4"
+    let (bytes, _) = try await send(
+      "/api/studio/notes/\(noteID)/audio", method: "PUT", data: nil, contentType: mime,
+      headers: ["X-Note-Revision": String(revision), "X-Audio-Duration": String(duration)],
+      uploadFile: fileURL)
+    return bytes
+  }
+
+  func downloadStudioAsset(jobID: String, kind: String? = nil) async throws -> Data {
+    guard Self.validStudioID(jobID) else { throw CloudError(status: 422, message: "媒体任务标识无效") }
+    let (bytes, response) = try await send(
+      "/api/studio/jobs/\(jobID)/asset", method: "GET", data: nil, contentType: nil)
+    let jpeg = response.mimeType == "image/jpeg" && bytes.starts(with: [0xff, 0xd8, 0xff])
+    let png = response.mimeType == "image/png" && bytes.starts(with: [137, 80, 78, 71, 13, 10, 26, 10])
+    let video = response.mimeType == "video/mp4" && bytes.count > 12
+      && bytes.subdata(in: 4..<8) == Data("ftyp".utf8)
+    let valid = kind == "image" ? jpeg || png : kind == "video" ? video : jpeg || png || video
+    guard valid, bytes.count <= 60_000_000 else {
+      throw CloudError(status: 422, message: "服务未返回有效媒体文件，请稍后查询原任务。")
+    }
+    return bytes
+  }
+
+  private nonisolated static func validStudioID(_ value: String) -> Bool {
+    !value.isEmpty && value.count <= 100 && value.unicodeScalars.allSatisfy {
+      CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-").contains($0)
+    }
+  }
+
   func clearCredentials() {
     cookies = [:]
     for key in credentialKeys {
@@ -248,13 +286,10 @@ actor CloudAPI {
     }
   }
 
-  func sendMediaAsset(_ path: String) async throws -> (Data, HTTPURLResponse) {
-    try await send(path, method: "GET", data: nil, contentType: nil)
-  }
-
   private func send(
     _ path: String, method: String, data: Data?, contentType: String?,
-    uploadFile: URL? = nil, uploadObserver: CloudUploadObserver? = nil
+    headers: [String: String] = [:], uploadFile: URL? = nil,
+    uploadObserver: CloudUploadObserver? = nil
   ) async throws
     -> (Data, HTTPURLResponse)
   {
@@ -272,8 +307,9 @@ actor CloudAPI {
     } else if path.hasSuffix("/qa") {
       request.timeoutInterval = 60
     }
-    request.httpBody = data
+    if uploadFile == nil { request.httpBody = data }
     if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+    for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
     if !cookies.isEmpty {
       request.setValue(
         cookies.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "; "),

@@ -655,7 +655,9 @@ final class BookCourseUITests: XCTestCase {
     keepScreenshot("popup-native-pencilkit-stroke", app: app)
     organize.tap()
     XCTAssertTrue(app.staticTexts["请确认识别文字"].firstMatch.waitForExistence(timeout: 10))
-    keepScreenshot("popup-ink-demo-confirmation", app: app)
+    XCTAssertTrue(app.staticTexts["尚未连接手写识别服务，原始笔迹已保存在本机；也可以手动填写文字。"].firstMatch.waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["确认并继续整理"].firstMatch.isEnabled)
+    keepScreenshot("popup-ink-service-unavailable-original-preserved", app: app)
     app.buttons["收起整理面板"].firstMatch.tap()
 
     app.buttons["圈选问 AI"].tap()
@@ -682,17 +684,16 @@ final class BookCourseUITests: XCTestCase {
     let voice = app.buttons["开始语音批注"].firstMatch
     try reveal(voice, in: app)
     voice.tap()
-    let sample = app.buttons["使用示例录音"].firstMatch
-    XCTAssertTrue(sample.waitForExistence(timeout: 10))
-    if !sample.isHittable { app.scrollViews["voice.scroll"].firstMatch.swipeUp() }
-    XCTAssertTrue(sample.isHittable)
-    sample.tap()
-    XCTAssertTrue(app.staticTexts["00:08"].firstMatch.waitForExistence(timeout: 10))
-    keepScreenshot("popup-voice-sample-stopped", app: app)
+    let record = app.buttons["开始录音"].firstMatch
+    XCTAssertTrue(record.waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["使用示例录音"].firstMatch.exists)
+    // Real microphone recording is verified with device permission tests;
+    // an offline UI test must never inject audio or a fabricated transcript.
+    keepScreenshot("popup-voice-real-recorder-no-demo", app: app)
     let voiceClose = app.buttons.matching(identifier: "关闭").allElementsBoundByIndex.last!
     voiceClose.tap()
     let voiceClosed = XCTNSPredicateExpectation(
-      predicate: NSPredicate(format: "exists == false"), object: sample)
+      predicate: NSPredicate(format: "exists == false"), object: record)
     XCTAssertEqual(XCTWaiter.wait(for: [voiceClosed], timeout: 10), .completed)
     keepScreenshot("popup-voice-close-keeps-parent", app: app)
   }
@@ -887,7 +888,7 @@ final class BookCourseUITests: XCTestCase {
     let export = reopened.buttons["notes.export"].firstMatch
     try reveal(export, in: reopened)
     export.tap()
-    XCTAssertTrue(reopened.buttons["确认导出"].firstMatch.waitForExistence(timeout: 10))
+    XCTAssertTrue(reopened.buttons["生成 PDF"].firstMatch.waitForExistence(timeout: 10))
     reopened.terminate()
 
     let flashcards = launch("notes", session: session)

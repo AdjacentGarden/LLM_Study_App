@@ -1,0 +1,17 @@
+{
+  "frozen_candidate_backend": {
+    "revision": "researched-fixes-v7-format-final-03",
+    "tests": 1404,
+    "passed": 1398,
+    "skipped": 6,
+    "failures": 0,
+    "errors": 0,
+    "source_files_unchanged_during_tests": 198
+  },
+  "native_source_files": 43,
+  "ios_build": false,
+  "signed_ipa": false,
+  "production_promoted": false,
+  "whole_book_approved_under_60s": false,
+  "latest_note_service_review_passed": false
+}

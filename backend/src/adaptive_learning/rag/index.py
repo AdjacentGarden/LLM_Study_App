@@ -425,7 +425,7 @@ class PersistentRAGIndex:
         )
         reranked = [index for index, _ in reranked_pairs]
         pages = _protected_pages(
-            fused,
+            reranked,
             bm25_ranking,
             self.chunks,
             primary_pages=min(3, top_pages),

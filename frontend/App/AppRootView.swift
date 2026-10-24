@@ -632,7 +632,7 @@ struct AssistantChatView: View {
       GeometryReader { viewport in
         ScrollView {
           VStack(alignment: .leading, spacing: 14) {
-            Text(store.cloud == nil ? "剩余 \(store.credits) 积分 · 每次提问消耗 1 积分" : "基于当前教材原文回答").font(DS.font(20)).foregroundStyle(
+            Text(store.cloud == nil ? "离线检索当前教材原文" : "基于当前教材原文回答").font(DS.font(20)).foregroundStyle(
               DS.secondary
             ).frame(height: 28, alignment: .top)
             if store.currentSource != nil {

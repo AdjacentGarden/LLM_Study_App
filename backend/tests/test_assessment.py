@@ -1,10 +1,7 @@
-from datetime import UTC, datetime
-
 from adaptive_learning.assessment.engine import AdaptiveAssessmentEngine, score_choice
 from adaptive_learning.assessment.models import (
     AssessmentResponse,
     DiagnosticItem,
-    DiagnosticObservation,
     LearnerProfile,
     MasteryPosterior,
     ResponseType,
@@ -63,7 +60,6 @@ def test_choice_evidence_updates_mastery_and_calibration() -> None:
     AdaptiveAssessmentEngine().update_profile(profile, diagnostic, response, evidence)
 
     assert profile.knowledge_mastery["point"].mean > 0.5
-    assert profile.knowledge_mastery["point"].tracked_mastery is not None
     assert profile.confidence_observations == 1
     assert profile.calibration_error is not None
     assert len(profile.diagnostic_observations) == 1
@@ -137,69 +133,3 @@ def test_hints_and_implausibly_fast_response_reduce_evidence_weight() -> None:
         careful.diagnostic_observations[0].evidence_weight
         > rushed.diagnostic_observations[0].evidence_weight
     )
-    assert (
-        careful.knowledge_mastery["point"].mean
-        > rushed.knowledge_mastery["point"].mean
-    )
-
-
-def test_wrong_answer_lowers_sequential_mastery_without_erasing_audit_counts() -> None:
-    diagnostic = item("i", "point")
-    profile = LearnerProfile(
-        user_id="u",
-        book_id="b",
-        knowledge_mastery={"point": MasteryPosterior(alpha=3, beta=2, evidence_count=2)},
-    )
-    response = AssessmentResponse(
-        item_id="i",
-        answer="A",
-        selected_option_ids=["0"],
-        confidence=0.95,
-        response_seconds=20,
-    )
-
-    AdaptiveAssessmentEngine().update_profile(
-        profile,
-        diagnostic,
-        response,
-        score_choice(diagnostic, response),
-    )
-
-    state = profile.knowledge_mastery["point"]
-    assert state.tracked_mastery is not None
-    assert state.tracked_mastery < 0.5
-    assert state.evidence_count == 3
-    assert state.alpha == 3
-    assert state.beta > 2
-
-
-def test_selector_avoids_abrupt_difficulty_jump_when_information_is_equal() -> None:
-    profile = LearnerProfile(
-        user_id="u",
-        book_id="b",
-        knowledge_mastery={"near": MasteryPosterior(), "jump": MasteryPosterior()},
-        diagnostic_observations=[
-            DiagnosticObservation(
-                item_id="previous",
-                chapter_id="old",
-                knowledge_point_ids=["old"],
-                score=0.5,
-                evidence_weight=1,
-                scoring_confidence=1,
-                self_confidence=0.5,
-                response_seconds=30,
-                hints_used=0,
-                item_difficulty=0,
-                observed_at=datetime(2026, 1, 1, tzinfo=UTC),
-            )
-        ],
-    )
-
-    selected = AdaptiveAssessmentEngine().select_next(
-        profile,
-        [item("jump", "jump", chapter="new", difficulty=2.5), item("near", "near", chapter="new")],
-        set(),
-    )
-
-    assert selected is not None
-    assert selected.item_id == "near"

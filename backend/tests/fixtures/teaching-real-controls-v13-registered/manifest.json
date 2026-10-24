@@ -1,0 +1,44 @@
+{
+  "purpose": "pre-registered actual v8 rejected draft paired controls; not production acceptance",
+  "teaching_version": "whole-course-evidence-review-v13+scope-plan-v3",
+  "cases": {
+    "actual_bad": {
+      "sha256": "4c19179d4813c8c3de3457c021fff2e2014223cb004ef34a5d7cfa332bf39a79",
+      "expectations": {
+        "kind": "actual_scope_error",
+        "failed_components": [
+          "explanation",
+          "flashcard",
+          "practice"
+        ],
+        "scope_reason": "三组件均在要求完整密码子定义时无条件宣称决定1个氨基酸，题干未限于编码氨基酸的情形。同章明确有终止密码。此真实样本还存在额外缺引用，不要求source_entailment为true。",
+        "preserved_actual_candidate": true
+      }
+    },
+    "actual_good": {
+      "sha256": "03a2d8701413b55a44e7f09a664787551e415fca661917fe15c1e4f6528ca3c2",
+      "expectations": {
+        "kind": "correct",
+        "failed_components": [],
+        "scope_reason": "解释、卡片和练习各自明确mRNA、3个相邻碱基，并区分编码氨基酸与终止。引用覆盖三联体、阅读、反密码子与终止原文；不得把已写mRNA/相邻重复误报为遗漏。",
+        "paired_boundary_and_citation_repair": true
+      }
+    }
+  },
+  "planner_expectations": {
+    "required_boundary_source": "src_p62_0_387_2232c69883a4"
+  },
+  "provenance": {
+    "actual_invocation": "aec4a7969947453a9fc9bb2237f33b5b",
+    "source_pdf_sha256": "d35ca6844f22e87bef5cd3deb286c7965f386ba13924a8195eddaefa41db533a",
+    "bad_candidate_sha256": "679e7fa1ddff04d7b21f121e906783978093d5d312bc0cbe28747b6c34d68b70",
+    "annotation": "All three actual component definitions are unqualified. No practice-specific narrowed coding premise is present. Expected labels remain local only."
+  },
+  "previous_registry_sha256": "47ef216294f3fedfd9a743c5861ad3c92afd869616d4a837e7c0888f537f6168",
+  "fixture_byte_changes_from_v12": false,
+  "review_route": {
+    "provider": "pucoding",
+    "model": "gpt-6-sol",
+    "reasoning_effort": "low"
+  }
+}

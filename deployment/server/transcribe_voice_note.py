@@ -11,35 +11,68 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
-    parser.add_argument("--audio", required=True)
+    parser.add_argument("--audio", default="")
+    parser.add_argument("--serve", action="store_true")
     parser.add_argument("--language", default="zh")
     parser.add_argument("--prompt", default="")
     parser.add_argument("--max-seconds", type=float, default=600)
     args = parser.parse_args()
 
-    audio = Path(args.audio).resolve()
     model_path = Path(args.model).resolve()
-    if not audio.is_file() or not model_path.is_dir():
-        raise SystemExit("audio or model is missing")
+    if not model_path.is_dir():
+        raise SystemExit("model is missing")
+
+    device = os.getenv("VOICE_ASR_DEVICE", "cpu").strip().lower()
+    if device not in {"cpu", "cuda", "auto"}:
+        raise SystemExit("VOICE_ASR_DEVICE must be cpu, cuda, or auto")
+    compute_type = os.getenv("VOICE_ASR_COMPUTE_TYPE", "int8").strip()
+    if not compute_type:
+        raise SystemExit("VOICE_ASR_COMPUTE_TYPE must not be empty")
 
     from faster_whisper import WhisperModel
 
     started = time.monotonic()
     model = WhisperModel(
         str(model_path),
-        device="cpu",
-        compute_type="int8",
+        device=device,
+        compute_type=compute_type,
         cpu_threads=8,
         num_workers=1,
     )
+    loaded = time.monotonic()
+    if args.serve:
+        for line in sys.stdin:
+            try:
+                request = json.loads(line)
+                current = SimpleNamespace(audio=request['audio'], language=request.get('language','zh'),
+                                          prompt=request.get('prompt',''), max_seconds=args.max_seconds)
+                value = transcribe(model, current)
+            except (OSError, ValueError, RuntimeError, KeyError, TypeError):
+                value = {"error": "transcription_failed"}
+            print(json.dumps(value, ensure_ascii=False, separators=(",", ":")), flush=True)
+        return 0
+    value = transcribe(model, args)
+    value['load_seconds'] = round(loaded - started, 3)
+    value['elapsed_seconds'] = round(time.monotonic() - started, 2)
+    json.dump(value, sys.stdout, ensure_ascii=False, separators=(",", ":"))
+    return 0
+
+
+def transcribe(model, args):
+    started = time.monotonic()
+    audio = Path(args.audio).resolve()
+    if not audio.is_file():
+        raise ValueError("audio is missing")
     segments, info = model.transcribe(
         str(audio),
         language=args.language,
@@ -51,6 +84,9 @@ def main() -> int:
         initial_prompt=(
             "这是一段中文学习笔记，可能包含教材术语、英文缩写、数字和公式。" + args.prompt[:800]
         ),
+        # Hotwords share Whisper's bounded decoder context with the prompt.
+        # Passing a whole textbook page here can exceed that context at runtime.
+        hotwords=args.prompt[:48] or None,
         word_timestamps=True,
     )
     rows = []
@@ -96,10 +132,13 @@ def main() -> int:
         "segments": rows,
         "duration_seconds": round(detected_duration, 2),
         "language": str(getattr(info, "language", args.language)),
+        "device": str(getattr(model.model, "device", "unavailable")),
+        "compute_type": str(getattr(model.model, "compute_type", "unavailable")),
+        "requested_compute_type": os.getenv("VOICE_ASR_COMPUTE_TYPE", "int8").strip(),
+        "inference_seconds": round(time.monotonic() - started, 3),
         "elapsed_seconds": round(time.monotonic() - started, 2),
     }
-    json.dump(value, sys.stdout, ensure_ascii=False, separators=(",", ":"))
-    return 0
+    return value
 
 
 if __name__ == "__main__":

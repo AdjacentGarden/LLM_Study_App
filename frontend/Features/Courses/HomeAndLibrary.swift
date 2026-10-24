@@ -210,14 +210,14 @@ struct CourseHomeView: View {
               HStack {
                 Text("今日待复习").font(DS.font(14, weight: .bold))
                 Spacer()
-                Text("3 道").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
+                Text("\(store.mistakes.filter { $0.book_id == store.selectedBookID }.count) 道").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
               }
-              ForEach([("减数分裂", "错 2 次"), ("同源染色体", "待复习")], id: \.0) { label, status in
+              ForEach(Array(store.mistakes.filter { $0.book_id == store.selectedBookID }.prefix(2)), id: \.mistake_id) { mistake in
                 HStack(spacing: 5) {
                   Circle().fill(DS.primary).frame(width: 4, height: 4)
-                  Text(label).lineLimit(1)
+                  Text(mistake.question).lineLimit(1)
                   Spacer(minLength: 0)
-                  Text(status).fontWeight(.bold).foregroundStyle(DS.primary).fixedSize()
+                  Text("待复习").fontWeight(.bold).foregroundStyle(DS.primary).fixedSize()
                 }.font(DS.font(min(20, max(9, width * 0.087)))).padding(.horizontal, 5).padding(
                   .vertical, 4
                 ).background(Color(hex: 0xF9F5FF), in: RoundedRectangle(cornerRadius: 6))
@@ -425,7 +425,7 @@ struct CourseLibraryView: View {
               ).clipped().clipShape(RoundedRectangle(cornerRadius: 10))
               VStack(alignment: .leading, spacing: 6) {
                 Text(course.name).font(DS.font(16, weight: .bold))
-                Text(directory ? "演示课程 · 目录预览" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习")
+                Text(directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习")
                   .font(DS.font(14)).foregroundStyle(DS.secondary)
                 Text(source?.summary.title ?? "添加资料后开始学习").font(DS.font(14)).foregroundStyle(
                   DS.secondary)
@@ -675,12 +675,19 @@ struct CourseDetailView: View {
         Text(source?.summary.title ?? "资料暂时不可用").font(DS.font(16, weight: .bold))
         Text(
           source?.summary.content_mode == "directory"
-            ? "演示课程 · 目录预览" : source?.summary.status == "ready" ? "可开始学习" : "待整理 · 原文件已保留"
+            ? "教材目录 · 尚未生成教学内容" : source?.summary.status == "ready" ? "可开始学习" : "待整理 · 原文件已保留"
         ).font(DS.font(14)).foregroundStyle(DS.secondary)
       }.frame(maxWidth: .infinity, alignment: .leading)
     }
   }
   @ViewBuilder private func resourceControls(_ source: SourceContent?, id: String) -> some View {
+    if store.sourceFileURL(id) != nil {
+      detailAction("读原文", icon: "BookOpen") {
+        store.selectSource(id)
+        store.openSource(SourcePageTarget(bookID: id, title: source?.summary.title ?? "原文", page: 1,
+          sourceText: source?.chunks.map(\.text).joined(separator: "\n\n"), from: .courseDetail))
+      }
+    }
     if source?.summary.status == "ready" {
       detailAction("进入", icon: "ArrowRight", trailing: true, fill: !store.isPad) {
         store.selectSource(id)

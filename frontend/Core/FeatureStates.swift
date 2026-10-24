@@ -4,7 +4,7 @@ import Observation
 // Each feature owns its observable state; AppStore coordinates repository operations
 // and exposes forwarding properties to keep feature interfaces small and stable.
 @MainActor @Observable final class CourseState {
-  var credits = 100
+  var credits = 0
   var chapterDrafts: [String: [Chapter]] = [:]
   var sources: [SourceContent] = []
   var community: [CommunityBook] = []

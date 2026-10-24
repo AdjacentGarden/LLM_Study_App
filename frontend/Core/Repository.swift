@@ -109,22 +109,32 @@ private final class SQLiteConnection: @unchecked Sendable {
 }
 actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   nonisolated let directory: URL
+  nonisolated let includesFixtureContent: Bool
   private let db: SQLiteConnection
   private let encoder = JSONEncoder(), decoder = JSONDecoder()
-  init(directory: URL? = nil) throws {
+  init(directory: URL? = nil, includeFixtures: Bool = false) throws {
     let root =
       directory
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("BookCourse", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     self.directory = root
+    #if DEBUG
+      self.includesFixtureContent = includeFixtures
+    #else
+      self.includesFixtureContent = false
+    #endif
     self.db = try SQLiteConnection(url: root.appendingPathComponent("bookcourse.sqlite"))
     self.encoder.outputFormatting = [.sortedKeys]
     try FileManager.default.createDirectory(
       at: root.appendingPathComponent("attachments"), withIntermediateDirectories: true)
   }
+  init(includeFixtures: Bool, directory: URL?) throws {
+    try self.init(directory: directory, includeFixtures: includeFixtures)
+  }
   func loadSources() throws -> [SourceContent] {
-    let seed: [SourceContent] = try ContentBundle.load([SourceContent].self, name: "sources")
+    try retireUnchangedPreviewContent()
+    let seed: [SourceContent] = includesFixtureContent ? try ContentBundle.load([SourceContent].self, name: "sources") : []
     let saved = try db.get("source").map { try decoder.decode(SourceContent.self, from: $0) }
     var sources = seed
     for source in saved {
@@ -244,7 +254,8 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     }
   }
   func loadNotes() throws -> [StudyNote] {
-    try db.get("note").map { try decoder.decode(StudyNote.self, from: $0) }.sorted {
+    try retireUnchangedPreviewContent()
+    return try db.get("note").map { try decoder.decode(StudyNote.self, from: $0) }.sorted {
       $0.updatedAt > $1.updatedAt
     }
   }
@@ -269,7 +280,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   func saveFilePaths(_ values: [String: String]) throws {
     try db.put("app", "file-paths", encoder.encode(values))
   }
-  func creditLedger(startingBalance: Int = 100) throws -> CreditLedger {
+  func creditLedger(startingBalance: Int = 0) throws -> CreditLedger {
     if let bytes = try db.get("credit", "ledger").first {
       return try decoder.decode(CreditLedger.self, from: bytes)
     }
@@ -310,6 +321,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   #endif
 
   func seedDemoNotesIfNeeded() throws {
+    guard includesFixtureContent else { return }
     guard try db.get("meta", "learning-notes-demo-v1").isEmpty else { return }
     let (note, drawing) = try DemoNoteSeed.make()
     try drawing.write(
@@ -319,6 +331,66 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     do {
       if try db.get("note", note.id).isEmpty { try db.put("note", note.id, encoder.encode(note)) }
       try db.put("meta", "learning-notes-demo-v1", Data([1]))
+      try db.execute("COMMIT")
+    } catch {
+      try? db.execute("ROLLBACK")
+      throw error
+    }
+  }
+
+  /// Upgrade only untouched legacy previews. Archive records before retiring them;
+  /// imported files and edited notes/content are never selected by this migration.
+  private func retireUnchangedPreviewContent() throws {
+    guard !includesFixtureContent, try db.get("meta", "retired-previews-v1").isEmpty,
+      let baseline = try? ContentBundle.load([SourceContent].self, name: "sources")
+    else { return }
+    let paths = try filePaths()
+    let records = try db.get("source")
+    let retired = try records.filter { bytes in
+      let source = try decoder.decode(SourceContent.self, from: bytes)
+      return paths[source.id] == nil && baseline.contains(source)
+    }
+    let ids = Set(try retired.map { try decoder.decode(SourceContent.self, from: $0).id })
+    struct LegacyNote: Decodable { var id: String; var title: String; var recognizedText: String }
+    let noteSeeds = (try? ContentBundle.load([LegacyNote].self, name: "demo-notes")) ?? []
+    try db.execute("BEGIN IMMEDIATE")
+    do {
+      for bytes in retired {
+        let id = try decoder.decode(SourceContent.self, from: bytes).id
+        try db.put("retired-preview-source-v1", id, bytes)
+        try db.delete("source", id)
+      }
+      for bytes in try db.get("note") {
+        let note = try decoder.decode(StudyNote.self, from: bytes)
+        if note.createdAt == note.updatedAt, note.organizedText == nil, note.transcript == nil,
+          note.drawingPath == "attachments/demo-uncertain.pkdrawing",
+          noteSeeds.contains(where: { $0.id == note.id && $0.title == note.title && $0.recognizedText == note.body })
+        {
+          try db.put("retired-preview-note-v1", note.id, bytes)
+          try db.delete("note", note.id)
+        }
+      }
+      if let bytes = try db.get("app", "state").first {
+        var snapshot = try decoder.decode(AppSnapshot.self, from: bytes)
+        try db.put("retired-preview-snapshot-v1", "state", bytes)
+        for i in snapshot.courses.indices {
+          snapshot.courses[i].resourceIDs.removeAll { ids.contains($0) }
+          if let active = snapshot.courses[i].activeResourceID, ids.contains(active) {
+            snapshot.courses[i].activeResourceID = snapshot.courses[i].resourceIDs.first
+          }
+        }
+        snapshot.courses.removeAll { $0.resourceIDs.isEmpty && $0.id.hasPrefix("course:") }
+        snapshot.draft.resourceIDs.removeAll { ids.contains($0) }
+        snapshot.mistakes.removeAll { $0.mistake_id == "mistake_demo_01" && $0.error_count == nil }
+        if let id = snapshot.selectedBookID, ids.contains(id) {
+          snapshot.selectedBookID = nil
+        }
+        if !snapshot.courses.contains(where: { $0.id == snapshot.selectedCourseID }) {
+          snapshot.selectedCourseID = nil
+        }
+        try db.put("app", "state", encoder.encode(snapshot))
+      }
+      try db.put("meta", "retired-previews-v1", Data([1]))
       try db.execute("COMMIT")
     } catch {
       try? db.execute("ROLLBACK")

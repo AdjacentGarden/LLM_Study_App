@@ -62,7 +62,7 @@ def test_compiler_prioritizes_unknown_and_weak_points_with_exact_citations() -> 
     assert bundle.summary == value.summary
 
 
-def test_course_changes_depth_and_size_for_different_profiles() -> None:
+def test_course_changes_depth_but_preserves_all_points_for_different_profiles() -> None:
     value = chapter()
     novice = LearnerProfile(
         user_id="novice",
@@ -101,6 +101,19 @@ def test_course_changes_depth_and_size_for_different_profiles() -> None:
         challenge.coverage_point_ids
     )
     assert foundation.flashcards[0].front != challenge.flashcards[0].front
+
+
+def test_daily_time_partitions_all_points_without_dropping_content() -> None:
+    value = chapter(14)
+    profile = LearnerProfile(user_id="u", book_id="b")
+    profile.constraints.minutes_per_day = 15
+    bundle = ChapterCourseCompiler().compile(chapter=value, profile=profile,
+        decision=PersonalizationPolicy().decide(profile, value.chapter_id))
+    assert len(bundle.knowledge_points) == 14
+    unit_ids = [point_id for unit in bundle.study_units for point_id in unit.point_ids]
+    assert unit_ids == [point.point_id for point in bundle.knowledge_points]
+    assert len(bundle.study_units) == 5
+    assert not any("其余内容" in warning for warning in bundle.unresolved_source_warnings)
 
 
 def test_public_course_never_contains_practice_answer_keys() -> None:
@@ -158,3 +171,45 @@ def test_compiler_rejects_chapter_without_evidence_backed_points() -> None:
         assert "evidence-backed" in str(error)
     else:
         raise AssertionError("course compiler accepted an ungrounded chapter")
+
+
+def test_merged_course_keeps_native_design_and_legacy_study_unit_coverage() -> None:
+    from adaptive_learning.learning_preferences import LearningDesignConfig
+
+    value = chapter(14)
+    profile = LearnerProfile(user_id="u", book_id="b")
+    profile.constraints.minutes_per_day = 15
+    profile.learning_design = LearningDesignConfig(
+        minutes_per_day=15, guidance_styles=["examples"]
+    )
+    bundle = ChapterCourseCompiler().compile(
+        chapter=value, profile=profile,
+        decision=PersonalizationPolicy().decide(profile, value.chapter_id),
+    )
+    all_points = {point.point_id for point in bundle.knowledge_points}
+    assert {point for unit in bundle.units for point in unit.knowledge_point_ids} == all_points
+    assert {point for unit in bundle.study_units for point in unit.point_ids} == all_points
+    assert bundle.design_config == profile.learning_design
+    assert bundle.design_fingerprint == profile.learning_design.fingerprint
+    public = PublicChapterLearningBundle.from_private(bundle)
+    assert public.units == bundle.units
+    assert public.study_units == bundle.study_units
+    assert public.coverage_point_ids == bundle.coverage_point_ids
+    assert public.design_config == bundle.design_config
+    assert "teaching_scope_plan" not in public.model_dump()
+    assert "teaching_review" not in public.model_dump()
+
+
+def test_merged_course_source_fingerprint_tracks_full_evidence() -> None:
+    from adaptive_learning.personalization.generator import chapter_fingerprint
+
+    value = chapter(2)
+    assert chapter_fingerprint(value, "evidence-a") != chapter_fingerprint(value, "evidence-b")
+    profile = LearnerProfile(user_id="u", book_id="b")
+    explicit = chapter_fingerprint(value, "complete-pages")
+    bundle = ChapterCourseCompiler().compile(
+        chapter=value, profile=profile,
+        decision=PersonalizationPolicy().decide(profile, value.chapter_id),
+        source_fingerprint=explicit,
+    )
+    assert bundle.source_fingerprint == explicit

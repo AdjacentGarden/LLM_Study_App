@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
+from ..llm.book_parallel import ordered_book_map
 from ..llm.client import LLMError, OpenAICompatibleClient
 from .models import (
     BookStructure,
@@ -44,7 +45,7 @@ _CHAPTER_SUMMARY_SYSTEM = """你是书籍章节摘要器。输入只包含同一
 1. 只总结输入原文明确表达的内容，不使用外部知识。
 2. summary 面向手机阅读，用 2-4 个短段概括本章主线，每段 1-2 句；总长通常 120-360 字，最长 520 字。段落之间用两个换行符分隔，不写标题、不用 Markdown、不重复章名。
 3. knowledge_points 给出 3-12 个本章核心点。每项 text 应是一条可独立理解的完整陈述，通常 18-90 字，最长 180 字；保留必要条件与完整术语，但不要把定义、历史、例子和应用堆在同一项。每项 evidence_ids 为1-6个编号。
-4. 顶层 evidence_ids 选择2-12个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要超出接口的数量上限。
+4. 顶层 evidence_ids 选择2-24个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要超出接口的数量上限。
 5. 不输出小节层级，不输出 chunk id，不出现连续重复标点、词中异常空格或 OCR 残缺片段。
 6. 只返回 JSON：
 {"summary":"...","evidence_ids":["P1E1","P1E2"],"knowledge_points":[{"text":"概念一","evidence_ids":["P1E1"]},{"text":"概念二","evidence_ids":["P1E2"]},{"text":"概念三","evidence_ids":["P1E1","P1E2"]}]}
@@ -81,7 +82,7 @@ class KnowledgePointDraft(BaseModel):
 class ChapterSummaryDraft(BaseModel):
     summary: str = Field(min_length=1, max_length=520)
     knowledge_points: list[KnowledgePointDraft] = Field(min_length=3, max_length=20)
-    evidence_ids: list[str] = Field(min_length=2, max_length=12)
+    evidence_ids: list[str] = Field(min_length=2, max_length=24)
 
 
 class BookSummaryDraft(BaseModel):
@@ -319,7 +320,7 @@ class ChapterReconstructor:
     def reconstruct_book(self, pages: list[PageExtraction], fallback_title: str) -> BookStructure:
         chapters, used_fallback = self.detector.detect(pages)
         if self.client is not None:
-            chapters = [self._summarize(chapter, pages) for chapter in chapters]
+            chapters = ordered_book_map(lambda chapter: self._summarize(chapter, pages), chapters)
             book_summary = self._summarize_book(chapters)
         else:
             book_summary = ""
@@ -354,7 +355,7 @@ class ChapterReconstructor:
                     system=_CHAPTER_SUMMARY_SYSTEM,
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
-                    max_tokens=1200,
+                    max_tokens=2400,
                 )
                 draft = ChapterSummaryDraft.model_validate(result)
                 evidence: list[SourceQuote] = []
@@ -479,6 +480,8 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                 raw: Any = json.loads(line)
                 page_number = int(raw["page_number"])
                 raw_blocks = raw.get("blocks", [])
+                method = (ExtractionMethod.PADDLE_GPU if raw.get("extraction_method") == "paddle_gpu"
+                          else ExtractionMethod.MINERU_VLM)
             except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"invalid normalized page at line {line_number}") from error
             blocks: list[TextBlock] = []
@@ -504,10 +507,17 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                         block_type=str(block.get("type", "text")),
                         bbox=normalized_bbox,
                         text=str(block["text"]).strip(),
-                        source_method=ExtractionMethod.MINERU_VLM,
+                        source_method=method,
+                        confidence=raw_source.get("confidence") if method == ExtractionMethod.PADDLE_GPU else None,
                         metadata={
                             "source_block_index": block_index,
                             "text_level": raw_source.get("text_level"),
+                            **({"ocr_backend": raw_source.get("ocr_backend"),
+                                "heading_inference_source": raw_source.get("heading_inference_source"),
+                                "source_ocr_line_ids": raw_source.get("source_ocr_line_ids"),
+                                "toc_evidence": raw_source.get("toc_evidence"),
+                                "ocr_capabilities": raw.get("ocr_capabilities")}
+                               if method == ExtractionMethod.PADDLE_GPU else {}),
                         },
                     )
                 )
@@ -517,7 +527,7 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                 PageExtraction(
                     page_number=page_number,
                     page_kind=PageKind.SCANNED,
-                    method=ExtractionMethod.MINERU_VLM,
+                    method=method,
                     raw_text=text,
                     blocks=blocks,
                     quality=signals,

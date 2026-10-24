@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-23",
+  "timezone": "America/Los_Angeles",
+  "branch": "codex/merge-cloud-preserve-local",
+  "local_snapshot": "9b4c8242bad8b3d9db4c822e97c871c462a10d23",
+  "cloud_commit": "8c018c9813b2063b29f555e9fcc26bc980c63dc7",
+  "builds": {
+    "Debug": "passed",
+    "Release": "passed",
+    "destination": "generic/platform=iOS Simulator"
+  },
+  "tests": {
+    "unit": {
+      "result": "Passed",
+      "totalTestCount": 124,
+      "passedTests": 122,
+      "failedTests": 0,
+      "skippedTests": 2,
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "C405B13F-6B58-4601-A67D-BFE323436F8A",
+          "deviceName": "iPhone 17 Pro",
+          "modelName": "iPhone 17 Pro",
+          "osBuildNumber": "23A343",
+          "osVersion": "26.0",
+          "platform": "iOS Simulator"
+        }
+      ],
+      "result_bundle": "/tmp/llm-study-merge-unit-verified.xcresult"
+    },
+    "iphone_ui": {
+      "result": "Passed",
+      "totalTestCount": 3,
+      "passedTests": 3,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "C405B13F-6B58-4601-A67D-BFE323436F8A",
+          "deviceName": "iPhone 17 Pro",
+          "modelName": "iPhone 17 Pro",
+          "osBuildNumber": "23A343",
+          "osVersion": "26.0",
+          "platform": "iOS Simulator"
+        }
+      ],
+      "result_bundle": "/tmp/llm-study-merge-iphone-ui.xcresult"
+    },
+    "ipad_ui": {
+      "result": "Passed",
+      "totalTestCount": 2,
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "035F5664-CC57-4770-A1F4-54B645277342",
+          "deviceName": "iPad Pro 13-inch (M5)",
+          "modelName": "iPad Pro 13-inch (M5)",
+          "osBuildNumber": "23A343",
+          "osVersion": "26.0",
+          "platform": "iOS Simulator"
+        }
+      ],
+      "result_bundle": "/tmp/llm-study-merge-ipad-ui-final.xcresult"
+    }
+  },
+  "skipped_unit_tests": [
+    {
+      "test": "CloudTests/testConfiguredRemoteBackendTransportAndAuthentication",
+      "reason": "Explicit remote HTTPS backend is not configured."
+    },
+    {
+      "test": "CloudTests/testLocalDefaultAccountAutomaticallyRestoresWorkspace",
+      "reason": "The disposable backend is in email-registration mode, not local-default-login mode."
+    }
+  ],
+  "backend": "Disposable loopback server; OCR/model boundaries use explicit fixture adapters.",
+  "media": "Submission/recovery/download contracts use URLProtocol fixtures; playback uses a real test MP4. No paid provider generation.",
+  "preserved_features": [
+    "upload byte progress, streaming multipart files, cancellation, stall detection and safe transport retry",
+    "multi-file upload and original retention with cloud book-ID binding",
+    "preference reset with preserved learner name and account persistence",
+    "compact course header layout",
+    "media history, estimated cost, authenticated validation, durable request recovery and scoped cache"
+  ],
+  "cloud_contract": "Cloud request fields, StudioService/StudioJob, receipt validation and request uncertainty rules retained.",
+  "additional_repairs": [
+    "bundled CJK fonts preserve extractable Unicode in PDF export",
+    "failed attachment stays available for retry and old upload callbacks cannot restore a previous account draft"
+  ],
+  "source_scope": "Integration adaptations are confined to frontend; other tracked source paths match the fetched cloud commit."
+}

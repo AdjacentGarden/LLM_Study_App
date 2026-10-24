@@ -185,7 +185,7 @@ struct LearnerOnboardingView: View {
       planningSupport = nil
       return
     }
-    guard !ProcessInfo.processInfo.arguments.contains("--fixture") else {
+    guard !ContentBundle.fixtureMode else {
       name = "小明同学"
       goal = "systematic"
       dailyTime = "30to60"
@@ -249,7 +249,7 @@ struct LearnerOnboardingView: View {
     guard !resettingPreferences, restoredDraft, !completed, !store.isLoading,
       !store.cloudState.isHydrating,
       restoredScope == store.cloudState.cacheKey,
-      !ProcessInfo.processInfo.arguments.contains("--fixture")
+      !ContentBundle.fixtureMode
     else {
       return
     }
@@ -301,7 +301,7 @@ struct LearnerOnboardingView: View {
         finishPreferencesReset()
         return
       }
-      if !ProcessInfo.processInfo.arguments.contains("--fixture") { LearnerOnboardingDraft.clear() }
+      if !ContentBundle.fixtureMode { LearnerOnboardingDraft.clear() }
       store.completeOnboarding(
         name: name.trimmingCharacters(in: .whitespacesAndNewlines), goal: goal,
         dailyTime: dailyTime,
@@ -579,6 +579,13 @@ struct CourseUploadView: View {
         withAnimation(.spring(response: 0.52, dampingFraction: 0.88)) { panelPresented = true }
       }
     }
+    .onChange(of: store.cloudState.epoch) { _, _ in
+      if busy { cancelUpload() }
+      pickerOpen = false
+      files = []
+      pendingResourceIDs = []
+      error = nil
+    }
     .fileImporter(
       isPresented: $pickerOpen,
       allowedContentTypes: store.cloud == nil ? Self.allowedTypes : [.pdf],
@@ -744,9 +751,10 @@ struct CourseUploadView: View {
     store.importError = nil
     let targetCourseID = addingToCurrentCourse ? store.currentCourse?.id : nil
     let originalDraft = store.draft
+    let epoch = store.cloudState.epoch
     saveTask = Task { @MainActor in
       defer {
-        if targetCourseID != nil, Task.isCancelled {
+        if targetCourseID != nil, Task.isCancelled, epoch == store.cloudState.epoch {
           store.draft = originalDraft
           store.persist()
         }
@@ -762,11 +770,11 @@ struct CourseUploadView: View {
       }
       var issues: [String] = []
       for (index, url) in selectedFiles.enumerated() {
-        guard !Task.isCancelled else { return }
+        guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
         transfer = CourseFileTransfer(
           filename: url.lastPathComponent, fileIndex: index + 1, fileCount: selectedFiles.count)
-        await store.importFile(url) { progress in
-          guard operationID == requestID, busy, !cancelRequested,
+        await store.importFile(url, targetCourseID: targetCourseID) { progress in
+          guard epoch == store.cloudState.epoch, operationID == requestID, busy, !cancelRequested,
             transfer.fileIndex == index + 1, transfer.stage != .processing
           else { return }
           transfer.stage = .uploading
@@ -775,7 +783,7 @@ struct CourseUploadView: View {
             sentBytes: max(transfer.progress.sentBytes, progress.sentBytes),
             totalBytes: progress.totalBytes)
         }
-        guard !Task.isCancelled else { return }
+        guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
         if let issue = store.importError {
           issues.append("\(url.lastPathComponent)：\(issue)")
           continue
@@ -783,7 +791,14 @@ struct CourseUploadView: View {
         if let id = store.draft.resourceIDs.last {
           if !pendingResourceIDs.contains(id) { pendingResourceIDs.append(id) }
           store.selectSource(id)
-          if let targetCourseID { store.addSource(id, to: targetCourseID) }
+          if let targetCourseID {
+            do { try await store.addSource(id, to: targetCourseID) }
+            catch {
+              guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
+              issues.append("\(url.lastPathComponent)：\(error.localizedDescription)")
+              continue
+            }
+          }
         }
         if let index = files.firstIndex(of: url) { files.remove(at: index) }
       }
@@ -792,7 +807,7 @@ struct CourseUploadView: View {
         store.processingMessage = "准备解析资料"
         transfer.stage = .processing
         await store.processImport()
-        guard !Task.isCancelled else { return }
+        guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
         if let issue = store.importError { issues.append(issue) }
       }
       if !issues.isEmpty {
@@ -925,7 +940,7 @@ struct CourseParseReadyView: View {
   private var fileSize: String {
     guard let url = store.importedFileURL,
       let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-    else { return "0 B" }
+    else { return "大小未知" }
     return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
   }
   private var title: String {
@@ -943,13 +958,13 @@ struct CourseParseReadyView: View {
       ) {
         HStack(spacing: 6) {
           StickerIcon("CheckCircle2", size: 24)
-          Text("已上传 · 待解析").font(DS.font(20)).foregroundStyle(DS.primaryPressed)
+          Text(source.id.hasPrefix("book_local_") || store.cloud == nil ? "已保存在本机 · 待解析" : "已上传 · 待解析").font(DS.font(20)).foregroundStyle(DS.primaryPressed)
         }.frame(maxWidth: .infinity)
         Text(title).font(DS.font(20.8, weight: .bold)).multilineTextAlignment(.center).frame(
           maxWidth: 220)
         Text(
           "\(fileKind) · \(fileSize)"
-            + (ProcessInfo.processInfo.arguments.contains("--fixture") ? " · 17:41" : "")
+            + (ContentBundle.fixtureMode ? " · 17:41" : "")
         ).font(DS.font(20)).foregroundStyle(DS.secondary)
         HStack(spacing: 10) {
           metric("文件类型", value: fileKind)
@@ -1087,7 +1102,7 @@ struct CourseProcessingView: View {
       guard !started else { return }
       started = true
       if importing {
-        if ProcessInfo.processInfo.arguments.contains("--fixture") {
+        if ContentBundle.fixtureMode {
           importStage = 2
           return
         }
@@ -1122,7 +1137,7 @@ struct CourseChapterConfirmationView: View {
                 .first ?? store.currentTitle
             ).font(DS.font(20.8, weight: .bold))
             Text(
-              "已识别 \(store.chapters.count) 个目录项 · \(store.currentSource?.summary.page_count ?? 0) 页 · 平均置信度 \(Int((store.chapters.map(\.confidence).reduce(0, +) / Double(max(1, store.chapters.count))).rounded()))%"
+              "已识别 \(store.chapters.count) 个目录项 · \(store.currentSource?.summary.page_count ?? 0) 页" + (store.chapters.allSatisfy { $0.confidence > 0 } && !store.chapters.isEmpty ? " · 平均置信度 \(Int((store.chapters.map(\.confidence).reduce(0, +) / Double(store.chapters.count)).rounded()))%" : " · 识别置信度未知，请核对原文")
             ).font(DS.font(14)).foregroundStyle(DS.secondary)
           }
           Spacer(minLength: 0)

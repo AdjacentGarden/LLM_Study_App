@@ -6,7 +6,9 @@
 
 `build.sh`、`test.sh`、`run-simulator.sh` 不调用数据导出。首次 SwiftPM 下载后可复用 `.build/packages/`。不要在构建阶段临时从旧前端同步 fixtures，否则无法审阅数据变更与保证离线复现。
 
-## 已迁移内容
+## 固定回归输入与真实资源
+
+以下历史固定输入仅供 Debug 测试显式注入，普通启动不加载社区、书架、课程、笔记或错题种子，Release 忽略 fixture 参数。发布代码及本轮验收边界以 [功能边界](FEATURE_BOUNDARIES.md) 为准。
 
 `Resources/Data/sources.json` 包含 6 个原有示例资料：生物与数学，以及物理、化学、英语、高数目录示例。生物 fixtures 有 40 个目录项、15 个课时和 290 个 asset 记录。其普通课程 `chunks` 用于示例课时；独立 RAG corpus 有 171 个检索块，二者用途不同。数学与其他目录资料应按现有空内容边界展示，不能借用生物内容补齐。
 
@@ -44,7 +46,7 @@ python3 scripts/validate-content.py
 
 ## 本地用户数据与格式支持
 
-正常应用的 SQLite 数据库与附件位于自己的 Application Support/BookCourse 目录。课程、资料身份、笔记与引用锚点都使用独立 ID；原文件复制到附件目录，界面不依赖系统选择器返回的临时 URL。导入身份以文件 SHA-256 派生，原文、课时与引用不应跨书串联。写入失败应反馈给用户；视频与助手积分通过持久化 reservation/complete/refund 事务处理。
+正常应用的 SQLite 数据库与附件位于自己的 Application Support/BookCourse 目录。课程、资料身份、笔记与引用锚点都使用独立 ID；原文件复制到附件目录，界面不依赖系统选择器返回的临时 URL。导入身份以文件 SHA-256 派生，原文、课时与引用不应跨书串联。写入失败反馈给用户。视频与助手已移除虚拟积分流程；实际媒体请求先保存回执，未知提交只读对账，不能自动重投。
 
 `Core/FeatureStates.swift` 将 Observable 状态拆为 CourseState、LearningSessionState、ReaderState、StudyNoteState、ImportTaskState 和 AssistantConversationState。AppStore 负责跨域动作、路由、仓库与异步任务协调。章节修改/删除写入对应 bookID 的 `chapterDrafts`，正式 source chapters 仅在 `confirmChapters` 提交；草稿可持久化以继续编辑，但不应误作已确认目录。`cancelImport` 同时取消解析 task、更新 generation token 并返回待解析页；异步结果必须核对 token，防止取消后的迟到回调改变页面或数据。
 

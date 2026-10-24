@@ -465,13 +465,33 @@ def native_router(services: Any) -> APIRouter:
 
     @router.get("/native/catalog")
     def catalog(actor: str = Depends(owner)) -> list[dict[str, Any]]:
-        return curated.catalog()
+        return curated.catalog(repository=services.account_repository.repo, owner=actor)
 
     @router.post("/native/catalog/{catalog_id}/import")
     def import_catalog(
         catalog_id: str, body: WorkspaceInput, actor: str = Depends(owner)
     ) -> dict[str, Any]:
-        if catalog_id != curated.CATALOG_ID:
+        if catalog_id.startswith("community_post_"):
+            post_id = catalog_id.removeprefix("community_post_")
+            repo = services.account_repository.repo
+            with repo.connect() as db:
+                post = db.execute(
+                    "SELECT p.book_id FROM posts p JOIN assets a ON a.book_id=p.book_id "
+                    "WHERE p.id=? AND p.kind='book' AND p.active=1", (post_id,),
+                ).fetchone()
+            if post is None or services.job_repository.get_book(str(post["book_id"])) is None:
+                raise HTTPException(404, "社区教材原文件暂不可用")
+            try:
+                services.native_repository.save_workspace(actor, body.id, body.name, body.preferences)
+                acquired = repo.acquire(actor, post_id)
+            except KeyError as error:
+                raise HTTPException(404, "社区课程不存在或已撤回") from error
+            row = services.native_repository.add_resource(actor, body.id, str(acquired["book_id"]))
+            services.native_repository.save_selection(actor, body.id, row["id"])
+            # Preserve the real source state; this path does not run OCR, create
+            # synthetic chapters or borrow the built-in biology course content.
+            return workspace_state(actor, body.id)
+        if catalog_id != curated.CATALOG_ID or not curated.catalog():
             raise HTTPException(404, "已有课程不存在")
         try:
             services.native_repository.save_workspace(actor, body.id, body.name, body.preferences)

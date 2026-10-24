@@ -214,6 +214,15 @@ final class CloudAccountUITests: XCTestCase {
     let profile = app.buttons["tab-profile"]
     XCTAssertTrue(profile.waitForExistence(timeout: 20))
     XCTAssertFalse(email.exists)
+    tap(profile, app: app)
+    tap(app.buttons["profile.resetPreferences"], app: app)
+    XCTAssertFalse(app.buttons["onboarding.choice.1.exam"].isSelected)
+    for choice in ["onboarding.choice.1.interest", "onboarding.time.under30",
+      "onboarding.choice.3.focus", "onboarding.choice.4.principles", "onboarding.choice.5.selfDirected"] {
+      tap(app.buttons[choice], app: app)
+      tap(app.buttons["onboarding.next"], app: app)
+    }
+    XCTAssertTrue(app.buttons["profile.resetPreferences"].waitForExistence(timeout: 20))
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = "Cloud account connected with original native home"
     screenshot.lifetime = .keepAlways
@@ -224,6 +233,9 @@ final class CloudAccountUITests: XCTestCase {
     XCTAssertFalse(email.exists, "The App must restore its authenticated account after relaunch")
     profile.tap()
     tap(app.buttons["profile.settings"], app: app)
+    XCTAssertTrue(app.staticTexts["探索兴趣内容"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["30分钟以内"].exists)
+    XCTAssertTrue(app.staticTexts["Native Learner"].exists)
     tap(app.buttons["settings.logout"], app: app)
     tap(app.buttons["确认退出"], app: app)
     XCTAssertTrue(email.waitForExistence(timeout: 15))

@@ -104,7 +104,14 @@ class CommunityRepository:
                 db.execute("SELECT * FROM assets WHERE book_id=?", (book_id,)).fetchone(),
             )
 
-    def visitor(self, token: str | None, initial: list[str]) -> tuple[str, str, bool]:
+    def visitor(
+        self, token: str | None, initial: list[str] | None = None
+    ) -> tuple[str, str, bool]:
+        """Resolve an identity without granting books or publishing content.
+
+        ``initial`` is accepted for older callers but never changes ownership.
+        A shelf entry requires an explicit add, upload claim or acquisition.
+        """
         with self.connect() as db:
             if token and len(token) <= 128:
                 found = db.execute(
@@ -119,11 +126,6 @@ class CommunityRepository:
                 "INSERT INTO visitors VALUES (?,?,?)",
                 (owner, hashlib.sha256(token.encode()).hexdigest(), time.time()),
             )
-            for canonical in initial:
-                db.execute(
-                    'INSERT INTO library_books VALUES (?,?,?) ON CONFLICT DO NOTHING',
-                    (owner, canonical, time.time()),
-                )
             return owner, token, True
 
     def library(self, owner: str) -> list[dict[str, Any]]:

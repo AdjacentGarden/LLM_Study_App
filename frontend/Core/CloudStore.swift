@@ -49,6 +49,7 @@ extension AppStore {
   }
 
   func rebuildCloudCourses() {
+    let localCourses = courses.filter { $0.id.hasPrefix("local-course:") }
     courses = cloudState.workspaces.map { workspace in
       let existing = courses.first { $0.id == workspace.id }
       let candidates = [
@@ -62,6 +63,9 @@ extension AppStore {
         activeResourceID: active, diagnosis: workspace.preferences,
         createdAt: Date(timeIntervalSince1970: workspace.created),
         updatedAt: Date(timeIntervalSince1970: workspace.updated))
+    }
+    courses += localCourses.filter { local in
+      !courses.contains { remote in Set(local.resourceIDs).isSubset(of: Set(remote.resourceIDs)) }
     }
     for workspace in cloudState.workspaces {
       for resource in workspace.resources
@@ -195,42 +199,94 @@ extension AppStore {
     persistCloud()
   }
 
+  /// The original is durable and visible locally before any server request starts.
+  func retainLocalImport(_ staged: StagedSource, targetCourseID: String? = nil) async throws {
+    if !sources.contains(where: { $0.id == staged.source.id }) { sources.append(staged.source) }
+    filePaths[staged.source.id] = staged.relativePath
+    if !draft.resourceIDs.contains(staged.source.id) { draft.resourceIDs.append(staged.source.id) }
+    let courseID = "local-course:" + staged.source.id
+    if let targetCourseID, targetCourseID.hasPrefix("local-course:"),
+      let index = courses.firstIndex(where: { $0.id == targetCourseID }) {
+      if !courses[index].resourceIDs.contains(staged.source.id) {
+        courses[index].resourceIDs.append(staged.source.id)
+      }
+    } else if !courses.contains(where: { $0.resourceIDs.contains(staged.source.id) }) {
+      courses.append(Course(id: courseID, name: staged.source.summary.title,
+                            resourceIDs: [staged.source.id], activeResourceID: staged.source.id))
+    }
+    draft.parseCompleted = false
+    if draft.name.isEmpty { draft.name = staged.source.summary.title }
+    selectedBookID = staged.source.id
+    selectedCourseID = courses.first { $0.resourceIDs.contains(staged.source.id) }?.id
+    importedFileURL = repository.attachmentURL(staged.relativePath)
+    persistCloud()
+    await persistTask?.value
+    if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
+  }
+
+  func bindUploadedBook(localID: String, uploaded: CloudUpload) {
+    if let i = sources.firstIndex(where: { $0.id == localID }) {
+      if sources.contains(where: { $0.id == uploaded.book_id && $0.id != localID }) {
+        sources.remove(at: i)
+      } else {
+        sources[i].summary.book_id = uploaded.book_id
+        sources[i].summary.status = uploaded.status
+        sources[i].plan.book_id = uploaded.book_id
+        for j in sources[i].chunks.indices { sources[i].chunks[j].book_id = uploaded.book_id }
+      }
+    }
+    for i in notes.indices where notes[i].anchor?.bookID == localID {
+      notes[i].anchor?.bookID = uploaded.book_id
+    }
+    for (key, value) in locations where key.hasSuffix("::" + localID) {
+      locations[String(key.dropLast(localID.count)) + uploaded.book_id] = value
+      locations.removeValue(forKey: key)
+    }
+    if sourceTarget?.bookID == localID { sourceTarget?.bookID = uploaded.book_id }
+
+    if let path = filePaths[localID] { filePaths[uploaded.book_id] = path }
+    draft.resourceIDs = Array(NSOrderedSet(array: draft.resourceIDs.map { $0 == localID ? uploaded.book_id : $0 })) as? [String] ?? draft.resourceIDs
+    for i in courses.indices {
+      courses[i].resourceIDs = courses[i].resourceIDs.map { $0 == localID ? uploaded.book_id : $0 }
+      if courses[i].activeResourceID == localID { courses[i].activeResourceID = uploaded.book_id }
+    }
+    if selectedBookID == localID { selectedBookID = uploaded.book_id }
+    if let i = importJob?.bookIDs.firstIndex(of: localID) { importJob?.bookIDs[i] = uploaded.book_id }
+    persistCloud()
+  }
+
   func importCloudPDF(
-    _ url: URL,
+    _ url: URL, targetCourseID: String? = nil,
     onProgress: @escaping @MainActor @Sendable (CloudUploadProgress) -> Void = { _ in }
   ) async {
     guard let cloud, cloudState.authenticated else { return }
     let epoch = cloudState.epoch
     importError = nil
+    var originalSaved = false
     do {
       guard url.pathExtension.lowercased() == "pdf" else {
         throw CloudError(status: 415, message: "云端课程目前支持 PDF，请选择 PDF 文件。")
       }
       let staged = try await LocalFileImporter.stage(url: url, repository: repository)
       try Task.checkCancellation()
+      guard epoch == cloudState.epoch else { return }
+      try await retainLocalImport(staged, targetCourseID: targetCourseID)
+      originalSaved = true
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch else { return }
       let uploaded = try await cloud.uploadPDF(
         repository.attachmentURL(staged.relativePath), filename: url.lastPathComponent,
         onProgress: onProgress)
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
-      var source = staged.source
-      source.summary.book_id = uploaded.book_id
-      source.summary.status = uploaded.status
-      source.plan.book_id = uploaded.book_id
-      sources.append(source)
-      filePaths[uploaded.book_id] = staged.relativePath
-      draft.resourceIDs.append(uploaded.book_id)
-      draft.parseCompleted = false
-      if draft.name.isEmpty { draft.name = staged.source.summary.title }
-      selectedBookID = uploaded.book_id
-      importedFileURL = repository.attachmentURL(staged.relativePath)
-      persistCloud()
+      bindUploadedBook(localID: staged.source.id, uploaded: uploaded)
       await persistTask?.value
+      if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
     } catch is CancellationError {
       return
     } catch {
-      guard !Task.isCancelled else { return }
-      importError = error.localizedDescription
+      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      importError = (originalSaved ? "原文件已保存在本机：" : "") + error.localizedDescription
       handleCloudError(error)
     }
   }
@@ -244,8 +300,16 @@ extension AppStore {
     let ids = draft.resourceIDs
     importJob = ImportJob(bookIDs: ids, status: .running)
     persistCloud()
-    for (index, bookID) in ids.enumerated() {
+    for (index, pendingID) in ids.enumerated() {
       do {
+        var bookID = pendingID
+        if pendingID.hasPrefix("book_local_") {
+          guard let file = sourceFileURL(pendingID) else { throw ContentError.missing("本机原文件") }
+          let uploaded = try await cloud.uploadPDF(file, filename: sources.first { $0.id == pendingID }?.summary.filename ?? file.lastPathComponent)
+          guard epoch == cloudState.epoch else { return }
+          bindUploadedBook(localID: pendingID, uploaded: uploaded)
+          bookID = uploaded.book_id
+        }
         var status: CloudBookStatus = try await cloud.request("/api/books/\(bookID)/status")
         if !["ocr_ready", "structured"].contains(status.status) {
           let health: CloudHealth = try await cloud.request("/api/health")
@@ -313,10 +377,10 @@ extension AppStore {
   {
     guard let cloud else { return }
     let workspaceID =
-      draft.editingCourseID ?? cloudState.creationWorkspaceID
+      draft.editingCourseID.flatMap { $0.hasPrefix("local-course:") ? nil : $0 } ?? cloudState.creationWorkspaceID
       ?? "workspace_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
     // Persist the id before the first write so a timed-out creation can be recovered idempotently.
-    if draft.editingCourseID == nil { cloudState.creationWorkspaceID = workspaceID }
+    if draft.editingCourseID == nil || draft.editingCourseID?.hasPrefix("local-course:") == true { cloudState.creationWorkspaceID = workspaceID }
     persistCloud()
     await persistTask?.value
     let workspace: CloudWorkspace = try await cloud.request(
@@ -496,14 +560,15 @@ extension AppStore {
     } catch { handleCloudError(error) }
   }
 
-  func addCloudResource(bookID: String, workspaceID: String?) async {
-    do {
-      guard let cloud, let wid = workspaceID ?? selectedCourseID else { return }
-      let _: CloudResource = try await cloud.request(
-        "/api/workspaces/\(wid)/resources", method: "POST", body: ["book_id": .string(bookID)])
-      try await reloadCloud()
-      persistCloud()
-    } catch { handleCloudError(error) }
+  func addCloudResource(bookID: String, workspaceID: String?) async throws {
+    guard let cloud, let wid = workspaceID ?? selectedCourseID else {
+      throw ContentError.invalid("请先选择课程。")
+    }
+    let _: CloudResource = try await cloud.request(
+      "/api/workspaces/\(wid)/resources", method: "POST", body: ["book_id": .string(bookID)])
+    try await reloadCloud()
+    persistCloud()
+    await persistTask?.value
   }
 
   func removeCloudResource(bookID: String, workspaceID: String) async {
@@ -547,7 +612,7 @@ extension AppStore {
     question: String, bookID: String, bookIDs: [String], chapterID: String?,
     sources: [SourceContent], history: [ChatMessage]
   ) async throws -> AssistantAnswer {
-    guard let cloud else {
+    guard let cloud, !bookID.hasPrefix("book_local_") else {
       return try await assistant.ask(
         question: question, bookID: bookID, bookIDs: bookIDs,
         chapterID: chapterID, sources: sources, history: history)
