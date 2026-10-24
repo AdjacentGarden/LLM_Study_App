@@ -605,7 +605,9 @@ def test_fact_audit_blocks_unsupported_extra_then_accepts_citation_only_repair_b
     assert repaired.citations == [evidence.sources["s1"], evidence.sources["s2"]]
     factual_payloads = [data for system, data in zip(client.systems, client.payloads, strict=True)
                         if system == FACT_REVIEW_PROMPT and data["candidate"]["points"]]
-    assert factual_payloads[1]["previous_review_feedback"]
+    repair_reviews = [data for data in factual_payloads if data["previous_review_feedback"]]
+    assert len(repair_reviews) == 1
+    assert repair_reviews[0]["output_contract"]["point_ids"] == [target_id]
     assert output.teaching_fact_review["accepted"] is True
 
 
@@ -625,7 +627,13 @@ def test_malformed_review_retries_audit_without_regenerating_valid_course():
     assert output.teaching_fact_review["accepted"] is True
     assert len(point_batches(client)) == 1
     factual = calls_for(client, FACT_REVIEW_PROMPT)
-    assert len([data for data in factual if data["candidate"]["points"]]) == 2
+    point_reviews = [data for data in factual if data["candidate"]["points"]]
+    assert len(point_reviews) == 3
+    retry = next(data for data in point_reviews if data["format_feedback"])
+    assert Counter(tuple(data["output_contract"]["point_ids"]) for data in point_reviews) == {
+        (point.point_id,): (2 if point.point_id == retry["output_contract"]["point_ids"][0] else 1)
+        for point in bundle.knowledge_points
+    }
     assert len([data for data in factual if data["format_feedback"]]) == 1
     assert client.review_calls == 1
 
@@ -724,7 +732,8 @@ def test_nonlesson_factual_batch_can_omit_null_lesson_but_last_batch_cannot_omit
 
     client = OmitNullLesson()
     TeachingContentGenerator(client).generate(bundle, chapter, evidence)
-    assert len([data for data in calls_for(client, FACT_REVIEW_PROMPT) if data["candidate"]["points"]]) == 2
+    assert len([data for data in calls_for(client, FACT_REVIEW_PROMPT)
+                if data["candidate"]["points"]]) == len(bundle.knowledge_points)
     assert all(count == 1 for count in fact_targets(client).values())
     assert client.review_calls == 1
 
@@ -1001,14 +1010,19 @@ def test_span_selection_cannot_bypass_review_contract(fault):
 
 def test_span_cannot_be_borrowed_from_another_components_valid_citation():
     class BorrowOtherComponentsSpan(Client):
+        target_id = None
+
         def structured(self, *, system, user, **kwargs):
             data = json.loads(user)
             result = super().structured(system=system, user=user, **kwargs)
-            if system == FACT_REVIEW_PROMPT and result["points"]:
+            if (system == FACT_REVIEW_PROMPT and result["points"]
+                    and result["points"][0]["point_id"] == self.target_id):
                 result["points"][0]["components"]["flashcard"] = selected_proof(["s2"], data)
             return result
 
-    generator, points, lesson, inputs, chapter, evidence = factual_fixture(BorrowOtherComponentsSpan())
+    client = BorrowOtherComponentsSpan()
+    generator, points, lesson, inputs, chapter, evidence = factual_fixture(client)
+    client.target_id = points[0].point_id
     evidence.sources["s2"] = SourceCitation(page_number=2, quote="测量前记录温度条件，以便区分观测范围。")
     points[0].source_ids.append("s2")  # Valid for explanation, not for flashcard.
     review = generator._fact_review(points, lesson, inputs, chapter, evidence, [])
@@ -1024,8 +1038,11 @@ def test_lesson_fact_review_is_separate_and_every_fixed_component_has_a_proof():
     factual = [data for system, data in zip(client.systems, client.payloads, strict=True) if system == FACT_REVIEW_PROMPT]
     point_jobs = [payload for payload in factual if payload["candidate"]["points"]]
     lesson_jobs = [payload for payload in factual if payload["lesson_components"]]
-    assert len(point_jobs) == 1 and len(point_jobs[0]["candidate"]["points"]) == 2
-    assert point_jobs[0]["candidate"]["lesson"] is None
+    assert len(point_jobs) == len(bundle.knowledge_points)
+    assert all(len(payload["candidate"]["points"]) == 1 for payload in point_jobs)
+    assert {payload["candidate"]["points"][0]["point_id"] for payload in point_jobs} == {
+        point.point_id for point in bundle.knowledge_points}
+    assert all(payload["candidate"]["lesson"] is None for payload in point_jobs)
     assert all(not payload["candidate"]["points"] and payload["candidate"]["lesson"] for payload in lesson_jobs)
     expected = {"opening", "summary", "example_1", "example_2", "checkpoint_1", "checkpoint_2"}
     assert len(lesson_jobs) == len(expected)

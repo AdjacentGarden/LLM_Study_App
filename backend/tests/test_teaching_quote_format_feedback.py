@@ -29,7 +29,10 @@ class SequenceClient:
 
 
 @pytest.fixture
-def batch():
+def batch(monkeypatch):
+    # Preserve adversarial cross-point quote coverage in the strict decoder;
+    # the production scheduler now sends one point per request.
+    monkeypatch.setattr(teaching, "FACT_BATCH_SIZE", 2)
     bundle, chapter, evidence = course(2)
     seed = Client()
     generator = teaching.TeachingContentGenerator(seed)

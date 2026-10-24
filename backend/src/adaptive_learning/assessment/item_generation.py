@@ -17,13 +17,13 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 1. 只能依据 evidence 中的原文，不使用外部知识，不创造原文没有的事实。
 2. 为每个 knowledge_point_id 恰好生成一道题；不得改变或创造 knowledge_point_id。
 3. 所有题都必须是 choice，不得生成 explanation、简答或填空题。
-4. options 数组必须恰好包含 4 个非空字符串，不得在末尾添加空字符串或第5项。四项应为互不重复、语义清楚的完整陈述，并有唯一 correct_index（0到3）；correct_index 指向的选项文字必须与输入的 label 逐字相同；每个干扰项的字符数不得少于输入 minimum_distractor_characters，同时至少达到正确项字符数的55%，要写成与正确项长度和风格接近的完整句子，不能只给一个术语。
+4. options 数组必须恰好包含 4 个非空字符串，不得在末尾添加空字符串或第5项。四项应互不重复、语义清楚且能完整回答同一个判断，并有唯一 correct_index（0到3）；correct_index 指向的选项文字必须与输入的 label 逐字相同；每个干扰项的字符数必须满足 choice_length_rule 的统一公式（先按正确项计算，再逐项检查），与正确项长度和风格接近；若正确项少于8字，干扰项至少同样长。可用能完整回答判断的同类短选项，不得让正确项独自展开成长句而使干扰项过短。
 5. 题目面向普通学习者，不出现 chunk、OCR、RAG、证据编号等技术词。
 6. 题干必须能让用户仅通过选择作答，不得要求说明理由；difficulty 取 -2 到 2，estimated_seconds 取 20 到 90。
 7. 同章题目应覆盖基础辨认、概念理解和情境应用的不同层次；难度必须与推理负担一致，不得为制造梯度而虚标难度。情境应用仍只能使用 evidence 支持的事实。
 8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
 9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
-10. 若输入包含 previous_candidate 与 repair_feedback，只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
+10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部校验问题及明确数值下限，不能每轮只修一道；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
 只返回 JSON：
 {"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["第一项完整陈述","第二项完整陈述","第三项完整陈述","第四项完整陈述"],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """
@@ -83,6 +83,12 @@ class ItemBatchDraft(BaseModel):
     items: list[ItemDraft] = Field(min_length=1, max_length=8)
 
 
+class _ItemBatchEnvelope(BaseModel):
+    # Parse each item independently so schema and content errors across the
+    # entire batch reach the writer in one bounded repair round.
+    items: list[dict[str, object]] = Field(min_length=1, max_length=8)
+
+
 class ItemReview(BaseModel):
     knowledge_point_id: str
     accepted: StrictBool
@@ -110,7 +116,12 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v3+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v4+balanced-options-v1"
+
+
+def _minimum_distractor_characters(answer: str) -> int:
+    length = len(answer.strip())
+    return max(min(8, length), round(length * 0.55))
 
 
 def _item_system(allow_grounded_answer_rewrite: bool) -> str:
@@ -286,15 +297,22 @@ class DiagnosticItemGenerator:
             "book_title": book_title,
             "chapter_id": chapter.chapter_id,
             "chapter_title": chapter.title,
+            "choice_length_rule": {
+                "correct_answer_source": "expected_answer" if self.allow_grounded_answer_rewrite else "label",
+                "minimum_distractor_characters_formula": "max(min(8, len(correct_answer.strip())), round(len(correct_answer.strip()) * 0.55))",
+                "examples": [{"correct_characters": size, "minimum_distractor_characters":
+                              _minimum_distractor_characters("字" * size)} for size in (4, 8, 10, 40)],
+                "maximum_option_characters": 180,
+                "repair": "先据正确项长度逐项核对；可精简有依据的正确判断或补足干扰项，不能填充无依据的事实。",
+            },
             "knowledge_points": [
                 {
                     "knowledge_point_id": point_id,
                     "label": label,
                     "preferred_type": "choice",
-                    "minimum_distractor_characters": (
-                        8 if self.allow_grounded_answer_rewrite
-                        else max(8, round(len(label.strip()) * 0.55))
-                    ),
+                    **({} if self.allow_grounded_answer_rewrite else {
+                        "minimum_distractor_characters": _minimum_distractor_characters(label)
+                    }),
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
                 }
                 for point_id, label, quotes in points
@@ -314,14 +332,32 @@ class DiagnosticItemGenerator:
                     temperature=0,
                     max_tokens=2600,
                 )
-                draft = ItemBatchDraft.model_validate(raw)
-                if [item.knowledge_point_id for item in draft.items] != expected_ids:
+                draft = _ItemBatchEnvelope.model_validate(raw)
+                if [item.get("knowledge_point_id") for item in draft.items] != expected_ids:
                     raise DiagnosticGenerationError(
                         "model must return every requested knowledge point in input order"
                     )
-                candidate = [item.model_dump(mode="json") for item in draft.items]
-                items = [self._validate_item(item, chapter, by_id,
-                         allow_rewrite=self.allow_grounded_answer_rewrite) for item in draft.items]
+                candidate = [dict(item) for item in draft.items]
+                items = []
+                failures: list[dict[str, object]] = []
+                for index, entry in enumerate(draft.items):
+                    try:
+                        parsed = ItemDraft.model_validate(entry)
+                        items.append(self._validate_item(parsed, chapter, by_id,
+                                     allow_rewrite=self.allow_grounded_answer_rewrite))
+                    except (ValidationError, DiagnosticGenerationError) as error:
+                        failures.append({
+                            "knowledge_point_id": expected_ids[index], "item_index": index,
+                            "issues": (error.errors(include_input=False, include_url=False, include_context=False)
+                                       if isinstance(error, ValidationError) else [str(error)]),
+                            "details": error.feedback if isinstance(error, DiagnosticGenerationError) else None,
+                        })
+                if failures:
+                    raise DiagnosticGenerationError(
+                        "diagnostic batch validation failed: " + "; ".join(
+                            f"{row['knowledge_point_id']}: {row['issues']}" for row in failures),
+                        feedback={"stage": "item_validation", "items": failures},
+                    )
                 candidate = [self._candidate_item(item) for item in items]
                 changed = [row["knowledge_point_id"] for row in candidate
                            if row["knowledge_point_id"] in preserved
@@ -341,7 +377,7 @@ class DiagnosticItemGenerator:
                     break
                 feedback = (error.feedback if isinstance(error, DiagnosticGenerationError)
                             and error.feedback else {"stage": "validation", "issues":
-                            error.errors(include_input=False, include_url=False)
+                            error.errors(include_input=False, include_url=False, include_context=False)
                             if isinstance(error, ValidationError) else [str(error)]})
                 if candidate is not None:
                     # Keep actual reviewed options/answer positions, not a bare
@@ -368,7 +404,8 @@ class DiagnosticItemGenerator:
                 )
         assert last_error is not None
         raise DiagnosticGenerationError(
-            f"diagnostic generation failed for {chapter.chapter_id}: {last_error}"
+            f"diagnostic generation failed for {chapter.chapter_id}: {last_error}",
+            feedback=last_error.feedback if isinstance(last_error, DiagnosticGenerationError) else None,
         ) from last_error
 
     def _review_items(
@@ -462,12 +499,19 @@ class DiagnosticItemGenerator:
             options[draft.correct_index] = answer_text
         if len(set(options)) != 4:
             raise DiagnosticGenerationError("choice options must be unique")
-        shortest_distractor = min(
-            len(option) for index, option in enumerate(options) if index != draft.correct_index
-        )
-        if shortest_distractor < max(8, round(len(answer_text) * 0.55)):
+        required = _minimum_distractor_characters(answer_text)
+        lengths = [len(option) for option in options]
+        too_short = [index for index, size in enumerate(lengths)
+                     if index != draft.correct_index and size < required]
+        if too_short:
             raise DiagnosticGenerationError(
-                "choice distractors are too short and would reveal the answer"
+                f"choice distractors are too short and would reveal the answer: "
+                f"{draft.knowledge_point_id}, correct_characters={len(answer_text)}, "
+                f"option_characters={lengths}, minimum_distractor_characters={required}",
+                feedback={"code": "distractor_length", "correct_characters": len(answer_text),
+                          "option_characters": lengths, "minimum_distractor_characters": required,
+                          "too_short_option_indices": too_short,
+                          "repair": "仅依原文精简正确判断或补足所列干扰项，使每项达到明确下限；不要填入无依据事实。"},
             )
         response_type = ResponseType.SINGLE_CHOICE
         correct_ids = [str(draft.correct_index)]

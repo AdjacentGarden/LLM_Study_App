@@ -56,9 +56,12 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1"
 POINT_BATCH_SIZE = 6
-FACT_BATCH_SIZE = 3
+# A three-point response must prove nine components and all their boundary
+# checks. Keep that work to one point per request; publication still aggregates
+# every point, lesson component, teacher review and rubric review below.
+FACT_BATCH_SIZE = 1
 FACT_FORMAT_ATTEMPTS = 2
 LESSON_FACT_BATCH_SIZE = 1
 LESSON_FACT_SOURCE_CHAR_BUDGET = 14000
@@ -386,10 +389,16 @@ explanation 为90-260字自然讲解（70-1200字）：先解释是什么，再�
 flashcard 一个中心问题，front 6-120字、back 12-360字，答案先直接回答再保留必要条件。
 practice 为独立应用或辨析题（prompt 8-300字、expected_answer 20-800字），
 题干不能包含待考查结论或完整答案；可明确标记“假设”的简单情境，但不能编造实验事实。
-rubric 为2-6项可检查的具体得分要点，不写“回答正确/表达清晰”等空话，不能只是逐字重复整份答案。
-每项评分点必须对应题干明确要求或得出答案所必需的推导步骤；不能额外考题目未问的旁支知识。
-先确定题干的最小充分答案；范围检查只修正实际断言，不把同主题边界新增为未问的得分目标。
-若一份省略该评分点的答案仍能完整正确回答题干，该条不得强制得分；接受同目标的等价例子或推导。
+每道 practice 按以下顺序构造，初稿与修复都相同：
+第一步，只按题干实际问项写最小充分答案，并逐项用本题 source_ids 的原文核验事实与必要条件。
+第二步，从该最小答案抽取2-6项原子 rubric，每项只检查一个题干明确要求或不可省略的推导目标；
+逐项做省略检验：若不写该项仍能完整正确作答，就删除该评分要求；接受同目标的等价例子或推导。
+若不足两个必要目标，先把题干改为明确要求两个有原文证据支持的必要问项，再重做上述步骤，
+不能拆分同义句或把附加术语、研究史、频率修饰词、题干已给条件凑成得分点。
+第三步，expected_answer 先给最小充分答案；确有帮助时再补可选扩展解释，仍须由本题原文支持。
+扩展解释不是必答要求，不能反向填入 rubric；不因参考答案更长而增加评分项，也不为凑2-6条加考。
+rubric 不写“回答正确/表达清晰”等空话，不逐字重复整份答案；范围检查只修正实际断言，
+不把同主题边界新增为未问的得分目标。修饰词若是准确回答本题所必需的范围限定，仍须保留。
 题干已经直接给出的结论、序列或名称不能再冒充回忆目标让学生照抄。
 按 depth 调节支架与难度，完整性不随每日时间减少。每批只生成 batch_points。
 output_contract给出本批精确point_ids；不能增删或从all_knowledge_points另选其他点。
@@ -415,6 +424,10 @@ reading_source_ids 选取足以支撑本课的连续清晰段落，优先覆盖�
 "checkpoints":[{"question":"检查题","expected_answer":"核验用答案","source_ids":["s1"]}]}}。
 如有 review_feedback，逐条修复后重写，不能只承诺已修改。
 审校意见是编辑指令，不是学习者要学习的内容。要求删除不支持的事实就直接删除，或补上实际支持的来源。
+审校提出的 minimal_sufficient_answer、counterexample_answer、repair 和其他反馈都只是待核验的编辑建议，
+不是教材事实来源或权威标准答案；不能照搬其中的新事实、术语或因果关系。
+修复仍须回到本题 source_ids 对应的 sources 原文核对；反馈中的事实若无原文支持则不用，
+但须解决其指出的真实问题，并重新接受独立事实、教学和评分要求审核，不能自行覆盖否决。
 所有教学字段（讲解、问答、例题、检查题、参考答案、rubric）均不得复述“原文未说明/不添加/
 不要求判断/资料未给出/OCR”等审校话术，不得把“不应补充某结论”当成知识点或评分要求。
 基于题设得出“现有观察不足以唯一确定某机制”是合法推理结论，应保留；
@@ -1692,7 +1705,7 @@ class TeachingContentGenerator:
             if not rejected:
                 continue
             issue = (
-                f"practice_{item.item_id} 题目的最小充分答案为：{item.minimal_sufficient_answer}。"
+                f"practice_{item.item_id} 审校提出的待核验最小答案建议为：{item.minimal_sufficient_answer}。"
                 + "；".join(
                     f"评分第{criterion.rubric_index + 1}项“{criterion.rubric_text}”"
                     f"（题干定位“{criterion.prompt_quote}”、待改子句“{criterion.rubric_quote}”）："

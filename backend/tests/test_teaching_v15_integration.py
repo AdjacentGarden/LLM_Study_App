@@ -64,6 +64,7 @@ class CandidateClient:
         self.calls = []
         self.generations = []
         self.rendezvous = threading.Barrier(2) if rendezvous else None
+        self.rendezvous_fact_claimed = False
         self.teacher_started = threading.Event()
         self.release_teacher = threading.Event()
         self.late_teacher = late_teacher
@@ -122,12 +123,18 @@ class CandidateClient:
             )
             self.active += 1
             self.peak = max(self.peak, self.active)
+            join_rendezvous = self.rendezvous and (
+                role == "teacher"
+                or (role == "fact" and job[1] and not self.rendezvous_fact_claimed)
+            )
+            if join_rendezvous and role == "fact":
+                self.rendezvous_fact_claimed = True
         try:
             if role == "teacher":
                 self.teacher_started.set()
                 if self.late_teacher:
                     assert self.release_teacher.wait(4)
-            if self.rendezvous and (role == "teacher" or (role == "fact" and job[1])):
+            if join_rendezvous:
                 self.rendezvous.wait(4)
             if self.error_role == role:
                 if role == "fact" and self.late_teacher:
@@ -323,7 +330,7 @@ def test_teacher_starts_with_fact_first_window_and_same_candidate_is_audited(mon
     assert all(row[2].startswith("draft-review") for row in client.calls)
     assert len({event["invocation_id"] for event in events}) == 1
     assert Counter(job[0] for job, *_ in client.calls) == {
-        "teacher": 1, "fact": 7, "rubric": 1,
+        "teacher": 1, "fact": 8, "rubric": 1,
     }
 
 
@@ -341,7 +348,7 @@ def test_point_repair_is_fact_teacher_union_and_other_fields_stay_exact():
     assert len([row for row in client.generations if row["batch_points"]]) == 2
     assert len([row for row in client.generations if row["include_lesson"]]) == 1
     assert Counter(job[0] for job, *_ in client.calls) == {
-        "teacher": 2, "fact": 8, "rubric": 2,
+        "teacher": 2, "fact": 10, "rubric": 2,
     }
     counts = Counter(job for job, *_ in client.calls)
     assert all(count == (1 if job[2] else 2) for job, count in counts.items())
@@ -661,13 +668,15 @@ def test_review_identity_change_invalidates_unchanged_fact_component_approvals()
         for (kind, *_), data, _, context, _ in client.calls
         if kind == "fact" and context["attempt"] == 2
     ]
-    point_second = next(data for data in second if data["output_contract"]["point_ids"])
-    assert set(point_second["output_contract"]["point_ids"]) == {
+    point_second = [data for data in second if data["output_contract"]["point_ids"]]
+    assert all(len(data["output_contract"]["point_ids"]) == 1 for data in point_second)
+    assert {point_id for data in point_second for point_id in data["output_contract"]["point_ids"]} == {
         point.point_id for point in bundle.knowledge_points
     }
     assert all(
         names == ["explanation", "flashcard", "practice"]
-        for names in point_second["output_contract"]["component_ids_by_point"].values()
+        for data in point_second
+        for names in data["output_contract"]["component_ids_by_point"].values()
     )
 
 
@@ -875,7 +884,7 @@ def test_short_positive_rationales_are_not_a_reason_for_another_model_call():
     client = ShortRationale()
     output = generate(client)
     assert output.teaching_fact_review["accepted"]
-    assert len([call for call in client.calls if call[0][0] == "fact"]) == 7
+    assert len([call for call in client.calls if call[0][0] == "fact"]) == 8
 
 
 def test_known_lesson_span_from_uncited_source_is_a_located_rejection_without_format_retry():

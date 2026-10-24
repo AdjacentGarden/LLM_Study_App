@@ -1,6 +1,7 @@
 """Flat review avoids observed missing-brace nesting; canonical proof stays strict."""
 import itertools
 import json
+from collections import Counter
 
 import pytest
 from test_teaching_boundary_checks import FIELDS, selection
@@ -67,10 +68,13 @@ def test_flat_wire_cannot_skip_or_borrow_any_component_pair(fault):
     # cannot publish a candidate with an incomplete/foreign factual envelope.
     point_requests = [payload for system, payload in zip(client.systems, client.payloads, strict=True)
         if system == FACT_REVIEW_PROMPT and payload["candidate"]["points"]]
-    assert len(point_requests) == 2
-    assert all(set(payload["output_contract"]["point_ids"]) == {
-        point.point_id for point in bundle.knowledge_points} for payload in point_requests)
-    assert not point_requests[0]["format_feedback"] and point_requests[1]["format_feedback"]
+    assert Counter(tuple(payload["output_contract"]["point_ids"])
+                   for payload in point_requests) == {
+        (point.point_id,): 2 for point in bundle.knowledge_points}
+    for point in bundle.knowledge_points:
+        own_requests = [payload for payload in point_requests
+                        if payload["output_contract"]["point_ids"] == [point.point_id]]
+        assert not own_requests[0]["format_feedback"] and own_requests[1]["format_feedback"]
     assert client.review_calls <= 1
     assert len([batch for batch in client.generation_batches if batch]) == 1
     assert bundle.model_dump_json() == before
