@@ -271,8 +271,10 @@ def native_router(services: Any) -> APIRouter:
                 "teaching_units": {"backend": True, "native": False},
                 "server_planning": {"backend": True, "native": False},
                 "note_cloud_sync": {"backend": True, "native": False},
-                "voice_transcription": {"backend": True, "native": False, "runtime_checked_at": "/api/studio/capabilities"},
-                "handwriting": {"backend": True, "native": False},
+                "voice_transcription": {"backend": True, "native": True,
+                    "runtime_checked_at": "/api/studio/capabilities", "runtime_status_path": "/api/studio/capabilities"},
+                "handwriting": {"backend": True, "native": True, "runtime_status_path": "/api/studio/capabilities"},
+                "media_generation": {"backend": True, "native": True, "runtime_status_path": "/api/studio/capabilities"},
                 "community_social": {"backend": True, "native": False}}
 
     @router.put("/native/learner-preferences")

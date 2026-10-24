@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 from .community import CommunityRepository
+from .smtp_transport import TunnelSMTP_SSL, tunnel_endpoint
 
 DEMO_USERS = {
     "xiaolin@zhiwo.test": "小林 · 演示",
@@ -106,6 +107,10 @@ class Accounts:
     @staticmethod
     def smtp_ready() -> bool:
         if not all(os.getenv(k) for k in ("SMTP_HOST", "SMTP_FROM")):
+            return False
+        try:
+            tunnel_endpoint(os.getenv("SMTP_SECURITY", "ssl").lower())
+        except ValueError:
             return False
         # Authenticated relays need both values. A loopback-only test SMTP server
         # may intentionally use neither.
@@ -242,9 +247,14 @@ class Accounts:
         security = os.getenv("SMTP_SECURITY", "ssl").lower()
         if security not in {"ssl", "starttls", "plain"}:
             raise ValueError("SMTP_SECURITY must be ssl, starttls, or plain")
+        tunnel = tunnel_endpoint(security)
         context = ssl.create_default_context()
-        if security == "ssl":
-            smtp_client: smtplib.SMTP = smtplib.SMTP_SSL(
+        if tunnel is not None:
+            smtp_client: smtplib.SMTP = TunnelSMTP_SSL(
+                host, port, tunnel_host=tunnel[0], tunnel_port=tunnel[1], timeout=12, context=context
+            )
+        elif security == "ssl":
+            smtp_client = smtplib.SMTP_SSL(
                 host, port, timeout=12, context=context
             )
         else:

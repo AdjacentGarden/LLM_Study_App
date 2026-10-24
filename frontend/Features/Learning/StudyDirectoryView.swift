@@ -73,6 +73,10 @@ struct StudyDirectoryView: View {
     } ?? courseTasks.first
   }
   private var studyProgress: Double {
+    if courseTasks.isEmpty {
+      let ids = Set(directory.flatMap { $0.sections.map(\.id) })
+      return ids.isEmpty ? 0 : Double(ids.intersection(store.completedChapterIDs).count) / Double(ids.count)
+    }
     if store.selectedBookID == "book_biology_2", (store.currentCourse?.resourceIDs.count ?? 1) <= 1,
       !directory.isEmpty
     {
@@ -194,7 +198,7 @@ struct StudyDirectoryView: View {
           if !compact {
             VStack(alignment: .leading, spacing: 4) {
               HStack {
-                Text("学习计划").font(DS.font(20.8, weight: .bold))
+                Text(courseTasks.isEmpty ? "阅读进度" : "学习计划").font(DS.font(20.8, weight: .bold))
                 Spacer()
                 Button {
                   store.go(.plan)
@@ -221,7 +225,7 @@ struct StudyDirectoryView: View {
           BCProgress(value: studyProgress)
             .accessibilityIdentifier("study.plan.progress")
           if !compact {
-            Text("计划完成 \(Int((studyProgress * 100).rounded()))%")
+            Text("\(courseTasks.isEmpty ? "本书已读" : "计划完成") \(Int((studyProgress * 100).rounded()))%")
               .font(DS.font(20)).foregroundStyle(DS.secondary)
               .transition(.opacity)
           }
@@ -240,7 +244,10 @@ struct StudyDirectoryView: View {
     let expanded = expandedChapter == node.id
     let sectionIDs = Set(node.sections.map(\.chapter_id) + [node.id])
     let tasks = store.plan?.tasks.filter { sectionIDs.contains($0.chapter_id ?? "") } ?? []
-    let progress = learningChapterProgress(tasks, chapterIDs: sectionIDs)
+    let readingIDs = Set(node.sections.map(\.id))
+    let progress = tasks.isEmpty
+      ? (readingIDs.isEmpty ? 0 : Double(readingIDs.intersection(store.completedChapterIDs).count) / Double(readingIDs.count))
+      : learningChapterProgress(tasks, chapterIDs: sectionIDs)
     return VStack(alignment: .leading, spacing: 0) {
       Button {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
@@ -301,7 +308,8 @@ struct StudyDirectoryView: View {
   private func sectionRow(_ chapter: Chapter) -> some View {
     let expanded = expandedSection == chapter.id
     let sectionTasks = store.plan?.tasks.filter { $0.chapter_id == chapter.id } ?? []
-    let complete = !sectionTasks.isEmpty && sectionTasks.allSatisfy { $0.status == "done" }
+    let complete = sectionTasks.isEmpty ? store.completedChapterIDs.contains(chapter.id)
+      : sectionTasks.allSatisfy { ["done", "completed"].contains($0.status) }
     return VStack(alignment: .leading, spacing: 0) {
       Button {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {

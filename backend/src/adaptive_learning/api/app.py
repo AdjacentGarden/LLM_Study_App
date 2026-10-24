@@ -4,6 +4,7 @@ import faulthandler
 import hashlib
 import logging
 import math
+import os
 import shutil
 import signal
 import sys
@@ -315,6 +316,7 @@ def health() -> dict[str, object]:
                     external=external),
         "service": "adaptive-book-learning",
         "version": app.version,
+        "release_commit": os.getenv("CLOUDPATH_RELEASE_SHA", ""),
     }
 
 

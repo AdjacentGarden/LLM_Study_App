@@ -192,6 +192,13 @@ import SwiftUI
       ? s.quizzes : s.quizzes.filter { $0.chapter_id == selectedChapterID }
   }
   var plan: StudyPlan? { currentSource?.plan }
+  /// Explicit reading completion is independent of a daily plan or knowledge mastery.
+  var completedChapterIDs: Set<String> {
+    if let resource = cloudResource {
+      return Set((cloudState.pending[resource.id]?.value ?? resource.progress).completed_chapters)
+    }
+    return Set((plan?.tasks ?? []).filter { ["done", "completed"].contains($0.status) }.compactMap(\.chapter_id))
+  }
   var currentTitle: String { currentCourse?.name ?? currentSource?.summary.title ?? "我的课程" }
   var chapterTitle: String {
     chapters.first { $0.id == selectedChapterID }?.title ?? activeLesson?.title ?? "章节学习"
@@ -874,10 +881,22 @@ import SwiftUI
     persist()
   }
   func completeLesson() {
-    guard let lesson = activeLesson else { return }
+    guard let lesson = activeLesson, lesson.status == "ready" else { return }
     for i in sources.indices where sources[i].id == lesson.book_id {
       for j in sources[i].plan.tasks.indices where sources[i].plan.tasks[j].lesson_id == lesson.id {
         sources[i].plan.tasks[j].status = "done"
+      }
+    }
+    if let resource = cloudResource, resource.book_id == lesson.book_id {
+      var pending = cloudState.pending[resource.id] ?? CloudPendingProgress(
+        workspaceID: resource.workspace_id, resourceID: resource.id, value: resource.progress,
+        baseMasteredIDs: resource.progress.mastered_ids)
+      if !pending.value.completed_chapters.contains(lesson.chapter_id) {
+        pending.value.completed_chapters.append(lesson.chapter_id)
+        pending.value.completed_chapters.sort()
+        // A completion made during an in-flight write must survive that write's acknowledgement.
+        pending.mutationID = UUID().uuidString
+        cloudState.pending[resource.id] = pending
       }
     }
     saveLocation()

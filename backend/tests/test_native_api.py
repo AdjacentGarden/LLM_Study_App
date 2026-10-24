@@ -11,6 +11,20 @@ from adaptive_learning.native import NativeRepository
 from adaptive_learning.rag.upload_index import published_upload_index
 
 
+def test_native_capabilities_report_client_support_without_claiming_runtime_ready(native):
+    client, _, _ = native
+    response = client.get("/api/native/capabilities")
+    assert response.status_code == 200
+    capabilities = response.json()
+    for name in ("voice_transcription", "handwriting", "media_generation"):
+        assert capabilities[name]["backend"] is True
+        assert capabilities[name]["native"] is True
+        assert capabilities[name]["runtime_status_path"] == "/api/studio/capabilities"
+        assert "ready" not in capabilities[name]
+    for name in ("note_cloud_sync", "server_planning", "teaching_units"):
+        assert capabilities[name]["native"] is False
+
+
 def test_local_default_login_retains_account_and_uploaded_pdf(tmp_path, monkeypatch):
     app = configure(tmp_path, monkeypatch)
     monkeypatch.setenv("NATIVE_LOCAL_LOGIN_ENABLED", "1")

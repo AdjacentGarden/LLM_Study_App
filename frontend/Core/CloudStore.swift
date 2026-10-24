@@ -808,20 +808,19 @@ extension AppStore {
     }
     if let resource = cloudResource, resource.structure != nil {
       let location = locations[locationKey] ?? StudyLocation()
-      var value = resource.progress
+      let pending = cloudState.pending[resource.id]
+      var value = pending?.value ?? resource.progress
       value.page = max(1, min(location.page, resource.structure?.source_page_count ?? 1))
       value.chapter_id = location.chapterID
       value.lesson_id = location.lessonID?.hasPrefix("pending:") == true ? nil : location.lessonID
-      value.completed_chapters =
-        (currentSource?.plan.tasks.filter { ["done", "completed"].contains($0.status) }.compactMap(
-          \.chapter_id) ?? []).sorted()
-      value.task_status = Dictionary(
-        uniqueKeysWithValues: (currentSource?.plan.tasks ?? []).map { ($0.id, $0.status) })
+      let completedTasks = currentSource?.plan.tasks.filter { ["done", "completed"].contains($0.status) } ?? []
+      value.completed_chapters = Array(Set(value.completed_chapters + completedTasks.compactMap(\.chapter_id))).sorted()
+      // An absent/unloaded daily plan cannot erase acknowledged learning or task records.
+      for task in currentSource?.plan.tasks ?? [] { value.task_status[task.id] = task.status }
       let prefix = resource.id + "::"
       value.mastered_ids = mastered.filter { $0.hasPrefix(prefix) }.map {
         resource.book_id + "::" + $0.dropFirst(prefix.count)
       }.sorted()
-      let pending = cloudState.pending[resource.id]
       if value != (pending?.value ?? resource.progress) {
         cloudState.pending[resource.id] = CloudPendingProgress(
           workspaceID: resource.workspace_id, resourceID: resource.id, value: value,

@@ -59,7 +59,7 @@ enum CloudMapping {
         chapter_id: chapter.chapter_id, level: 1, source_title: chapter.title,
         ai_title: chapter.title,
         page_start: chapter.start_page, page_end: chapter.end_page, confidence: 0,
-        status: "source_available", source: "server")
+        status: resource.progress.completed_chapters.contains(chapter.chapter_id) ? "completed" : "source_available", source: "server")
     }
     var lessons: [Lesson] = []
     var cards: [Flashcard] = []
