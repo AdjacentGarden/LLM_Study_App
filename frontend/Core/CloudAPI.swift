@@ -11,6 +11,7 @@ struct CloudError: LocalizedError {
 
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
+  nonisolated static let defaultServer = "http://10.249.44.137:8100"
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
     ["127.0.0.1", "localhost", "::1", "[::1]"].contains(baseURL.host ?? "")
@@ -72,7 +73,7 @@ actor CloudAPI {
     guard !ContentBundle.fixtureMode else { return nil }
     let value =
       ProcessInfo.processInfo.environment["BOOKCOURSE_API_BASE_URL"]
-      ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? "http://127.0.0.1:8100"
+      ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? defaultServer
     guard let url = validatedURL(value) else { return nil }
     return CloudAPI(baseURL: url)
   }
@@ -193,7 +194,10 @@ actor CloudAPI {
     }
     var request = URLRequest(url: url)
     request.httpMethod = method
-    if path.hasPrefix("/api/auth/") || path == "/api/native/local-login" {
+    if path.hasPrefix("/api/auth/") || path == "/api/native/local-login" || path.contains("/course-jobs")
+      || path.hasSuffix("/prepare") || path.contains("/prepare?")
+      || path.hasSuffix("/readiness") || path.hasSuffix("/status")
+      || (method == "GET" && path.hasSuffix("/diagnostics")) {
       request.timeoutInterval = 20
     } else if path.hasSuffix("/qa") {
       request.timeoutInterval = 60
@@ -212,7 +216,10 @@ actor CloudAPI {
       else { (bytes, raw) = try await session.data(for: request) }
     } catch is CancellationError {
       throw CancellationError()
-    } catch let error as URLError where error.code == .cancelled { throw CancellationError() } catch
+    } catch let error as URLError where error.code == .cancelled { throw CancellationError()
+    } catch let error as URLError where error.code == .appTransportSecurityRequiresSecureConnection {
+      throw CloudError(status: 0, message: "系统阻止了此地址的 HTTP 连接，请使用已配置的局域网或 VPN 服务地址，或改用 HTTPS。", transportFailure: true)
+    } catch
     { throw CloudError(status: 0, message: "无法连接学习服务，请检查服务地址和网络；已保存的进度仍然保留。", transportFailure: true) }
     guard let response = raw as? HTTPURLResponse else {
       throw CloudError(status: 0, message: "服务响应无效")

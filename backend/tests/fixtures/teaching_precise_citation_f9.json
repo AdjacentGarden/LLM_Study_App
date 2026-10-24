@@ -1,0 +1,293 @@
+{
+  "description": "Minimal observed 7c f9 citation-only repair regression; generated content and one real selected source excerpt, no identity or runtime configuration.",
+  "point": {
+    "point_id": "kp_f9d7ee97bb9dba8d",
+    "title": "红绿色盲的X隐性遗传与交叉遗传",
+    "explanation": "红绿色盲由X染色体上的隐性基因所致，Y染色体没有相应等位基因。男性只有一条X染色体，携带隐性致病基因即患病，因此男性患者多于女性。男性患者的红绿色盲基因只能从母亲传来，以后只能传给女儿，这种遗传特点叫交叉遗传。上述规律以该病为X染色体隐性遗传为前提，不能推广为所有伴性遗传病共有的特点。",
+    "source_ids": [
+      "src_p29_0_496_cfdfc4a0c4a8",
+      "src_p30_0_372_daf7fb5a6f86",
+      "src_p31_0_477_07918f35db4a",
+      "src_p28_0_423_b86431e827b0"
+    ],
+    "flashcard": {
+      "card_id": "card_8706bee05f6130755328",
+      "front": "红绿色盲的致病基因在哪里、是显性还是隐性？男性患者的致病基因来源和去向如何？",
+      "back": "红绿色盲由X染色体上的隐性基因所致，Y染色体没有相应等位基因，因此男性患者多于女性。男性患者的红绿色盲基因只能从母亲传来，以后只能传给女儿，表现为交叉遗传。这些特点以X染色体隐性遗传为前提，不能推广到所有伴性遗传病。",
+      "source_ids": [
+        "src_p29_0_496_cfdfc4a0c4a8",
+        "src_p31_0_477_07918f35db4a",
+        "src_p28_0_423_b86431e827b0"
+      ]
+    },
+    "practice": {
+      "item_id": "practice_8706bee05f6130755328",
+      "prompt": "某红绿色盲男性的父母色觉均正常。请判断他的红绿色盲基因来自父亲还是母亲，说明理由；并指出他的女儿是否会获得该基因，以及能否据此认为所有伴性遗传病都表现为男性患者多于女性。",
+      "expected_answer": "该男性的红绿色盲基因来自母亲。红绿色盲由X染色体上的隐性基因所致，Y染色体没有相应等位基因；男性的X染色体来自母亲，其母亲色觉正常但可以是携带者。该男性把X染色体传给女儿，所以女儿会获得该基因。不能据此认为所有伴性遗传病都男性患者多于女性，例如抗维生素D佝偻病受X染色体显性基因控制，女性患者多于男性。",
+      "rubric": [
+        "判断红绿色盲基因来自母亲",
+        "说明红绿色盲为X染色体隐性遗传、Y染色体无相应等位基因",
+        "指出该男性的X染色体传给女儿，女儿会获得该基因",
+        "指出不能推广到所有伴性遗传病，并举出女性患者多于男性的显性伴性遗传病"
+      ],
+      "source_ids": [
+        "src_p29_0_496_cfdfc4a0c4a8",
+        "src_p31_0_477_07918f35db4a",
+        "src_p28_0_423_b86431e827b0"
+      ]
+    }
+  },
+  "missing_source_id": "src_p30_0_372_daf7fb5a6f86",
+  "source": {
+    "page_number": 30,
+    "block_id": "",
+    "quote": "人的正常色觉与红绿色盲的基因型和表现型可以有以\n下5种情况（表2—1）a\n表2-1人的正常色觉和红绿色盲的基因型和表现型\n女\n性\n男\n性\n基因型\n$x^{x{}$\n$x^{X{k}$\n$x^{x{}$\n$X{Y\n$x^{}Y$\n正常\n色真\n表现型\n正常\n正常\n色盲\n(携带者)\n人类红绿色盲的遗传方式主要有以下几种情况。\n如果一个色觉正常的女性纯合子和一个男性红绿色盲\n忠者结婚，在他们的后代中，儿子"
+  },
+  "teacher": {
+    "accepted": false,
+    "issues": [
+      "practice_190616bcbbc509ce2aea：题目要求从配子形成和受精两个环节评价说法；只用非同源染色体自由组合或交叉互换中的一种说明配子组成多样，再说明受精随机性，已能完整回答。评分点不应强制两种机制分别得分，可合并为接受任一有据的配子多样性机制。",
+      "practice_2d00d5ea8aab69317a4b：题目要求纠正概括并给出减数分裂的准确含义，并未要求指出高等动植物减数分裂发生的器官。删除将“发生在有性生殖器官内”作为独立必得分点的要求。",
+      "practice_886bd5f287157862ec68：题目询问成熟生殖细胞及伴随结构的数量、是否需要变形；答出一个卵细胞和三个极体即可回答相应数量问题，极体随后退化不是必需解题步骤。删除该独立强制评分要求。",
+      "lesson.reading_source_ids：opening关于孟德尔遗传规律被重新发现后，基因的物质基础及细胞位置仍未解决的断言，需要第10页章节导言支持，当前阅读列表未收录src_p10_0_227_abd2930f0090；补入该来源，或将opening改为现有阅读来源能够支持的表述。",
+      "lesson.reading_source_ids：summary称摩尔根“后又通过测交等方法验证”，这一具体方法见src_p24_489_676_eead587cfa6d，当前阅读列表未收录；补入该来源，或删去当前列表无法支持的具体方法。"
+    ],
+    "points": [
+      {
+        "point_id": "kp_39ec61ff95375349",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_190616bcbbc509ce2aea：两种配子多样性机制被列为分别必得的评分点；题干的最小充分答案只需举出其中一种有据机制，并说明受精随机性及“一般”的含义。",
+          "practice_practice_190616bcbbc509ce2aea 审校提出的待核验最小答案建议为：这一说法不全面。减数分裂形成配子时，非同源染色体自由组合，使配子的染色体组成多样；受精时精子和卵细胞随机结合，也增加后代的多样性。“一般”表示配子的染色体数通常相同，但允许出现异常配子等例外，不能说绝对相同。。评分第2项“指出非姐妹染色单体间交叉互换也是配子多样性来源”（题干定位“请从配子形成和受精两个环节评价这一说法”、待改子句“非姐妹染色单体间交叉互换”）：交叉互换确实能产生配子多样性，但用自由组合说明配子形成的作用，已经足以评价该说法；题目未要求列尽所有来源。。省略该要求仍完整作答的反例：这一说法不全面：减数分裂形成配子时，非同源染色体自由组合，产生不同染色体组成的配子；受精时精卵随机结合也会增加后代多样性。“一般”承认染色体数相同存在例外，不能理解为绝对相同。。修复：删去将交叉互换列为独立必答点的要求；若希望考查它，应在题干明确要求列出配子形成阶段的两种机制。"
+        ]
+      },
+      {
+        "point_id": "kp_67e49480add9c7db",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_78c61f23c30de14f",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_bf06816464a7db21bcb7 审校提出的待核验最小答案建议为：该病是伴X染色体显性遗传病。患病父亲把带致病基因的X染色体传给所有女儿，把Y染色体传给所有儿子；母亲正常，因此女儿都患病，儿子都正常。女性有两条X染色体，只需其中一条带显性致病基因就可能患病，因此女性患者较多。女性患者的病情并不都相同，部分患者症状较轻。。评分第4项“指出部分女性患者病症较轻，并非所有女性患者病情相同”（题干定位“是否所有女性患者病情都相同”、待改子句“部分女性患者病症较轻”）：必须回答女性患者病情并不都相同，但题目未要求指出差异的具体方向；仅说明有轻重差异也能完整回答。。省略该要求仍完整作答的反例：该病为伴X显性遗传。患病父亲将致病X染色体传给所有女儿、将Y传给所有儿子；正常母亲不传致病基因，所以女儿均患病、儿子均正常。女性有两条X染色体，其中一条带显性致病基因即可患病，故女性患者较多。女性患者的病情不全相同，存在轻重差异。。修复：将评分点拆开：保留“并非所有女性患者病情相同”作为必答；删去“部分女性患者病症较轻”的具体表述要求。"
+        ]
+      },
+      {
+        "point_id": "kp_ff15b7054800b43a",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_a23187df00a9177425c0 审校提出的待核验最小答案建议为：不矛盾：红白眼总体约3∶1，符合一对等位基因的分离；白眼仅见于雄蝇提示其遗传与性别相关。摩尔根提出白眼基因位于X染色体，Y染色体没有相应等位基因。上述定位是依据现象提出的假说，仍需通过测交等实验检验其预测。。评分第2项“指出白眼性状总与性别相联系这一特殊现象”（题干定位“但白眼只出现在雄蝇中”、待改子句“指出白眼性状总与性别相联系这一特殊现象”）：题干已明确给出白眼只在雄蝇中出现；回答可直接据此解释X连锁，无须把该已知现象另行概括为独立得分点。。省略该要求仍完整作答的反例：不矛盾，总体3∶1可由一对等位基因的分离解释。摩尔根认为控制白眼的基因位于X染色体，Y染色体没有相应等位基因；这一假说还需要测交检验其预测，不能仅凭F2结果确证。。修复：删去把题干已给现象单独复述的得分要求；可将其作为解释X连锁假说的题设依据，而非独立评分点。"
+        ]
+      },
+      {
+        "point_id": "kp_f9d7ee97bb9dba8d",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_b5601b421788b9ff",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_2d00d5ea8aab69317a4b：将高等动植物减数分裂发生在有性生殖器官内列为独立必得分点，超出题干所问；准确界定适用生物、形成成熟生殖细胞、复制及分裂次数和染色体减半已足够。",
+          "practice_practice_2d00d5ea8aab69317a4b 审校提出的待核验最小答案建议为：“所有细胞都能进行”错：减数分裂发生于进行有性生殖的生物形成成熟生殖细胞的过程中，不是任意细胞都能进行。“染色体复制两次”错，应为一次；“分裂一次”错，应为连续分裂两次。结果是成熟生殖细胞中的染色体数目比原始生殖细胞减少一半。。评分第2项“指出高等动植物的减数分裂发生在有性生殖器官内”（题干定位“请逐项指出其中的错误，并给出减数分裂的准确含义”、待改子句“高等动植物的减数分裂发生在有性生殖器官内”）：发生器官是更具体的补充知识；纠正三个错误并定义减数分裂，无须限定高等动植物或指出器官位置。。省略该要求仍完整作答的反例：并非所有细胞都能减数分裂：它是进行有性生殖的生物形成成熟生殖细胞时发生的过程。染色体只复制一次，细胞连续分裂两次，最终成熟生殖细胞的染色体数比原始生殖细胞减少一半。。修复：删去关于高等动植物有性生殖器官的独立得分点；若确需考查发生部位，应在题干中另行明确提问。"
+        ]
+      },
+      {
+        "point_id": "kp_c862b642f149a5d4",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_eef9682f891b8825a0cd 审校提出的待核验最小答案建议为：不正确。染色体在减数第一次分裂前复制，减数第二次分裂前不再复制；染色体数目减半发生于减数第一次分裂中同源染色体分离。减数第二次分裂时着丝点分裂，姐妹染色单体分开并移向两极。。评分第2项“说明两次分裂之间通常没有间期或间期很短”（题干定位“请判断这一说法是否正确，并说明减数第二次分裂中着丝点与姐妹染色单体的实际变化”、待改子句“两次分裂之间通常没有间期或间期很短”）：题目询问是否复制及第二次分裂中的实际变化，不要求描述两次分裂之间的阶段长短；省略仍可完整回答。。省略该要求仍完整作答的反例：说法不正确。染色体在减数第一次分裂前的间期复制，减数第二次分裂前不再复制；数目减半来自第一次分裂时同源染色体分离。第二次分裂时着丝点分裂，姐妹染色单体分开并移向两极。。修复：删除此独立得分点；如确需考查，应在题干另问两次分裂之间是否存在间期及其时长。"
+        ]
+      },
+      {
+        "point_id": "kp_a6f6661697cc65b9",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_bc73e350e6c0f1e6",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_ece114c27431e7be",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_886bd5f287157862ec68：极体退化消失虽有来源支持，但题目只问数量和是否变形；不能把极体退化设为独立必得分点。",
+          "practice_practice_886bd5f287157862ec68 审校提出的待核验最小答案建议为：一个初级精母细胞经减数分裂产生4个精细胞，它们还须变形成为4个精子；一个初级卵母细胞产生1个卵细胞和3个极体。精细胞需要变形，卵细胞形成后不需要变形。。评分第4项“极体退化消失，最终只形成一个卵细胞”（题干定位“形成的成熟生殖细胞及伴随结构的数量”、待改子句“极体退化消失，最终只形成一个卵细胞”）：一个卵细胞的数量需要回答，但极体后续是否退化不是题目所问；说明三个极体并回答变形问题即可完整作答。。省略该要求仍完整作答的反例：一个初级精母细胞产生4个精细胞，精细胞经变形成为4个精子；一个初级卵母细胞产生1个卵细胞和3个极体。精细胞需要变形，卵细胞不需要。。修复：删去“极体退化消失”；卵细胞数量已由上一条考查，不应将极体的后续命运另列为必答。"
+        ]
+      },
+      {
+        "point_id": "kp_56359704f0992cae",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": false,
+        "evidence_ok": true,
+        "issues": [
+          "practice_practice_ca95cdd889ac869042ea 审校提出的待核验最小答案建议为：这一说法不正确。萨顿依据基因与染色体行为的平行关系，通过类比推理提出基因在染色体上的假说，并未由此获得实验证明。比如，基因和染色体在配子形成时分别分离；非同源染色体与其上的非等位基因均可自由组合。。评分第2项“说明类比推理结论需观察和实验检验，摩尔根果蝇实验才证实基因在染色体上”（题干定位“请评价这一说法，并至少列出两项”、待改子句“摩尔根果蝇实验才证实基因在染色体上”）：说明萨顿的类比推理尚非实验证明，就足以评价该说法；题目未要求指出后来由谁用何实验验证。。省略该要求仍完整作答的反例：说法不正确：萨顿根据行为平行性以类比推理提出假说，不能据此称为实验证明。表现有：成对的基因和同源染色体在形成配子时分离；非等位基因和非同源染色体可自由组合。。修复：拆开评分点：可保留“类比推理本身不能充当实验证明”，删去必须提及摩尔根果蝇实验的要求。"
+        ]
+      },
+      {
+        "point_id": "kp_0e5e3b681e9b464b",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      }
+    ],
+    "lesson": {
+      "reading_ok": false,
+      "examples_ok": true,
+      "checkpoints_ok": true,
+      "evidence_ok": false,
+      "issues": [
+        "lesson.reading_source_ids：opening关于基因物质基础及所在位置的问题缺少第10页章节导言；补入src_p10_0_227_abd2930f0090，或调整该断言。",
+        "lesson.reading_source_ids：summary使用“测交等方法验证”的具体事实，但列表未包含记载该事实的src_p24_489_676_eead587cfa6d；补入该来源，或删去具体方法。"
+      ]
+    }
+  },
+  "target_rubric_items": [
+    {
+      "item_id": "practice_8706bee05f6130755328",
+      "minimal_sufficient_answer": "基因来自母亲。红绿色盲是X连锁隐性遗传，儿子的X染色体来自母亲，父亲传给儿子的是Y染色体；母亲色觉正常但可携带致病基因。这名男性会把带有该基因的X染色体传给所有女儿，但女儿获得基因不等于必然患病。不能据此推断所有伴性遗传病男性患者更多，例如X连锁显性遗传病可出现女性患者多于男性。",
+      "rubric_checks": [
+        {
+          "rubric_index": 0,
+          "rubric_text": "判断红绿色盲基因来自母亲",
+          "required": true,
+          "reason": "题目直接询问基因来自父亲还是母亲，明确判断来自母亲不可省略。",
+          "prompt_quote": "请判断他的红绿色盲基因来自父亲还是母亲",
+          "rubric_quote": "来自母亲",
+          "counterexample_answer": null,
+          "repair": null
+        },
+        {
+          "rubric_index": 1,
+          "rubric_text": "说明红绿色盲为X染色体隐性遗传、Y染色体无相应等位基因",
+          "required": true,
+          "reason": "题目要求说明来源理由；X连锁隐性及Y无对应等位基因解释正常母亲可传递基因、儿子从母亲取得致病X。",
+          "prompt_quote": "说明理由",
+          "rubric_quote": "红绿色盲为X染色体隐性遗传、Y染色体无相应等位基因",
+          "counterexample_answer": null,
+          "repair": null
+        },
+        {
+          "rubric_index": 2,
+          "rubric_text": "指出该男性的X染色体传给女儿，女儿会获得该基因",
+          "required": true,
+          "reason": "题目明确询问女儿是否获得该基因；父亲把携带色盲基因的X传给女儿，是得出肯定结论的必要依据。",
+          "prompt_quote": "并指出他的女儿是否会获得该基因",
+          "rubric_quote": "X染色体传给女儿，女儿会获得该基因",
+          "counterexample_answer": null,
+          "repair": null
+        },
+        {
+          "rubric_index": 3,
+          "rubric_text": "指出不能推广到所有伴性遗传病，并举出女性患者多于男性的显性伴性遗传病",
+          "required": true,
+          "reason": "题目要求判断能否推广到所有伴性遗传病；指出X连锁显性遗传病可出现女性患者更多，构成否定普遍命题的充分反例。",
+          "prompt_quote": "能否据此认为所有伴性遗传病都表现为男性患者多于女性",
+          "rubric_quote": "不能推广到所有伴性遗传病，并举出女性患者多于男性的显性伴性遗传病",
+          "counterexample_answer": null,
+          "repair": null
+        }
+      ]
+    }
+  ],
+  "point_metadata": [
+    {
+      "point_id": "kp_39ec61ff95375349",
+      "card_id": "card_190616bcbbc509ce2aea",
+      "item_id": "practice_190616bcbbc509ce2aea"
+    },
+    {
+      "point_id": "kp_67e49480add9c7db",
+      "card_id": "card_e31b6b786185535fb5e0",
+      "item_id": "practice_e31b6b786185535fb5e0"
+    },
+    {
+      "point_id": "kp_78c61f23c30de14f",
+      "card_id": "card_bf06816464a7db21bcb7",
+      "item_id": "practice_bf06816464a7db21bcb7"
+    },
+    {
+      "point_id": "kp_ff15b7054800b43a",
+      "card_id": "card_a23187df00a9177425c0",
+      "item_id": "practice_a23187df00a9177425c0"
+    },
+    {
+      "point_id": "kp_f9d7ee97bb9dba8d",
+      "card_id": "card_8706bee05f6130755328",
+      "item_id": "practice_8706bee05f6130755328"
+    },
+    {
+      "point_id": "kp_b5601b421788b9ff",
+      "card_id": "card_2d00d5ea8aab69317a4b",
+      "item_id": "practice_2d00d5ea8aab69317a4b"
+    },
+    {
+      "point_id": "kp_c862b642f149a5d4",
+      "card_id": "card_eef9682f891b8825a0cd",
+      "item_id": "practice_eef9682f891b8825a0cd"
+    },
+    {
+      "point_id": "kp_a6f6661697cc65b9",
+      "card_id": "card_02f9af275e4b68cbf838",
+      "item_id": "practice_02f9af275e4b68cbf838"
+    },
+    {
+      "point_id": "kp_bc73e350e6c0f1e6",
+      "card_id": "card_d8de0998d5dbc37ea239",
+      "item_id": "practice_d8de0998d5dbc37ea239"
+    },
+    {
+      "point_id": "kp_ece114c27431e7be",
+      "card_id": "card_886bd5f287157862ec68",
+      "item_id": "practice_886bd5f287157862ec68"
+    },
+    {
+      "point_id": "kp_56359704f0992cae",
+      "card_id": "card_ca95cdd889ac869042ea",
+      "item_id": "practice_ca95cdd889ac869042ea"
+    },
+    {
+      "point_id": "kp_0e5e3b681e9b464b",
+      "card_id": "card_d15857a86486b69d586f",
+      "item_id": "practice_d15857a86486b69d586f"
+    }
+  ],
+  "lesson_example_count": 3,
+  "lesson_checkpoint_count": 3
+}

@@ -26,6 +26,7 @@ from ..accounts import COOKIE, Accounts
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
+    DIAGNOSTIC_BANK_VERSION,
     DiagnosticGenerationError,
     DiagnosticItemGenerator,
     diagnostic_bank_fingerprint,
@@ -203,12 +204,13 @@ def _create_teaching_review_client(configuration, client_type=OpenAICompatibleCl
         return None
 
 
-def _create_diagnostic_generator(configuration, writer, reviewer):
+def _create_diagnostic_generator(configuration, writer, reviewer, audit_callback=None):
     if writer is None or reviewer is None:
         return None
     try:
         return DiagnosticItemGenerator(
-            writer, review_client=reviewer,
+            writer, review_client=reviewer, audit_callback=audit_callback,
+            review_identity=configuration.teaching_review_identity,
             allow_grounded_answer_rewrite=configuration.diagnostic_allow_grounded_answer_rewrite,
         )
     except ValueError:
@@ -230,13 +232,17 @@ def diagnostic_fingerprint(structure: BookStructure) -> str:
 
 
 teaching_review_client = _create_teaching_review_client(settings)
-item_generator = _create_diagnostic_generator(settings, assessment_llm, teaching_review_client)
 teaching_audit = PrivateTeachingAudit(settings.data_dir / "private-audits",
     context={"provider": settings.llm_provider, "model": settings.text_model,
              "teaching_version": TEACHING_CONTENT_VERSION},
     secrets=tuple(str(value) for value in (
         settings.text_api_key, settings.deepseek_api_key, settings.pucoding_api_key,
         getattr(settings, "minimax_api_key", "")) if value))
+diagnostic_audit = PrivateTeachingAudit(settings.data_dir / "private-diagnostic-audits",
+    context={"provider": settings.llm_provider, "model": settings.text_model,
+             "diagnostic_version": DIAGNOSTIC_BANK_VERSION}, secrets=teaching_audit.secrets)
+item_generator = _create_diagnostic_generator(
+    settings, assessment_llm, teaching_review_client, audit_callback=diagnostic_audit)
 teaching_generator = TeachingContentGenerator(
     teaching_client, scope_planner=TeachingScopePlanner(teaching_client),
     audit_callback=teaching_audit, review_client=teaching_review_client,

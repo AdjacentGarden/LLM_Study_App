@@ -744,9 +744,16 @@ import SwiftUI
       showToast(error.localizedDescription)
     }
   }
-  func processImport() async {
+  func processImport(retryPreparation: Bool = false) async {
     if cloud != nil {
-      await processCloudImport()
+      if let processTask { await processTask.value; return }
+      let generation = UUID()
+      processGeneration = generation
+      let task = Task { @MainActor in await processCloudImport(retryPreparation: retryPreparation) }
+      processTask = task
+      if route == .parseReady { go(.processing) }
+      await task.value
+      if processGeneration == generation { processTask = nil }
       return
     }
     if ContentBundle.fixtureMode,

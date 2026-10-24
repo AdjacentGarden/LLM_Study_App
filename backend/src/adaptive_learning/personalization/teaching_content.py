@@ -56,7 +56,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -294,6 +294,10 @@ class _ComponentFactProof(_StrictModel):
     assertion_checks: list[dict[str, Any]] = Field(default_factory=list, max_length=128)
     assertions: list[dict[str, Any]] = Field(default_factory=list, max_length=128)
     scope_matrix: list[dict[str, Any]] = Field(default_factory=list, max_length=128)
+    # Program-only provenance, absent from provider schemas and serialized
+    # verdicts. Only literal immutable spans can populate this repair hint.
+    _missing_citation_source_ids: tuple[str, ...] = PrivateAttr(default=())
+    _citation_source_ids: frozenset[str] = PrivateAttr(default_factory=frozenset)
 
 
 class _FactComponents(_StrictModel):
@@ -1005,6 +1009,28 @@ class TeachingContentGenerator:
                     repair_plan = self._build_repair_plan(
                         fact_review, review, points, lesson
                     )
+                    points, citation_repairs = self._repair_precise_citations(
+                        points, lesson, fact_review, review, repair_plan
+                    )
+                    if citation_repairs:
+                        approved_points.update({point.point_id: point for point in points})
+                        repaired_candidate = {
+                            "points": [point.model_dump() for point in points],
+                            "lesson": lesson.model_dump(),
+                        }
+                        self._audit(
+                            "citation_candidate_repair",
+                            attempt=_attempt + 1,
+                            previous_candidate_sha256=candidate_sha256,
+                            candidate_sha256=hashlib.sha256(
+                                json.dumps(
+                                    repaired_candidate, ensure_ascii=False, sort_keys=True
+                                ).encode()
+                            ).hexdigest(),
+                            repairs=citation_repairs,
+                            approved=False,
+                            requires_independent_review=True,
+                        )
                     repair_fields = repair_plan.allowed_points
                     lesson_repairs = repair_plan.allowed_lesson
                     requirements = repair_plan.requirements
@@ -1911,6 +1937,101 @@ class TeachingContentGenerator:
     ) -> tuple[dict[str, set[str]], set[str]]:
         plan = self._build_repair_plan(fact, teacher, points, lesson)
         return plan.allowed_points, plan.allowed_lesson
+
+    @staticmethod
+    def _repair_precise_citations(
+        points: list[_Point], lesson: _Lesson,
+        fact: _FactReview, teacher: _Review, plan: _RepairPlan
+    ) -> tuple[list[_Point], list[dict[str, Any]]]:
+        """Edit an unapproved draft's exact provenance, then review it again.
+
+        A semantic/scope/rubric veto still belongs to the writer. This narrow
+        path handles only a point whose independent judgments all passed until
+        materialization found a selected literal span outside its citations.
+        It does not consume model-suggested source IDs or grant approval.
+        """
+        if fact.issues or plan.requirements.global_any:
+            return points, []
+        teacher_targets: set[str] = set()
+        for issue in teacher.issues:
+            located = TeachingContentGenerator._teacher_issue_targets(issue, points, lesson)
+            if located is None:
+                return points, []
+            teacher_targets.update(located[0])
+        fact_rows = {row.point_id: row for row in fact.points}
+        teacher_rows = {row.point_id: row for row in teacher.points}
+        rubric_rows = teacher._rubric_alignment.get("items", [])
+        repaired = []
+        changes: list[dict[str, Any]] = []
+        for point in points:
+            row = fact_rows[point.point_id]
+            teaching = teacher_rows[point.point_id]
+            rubric = [item for item in rubric_rows if item["item_id"] == point.practice.item_id]
+            if (
+                teaching.issues
+                or point.point_id in teacher_targets
+                or not all((teaching.explanation_ok, teaching.flashcard_ok,
+                            teaching.practice_ok, teaching.evidence_ok))
+                or len(rubric) != 1
+                or len(rubric[0]["rubric_checks"]) != len(point.practice.rubric)
+                or any(
+                    check["required"] is not True
+                    or check["rubric_index"] != index
+                    or check["rubric_text"] != point.practice.rubric[index]
+                    for index, check in enumerate(rubric[0]["rubric_checks"])
+                )
+                or point.point_id in plan.requirements.owner_any
+            ):
+                repaired.append(point)
+                continue
+            missing = {
+                name: proof._missing_citation_source_ids
+                for name in ("explanation", "flashcard", "practice")
+                if (proof := getattr(row.components, name))._missing_citation_source_ids
+            }
+            # Unknown or semantic failures cannot be hidden by one known
+            # citation defect elsewhere in the same point.
+            if (
+                not missing
+                or TeachingContentGenerator._failed_fact_components(row) != set(missing)
+                or plan.allowed_points.get(point.point_id) != set(missing)
+            ):
+                repaired.append(point)
+                continue
+            data = point.model_dump()
+            edits = []
+            for name, source_ids in missing.items():
+                proof = getattr(row.components, name)
+                component = data if name == "explanation" else data[name]
+                before = component["source_ids"]
+                after = list(dict.fromkeys([*before, *source_ids]))
+                if (
+                    proof.source_entailment
+                    or not proof.scope_exceptions
+                    or proof.findings
+                    or frozenset(before) != proof._citation_source_ids
+                    or len(after) > 8
+                    or before == after
+                ):
+                    break
+                component["source_ids"] = after
+                edits.append({"point_id": point.point_id, "component_id": name,
+                              "source_ids_before": before, "source_ids_after": after,
+                              "missing_citation_source_ids": list(source_ids)})
+            else:
+                patched = _Point.model_validate(data)
+                # Retain the ordinary unchanged gate, comparing the real edit
+                # with the original rejected candidate. Only the writer task
+                # disappears; the next complete review must still approve it.
+                TeachingContentGenerator._validate_point_repair(
+                    patched, point, plan.requirements
+                )
+                repaired.append(patched)
+                changes.extend(edits)
+                del plan.allowed_points[point.point_id]
+                continue
+            repaired.append(point)
+        return repaired, changes
 
     def _build_repair_plan(
         self, fact: _FactReview, teacher: _Review, points: list[_Point], lesson: _Lesson
@@ -2994,12 +3115,14 @@ class TeachingContentGenerator:
             if span is None:
                 raise TeachingContentError("事实审核选择了未知支持span")
             source_id = span["source_id"]
+            source = evidence.sources.get(source_id)
+            if source is None or span["quote"] not in source.quote:
+                raise TeachingContentError("事实审核支持span不是不可变连续原文")
+            quote = _EvidenceProof(source_id=source_id, quote=span["quote"])
             if source_id not in actual_ids:
                 foreign_sources.add(source_id)
                 continue
-            if span["quote"] not in evidence.sources[source_id].quote:
-                raise TeachingContentError("事实审核支持span不是不可变连续原文")
-            quotes.append(_EvidenceProof(source_id=source_id, quote=span["quote"]))
+            quotes.append(quote)
         derived_ids = list(dict.fromkeys(quote.source_id for quote in quotes))
         extra = [
             f"{component_id}选择的支持span实际来自未引用来源{source_id}；"
@@ -3030,6 +3153,15 @@ class TeachingContentGenerator:
             scope_matrix=selection.scope_matrix,
         )
         TeachingContentGenerator._validate_component_proof(proof, actual_ids, evidence)
+        if (
+            foreign_sources
+            and selection.source_entailment
+            and selection.scope_exceptions
+            and not selection.findings
+            and not issues
+        ):
+            proof._missing_citation_source_ids = tuple(sorted(foreign_sources))
+            proof._citation_source_ids = frozenset(actual_ids)
         return proof
 
     @staticmethod
@@ -3140,6 +3272,14 @@ class TeachingContentGenerator:
                     + "；"
                     + row.support_summary[:700]
                 )
+            if not (
+                selected.accepted and not selected.issues
+                and row.accepted and row.source_entailment and row.scope_exceptions
+                and not row.issues and not declared and not forced_components
+            ):
+                for proof in components.values():
+                    proof._missing_citation_source_ids = ()
+                    proof._citation_source_ids = frozenset()
             verdicts.append(_PointFactVerdict(**values, components=_FactComponents(**components)))
         lesson_verdict = None
         if selected.lesson is not None:

@@ -95,9 +95,9 @@ struct CloudAccountView: View {
             }
           }
         }
-        DisclosureGroup("开发服务地址") {
+        DisclosureGroup("学习服务地址") {
           VStack(spacing: 12) {
-            TextField("http://127.0.0.1:8100", text: $server).textInputAutocapitalization(.never)
+            TextField(CloudAPI.defaultServer, text: $server).textInputAutocapitalization(.never)
               .keyboardType(.URL).font(DS.font(14)).padding(12).background(
                 DS.surface, in: RoundedRectangle(cornerRadius: 12)
               )
@@ -108,6 +108,9 @@ struct CloudAccountView: View {
                 return
               }
               UserDefaults.standard.set(url.absoluteString, forKey: "cloudpath.server")
+              store.cloudState.courseTask?.cancel()
+              store.cloudState.courseTask = nil
+              store.cloudState.courseJob = nil
               store.cloud = CloudAPI(baseURL: url)
               store.cloudState.epoch = UUID()
               store.cloudState.account = nil
@@ -118,7 +121,7 @@ struct CloudAccountView: View {
               store.isLoading = true
               Task { await store.boot() }
             }.disabled(busy)
-            Text("模拟器使用本机地址；真机请填写 Mac 的局域网地址。")
+            Text("同一局域网使用 Windows 学习服务地址；通过 VPN 可填写 http://100.86.143.88:8100。")
               .font(DS.font(12)).foregroundStyle(DS.secondary)
           }.padding(.top, 12)
         }.font(DS.font(14)).foregroundStyle(DS.secondary)
@@ -126,7 +129,7 @@ struct CloudAccountView: View {
       }.frame(maxWidth: 480).padding(.horizontal, 24).frame(maxWidth: .infinity)
     }.scrollDismissesKeyboard(.interactively)
       .background(DS.background.ignoresSafeArea())
-      .onAppear { server = store.cloud?.baseURL.absoluteString ?? "http://127.0.0.1:8100" }
+      .onAppear { server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer }
       .toolbar {
         ToolbarItemGroup(placement: .keyboard) {
           Spacer()
@@ -209,10 +212,28 @@ struct CloudLearningSetupView: View {
         HStack {
           Text("准备专属课程").font(DS.font(24, weight: .bold))
           Spacer()
-          Button("稍后继续") { store.cloudState.showDiagnosis = false }.disabled(
-            store.cloudState.isWorking)
+          Button("稍后继续") { store.pauseCloudCourseGeneration() }.disabled(
+            store.cloudState.isWorking && store.cloudState.courseTask == nil)
         }
-        if let turn {
+        if let job = store.cloudState.courseJob {
+          VStack(alignment: .leading, spacing: 16) {
+            if job.isPending { ProgressView() }
+            Text(job.message).font(DS.font(18, weight: .bold)).lineSpacing(5)
+            Text("退出此页不会停止服务器任务；再次打开本章可继续查询原任务。")
+              .font(DS.font(14)).foregroundStyle(DS.secondary)
+            if let error = store.cloudState.error {
+              Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+            }
+            if !store.cloudState.isWorking {
+              BCButton("查询原任务状态", style: .secondary) {
+                Task { await store.beginCloudLearning(chapterID: store.cloudState.requestedChapterID) }
+              }
+              if job.status == .failed, job.retryable {
+                BCButton("重新生成课程") { Task { await store.restartCloudCourseGeneration() } }
+              }
+            }
+          }.accessibilityIdentifier("cloud.courseJob")
+        } else if let turn {
           BCProgress(value: turn.progress)
           Text(turn.message).font(DS.font(17)).lineSpacing(5)
           if let question = turn.item?.prompt ?? turn.question {
@@ -259,7 +280,7 @@ struct CloudLearningSetupView: View {
             store.cloudState.isWorking
               ? "正在准备…"
               : turn.phase == "profile_confirmation"
-                ? "确认并生成课程" : turn.phase == "complete" ? "重新生成课程" : "继续"
+                ? "确认并生成课程" : turn.phase == "complete" ? "查看课程生成进度" : "继续"
           ) {
             Task {
               await store.advanceCloudInterview(
@@ -273,7 +294,8 @@ struct CloudLearningSetupView: View {
         }
       }.padding(24).frame(maxWidth: 660).frame(maxWidth: .infinity)
     }.background(DS.background.ignoresSafeArea())
-      .interactiveDismissDisabled(store.cloudState.isWorking)
+      .interactiveDismissDisabled(store.cloudState.isWorking && store.cloudState.courseTask == nil)
+      .onDisappear { store.cloudState.courseTask?.cancel() }
       .onChange(of: turn?.turn_id) { _, _ in
         selected = []
         started = Date()

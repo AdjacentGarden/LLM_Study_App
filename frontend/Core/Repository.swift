@@ -183,6 +183,22 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try db.put("cloud-content", contentID(contentKey, account: account), encoder.encode(content))
   }
 
+  func loadCourseJobReceipt(_ key: String) throws -> CloudCourseJobReceipt? {
+    try db.get("cloud-course-job", key).first.map { try decoder.decode(CloudCourseJobReceipt.self, from: $0) }
+  }
+
+  func saveCourseJobReceipt(_ value: CloudCourseJobReceipt, key: String) throws {
+    try db.put("cloud-course-job", key, encoder.encode(value))
+  }
+
+  func loadBookPreparationReceipt(_ key: String) throws -> CloudBookPreparationReceipt? {
+    try db.get("cloud-book-preparation", key).first.map { try decoder.decode(CloudBookPreparationReceipt.self, from: $0) }
+  }
+
+  func saveBookPreparationReceipt(_ value: CloudBookPreparationReceipt, key: String) throws {
+    try db.put("cloud-book-preparation", key, encoder.encode(value))
+  }
+
   func loadCloudState(_ key: String) throws -> CloudLocalSnapshot? {
     if let data = try db.get("cloud-shell-v2", key).first {
       let disk = try decoder.decode(CloudDiskState.self, from: data)

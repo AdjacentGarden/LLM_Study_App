@@ -105,4 +105,6 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var retryDelay: Duration = .seconds(15)
   var retryTask: Task<Void, Never>?
   var contentTask: Task<Void, Never>?
+  var courseJob: CloudCourseJob?
+  var courseTask: Task<CloudCourse, Error>?
 }
