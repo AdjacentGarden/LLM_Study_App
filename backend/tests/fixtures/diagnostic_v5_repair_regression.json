@@ -1,0 +1,500 @@
+{
+  "fixture_version": 1,
+  "purpose": "Mechanical contract regression derived from a recorded production failure: compact-option length handling and preservation of exact unchanged reviewed candidates within one repair invocation. Fixture playback does not establish semantic correctness or approve diagnostic quality.",
+  "provenance": {
+    "source_audit_sha256": "a2e04cac1bc4749af6efbe9dbefc5c7a764dea39482a8d6a3eb07672fc842c39",
+    "diagnostic_version": "grounded-independent-review-v5+balanced-options-v1",
+    "recorded_event_count": 110,
+    "selection": "Original chapter 6 first candidate and chapter 2 first two candidates/review verdicts. No system prompts, credentials, account identifiers, network addresses or private paths included."
+  },
+  "short_tool_options": {
+    "source": {
+      "chapter_id": "chapter_7f991ceb7fc96c21",
+      "chapter_title": "第6章 从杂交育种到基因工程",
+      "knowledge_points": [
+        {
+          "knowledge_point_id": "kp_1b3b88128fb907d0",
+          "label": "杂交育种依据的遗传学原理是基因重组，但杂交后代会出现性状分离现象，育种进程缓慢、过程复杂。",
+          "preferred_type": "choice",
+          "evidence": [
+            {
+              "page_number": 94,
+              "quote": "杂交育种依据的遣传学原理是"
+            },
+            {
+              "page_number": 95,
+              "quote": "能创造新的基因。杂交后代会出现分离现象，育种进程"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_e60b5ff8008654ea",
+          "label": "诱变育种是利用物理因素或化学因素来处理生物，使生物发生基因突变，从而提高突变率，在较短时间内获得更多优良变异类型。",
+          "preferred_type": "choice",
+          "evidence": [
+            {
+              "page_number": 95,
+              "quote": "这一原理应用在育种中，就发展为育种的新方法——诱变"
+            },
+            {
+              "page_number": 95,
+              "quote": "育种（mutationbreeding），也就是利用物理因素（如X射"
+            },
+            {
+              "page_number": 95,
+              "quote": "方法可以提高突变率，在较短时问内获得更多的优良变异"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_5a7d99540161a289",
+          "label": "基因工程的基本工具包括限制性核酸内切酶（基因的“剪刀”）、DNA连接酶（基因的“针线”）和运载体（如质粒、噬菌体等）。",
+          "preferred_type": "choice",
+          "evidence": [
+            {
+              "page_number": 97,
+              "quote": "基因的“剪刀”指的是限制性核酸"
+            },
+            {
+              "page_number": 98,
+              "quote": "骨架上的缺口，需要靠DNA连接酶来“缝合”(图6-4)。"
+            },
+            {
+              "page_number": 98,
+              "quote": "有质粒（图6-5)、噬菌体和动植物病毒等。质粒存在于许"
+            }
+          ]
+        }
+      ]
+    },
+    "generation_response": {
+      "items": [
+        {
+          "knowledge_point_id": "kp_1b3b88128fb907d0",
+          "type": "choice",
+          "prompt": "用杂交育种方法培育作物新品种时，杂交后代常出现性状分离，这使该育种方法具有什么特点？",
+          "options": [
+            "育种进程缓慢且过程复杂",
+            "育种进程迅速且操作简单",
+            "后代性状稳定且不会分离",
+            "能直接创造新的基因且周期短"
+          ],
+          "correct_index": 0,
+          "expected_answer": "育种进程缓慢且过程复杂",
+          "rubric": [],
+          "difficulty": 0,
+          "estimated_seconds": 40
+        },
+        {
+          "knowledge_point_id": "kp_e60b5ff8008654ea",
+          "type": "choice",
+          "prompt": "与自然状态下的突变相比，利用物理因素或化学因素处理生物进行诱变育种，主要能起到什么作用？",
+          "options": [
+            "提高突变率并在较短时间内获得更多优良变异类型",
+            "降低突变率并使优良变异类型在较长时间内稳定出现",
+            "保持突变率不变但使优良变异类型集中出现在较短时间内",
+            "提高突变率但需要较长时间才能获得优良变异类型"
+          ],
+          "correct_index": 0,
+          "expected_answer": "提高突变率并在较短时间内获得更多优良变异类型",
+          "rubric": [],
+          "difficulty": 1,
+          "estimated_seconds": 50
+        },
+        {
+          "knowledge_point_id": "kp_5a7d99540161a289",
+          "type": "choice",
+          "prompt": "在基因工程操作中，要把目的基因与运载体连接起来形成重组DNA，需要用到下列哪种工具？",
+          "options": [
+            "DNA连接酶",
+            "限制性核酸内切酶",
+            "质粒",
+            "噬菌体"
+          ],
+          "correct_index": 0,
+          "expected_answer": "DNA连接酶",
+          "rubric": [],
+          "difficulty": 0,
+          "estimated_seconds": 30
+        }
+      ]
+    },
+    "observed_failure": {
+      "stage": "item_validation",
+      "items": [
+        {
+          "knowledge_point_id": "kp_5a7d99540161a289",
+          "item_index": 2,
+          "issues": [
+            "choice distractors are too short and would reveal the answer: kp_5a7d99540161a289, correct_characters=6, option_characters=[6, 8, 2, 3], minimum_distractor_characters=6"
+          ],
+          "details": {
+            "code": "distractor_length",
+            "correct_characters": 6,
+            "option_characters": [
+              6,
+              8,
+              2,
+              3
+            ],
+            "minimum_distractor_characters": 6,
+            "too_short_option_indices": [
+              2,
+              3
+            ],
+            "repair": "仅依原文精简正确判断或补足所列干扰项，使每项达到明确下限；不要填入无依据事实。"
+          }
+        }
+      ]
+    },
+    "target_knowledge_point_id": "kp_5a7d99540161a289",
+    "observed_option_characters": [
+      6,
+      8,
+      2,
+      3
+    ],
+    "observed_minimum_distractor_characters": 6,
+    "semantic_review_reached_in_original_attempt": false
+  },
+  "unchanged_review_reversals": {
+    "source": {
+      "chapter_id": "chapter_5f29761fe19bff97",
+      "chapter_title": "第2章 基因和染色体的关系",
+      "knowledge_points": [
+        {
+          "knowledge_point_id": "kp_fa6e89abb111739f",
+          "label": "减数分裂过程中染色体只复制一次，而细胞分裂两次，结果是成熟生殖细胞中染色体数目比原始生殖细胞减少一半。",
+          "preferred_type": "choice",
+          "evidence": [
+            {
+              "page_number": 11,
+              "quote": "色体只复制一次，而细胞分裂两次。减数分裂的结果是，成"
+            },
+            {
+              "page_number": 11,
+              "quote": "熟生殖细胞中的染色体数目比原始生殖细胞的减少一半。"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_87f356584fb4336c",
+          "label": "减数第一次分裂的主要特征包括同源染色体联会形成四分体、同源染色体分离分别移向细胞两极，以及四分体中非姐妹染色单体发生交叉互换。",
+          "preferred_type": "choice",
+          "evidence": [
+            {
+              "page_number": 12,
+              "quote": "同源染色体配对——联会。"
+            },
+            {
+              "page_number": 12,
+              "quote": "同源染色体分离，分别移向细胞两极。"
+            },
+            {
+              "page_number": 12,
+              "quote": "四分体中的非姐妹染色单体发生交叉互换。"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+          "label": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程，受精卵中的染色体一半来自精子（父方），另一半来自卵细胞（母方）。",
+          "preferred_type": "choice",
+          "evidence": [
+            {
+              "page_number": 19,
+              "quote": "受精作用是卵细胞和精子相互识别、融合成"
+            },
+            {
+              "page_number": 20,
+              "quote": "半的染色体来自精子（父方），另一半来自卵细胞（母方）。"
+            }
+          ]
+        }
+      ]
+    },
+    "attempts": [
+      {
+        "attempt": 1,
+        "generation_response": {
+          "items": [
+            {
+              "knowledge_point_id": "kp_fa6e89abb111739f",
+              "type": "choice",
+              "prompt": "某原始生殖细胞进行减数分裂，染色体只复制一次而细胞连续分裂两次。与原始生殖细胞相比，成熟生殖细胞中的染色体数目会怎样？",
+              "options": [
+                "染色体数目减少一半",
+                "染色体数目保持不变",
+                "染色体数目增加一倍",
+                "染色体数目先减半后加倍"
+              ],
+              "correct_index": 0,
+              "expected_answer": "染色体数目减少一半",
+              "rubric": [],
+              "difficulty": 0,
+              "estimated_seconds": 30
+            },
+            {
+              "knowledge_point_id": "kp_87f356584fb4336c",
+              "type": "choice",
+              "prompt": "在减数第一次分裂中，同源染色体配对形成四分体后，四分体中的非姐妹染色单体之间会发生什么？",
+              "options": [
+                "非姐妹染色单体发生交叉互换",
+                "姐妹染色单体发生交叉互换",
+                "同源染色体发生交叉互换",
+                "非同源染色体发生交叉互换"
+              ],
+              "correct_index": 0,
+              "expected_answer": "非姐妹染色单体发生交叉互换",
+              "rubric": [],
+              "difficulty": 1,
+              "estimated_seconds": 40
+            },
+            {
+              "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+              "type": "choice",
+              "prompt": "受精卵中的染色体来源如何？",
+              "options": [
+                "一半来自精子，一半来自卵细胞",
+                "全部来自精子，卵细胞不提供",
+                "全部来自卵细胞，精子不提供",
+                "大部分来自精子，少部分来自卵细胞"
+              ],
+              "correct_index": 0,
+              "expected_answer": "一半来自精子，一半来自卵细胞",
+              "rubric": [],
+              "difficulty": 0,
+              "estimated_seconds": 30
+            }
+          ]
+        },
+        "reviewed_candidate": [
+          {
+            "knowledge_point_id": "kp_fa6e89abb111739f",
+            "type": "choice",
+            "prompt": "某原始生殖细胞进行减数分裂，染色体只复制一次而细胞连续分裂两次。与原始生殖细胞相比，成熟生殖细胞中的染色体数目会怎样？",
+            "options": [
+              "染色体数目减少一半",
+              "染色体数目保持不变",
+              "染色体数目增加一倍",
+              "染色体数目先减半后加倍"
+            ],
+            "correct_index": 0,
+            "expected_answer": "染色体数目减少一半",
+            "rubric": [],
+            "difficulty": 0.0,
+            "estimated_seconds": 30
+          },
+          {
+            "knowledge_point_id": "kp_87f356584fb4336c",
+            "type": "choice",
+            "prompt": "在减数第一次分裂中，同源染色体配对形成四分体后，四分体中的非姐妹染色单体之间会发生什么？",
+            "options": [
+              "非姐妹染色单体发生交叉互换",
+              "姐妹染色单体发生交叉互换",
+              "同源染色体发生交叉互换",
+              "非同源染色体发生交叉互换"
+            ],
+            "correct_index": 0,
+            "expected_answer": "非姐妹染色单体发生交叉互换",
+            "rubric": [],
+            "difficulty": 1.0,
+            "estimated_seconds": 40
+          },
+          {
+            "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+            "type": "choice",
+            "prompt": "受精卵中的染色体来源如何？",
+            "options": [
+              "一半来自精子，一半来自卵细胞",
+              "全部来自精子，卵细胞不提供",
+              "全部来自卵细胞，精子不提供",
+              "大部分来自精子，少部分来自卵细胞"
+            ],
+            "correct_index": 0,
+            "expected_answer": "一半来自精子，一半来自卵细胞",
+            "rubric": [],
+            "difficulty": 0.0,
+            "estimated_seconds": 30
+          }
+        ],
+        "review_verdict": {
+          "reviews": [
+            {
+              "knowledge_point_id": "kp_fa6e89abb111739f",
+              "accepted": true,
+              "issues": []
+            },
+            {
+              "knowledge_point_id": "kp_87f356584fb4336c",
+              "accepted": false,
+              "issues": [
+                "题干已给出“四分体中的非姐妹染色单体”，正确项“非姐妹染色单体发生交叉互换”重复该对象，只需补出教材原句中的事件；“同源染色体发生交叉互换”“非同源染色体发生交叉互换”还把染色体与染色单体混作交叉互换的对象。可改用原文涉及的配对、分离和交叉互换设计条件辨别题，使选项在同一层级回答同一判断。"
+              ]
+            },
+            {
+              "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+              "accepted": true,
+              "issues": []
+            }
+          ]
+        }
+      },
+      {
+        "attempt": 2,
+        "generation_response": {
+          "items": [
+            {
+              "knowledge_point_id": "kp_fa6e89abb111739f",
+              "type": "choice",
+              "prompt": "某原始生殖细胞进行减数分裂，染色体只复制一次而细胞连续分裂两次。与原始生殖细胞相比，成熟生殖细胞中的染色体数目会怎样？",
+              "options": [
+                "染色体数目减少一半",
+                "染色体数目保持不变",
+                "染色体数目增加一倍",
+                "染色体数目先减半后加倍"
+              ],
+              "correct_index": 0,
+              "expected_answer": "染色体数目减少一半",
+              "rubric": [],
+              "difficulty": 0,
+              "estimated_seconds": 30
+            },
+            {
+              "knowledge_point_id": "kp_87f356584fb4336c",
+              "type": "choice",
+              "prompt": "在减数第一次分裂中，同源染色体配对形成四分体后，四分体中的非姐妹染色单体之间会发生什么？",
+              "options": [
+                "发生交叉互换",
+                "发生联会配对",
+                "发生同源染色体分离",
+                "发生着丝粒分裂"
+              ],
+              "correct_index": 0,
+              "expected_answer": "发生交叉互换",
+              "rubric": [],
+              "difficulty": 1,
+              "estimated_seconds": 40
+            },
+            {
+              "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+              "type": "choice",
+              "prompt": "受精卵中的染色体来源如何？",
+              "options": [
+                "一半来自精子，一半来自卵细胞",
+                "全部来自精子，卵细胞不提供",
+                "全部来自卵细胞，精子不提供",
+                "大部分来自精子，少部分来自卵细胞"
+              ],
+              "correct_index": 0,
+              "expected_answer": "一半来自精子，一半来自卵细胞",
+              "rubric": [],
+              "difficulty": 0,
+              "estimated_seconds": 30
+            }
+          ]
+        },
+        "reviewed_candidate": [
+          {
+            "knowledge_point_id": "kp_fa6e89abb111739f",
+            "type": "choice",
+            "prompt": "某原始生殖细胞进行减数分裂，染色体只复制一次而细胞连续分裂两次。与原始生殖细胞相比，成熟生殖细胞中的染色体数目会怎样？",
+            "options": [
+              "染色体数目减少一半",
+              "染色体数目保持不变",
+              "染色体数目增加一倍",
+              "染色体数目先减半后加倍"
+            ],
+            "correct_index": 0,
+            "expected_answer": "染色体数目减少一半",
+            "rubric": [],
+            "difficulty": 0.0,
+            "estimated_seconds": 30
+          },
+          {
+            "knowledge_point_id": "kp_87f356584fb4336c",
+            "type": "choice",
+            "prompt": "在减数第一次分裂中，同源染色体配对形成四分体后，四分体中的非姐妹染色单体之间会发生什么？",
+            "options": [
+              "发生交叉互换",
+              "发生联会配对",
+              "发生同源染色体分离",
+              "发生着丝粒分裂"
+            ],
+            "correct_index": 0,
+            "expected_answer": "发生交叉互换",
+            "rubric": [],
+            "difficulty": 1.0,
+            "estimated_seconds": 40
+          },
+          {
+            "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+            "type": "choice",
+            "prompt": "受精卵中的染色体来源如何？",
+            "options": [
+              "一半来自精子，一半来自卵细胞",
+              "全部来自精子，卵细胞不提供",
+              "全部来自卵细胞，精子不提供",
+              "大部分来自精子，少部分来自卵细胞"
+            ],
+            "correct_index": 0,
+            "expected_answer": "一半来自精子，一半来自卵细胞",
+            "rubric": [],
+            "difficulty": 0.0,
+            "estimated_seconds": 30
+          }
+        ],
+        "review_verdict": {
+          "reviews": [
+            {
+              "knowledge_point_id": "kp_fa6e89abb111739f",
+              "accepted": false,
+              "issues": [
+                "题干已给出原文中的复制与分裂次数，所问结果也由原文直接给出；“染色体数目减少一半”只是复述定义。可改为给出简短的染色体数目观察，让考生判断其与原始生殖细胞的关系。"
+              ]
+            },
+            {
+              "knowledge_point_id": "kp_87f356584fb4336c",
+              "accepted": false,
+              "issues": [
+                "题干几乎照搬“四分体中的非姐妹染色单体发生交叉互换”，只留下过程名称让考生补出；“发生交叉互换”属于定义复述。可用简短观察考查交叉互换涉及的对象，并让选项保持同类。"
+              ]
+            },
+            {
+              "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+              "accepted": false,
+              "issues": [
+                "题目直接询问原文给出的染色体来源，“一半来自精子，一半来自卵细胞”仅复述原句。可设置简短的来源观察，要求判断父方与母方染色体的数量关系。"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "equality_checks": [
+      {
+        "knowledge_point_id": "kp_fa6e89abb111739f",
+        "generated_item_unchanged": true,
+        "reviewed_candidate_unchanged": true,
+        "generated_item_sha256": "3dbadb8dfcda63dc6dd1c7a9cd22fa6c5d9a1968368c471c7030ea8d2c1fe3b1",
+        "reviewed_candidate_sha256": "f7cfde7451e6f0ef47e41e388a64f2ad9071ebcb75cd8e10527c9a359250cc34",
+        "observed_acceptance": [
+          true,
+          false
+        ]
+      },
+      {
+        "knowledge_point_id": "kp_ab1c3f0de6e10b8b",
+        "generated_item_unchanged": true,
+        "reviewed_candidate_unchanged": true,
+        "generated_item_sha256": "c19221626fb4ae89b0666b225262a4498ca3c914a892664dc02c5b66ff1370e8",
+        "reviewed_candidate_sha256": "42094ad03462c1f452e3145078e052ed7106586c9a6e307a5c7d1492bbd120a4",
+        "observed_acceptance": [
+          true,
+          false
+        ]
+      }
+    ],
+    "scope": "Preservation is scoped to exact source, question/options/answer and reviewer contract within the current invocation. This fixture is not permission to reuse judgments after any candidate/evidence/policy change, across invocations, or to override a recorded negative verdict."
+  }
+}

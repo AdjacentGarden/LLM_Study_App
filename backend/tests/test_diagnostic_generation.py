@@ -219,15 +219,25 @@ def test_concept_value_filter_prefers_mechanism_over_historical_trivia() -> None
 def test_visually_guessable_choice_is_rejected_instead_of_becoming_open_answer() -> None:
     payload = valid_payload()
     payload["items"][0]["options"] = ["甲的定义", "错一", "错二", "错三"]
-    client = FakeClient(payload)
+    writer = FakeClient(payload)
+    class LengthReviewer:
+        calls = 0
+        def structured(self, *, user, **kwargs):
+            self.calls += 1
+            request = json.loads(user)
+            assert request['items'][0]['choice_length_metrics']['correct_is_uniquely_longest']
+            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+                'accepted': False, 'issues': ['正确项独自更完整，长度和具体程度明显暗示答案。']}
+                for row in request['items']]}
+    reviewer = LengthReviewer()
 
-    with pytest.raises(DiagnosticGenerationError, match="distractors are too short"):
-        make_generator(
-            client,
+    with pytest.raises(DiagnosticGenerationError, match="review rejected"):
+        DiagnosticItemGenerator(
+            writer, review_client=reviewer,
             points_per_chapter=2,
             validation_retries=0,
-            verify_items=False,  # type: ignore[arg-type]
         ).generate(structure())
+    assert writer.calls == reviewer.calls == 1
 
 
 @pytest.mark.parametrize("reject_second", [False, True])
@@ -376,7 +386,8 @@ def test_grounded_rewrite_uses_answer_length_instead_of_a_broad_label_for_readab
     ).generate(value)
     assert "minimum_distractor_characters" not in captured[0]["knowledge_points"][0]
     assert captured[0]["choice_length_rule"]["correct_answer_source"] == "expected_answer"
-    assert captured[0]["choice_length_rule"]["examples"][-1] == {"correct_characters": 40, "minimum_distractor_characters": 22}
+    assert captured[0]["choice_length_rule"]["evaluation"] == "independent_semantic_review"
+    assert captured[0]["choice_length_rule"]["maximum_option_characters"] == 180
     assert items[0].options[int(items[0].correct_option_ids[0])] == "甲是一个用于测试的概念。"
     assert items[0].knowledge_point_labels == [label]
 
@@ -440,9 +451,10 @@ def test_rejected_concept_question_receives_full_previous_candidate_and_localize
                 assert "previous_candidate" not in payload and "repair_feedback" not in payload
                 rejected = len(reviewer_payloads) == 1
                 return {"reviews": [
-                    {"knowledge_point_id": first, "accepted": not rejected, "issues": [issue] if rejected else []},
-                    {"knowledge_point_id": second, "accepted": True, "issues": []},
-                ]}
+                    {"knowledge_point_id": row['knowledge_point_id'],
+                     "accepted": not (rejected and row['knowledge_point_id'] == first),
+                     "issues": [issue] if rejected and row['knowledge_point_id'] == first else []}
+                    for row in payload['items']]}
             generation_payloads.append(payload)
             assert "正确选项必须与 expected_answer 逐字相同" in system
             assert "先确定一个最小判断目标" in system
@@ -471,11 +483,11 @@ def test_rejected_concept_question_receives_full_previous_candidate_and_localize
     assert items[0].expected_answer == repaired["items"][0]["expected_answer"]
     assert items[1].prompt == initial["items"][1]["prompt"]
     assert len(generation_payloads) == (3 if tamper_accepted else 2)
-    # Every published item still goes through a full fresh semantic review;
+    # Exact unchanged approvals are retained inside this invocation only;
     # unauthorized edits fail before spending another review request.
     assert len(reviewer_payloads) == 2
     assert reviewer_payloads[-1]["items"][0]["prompt"] == items[0].prompt
-    assert reviewer_payloads[-1]["items"][1]["prompt"] == items[1].prompt
+    assert len(reviewer_payloads[-1]["items"]) == 1
 
 
 def test_reviewer_truthy_string_is_not_an_approval() -> None:
@@ -534,7 +546,7 @@ def test_reviewer_failure_is_not_replaced_by_a_writer_verdict() -> None:
     class UnavailableReviewer:
         def structured(self, **kwargs):
             assert "同一概念层级" in kwargs["system"]
-            assert "题干已给出定义的全部识别条件" in kwargs["system"]
+            assert "题干已明示或同义给出完整答案" in kwargs["system"]
             raise LLMError("independent reviewer unavailable")
     with pytest.raises(DiagnosticGenerationError, match="independent reviewer unavailable"):
         DiagnosticItemGenerator(writer, review_client=UnavailableReviewer(), validation_retries=0).generate(structure())  # type: ignore[arg-type]
@@ -587,40 +599,39 @@ def test_public_shuffle_keeps_original_option_ids_and_replays_pending_turn_verba
     assert positions == {0, 1, 2, 3}
 
 
-def test_length_repair_reports_every_item_and_dynamic_minimum_in_one_round() -> None:
+def test_length_risks_reach_independent_review_and_all_feedback_reaches_writer() -> None:
     initial = valid_payload()
     for index, row in enumerate(initial['items']):
         answer = ('正确结论甲' if index == 0 else '正确结论乙') * 8
         row.update(expected_answer=answer, options=[answer, '干扰陈述甲乙丙丁', '干扰陈述乙丙丁甲', '干扰陈述丙丁甲乙'])
-    captured = []
-    reviews = []
+    captured, reviews = [], []
     class RepairingClient:
         def structured(self, *, system, user, **kwargs):
             payload = json.loads(user)
             if '审校器' in system:
                 reviews.append(payload)
-                return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
-                                    for row in payload['items']]}
+                for row in payload['items']:
+                    assert row['choice_length_metrics']['correct_characters'] == 40
+                return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+                    'accepted': len(reviews) > 1,
+                    'issues': [] if len(reviews) > 1 else ['正确项独自明显更长、更具体，提示了答案；应重写同类选项。']}
+                    for row in payload['items']]}
             captured.append(payload)
-            assert payload['choice_length_rule']['examples'][-1] == {'correct_characters': 40, 'minimum_distractor_characters': 22}
+            assert payload['choice_length_rule']['evaluation'] == 'independent_semantic_review'
             assert all('minimum_distractor_characters' not in row for row in payload['knowledge_points'])
             if len(captured) == 1:
                 return deepcopy(initial)
             assert payload['previous_candidate']['items'] == initial['items']
             feedback = payload['repair_feedback']
-            assert feedback['stage'] == 'item_validation'
-            assert [row['knowledge_point_id'] for row in feedback['items']] == [row['knowledge_point_id'] for row in initial['items']]
-            for row in feedback['items']:
-                assert row['details']['correct_characters'] == 40
-                assert row['details']['option_characters'] == [40, 8, 8, 8]
-                assert row['details']['minimum_distractor_characters'] == 22
-                assert row['details']['too_short_option_indices'] == [1, 2, 3]
+            assert feedback['stage'] == 'semantic_review'
+            assert [row['knowledge_point_id'] for row in feedback['reviews']] == [row['knowledge_point_id'] for row in initial['items']]
+            assert all(row['issues'] for row in feedback['reviews'])
             repaired = deepcopy(initial)
             for row in repaired['items']:
                 row['options'][1:] = [('干扰结论' + term) * 5 for term in ('甲', '乙', '丙')]
             return repaired
     items = make_generator(RepairingClient(), allow_grounded_answer_rewrite=True, validation_retries=1).generate(structure())
-    assert len(items) == 2 and len(captured) == 2 and len(reviews) == 1
+    assert len(items) == 2 and len(captured) == len(reviews) == 2
     assert all(min(map(len, item.options)) >= 22 for item in items)
 
 
@@ -638,6 +649,7 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
     broken['items'][1]['options'][1] = '长' * 181
     broken['items'][2]['expected_answer'] = '正确结论丙' * 8
     broken['items'][2]['options'][0] = broken['items'][2]['expected_answer']
+    broken['items'][2]['options'][1] = broken['items'][2]['options'][2]
     calls = []
     review_calls = []
     class RepairingClient:
@@ -655,7 +667,7 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
             assert 'choice' in errors[0]['issues'][0]
             assert errors[1]['issues'][0]['type'] == 'value_error'
             assert 'ctx' not in errors[1]['issues'][0] and 'input' not in errors[1]['issues'][0]
-            assert errors[2]['details']['minimum_distractor_characters'] == 22
+            assert 'unique' in errors[2]['issues'][0]
             return repaired
     result = make_generator(RepairingClient(), allow_grounded_answer_rewrite=True, validation_retries=1).generate(value)
     assert len(result) == 3 and len(calls) == 2 and len(review_calls) == 1
@@ -687,16 +699,26 @@ def test_comparable_short_choices_pass_length_gate_but_still_require_concept_rev
     assert len(reviewed) == 1
 
 
-def test_exhausted_length_validation_preserves_all_actionable_feedback_and_never_reviews() -> None:
+def test_length_risk_cannot_override_an_independent_rejection() -> None:
     payload = valid_payload()
     for row in payload['items']:
         row['expected_answer'] = '正确结论甲' * 8
         row['options'] = [row['expected_answer'], '短小干扰陈述甲乙', '短小干扰陈述乙丙', '短小干扰陈述丙丁']
     writer = FakeClient(payload)
+    class Reviewer:
+        calls = 0
+        def structured(self, *, user, **kwargs):
+            self.calls += 1
+            request = json.loads(user)
+            assert all(row['choice_length_metrics']['correct_is_uniquely_longest']
+                       for row in request['items'])
+            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': False,
+                'issues': ['正确项明显独自更长，具体程度提示了答案。']} for row in request['items']]}
+    reviewer = Reviewer()
     with pytest.raises(DiagnosticGenerationError) as failure:
-        make_generator(writer, allow_grounded_answer_rewrite=True, validation_retries=0).generate(structure())
+        DiagnosticItemGenerator(writer, review_client=reviewer,
+            allow_grounded_answer_rewrite=True, validation_retries=0).generate(structure())
     feedback = failure.value.feedback
-    assert feedback['stage'] == 'item_validation'
-    assert len(feedback['items']) == 2
-    assert all(row['details']['minimum_distractor_characters'] == 22 for row in feedback['items'])
-    assert writer.calls == 1
+    assert feedback['stage'] == 'semantic_review' and len(feedback['reviews']) == 2
+    assert all(not row['accepted'] and row['issues'] for row in feedback['reviews'])
+    assert writer.calls == reviewer.calls == 1

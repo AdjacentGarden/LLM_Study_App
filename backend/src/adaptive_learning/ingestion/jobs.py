@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ..database import DATABASE_ERRORS, Connection, connect
+from .evidence_context import contextualize_stored_structure
 from .models import BookStructure
 
 logger = logging.getLogger(__name__)
@@ -529,11 +530,17 @@ class SQLiteOCRJobRepository:
     def get_structure(self, book_id: str) -> BookStructure | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT structure_json FROM book_structures WHERE book_id=?", (book_id,)
+                "SELECT s.structure_json,j.output_dir FROM book_structures s "
+                "LEFT JOIN ocr_jobs j ON j.book_id=s.book_id WHERE s.book_id=?", (book_id,)
             ).fetchone()
         if row is None:
             return None
-        return BookStructure.model_validate_json(str(row["structure_json"]))
+        structure = BookStructure.model_validate_json(str(row["structure_json"]))
+        if row["output_dir"] is None:
+            return structure
+        # This is a deterministic read projection, not a rewrite/migration of
+        # stored structure or OCR. Its fingerprint matches newly-built context.
+        return contextualize_stored_structure(structure, Path(str(row["output_dir"])))
 
     @staticmethod
     def _job(row: sqlite3.Row) -> OCRJob:

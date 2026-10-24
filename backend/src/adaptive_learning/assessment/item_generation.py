@@ -6,6 +6,7 @@ import logging
 import re
 import uuid
 from collections.abc import Callable, Iterable
+from typing import cast
 
 from pydantic import BaseModel, Field, StrictBool, ValidationError, model_validator
 
@@ -16,12 +17,22 @@ from .models import DiagnosticItem, ResponseType
 
 logger = logging.getLogger(__name__)
 _MAX_AUDIT_CHARACTERS = 96_000
+_COGNITIVE_TARGETS = (
+    {"id": "basic_recognition", "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"},
+    {"id": "relation_understanding", "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"},
+    {"id": "source_application", "goal": "将原文支持的条件或关系用于一个简短情境；不得编造额外机制、工具用途或事实，也不能仅给定义命名。"},
+)
 _QUESTION_CONTRACT = """共同出题与审核合同：
 以题干的对象、条件和所问判断为边界。唯一正确项必须同时回答本问、满足题设条件且有evidence支持；
 同一教材中在其他条件下成立的一般真陈述，不因此自动成为本题正确答案。若两项在当前题设下都回答本问且成立，必须拒绝多解。
-基础条件/关系辨认和根据简短观察作判断也可测理解，不要求复杂情境或证据未给的机制；
-纯粹给定义命名、复述定义或题干已经给出完整答案仍须拒绝。
+每题的cognitive_target由程序指定，不得自行降级：basic_recognition可考核心概念、术语或基本事实辨认，
+relation_understanding须考条件、对象或关系，source_application须将有据条件用于简短情境。
+每三题依次覆盖基础辨认、关系理解和有源应用，不能全部变成回忆题，也不能强迫仅定义证据去编造机制。
+给出条件/前提，要求判断题干尚未给出的结论、适用工具或原理，是允许的低负担任务；
+正确结论可从原文找到不是泄题，不能因此否决。题干已经明示或同义给出完整答案才是泄漏；
+关系/应用题只抄完整定义让人命名仍须拒绝，基础辨认题则须有同类可信干扰项。
 干扰项必须同类、可比、回答同一问题，并体现可区分的条件、对象或关系误解。
+自然术语的字数差异不是答案泄漏；结合choice_length_metrics与语义检查，正确项独自明显更长、更具体而提示答案仍须拒绝，不能填字凑长度。
 关键条件或对象的单词差异可以构成实质误解，不得只按替换词数判定机械换词；无实质区别的凑数、无关真话仍须拒绝。
 拒绝理由应定位题干限定和有问题的选项原文，说明它为何在该限定下也正确、答非所问或仅泄露答案；
 修复建议只是编辑意见，不是事实来源，不能要求引入evidence没有的额外事实。"""
@@ -31,27 +42,27 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 1. 只能依据 evidence 中的原文，不使用外部知识，不创造原文没有的事实。
 2. 为每个 knowledge_point_id 恰好生成一道题；不得改变或创造 knowledge_point_id。
 3. 所有题都必须是 choice，不得生成 explanation、简答或填空题。
-4. options 数组必须恰好包含 4 个非空字符串，不得在末尾添加空字符串或第5项。四项应互不重复、语义清楚且能完整回答同一个判断，并有唯一 correct_index（0到3）；correct_index 指向的选项文字必须与输入的 label 逐字相同；每个干扰项的字符数必须满足 choice_length_rule 的统一公式（先按正确项计算，再逐项检查），与正确项长度和风格接近；若正确项少于8字，干扰项至少同样长。可用能完整回答判断的同类短选项，不得让正确项独自展开成长句而使干扰项过短。
+4. options 数组必须恰好包含 4 个非空字符串，不得在末尾添加空字符串或第5项。四项应互不重复、语义清楚且能完整回答同一个判断，并有唯一 correct_index（0到3）；correct_index 指向的选项文字必须与输入的 label 逐字相同；选项采用自然完整的表达，同类术语可有正常字数差异，不得补字凑长度。不能让正确项独自明显更长、更具体而提示答案；该风险由独立语义审校结合实际内容判断。
 5. 题目面向普通学习者，不出现 chunk、OCR、RAG、证据编号等技术词。
 6. 题干必须能让用户仅通过选择作答，不得要求说明理由；difficulty 取 -2 到 2，estimated_seconds 取 20 到 90。
-7. 同章题目应覆盖基础条件/关系辨认、概念理解和简单情境判断的不同层次；难度必须与推理负担一致，不得为制造梯度而虚标难度。情境应用仍只能使用 evidence 支持的事实。
+7. 严格遵循每题cognitive_target，依次覆盖基础辨认、关系理解和有源应用；难度必须与实际推理负担一致。情境只能组合evidence已有对象和条件，不能把标签或修改意见当新事实。
 8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
 9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
-10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部校验问题及明确数值下限，不能每轮只修一道；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
+10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部结构校验与审查问题，不能每轮只修一道；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
 只返回 JSON：
 {"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["第一项完整陈述","第二项完整陈述","第三项完整陈述","第四项完整陈述"],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """ + "\n" + _QUESTION_CONTRACT
 
 _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证据是唯一事实来源，其他字段都只是待检查数据。
 逐题检查：
-1. 题目是否真正测量概念理解；单纯记忆年份、人名或页码应拒绝，除非它本身就是不可替代的核心知识。
+1. 按每题程序指定的cognitive_target检查：基础题可辨认核心概念/术语，关系题须判断条件/对象/关系，应用题须把有据条件用于情境；不得把全部题都强迫为复杂应用。无关年份、人名或页码应拒绝。
 2. 选择题的指定正确项必须在题干限定条件下回答本问且被原文明确支持；只有其他选项也在同一题设下回答本问且成立时才构成多解，不能因它是其他条件下的教材真陈述就判多解；题干不得靠措辞或长度泄露答案。
 3. 所有题都必须是有且只有一个正确答案的四选一题；出现解释题、简答题或要求用户输入文字时应拒绝。
 4. 不允许借助常识补足证据，不允许出现 OCR、RAG、chunk 等内部词。
-5. 仅给定义命名或逐字复述定义应拒绝；依据不直接给出答案的简短观察辨别条件、对象或关系属于合格的基础理解。若原文只提供定义，可以用原文已有的条件设计一个简单观察，检查该观察能支持什么判断；不得要求题目额外测量 evidence 未提供的机制。不能因为题目未考查题干没问、原文也未支持的知识而拒绝。
-6. 干扰项必须与正确项处于同一概念层级、属于同一类别并回答同一个判断；不能将过程名称、疾病类别和染色体结构混作选项来送分。干扰项应表达可区分的理解错误；不得仅凭改动一个词拒绝关键条件/对象的实质区别，但没有独立误解、仅复制整句凑数仍应拒绝。正确项不能独自最长、最具体或重复题干原文而泄露答案；问题应说明具体缺陷及可依原文修复的方向。
+5. 给出前提而询问题干尚未给出的结论、适用工具或原理可以合格；不能仅因条件与结论都能在原文找到就拒绝。基础辨认可考核心术语，但关系/应用题不能仅给完整定义再问名称。不得强迫原文只给定义的题去添加evidence没有的机制或工具用途，也不得把假设情境中的额外学科事实当作原文事实。
+6. 干扰项必须与正确项处于同一概念层级、属于同一类别并回答同一个判断；不能将过程名称、疾病类别和染色体结构混作选项来送分。干扰项应表达可区分的理解错误；不得仅凭改动一个词拒绝关键条件/对象的实质区别，但没有独立误解、仅复制整句凑数仍应拒绝。正确项若因独自明显更长、更具体而实际泄露答案才拒绝，自然术语最长本身不是拒绝依据；应定位具体措辞说明暗示及可依原文修复的方向。
 7. 问题反馈应短引有问题的选项原文，不得仅用 A/B/C/D 或位置号指代，因为选项会被稳定打散。
-8. 情境外壳不等于理解题：若题干已给出定义的全部识别条件，只让用户给该定义命名，或正确项再次完整复述题干，应拒绝。要求在证据范围内比较条件、区分相近关系或判断一个结论是否得到支持；不得为增加难度引入证据未包含的学科事实。
+8. 题干已明示或同义给出完整答案、仅换词让正确项复述题干必须拒绝。关系/应用题的情境外壳不能掩盖纯命名；基础辨认则按其目标核对同类可信干扰与唯一答案。不能把原文中的前提→尚未给出结论的关系一概称作泄题。
 只返回 JSON：{"reviews":[{"knowledge_point_id":"kp_...","accepted":true,"issues":[]}]}
 """ + "\n" + _QUESTION_CONTRACT
 
@@ -130,12 +141,15 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v5+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v6+balanced-options-v1"
 
 
-def _minimum_distractor_characters(answer: str) -> int:
-    length = len(answer.strip())
-    return max(min(8, length), round(length * 0.55))
+def _choice_length_metrics(options: list[str], correct: int) -> dict[str, object]:
+    lengths = [len(option.strip()) for option in options]
+    return {"option_characters": lengths, "correct_characters": lengths[correct],
+            "correct_is_uniquely_longest": all(lengths[correct] > size
+                for index, size in enumerate(lengths) if index != correct),
+            "assessment": "semantic_risk_only_not_automatic_approval_or_rejection"}
 
 
 def _item_system(allow_grounded_answer_rewrite: bool) -> str:
@@ -144,17 +158,17 @@ def _item_system(allow_grounded_answer_rewrite: bool) -> str:
         system = system.replace(
             "correct_index 指向的选项文字必须与输入的 label 逐字相同",
             "label 仅用于标识待测知识点，不能当作事实依据。正确选项必须与 expected_answer 逐字相同，"
-            "且只包含 evidence 明确支持的一条完整结论；若 label 概括过度，必须缩小到有依据的范围",
+            "且只包含 evidence 明确支持、符合该题认知目标的核心术语或完整判断；若 label 概括过度，必须缩小到有依据的范围",
         )
         system = system.replace(
             "只返回 JSON：",
-            "设计顺序：先从 evidence 中找出一个可以区分的条件、关系或过程，再让学习者依据它判断一个具体情境。"
+            "设计顺序：先按cognitive_target确定最小任务；基础辨认选核心概念，关系理解选有据条件或关系，有源应用才据此设计简短情境。"
             "情境只组合原文已有的对象和条件，也可设定满足原文定义的假想观察，不得引入额外学科事实。"
-            "题干不得把定义全部识别条件讲完后再问名称，也不得将完整定义放入情境后让正确项再复述一遍；应留出一个确实需要依据证据完成的条件比较或关系判断。不要问‘用一句话概括’‘何为’或要求认出原文定义；不要把整段定义原封不动作为正确项。"
+            "遵循该题的cognitive_target：基础题可辨认核心术语，关系/应用题应留出确实需要依据证据完成的条件比较或关系判断，不能只是给定义再问名称。题干不能已经给出完整答案再换词复述。"
             "先确定一个最小判断目标，把已知条件放在题干；正确选项只回答这个判断，不把定义、类别和全部机制塞入一项。"
             "四个选项必须处于同一概念层级、属于同一类别并回答题干中的同一个判断，不能用过程名、疾病类和结构名混杂送分；语法结构与长度接近，分别体现适用条件、推理方向或过程关系的不同理解；"
             "每个干扰项要对应一种实质可辨别的条件、对象或关系误解，不能用无实质区别的改词凑数；关键条件的差异不按改词数量否定，不能靠‘只有/全部/立即’等显眼绝对词凑错误。"
-            "不要让正确项独自最长或独有详细限定；所有选项都应保留各自判断所需条件。"
+            "避免正确项独自展开详细长句而提示答案；自然术语可以长短不同，所有选项都应保留各自判断所需条件。"
             "例如原文说明某过程需要条件甲时，可以给出甲成立或不成立的情境，考查能否据此判断该过程，"
             "但不能据此添加原文没有的数量关系或结果。\n只返回 JSON：",
         )
@@ -184,6 +198,7 @@ def diagnostic_bank_fingerprint(
         "review_revision": review_revision,
         "grounded_rewrite": allow_grounded_answer_rewrite,
         "points_per_chapter": points_per_chapter,
+        "cognitive_targets": _COGNITIVE_TARGETS,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
@@ -349,34 +364,33 @@ class DiagnosticItemGenerator:
             "question_contract": _QUESTION_CONTRACT,
             "choice_length_rule": {
                 "correct_answer_source": "expected_answer" if self.allow_grounded_answer_rewrite else "label",
-                "minimum_distractor_characters_formula": "max(min(8, len(correct_answer.strip())), round(len(correct_answer.strip()) * 0.55))",
-                "examples": [{"correct_characters": size, "minimum_distractor_characters":
-                              _minimum_distractor_characters("字" * size)} for size in (4, 8, 10, 40)],
+                "minimum_nonempty_characters": 1,
                 "maximum_option_characters": 180,
-                "repair": "先据正确项长度逐项核对；可精简有依据的正确判断或补足干扰项，不能填充无依据的事实。",
+                "evaluation": "independent_semantic_review",
+                "repair": "使用自然同类选项，不补字凑长度；独立审校会核对长度/具体程度是否实际提示了答案。",
             },
             "knowledge_points": [
                 {
                     "knowledge_point_id": point_id,
                     "label": label,
                     "preferred_type": "choice",
-                    **({} if self.allow_grounded_answer_rewrite else {
-                        "minimum_distractor_characters": _minimum_distractor_characters(label)
-                    }),
+                    "cognitive_target": dict(_COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]),
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
                 }
-                for point_id, label, quotes in points
+                for index, (point_id, label, quotes) in enumerate(points)
             ],
         }
         expected_ids = [point[0] for point in points]
         by_id = {point[0]: point for point in points}
         last_error: Exception | None = None
         preserved: dict[str, dict[str, object]] = {}
+        approved_keys: dict[str, str] = {}
         system = _item_system(self.allow_grounded_answer_rewrite)
         chapter_context = {**(audit_context or {}), "chapter_id": chapter.chapter_id}
         self._audit(chapter_context, "chapter_started", source=payload)
         for attempt in range(self.validation_retries + 1):
             candidate: list[dict[str, object]] | None = None
+            review_keys: dict[str, str] = {}
             attempt_context = {**chapter_context, "attempt": attempt + 1}
             try:
                 self._audit(attempt_context, "generation_request", system=system, request=payload)
@@ -425,7 +439,25 @@ class DiagnosticItemGenerator:
                     )
                 self._audit(attempt_context, "candidate", items=candidate)
                 if self.verify_items:
-                    self._review_items(payload, items, expected_ids, audit_context=attempt_context)
+                    review_keys = {item.knowledge_point_ids[0]: self._approval_key(payload, item)
+                                   for item in items}
+                    pending = [item for item in items
+                               if approved_keys.get(item.knowledge_point_ids[0])
+                               != review_keys[item.knowledge_point_ids[0]]]
+                    pending_ids = [item.knowledge_point_ids[0] for item in pending]
+                    reused = [key for key in expected_ids if key not in pending_ids]
+                    if reused:
+                        self._audit(attempt_context, "review_items_reused", items=[
+                            {"knowledge_point_id": key, "approval_key": review_keys[key]}
+                            for key in reused])
+                    for key in pending_ids:
+                        # A source/target/reviewer change invalidates the old
+                        # approval even if its candidate text stayed identical.
+                        approved_keys.pop(key, None)
+                        preserved.pop(key, None)
+                    if pending:
+                        self._review_items(payload, pending, pending_ids,
+                                           audit_context=attempt_context)
                 self._audit(attempt_context, "chapter_accepted", items=candidate)
                 return items
             except (ValidationError, DiagnosticGenerationError, LLMError) as error:
@@ -444,16 +476,21 @@ class DiagnosticItemGenerator:
                     payload["previous_candidate"] = {"items": [
                         preserved.get(str(row["knowledge_point_id"]), row) for row in candidate]}
                 reviews = feedback.get("reviews")
-                if isinstance(reviews, list) and candidate is not None:
+                if (feedback.get("stage") == "semantic_review"
+                        and isinstance(reviews, list) and candidate is not None):
                     accepted = {row["knowledge_point_id"] for row in reviews
                                 if isinstance(row, dict) and row.get("accepted") is True
                                 and not row.get("issues")}
-                    preserved = {str(row["knowledge_point_id"]): row for row in candidate
-                                 if row["knowledge_point_id"] in accepted}
-                    payload["preserve_accepted_items"] = list(preserved.values())
+                    for row in candidate:
+                        key = str(row["knowledge_point_id"])
+                        if key in accepted and key in review_keys:
+                            preserved[key] = row
+                            approved_keys[key] = review_keys[key]
+                    payload["preserve_accepted_items"] = [preserved[key] for key in expected_ids
+                                                         if key in preserved]
                 payload["repair_feedback"] = {"attempt": attempt + 1, **feedback}
                 payload["validation_feedback"] = (
-                    "上次输出未通过程序校验。必须逐个、按输入顺序返回 knowledge_point_id；"
+                    "上次输出未通过结构校验或独立审查。必须逐个、按输入顺序返回 knowledge_point_id；"
                     "options 必须恰好 4 个非空、不同的选项，不得在末尾添加空字符串或第5项，correct_index只能是0到3；"
                     + ("所有题都必须是 choice，正确选项必须由原文明确支持并与 expected_answer 相同；"
                        if self.allow_grounded_answer_rewrite else
@@ -467,6 +504,22 @@ class DiagnosticItemGenerator:
             feedback=last_error.feedback if isinstance(last_error, DiagnosticGenerationError) else None,
         ) from last_error
 
+    def _approval_key(self, source: dict[str, object], item: DiagnosticItem) -> str:
+        """Invocation-local exact approval; never reconstructed from audit files."""
+        config = getattr(self.review_client, "config", None)
+        value = {
+            "item_id": item.item_id, "chapter_id": item.chapter_id,
+            "candidate": self._candidate_item(item),
+            "source": {key: source[key] for key in (
+                "book_title", "chapter_id", "chapter_title", "knowledge_points")},
+            "protocol": DIAGNOSTIC_BANK_VERSION, "review_prompt": _ITEM_REVIEW_SYSTEM,
+            "question_contract": _QUESTION_CONTRACT,
+            "review_identity": self.review_identity,
+            "review_route": {key: getattr(config, key, None)
+                             for key in ("base_url", "model", "reasoning_effort")},
+        }
+        return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
     def _review_items(
         self,
         source_payload: dict[str, object],
@@ -475,6 +528,10 @@ class DiagnosticItemGenerator:
         *, audit_context: dict[str, object] | None = None,
     ) -> None:
         review_items = self._balance_options(items, seed=f"review:{source_payload['chapter_id']}")
+        targets = {
+            str(point["knowledge_point_id"]): point["cognitive_target"]
+            for point in cast(list[dict[str, object]], source_payload["knowledge_points"])
+        }
         review_payload = {
             "question_contract": _QUESTION_CONTRACT,
             # Prior verdicts/candidates are writer repair context, never hints
@@ -490,6 +547,9 @@ class DiagnosticItemGenerator:
                     "correct_index": int(item.correct_option_ids[0]),
                     "expected_answer": item.expected_answer,
                     "rubric": item.rubric,
+                    "cognitive_target": targets[item.knowledge_point_ids[0]],
+                    "choice_length_metrics": _choice_length_metrics(
+                        item.options, int(item.correct_option_ids[0])),
                 }
                 for item in review_items
             ],
@@ -566,20 +626,6 @@ class DiagnosticItemGenerator:
             options[draft.correct_index] = answer_text
         if len(set(options)) != 4:
             raise DiagnosticGenerationError("choice options must be unique")
-        required = _minimum_distractor_characters(answer_text)
-        lengths = [len(option) for option in options]
-        too_short = [index for index, size in enumerate(lengths)
-                     if index != draft.correct_index and size < required]
-        if too_short:
-            raise DiagnosticGenerationError(
-                f"choice distractors are too short and would reveal the answer: "
-                f"{draft.knowledge_point_id}, correct_characters={len(answer_text)}, "
-                f"option_characters={lengths}, minimum_distractor_characters={required}",
-                feedback={"code": "distractor_length", "correct_characters": len(answer_text),
-                          "option_characters": lengths, "minimum_distractor_characters": required,
-                          "too_short_option_indices": too_short,
-                          "repair": "仅依原文精简正确判断或补足所列干扰项，使每项达到明确下限；不要填入无依据事实。"},
-            )
         response_type = ResponseType.SINGLE_CHOICE
         correct_ids = [str(draft.correct_index)]
         rubric: list[str] = []

@@ -53,8 +53,8 @@ def test_stem_relative_contract_is_shared_without_removing_true_general_distract
     class Writer(FakeClient):
         def structured(self, *, system, user, **kwargs):
             payload = json.loads(user)
-            assert '基础条件/关系辨认和根据简短观察作判断也可测理解' in system
-            assert '纯粹给定义命名' in payload['question_contract']
+            assert '给出条件/前提，要求判断题干尚未给出的结论' in system
+            assert '关系/应用题只抄完整定义让人命名仍须拒绝' in payload['question_contract']
             assert '同一教材中在其他条件下成立的一般真陈述' in system
             return super().structured()
     writer, reviewer = Writer(candidate), ScriptedReview()
@@ -79,7 +79,7 @@ def test_shared_basic_understanding_contract_does_not_override_semantic_veto(rea
         DiagnosticItemGenerator(FakeClient(valid_payload()), review_client=reviewer,
             allow_grounded_answer_rewrite=True, validation_retries=0).generate(structure())
     assert len(reviewer.calls) == 1
-    assert '纯粹给定义命名、复述定义或题干已经给出完整答案仍须拒绝' in reviewer.calls[0][1]['question_contract']
+    assert '题干已经明示或同义给出完整答案才是泄漏' in reviewer.calls[0][1]['question_contract']
 
 
 @pytest.mark.parametrize('verdict', ['missing', 'reordered', 'duplicate'])

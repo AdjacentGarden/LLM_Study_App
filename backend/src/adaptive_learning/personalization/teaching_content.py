@@ -56,7 +56,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -394,13 +394,19 @@ flashcard 一个中心问题，front 6-120字、back 12-360字，答案先直接
 practice 为独立应用或辨析题（prompt 8-300字、expected_answer 20-800字），
 题干不能包含待考查结论或完整答案；可明确标记“假设”的简单情境，但不能编造实验事实。
 每道 practice 按以下顺序构造，初稿与修复都相同：
+先区分题干的背景已知与实际待答问项；情境提到某人、某现象或后续结果，不等于要求解释它的整条成因或传递链。
+把需要计分的任务在题干中问清，避免用指代不明的“这说明什么”承载额外任务；不为丰富情境暗中增加作答义务。
 第一步，只按题干实际问项写最小充分答案，并逐项用本题 source_ids 的原文核验事实与必要条件。
 第二步，从该最小答案抽取2-6项原子 rubric，每项只检查一个题干明确要求或不可省略的推导目标；
+对每一项先定位它回答哪一问，或为何省略就无法得出该问的答案；只对应背景细节或可选扩展的要求不得计分。
 逐项做省略检验：若不写该项仍能完整正确作答，就删除该评分要求；接受同目标的等价例子或推导。
 若不足两个必要目标，先把题干改为明确要求两个有原文证据支持的必要问项，再重做上述步骤，
 不能拆分同义句或把附加术语、研究史、频率修饰词、题干已给条件凑成得分点。
 第三步，expected_answer 先给最小充分答案；确有帮助时再补可选扩展解释，仍须由本题原文支持。
 扩展解释不是必答要求，不能反向填入 rubric；不因参考答案更长而增加评分项，也不为凑2-6条加考。
+修复任一 practice 时，必须对整道题的所有 rubric 重新做问项映射和省略检验，不能只改审校已点名的一条。
+若要考查背景中的另一段机制或传递过程，须在题干明确增设该问，并核验本题原文；否则删去独立评分要求，
+有据且有助理解的内容可留作参考答案的补充解释。不可省略的条件、计算和推导仍须保留，不能以“背景”名义删去。
 rubric 不写“回答正确/表达清晰”等空话，不逐字重复整份答案；范围检查只修正实际断言，
 不把同主题边界新增为未问的得分目标。修饰词若是准确回答本题所必需的范围限定，仍须保留。
 题干已经直接给出的结论、序列或名称不能再冒充回忆目标让学生照抄。
@@ -569,7 +575,10 @@ flashcard 是否单一清晰、答案直接且不遗漏关键条件；practice �
 参考答案是否真正回答题目、评分点是否具体且可核验；每项实际事实是否由所引用 source_ids 支持。
 分别检查讲解、闪卡答案、练习答案的定义是否范围自足，不得借另一组件提到的例外补救本项概括。
 评分点必须对应题干明确要求或必要解题步骤，不能额外考未问知识；题干已给出的目标答案不能当回忆任务。
+先区分背景已知与实际问项：情境出现某人、某现象或后续结果，不等于题目要求解释其整条成因或传递链。
+从首轮起逐项核对所有评分要求对应的问项或不可省略的推导，不能找到一处问题便停止，也不能只检查上轮点名项。
 先确定题干的最小充分答案；若省略某评分点仍完整正确回答题干，该条不能强制得分。
+题干未问的独立过程可作为有源补充解释，不能自动成为必答；但得到所问答案所必需的条件、计算和推导仍须检查。
 范围导航不能自动增加未问的作答目标；接受达成同一作答目标的等价例子和推导。
 任何教学字段若把“原文未说明/资料未给出/不应补充/OCR”等编辑审校说明当成答案、讲解或评分点，
 应要求直接删除这些话术，只保留对学习问题本身有帮助且可核验的内容。
