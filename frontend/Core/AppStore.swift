@@ -681,9 +681,12 @@ import SwiftUI
     draft.parseCompleted = true
     persist()
   }
-  func importFile(_ url: URL) async {
+  func importFile(
+    _ url: URL,
+    onUploadProgress: @escaping @MainActor @Sendable (CloudUploadProgress) -> Void = { _ in }
+  ) async {
     if cloud != nil {
-      await importCloudPDF(url)
+      await importCloudPDF(url, onProgress: onUploadProgress)
       return
     }
     let requestGeneration = selectionGeneration
@@ -696,6 +699,7 @@ import SwiftUI
       if !draft.resourceIDs.contains(result.source.id) {
         draft.resourceIDs.append(result.source.id)
       }
+      draft.parseCompleted = false
       if draft.name.isEmpty { draft.name = result.source.summary.title }
       selectedBookID = result.source.id
       selectedChapterID = nil
@@ -705,6 +709,7 @@ import SwiftUI
       try await repository.saveSources(sources)
       persist()
     } catch {
+      guard !Task.isCancelled else { return }
       importError = error.localizedDescription
       showToast(error.localizedDescription)
     }

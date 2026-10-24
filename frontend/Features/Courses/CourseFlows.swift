@@ -2,8 +2,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct LearnerOnboardingView: View {
+  let resettingPreferences: Bool
   @Environment(AppStore.self) private var store
-  @State private var step = 0
+  @State private var step: Int
   @State private var name = ""
   @State private var goal: String?
   @State private var dailyTime: String?
@@ -16,6 +17,12 @@ struct LearnerOnboardingView: View {
   @State private var completed = false
   @State private var saving = false
   @FocusState private var nameFocused: Bool
+
+  init(resettingPreferences: Bool = false) {
+    self.resettingPreferences = resettingPreferences
+    _step = State(initialValue: resettingPreferences ? 1 : 0)
+  }
+
   private let titles = [
     "我们怎么称呼你？", "你希望通过学习收获什么？", "你每天可以投入多少学习时间？",
     "学习时，你最想改善什么？", "你更喜欢怎样的学习引导？", "你希望怎样安排学习节奏？",
@@ -24,16 +31,31 @@ struct LearnerOnboardingView: View {
     "Sparkles", "BookOpen", "Clock3", "BrainCircuit", "Lightbulb", "CalendarCheck2",
   ]
   private let tones = ["yellow", "blue", "peach", "mint", "yellow", "violet"]
+  private var firstStep: Int { resettingPreferences ? 1 : 0 }
   private var lastStep: Int { LearnerOnboardingDraft.stepCount - 1 }
   var body: some View {
     GeometryReader { geometry in
       ScrollView {
         VStack(spacing: 0) {
+          if resettingPreferences {
+            HStack {
+              Text("重新设置学习偏好").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
+              Spacer()
+              Button("取消") {
+                nameFocused = false
+                store.back()
+              }.font(DS.font(16)).frame(minWidth: 44, minHeight: 44).buttonStyle(.plain)
+                .disabled(saving).accessibilityIdentifier("preferences.cancel")
+            }.padding(.bottom, 8)
+          }
           Text(titles[step]).font(
             DS.font(min(34, max(22, geometry.size.width * 0.056)) * 0.8, weight: .bold)
           ).multilineTextAlignment(.center).frame(height: 44, alignment: .top).padding(.bottom, 12)
-          flowTop(step: step, total: LearnerOnboardingDraft.stepCount, hideBack: step == 0) {
-            guard step > 0, !saving else { return }
+          flowTop(
+            step: step - firstStep, total: LearnerOnboardingDraft.stepCount - firstStep,
+            hideBack: step == firstStep
+          ) {
+            guard step > firstStep, !saving else { return }
             error = nil
             withAnimation { step -= 1 }
           }.disabled(saving)
@@ -98,7 +120,7 @@ struct LearnerOnboardingView: View {
               Text(error).font(DS.font(14)).foregroundStyle(DS.danger).accessibilityAddTraits(
                 .updatesFrequently)
             }
-            CourseFlowPrimaryButton(title: saving ? "正在保存…" : step == lastStep ? "开始专属学习之旅" : "下一页")
+            CourseFlowPrimaryButton(title: primaryButtonTitle)
             {
               next()
             }.clipShape(
@@ -139,6 +161,11 @@ struct LearnerOnboardingView: View {
     .onChange(of: guidanceStyles) { _, _ in persistDraft() }
     .onChange(of: planningSupport) { _, _ in persistDraft() }
   }
+  private var primaryButtonTitle: String {
+    if saving { return "正在保存…" }
+    if step == lastStep { return resettingPreferences ? "完成并保存" : "开始专属学习之旅" }
+    return resettingPreferences ? "下一题" : "下一页"
+  }
   private func restoreDraftIfReady() {
     guard !store.isLoading, !store.cloudState.isHydrating else { return }
     if store.cloud != nil {
@@ -147,6 +174,17 @@ struct LearnerOnboardingView: View {
     guard !restoredDraft || restoredScope != store.cloudState.cacheKey else { return }
     restoredScope = store.cloudState.cacheKey
     restoredDraft = true
+    if resettingPreferences {
+      // Keep the account name and start the preference questions with no selected answers.
+      step = firstStep
+      name = store.preferences?.displayName ?? ""
+      goal = nil
+      dailyTime = nil
+      learningBarriers = []
+      guidanceStyles = []
+      planningSupport = nil
+      return
+    }
     guard !ProcessInfo.processInfo.arguments.contains("--fixture") else {
       name = "小明同学"
       goal = "systematic"
@@ -208,7 +246,8 @@ struct LearnerOnboardingView: View {
     }
   }
   private func persistDraft() {
-    guard restoredDraft, !completed, !store.isLoading, !store.cloudState.isHydrating,
+    guard !resettingPreferences, restoredDraft, !completed, !store.isLoading,
+      !store.cloudState.isHydrating,
       restoredScope == store.cloudState.cacheKey,
       !ProcessInfo.processInfo.arguments.contains("--fixture")
     else {
@@ -221,6 +260,7 @@ struct LearnerOnboardingView: View {
       scope: store.cloudState.cacheKey)
   }
   private func next() {
+    guard !saving else { return }
     if step == 0 && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       error = "请先填写称呼"
       nameFocused = true
@@ -232,7 +272,6 @@ struct LearnerOnboardingView: View {
       withAnimation { step += 1 }
     } else {
       if store.cloud != nil {
-        guard !saving else { return }
         saving = true
         Task { @MainActor in
           defer { saving = false }
@@ -242,13 +281,26 @@ struct LearnerOnboardingView: View {
               dailyTime: dailyTime, learningBarriers: learningBarriers,
               guidanceStyles: guidanceStyles, planningSupport: planningSupport)
             completed = true
-            LearnerOnboardingDraft.clear(scope: store.cloudState.cacheKey)
-            store.replace(.home)
+            if resettingPreferences {
+              finishPreferencesReset()
+            } else {
+              LearnerOnboardingDraft.clear(scope: store.cloudState.cacheKey)
+              store.replace(.home)
+            }
           } catch { self.error = error.localizedDescription }
         }
         return
       }
       completed = true
+      if resettingPreferences {
+        store.preferences = LearnerPreferences(
+          displayName: name.trimmingCharacters(in: .whitespacesAndNewlines), primaryGoal: goal,
+          dailyTime: dailyTime, learningBarriers: learningBarriers,
+          guidanceStyles: guidanceStyles, planningSupport: planningSupport)
+        store.persist()
+        finishPreferencesReset()
+        return
+      }
       if !ProcessInfo.processInfo.arguments.contains("--fixture") { LearnerOnboardingDraft.clear() }
       store.completeOnboarding(
         name: name.trimmingCharacters(in: .whitespacesAndNewlines), goal: goal,
@@ -257,6 +309,10 @@ struct LearnerOnboardingView: View {
         planningSupport: planningSupport
       )
     }
+  }
+  private func finishPreferencesReset() {
+    store.back()
+    store.showToast("学习偏好已重新设置")
   }
 }
 
@@ -480,6 +536,11 @@ struct CourseUploadView: View {
   @State private var pickerOpen = false
   @State private var busy = false
   @State private var error: String?
+  @State private var saveTask: Task<Void, Never>?
+  @State private var operationID = UUID()
+  @State private var transfer = CourseFileTransfer()
+  @State private var pendingResourceIDs: [String] = []
+  @State private var cancelRequested = false
   static var allowedTypes: [UTType] {
     [
       .pdf, .image, .plainText, .commaSeparatedText, .presentation, .spreadsheet,
@@ -535,6 +596,17 @@ struct CourseUploadView: View {
         }
       }
     }
+    .fullScreenCover(isPresented: $busy) {
+      CourseFileUploadProgressView(
+        transfer: transfer, processingProgress: store.processingProgress,
+        processingMessage: store.processingMessage, cancelRequested: cancelRequested,
+        cancel: cancelUpload
+      )
+      .interactiveDismissDisabled()
+      .onDisappear {
+        if busy { cancelUpload() }
+      }
+    }
   }
   private var failure: String? { error ?? store.importError }
   private var canContinueSetup: Bool {
@@ -555,11 +627,10 @@ struct CourseUploadView: View {
       let bottom: CGFloat = compact ? 20 : 40
       let gap: CGFloat = compact ? 16 : 24
       let controlCount =
-        2 + (files.isEmpty ? 0 : 1) + (failure == nil ? 0 : 1)
-        + (canContinueSetup ? 1 : 0)
+        2 + (failure == nil ? 0 : 1) + (canContinueSetup ? 1 : 0)
       let controlHeight: CGFloat =
-        24 + 54 + (files.isEmpty ? 0 : 44)
-        + (failure == nil ? 0 : compact ? 20 : 42) + (canContinueSetup ? 54 : 0)
+        24 + 54 + (failure == nil ? 0 : compact ? 20 : 42)
+        + (canContinueSetup ? 54 : 0)
         + CGFloat(controlCount - 1) * (compact ? 8 : 16)
       let tileSize = min(210, max(80, size.height - top - bottom - gap - controlHeight))
       VStack(spacing: gap) {
@@ -572,33 +643,16 @@ struct CourseUploadView: View {
 
   private func controls(compact: Bool) -> some View {
     VStack(spacing: compact ? 8 : 16) {
-      if !files.isEmpty {
-        ScrollView(.horizontal) {
-          HStack(spacing: 8) {
-            ForEach(Array(files.enumerated()), id: \.offset) { index, url in
-              HStack(spacing: 4) {
-                Text(url.lastPathComponent).font(DS.font(14)).lineLimit(1)
-                  .frame(maxWidth: 220)
-                Button {
-                  files.remove(at: index)
-                } label: {
-                  Image(systemName: "xmark").font(.system(size: 12, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                }.buttonStyle(.plain).disabled(busy)
-                  .accessibilityLabel("移除 \(url.lastPathComponent)")
-              }.padding(.leading, 12).foregroundStyle(DS.text)
-                .background(DS.background, in: RoundedRectangle(cornerRadius: 12))
-            }
-          }
-        }.scrollIndicators(.hidden).frame(height: 44).accessibilityIdentifier("upload.files")
-      }
-      Text("添加课程资料").font(DS.font(16, weight: .bold)).frame(height: 24)
+      Text(files.isEmpty ? "添加课程资料" : "继续添加")
+        .font(DS.font(16, weight: .bold)).frame(height: 24)
       if let failure {
         Text(failure).font(DS.font(14)).foregroundStyle(DS.danger)
           .lineLimit(compact ? 1 : 2).frame(maxWidth: .infinity, alignment: .leading)
           .accessibilityIdentifier("upload.error")
       }
-      BCButton(busy ? "正在整理…" : "保存资料并继续") { saveFiles() }.disabled(files.isEmpty || busy)
+      BCButton(files.isEmpty && !pendingResourceIDs.isEmpty ? "重试资料整理" : "保存资料并继续") {
+        saveFiles()
+      }.disabled((files.isEmpty && pendingResourceIDs.isEmpty) || busy)
         .accessibilityIdentifier("upload.save")
       if canContinueSetup {
         BCButton("继续设置课程", style: .secondary) {
@@ -609,58 +663,138 @@ struct CourseUploadView: View {
   }
 
   private func fileTile(size: CGFloat) -> some View {
+    Group {
+      if files.isEmpty {
+        addFileButton.frame(width: size, height: size)
+      } else {
+        ScrollView {
+          LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 56, maximum: 56), spacing: 12)],
+            alignment: .leading, spacing: 12
+          ) {
+            ForEach(Array(files.enumerated()), id: \.offset) { index, url in
+              selectedFile(url, at: index)
+            }
+            addFileButton.frame(width: 56, height: 56)
+          }
+          .padding(20)
+        }.scrollIndicators(.hidden).accessibilityIdentifier("upload.files")
+      }
+    }
+    .frame(width: size, height: size)
+    .background(DS.surface, in: RoundedRectangle(cornerRadius: 18))
+      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: 0xE1E6EE), lineWidth: 1.5))
+      .shadow(color: DS.text.opacity(0.12), radius: 14, x: 0, y: 12)
+  }
+
+  private var addFileButton: some View {
     Button {
       pickerOpen = true
     } label: {
-      ZStack {
-        if files.isEmpty {
-          Image(systemName: "plus").font(.system(size: 38, weight: .medium)).foregroundStyle(
-            DS.text
-          )
-        } else {
-          ForEach(0..<min(3, files.count), id: \.self) { index in
-            StickerIcon("FileText", size: size * 0.44)
-              .rotationEffect(.degrees(Double(index - min(2, files.count - 1)) * 8))
-              .offset(x: CGFloat(index) * 8 - 8, y: -CGFloat(index) * 3)
-          }
-          Text("\(files.count)").font(DS.font(14, weight: .bold)).foregroundStyle(.white)
-            .padding(.horizontal, 8).frame(minWidth: 28, minHeight: 28)
-            .background(DS.primary, in: Capsule()).offset(x: size * 0.22, y: size * 0.22)
-        }
-      }
-      .frame(width: size, height: size)
-      .background(DS.surface, in: RoundedRectangle(cornerRadius: 18))
-      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: 0xE1E6EE), lineWidth: 1.5))
-      .shadow(color: DS.text.opacity(0.12), radius: 14, x: 0, y: 12)
+      Image(systemName: "plus")
+        .font(.system(size: files.isEmpty ? 38 : 30, weight: .medium))
+        .foregroundStyle(DS.text)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
     }.buttonStyle(.plain).disabled(busy)
       .accessibilityLabel(files.isEmpty ? "选择课程资料" : "继续添加资料")
       .accessibilityIdentifier("upload.select")
   }
+
+  private func selectedFile(_ url: URL, at index: Int) -> some View {
+    StickerIcon("FileText", size: 40)
+      .overlay(alignment: .bottomTrailing) {
+        Text("\(index + 1)").font(DS.font(8, weight: .bold)).foregroundStyle(.white)
+          .frame(minWidth: 12, minHeight: 12)
+          .background(DS.primary, in: Capsule()).offset(x: 6, y: 6)
+          .accessibilityHidden(true)
+      }
+      .frame(width: 56, height: 56)
+      .overlay(alignment: .topTrailing) {
+        Button {
+          files.remove(at: index)
+        } label: {
+          Image(systemName: "minus").font(.system(size: 10, weight: .bold))
+            .foregroundStyle(.white).frame(width: 16, height: 16)
+            .background(DS.danger, in: Circle())
+            .frame(width: 44, height: 44).contentShape(Rectangle())
+        }.buttonStyle(.plain).disabled(busy)
+          .offset(x: 12, y: -12)
+          .accessibilityLabel("移除 \(url.lastPathComponent)")
+          .accessibilityIdentifier("upload.remove.\(index)")
+      }
+  }
+
+  private func cancelUpload() {
+    guard !cancelRequested else { return }
+    cancelRequested = true
+    saveTask?.cancel()
+    if transfer.stage == .processing { store.cancelImport() }
+  }
+
   private func saveFiles() {
-    guard !files.isEmpty else { return }
+    guard !busy, !files.isEmpty || !pendingResourceIDs.isEmpty else { return }
+    let requestID = UUID()
+    operationID = requestID
+    let selectedFiles = files
+    transfer = CourseFileTransfer(fileCount: selectedFiles.count)
+    cancelRequested = false
     busy = true
     error = nil
+    store.importError = nil
     let targetCourseID = addingToCurrentCourse ? store.currentCourse?.id : nil
     let originalDraft = store.draft
-    Task { @MainActor in
-      if targetCourseID != nil { store.draft = CourseDraft() }
+    saveTask = Task { @MainActor in
+      defer {
+        if targetCourseID != nil, Task.isCancelled {
+          store.draft = originalDraft
+          store.persist()
+        }
+        if operationID == requestID {
+          busy = false
+          cancelRequested = false
+          saveTask = nil
+        }
+      }
+      if targetCourseID != nil {
+        store.draft = CourseDraft()
+        store.draft.resourceIDs = pendingResourceIDs
+      }
       var issues: [String] = []
-      for url in files {
-        await store.importFile(url)
+      for (index, url) in selectedFiles.enumerated() {
+        guard !Task.isCancelled else { return }
+        transfer = CourseFileTransfer(
+          filename: url.lastPathComponent, fileIndex: index + 1, fileCount: selectedFiles.count)
+        await store.importFile(url) { progress in
+          guard operationID == requestID, busy, !cancelRequested,
+            transfer.fileIndex == index + 1, transfer.stage != .processing
+          else { return }
+          transfer.stage = .uploading
+          if progress.sentBytes > transfer.progress.sentBytes { transfer.updatedAt = .now }
+          transfer.progress = CloudUploadProgress(
+            sentBytes: max(transfer.progress.sentBytes, progress.sentBytes),
+            totalBytes: progress.totalBytes)
+        }
+        guard !Task.isCancelled else { return }
         if let issue = store.importError {
           issues.append("\(url.lastPathComponent)：\(issue)")
           continue
         }
         if let id = store.draft.resourceIDs.last {
+          if !pendingResourceIDs.contains(id) { pendingResourceIDs.append(id) }
           store.selectSource(id)
           if let targetCourseID { store.addSource(id, to: targetCourseID) }
         }
+        if let index = files.firstIndex(of: url) { files.remove(at: index) }
       }
-      if issues.isEmpty {
+      if issues.isEmpty, targetCourseID != nil {
+        store.processingProgress = 0
+        store.processingMessage = "准备解析资料"
+        transfer.stage = .processing
         await store.processImport()
+        guard !Task.isCancelled else { return }
         if let issue = store.importError { issues.append(issue) }
       }
-      busy = false
       if !issues.isEmpty {
         error = issues.joined(separator: "；")
         if targetCourseID != nil {
@@ -670,9 +804,11 @@ struct CourseUploadView: View {
         return
       }
       if store.draft.name.isEmpty {
-        store.draft.name = files.first?.deletingPathExtension().lastPathComponent ?? "我的课程"
+        store.draft.name = selectedFiles.first?.deletingPathExtension().lastPathComponent ?? "我的课程"
       }
       files = []
+      pendingResourceIDs = []
+      busy = false
       store.persist()
       if targetCourseID != nil {
         store.draft = originalDraft
@@ -681,10 +817,102 @@ struct CourseUploadView: View {
         store.showToast("资料已添加，可以继续学习")
       } else {
         store.draft.step = max(0, store.draft.step)
+        store.processingProgress = 0
+        store.processingMessage = "准备解析资料"
         store.persist()
-        store.go(.courseSetup)
+        store.go(.processing)
       }
     }
+  }
+}
+
+private struct CourseFileTransfer {
+  enum Stage { case preparing, uploading, processing }
+  var filename = ""
+  var fileIndex = 1
+  var fileCount = 1
+  var progress = CloudUploadProgress()
+  var updatedAt = Date.now
+  var stage: Stage = .preparing
+}
+
+private struct CourseFileUploadProgressView: View {
+  let transfer: CourseFileTransfer
+  let processingProgress: Double
+  let processingMessage: String
+  let cancelRequested: Bool
+  let cancel: () -> Void
+
+  private var processing: Bool { transfer.stage == .processing }
+  private var waiting: Bool { transfer.stage == .uploading && transfer.progress.fraction >= 1 }
+  private var title: String {
+    if cancelRequested { return "正在取消…" }
+    if processing { return "正在解析资料" }
+    if transfer.stage == .preparing { return "正在准备文件" }
+    return waiting ? "等待服务器确认" : "文件正在上传"
+  }
+  private var bytesLabel: String {
+    let sent = ByteCountFormatter.string(fromByteCount: transfer.progress.sentBytes, countStyle: .file)
+    let total = ByteCountFormatter.string(fromByteCount: transfer.progress.totalBytes, countStyle: .file)
+    return "已发送 \(sent) / \(total)"
+  }
+
+  var body: some View {
+    VStack(spacing: 0) {
+      BCHeader(processing ? "整理课程资料" : "上传课程资料")
+        .padding(.top, 8).padding(.bottom, 20)
+      ScrollView {
+        VStack(spacing: 24) {
+          Image(systemName: processing ? "doc.text.magnifyingglass" : "icloud.and.arrow.up")
+            .font(.system(size: 42, weight: .medium)).foregroundStyle(DS.primary)
+            .frame(width: 104, height: 104)
+            .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 30))
+            .accessibilityHidden(true)
+          VStack(spacing: 10) {
+            Text(title).font(DS.font(24, weight: .bold))
+              .accessibilityIdentifier("upload.progress.title")
+            if transfer.fileCount > 1 && !processing {
+              Text("第 \(transfer.fileIndex) / \(transfer.fileCount) 份资料")
+                .font(DS.font(14)).foregroundStyle(DS.secondary)
+            }
+            Text(transfer.filename).font(DS.font(16)).foregroundStyle(DS.secondary)
+              .multilineTextAlignment(.center).lineLimit(3)
+          }
+          VStack(spacing: 16) {
+            if transfer.stage == .preparing || waiting {
+              ProgressView().tint(DS.primary).controlSize(.large)
+            } else {
+              Text("\(Int((processing ? processingProgress : transfer.progress.fraction) * 100))%")
+                .font(DS.font(40, weight: .bold)).monospacedDigit().foregroundStyle(DS.primary)
+                .accessibilityIdentifier("upload.progress.percent")
+            }
+            BCProgress(value: processing ? processingProgress : transfer.progress.fraction)
+            if transfer.stage == .uploading {
+              Text(bytesLabel).font(DS.font(14)).monospacedDigit().foregroundStyle(DS.secondary)
+                .accessibilityIdentifier("upload.progress.bytes")
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+              let seconds = Int(context.date.timeIntervalSince(transfer.updatedAt))
+              let slow = transfer.stage == .uploading && seconds >= 15
+              Text(
+                processing ? processingMessage
+                  : slow ? "网络或服务器响应较慢，已 \(seconds) 秒没有新的进展，可取消后重试。"
+                  : waiting ? "文件已发送，收到服务器确认后将自动开始解析。"
+                  : "请保持网络连接，上传完成后将自动开始解析资料。"
+              )
+              .font(DS.font(14)).foregroundStyle(slow ? DS.warning : DS.secondary)
+              .multilineTextAlignment(.center).frame(minHeight: 44)
+            }
+          }.padding(24).background(DS.surface, in: RoundedRectangle(cornerRadius: 20))
+          BCButton(processing ? "取消整理" : "取消上传", style: .secondary, action: cancel)
+            .disabled(cancelRequested).accessibilityIdentifier("upload.cancel")
+        }
+        .frame(maxWidth: 520).padding(.horizontal, 24).padding(.vertical, 24)
+        .frame(maxWidth: .infinity)
+      }.scrollIndicators(.hidden)
+    }
+    .background(DS.background.ignoresSafeArea()).foregroundStyle(DS.text)
+    .accessibilityIdentifier("upload.progress.screen")
   }
 }
 

@@ -146,7 +146,7 @@ struct StudyDirectoryView: View {
   }
 
   private func studyHeader(compact: Bool) -> some View {
-    VStack(alignment: .leading, spacing: store.isPad ? 36 : 14) {
+    VStack(alignment: .leading, spacing: compact ? 8 : store.isPad ? 36 : 14) {
       HStack(spacing: 12) {
         Button {
           store.openSheet(.bookSwitcher)
@@ -159,26 +159,37 @@ struct StudyDirectoryView: View {
               StickerIcon("LibraryBig", size: 36)
             }
             VStack(alignment: .leading, spacing: 3) {
-              Text("当前课程").font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
-              Text(store.currentCourse?.name ?? store.currentTitle).font(DS.font(16, weight: .bold))
-                .lineLimit(1)
+              if !compact {
+                Text("当前课程").font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
+                  .transition(.opacity)
+              }
+              Text(store.currentCourse?.name ?? store.currentTitle)
+                .font(DS.font(compact ? 22 : 16, weight: .bold))
+                .lineLimit(compact ? nil : 1)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("study.course.title")
             }
+            .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
             Image(systemName: "chevron.down").font(DS.font(16, weight: .semibold))
           }
+          .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
         }.buttonStyle(.plain).accessibilityIdentifier("study.course.switch")
-        Spacer(minLength: 4)
-        Button {
-          if store.currentCourse == nil {
-            store.go(.upload)
-          } else {
-            store.openSheet(.addMaterials)
-          }
-        } label: {
-          Label(store.currentCourse == nil ? "创建课程" : "添加资料", systemImage: "plus")
-            .font(DS.font(20, weight: .bold)).foregroundStyle(DS.text)
-            .padding(.horizontal, 12).padding(.vertical, 10).background(DS.surface, in: Capsule())
-            .shadow(color: DS.text.opacity(0.08), radius: 3, y: 2)
-        }.buttonStyle(.plain)
+        if !compact {
+          Spacer(minLength: 4)
+          Button {
+            if store.currentCourse == nil {
+              store.go(.upload)
+            } else {
+              store.openSheet(.addMaterials)
+            }
+          } label: {
+            Label(store.currentCourse == nil ? "创建课程" : "添加资料", systemImage: "plus")
+              .font(DS.font(20, weight: .bold)).foregroundStyle(DS.text)
+              .padding(.horizontal, 12).padding(.vertical, 10).background(DS.surface, in: Capsule())
+              .shadow(color: DS.text.opacity(0.08), radius: 3, y: 2)
+          }.buttonStyle(.plain).transition(.opacity)
+        }
       }
       if directoryOnly {
         Text("演示课程 · 仅展示教材封面、标题和原书目录")

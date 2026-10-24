@@ -276,14 +276,6 @@ struct LearnerProfileView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var compactHeader = false
-  @State private var editing = false
-  @State private var name = ""
-  @State private var goal = ""
-  @State private var dailyTime = ""
-  @State private var learningBarriers: [String] = []
-  @State private var guidanceStyles: [String] = []
-  @State private var planningSupport = ""
-  @State private var savingPreferences = false
   private var tasks: [StudyTask] {
     store.sources.filter { store.currentCourse?.resourceIDs.contains($0.id) == true }.flatMap {
       $0.plan.tasks
@@ -360,17 +352,22 @@ struct LearnerProfileView: View {
               .foregroundStyle(DS.primaryPressed).padding(.horizontal, 9).padding(.vertical, 5)
               .background(Color(hex: 0xF4EFFF), in: Capsule())
           }
-          Button(action: openEditor) {
+          Button {
+            store.go(.preferenceSetup)
+          } label: {
             ZStack(alignment: .bottomTrailing) {
               ProfilePortraitArtwork().frame(height: store.isPad ? 190 : 132).frame(
                 maxWidth: .infinity)
-              Label("编辑偏好", systemImage: "plus").font(DS.font(14, weight: .bold)).padding(
+              Label("重新设置", systemImage: "arrow.counterclockwise").font(
+                DS.font(14, weight: .bold)
+              ).padding(
                 .horizontal, 9
               ).padding(.vertical, 5).background(.white, in: Capsule()).overlay(
                 Capsule().stroke(Color(hex: 0xD8C9F8))
               ).padding(10)
             }
-          }.buttonStyle(.plain).accessibilityLabel("编辑学习偏好")
+          }.buttonStyle(.plain).accessibilityLabel("重新设置学习偏好")
+            .accessibilityIdentifier("profile.resetPreferences")
           VStack(alignment: .leading, spacing: 8) {
             Text("当前课程").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary)
             if store.courses.isEmpty {
@@ -395,7 +392,6 @@ struct LearnerProfileView: View {
 
             }
           }
-          if editing { preferenceEditor }
         }
       }
       BCCard {
@@ -473,125 +469,6 @@ struct LearnerProfileView: View {
         }
       }
     }
-  }
-  private var preferenceEditor: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("称呼").font(DS.font(14, weight: .bold))
-      BCTextField("称呼", text: $name)
-      Text("主要学习目标").font(DS.font(14, weight: .bold))
-      Menu {
-        Button("暂不设置（默认系统学习）") { goal = "" }
-        ForEach(CourseOptions.goals, id: \.0) { value, label, _ in Button(label) { goal = value } }
-      } label: {
-        preferenceLabel(CourseOptions.goals.first { $0.0 == goal }?.1 ?? "暂不设置（默认系统学习）")
-      }.accessibilityLabel("主要学习目标")
-      Text("每日学习时间").font(DS.font(14, weight: .bold))
-      Menu {
-        Button("暂不设置（默认 45 分钟）") { dailyTime = "" }
-        ForEach(CourseOptions.times, id: \.0) { value, label in Button(label) { dailyTime = value }
-        }
-      } label: {
-        preferenceLabel(CourseOptions.times.first { $0.0 == dailyTime }?.1 ?? "暂不设置（默认 45 分钟）")
-      }.accessibilityLabel("每日学习时间")
-      preferenceMultiMenu("学习卡点", options: CourseOptions.barriers, selection: $learningBarriers)
-      preferenceMultiMenu("帮助方式", options: CourseOptions.guidance, selection: $guidanceStyles)
-      Text("计划支持").font(DS.font(14, weight: .bold))
-      Menu {
-        Button("暂不设置") { planningSupport = "" }
-        ForEach(CourseOptions.planning, id: \.0) { value, label, _ in
-          Button(label) { planningSupport = value }
-        }
-      } label: {
-        preferenceLabel(CourseOptions.planningLabel(planningSupport))
-      }.accessibilityLabel("计划支持")
-      HStack {
-        BCButton("取消", style: .secondary) { editing = false }
-        BCButton(savingPreferences ? "正在保存…" : "保存偏好") { savePreferences() }
-      }
-    }.disabled(savingPreferences)
-  }
-  private func preferenceMultiMenu(
-    _ title: String, options: [(String, String, String)], selection: Binding<[String]>
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("\(title) · 最多两项").font(DS.font(14, weight: .bold))
-      Menu {
-        Button("暂不设置") { selection.wrappedValue = [] }
-        ForEach(options, id: \.0) { value, label, _ in
-          Button {
-            if selection.wrappedValue.contains(value) {
-              selection.wrappedValue.removeAll { $0 == value }
-            } else if selection.wrappedValue.count < 2 {
-              selection.wrappedValue.append(value)
-            } else {
-              store.showToast("最多选择两项，可先取消一项")
-            }
-          } label: {
-            if selection.wrappedValue.contains(value) {
-              Label(label, systemImage: "checkmark")
-            } else {
-              Text(label)
-            }
-          }
-        }
-      } label: {
-        preferenceLabel(CourseOptions.selectionLabel(selection.wrappedValue, options: options))
-      }.accessibilityLabel(title)
-    }
-  }
-  private func preferenceLabel(_ title: String) -> some View {
-    HStack {
-      Text(title).font(DS.font(20)).lineLimit(2)
-      Spacer()
-      Image(systemName: "chevron.up.chevron.down").font(.system(size: 12))
-    }.foregroundStyle(DS.text).padding(10).overlay(
-      RoundedRectangle(cornerRadius: 8).stroke(DS.border))
-  }
-  private func openEditor() {
-    name = store.preferences?.displayName ?? ""
-    goal = store.preferences?.primaryGoal ?? ""
-    dailyTime = store.preferences?.dailyTime ?? ""
-    learningBarriers = store.preferences?.learningBarriers ?? []
-    guidanceStyles = store.preferences?.guidanceStyles ?? []
-    planningSupport = store.preferences?.planningSupport ?? ""
-    editing.toggle()
-  }
-  private func savePreferences() {
-    let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !clean.isEmpty else {
-      store.showToast("请填写称呼")
-      return
-    }
-    guard clean.count <= 30 else {
-      store.showToast("称呼最多 30 个字符")
-      return
-    }
-    if store.cloud != nil {
-      guard !savingPreferences else { return }
-      savingPreferences = true
-      Task { @MainActor in
-        defer { savingPreferences = false }
-        do {
-          try await store.saveCloudPreferences(
-            name: clean, goal: goal.isEmpty ? nil : goal,
-            dailyTime: dailyTime.isEmpty ? nil : dailyTime, learningBarriers: learningBarriers,
-            guidanceStyles: guidanceStyles,
-            planningSupport: planningSupport.isEmpty ? nil : planningSupport)
-          editing = false
-          store.showToast("学习偏好已保存")
-        } catch { store.handleCloudError(error) }
-      }
-      return
-    }
-    store.preferences?.displayName = clean
-    store.preferences?.primaryGoal = goal.isEmpty ? nil : goal
-    store.preferences?.dailyTime = dailyTime.isEmpty ? nil : dailyTime
-    store.preferences?.learningBarriers = learningBarriers
-    store.preferences?.guidanceStyles = guidanceStyles
-    store.preferences?.planningSupport = planningSupport.isEmpty ? nil : planningSupport
-    store.persist()
-    editing = false
-    store.showToast("学习偏好已保存")
   }
 }
 

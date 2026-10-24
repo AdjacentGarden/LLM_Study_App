@@ -466,7 +466,7 @@ struct MistakeRecord: Codable, Identifiable, Hashable, Sendable {
   var id: String { mistake_id }
 }
 enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
-  case home, onboarding, courseSetup, courseDetail, upload, parseReady, processing,
+  case home, onboarding, preferenceSetup, courseSetup, courseDetail, upload, parseReady, processing,
     courseImportProcessing, chapterConfirm, courseReady, courseImportReady, library, community,
     communityBook, communityImport, study, plan, flashcards, lesson, assignment, diagnosis,
     mistakes, notes, voiceNote, source, export, profile, settings
@@ -475,6 +475,7 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
     switch self {
     case .home: "首页"
     case .onboarding: "我们怎么称呼你"
+    case .preferenceSetup: "重新设置学习偏好"
     case .courseSetup: "设置课程"
     case .courseDetail: "课程"
     case .upload: "创建课程"
@@ -505,8 +506,10 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
   var showsPrimaryNavigation: Bool { isTab || self == .courseDetail }
   var isTab: Bool { [.home, .study, .community, .profile].contains(self) }
   var hidesHeader: Bool {
-    [.home, .onboarding, .courseSetup, .community, .study, .profile, .lesson, .source, .voiceNote]
-      .contains(self)
+    [
+      .home, .onboarding, .preferenceSetup, .courseSetup, .community, .study, .profile, .lesson,
+      .source, .voiceNote,
+    ].contains(self)
   }
 }
 enum SheetRoute: String, Codable, Identifiable, CaseIterable, Sendable {

@@ -52,7 +52,7 @@ struct AppRootView: View {
       .overlay {
         if !store.isLoading,
           ![
-            Route.onboarding, .courseSetup, .upload, .parseReady, .processing,
+            Route.onboarding, .preferenceSetup, .courseSetup, .upload, .parseReady, .processing,
             .courseImportProcessing, .chapterConfirm, .courseReady, .courseImportReady,
             .communityImport, .voiceNote, .source, .notes, .profile, .settings,
             .communityBook,
@@ -107,7 +107,8 @@ struct AppRootView: View {
         if store.isLoading {
           Image("Splash").resizable().scaledToFit().frame(width: 144, height: 144)
             .clipShape(RoundedRectangle(cornerRadius: 32, style: .circular))
-            .accessibilityHidden(true)
+            .accessibilityLabel("正在加载学习空间")
+            .accessibilityIdentifier("app.loading")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(hex: 0xfefdfa).ignoresSafeArea())
         }
@@ -138,13 +139,6 @@ struct AppRootView: View {
       .overlay(alignment: .top) {
         if store.cloudState.isWorking, store.cloudState.authenticated, !store.cloudState.showDiagnosis {
           ProgressView("正在同步学习资料…").padding(14).background(DS.surface, in: Capsule()).padding(.top, 8)
-        } else if store.cloudState.authenticated, let error = store.cloudState.syncError {
-          Button {
-            Task { await store.retryCloudConnection() }
-          } label: {
-            Label("进度待同步 · 重试", systemImage: "arrow.triangle.2.circlepath")
-              .font(DS.font(13)).padding(12).background(DS.surface, in: Capsule())
-          }.padding(.top, 8).accessibilityLabel("进度待同步：\(error)，轻点重试")
         }
       }
       .onChange(of: pad) { _, value in store.isPad = value }

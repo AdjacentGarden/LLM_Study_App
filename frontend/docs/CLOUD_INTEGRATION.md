@@ -21,6 +21,107 @@
 
 服务端密钥不进入 App。普通账号模式的三个答疑入口均调用自己的 FastAPI 后端；本机 DeepSeek key 只供原有离线/个人调试路径使用。
 
+## Tailscale 远程后端联调
+
+Windows 后端本机健康检查通过后，在 Windows PowerShell 运行
+`tailscale serve --bg http://127.0.0.1:8100`，按照提示启用 HTTPS，并用
+`tailscale serve status` 取得当前设备的完整 `https://设备名.网络名.ts.net` 地址。
+Mac 和测试手机需连接同一 Tailscale 网络。App 的“开发服务地址”填写这个基础地址，
+点击“连接此服务”保存；不附加 `/api` 或原后端端口，正常重启继续使用已保存的地址。
+
+从命令行首次启动指定模拟器时，也可以传入运行环境变量：
+
+```sh
+SIMCTL_CHILD_BOOKCOURSE_API_BASE_URL=https://设备名.网络名.ts.net \
+  ./scripts/run-simulator.sh --device SIMULATOR_UDID
+```
+
+`.ts.net` 服务使用 Tailscale 直连路由，避免系统 HTTP 代理转发私有服务；HTTPS 仍执行
+系统证书校验。这类连接的认证请求超时为 60 秒，以容纳中继连接建立 TCP/TLS 的时间。
+读取请求和使用稳定工作区 ID 的内置课程导入遇到瞬时超时或断连时最多重试一次；
+验证码、答题等其他写入不会在网络层自动重发，证书校验错误也不会触发重试。
+普通服务维持原来的代理配置和认证超时。远程连接仍使用后端账号认证；后端明确开启
+`AUTH_DEMO_MODE=1` 时，内置 `.test` 演示账号在界面显示测试验证码，无需真实邮箱或 SMTP。
+
+选择资料后，点击保存会进入独立上传界面，显示当前文件、文件序号、实际发送字节和百分比。
+百分比来自 `URLSessionUploadTask` 的发送回调；达到 100% 后仍显示“等待服务器确认”，
+只有收到上传接口成功响应才进入解析界面。资料以临时 multipart 文件发送，避免在内存中
+额外拼装整个 PDF。连接超时为 60 秒；传输回调连续 90 秒没有进展时中断并提示重试，
+整个请求仍受 900 秒资源时限约束。可以取消上传，保留原文件；多文件中已确认成功的文件
+从待上传列表移除，失败后不会随着剩余文件自动重传。上传写入不会在网络层自动重试。
+
+2026-10-22 的本机排查发现：`netcheck` 为 `UDP: true`、`MappingVariesByDestIP: true`、
+没有可用端口映射及公网 IPv6；到 Windows 后端的探测持续使用 `DERP(sfo)`，未建立直连。
+这是本机处于 hard NAT、连接依赖中继的证据；还需 Windows 端 `tailscale netcheck` 和
+`tailscale serve status` 区分对端 NAT、防火墙及服务配置。原 28.2 MB 上传在约 550 秒后
+以 `NSURLErrorDomain -1001` 结束，仅发送约 5 MB 请求数据且未收到响应；连接存在大量重传。
+当时 HTTP/1.1、HTTP/2 的小型健康请求均能返回 200，不能据此判定 HTTP/2 实现有问题或
+大文件传输已恢复。App 已对 `.ts.net` 禁用系统代理，路由检查确认流量走 Tailscale 网卡。
+在取得两端网络信息前，不调整系统代理、TLS 校验、防火墙或 tailnet 访问控制。
+
+同日进一步检查本机 Clash：系统 HTTP/HTTPS/SOCKS 代理为 `127.0.0.1:7897`，
+Clash 使用 global 模式，但运行时 API 确认 `tun.enable=false`；`100.64.0.0/10`
+路由由 Tailscale 的 `utun4` 接管。相同健康接口绕过代理约 1.49 秒返回 200，
+强制经过 Clash 则约 5 秒后 TLS 连接超时。App 原上传连接的 CFNetwork 日志明确为
+`no proxy`，因此当前证据不支持将该上传失败归因于 App 被 Clash 接管；这一对照
+同时说明其他依赖系统代理的请求可能受影响。没有为此关闭代理或修改用户代理规则。
+
+### 2026-10-23 实际上传排查
+
+使用模拟器当前账号及已选择的 28,238,825 字节教材 PDF，凭证只经 curl 标准输入传递，
+诊断文件不包含 Cookie。所有请求都绕过系统代理，保持 HTTPS 证书校验。
+
+| 对照 | 结果 |
+| --- | --- |
+| 原教材，`curl --http2` | 发送 458,454 字节后停滞，约 48.43 秒触发本次设置的低速中止条件；未收到最终 HTTP 响应 |
+| 原教材，首次 HTTP/1.1 | 10 秒内未建立 TCP 连接，未发送文件数据 |
+| 原教材，本机临时偏好与后端相同的 SFO 中继、HTTP/1.1、128 KiB/s 限速 | 收到 `100 Continue` 后继续间歇停顿；本次 300 秒诊断上限内发送 4,587,520 字节，平均 15,291 B/s，未收到最终成功响应 |
+| 884 字节有效 PDF，通过相同上传接口和账号 | 2.37 秒返回 HTTP 200，状态 `uploaded`；multipart 总发送量 1,101 字节 |
+
+大文件期间一次独立健康请求在 TLS 建连阶段超时，之后重试可成功。系统连接表显示
+Tailscale 的 DERP TCP 连接由物理网卡直接发往中继公网 IP，没有经过本机 Clash。
+一次采样中，上传连接累计发送量约 5.02 MB、重传字节约 1.61 MB；外层 Mac→SFO
+连接的累计重传占比明显较低，但两条累计连接的统计时段不同，不能据此精确计算某一段
+链路的丢包率。HTTP/1.1 也出现停顿，因此不能将原因仅归于 HTTP/2。
+
+当前证据确认账号和上传接口可接受完整小文件，大文件问题仍在持续传输或接收路径中；
+还需要 Windows 端的 `tailscale netcheck`、`tailscale serve status` 及接收时进程/网络状态，
+区分 DERP→Windows、Windows Tailscale/网卡和后端接收路径。临时中继偏好在诊断结束时
+通过 `tailscale debug force-prefer-derp 0` 清除，恢复自动选择，没有修改防火墙或代理配置。
+原教材没有成功上传，也没有开始 OCR；上述诊断没有运行测试套件。
+
+### 2026-10-23 更换中转机后的上传结果
+
+已按确认的连接顺序，经 Windows 中转机 `100.86.143.88` 的现有 `gpu186` SSH 配置，
+进入 GPU 服务器 `10.249.186.201`。GPU 服务器的 `8100` 当前没有监听；运行中的后端
+在 `18126`，进程的数据目录为 `benchmarks/single-user-validation-20261022/data`。
+Windows 中转机自己的 `127.0.0.1:8100` 是另一个 Python 服务，不能与 GPU 后端混用。
+
+当前诊断隧道仅监听本机回环地址，链路为：Mac `127.0.0.1:18100` → Windows
+`127.0.0.1:18100` → GPU `127.0.0.1:18126`。两段 SSH 均使用已有认证；没有在代码、
+脚本或诊断 JSON 中保存 SSH 密码。
+
+同一份 28,238,825 字节的教材已通过隧道调用 GPU 后端 `POST /api/books`，
+125.587 秒返回 HTTP 200，平均约 225 KB/s，教材 ID 为
+`book_d4c8530ddf4044ada0b32a9be055c8be`，状态 `uploaded`、等待文档重建。
+服务端落盘文件大小与本地一致，SHA-256 均为
+`07f041dfa17acae8212a9087d5aea796ada40110a99242d426b79bdf2aadb4b0`。
+此前还通过同一 SSH 路径向 GPU `/tmp` 完整传输了该 PDF 并校验一致。
+
+这确认新路径可以完整传输原教材，但不代表旧 Tailscale Serve 路径的故障已经修复。
+此次使用旧版游客上传接口验证传输，没有绑定 SwiftUI 登录账号，也没有启动 OCR。
+`18126` 的 OpenAPI 中原生接口数量为 0，缺少 `/api/native/uploads`、
+`/api/native/bootstrap`、`/api/workspaces` 和 `/api/native/local-login`。
+因此当前 SwiftUI 不能直接切换到这个旧版后端；模拟器的一次临时连接返回
+`Method Not Allowed`，尚未持久化为新的服务地址。下一步需要对齐原生后端接口版本，
+而不是继续调整上传图标、代理或 HTTP/2 参数。没有为此更新或重启 GPU 后端。
+
+真实服务的可选 XCTest 使用 `BOOKCOURSE_REMOTE_API_BASE_URL` 指定地址，覆盖健康检查、
+认证边界以及 UI 切换地址后的重启恢复。演示账号课程流程还需显式设置
+`BOOKCOURSE_REMOTE_DEMO_EMAIL` 为后端提供的 `@zhiwo.test` 账号；该测试会在演示账号中
+注册或登录、保存学习偏好、导入内置课程并验证重启恢复。没有提供这些测试变量时，
+相关用例跳过，普通回归不会访问远程服务或创建演示课程。
+
 ## 已接入流程
 
 本地默认账号自动进入（也保留可切回的邮箱登录/注册）→ 选择 PDF → 上传并绑定身份 → 服务端 OCR → 生成目录与检索索引 → 原生六步课程设置 → 确认个人目录 → 服务端真实诊断与画像确认 → 生成首章课程 → 原有成功动画 → 学习。
@@ -102,6 +203,21 @@ NATIVE_E2E_LOCAL_LOGIN=1 ./scripts/test-cloud.sh --device SIMULATOR_UDID \
 ## 实现入口
 
 `Core/CloudAPI.swift`：HTTP、凭证和服务端契约；`Core/CloudMapping.swift`：教学数据适配；`Core/CloudStore.swift`：账号、导入、诊断、课程、答疑与同步；`Core/CloudState.swift`：运行状态与账号缓存；`Features/Courses/CloudAccountView.swift`：登录和诊断补充界面。
+
+## 章节插图的真实视频生成
+
+账号模式下，插图原有的「看懂这张图」（部分插图为「看懂减数分裂」）打开真实视频任务页，不增加图解或短片入口。`LearningMediaContext` 从当前课时、阅读区块、图示说明和原书页码构造请求；客户端不上传示例 MP4 作为生成结果，也不宣称必定以当前插图像素为首帧。后端根据教材证据生成，并可按自己的规则复用同选段已审核的图像。
+
+- 打开时读取 `/api/studio/capabilities` 和当前书的 `/api/studio/jobs`，恢复相同选段的已有任务，并提供同书历史结果。
+- 只有点击「确认生成视频」才 POST `/api/studio/media`，携带 `kind=video`、`consent=true` 及稳定 `request_id`。请求失败后的手动重试沿用该编号；已接收或结果待确认的任务不再次提交。明确失败后，用户可主动重新生成。
+- 每 3 秒查询 `/api/studio/jobs/{id}`；关闭窗口或 App 进入后台时停止本地轮询，服务器任务继续执行，重新打开可恢复。
+- 完成后通过 `CloudAPI` 的账号凭证下载 `/api/studio/jobs/{id}/asset`，校验媒体格式，在应用私有临时文件中交给 AVPlayer。关闭或切换结果时清理文件；不把会话 Cookie 或模型密钥传给播放器。
+- 展示后端提供的预计服务费用与实际错误，不沿用离线 Demo 的本地 10 积分扣款。服务能力开关为 true 只说明服务端报告已配置，并不保证单次任务生成成功。
+- `--fixture` 保留原有隔离的离线播放回归；普通登录模式始终走远程任务接口。
+
+`Core/CloudMedia.swift` 管理契约、任务恢复、轮询及受保护媒体下载；`Features/Learning/LearningMediaSheet.swift` 展示确认、状态、错误、历史和播放器。`CloudMediaTests` 覆盖恢复、请求幂等、鉴权、错误、取消和真实 MP4 播放；媒体成功路径使用明确的测试视频，不代表供应商实网生成成功。
+
+只读实网 UI 验收可设置测试运行器环境变量 `BOOKCOURSE_REMOTE_API_BASE_URL`、`BOOKCOURSE_REMOTE_MEDIA_ASSET` 和 `BOOKCOURSE_REMOTE_MEDIA_STATUS`，运行 `RemoteMediaUITests`。需已有登录账号、课程、对应阅读位置和一次已经提交的任务；该用例不会点击生成或产生额外供应商调用。
 
 ## 本次验证记录（2026-10-22）
 

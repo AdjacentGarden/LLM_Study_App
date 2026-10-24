@@ -11,6 +11,7 @@ struct CoursesRouterView: View {
       switch route {
       case .home: CourseHomeView()
       case .onboarding: LearnerOnboardingView()
+      case .preferenceSetup: LearnerOnboardingView(resettingPreferences: true)
       case .courseSetup: CourseSetupView()
       case .courseDetail: CourseDetailView()
       case .upload: CourseUploadView()

@@ -9,6 +9,66 @@ struct CloudError: LocalizedError {
   var errorDescription: String? { message }
 }
 
+struct CloudUploadProgress: Sendable {
+  var sentBytes: Int64 = 0
+  var totalBytes: Int64 = 0
+  var fraction: Double {
+    totalBytes > 0 ? min(1, max(0, Double(sentBytes) / Double(totalBytes))) : 0
+  }
+}
+
+/// URLSession reports bytes sent, not server acceptance. Completion still requires a response.
+private final class CloudUploadObserver: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+  private let lock = NSLock()
+  private var lastActivity = ContinuousClock.now
+  private var lastSent: Int64 = 0
+  private weak var task: URLSessionTask?
+  private var stalled = false
+  private let headerBytes: Int64
+  private let fileBytes: Int64
+  private let onProgress: @MainActor @Sendable (CloudUploadProgress) -> Void
+
+  init(
+    headerBytes: Int64, fileBytes: Int64,
+    onProgress: @escaping @MainActor @Sendable (CloudUploadProgress) -> Void
+  ) {
+    self.headerBytes = headerBytes
+    self.fileBytes = fileBytes
+    self.onProgress = onProgress
+  }
+
+  func urlSession(
+    _ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64,
+    totalBytesSent: Int64, totalBytesExpectedToSend: Int64
+  ) {
+    lock.lock()
+    self.task = task
+    if totalBytesSent > lastSent {
+      lastSent = totalBytesSent
+      lastActivity = .now
+    }
+    lock.unlock()
+    let progress = CloudUploadProgress(
+      sentBytes: min(fileBytes, max(0, totalBytesSent - headerBytes)), totalBytes: fileBytes)
+    Task { @MainActor in onProgress(progress) }
+  }
+
+  func cancelIfStalled() {
+    lock.lock()
+    let overdue = ContinuousClock.now - lastActivity >= .seconds(90)
+    let pending = overdue ? task : nil
+    if pending != nil { stalled = true }
+    lock.unlock()
+    pending?.cancel()
+  }
+
+  var didStall: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return stalled
+  }
+}
+
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
   nonisolated let baseURL: URL
@@ -38,6 +98,11 @@ actor CloudAPI {
       config.httpShouldSetCookies = false
       config.timeoutIntervalForRequest = 180
       config.timeoutIntervalForResource = 900
+      // Tailnet services must use the device's Tailscale route. A system HTTP
+      // proxy may be unable to resolve or reach these private destinations.
+      if normalized.host?.lowercased().hasSuffix(".ts.net") == true {
+        config.connectionProxyDictionary = [:]
+      }
       self.session = URLSession(configuration: config)
     }
   }
@@ -116,19 +181,51 @@ actor CloudAPI {
     }
   }
 
-  func uploadPDF(_ url: URL, filename: String = "textbook.pdf") async throws -> CloudUpload {
+  func uploadPDF(
+    _ url: URL, filename: String = "textbook.pdf",
+    onProgress: @escaping @MainActor @Sendable (CloudUploadProgress) -> Void = { _ in }
+  ) async throws -> CloudUpload {
     let boundary = "CloudPath-" + UUID().uuidString
     let safeName = filename.replacingOccurrences(of: "\"", with: "").replacingOccurrences(
       of: "\r", with: ""
     ).replacingOccurrences(of: "\n", with: "")
-    var data = Data(
+    let header = Data(
       "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(safeName)\"\r\nContent-Type: application/pdf\r\n\r\n"
         .utf8)
-    data.append(try Data(contentsOf: url))
-    data.append(Data("\r\n--\(boundary)--\r\n".utf8))
+    let bodyURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("cloudpath-upload-\(UUID().uuidString).multipart")
+    defer { try? FileManager.default.removeItem(at: bodyURL) }
+    guard FileManager.default.createFile(atPath: bodyURL.path, contents: nil) else {
+      throw CloudError(status: 0, message: "无法准备上传文件，请检查本机剩余空间。")
+    }
+    let reader = try FileHandle(forReadingFrom: url)
+    defer { try? reader.close() }
+    let writer = try FileHandle(forWritingTo: bodyURL)
+    defer { try? writer.close() }
+    try writer.write(contentsOf: header)
+    var fileBytes: Int64 = 0
+    while let chunk = try reader.read(upToCount: 1024 * 1024), !chunk.isEmpty {
+      try Task.checkCancellation()
+      try writer.write(contentsOf: chunk)
+      fileBytes += Int64(chunk.count)
+    }
+    try writer.write(contentsOf: Data("\r\n--\(boundary)--\r\n".utf8))
+    try writer.close()
+    try Task.checkCancellation()
+    await onProgress(CloudUploadProgress(totalBytes: fileBytes))
+    let observer = CloudUploadObserver(
+      headerBytes: Int64(header.count), fileBytes: fileBytes, onProgress: onProgress)
+    let watchdog = Task {
+      while !Task.isCancelled {
+        do { try await Task.sleep(for: .seconds(5)) } catch { return }
+        observer.cancelIfStalled()
+      }
+    }
+    defer { watchdog.cancel() }
     let (bytes, _) = try await send(
-      "/api/native/uploads", method: "POST", data: data,
-      contentType: "multipart/form-data; boundary=\(boundary)")
+      "/api/native/uploads", method: "POST", data: nil,
+      contentType: "multipart/form-data; boundary=\(boundary)",
+      uploadFile: bodyURL, uploadObserver: observer)
     return try JSONDecoder().decode(CloudUpload.self, from: bytes)
   }
 
@@ -151,7 +248,14 @@ actor CloudAPI {
     }
   }
 
-  private func send(_ path: String, method: String, data: Data?, contentType: String?) async throws
+  func sendMediaAsset(_ path: String) async throws -> (Data, HTTPURLResponse) {
+    try await send(path, method: "GET", data: nil, contentType: nil)
+  }
+
+  private func send(
+    _ path: String, method: String, data: Data?, contentType: String?,
+    uploadFile: URL? = nil, uploadObserver: CloudUploadObserver? = nil
+  ) async throws
     -> (Data, HTTPURLResponse)
   {
     guard path.hasPrefix("/api/"), let url = URL(string: path, relativeTo: baseURL) else {
@@ -159,8 +263,12 @@ actor CloudAPI {
     }
     var request = URLRequest(url: url)
     request.httpMethod = method
-    if path.hasPrefix("/api/auth/") || path == "/api/native/local-login" {
-      request.timeoutInterval = 20
+    if uploadFile != nil {
+      request.timeoutInterval = 60
+    } else if path.hasPrefix("/api/auth/") || path == "/api/native/local-login" {
+      // A relayed tailnet connection can spend most of the normal auth budget
+      // establishing TCP and TLS before the server receives the request.
+      request.timeoutInterval = baseURL.host?.lowercased().hasSuffix(".ts.net") == true ? 60 : 20
     } else if path.hasSuffix("/qa") {
       request.timeoutInterval = 60
     }
@@ -172,7 +280,26 @@ actor CloudAPI {
         forHTTPHeaderField: "Cookie")
     }
     let (bytes, raw): (Data, URLResponse)
-    do { (bytes, raw) = try await session.data(for: request) } catch is CancellationError {
+    // Catalog imports reuse a caller-supplied workspace ID, so a transport retry
+    // cannot create a second course. Other writes must never be replayed here.
+    let canRetry = baseURL.host?.lowercased().hasSuffix(".ts.net") == true
+      && (method == "GET" || (method == "POST" && path.hasPrefix("/api/native/catalog/") && path.hasSuffix("/import")))
+    do {
+      if let uploadFile {
+        (bytes, raw) = try await session.upload(
+          for: request, fromFile: uploadFile, delegate: uploadObserver)
+      } else {
+        (bytes, raw) = try await load(request, canRetry: canRetry)
+      }
+    } catch where uploadObserver?.didStall == true {
+      throw CloudError(
+        status: 0, message: "上传中断：网络或服务器连续 90 秒没有新的进展，请检查连接后重试。",
+        transportFailure: true)
+    } catch let error as URLError where uploadFile != nil && error.code == .timedOut {
+      throw CloudError(
+        status: 0, message: "文件上传超时，请检查网络后重试。原文件仍保留在本机。",
+        transportFailure: true)
+    } catch is CancellationError {
       throw CancellationError()
     } catch let error as URLError where error.code == .cancelled { throw CancellationError() } catch
     { throw CloudError(status: 0, message: "无法连接学习服务，请检查服务地址和网络；已保存的进度仍然保留。", transportFailure: true) }
@@ -199,6 +326,15 @@ actor CloudAPI {
       throw CloudError(status: response.statusCode, message: message)
     }
     return (bytes, response)
+  }
+
+  private func load(_ request: URLRequest, canRetry: Bool) async throws -> (Data, URLResponse) {
+    do { return try await session.data(for: request) }
+    catch let error as URLError where canRetry
+      && [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(error.code) {
+      try Task.checkCancellation()
+      return try await session.data(for: request)
+    }
   }
 
   private nonisolated static func readCredential(_ key: String) -> Data? {

@@ -132,21 +132,6 @@ extension AppStore {
     persistCloud()
   }
 
-  func retryCloudConnection() async {
-    startCloudSync()
-    while let task = cloudState.syncTask { await task.value }
-    guard cloudState.authenticated else { return }
-    do {
-      try await reloadCloud()
-      if let workspace = selectedCourseID { selectCourse(workspace) }
-      await reloadCloudLearningRecords()
-      persistCloud()
-    } catch {
-      handleCloudError(error)
-      cloudState.syncError = error.localizedDescription
-    }
-  }
-
   func logoutCloud() async {
     guard let cloud, !cloudState.isWorking else { return }
     cloudState.isWorking = true
@@ -210,7 +195,10 @@ extension AppStore {
     persistCloud()
   }
 
-  func importCloudPDF(_ url: URL) async {
+  func importCloudPDF(
+    _ url: URL,
+    onProgress: @escaping @MainActor @Sendable (CloudUploadProgress) -> Void = { _ in }
+  ) async {
     guard let cloud, cloudState.authenticated else { return }
     let epoch = cloudState.epoch
     importError = nil
@@ -219,8 +207,11 @@ extension AppStore {
         throw CloudError(status: 415, message: "云端课程目前支持 PDF，请选择 PDF 文件。")
       }
       let staged = try await LocalFileImporter.stage(url: url, repository: repository)
+      try Task.checkCancellation()
       let uploaded = try await cloud.uploadPDF(
-        repository.attachmentURL(staged.relativePath), filename: url.lastPathComponent)
+        repository.attachmentURL(staged.relativePath), filename: url.lastPathComponent,
+        onProgress: onProgress)
+      try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
       var source = staged.source
       source.summary.book_id = uploaded.book_id
@@ -229,12 +220,16 @@ extension AppStore {
       sources.append(source)
       filePaths[uploaded.book_id] = staged.relativePath
       draft.resourceIDs.append(uploaded.book_id)
+      draft.parseCompleted = false
       if draft.name.isEmpty { draft.name = staged.source.summary.title }
       selectedBookID = uploaded.book_id
       importedFileURL = repository.attachmentURL(staged.relativePath)
       persistCloud()
       await persistTask?.value
+    } catch is CancellationError {
+      return
     } catch {
+      guard !Task.isCancelled else { return }
       importError = error.localizedDescription
       handleCloudError(error)
     }
@@ -295,7 +290,7 @@ extension AppStore {
         if let i = sources.firstIndex(where: { $0.id == bookID }) { sources[i] = source }
         processingProgress = Double(index + 1) / Double(max(1, ids.count))
       } catch {
-        guard epoch == cloudState.epoch else { return }
+        guard epoch == cloudState.epoch, !Task.isCancelled else { return }
         importJob?.status = .failed
         importError = error.localizedDescription
         processingMessage = "整理中断，原文件已保留"

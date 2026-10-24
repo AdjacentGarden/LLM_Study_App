@@ -213,6 +213,7 @@ struct LessonReaderView: View {
   @State private var videoError: String?
   @State private var videoReservation: String?
   @State private var videoReserving = false
+  @State private var mediaContext: LearningMediaContext?
   @State private var concept: String?
 
   private var lesson: Lesson? {
@@ -341,6 +342,12 @@ struct LessonReaderView: View {
     .overlay {
       if let pendingVideo { videoConfirmation(pendingVideo) }
     }
+    .sheet(item: $mediaContext) { context in
+      if let api = store.cloud {
+        LearningMediaSheet(api: api, context: context)
+      }
+    }
+    .onChange(of: store.cloudState.epoch) { _, _ in mediaContext = nil }
     .overlay {
       if let concept { conceptPanel(concept) }
     }
@@ -523,8 +530,16 @@ struct LessonReaderView: View {
           .font(DS.font(20)).foregroundStyle(DS.secondary)
           Spacer(minLength: 0)
           Button {
-            videoError = nil
-            pendingVideo = asset
+            if store.cloud != nil, store.cloudState.authenticated,
+              let lesson, lesson.book_id == store.selectedBookID {
+              mediaContext = LearningMediaContext(
+                lesson: lesson, section: activeSection?.block, asset: asset, kind: .video)
+            } else if store.cloud == nil {
+              videoError = nil
+              pendingVideo = asset
+            } else {
+              store.showToast("请先登录学习服务，再生成讲解视频")
+            }
           } label: {
             HStack(spacing: 5) {
               Image(systemName: "play.circle").font(.system(size: 14))

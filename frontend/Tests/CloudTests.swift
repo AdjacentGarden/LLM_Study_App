@@ -4,6 +4,31 @@ import XCTest
 @testable import BookCourse
 
 final class CloudTests: XCTestCase {
+  func testConfiguredRemoteBackendTransportAndAuthentication() async throws {
+    guard let value = ProcessInfo.processInfo.environment["BOOKCOURSE_REMOTE_API_BASE_URL"] else {
+      throw XCTSkip("Set BOOKCOURSE_REMOTE_API_BASE_URL to test a real HTTPS backend")
+    }
+    let base = try XCTUnwrap(CloudAPI.validatedURL(value))
+    XCTAssertEqual(base.scheme, "https")
+    let api = CloudAPI(baseURL: base)
+    struct Health: Decodable {
+      let ok: Bool
+      let service: String
+    }
+    let health: Health = try await api.request("/api/health")
+    XCTAssertTrue(health.ok)
+    XCTAssertEqual(health.service, "adaptive-book-learning")
+    let account: CloudAccountState = try await api.request("/api/auth/me")
+    if account.account == nil {
+      do {
+        let _: [String: JSONValue] = try await api.request("/api/native/bootstrap")
+        XCTFail("An unauthenticated client must not receive protected learning data")
+      } catch let error as CloudError {
+        XCTAssertEqual(error.status, 401)
+      }
+    }
+  }
+
   func testMasteryConflictRebasePreservesRemoteAddsAndExplicitLocalRemovals() throws {
     var pending = CloudPendingProgress(
       workspaceID: "w", resourceID: "r",
@@ -464,6 +489,50 @@ private final class OfflineCloudProtocol: URLProtocol, @unchecked Sendable {
 }
 
 extension CloudTests {
+  func testTailnetTransportRecoveryOnlyReplaysSafeRequestsAndPreservesImportIdentity() async throws {
+    let cases: [(String, String, String, URLError.Code, Int)] = [
+      (".ts.net", "GET", "/api/auth/me", .networkConnectionLost, 2),
+      (".ts.net", "POST", "/api/native/catalog/community_genetics/import", .networkConnectionLost, 2),
+      (".ts.net", "POST", "/api/auth/code", .networkConnectionLost, 1),
+      (".ts.net", "POST", "/api/workspaces/w/resources/r/session", .networkConnectionLost, 1),
+      (".ts.net", "GET", "/api/health", .serverCertificateUntrusted, 1),
+      (".example", "GET", "/api/health", .networkConnectionLost, 1),
+    ]
+    for (suffix, method, path, failure, expectedCalls) in cases {
+      var requests: [URLRequest] = []
+      OfflineCloudProtocol.respond { request in
+        requests.append(request)
+        if requests.count == 1 { throw URLError(failure) }
+        return (200, Data("{\"ok\":true}".utf8))
+      }
+      let api = CloudAPI(
+        baseURL: URL(string: "https://transport-\(UUID().uuidString)\(suffix)")!,
+        session: isolatedCloudSession())
+      do {
+        let result: CloudOK = try await api.request(path, method: method,
+          body: method == "POST" ? ["id": .string("stable-workspace")] : nil)
+        XCTAssertEqual(expectedCalls, 2, "\(method) \(path) must not be replayed")
+        XCTAssertTrue(result.ok)
+      } catch let error as CloudError {
+        XCTAssertEqual(expectedCalls, 1, "A safe request should recover after a transient failure")
+        XCTAssertTrue(error.transportFailure)
+      }
+      XCTAssertEqual(requests.count, expectedCalls)
+      if requests.count == 2 {
+        XCTAssertEqual(requests[0].url, requests[1].url)
+        XCTAssertEqual(requests[0].httpBody, requests[1].httpBody)
+      }
+    }
+    var calls = 0
+    OfflineCloudProtocol.respond { _ in calls += 1; throw URLError(.timedOut) }
+    let api = CloudAPI(baseURL: URL(string: "https://bounded-\(UUID().uuidString).ts.net")!, session: isolatedCloudSession())
+    do {
+      let _: CloudOK = try await api.request("/api/health")
+      XCTFail("A persistent failure must remain visible")
+    } catch let error as CloudError { XCTAssertTrue(error.transportFailure) }
+    XCTAssertEqual(calls, 2, "Transport recovery is limited to one retry")
+  }
+
   private func isolatedCloudSession() -> URLSession {
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [OfflineCloudProtocol.self]
