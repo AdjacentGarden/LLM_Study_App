@@ -92,6 +92,18 @@ enum CloudMapping {
               title: point.title, content: point.explanation, citations: citations,
               source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
         }
+        // This public contract supplies review questions as text only. Keep
+        // their question role; do not invent answers, citations or grading IDs.
+        var reviewQuestions = Set<String>()
+        for (index, question) in bundle.checkpoint_questions.enumerated() {
+          let identity = question.trimmingCharacters(in: .whitespacesAndNewlines)
+          guard !identity.isEmpty, reviewQuestions.insert(identity).inserted else { continue }
+          blocks.append(
+            LessonBlock(
+              block_id: lessonID + ":review-question:\(index)", block_type: "review_question",
+              title: "本章回顾问题 \(reviewQuestions.count)（自测）", content: question,
+              citations: [], source_chunk_ids: [], asset_ids: [], ai_generated: true))
+        }
         cards += bundle.flashcards.map { card in
           Flashcard(
             card_id: card.card_id, book_id: bookID, lesson_id: lessonID,

@@ -99,6 +99,43 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     return ids
   }
 
+  func testPublishedReviewQuestionsRemainReadableTextWithoutInventedGradingIdentity() throws {
+    let questions = [
+      "有人认为有条件的结论可以省略前提。应如何判断这一说法？",
+      "温度改变后，如何核对原来的测量判断能否使用？",
+      "比较不同条件下的结果时，应先检查哪些适用前提？",
+    ]
+    var response = try JSONSerialization.jsonObject(with: job("succeeded", course: true)) as! [String: Any]
+    var course = response["course"] as! [String: Any]
+    course["checkpoint_questions"] = questions + ["", " \n" + questions[1] + "  ", questions[0]]
+    response["course"] = course
+    let dto = try JSONDecoder().decode(CloudCourseJob.self,
+      from: JSONSerialization.data(withJSONObject: response))
+    let published = try XCTUnwrap(dto.course)
+    XCTAssertEqual(published.checkpoint_questions.prefix(3), questions[...])
+    let resource = CloudResource(id: "resource", book_id: "book", workspace_id: "workspace",
+      revision: 0, filename: "教材.pdf", status: "structured",
+      structure: CloudStructure(title: "教材", summary: "章节原文", source_page_count: 3,
+        chapters: [CloudChapter(chapter_id: "chapter", order: 1, title: "真实章节", start_page: 1,
+          end_page: 3, summary: "原文摘要", knowledge_points: ["概念"], source_block_ids: [])]),
+      courses: [published], progress: CloudProgress())
+    let source = CloudMapping.source(resource)
+    let blocks = try XCTUnwrap(source.lessons.first).blocks.filter { $0.block_type == "review_question" }
+    XCTAssertEqual(blocks.map(\.content), questions, "Keep quoted/question roles verbatim, including a claim to evaluate")
+    XCTAssertEqual(blocks.map(\.title), ["本章回顾问题 1（自测）", "本章回顾问题 2（自测）", "本章回顾问题 3（自测）"])
+    XCTAssertEqual(Set(blocks.map(\.id)).count, 3)
+    XCTAssertTrue(blocks.allSatisfy { $0.citations.isEmpty && $0.source_chunk_ids.isEmpty && $0.asset_ids.isEmpty })
+    XCTAssertEqual(source.quizzes.map(\.id), ["practice"], "Only server-identified practice remains submit-capable")
+    XCTAssertEqual(source.quizzes.first?.lesson_id, published.course_id)
+    XCTAssertEqual(source.quizzes.first?.question_type, "short-answer")
+    XCTAssertEqual(source.quizzes.first?.answer, "")
+    XCTAssertEqual(source.quizzes.first?.explanation, "")
+    let restored = try JSONDecoder().decode(CloudResource.self, from: JSONEncoder().encode(resource))
+    XCTAssertEqual(CloudMapping.source(restored).lessons.first?.blocks.filter {
+      $0.block_type == "review_question"
+    }.map(\.id), blocks.map(\.id), "Cache reload must not add another copy or change identity")
+  }
+
   func testIntentIsCommittedBeforePOSTAndCompletionUsesOnlyGET() async throws {
     let requests = CourseRequests()
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
