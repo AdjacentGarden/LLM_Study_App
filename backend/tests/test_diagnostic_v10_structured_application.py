@@ -1,4 +1,4 @@
-"""Production v10 boundary, using scripted clients rather than model-quality claims.
+"""Historical v10 structured boundary, using scripted clients rather than model-quality claims.
 
 The two F examples are actual published v9 inputs. No test imports approval from
 an audit. Controlled verdicts exercise mandatory independent vetoes and exact
@@ -10,7 +10,8 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from diagnostic_test_inputs import controlled_application
+from diagnostic_test_inputs import ArchivedV10StructuredGenerator
+from diagnostic_test_inputs import controlled_application_v10 as controlled_application
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v8_quality_patterns import case_input
 
@@ -70,7 +71,7 @@ class Reviewer:
 
 
 def subject(writer, reviewer, retries=0, **kwargs):
-    return generation.DiagnosticItemGenerator(writer, review_client=reviewer,
+    return ArchivedV10StructuredGenerator(writer, review_client=reviewer,
         allow_grounded_answer_rewrite=True, validation_retries=retries, **kwargs)
 
 
@@ -291,12 +292,12 @@ def test_full_task_and_immutable_source_directory_bind_the_approval_hash():
     point = item.knowledge_point_ids[0]
     changed_source['application_source_refs'][point][0]['evidence']['quote'] += ' changed source condition'
     assert instance._approval_key(changed_source, item, candidate['application_task']) != original
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v10+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v11+')
 
 
 def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_task_mapping():
     writer, reviewer = Writer(), Reviewer()
-    instance = generation.DiagnosticItemGenerator(writer, review_client=reviewer, validation_retries=0)
+    instance = ArchivedV10StructuredGenerator(writer, review_client=reviewer, validation_retries=0)
     bank = instance.generate(source_book())
     assert bank[0].expected_answer == source_book().chapters[0].knowledge_points[0]
     assert bank[1].expected_answer == source_book().chapters[0].knowledge_points[1]
@@ -305,7 +306,7 @@ def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_ta
     for rewrite in (True, False):
         system = generation._item_system(rewrite)
         assert '以下输出字段规则仅适用于非source_application项' in system
-        assert '应用项的正确文字由task的mapping对应程序配对选项，永远不复制label作答案' in system
+        assert '应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案' in system
         assert ('correct_index 指向的选项文字必须与输入的 label 逐字相同' in system) is not rewrite
 
 
@@ -357,13 +358,13 @@ def test_actual_grounded_prompt_retains_design_guidance_and_separates_task_answe
     assert '设计顺序：先按cognitive_target确定最小任务' in system
     assert 'label 仅用于标识待测知识点，不能当作事实依据' in system
     assert '正确选项必须与 expected_answer 逐字相同' in system
-    assert '应用项的正确文字由task的mapping对应程序配对选项' in system
+    assert '应用项的正确文字由task的mapping派生配对选项' in system
     assert '非应用项继续使用原有prompt/options/expected_answer格式' in system
 
 
 def test_application_requires_an_independent_judge_even_in_unverified_legacy_mode():
     writer = Writer()
-    instance = generation.DiagnosticItemGenerator(writer, verify_items=False,
+    instance = ArchivedV10StructuredGenerator(writer, verify_items=False,
         allow_grounded_answer_rewrite=False, validation_retries=2)
     with pytest.raises(generation.DiagnosticGenerationError, match='require independent semantic review'):
         instance.generate(source_book())
@@ -378,9 +379,9 @@ def test_legacy_repair_payload_distinguishes_task_mapping_from_non_application_l
             response['items'][2]['application_task']['source_refs'] = ['unknown']
         else:
             assert '非source_application项的正确选项必须逐字复制输入label' in request['validation_feedback']
-            assert '答案仅由mapping对应配对选项，不能复制label' in request['validation_feedback']
+            assert '答案仅由程序核验计划派生配对，不能复制label' in request['validation_feedback']
         return response
     writer, reviewer = Writer(transform), Reviewer()
-    bank = generation.DiagnosticItemGenerator(writer, review_client=reviewer, validation_retries=1).generate(source_book())
+    bank = ArchivedV10StructuredGenerator(writer, review_client=reviewer, validation_retries=1).generate(source_book())
     assert bank[2].expected_answer == '甲：适用；乙：不适用'
     assert len(writer.calls) == 2 and len(reviewer.calls) == 1
