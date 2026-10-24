@@ -133,8 +133,8 @@ def test_invalid_thinking_setting_fails_explicitly(monkeypatch: pytest.MonkeyPat
 
 
 @pytest.mark.usefixtures("uncached_settings")
-@pytest.mark.parametrize("value,expected", [(None, False), ("false", False), ("true", True)])
-def test_grounded_diagnostic_rewrite_is_an_explicit_opt_in(
+@pytest.mark.parametrize("value,expected", [(None, True), ("0", False), ("1", True), ("false", False), ("true", True)])
+def test_grounded_diagnostic_rewrite_is_default_with_explicit_legacy_opt_out(
     monkeypatch: pytest.MonkeyPatch, value: str | None, expected: bool,
 ) -> None:
     if value is None:
@@ -144,21 +144,33 @@ def test_grounded_diagnostic_rewrite_is_an_explicit_opt_in(
     assert get_settings().diagnostic_allow_grounded_answer_rewrite is expected
 
 
-@pytest.mark.parametrize("value", ["false", "true"])
-def test_api_wires_grounded_diagnostic_rewrite_to_generator(tmp_path, value: str) -> None:
+@pytest.mark.parametrize("value,expected", [(None, True), ("0", False), ("1", True), ("false", False), ("true", True)])
+def test_api_wires_grounded_diagnostic_rewrite_to_generator(
+    tmp_path, value: str | None, expected: bool,
+) -> None:
     environment = {
         **os.environ,
         "APP_DATA_DIR": str(tmp_path),
         "LLM_PROVIDER": "deepseek",
         "DEEPSEEK_API_KEY": "test-key",
-        "DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE": value,
+        "TEACHING_REVIEW_PROVIDER": "pucoding",
+        "TEACHING_REVIEW_MODEL": "gpt-6-sol",
+        "PUCODING_API_KEY": "test-review-key",
     }
+    if value is None:
+        environment.pop("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE", None)
+    else:
+        environment["DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE"] = value
     subprocess.run(
         [sys.executable, "-c", (
-            "from adaptive_learning.api.app import item_generator; "
+            "from adaptive_learning.api.app import item_generator, teaching_review_client, assessment_llm, diagnostic_audit; "
             "assert item_generator is not None; "
-            f"assert item_generator.allow_grounded_answer_rewrite is {value == 'true'}; "
-            "assert item_generator.verify_items"
+            f"assert item_generator.allow_grounded_answer_rewrite is {expected}; "
+            "assert item_generator.verify_items; "
+            "assert item_generator.review_client is teaching_review_client; "
+            "assert item_generator.review_client is not assessment_llm; "
+            "assert item_generator.audit_callback is diagnostic_audit; "
+            "assert diagnostic_audit.directory.name == 'private-diagnostic-audits'"
         )],
         env=environment,
         check=True,

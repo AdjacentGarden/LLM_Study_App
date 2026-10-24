@@ -1,0 +1,287 @@
+{
+  "purpose": "Actual v8 three-round failure. Scripted replay verifies feedback/source and gate behavior, not semantic model quality.",
+  "source_capture_sha256": "65aaf0d9f5e855b04fec91cc04bd065900cadeeb876a062fa733c461518a64d3",
+  "target_knowledge_point_id": "kp_314ad12dbe414d9a",
+  "source": {
+    "chapter_id": "chapter_4d06459dc04a5d5d",
+    "chapter_title": "第3章 基因的本质",
+    "knowledge_points": [
+      {
+        "knowledge_point_id": "kp_2288d3192837172a",
+        "label": "DNA两条链上的碱基通过氢键连接成碱基对，A一定与T配对，G一定与C配对，这一对应关系称为碱基互补配对原则。",
+        "preferred_type": "choice",
+        "cognitive_target": {
+          "id": "basic_recognition",
+          "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"
+        },
+        "evidence": [
+          {
+            "page_number": 44,
+            "quote": "（3）两条链上的碱基通过氢键连接成碱基对，并且\n碱基配对有一定的规律：A(腺嘌呤)一定与T（胸腺嘧啶）\n配对：G（鸟嘌呤）一定与C（胞嘧啶）配对。碱基之间的\n这种一一对应的关系，叫做碱基互补配对原则。",
+            "anchor_quote": "这种一一对应的关系，叫做碱基互补配对原则。"
+          },
+          {
+            "page_number": 44,
+            "quote": "（2)DNA分子中的脱氧核糖和磷酸\n交替连接，排列在外侧，构成基本骨架：碱基排列在内\n侧。（3）两条链上的碱基通过氢键连接成碱基对，并且\n碱基配对有一定的规律：A(腺嘌呤)一定与T（胸腺嘧啶）\n配对：G（鸟嘌呤）一定与C（胞嘧啶）配对。碱基之间的\n这种一一对应的关系，叫做碱基互补配对原则。",
+            "anchor_quote": "配对：G（鸟嘌呤）一定与C（胞嘧啶）配对。碱基之间的"
+          }
+        ]
+      },
+      {
+        "knowledge_point_id": "kp_c45c38f89ac7a5db",
+        "label": "DNA复制是指以亲代DNA为模板合成子代DNA的过程，发生在细胞有丝分裂间期和减数第一次分裂间期，随着染色体的复制而完成。",
+        "preferred_type": "choice",
+        "cognitive_target": {
+          "id": "relation_understanding",
+          "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+        },
+        "evidence": [
+          {
+            "page_number": 49,
+            "quote": "DNA分子复制的过程\nDNA的复制是指以亲代DNA为模板合成子代DNA的\n过程。",
+            "anchor_quote": "DNA分子复制的过程"
+          },
+          {
+            "page_number": 49,
+            "quote": "DNA分子复制的过程\nDNA的复制是指以亲代DNA为模板合成子代DNA的\n过程。这一过程是在细胞有丝分裂的问期和减数第一次分\n裂的间期，随着染色体的复制而完成的。",
+            "anchor_quote": "过程。这一过程是在细胞有丝分裂的问期和减数第一次分"
+          }
+        ]
+      },
+      {
+        "knowledge_point_id": "kp_314ad12dbe414d9a",
+        "label": "DNA复制是一个边解旋边复制的过程，需要模板、原料、能量和酶等基本条件，双螺旋结构为复制提供精确模板，碱基互补配对保证复制准确进行。",
+        "preferred_type": "choice",
+        "cognitive_target": {
+          "id": "source_application",
+          "goal": "把简短情境中的有据条件用于判断尚未给出的结论、对应或适用关系；条件必须实际参与作答，不得只套场景回忆原事实，也不得编造额外机制、工具用途或事实。"
+        },
+        "evidence": [
+          {
+            "page_number": 49,
+            "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。",
+            "anchor_quote": "DNA分子的复制是一个边解旋边复制的过程，复制需"
+          },
+          {
+            "page_number": 49,
+            "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。DNA分子独特的双",
+            "anchor_quote": "要模板，原料，能量和酶等基本条件。DNA分子独特的双"
+          },
+          {
+            "page_number": 49,
+            "quote": "螺旋结构，为复制提供了精确的模板，通过碱基互补配对，",
+            "anchor_quote": null
+          }
+        ]
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "generation_response": {
+        "items": [
+          {
+            "knowledge_point_id": "kp_2288d3192837172a",
+            "type": "choice",
+            "prompt": "DNA两条链上的碱基通过氢键连接成碱基对，其中碱基配对遵循的规律是？",
+            "options": [
+              "A一定与T配对，G一定与C配对",
+              "A一定与G配对，T一定与C配对",
+              "A一定与C配对，T一定与G配对",
+              "A一定与U配对，G一定与C配对"
+            ],
+            "correct_index": 0,
+            "expected_answer": "A一定与T配对，G一定与C配对",
+            "rubric": [],
+            "difficulty": -1,
+            "estimated_seconds": 30
+          },
+          {
+            "knowledge_point_id": "kp_c45c38f89ac7a5db",
+            "type": "choice",
+            "prompt": "DNA复制以亲代DNA为模板合成子代DNA，这一过程发生在细胞的什么时期？",
+            "options": [
+              "有丝分裂间期和减数第一次分裂间期",
+              "有丝分裂前期和减数第一次分裂前期",
+              "有丝分裂后期和减数第二次分裂后期",
+              "有丝分裂末期和减数第二次分裂末期"
+            ],
+            "correct_index": 0,
+            "expected_answer": "有丝分裂间期和减数第一次分裂间期",
+            "rubric": [],
+            "difficulty": 0,
+            "estimated_seconds": 40
+          },
+          {
+            "knowledge_point_id": "kp_314ad12dbe414d9a",
+            "type": "choice",
+            "prompt": "某细胞正在进行DNA复制，这一过程需要模板、原料、能量和酶等基本条件。该复制过程的特点是？",
+            "options": [
+              "边解旋边复制，双螺旋结构提供精确模板",
+              "先完整解旋再复制，双螺旋结构提供精确模板",
+              "边解旋边复制，碱基互补配对提供精确模板",
+              "先完整解旋再复制，碱基互补配对提供精确模板"
+            ],
+            "correct_index": 0,
+            "expected_answer": "边解旋边复制，双螺旋结构提供精确模板",
+            "rubric": [],
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        ]
+      },
+      "review_verdict": {
+        "reviews": [
+          {
+            "knowledge_point_id": "kp_2288d3192837172a",
+            "accepted": true,
+            "issues": []
+          },
+          {
+            "knowledge_point_id": "kp_c45c38f89ac7a5db",
+            "accepted": true,
+            "issues": []
+          },
+          {
+            "knowledge_point_id": "kp_314ad12dbe414d9a",
+            "accepted": false,
+            "issues": [
+              "题设已明确正在进行DNA复制，模板、原料、能量和酶也只是原文对复制的一般描述；这些情境条件并未参与判断，仍是直接回忆复制特点，不符合有源应用目标。可改为给出双螺旋结构这一条件，询问它为复制提供什么。"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "generation_response": {
+        "items": [
+          {
+            "knowledge_point_id": "kp_2288d3192837172a",
+            "type": "choice",
+            "prompt": "DNA两条链上的碱基通过氢键连接成碱基对，其中碱基配对遵循的规律是？",
+            "options": [
+              "A一定与T配对，G一定与C配对",
+              "A一定与G配对，T一定与C配对",
+              "A一定与C配对，T一定与G配对",
+              "A一定与U配对，G一定与C配对"
+            ],
+            "correct_index": 0,
+            "expected_answer": "A一定与T配对，G一定与C配对",
+            "rubric": [],
+            "difficulty": -1,
+            "estimated_seconds": 30
+          },
+          {
+            "knowledge_point_id": "kp_c45c38f89ac7a5db",
+            "type": "choice",
+            "prompt": "DNA复制以亲代DNA为模板合成子代DNA，这一过程发生在细胞的什么时期？",
+            "options": [
+              "有丝分裂间期和减数第一次分裂间期",
+              "有丝分裂前期和减数第一次分裂前期",
+              "有丝分裂后期和减数第二次分裂后期",
+              "有丝分裂末期和减数第二次分裂末期"
+            ],
+            "correct_index": 0,
+            "expected_answer": "有丝分裂间期和减数第一次分裂间期",
+            "rubric": [],
+            "difficulty": 0,
+            "estimated_seconds": 40
+          },
+          {
+            "knowledge_point_id": "kp_314ad12dbe414d9a",
+            "type": "choice",
+            "prompt": "DNA分子独特的双螺旋结构在DNA复制中所起的作用是？",
+            "options": [
+              "为复制提供精确的模板",
+              "为复制提供所需的能量",
+              "为复制提供游离的原料",
+              "为复制提供解旋的场所"
+            ],
+            "correct_index": 0,
+            "expected_answer": "为复制提供精确的模板",
+            "rubric": [],
+            "difficulty": 1,
+            "estimated_seconds": 45
+          }
+        ]
+      },
+      "review_verdict": {
+        "reviews": [
+          {
+            "knowledge_point_id": "kp_314ad12dbe414d9a",
+            "accepted": false,
+            "issues": [
+              "题干直接询问双螺旋结构在复制中的作用，未设置需参与判断的情境条件；“为复制提供精确的模板”只是直接回忆原文，不符合source_application。可给出复制中需要精确模板的情境，再判断对应的结构或关系。"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "generation_response": {
+        "items": [
+          {
+            "knowledge_point_id": "kp_2288d3192837172a",
+            "type": "choice",
+            "prompt": "DNA两条链上的碱基通过氢键连接成碱基对，其中碱基配对遵循的规律是？",
+            "options": [
+              "A一定与T配对，G一定与C配对",
+              "A一定与G配对，T一定与C配对",
+              "A一定与C配对，T一定与G配对",
+              "A一定与U配对，G一定与C配对"
+            ],
+            "correct_index": 0,
+            "expected_answer": "A一定与T配对，G一定与C配对",
+            "rubric": [],
+            "difficulty": -1,
+            "estimated_seconds": 30
+          },
+          {
+            "knowledge_point_id": "kp_c45c38f89ac7a5db",
+            "type": "choice",
+            "prompt": "DNA复制以亲代DNA为模板合成子代DNA，这一过程发生在细胞的什么时期？",
+            "options": [
+              "有丝分裂间期和减数第一次分裂间期",
+              "有丝分裂前期和减数第一次分裂前期",
+              "有丝分裂后期和减数第二次分裂后期",
+              "有丝分裂末期和减数第二次分裂末期"
+            ],
+            "correct_index": 0,
+            "expected_answer": "有丝分裂间期和减数第一次分裂间期",
+            "rubric": [],
+            "difficulty": 0,
+            "estimated_seconds": 40
+          },
+          {
+            "knowledge_point_id": "kp_314ad12dbe414d9a",
+            "type": "choice",
+            "prompt": "某细胞进行DNA复制时，需要保证新合成的子代DNA与亲代DNA具有相同的碱基序列。根据DNA复制所需的基本条件，这一精确性主要依靠什么来保证？",
+            "options": [
+              "双螺旋结构提供精确模板，并通过碱基互补配对",
+              "细胞提供充足能量，使复制过程能够持续进行",
+              "解旋酶使双链解开，为复制提供游离的原料",
+              "染色体在间期完成复制，使DNA数目保持不变"
+            ],
+            "correct_index": 0,
+            "expected_answer": "双螺旋结构提供精确模板，并通过碱基互补配对",
+            "rubric": [],
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        ]
+      },
+      "review_verdict": {
+        "reviews": [
+          {
+            "knowledge_point_id": "kp_314ad12dbe414d9a",
+            "accepted": false,
+            "issues": [
+              "题干的情境只是直接询问DNA复制如何保证准确性的原文事实；删去“某细胞”后所问不变，未达到有源应用要求。可改为给出某一有据条件，让考生判断其对应作用。",
+              "“解旋酶使双链解开，为复制提供游离的原料”中的解旋酶作用及提供原料的关系缺乏原文支持；“染色体在间期完成复制，使DNA数目保持不变”中的数量结论也无证据支持。干扰项应围绕原文给出的条件及其作用设置。"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import pytest
 
 from adaptive_learning.api.runtime_routes import RuntimeSnapshot, runtime_router
 
@@ -79,5 +79,13 @@ def test_generation_configuration_does_not_make_courses_ready_without_reviewer()
         data = client.get("/api/readiness").json()
     assert data["checks"]["review_configured"] is False
     assert data["features"]["courses"] is False
-    assert data["features"]["prepare"] is True and data["features"]["qa"] is True
+    assert data["features"]["prepare"] is False and data["features"]["qa"] is True
     assert data["external_inference_verified"] is False
+
+
+def test_prepare_requires_diagnostic_factory_even_if_generic_review_client_exists():
+    with client_for(lambda: full_snapshot(diagnostics_configured=False)) as client:
+        data = client.get('/api/readiness').json()
+    assert data['features']['prepare'] is False
+    assert data['features']['courses'] is True
+    assert data['features']['qa'] is True

@@ -59,7 +59,7 @@ enum CloudMapping {
         chapter_id: chapter.chapter_id, level: 1, source_title: chapter.title,
         ai_title: chapter.title,
         page_start: chapter.start_page, page_end: chapter.end_page, confidence: 0,
-        status: "source_available", source: "server")
+        status: resource.progress.completed_chapters.contains(chapter.chapter_id) ? "completed" : "source_available", source: "server")
     }
     var lessons: [Lesson] = []
     var cards: [Flashcard] = []
@@ -91,6 +91,18 @@ enum CloudMapping {
               block_id: lessonID + ":point:\(index)", block_type: "knowledge",
               title: point.title, content: point.explanation, citations: citations,
               source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
+        }
+        // This public contract supplies review questions as text only. Keep
+        // their question role; do not invent answers, citations or grading IDs.
+        var reviewQuestions = Set<String>()
+        for (index, question) in bundle.checkpoint_questions.enumerated() {
+          let identity = question.trimmingCharacters(in: .whitespacesAndNewlines)
+          guard !identity.isEmpty, reviewQuestions.insert(identity).inserted else { continue }
+          blocks.append(
+            LessonBlock(
+              block_id: lessonID + ":review-question:\(index)", block_type: "review_question",
+              title: "本章回顾问题 \(reviewQuestions.count)（自测）", content: question,
+              citations: [], source_chunk_ids: [], asset_ids: [], ai_generated: true))
         }
         cards += bundle.flashcards.map { card in
           Flashcard(

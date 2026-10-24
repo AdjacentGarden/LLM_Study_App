@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from ..llm.book_parallel import ordered_book_map
 from ..llm.client import LLMError, OpenAICompatibleClient
+from .evidence_context import expand_source_quote
 from .models import (
     BookStructure,
     ChapterDraft,
@@ -95,7 +96,9 @@ def _normalized(text: str) -> str:
 
 
 def _split_evidence(text: str, limit: int = 480) -> list[str]:
-    normalized = _normalized(text)
+    # A quotation is a literal span, including OCR line breaks and spacing.
+    # Normalizing them can hide a split negation and break anchor lookup.
+    normalized = text.strip()
     if not normalized:
         return []
     units: list[str] = []
@@ -442,31 +445,39 @@ class ChapterReconstructor:
         payload: list[dict[str, object]] = []
         sources: dict[str, SourceQuote] = {}
         for page in selected_pages:
-            units: list[str] = []
+            units: list[SourceQuote] = []
             for block in page.blocks:
-                units.extend(_split_evidence(block.text))
+                units.extend(expand_source_quote(SourceQuote(page_number=page.page_number, quote=text), page)
+                             for text in _split_evidence(block.text))
             if not units:
-                units = _split_evidence(page.cleaned_text or page.raw_text)
-            selected: list[str] = []
+                units = [SourceQuote(page_number=page.page_number, quote=text)
+                         for text in _split_evidence(page.raw_text)]
+            # Several OCR lines may now refer to the same complete context.
+            # Keep one literal unit rather than spending the budget on repeats.
+            distinct: dict[str, SourceQuote] = {}
+            for unit in units:
+                distinct.setdefault(unit.quote, unit)
+            units = list(distinct.values())
+            selected: list[SourceQuote] = []
             used = 0
             left, right = 0, len(units) - 1
             take_left = True
             while left <= right:
                 index = left if take_left else right
                 unit = units[index]
-                if selected and used + len(unit) > quota:
+                if selected and used + len(unit.quote) > quota:
                     break
                 selected.append(unit)
-                used += len(unit)
+                used += len(unit.quote)
                 if take_left:
                     left += 1
                 else:
                     right -= 1
                 take_left = not take_left
-            for index, text in enumerate(selected, start=1):
+            for index, source in enumerate(selected, start=1):
                 evidence_id = f"P{page.page_number}E{index}"
-                payload.append({"id": evidence_id, "page_number": page.page_number, "text": text})
-                sources[evidence_id] = SourceQuote(page_number=page.page_number, quote=text)
+                payload.append({"id": evidence_id, "page_number": page.page_number, "text": source.quote})
+                sources[evidence_id] = source
         return payload, sources
 
 

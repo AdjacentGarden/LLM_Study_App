@@ -13,6 +13,8 @@ bash deployment/server/run_backend.sh start
 
 Secret 中的模型、已发布教材清单和 Python 环境仍需按已有服务配置。脚本包含原部署的模型和数据目录默认值，不能不检查便套用到其他机器。当前后端忽略旧 `FRONTEND_DIST_DIR`，可从 Secret 中移除该变量。
 
+若后端无法直连 SMTP 465，可使用[保留端到端 TLS 验证的 SMTP TCP 隧道](README-smtp-tunnel.md)；SMTP 授权码仍只保存在后端私密配置中。
+
 接口入口：`/` 返回服务信息，`/docs` 提供 OpenAPI 文档，`/api/health` 检查进程，`/api/rag/health` 检查检索服务。普通网页路径与旧 JS 静态资源返回 404；受保护的 PDF / 教材媒体接口继续使用原权限校验。
 
 App 通过可配置的 API 地址连接服务。正式服务使用邮箱账号与有效会话；开发默认账号仅允许本机回环访问，在 production 中不可用。建议通过既有 HTTPS 代理或本机 SSH 转发连接远程服务，具体地址按部署环境配置。

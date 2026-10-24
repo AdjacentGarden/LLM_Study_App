@@ -6,6 +6,7 @@ struct CloudError: LocalizedError {
   let status: Int
   let message: String
   var transportFailure = false
+  var code: String? = nil
   var errorDescription: String? { message }
 }
 
@@ -71,6 +72,7 @@ private final class CloudUploadObserver: NSObject, URLSessionTaskDelegate, @unch
 
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
+  nonisolated static let defaultServer = "http://10.249.44.137:8100"
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
     ["127.0.0.1", "localhost", "::1", "[::1]"].contains(baseURL.host ?? "")
@@ -137,7 +139,7 @@ actor CloudAPI {
     guard !ContentBundle.fixtureMode else { return nil }
     let value =
       ProcessInfo.processInfo.environment["BOOKCOURSE_API_BASE_URL"]
-      ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? "http://127.0.0.1:8100"
+      ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? defaultServer
     guard let url = validatedURL(value) else { return nil }
     return CloudAPI(baseURL: url)
   }
@@ -304,6 +306,11 @@ actor CloudAPI {
       // A relayed tailnet connection can spend most of the normal auth budget
       // establishing TCP and TLS before the server receives the request.
       request.timeoutInterval = baseURL.host?.lowercased().hasSuffix(".ts.net") == true ? 60 : 20
+    } else if path.contains("/course-jobs")
+      || path.hasSuffix("/prepare") || path.contains("/prepare?")
+      || path.hasSuffix("/readiness") || path.hasSuffix("/status")
+      || (method == "GET" && path.hasSuffix("/diagnostics")) {
+      request.timeoutInterval = 20
     } else if path.hasSuffix("/qa") {
       request.timeoutInterval = 60
     }
@@ -337,7 +344,10 @@ actor CloudAPI {
         transportFailure: true)
     } catch is CancellationError {
       throw CancellationError()
-    } catch let error as URLError where error.code == .cancelled { throw CancellationError() } catch
+    } catch let error as URLError where error.code == .cancelled { throw CancellationError()
+    } catch let error as URLError where error.code == .appTransportSecurityRequiresSecureConnection {
+      throw CloudError(status: 0, message: "系统阻止了此地址的 HTTP 连接，请使用已配置的局域网或 VPN 服务地址，或改用 HTTPS。", transportFailure: true)
+    } catch
     { throw CloudError(status: 0, message: "无法连接学习服务，请检查服务地址和网络；已保存的进度仍然保留。", transportFailure: true) }
     guard let response = raw as? HTTPURLResponse else {
       throw CloudError(status: 0, message: "服务响应无效")
@@ -359,7 +369,8 @@ actor CloudAPI {
       let message =
         json?["detail"]?.stringValue
         ?? (response.statusCode == 401 ? "登录已过期，请重新登录" : "服务暂时无法完成请求（\(response.statusCode)）")
-      throw CloudError(status: response.statusCode, message: message)
+      throw CloudError(status: response.statusCode, message: message,
+        code: response.value(forHTTPHeaderField: "X-CloudPath-Error-Code"))
     }
     return (bytes, response)
   }

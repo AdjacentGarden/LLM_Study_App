@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import faulthandler
 import hashlib
+import json
 import logging
 import math
+import os
+import re
 import shutil
 import signal
 import sys
@@ -21,12 +24,19 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import TypeAdapter
 
 from ..accounts import COOKIE, Accounts
+from ..assessment.diagnostic_cache import (
+    DiagnosticChapterCacheError,
+    DiagnosticChapterSubmissionBlocked,
+    RepositoryDiagnosticChapterCache,
+)
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
+    DIAGNOSTIC_BANK_VERSION,
     DiagnosticGenerationError,
     DiagnosticItemGenerator,
-    structure_fingerprint,
+    diagnostic_bank_fingerprint,
+    diagnostic_bank_key,
 )
 from ..assessment.models import (
     AssessmentResponse,
@@ -172,10 +182,6 @@ if assessment_llm is not None:
         assessment_llm,
         minimum_confidence=settings.open_answer_min_confidence,
     )
-    item_generator = DiagnosticItemGenerator(
-        assessment_llm,
-        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
-    )
 orchestrator = InterviewOrchestrator(engine, open_answer_scorer)
 personalization_policy = PersonalizationPolicy()
 course_compiler = ChapterCourseCompiler()
@@ -204,6 +210,33 @@ def _create_teaching_review_client(configuration, client_type=OpenAICompatibleCl
         return None
 
 
+def _create_diagnostic_generator(configuration, writer, reviewer, audit_callback=None):
+    if writer is None or reviewer is None:
+        return None
+    try:
+        return DiagnosticItemGenerator(
+            writer, review_client=reviewer, audit_callback=audit_callback,
+            review_identity=configuration.teaching_review_identity,
+            allow_grounded_answer_rewrite=configuration.diagnostic_allow_grounded_answer_rewrite,
+        )
+    except ValueError:
+        logger.warning("independent diagnostic reviewer could not be initialized")
+        return None
+
+
+def diagnostic_fingerprint(structure: BookStructure) -> str:
+    return diagnostic_bank_fingerprint(
+        structure,
+        writer_revision=json.dumps({
+            "provider": settings.llm_provider, "base_url": settings.text_base_url,
+            "model": settings.text_model, "thinking": settings.text_thinking_enabled,
+            "reasoning_effort": settings.text_reasoning_effort,
+        }, sort_keys=True),
+        review_revision=settings.teaching_review_revision,
+        allow_grounded_answer_rewrite=settings.diagnostic_allow_grounded_answer_rewrite,
+    )
+
+
 teaching_review_client = _create_teaching_review_client(settings)
 teaching_audit = PrivateTeachingAudit(settings.data_dir / "private-audits",
     context={"provider": settings.llm_provider, "model": settings.text_model,
@@ -211,6 +244,11 @@ teaching_audit = PrivateTeachingAudit(settings.data_dir / "private-audits",
     secrets=tuple(str(value) for value in (
         settings.text_api_key, settings.deepseek_api_key, settings.pucoding_api_key,
         getattr(settings, "minimax_api_key", "")) if value))
+diagnostic_audit = PrivateTeachingAudit(settings.data_dir / "private-diagnostic-audits",
+    context={"provider": settings.llm_provider, "model": settings.text_model,
+             "diagnostic_version": DIAGNOSTIC_BANK_VERSION}, secrets=teaching_audit.secrets)
+item_generator = _create_diagnostic_generator(
+    settings, assessment_llm, teaching_review_client, audit_callback=diagnostic_audit)
 teaching_generator = TeachingContentGenerator(
     teaching_client, scope_planner=TeachingScopePlanner(teaching_client),
     audit_callback=teaching_audit, review_client=teaching_review_client,
@@ -315,6 +353,7 @@ def health() -> dict[str, object]:
                     external=external),
         "service": "adaptive-book-learning",
         "version": app.version,
+        "release_commit": os.getenv("CLOUDPATH_RELEASE_SHA", ""),
     }
 
 
@@ -639,7 +678,8 @@ def _require_upload_owner(book_id: str, request: Request) -> None:
 
 
 @app.post("/api/books/{book_id}/prepare")
-def prepare_book(book_id: str, request: Request, response: Response, retry: bool = False) -> dict:
+def prepare_book(book_id: str, request: Request, response: Response, retry: bool = False,
+                 retry_request_id: str | None = None) -> dict:
     _require_upload_owner(book_id, request)
     response.headers["Cache-Control"] = "private, no-store"
     job = job_repository.get_job(book_id)
@@ -648,9 +688,17 @@ def prepare_book(book_id: str, request: Request, response: Response, retry: bool
     existing = preparation_queue.get(book_id)
     structure = job_repository.get_structure(book_id)
     bank = assessment_repository.get_bank(
-        book_id, expected_fingerprint=structure_fingerprint(structure)
+        diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
     ) if structure is not None else None
-    ready = bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
+    ready = bank is not None and bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
+    if retry and existing and existing["status"] == "failed":
+        # The user's explicit recovery action is the only source of a new
+        # permission to supersede a prior uncertain model submission.
+        if retry_request_id is not None and not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id):
+            raise HTTPException(422, "重试请求标识无效")
+        marker = ("prepare:" + retry_request_id if retry_request_id is not None else
+                  json.dumps([existing["updated"], existing["stage"], existing["next_step"]]))
+        assessment_repository.grant_diagnostic_recovery(book_id, marker)
     return preparation_queue.enqueue(
         book_id, retry=retry,
         refresh=bool(existing and existing['status'] == 'succeeded' and not ready),
@@ -682,8 +730,8 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     structure = job_repository.get_structure(book_id)
     if structure is None:
         raise HTTPException(status_code=409, detail="书籍尚未生成可核验章节结构")
-    fingerprint = structure_fingerprint(structure)
-    existing = assessment_repository.get_bank(book_id, expected_fingerprint=fingerprint)
+    fingerprint = diagnostic_fingerprint(structure)
+    existing = assessment_repository.get_bank(diagnostic_bank_key(book_id), expected_fingerprint=fingerprint)
     if existing is not None and all(
         item.response_type == ResponseType.SINGLE_CHOICE for item in existing
     ):
@@ -691,12 +739,18 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     if item_generator is None:
         raise HTTPException(status_code=503, detail="诊断内容暂时不可用，请稍后重试。")
     try:
-        items = item_generator.generate(structure)
+        items = item_generator.generate(structure,
+            chapter_cache=RepositoryDiagnosticChapterCache(assessment_repository), cache_scope=book_id)
         assessment_repository.save_bank(
-            book_id=book_id,
+            book_id=diagnostic_bank_key(book_id),
             structure_fingerprint=fingerprint,
             items=items,
         )
+    except DiagnosticChapterSubmissionBlocked as error:
+        raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请回教材准备页显式重试",
+                            headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
+    except DiagnosticChapterCacheError as error:
+        raise HTTPException(409, "诊断章节记录需核验，已审核内容已保留，请检查服务后继续") from error
     except (DiagnosticGenerationError, LLMError) as error:
         logger.warning("diagnostic bank generation failed", exc_info=error)
         raise HTTPException(status_code=502, detail="诊断题未通过原文证据校验") from error
@@ -745,6 +799,12 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
         chapter_titles=chapter_titles,
         items=items,
         chapter_options=chapter_options,
+    )
+    # Persist the exact option order before exposing a session. Protocol upgrades
+    # must not alter the meaning of an answer/event in a historical interview.
+    assessment_repository.save_bank(
+        book_id=f"interview:{session.session_id}",
+        structure_fingerprint="session-snapshot-v1", items=items,
     )
     assessment_repository.create_session(session)
     owner = account_repository.request_owner(http_request)
@@ -1026,6 +1086,7 @@ def _runtime_snapshot() -> RuntimeSnapshot:
     return RuntimeSnapshot(
         text_configured=assessment_llm is not None,
         review_configured=teaching_review_client is not None,
+        diagnostics_configured=item_generator is not None,
         ocr_configured=bool(settings.ocr_worker_enabled),
         ocr_worker_alive=ocr_worker.is_alive(),
         preparation_worker_alive=bool(preparation_queue.thread and preparation_queue.thread.is_alive()),
@@ -1338,6 +1399,14 @@ def _items_for_session(session: InterviewSession) -> list[DiagnosticItem]:
     context = native_repository.session_context(session.session_id)
     if context:
         return TypeAdapter(list[DiagnosticItem]).validate_json(context["items_json"])
+    snapshot = assessment_repository.get_bank(f"interview:{session.session_id}")
+    if snapshot is not None:
+        return snapshot
+    # Unversioned banks are never overwritten by the new generation protocol.
+    # They preserve old non-native sessions that predate per-session snapshots.
+    historical = assessment_repository.get_bank(session.profile.book_id)
+    if historical is not None:
+        return [item for item in historical if item.response_type == ResponseType.SINGLE_CHOICE]
     return _items_for_book(session.profile.book_id)
 
 
@@ -1350,7 +1419,7 @@ def _items_for_book(book_id: str) -> list[DiagnosticItem]:
         return []
     items = (
         assessment_repository.get_bank(
-            book_id, expected_fingerprint=structure_fingerprint(structure)
+            diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
         )
         or []
     )
@@ -1417,6 +1486,7 @@ app.include_router(
         list_published_books,
         lambda: job_repository,
         lambda: assessment_repository,
+        diagnostic_fingerprint=diagnostic_fingerprint,
     )
 )
 app.include_router(native_router(sys.modules[__name__]))

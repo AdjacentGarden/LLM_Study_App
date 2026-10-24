@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ExtractionMethod(StrEnum):
@@ -64,6 +64,13 @@ class PageExtraction(BaseModel):
 class SourceQuote(BaseModel):
     page_number: int = Field(ge=1)
     quote: str = Field(min_length=1, max_length=500)
+    anchor_quote: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def anchor_belongs_to_context(self) -> SourceQuote:
+        if self.anchor_quote is not None and self.anchor_quote not in self.quote:
+            raise ValueError("source anchor must be a literal part of its context")
+        return self
 
 
 class ChapterDraft(BaseModel):

@@ -976,7 +976,9 @@ struct CourseParseReadyView: View {
         }
       } action: {
         BCButton(
-          store.draft.parseCompleted ? "填写学习方式问卷" : store.importError == nil ? "开始解析" : "重新解析"
+          store.draft.parseCompleted ? "填写学习方式问卷"
+            : store.importJob?.preparationFailed == true ? "继续查询原任务"
+            : store.importError == nil ? "开始解析" : "继续整理资料"
         ) {
           if store.draft.parseCompleted {
             store.draft.step = 0
@@ -985,6 +987,11 @@ struct CourseParseReadyView: View {
             store.go(.processing)
           }
         }.accessibilityIdentifier("parse.start")
+        if store.importJob?.preparationFailed == true {
+          BCButton("重试教材准备", style: .secondary) {
+            Task { await store.processImport(retryPreparation: true) }
+          }.disabled(store.cloudState.isWorking)
+        }
       }
     } else {
       CourseFeaturePage {
@@ -1010,7 +1017,10 @@ struct CourseProcessingView: View {
   @State private var started = false
   @State private var importStage = 0
   private var stages: [String] {
-    importing
+    if !importing, store.cloud != nil {
+      return ["识别教材原文", "准备检索索引", "整理教材目录", "生成并审核诊断题", "教材已就绪"]
+    }
+    return importing
       ? ["整理课程资料", "识别章节与重点", "结合学习偏好", "安排学习计划", "准备学习内容"]
       : ["读取资料与版面", "识别目录与正文", "保存课程资料", "整理检索片段", "准备学习内容"]
   }
@@ -1022,6 +1032,16 @@ struct CourseProcessingView: View {
   }
   private var activeStage: Int {
     if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return importing ? -1 : 0 }
+    if !importing, store.cloud != nil {
+      if store.importJob?.status == .completed { return 4 }
+      switch store.importJob?.preparationStage {
+      case "queued", "indexing": return 1
+      case "structuring": return 2
+      case "diagnostics": return 3
+      case "succeeded", "ready": return 4
+      default: return store.importJob?.preparationBookID == nil ? 0 : 1
+      }
+    }
     return progress <= 0 ? -1 : min(4, Int(progress * 5))
   }
   var body: some View {
@@ -1074,7 +1094,11 @@ struct CourseProcessingView: View {
           if !importing {
             Group {
               if store.importError != nil {
-                BCButton("返回重新解析", style: .secondary) { store.replace(.parseReady) }
+                BCButton("返回查看资料", style: .secondary) { store.replace(.parseReady) }
+                if store.importJob?.preparationFailed == true {
+                  BCButton("重试教材准备") { Task { await store.processImport(retryPreparation: true) } }
+                    .disabled(store.cloudState.isWorking)
+                }
               } else if progress >= 1 {
                 BCButton("填写学习方式问卷") {
                   store.draft.step = 0

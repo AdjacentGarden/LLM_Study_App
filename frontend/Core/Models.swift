@@ -548,4 +548,7 @@ struct ImportJob: Codable, Sendable, Identifiable {
   var status: GenerationTaskStatus
   var progress: Double = 0
   var message: String = "准备整理资料"
+  var preparationBookID: String? = nil
+  var preparationFailed: Bool? = nil
+  var preparationStage: String? = nil
 }

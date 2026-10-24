@@ -28,7 +28,7 @@ def test_audit_records_canonical_candidates_and_raw_reviews_without_extra_model_
     # Lesson facts remain independent; v18 adds one bounded two-item rubric audit.
     assert Counter(client.systems) == {
         SCOPE_PLANNING_PROMPT: 1, GENERATION_PROMPT: 2,
-        FACT_REVIEW_PROMPT: 7, REVIEW_PROMPT: 1, RUBRIC_ALIGNMENT_PROMPT: 1}
+        FACT_REVIEW_PROMPT: 8, REVIEW_PROMPT: 1, RUBRIC_ALIGNMENT_PROMPT: 1}
     assert events[0]["event"] == "started" and events[-1]["event"] == "accepted"
     assert len({event["invocation_id"] for event in events}) == 1
     candidate = next(event["candidate"] for event in events if event["event"] == "candidate")

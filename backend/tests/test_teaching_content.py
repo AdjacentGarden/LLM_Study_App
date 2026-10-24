@@ -605,7 +605,9 @@ def test_fact_audit_blocks_unsupported_extra_then_accepts_citation_only_repair_b
     assert repaired.citations == [evidence.sources["s1"], evidence.sources["s2"]]
     factual_payloads = [data for system, data in zip(client.systems, client.payloads, strict=True)
                         if system == FACT_REVIEW_PROMPT and data["candidate"]["points"]]
-    assert factual_payloads[1]["previous_review_feedback"]
+    repair_reviews = [data for data in factual_payloads if data["previous_review_feedback"]]
+    assert len(repair_reviews) == 1
+    assert repair_reviews[0]["output_contract"]["point_ids"] == [target_id]
     assert output.teaching_fact_review["accepted"] is True
 
 
@@ -625,7 +627,13 @@ def test_malformed_review_retries_audit_without_regenerating_valid_course():
     assert output.teaching_fact_review["accepted"] is True
     assert len(point_batches(client)) == 1
     factual = calls_for(client, FACT_REVIEW_PROMPT)
-    assert len([data for data in factual if data["candidate"]["points"]]) == 2
+    point_reviews = [data for data in factual if data["candidate"]["points"]]
+    assert len(point_reviews) == 3
+    retry = next(data for data in point_reviews if data["format_feedback"])
+    assert Counter(tuple(data["output_contract"]["point_ids"]) for data in point_reviews) == {
+        (point.point_id,): (2 if point.point_id == retry["output_contract"]["point_ids"][0] else 1)
+        for point in bundle.knowledge_points
+    }
     assert len([data for data in factual if data["format_feedback"]]) == 1
     assert client.review_calls == 1
 
@@ -724,7 +732,8 @@ def test_nonlesson_factual_batch_can_omit_null_lesson_but_last_batch_cannot_omit
 
     client = OmitNullLesson()
     TeachingContentGenerator(client).generate(bundle, chapter, evidence)
-    assert len([data for data in calls_for(client, FACT_REVIEW_PROMPT) if data["candidate"]["points"]]) == 2
+    assert len([data for data in calls_for(client, FACT_REVIEW_PROMPT)
+                if data["candidate"]["points"]]) == len(bundle.knowledge_points)
     assert all(count == 1 for count in fact_targets(client).values())
     assert client.review_calls == 1
 
@@ -766,6 +775,7 @@ def test_each_component_needs_its_own_real_citations_exact_quotes_and_scope_appr
 
     class InvalidComponentProof(Client):
         def structured(self, *, system, user, **kwargs):
+            data = json.loads(user)
             result = super().structured(system=system, user=user, **kwargs)
             if system == FACT_REVIEW_PROMPT and result["points"]:
                 proof = result["points"][0]["components"]["flashcard"]
@@ -773,6 +783,17 @@ def test_each_component_needs_its_own_real_citations_exact_quotes_and_scope_appr
                     proof["source_ids"] = ["other"]
                     proof["support_span_ids"] = [next(key for key, value in TeachingContentGenerator._support_spans(evidence).items()
                                                      if value["source_id"] == "other")]
+                    actual = data["candidate"]["points"][0]["flashcard"]
+                    if "other" in actual["source_ids"]:
+                        # An exact citation edit is still unapproved. This
+                        # second semantic review finds the source unrelated.
+                        proof["source_entailment"] = False
+                        proof["findings"] = [{
+                            "kind": "invalid_inference", "candidate_field": "back",
+                            "candidate_quote": actual["back"][:40],
+                            "issue": "补入的原文仍不支持本闪卡的具体推理，不能仅因引用存在而通过。",
+                            "evidence_source_ids": ["other"],
+                        }]
                 elif fault == "invented_support_quote":
                     proof["support_span_ids"] = ["invented_span"]
                 else:
@@ -782,7 +803,7 @@ def test_each_component_needs_its_own_real_citations_exact_quotes_and_scope_appr
     client = InvalidComponentProof()
     with pytest.raises(TeachingContentError):
         TeachingContentGenerator(client, max_attempts=2).generate(bundle, chapter, evidence)
-    assert client.review_calls == 1
+    assert client.review_calls == (2 if fault == "borrowed_citation" else 1)
 
 
 def test_later_fact_batch_format_repair_does_not_repeat_earlier_approved_batches():
@@ -1001,14 +1022,19 @@ def test_span_selection_cannot_bypass_review_contract(fault):
 
 def test_span_cannot_be_borrowed_from_another_components_valid_citation():
     class BorrowOtherComponentsSpan(Client):
+        target_id = None
+
         def structured(self, *, system, user, **kwargs):
             data = json.loads(user)
             result = super().structured(system=system, user=user, **kwargs)
-            if system == FACT_REVIEW_PROMPT and result["points"]:
+            if (system == FACT_REVIEW_PROMPT and result["points"]
+                    and result["points"][0]["point_id"] == self.target_id):
                 result["points"][0]["components"]["flashcard"] = selected_proof(["s2"], data)
             return result
 
-    generator, points, lesson, inputs, chapter, evidence = factual_fixture(BorrowOtherComponentsSpan())
+    client = BorrowOtherComponentsSpan()
+    generator, points, lesson, inputs, chapter, evidence = factual_fixture(client)
+    client.target_id = points[0].point_id
     evidence.sources["s2"] = SourceCitation(page_number=2, quote="测量前记录温度条件，以便区分观测范围。")
     points[0].source_ids.append("s2")  # Valid for explanation, not for flashcard.
     review = generator._fact_review(points, lesson, inputs, chapter, evidence, [])
@@ -1024,8 +1050,11 @@ def test_lesson_fact_review_is_separate_and_every_fixed_component_has_a_proof():
     factual = [data for system, data in zip(client.systems, client.payloads, strict=True) if system == FACT_REVIEW_PROMPT]
     point_jobs = [payload for payload in factual if payload["candidate"]["points"]]
     lesson_jobs = [payload for payload in factual if payload["lesson_components"]]
-    assert len(point_jobs) == 1 and len(point_jobs[0]["candidate"]["points"]) == 2
-    assert point_jobs[0]["candidate"]["lesson"] is None
+    assert len(point_jobs) == len(bundle.knowledge_points)
+    assert all(len(payload["candidate"]["points"]) == 1 for payload in point_jobs)
+    assert {payload["candidate"]["points"][0]["point_id"] for payload in point_jobs} == {
+        point.point_id for point in bundle.knowledge_points}
+    assert all(payload["candidate"]["lesson"] is None for payload in point_jobs)
     assert all(not payload["candidate"]["points"] and payload["candidate"]["lesson"] for payload in lesson_jobs)
     expected = {"opening", "summary", "example_1", "example_2", "checkpoint_1", "checkpoint_2"}
     assert len(lesson_jobs) == len(expected)
@@ -1083,6 +1112,9 @@ def test_scope_navigation_is_batch_local_except_when_writing_whole_lesson():
     TeachingContentGenerator(client).generate(bundle, chapter, evidence)
     for system, data in zip(client.systems, client.payloads, strict=True):
         if system == GENERATION_PROMPT:
+            from adaptive_learning.personalization.teaching_fact_wire import restore_fact_payload
+
+            data = restore_fact_payload(data)
             relevant = data["all_knowledge_points"] if data["include_lesson"] else data["batch_points"]
             expected = {item["point_id"] for item in relevant}
         elif system == FACT_REVIEW_PROMPT and data["candidate"]["points"]:
@@ -1128,7 +1160,7 @@ def test_support_parent_sources_are_derived_only_from_selected_spans(compatibili
     assert {quote["source_id"] for quote in proof["support_quotes"]} == {"s1"}
 
 
-def test_known_unowned_span_is_content_rejection_then_actual_citation_repair_can_pass():
+def test_known_unowned_span_rejects_then_exact_citation_edit_is_independently_reviewed():
     bundle, chapter, evidence = course(2)
     evidence.sources["s2"] = SourceCitation(page_number=2, quote="每次测量前应记录观测时刻，以便区分两次观测。")
     target = bundle.knowledge_points[0].point_id
@@ -1151,16 +1183,22 @@ def test_known_unowned_span_is_content_rejection_then_actual_citation_repair_can
             return result
 
     client = CitationRepairAfterProgrammaticRejection()
-    output = TeachingContentGenerator(client).generate(bundle, chapter, evidence)
-    assert [len(batch) for batch in point_batches(client)] == [2, 1]
+    events = []
+    output = TeachingContentGenerator(client, audit_callback=events.append).generate(bundle, chapter, evidence)
+    assert [len(batch) for batch in point_batches(client)] == [2]
     assert fact_targets(client)[(target, "practice")] == 2
     assert all(count == 1 for pair, count in fact_targets(client).items() if pair != (target, "practice"))
     assert client.review_calls == 2
     repaired = next(item for item in output.practice_items if item.point_id == target)
     assert evidence.sources["s2"] in repaired.citations
     generations = [data for data in client.payloads if "batch_points" in data]
-    assert "s2" in json.dumps(generations[-1]["review_feedback"])
-    assert generations[-1]["allowed_repairs"] == {target: ["practice"]}
+    assert all(not data["allowed_repairs"] for data in generations)
+    first_fact = next(event["review"] for event in events if event["event"] == "fact_review")
+    rejected = next(row for row in first_fact["points"] if row["point_id"] == target)
+    assert not rejected["accepted"] and "s2" in json.dumps(rejected["issues"])
+    edit = next(event for event in events if event["event"] == "citation_candidate_repair")
+    assert edit["repairs"][0]["missing_citation_source_ids"] == ["s2"]
+    assert edit["approved"] is False and edit["requires_independent_review"] is True
     assert all(data["format_feedback"] == [] for system, data in zip(client.systems, client.payloads, strict=True)
                if system == FACT_REVIEW_PROMPT)
 

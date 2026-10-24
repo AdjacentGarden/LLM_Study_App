@@ -1,0 +1,76 @@
+{
+  "provenance": "Two published F v9 questions; offline regression inputs, not approval evidence.",
+  "private_capture_sha256": "135e423023e97599bd7f5808dc2b66ac23a4608421560561e2581a95b7fb34e0",
+  "cases": [
+    {
+      "ordinal": 6,
+      "chapter_id": "chapter_4d06459dc04a5d5d",
+      "chapter_title": "第3章 基因的本质",
+      "point_label": "DNA复制是一个边解旋边复制的过程，需要模板、原料、能量和酶等基本条件，双螺旋结构为复制提供精确模板，碱基互补配对保证复制准确进行。",
+      "target_role": "source_application",
+      "evidence": [
+        {
+          "page_number": 49,
+          "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。"
+        },
+        {
+          "page_number": 49,
+          "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。DNA分子独特的双"
+        },
+        {
+          "page_number": 49,
+          "quote": "螺旋结构，为复制提供了精确的模板，通过碱基互补配对，"
+        }
+      ],
+      "candidate": {
+        "knowledge_point_id": "kp_314ad12dbe414d9a",
+        "type": "choice",
+        "prompt": "某DNA分子正在进行复制，过程中双链一边解开一边合成新链，并需要模板、原料、能量和酶等条件。这一复制过程能准确进行，主要依靠什么？",
+        "options": [
+          "双螺旋结构提供精确模板，碱基互补配对保证准确",
+          "模板和原料提供精确模板，能量和酶保证准确",
+          "边解旋边复制提供精确模板，氢键连接保证准确",
+          "双螺旋结构提供精确模板，脱氧核糖和磷酸交替连接保证准确"
+        ],
+        "correct_index": 0,
+        "expected_answer": "双螺旋结构提供精确模板，碱基互补配对保证准确",
+        "rubric": [],
+        "difficulty": 0,
+        "estimated_seconds": 45
+      }
+    },
+    {
+      "ordinal": 18,
+      "chapter_id": "chapter_445b90708e561e06",
+      "chapter_title": "第7章 现代生物进化理论",
+      "point_label": "生殖隔离指不同物种一般不能相互交配，即使交配成功也不能产生可育后代，生殖隔离一旦形成即产生新物种。",
+      "target_role": "source_application",
+      "evidence": [
+        {
+          "page_number": 114,
+          "quote": "互交配并且产生可育后代的一群生物称为一个物种\n(species)，简称“种”。也就是说，不同物种之间一般是不\n能相互交配的，即使交配成功，也不能产生可育的后代，\n这种现象叫做生殖隔离(reproductiveisolation)。"
+        },
+        {
+          "page_number": 116,
+          "quote": "由于各个岛上的食物和栖息条\n件互不相同，自然选择对不同种群基因频率的改变所起的\n作用就有差别：在一个种群中，某些基因被保留下来，在\n另一个种群中，被保留下来的可能是另一些基因。久而久\n之，这些种群的基因库就会形成明显的差异，并逐步出现\n生殖隔离。生殖隔离一旦形成，原来属于一个物种的地\n雀，就成了不同的物种。"
+        }
+      ],
+      "candidate": {
+        "knowledge_point_id": "kp_ba7a7b1a6ab78a82",
+        "type": "choice",
+        "prompt": "某岛上原属同一物种的地雀分成两个种群，长期在不同食物和栖息条件下被自然选择，基因库差异明显并逐步出现生殖隔离。据此判断，这两个地雀种群的关系是什么？",
+        "options": [
+          "仍属同一物种，因为原本来自同一物种",
+          "已成为不同物种，因为食物和栖息条件不同",
+          "仍属同一物种，因为基因库差异还不明显",
+          "已成为不同物种，因为生殖隔离已经形成"
+        ],
+        "correct_index": 3,
+        "expected_answer": "已成为不同物种，因为生殖隔离已经形成",
+        "rubric": [],
+        "difficulty": 0,
+        "estimated_seconds": 45
+      }
+    }
+  ]
+}

@@ -130,7 +130,8 @@ def test_false_omission_repairs_only_the_reviewer_without_rewriting_teaching():
     retry = next(payload for payload in point_reviews if payload["format_feedback"])
     assert "已存在" in json.dumps(retry["format_feedback"], ensure_ascii=False)
     pairs = fact_pair_counts(client)
-    assert all(pairs[point.point_id, name] == 2 for point in bundle.knowledge_points
+    assert all(pairs[point.point_id, name] == (2 if point.point_id == target else 1)
+               for point in bundle.knowledge_points
                for name in ("explanation", "flashcard", "practice"))
     assert all(count == 1 for (owner, _), count in pairs.items() if owner is None)
     assert len(requests_for(client, REVIEW_PROMPT)) == 1

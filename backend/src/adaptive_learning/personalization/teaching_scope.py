@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unicodedata
+from copy import deepcopy
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError, field_validator
@@ -12,7 +13,7 @@ from ..llm.client import LLMError
 from ..llm.teaching_parallel import ordered_review_map
 from .teaching_evidence import TeachingEvidence
 
-TEACHING_SCOPE_VERSION = "scope-plan-v3"
+TEACHING_SCOPE_VERSION = "scope-plan-v4"
 SCOPE_BATCH_SIZE = 4
 MAX_CONDITIONS_PER_POINT = 4
 
@@ -113,6 +114,8 @@ condition与scope_effect只能指出原文支持的限制，不得新造充分�
 发现史、谁提出、由谁推测、通过什么实验才得知结论，是认识来源，不是命题成立的前提。
 例如“某规律经实验发现”不意味着“该规律只在实验完成后成立”，不可要求每个组件都复述发现过程。
 仅相关的定义或学习建议也不自动成为边界；只有它确实限制当前命题时才保留。
+子类实例或局部过程的发生前提不自动成为整个类别定义的必要条件；确有局部限制时明确对象与过程范围，
+scope_effect不得把局部限制扩成全类限制。
 候选可能不相关；不得把关键词命中当成真实例外。不得借课外常识补猜残缺字、数值、符号或图表。
 condition 只写简短且可回到原文核对的条件提示，source_ids 必须指向真正支持它的已有原文。
 每个 candidate_sources 中的source_id都必须在comparisons恰好出现一次；逐条判断它是否改变
@@ -128,6 +131,12 @@ knowledge_points只包含当前尚未完成的点；只返回这些精确point_i
 同一条件可有多个真实支持来源；若某candidate的changes_scope=true，该候选自己的source_id也须
 列在相应condition.source_ids中，不能只引用内容相近的另一来源。若候选本身并不支持范围限制，
 应改正该comparison，不得为了满足格式而给问题、发现史或无关材料虚构成立条件。
+若有previous_candidate，它只包含当前pending点上一版真实输出，是待修数据而非已通过计划；
+repair_tasks列出缺失的候选原编号、原comparison理由及当前condition_index（从0开始）的完整内容。
+先对照仍然完整提供的原文判断该候选是否确实限制命题：真正支持已有条件则补其原编号；
+若需要新条件，可合并原文支持的同义条件后在最多4项内表达；若不改变范围则修正comparison并说明理由。
+不能仅为满足链接而自动凑source_ids或把changes_scope改false，不能把上一版或修复任务当作事实证明。
+只返回knowledge_points中的pending点，仍用原comparisons/conditions严格结构；不返回修复任务或condition_index。
 仅返回严格 JSON：
 {"points":[{"point_id":"输入原ID","comparisons":[{"source_id":"本点某个candidate_sources编号",
 "changes_scope":true,"reason":"说明该候选怎样限制当前主题命题的适用范围"}],"conditions":[{"boundary_type":"precondition",
@@ -246,6 +255,8 @@ class TeachingScopePlanner:
             "source_warnings": list(evidence.warnings),
         }
         feedback: list[tuple[set[str], str]] = []
+        previous: dict[str, dict[str, Any]] = {}
+        repair_tasks: dict[str, dict[str, Any]] = {}
         for _attempt in range(self.max_attempts):
             expected = {item["point_id"] for item in pending}
             try:
@@ -255,6 +266,14 @@ class TeachingScopePlanner:
                         {
                             **payload,
                             "knowledge_points": pending,
+                            **({"previous_candidate": {"points": [
+                                deepcopy(previous[item["point_id"]])
+                                for item in pending if item["point_id"] in previous
+                            ]}} if expected & previous.keys() else {}),
+                            **({"repair_tasks": [
+                                deepcopy(repair_tasks[item["point_id"]])
+                                for item in pending if item["point_id"] in repair_tasks
+                            ]} if expected & repair_tasks.keys() else {}),
                             "format_feedback": [
                                 message for ids, message in feedback if ids & expected
                             ],
@@ -287,6 +306,11 @@ class TeachingScopePlanner:
                     item = next(item for item in pending if item["point_id"] == point_id)
                     try:
                         row = _ComparedPoint.model_validate(raw_row)
+                        # Freeze only a strictly parsed, expected point row.
+                        # Unknown provider fields/foreign point IDs cannot be
+                        # injected into a later request through repair context.
+                        previous[point_id] = deepcopy(raw_row)
+                        repair_tasks.pop(point_id, None)
                         checks = [check.source_id for check in row.comparisons]
                         candidates = set(item["scope_context_source_ids"])
                         if len(checks) != len(set(checks)) or set(checks) != candidates:
@@ -302,6 +326,28 @@ class TeachingScopePlanner:
                             if check.changes_scope and check.source_id not in condition_ids
                         ]
                         if missing:
+                            repair_tasks[point_id] = {
+                                "point_id": point_id,
+                                "kind": "candidate_condition_source_links",
+                                "missing_candidate_source_ids": [
+                                    check.source_id for check in missing
+                                ],
+                                "candidate_comparisons": [
+                                    check.model_dump() for check in missing
+                                ],
+                                "condition_index_base": 0,
+                                "current_conditions": [
+                                    {"condition_index": index, **condition.model_dump()}
+                                    for index, condition in enumerate(row.conditions)
+                                ],
+                                "maximum_conditions": MAX_CONDITIONS_PER_POINT,
+                                "allowed_actions": [
+                                    "核原文后为真正受该候选支持的条件补其原编号",
+                                    "合并原文支持的同义条件后在原数量上限内表达遗漏条件",
+                                    "若候选不改变该命题范围，重判comparison并说明实际理由",
+                                ],
+                                "semantic_approval": False,
+                            }
                             raise TeachingScopeError(
                                 "changes_scope=true但conditions.source_ids未包含这些候选自身编号：{}。"
                                 "只把真正支持该条件的原编号补入适当condition；若候选不改变范围则修正comparison，禁止虚构条件。".format(
@@ -330,6 +376,7 @@ class TeachingScopePlanner:
                                 evidence,
                             )
                         )
+                        previous.pop(point_id, None)
                     except (
                         ValidationError,
                         ValueError,

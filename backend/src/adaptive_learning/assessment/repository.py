@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import time
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from pydantic import TypeAdapter
 
 from ..database import Connection, connect
 from ..personalization.models import ChapterLearningBundle
+from .diagnostic_cache import DiagnosticChapterCacheError, chapter_identity, validate_chapter_items
 from .models import DiagnosticItem, InterviewSession
 
 _ITEMS = TypeAdapter(list[DiagnosticItem])
@@ -79,12 +82,173 @@ class SQLiteAssessmentRepository:
                     payload_json TEXT NOT NULL,
                     created_at REAL NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS diagnostic_chapter_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    scope TEXT NOT NULL,
+                    identity_json TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN ('running','approved','rejected','not_admitted','unknown')),
+                    claim_token TEXT NOT NULL,
+                    items_json TEXT,
+                    items_sha256 TEXT,
+                    recovery_epoch INTEGER NOT NULL DEFAULT 0,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS diagnostic_chapter_submissions (
+                    token TEXT PRIMARY KEY,
+                    cache_key TEXT NOT NULL REFERENCES diagnostic_chapter_cache(cache_key),
+                    state TEXT NOT NULL CHECK(state IN ('running','approved','rejected','not_admitted','unknown')),
+                    recovery_epoch INTEGER NOT NULL DEFAULT 0,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_diagnostic_chapter_submission
+                    ON diagnostic_chapter_submissions(cache_key,created_at);
+                CREATE INDEX IF NOT EXISTS idx_diagnostic_chapter_scope
+                    ON diagnostic_chapter_cache(scope,state);
+                CREATE TABLE IF NOT EXISTS diagnostic_recovery_epochs (
+                    scope TEXT PRIMARY KEY,
+                    epoch INTEGER NOT NULL,
+                    failed_marker TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS diagnostic_recovery_grants (
+                    scope TEXT NOT NULL,
+                    marker TEXT NOT NULL,
+                    epoch INTEGER NOT NULL,
+                    created_at REAL NOT NULL,
+                    PRIMARY KEY(scope,marker)
+                );
                 """
             )
             if not connection.postgres:
                 columns = {row[1] for row in connection.execute("PRAGMA table_info(course_bundles)")}
                 if "content_digest" not in columns:
                     connection.execute("ALTER TABLE course_bundles ADD COLUMN content_digest TEXT NOT NULL DEFAULT ''")
+
+    def claim_diagnostic_chapter(self, identity: dict[str, Any], *, now: float | None = None) -> dict[str, Any]:
+        """Short claim. Only an explicit recovery grant can supersede unknown work."""
+        key, payload = chapter_identity(identity)
+        timestamp = time.time() if now is None else now
+        token = uuid.uuid4().hex
+        with self._connect() as connection:
+            connection.begin_write()
+            grant = connection.execute("SELECT epoch FROM diagnostic_recovery_epochs WHERE scope=?",
+                                       (identity["scope"],)).fetchone()
+            epoch = int(grant[0]) if grant else 0
+            row = connection.execute("SELECT * FROM diagnostic_chapter_cache WHERE cache_key=?", (key,)).fetchone()
+            if row is not None:
+                if row["identity_json"] != payload or row["scope"] != identity["scope"]:
+                    raise DiagnosticChapterCacheError("chapter approval identity mismatch")
+                state = str(row["state"])
+                if state == "approved":
+                    encoded = str(row["items_json"])
+                    if hashlib.sha256(encoded.encode()).hexdigest() != row["items_sha256"]:
+                        raise DiagnosticChapterCacheError("chapter approval content digest mismatch")
+                    try:
+                        items = _ITEMS.validate_json(encoded)
+                    except (ValueError, TypeError) as error:
+                        raise DiagnosticChapterCacheError("chapter approval content is invalid") from error
+                    validate_chapter_items(identity, items)
+                    return {"status": "approved", "token": None, "items": items}
+                if state in {"running", "unknown"} and epoch <= int(row["recovery_epoch"]):
+                    return {"status": state, "token": None, "items": None}
+                if state == "running":
+                    connection.execute(
+                        "UPDATE diagnostic_chapter_submissions SET state='unknown',updated_at=? "
+                        "WHERE token=? AND state='running'", (timestamp, row["claim_token"]),
+                    )
+                updated = connection.execute(
+                    "UPDATE diagnostic_chapter_cache SET state='running',claim_token=?,recovery_epoch=?,updated_at=? "
+                    "WHERE cache_key=? AND claim_token=? AND state=?",
+                    (token, epoch, timestamp, key, row["claim_token"], state),
+                )
+                if updated.rowcount != 1:
+                    raise DiagnosticChapterCacheError("chapter claim was concurrently changed")
+            else:
+                connection.execute(
+                    "INSERT INTO diagnostic_chapter_cache(cache_key,scope,identity_json,state,claim_token,recovery_epoch,created_at,updated_at) "
+                    "VALUES (?,?,?,'running',?,?,?,?)", (key, identity["scope"], payload, token, epoch, timestamp, timestamp),
+                )
+            connection.execute(
+                "INSERT INTO diagnostic_chapter_submissions(token,cache_key,state,recovery_epoch,created_at,updated_at) "
+                "VALUES (?,?,'running',?,?,?)", (token, key, epoch, timestamp, timestamp),
+            )
+        return {"status": "claimed", "token": token, "items": None}
+
+    def has_pending_diagnostic_submission(self, scope: str) -> bool:
+        """Read-only admission check; never derive a retry nonce from live tokens."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM diagnostic_chapter_cache "
+                "WHERE scope=? AND state IN ('running','unknown') LIMIT 1", (scope,),
+            ).fetchone()
+        return row is not None
+
+    def grant_diagnostic_recovery(self, scope: str, failed_marker: str, *, now: float | None = None) -> int:
+        """One permission per failed preparation revision, never from startup/lease."""
+        if not scope.strip() or len(scope) > 512 or not failed_marker or len(failed_marker) > 512:
+            raise ValueError("invalid explicit diagnostic recovery permission")
+        timestamp = time.time() if now is None else now
+        with self._connect() as connection:
+            connection.begin_write()
+            receipt = connection.execute("SELECT epoch FROM diagnostic_recovery_grants WHERE scope=? AND marker=?",
+                                         (scope, failed_marker)).fetchone()
+            if receipt is not None:
+                return int(receipt[0])
+            row = connection.execute("SELECT epoch,failed_marker FROM diagnostic_recovery_epochs WHERE scope=?", (scope,)).fetchone()
+            if row is None:
+                connection.execute("INSERT INTO diagnostic_recovery_epochs(scope,epoch,failed_marker,updated_at) VALUES (?,1,?,?)",
+                                   (scope, failed_marker, timestamp))
+                epoch = 1
+            else:
+                epoch = int(row["epoch"]) + 1
+                connection.execute("UPDATE diagnostic_recovery_epochs SET epoch=?,failed_marker=?,updated_at=? WHERE scope=?",
+                                   (epoch, failed_marker, timestamp, scope))
+            connection.execute("INSERT INTO diagnostic_recovery_grants(scope,marker,epoch,created_at) VALUES (?,?,?,?)",
+                               (scope, failed_marker, epoch, timestamp))
+            return epoch
+
+    def approve_diagnostic_chapter(self, identity: dict[str, Any], token: str, items: list[DiagnosticItem],
+                                   *, now: float | None = None) -> None:
+        validate_chapter_items(identity, items)
+        key, payload = chapter_identity(identity)
+        encoded = _ITEMS.dump_json(items).decode()
+        digest = hashlib.sha256(encoded.encode()).hexdigest()
+        timestamp = time.time() if now is None else now
+        with self._connect() as connection:
+            connection.begin_write()
+            updated = connection.execute(
+                "UPDATE diagnostic_chapter_cache SET state='approved',items_json=?,items_sha256=?,updated_at=? "
+                "WHERE cache_key=? AND identity_json=? AND claim_token=? AND state='running'",
+                (encoded, digest, timestamp, key, payload, token),
+            )
+            submitted = connection.execute(
+                "UPDATE diagnostic_chapter_submissions SET state='approved',updated_at=? "
+                "WHERE token=? AND cache_key=? AND state='running'", (timestamp, token, key),
+            )
+            if updated.rowcount != 1 or submitted.rowcount != 1:
+                raise DiagnosticChapterCacheError("stale chapter approval token")
+
+    def fail_diagnostic_chapter(self, identity: dict[str, Any], token: str, outcome: str,
+                                *, now: float | None = None) -> None:
+        if outcome not in {"rejected", "not_admitted", "unknown"}:
+            raise ValueError("invalid chapter submission outcome")
+        key, payload = chapter_identity(identity)
+        timestamp = time.time() if now is None else now
+        with self._connect() as connection:
+            connection.begin_write()
+            updated = connection.execute(
+                "UPDATE diagnostic_chapter_cache SET state=?,updated_at=? "
+                "WHERE cache_key=? AND identity_json=? AND claim_token=? AND state='running'",
+                (outcome, timestamp, key, payload, token),
+            )
+            submitted = connection.execute(
+                "UPDATE diagnostic_chapter_submissions SET state=?,updated_at=? "
+                "WHERE token=? AND cache_key=? AND state='running'", (outcome, timestamp, token, key),
+            )
+            if updated.rowcount != 1 or submitted.rowcount != 1:
+                raise DiagnosticChapterCacheError("stale chapter submission token")
 
     def save_bank(
         self,

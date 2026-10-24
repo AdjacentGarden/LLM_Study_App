@@ -1,0 +1,107 @@
+{
+  "purpose": "Minimal observed v7 candidate patterns. Scripted verdicts test wire/gate behavior, never certify generated question quality.",
+  "source_capture_sha256": "5ee0f97e41509ed78542469fe81601a9572b880dc79994dad2914e6e6c150702",
+  "cases": [
+    {
+      "pattern": "cause_mechanism_overlap",
+      "observed_ordinal": 10,
+      "chapter_id": "chapter_d58164c4b1599fca",
+      "chapter_title": "第5章 基因突变及其他变异",
+      "point_label": "在没有外来因素影响时，基因突变也会由于DNA分子复制偶尔发生错误、DNA碱基组成发生改变等原因自发产生。",
+      "target_role": "basic_recognition",
+      "evidence": [
+        {
+          "page_number": 77,
+          "quote": "DNA等。但是，在没有这些外来因素的影响时，基因突变\n也会由于DNA分子复制偶尔发生错误，DNA的碱基组成\n发生改变等原因自发产生。"
+        }
+      ],
+      "candidate": {
+        "knowledge_point_id": "kp_32273a85af942ad7",
+        "type": "choice",
+        "prompt": "关于基因突变的发生条件，下列哪项判断符合教材所述？",
+        "options": [
+          "没有外来因素影响时，基因突变可因DNA复制偶尔出错而自发产生",
+          "有外来因素影响时，基因突变才可能因DNA复制偶尔出错而产生",
+          "没有外来因素影响时，基因突变只能由DNA碱基组成改变引起",
+          "有外来因素影响时，基因突变只能由DNA碱基组成改变引起"
+        ],
+        "correct_index": 0,
+        "expected_answer": "没有外来因素影响时，基因突变可因DNA复制偶尔出错而自发产生",
+        "rubric": [],
+        "difficulty": 0,
+        "estimated_seconds": 45
+      },
+      "human_issue": "原文列出复制偶错与碱基组成改变，两者可能是原因和所致结构变化，不能仅凭“只能”把后者判为互斥错误。"
+    },
+    {
+      "pattern": "common_sense_distractors",
+      "observed_ordinal": 15,
+      "chapter_id": "chapter_7f991ceb7fc96c21",
+      "chapter_title": "第6章 从杂交育种到基因工程",
+      "point_label": "转基因生物和转基因食品的安全性存在争议，我国重视基因工程的安全性问题，并公布了《农业转基因生物安全管理条例》。",
+      "target_role": "source_application",
+      "evidence": [
+        {
+          "page_number": 100,
+          "quote": "当人类拥有了只有大自然才拥有的改造生物、创造生\n物的能力时，也感到了不安与困惑。人类是否有权利按照\n自己的意愿操纵地球上的生命？人类创造的转基因生物\n转基因食品是否会危害整个生物圈，包括人类自身？"
+        },
+        {
+          "page_number": 101,
+          "quote": "我国从一开始进行基因工程研究，就十分重视基因工\n程的安全性问题。200I年5月，国务院公布了《农业转基\n因生物安全管理条例》，对农业转基因生物的研究和试验、\n生产和加工、经营和进出口等作了具体规定。"
+        }
+      ],
+      "candidate": {
+        "knowledge_point_id": "kp_88bc133e8960e228",
+        "type": "choice",
+        "prompt": "某研究机构计划开展农业转基因生物的研究和试验，按照我国的相关管理要求，这一活动应遵循什么？",
+        "options": [
+          "由研究者个人自行决定是否遵守规定",
+          "遵守《农业转基因生物安全管理条例》的具体规定",
+          "只需在完成后向国际组织报告即可",
+          "无需任何管理，可自由开展研究和试验"
+        ],
+        "correct_index": 1,
+        "expected_answer": "遵守《农业转基因生物安全管理条例》的具体规定",
+        "rubric": [],
+        "difficulty": 0,
+        "estimated_seconds": 45
+      },
+      "human_issue": "三个干扰项依赖随意决定、无需管理等明显不可取态度，不能测试对原文规则适用范围的理解。"
+    },
+    {
+      "pattern": "decorative_application",
+      "observed_ordinal": 6,
+      "chapter_id": "chapter_4d06459dc04a5d5d",
+      "chapter_title": "第3章 基因的本质",
+      "point_label": "DNA复制需要模板、原料、能量和酶等基本条件，是一个边解旋边复制的过程，通过碱基互补配对保证复制准确进行。",
+      "target_role": "source_application",
+      "evidence": [
+        {
+          "page_number": 49,
+          "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。"
+        },
+        {
+          "page_number": 49,
+          "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。DNA分子独特的双"
+        }
+      ],
+      "candidate": {
+        "knowledge_point_id": "kp_f2a9f12b61814b09",
+        "type": "choice",
+        "prompt": "某细胞正在进行DNA复制，这一过程需要模板、原料、能量和酶等基本条件。该复制过程在方式上具有什么特点？",
+        "options": [
+          "边解旋边复制",
+          "只复制不解旋",
+          "只解旋不复制",
+          "先完全解旋再复制"
+        ],
+        "correct_index": 0,
+        "expected_answer": "边解旋边复制",
+        "rubric": [],
+        "difficulty": 0,
+        "estimated_seconds": 45
+      },
+      "human_issue": "题设额外复制条件没有参与判断，删去场景仍是回忆DNA复制方式，不能据场景外壳认定应用达标。"
+    }
+  ]
+}

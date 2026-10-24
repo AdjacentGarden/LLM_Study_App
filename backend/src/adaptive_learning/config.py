@@ -90,7 +90,7 @@ class Settings:
 
     text_thinking_enabled: bool | None = None
     text_reasoning_effort: str | None = None
-    diagnostic_allow_grounded_answer_rewrite: bool = False
+    diagnostic_allow_grounded_answer_rewrite: bool = True
 
     def __post_init__(self) -> None:
         if not 1 <= self.rag_max_output_tokens <= 10000:
@@ -221,7 +221,7 @@ def get_settings() -> Settings:
         open_answer_min_confidence=_float("ASSESSMENT_OPEN_ANSWER_MIN_CONFIDENCE", 0.78),
         text_thinking_enabled=_optional_bool("TEXT_LLM_THINKING_ENABLED"),
         text_reasoning_effort=os.getenv("TEXT_LLM_REASONING_EFFORT", "").strip() or None,
-        diagnostic_allow_grounded_answer_rewrite=(
-            _optional_bool("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE") or False
+        diagnostic_allow_grounded_answer_rewrite=_bool(
+            "DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE", True
         ),
     )

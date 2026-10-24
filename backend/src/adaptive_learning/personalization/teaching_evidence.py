@@ -19,6 +19,7 @@ from ..ingestion.models import ChapterDraft, PageExtraction
 from .models import LessonSection, SourceCitation
 
 EVIDENCE_VERSION = "whole-chapter-raw-spans-v1"
+CANDIDATE_CONTEXT_VERSION = "candidate-context-v1"
 MAX_SOURCE_CHARACTERS = 50_000
 MAX_SPAN_CHARACTERS = 500
 _BOUNDARY = re.compile(r"[。！？!?；;](?:[\"”’）)]*)|\n")
@@ -77,6 +78,55 @@ def scope_context_source_ids(evidence: TeachingEvidence, label: str,
                 continue
             weight = 2 if marker.group() in {"终止", "结束", "不一定", "并非", "除非", "但是", "然而"} else 1
             scores.append(weight * sum(math.log1p(len(terms) / frequency[term]) for term in shared))
+        if scores:
+            ranked.append((max(scores), key))
+    chosen: list[str] = []
+    pages: set[int] = set()
+    for _, key in sorted(ranked, key=lambda row: (-row[0], row[1])):
+        page = evidence.sources[key].page_number
+        if page in pages:
+            continue
+        chosen.append(key)
+        pages.add(page)
+        if len(chosen) == limit:
+            break
+    return chosen
+
+
+def candidate_context_source_ids(
+    evidence: TeachingEvidence, fields: Iterable[str], anchor_ids: Iterable[str], *, limit: int = 2
+) -> list[str]:
+    """Find related text for actual claims without requiring a scope marker.
+
+    A location, category or other structural qualifier need not contain words
+    such as 'usually' or 'however'. Rank literal topic overlap with focused
+    clauses, not a list of subject-specific conditions. These are navigation
+    candidates only: relevance, entailment and scope remain reviewer decisions.
+    """
+    if limit < 1:
+        return []
+    terms = {key: _scope_terms(source.quote) for key, source in evidence.sources.items()}
+    frequency = Counter(term for values in terms.values() for term in values)
+    weights = {term: math.log1p(len(terms) / count) for term, count in frequency.items()}
+    queries = [
+        query
+        for text in fields
+        for clause in re.split(r"[。！？!?；;，,：:]", text)
+        if len(query := _scope_terms(clause)) >= 4
+    ]
+    excluded = set(anchor_ids)
+    ranked: list[tuple[float, str]] = []
+    for key, source in evidence.sources.items():
+        if key in excluded:
+            continue
+        segments = [_scope_terms(part) for part in re.split(r"[。！？!?；;]", source.quote)]
+        scores = [
+            sum(weights[term] for term in shared)
+            / math.sqrt(sum(weights.get(term, math.log1p(len(terms))) for term in query))
+            for query in queries
+            for segment in segments
+            if len(shared := query & segment) >= 4
+        ]
         if scores:
             ranked.append((max(scores), key))
     chosen: list[str] = []

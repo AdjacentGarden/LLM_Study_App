@@ -17,6 +17,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlsplit
 
+import httpcore
 import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
@@ -49,21 +50,68 @@ class LLMOutputLimitError(LLMError):
     """The provider exhausted the output budget before completing the response."""
 
 
+class LLMNotSubmittedError(LLMError):
+    """Every transport attempt failed while connecting, before sending model input."""
+
+
+def _connection_not_submitted(error: BaseException) -> bool:
+    """Recognize only HTTPX connection failures, including explicit SDK causes.
+
+    An SDK connection/timeout label alone does not establish that a POST was
+    unsent. Never infer that from messages, and reject contradictory read/write,
+    protocol, received-response or draining context anywhere in the cause graph.
+    """
+    cause: BaseException | None = error
+    wrappers: set[int] = set()
+    while isinstance(cause, APIConnectionError):
+        if id(cause) in wrappers:
+            return False
+        wrappers.add(id(cause))
+        cause = cause.__cause__
+    if not isinstance(cause, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return False
+    pending, seen = [error], set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if (
+            isinstance(current, (httpx.HTTPStatusError, APIStatusError))
+            or isinstance(current, httpx.TransportError)
+            and not isinstance(current, (httpx.ConnectError, httpx.ConnectTimeout))
+            or isinstance(current, (
+                httpcore.ReadError, httpcore.WriteError, httpcore.ReadTimeout,
+                httpcore.WriteTimeout, httpcore.PoolTimeout, httpcore.ProtocolError,
+                httpcore.ProxyError, httpcore.UnsupportedProtocol,
+            ))
+            or isinstance(current, LLMTimeoutError)
+        ):
+            return False
+        for linked in (current.__cause__, current.__context__):
+            if linked is current:
+                return False
+            if linked is not None:
+                pending.append(linked)
+    return True
+
+
 # A timed-out synchronous transport can still be draining a socket. Keep its slot
 # until it exits so deadlines never create an unbounded pool of abandoned calls.
 _transport_slots = threading.BoundedSemaphore(8)
 
 
 def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | None) -> dict[str, Any]:
+    slots = _transport_slots
     if until is None:
         # The same process-wide cap applies without a whole-operation deadline.
-        with _transport_slots:
+        with slots:
             return call()
     remaining = until - time.monotonic()
-    if remaining <= 0 or not _transport_slots.acquire(timeout=max(0, remaining)):
+    if remaining <= 0 or not slots.acquire(timeout=max(0, remaining)):
         raise LLMTimeoutError("model time budget exceeded")
     if time.monotonic() >= until:
-        _transport_slots.release()
+        slots.release()
         raise LLMTimeoutError("model time budget exceeded")
     future: Future[dict[str, Any]] = Future()
 
@@ -75,12 +123,12 @@ def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | 
         except BaseException as error:
             future.set_exception(error)
         finally:
-            _transport_slots.release()
+            slots.release()
 
     try:
         threading.Thread(target=run, name="bounded-model-request", daemon=True).start()
     except BaseException:
-        _transport_slots.release()
+        slots.release()
         raise
     try:
         return future.result(timeout=max(0, until - time.monotonic()))
@@ -91,6 +139,23 @@ def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | 
 
 
 _deadline: ContextVar[float | None] = ContextVar("model_deadline", default=None)
+_block_ambiguous_retries: ContextVar[bool] = ContextVar("block_ambiguous_model_retries", default=False)
+
+
+@contextmanager
+def no_ambiguous_model_retries() -> Iterator[None]:
+    """Let a durable submission owner reconcile an uncertain call before replay.
+
+    This is scoped to the calling task. Explicit retryable HTTP replies retain
+    their existing handling; a lost transport or unusable body cannot initiate
+    another paid submission inside this context. Proven pre-POST connection
+    failures may reconnect within the existing retry and deadline budgets.
+    """
+    token = _block_ambiguous_retries.set(True)
+    try:
+        yield
+    finally:
+        _block_ambiguous_retries.reset(token)
 
 
 def remaining_model_time() -> float | None:
@@ -389,6 +454,7 @@ class OpenAICompatibleClient:
             if self.config.reasoning_effort is not None:
                 payload["reasoning_effort"] = self.config.reasoning_effort
         last_error: Exception | None = None
+        all_not_submitted = True
         upstream_detail = ""
         for attempt in range(self.config.max_retries + 1):
             until = _deadline.get()
@@ -462,6 +528,7 @@ class OpenAICompatibleClient:
                     content = choice["message"]["content"]
                 return self._parse_object(content)
             except httpx.HTTPStatusError as error:
+                all_not_submitted = False
                 last_error = error
                 status = error.response.status_code
                 raw_error: object = {}
@@ -483,6 +550,7 @@ class OpenAICompatibleClient:
                     getattr(error.response, "headers", {}), error_body
                 )
             except APIStatusError as error:
+                all_not_submitted = False
                 last_error = error
                 status = error.status_code
                 raw_error = error.body.get("error", error.body) if isinstance(error.body, dict) else {}
@@ -510,15 +578,24 @@ class OpenAICompatibleClient:
                 ValueError,
             ) as error:
                 last_error = error
-                if attempt >= self.config.max_retries:
+                not_submitted = _connection_not_submitted(error)
+                all_not_submitted = all_not_submitted and not_submitted
+                if (
+                    _block_ambiguous_retries.get() and not not_submitted
+                    or attempt >= self.config.max_retries
+                ):
                     break
             delay = retry_after if retry_after is not None else 0.25 * (attempt + 1)
             if until is not None:
                 remaining = until - time.monotonic()
                 if remaining <= delay:
+                    if all_not_submitted:
+                        raise LLMNotSubmittedError("model connection failed before submission") from last_error
                     raise LLMTimeoutError("model time budget exceeded") from last_error
             time.sleep(delay)
         assert last_error is not None
+        if all_not_submitted:
+            raise LLMNotSubmittedError("model connection failed before submission") from last_error
         if isinstance(last_error, (httpx.TimeoutException, APITimeoutError)):
             raise LLMTimeoutError("model request timed out") from last_error
         detail = f" ({upstream_detail})" if upstream_detail else ""

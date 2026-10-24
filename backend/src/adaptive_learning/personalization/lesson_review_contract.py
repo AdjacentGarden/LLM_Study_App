@@ -30,7 +30,11 @@ FLAGS_ORDER = (
 GENERAL_CLAIM_RULE = (
     "第一项is_class_definition包括类定义、通用性质、作用、数量和过程规则概括；"
     "不能因只是过程或性质而标false。同类反例代入仍须核验。"
-    "is_factual=false只适用于不增加学科事实的教学安排、问题或学习建议，不能用它豁免事实。"
+    "is_factual=false只适用于不增加学科事实的教学安排、纯问题、学习建议，"
+    "以及同组件教师答复已明确反驳或纠正的被引述错误命题；这需要语义核验，不能按字段名自动豁免。"
+    "题目中的真实前提仍是事实；answer/expected_answer/back/step_N/rubric_N中的教师结论仍须原文核验。"
+    "若答复认可错误、未明确纠正或真假不明，不得将该命题视为已纠正；必须保留事实或范围否决。"
+    "同一断言的非事实角色与真实unbounded范围否决不能并存；须重新核验角色或矩阵，不能删除真实负判来修格式。"
     "同一片段混有安排与事实时，只要包含实际学科事实就必须is_factual=true，不能按主旨豁免。"
 )
 KINDS = {
@@ -56,6 +60,26 @@ def _check(condition: bool, message: str) -> None:
 def _strict_bool(value: Any, name: str) -> bool:
     _check(type(value) is bool, name + " must be a strict boolean")
     return value
+
+
+def component_role_context(fields: dict[str, str]) -> dict[str, Any]:
+    """Describe where to compare a question and its answer, never its truth.
+
+    A misconception quoted for correction is not automatically an endorsed
+    textbook claim. Only the semantic reviewer can decide whether the same
+    component actually corrects it; the complete fields and assertions remain.
+    """
+    question_fields = [key for key in fields if key in {"problem", "question", "prompt", "front"}]
+    response_fields = [
+        key for key in fields
+        if key in {"answer", "expected_answer", "back"} or re.fullmatch(r"(?:step|rubric)_\d+", key)
+    ]
+    return {
+        "question_fields": question_fields,
+        "teacher_response_fields": response_fields,
+        "semantic_classification_verified": False,
+        "question_fields_automatically_nonfactual": False,
+    }
 
 
 def _source_quote(sources: dict[str, dict[str, Any]], source_id: str) -> str:
@@ -174,6 +198,7 @@ def build_assertion_contract(
         "allowed_support_span_ids": allowed,
         "flags_order": list(FLAGS_ORDER),
         "general_claim_rule": GENERAL_CLAIM_RULE,
+        "component_roles": component_role_context(fields),
     }
 
 
@@ -283,6 +308,14 @@ def validate_assertion_review(
         _check(isinstance(findings, list), "findings must be a list")
         if not factual:
             _check(
+                not unbounded_sources.get(row["assertion_id"]),
+                "nonfactual assertion conflicts with its own unbounded scope matrix; "
+                + f"assertion_id={row['assertion_id']}, field={assertion['field']}; "
+                "recheck this exact assertion's semantic role and matrix together. "
+                "If it still asserts an uncorrected factual claim, set is_factual=true "
+                "and retain the real scope veto; never erase findings or normalize flags to approve it.",
+            )
+            _check(
                 entailed and not findings,
                 "nonfactual teaching arrangement must be source=true with no findings",
             )
@@ -321,10 +354,21 @@ def validate_assertion_review(
             for source_id in source_ids:
                 _source_quote(sources, source_id)
             if entailed:
+                location = (
+                    f"assertion_id={row['assertion_id']}, field={assertion['field']}, "
+                    f"finding_kind={finding['kind']}, evidence_source_ids={source_ids}"
+                )
                 _check(
-                    finding["kind"] in {"scope_overreach", "missing_condition"}
-                    and bool(set(source_ids) & unbounded_sources.get(row["assertion_id"], set())),
-                    "source-positive finding needs its own unbounded scope matrix evidence",
+                    finding["kind"] in {"scope_overreach", "missing_condition"},
+                    "source-positive finding needs its own unbounded scope matrix evidence; "
+                    + location + "; source_entailment=true conflicts with this factual/inference veto. "
+                    "Recheck this exact assertion; retain a real negative finding with source_entailment=false, never erase it to fix format.",
+                )
+                _check(
+                    bool(set(source_ids) & unbounded_sources.get(row["assertion_id"], set())),
+                    "source-positive finding needs its own unbounded scope matrix evidence; "
+                    + location + "; recheck this same assertion's scope_matrix against the actual cited boundary. "
+                    "Do not borrow another assertion's cell, invent unbounded flags or erase a real veto.",
                 )
             missing = finding.get("missing_text")
             if finding["kind"] == "missing_condition":

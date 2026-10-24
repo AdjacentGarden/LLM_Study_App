@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import UTC, date, datetime
 from ipaddress import ip_address
@@ -15,14 +16,23 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from .. import native_catalog as curated
 from ..accounts import COOKIE, TTL
-from ..assessment.item_generation import DiagnosticGenerationError, structure_fingerprint
+from ..assessment.diagnostic_cache import (
+    DiagnosticChapterCacheError,
+    DiagnosticChapterSubmissionBlocked,
+    RepositoryDiagnosticChapterCache,
+)
+from ..assessment.item_generation import (
+    DiagnosticGenerationError,
+    diagnostic_bank_key,
+    structure_fingerprint,
+)
 from ..assessment.models import DiagnosticItem
 from ..bootstrap import BootstrapService, builtin_content_version
 from ..ingestion.chaptering import load_normalized_pages
 from ..ingestion.models import BookStructure
 from ..learning_design import NativeLearningDesign
 from ..learning_preferences import LearningDesignOverrides
-from ..llm.client import LLMError
+from ..llm.client import LLMCooldownError, LLMError
 from ..native import NativeConflict
 from ..personalization.models import ChapterLearningBundle, PublicChapterLearningBundle
 from ..rag.index import RAGIndexError
@@ -271,8 +281,10 @@ def native_router(services: Any) -> APIRouter:
                 "teaching_units": {"backend": True, "native": False},
                 "server_planning": {"backend": True, "native": False},
                 "note_cloud_sync": {"backend": True, "native": False},
-                "voice_transcription": {"backend": True, "native": False, "runtime_checked_at": "/api/studio/capabilities"},
-                "handwriting": {"backend": True, "native": False},
+                "voice_transcription": {"backend": True, "native": True,
+                    "runtime_checked_at": "/api/studio/capabilities", "runtime_status_path": "/api/studio/capabilities"},
+                "handwriting": {"backend": True, "native": True, "runtime_status_path": "/api/studio/capabilities"},
+                "media_generation": {"backend": True, "native": True, "runtime_status_path": "/api/studio/capabilities"},
                 "community_social": {"backend": True, "native": False}}
 
     @router.put("/native/learner-preferences")
@@ -802,19 +814,22 @@ def native_router(services: Any) -> APIRouter:
         return resource_state(resource(wid, rid, actor))
 
     @router.post("/workspaces/{wid}/resources/{rid}/session")
-    def start_session(wid: str, rid: str, actor: str = Depends(owner)) -> Any:
+    def start_session(wid: str, rid: str, actor: str = Depends(owner), retry: bool = False,
+                      retry_request_id: str | None = None) -> Any:
         row = resource(wid, rid, actor)
         if row["session_id"]:
             return services.get_interview(row["session_id"])
+        if retry and (retry_request_id is None or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id)):
+            raise HTTPException(422, "请通过明确的重试操作继续诊断")
         structure = effective_structure(row)
         if structure is None:
             raise HTTPException(409, "请先完成教材解析并确认目录")
-        fingerprint = structure_fingerprint(structure)
-        bank_key = f"native:{rid}:{row['revision']}"
+        fingerprint = services.diagnostic_fingerprint(structure)
+        bank_key = diagnostic_bank_key(f"native:{rid}:{row['revision']}")
         original = services.job_repository.get_structure(row["book_id"])
-        if original is not None and structure_fingerprint(original) == fingerprint:
+        if original is not None and structure_fingerprint(original) == structure_fingerprint(structure):
             items = services.assessment_repository.get_bank(
-                row["book_id"], expected_fingerprint=fingerprint
+                diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint
             )
         else:
             items = None
@@ -824,10 +839,27 @@ def native_router(services: Any) -> APIRouter:
         if not items:
             if services.item_generator is None:
                 raise HTTPException(503, "诊断服务尚未配置，目录已保存，可稍后继续")
+            if retry and services.assessment_repository.has_pending_diagnostic_submission(row["book_id"]):
+                services.assessment_repository.grant_diagnostic_recovery(
+                    row["book_id"], f"native:{rid}:{retry_request_id}")
             try:
-                items = services.item_generator.generate(structure)
-            except (DiagnosticGenerationError, LLMError) as error:
-                raise HTTPException(502, "诊断题未通过教材证据校验，请稍后重试") from error
+                items = services.item_generator.generate(structure,
+                    chapter_cache=RepositoryDiagnosticChapterCache(services.assessment_repository),
+                    cache_scope=row["book_id"])
+            except DiagnosticChapterSubmissionBlocked as error:
+                raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
+                                    headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
+            except DiagnosticChapterCacheError as error:
+                raise HTTPException(409, "诊断章节记录需核验，已审核内容已保留，请检查服务后继续") from error
+            except DiagnosticGenerationError as error:
+                raise HTTPException(502, "诊断题未通过教材证据校验，已审核章节已保留，请重试诊断",
+                                    headers={"X-CloudPath-Error-Code": "diagnostic_generation_rejected"}) from error
+            except LLMCooldownError as error:
+                raise HTTPException(503, "诊断服务暂时繁忙，本次未提交，请稍后重试诊断",
+                                    headers={"X-CloudPath-Error-Code": "diagnostic_generation_not_admitted"}) from error
+            except LLMError as error:
+                raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
+                                    headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
             services.assessment_repository.save_bank(
                 book_id=bank_key, structure_fingerprint=fingerprint, items=items
             )

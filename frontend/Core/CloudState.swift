@@ -93,6 +93,8 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var showCompletionOnCompile = false
   var diagnosisWorkspaceID: String?
   var diagnosisResourceID: String?
+  var diagnosisRetryAvailable = false
+  var diagnosisRetryEpoch: UUID?
   var pending: [String: CloudPendingProgress] = [:]
   var pendingReviews: [CloudPendingReview] = []
   var cacheKey: String?
@@ -105,4 +107,6 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var retryDelay: Duration = .seconds(15)
   var retryTask: Task<Void, Never>?
   var contentTask: Task<Void, Never>?
+  var courseJob: CloudCourseJob?
+  var courseTask: Task<CloudCourse, Error>?
 }

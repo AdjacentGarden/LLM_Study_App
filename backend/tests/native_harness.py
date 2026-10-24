@@ -102,7 +102,7 @@ class FixtureAnswerModel:
 
 
 class FixtureBank:
-    def generate(self, value):
+    def generate(self, value, *, chapter_cache=None, cache_scope=""):
         return [
             DiagnosticItem(
                 item_id="diagnostic_" + stable_knowledge_point_id(ch.chapter_id, point),
@@ -196,7 +196,8 @@ def configure(root: Path, patch) -> FastAPI:
     def health():
         return {"ok": True, "ocr_worker_enabled": True, "ocr_worker_alive": True}
     app.middleware("http")(learning_guard(accounts))
-    app.include_router(community_router(root, lambda: [], lambda: jobs, lambda: assessments))
+    app.include_router(community_router(root, lambda: [], lambda: jobs, lambda: assessments,
+        diagnostic_fingerprint=api.diagnostic_fingerprint))
     app.include_router(native_router(api))
     app.post("/api/books")(api.upload_book)
 

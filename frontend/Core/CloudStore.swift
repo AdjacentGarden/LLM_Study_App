@@ -13,12 +13,18 @@ extension AppStore {
     cloudState.error = error.localizedDescription
     showToast(error.localizedDescription)
     if let error = error as? CloudError, error.status == 401 {
+      cloudState.isWorking = false
+      cloudState.diagnosisRetryAvailable = false
+      cloudState.diagnosisRetryEpoch = nil
       cloudState.authenticated = false
       cloudState.showDiagnosis = false
       cloudState.epoch = UUID()
       cloudState.syncTask?.cancel()
       cloudState.retryTask?.cancel()
       cloudState.contentTask?.cancel()
+      cloudState.courseTask?.cancel()
+      cloudState.courseTask = nil
+      cloudState.courseJob = nil
       cloudState.workspaces = []
       cloudState.account = nil
       cloudState.cacheKey = nil
@@ -144,6 +150,9 @@ extension AppStore {
     cloudState.epoch = UUID()
     cloudState.retryTask?.cancel()
     cloudState.contentTask?.cancel()
+    cloudState.courseTask?.cancel()
+    cloudState.courseTask = nil
+    cloudState.courseJob = nil
     cloudState.recordsTask?.cancel()
     await cloudState.recordsTask?.value
     cloudState.syncTask?.cancel()
@@ -291,23 +300,39 @@ extension AppStore {
     }
   }
 
-  func processCloudImport() async {
-    guard let cloud, !cloudState.isWorking else { return }
+  func processCloudImport(retryPreparation: Bool = false) async {
+    guard let cloud, let accountKey = cloudState.cacheKey, !cloudState.isWorking else { return }
     cloudState.isWorking = true
     let epoch = cloudState.epoch
+    let selectedGeneration = selectionGeneration
+    let retryBookID = retryPreparation ? importJob?.preparationBookID : nil
     defer { cloudState.isWorking = false }
     importError = nil
     let ids = draft.resourceIDs
+    guard !ids.isEmpty else { importError = "请先选择一本教材。"; return }
     importJob = ImportJob(bookIDs: ids, status: .running)
     persistCloud()
+    await persistTask?.value
+    if let error = cloudState.cacheWriteError {
+      importError = error
+      importJob?.status = .failed
+      return
+    }
+    let importID = importJob?.id
     for (index, pendingID) in ids.enumerated() {
       do {
+        try Task.checkCancellation()
+        importJob?.preparationBookID = nil
+        importJob?.preparationFailed = false
+        importJob?.preparationStage = nil
         var bookID = pendingID
         if pendingID.hasPrefix("book_local_") {
           guard let file = sourceFileURL(pendingID) else { throw ContentError.missing("本机原文件") }
           let uploaded = try await cloud.uploadPDF(file, filename: sources.first { $0.id == pendingID }?.summary.filename ?? file.lastPathComponent)
           guard epoch == cloudState.epoch else { return }
           bindUploadedBook(localID: pendingID, uploaded: uploaded)
+          await persistTask?.value
+          if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
           bookID = uploaded.book_id
         }
         var status: CloudBookStatus = try await cloud.request("/api/books/\(bookID)/status")
@@ -337,25 +362,53 @@ extension AppStore {
           try await Task.sleep(for: .seconds(2))
           status = try await cloud.request("/api/books/\(bookID)/status")
         }
-        processingMessage = "正在整理目录和教材检索索引"
-        struct Prepared: Decodable, Sendable {
-          var structure: CloudStructure
-          var rag_ready: Bool
+        processingMessage = "正在准备检索索引、教材目录和诊断题"
+        importJob?.preparationBookID = bookID
+        importJob?.preparationFailed = false
+        importJob?.message = processingMessage
+        persistCloud()
+        await persistTask?.value
+        if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
+        let preparationBookID = bookID
+        let service = BookPreparationService(api: cloud, repository: repository, accountKey: accountKey)
+        _ = try await service.waitForBook(bookID: bookID, retry: retryBookID == bookID) {
+          [weak self] job in
+          try await MainActor.run {
+            guard let self, epoch == self.cloudState.epoch, self.importJob?.id == importID,
+              self.importJob?.status == .running else { throw CancellationError() }
+            self.processingMessage = job.message
+            self.importJob?.message = job.message
+            self.importJob?.preparationBookID = preparationBookID
+            self.importJob?.preparationFailed = job.status == .failed
+            self.importJob?.preparationStage = job.stage
+            // OCR is complete, but preparation has no whole-book time estimate.
+            // Keep the last verified progress rather than inventing completion.
+            self.processingProgress = (Double(index) + 0.8) / Double(max(1, ids.count))
+            self.importJob?.progress = self.processingProgress
+            self.persistCloud()
+          }
         }
-        let prepared: Prepared = try await cloud.request(
-          "/api/native/books/\(bookID)/prepare", method: "POST")
+        let structure: CloudStructure = try await cloud.request("/api/books/\(bookID)/structure")
         guard epoch == cloudState.epoch, importJob?.status == .running else { return }
         let temporary = CloudResource(
           id: "staged:\(bookID)", book_id: bookID, workspace_id: "", revision: 0,
           filename: sources.first { $0.id == bookID }?.summary.filename ?? "教材.pdf",
           status: "structured",
-          structure: prepared.structure, courses: [], progress: CloudProgress())
+          structure: structure, courses: [], progress: CloudProgress())
         let source = CloudMapping.source(temporary)
         if let i = sources.firstIndex(where: { $0.id == bookID }) { sources[i] = source }
         processingProgress = Double(index + 1) / Double(max(1, ids.count))
+      } catch is CancellationError {
+        guard epoch == cloudState.epoch else { return }
+        importJob?.status = .interrupted
+        importJob?.message = "整理查询已暂停，原文件和服务器任务仍保留"
+        processingMessage = importJob?.message ?? "整理查询已暂停"
+        persistCloud()
+        return
       } catch {
         guard epoch == cloudState.epoch, !Task.isCancelled else { return }
         importJob?.status = .failed
+        if importJob?.preparationBookID != nil { importJob?.preparationFailed = true }
         importError = error.localizedDescription
         processingMessage = "整理中断，原文件已保留"
         persistCloud()
@@ -363,13 +416,13 @@ extension AppStore {
         return
       }
     }
-    draft.parseCompleted = true
+    if selectionGeneration == selectedGeneration { draft.parseCompleted = true }
     importJob?.status = .completed
     processingMessage = "资料整理完成"
     processingProgress = 1
     do { try await reloadCloud() } catch { cloudState.syncError = error.localizedDescription }
     persistCloud()
-    if route == .processing { go(.courseSetup) }
+    if route == .processing, selectionGeneration == selectedGeneration { go(.courseSetup) }
   }
 
   func saveCloudCourse(name: String, resourceIDs: [String], diagnosis: [String: [String]])
@@ -449,18 +502,86 @@ extension AppStore {
     await beginCloudLearning(chapterID: selectedChapterID ?? chapters.first?.id)
   }
 
-  func beginCloudLearning(chapterID: String?) async {
-    guard let cloud, let resource = cloudResource, !cloudState.isWorking else { return }
+  var canRetryCloudDiagnosis: Bool {
+    cloudState.diagnosisRetryAvailable && !cloudState.isWorking
+      && cloudState.diagnosisRetryEpoch == cloudState.epoch
+      && cloudState.interview == nil && cloudState.courseJob == nil
+      && cloudResource?.session_id == nil && cloudResource?.id == cloudState.diagnosisResourceID
+      && selectedCourseID == cloudState.diagnosisWorkspaceID
+  }
+
+  func restoreCloudDiagnosis() async {
+    guard let cloud, let resource = cloudResource, !cloudState.isWorking,
+      cloudState.courseJob == nil, resource.id == cloudState.diagnosisResourceID,
+      resource.workspace_id == cloudState.diagnosisWorkspaceID else { return }
+    let epoch = cloudState.epoch
     cloudState.isWorking = true
-    defer { cloudState.isWorking = false }
+    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
+    do {
+      // A POST/session without retry can still generate previously unstarted
+      // diagnostic chapters. Recovery is strictly these two reads.
+      let remote: CloudResource = try await cloud.request(resource.path)
+      guard remote.id == resource.id, remote.book_id == resource.book_id,
+        remote.workspace_id == resource.workspace_id else {
+        throw CloudError(status: 409, message: "诊断资源归属不匹配，请重新打开当前教材。")
+      }
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      // Keep the original uncertainty and explicit-retry eligibility while the
+      // server has not attached a session. Never silently submit another job.
+      guard let sessionID = remote.session_id,
+        let encoded = sessionID.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return }
+      let interview: CloudInterview = try await cloud.request("/api/interviews/\(encoded)")
+      guard interview.session_id == sessionID else {
+        throw CloudError(status: 409, message: "恢复的诊断会话不匹配，请重新查询当前教材。")
+      }
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      if let wi = cloudState.workspaces.firstIndex(where: { $0.id == resource.workspace_id }),
+        let ri = cloudState.workspaces[wi].resources.firstIndex(where: { $0.id == resource.id }) {
+        cloudState.workspaces[wi].resources[ri].session_id = sessionID
+      }
+      cloudState.interview = interview
+      cloudState.error = nil
+      cloudState.diagnosisRetryAvailable = false
+      cloudState.diagnosisRetryEpoch = nil
+      // Even phase=complete is only restored here. Creating a course remains
+      // a separate, explicit learning action, never a side effect of lookup.
+    } catch {
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      if let error = error as? CloudError, !error.transportFailure {
+        cloudState.diagnosisRetryAvailable = false
+        cloudState.diagnosisRetryEpoch = nil
+      }
+      handleCloudError(error)
+    }
+  }
+
+  func beginCloudLearning(chapterID: String?, retryDiagnosis: Bool = false) async {
+    guard let cloud, let resource = cloudResource, !cloudState.isWorking else { return }
+    guard !retryDiagnosis || canRetryCloudDiagnosis else { return }
+    let epoch = cloudState.epoch
+    // One explicit action owns this nonce. URLSession retransmits the same URL;
+    // ordinary start/recovery never grants a retry or generates a nonce.
+    let retryRequestID = retryDiagnosis ? UUID().uuidString : nil
+    cloudState.isWorking = true
+    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
     cloudState.error = nil
+    cloudState.courseJob = nil
+    cloudState.interview = nil
+    cloudState.diagnosisRetryAvailable = false
+    cloudState.diagnosisRetryEpoch = nil
+    cloudState.showDiagnosis = true
     cloudState.requestedChapterID = chapterID ?? resource.structure?.chapters.first?.chapter_id
     cloudState.diagnosisWorkspaceID = resource.workspace_id
     cloudState.diagnosisResourceID = resource.id
     do {
+      let suffix = retryRequestID.map { "?retry=true&retry_request_id=\($0)" } ?? ""
       let interview: CloudInterview = try await cloud.request(
-        resource.path + "/session", method: "POST")
-      guard selectedCourseID == resource.workspace_id, selectedBookID == resource.book_id else {
+        resource.path + "/session" + suffix, method: "POST")
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else {
         return
       }
       cloudState.interview = interview
@@ -469,7 +590,17 @@ extension AppStore {
       } else {
         cloudState.showDiagnosis = true
       }
-    } catch { handleCloudError(error) }
+    } catch {
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      let failure = error as? CloudError
+      let retryable = (failure?.status == 409 && failure?.code == "diagnostic_submission_uncertain")
+        || (failure?.status == 502 && failure?.code == "diagnostic_generation_rejected")
+        || (failure?.status == 503 && failure?.code == "diagnostic_generation_not_admitted")
+      cloudState.diagnosisRetryAvailable = resource.session_id == nil && retryable
+      cloudState.diagnosisRetryEpoch = cloudState.diagnosisRetryAvailable ? epoch : nil
+      handleCloudError(error)
+    }
   }
 
   func advanceCloudInterview(selected: [String], confidence: Double, seconds: Double) async {
@@ -506,6 +637,7 @@ extension AppStore {
           ])
       }
       if cloudState.interview?.phase == "complete" { try await compileCloudChapter() }
+    } catch is CancellationError { return
     } catch {
       handleCloudError(error)
       // A timed-out answer may have committed. Read the authoritative pending turn before another submission.
@@ -517,29 +649,74 @@ extension AppStore {
     }
   }
 
-  func compileCloudChapter() async throws {
+  func compileCloudChapter(retry: Bool = false) async throws {
     guard let cloud, let interview = cloudState.interview,
-      let chapterID = cloudState.requestedChapterID
-    else { return }
-    let _: CloudCourse = try await cloud.request(
-      "/api/interviews/\(interview.session_id)/courses/\(chapterID)", method: "POST")
-    try await reloadCloud()
-    cloudState.showDiagnosis = false
-    if let lesson = lessons.first(where: { $0.chapter_id == chapterID && $0.status == "ready" }) {
-      guard selectedCourseID == cloudState.diagnosisWorkspaceID,
-        cloudResource?.id == cloudState.diagnosisResourceID
-      else { return }
-      if cloudState.showCompletionOnCompile {
-        selectedChapterID = lesson.chapter_id
-        selectedLessonID = lesson.id
-        saveLocation()
-        cloudState.showCompletionOnCompile = false
-        go(.courseReady)
-      } else {
-        openLesson(lesson)
+      let chapterID = cloudState.requestedChapterID, let accountKey = cloudState.cacheKey,
+      let workspaceID = cloudState.diagnosisWorkspaceID,
+      let resourceID = cloudState.diagnosisResourceID else {
+      throw CloudError(status: 409, message: "请先恢复登录和本章的学习准备。")
+    }
+    let epoch = cloudState.epoch
+    cloudState.showDiagnosis = true
+    let service = CourseJobService(api: cloud, repository: repository, accountKey: accountKey)
+    let task = Task<CloudCourse, Error> { @MainActor in
+      let update: @Sendable (CloudCourseJob) async throws -> Void = { [weak self] job in
+        try await MainActor.run {
+          guard let self, self.cloudState.epoch == epoch,
+            self.selectedCourseID == workspaceID, self.cloudResource?.id == resourceID else {
+            throw CancellationError()
+          }
+          self.cloudState.courseJob = job
+        }
       }
+      if retry {
+        let job = try await service.restart(sessionID: interview.session_id, chapterID: chapterID)
+        try await update(job)
+      }
+      return try await service.waitForCourse(sessionID: interview.session_id, chapterID: chapterID,
+        onUpdate: update)
+    }
+    cloudState.courseTask = task
+    defer { if cloudState.epoch == epoch { cloudState.courseTask = nil } }
+    let course = try await withTaskCancellationHandler {
+      try await task.value
+    } onCancel: { task.cancel() }
+    guard cloudState.epoch == epoch, selectedCourseID == workspaceID,
+      cloudResource?.id == resourceID else { throw CancellationError() }
+    try await reloadCloud()
+    guard cloudState.epoch == epoch, selectedCourseID == workspaceID,
+      cloudResource?.id == resourceID else { throw CancellationError() }
+    guard let lesson = lessons.first(where: {
+      $0.id == course.course_id && $0.chapter_id == chapterID && $0.status == "ready"
+    }) else {
+      throw CloudError(status: 409, message: "课程已生成，学习内容暂未同步完整；请重新查询原任务。")
+    }
+    cloudState.showDiagnosis = false
+    if cloudState.showCompletionOnCompile {
+      selectedChapterID = lesson.chapter_id
+      selectedLessonID = lesson.id
+      saveLocation()
+      cloudState.showCompletionOnCompile = false
+      go(.courseReady)
+    } else {
+      openLesson(lesson)
     }
     persistCloud()
+  }
+
+  func pauseCloudCourseGeneration() {
+    cloudState.courseTask?.cancel()
+    cloudState.showDiagnosis = false
+  }
+
+  func restartCloudCourseGeneration() async {
+    guard !cloudState.isWorking, cloudState.courseJob?.status == .failed,
+      cloudState.courseJob?.retryable == true else { return }
+    cloudState.isWorking = true
+    cloudState.error = nil
+    defer { cloudState.isWorking = false }
+    do { try await compileCloudChapter(retry: true) }
+    catch { handleCloudError(error) }
   }
 
   func removeCloudCourse(_ id: String) async {
@@ -808,20 +985,19 @@ extension AppStore {
     }
     if let resource = cloudResource, resource.structure != nil {
       let location = locations[locationKey] ?? StudyLocation()
-      var value = resource.progress
+      let pending = cloudState.pending[resource.id]
+      var value = pending?.value ?? resource.progress
       value.page = max(1, min(location.page, resource.structure?.source_page_count ?? 1))
       value.chapter_id = location.chapterID
       value.lesson_id = location.lessonID?.hasPrefix("pending:") == true ? nil : location.lessonID
-      value.completed_chapters =
-        (currentSource?.plan.tasks.filter { ["done", "completed"].contains($0.status) }.compactMap(
-          \.chapter_id) ?? []).sorted()
-      value.task_status = Dictionary(
-        uniqueKeysWithValues: (currentSource?.plan.tasks ?? []).map { ($0.id, $0.status) })
+      let completedTasks = currentSource?.plan.tasks.filter { ["done", "completed"].contains($0.status) } ?? []
+      value.completed_chapters = Array(Set(value.completed_chapters + completedTasks.compactMap(\.chapter_id))).sorted()
+      // An absent/unloaded daily plan cannot erase acknowledged learning or task records.
+      for task in currentSource?.plan.tasks ?? [] { value.task_status[task.id] = task.status }
       let prefix = resource.id + "::"
       value.mastered_ids = mastered.filter { $0.hasPrefix(prefix) }.map {
         resource.book_id + "::" + $0.dropFirst(prefix.count)
       }.sorted()
-      let pending = cloudState.pending[resource.id]
       if value != (pending?.value ?? resource.progress) {
         cloudState.pending[resource.id] = CloudPendingProgress(
           workspaceID: resource.workspace_id, resourceID: resource.id, value: value,

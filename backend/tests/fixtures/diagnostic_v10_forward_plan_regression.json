@@ -1,0 +1,1001 @@
+{
+  "provenance": "Actual G v10 failed wire, offline evidence only; never imported as approval.",
+  "private_capture_sha256": "95d00cfad6f5c8f350ed6be7300176a2ed1fb3e29ac2acac5787cf526bd24b64",
+  "cases": [
+    {
+      "source": {
+        "book_title": "biology-compulsory-2",
+        "chapter_id": "chapter_4d06459dc04a5d5d",
+        "chapter_title": "第3章 基因的本质",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_f8a62e205e4d0e44",
+            "label": "赫尔希和蔡斯用放射性同位素标记的T2噬菌体侵染大肠杆菌，证明噬菌体侵染细菌时DNA进入细菌，而蛋白质外壳留在外面。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "basic_recognition",
+              "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"
+            },
+            "evidence": [
+              {
+                "page_number": 39,
+                "quote": "Chase）以T噬菌体（图3-4）为实验材料，利用放射性同\n位素标记的新技术，完成了另一个更具说服力的实验。\nT噬菌体是一种专门寄生在大肠杆菌体内的病毒，它\n的头部和尾部的外壳都是由蛋白质构成的，头部内含有\nDNA。T噬菌体侵染大肠杆菌后（图3-5），就会在自身遗\n传物质的作用下，利用大肠杆菌体内的物质来合成自身的\n组成成分，进行大量增殖。",
+                "anchor_quote": "DNA。T噬菌体侵染大肠杆菌后（图3-5），就会在自身遗"
+              },
+              {
+                "page_number": 40,
+                "quote": "赫尔希和蔡斯的实验表明：噬菌体侵染细菌时，DNA\n进人到细菌的细胞中，而蛋白质外壳仍留在外面。因此，子\n代噬菌体的各种性状，是通过亲代的DNA遗传的。DNA才\n是真正的遗传物质。",
+                "anchor_quote": "代噬菌体的各种性状，是通过亲代的DNA遗传的。DNA才"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_5b0f78babf47f4fb",
+            "label": "DNA复制是以亲代DNA为模板合成子代DNA的过程，新合成的每个DNA分子中都保留了原来DNA分子的一条链，称为半保留复制。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "relation_understanding",
+              "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+            },
+            "evidence": [
+              {
+                "page_number": 47,
+                "quote": "双螺旋将解开，互补的碱基之间的氢键断裂，解开的两条\n单链作为复制的模板，游离的脱氧核苷酸依据碱基互补配\n对原则，通过形成氢键，结合到作为模板的单链上。由于\n新合成的每个DNA分子中，都保留了原来DNA分子中的\n一条链，因此，这种复制方式被称做半保留复制。",
+                "anchor_quote": "对原则，通过形成氢键，结合到作为模板的单链上。由于"
+              },
+              {
+                "page_number": 49,
+                "quote": "DNA分子复制的过程\nDNA的复制是指以亲代DNA为模板合成子代DNA的\n过程。",
+                "anchor_quote": "DNA分子复制的过程"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_f2009b064bb73251",
+            "label": "DNA复制是一个边解旋边复制的过程，需要模板、原料、能量和酶等基本条件。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "source_application",
+              "goal": "把简短情境中的有据条件用于判断尚未给出的结论、对应或适用关系；条件必须实际参与作答，不得只套场景回忆原事实，也不得编造额外机制、工具用途或事实。"
+            },
+            "evidence": [
+              {
+                "page_number": 49,
+                "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。",
+                "anchor_quote": "DNA分子的复制是一个边解旋边复制的过程，复制需"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_f8a62e205e4d0e44",
+                "type": "choice",
+                "prompt": "赫尔希和蔡斯的实验表明，噬菌体侵染细菌时，进入细菌细胞的是什么？",
+                "options": [
+                  "噬菌体的DNA进入细菌细胞",
+                  "噬菌体的蛋白质外壳进入细菌细胞",
+                  "噬菌体的DNA和蛋白质外壳都进入细菌细胞",
+                  "噬菌体的DNA和蛋白质外壳都留在细菌细胞外"
+                ],
+                "correct_index": 0,
+                "expected_answer": "噬菌体的DNA进入细菌细胞",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_5b0f78babf47f4fb",
+                "type": "choice",
+                "prompt": "按照半保留复制，一个亲代DNA分子复制后形成的每个子代DNA分子，其两条链的组成是怎样的？",
+                "options": [
+                  "一条链来自亲代DNA，另一条链是新合成的",
+                  "两条链都来自亲代DNA",
+                  "两条链都是新合成的",
+                  "两条链都来自亲代DNA的一条单链"
+                ],
+                "correct_index": 0,
+                "expected_answer": "一条链来自亲代DNA，另一条链是新合成的",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_f2009b064bb73251",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_8b32b2b4bd4b927a1137"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "某DNA复制过程具备模板、原料、能量和酶"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "某DNA复制过程缺少能量，其他条件齐备"
+                    }
+                  ],
+                  "decision": "该过程能否正常进行",
+                  "outcomes": [
+                    "该过程具备基本条件，可以正常进行",
+                    "该过程缺少基本条件，不能正常进行"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 0,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_f8a62e205e4d0e44",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_5b0f78babf47f4fb",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_f2009b064bb73251",
+                "accepted": false,
+                "issues": [
+                  "原文只说明复制需要模板、原料、能量和酶；具备这些条件不保证“可以正常进行”。因此甲对应的“该过程具备基本条件，可以正常进行”超出证据。可保留两条记录，改问是否具备原文列出的基本条件，避免推断过程一定能正常进行。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "attempt": 2,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_f8a62e205e4d0e44",
+                "type": "choice",
+                "prompt": "赫尔希和蔡斯的实验表明，噬菌体侵染细菌时，进入细菌细胞的是什么？",
+                "options": [
+                  "噬菌体的DNA进入细菌细胞",
+                  "噬菌体的蛋白质外壳进入细菌细胞",
+                  "噬菌体的DNA和蛋白质外壳都进入细菌细胞",
+                  "噬菌体的DNA和蛋白质外壳都留在细菌细胞外"
+                ],
+                "correct_index": 0,
+                "expected_answer": "噬菌体的DNA进入细菌细胞",
+                "rubric": [],
+                "difficulty": -1.0,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_5b0f78babf47f4fb",
+                "type": "choice",
+                "prompt": "按照半保留复制，一个亲代DNA分子复制后形成的每个子代DNA分子，其两条链的组成是怎样的？",
+                "options": [
+                  "一条链来自亲代DNA，另一条链是新合成的",
+                  "两条链都来自亲代DNA",
+                  "两条链都是新合成的",
+                  "两条链都来自亲代DNA的一条单链"
+                ],
+                "correct_index": 0,
+                "expected_answer": "一条链来自亲代DNA，另一条链是新合成的",
+                "rubric": [],
+                "difficulty": 0.0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_f2009b064bb73251",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_8b32b2b4bd4b927a1137"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "某DNA复制过程具备模板、原料、能量和酶"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "某DNA复制过程缺少能量，其他条件齐备"
+                    }
+                  ],
+                  "decision": "是否具备原文列出的基本条件",
+                  "outcomes": [
+                    "具备模板、原料、能量和酶等基本条件",
+                    "缺少能量，未同时具备这些基本条件"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 0.0,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review_transport_outcome": "TLS ConnectTimeout; no review response or verdict",
+          "received_repair_feedback": {
+            "attempt": 1,
+            "stage": "semantic_review",
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_f8a62e205e4d0e44",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_5b0f78babf47f4fb",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_f2009b064bb73251",
+                "accepted": false,
+                "issues": [
+                  "原文只说明复制需要模板、原料、能量和酶；具备这些条件不保证“可以正常进行”。因此甲对应的“该过程具备基本条件，可以正常进行”超出证据。可保留两条记录，改问是否具备原文列出的基本条件，避免推断过程一定能正常进行。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "book_title": "biology-compulsory-2",
+        "chapter_id": "chapter_d58164c4b1599fca",
+        "chapter_title": "第5章 基因突变及其他变异",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_67784026496ac530",
+            "label": "基因突变在生物界中普遍存在，具有随机性、不定向性，自然状态下突变频率很低。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "basic_recognition",
+              "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"
+            },
+            "evidence": [
+              {
+                "page_number": 77,
+                "quote": "基因突变有什么特点呢？\n由于自然界诱发基因突变的因素很多，基因突变还可\n以自发产生，因此，基因突变在生物界中是普遍存在的。",
+                "anchor_quote": "由于自然界诱发基因突变的因素很多，基因突变还可"
+              },
+              {
+                "page_number": 77,
+                "quote": "现在基因突变可以发生在生物个体发育的任何时期：可以\n发生在细胞内不同的DNA分子上；同一DNA分子的不同\n部位。基因突变的不定向表现为一个基因可以向不同的方\n向发生突变，产生一个以上的等位基因，如控制小鼠毛色\n的灰色基因既可以突变成黄色基因，也可以突变成黑色基\n因，而且基因突变的方向和环境没有明确的因果关系。",
+                "anchor_quote": "部位。基因突变的不定向表现为一个基因可以向不同的方"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_353a690b6453fa56",
+            "label": "基因重组是指在生物体进行有性生殖的过程中，控制不同性状的基因的重新组合。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "relation_understanding",
+              "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+            },
+            "evidence": [
+              {
+                "page_number": 78,
+                "quote": "基因重组（generecombination）是指在生物体进行有\n性生殖的过程中，控制不同性状的基因的重新组合。",
+                "anchor_quote": "基因重组（generecombination）是指在生物体进行有"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_2e322d78ac15ba0d",
+            "label": "减数分裂形成配子时，非同源染色体上的非等位基因自由组合，导致基因重组。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "source_application",
+              "goal": "把简短情境中的有据条件用于判断尚未给出的结论、对应或适用关系；条件必须实际参与作答，不得只套场景回忆原事实，也不得编造额外机制、工具用途或事实。"
+            },
+            "evidence": [
+              {
+                "page_number": 78,
+                "quote": "基因重组（generecombination）是指在生物体进行有\n性生殖的过程中，控制不同性状的基因的重新组合。基因\n的自由组合定律告诉我们，在生物体通过减数分裂形成配\n子时，随着非同源染色体的自由组合，非等位基因也自由\n组合，这样，由雌雄配子结合形成的受精卵，就可能具有\n与亲代不同的基因型，从而使子代产生变异（图5−4)。",
+                "anchor_quote": "性生殖的过程中，控制不同性状的基因的重新组合。基因"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_67784026496ac530",
+                "type": "choice",
+                "prompt": "关于基因突变在生物界中的存在情况，下列判断正确的是哪一项？",
+                "options": [
+                  "基因突变在生物界中是普遍存在的",
+                  "基因突变只发生在少数几种生物中",
+                  "基因突变只在人工诱变条件下才会出现",
+                  "基因突变在生物界中极为罕见，多数物种不会发生"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因突变在生物界中是普遍存在的",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_353a690b6453fa56",
+                "type": "choice",
+                "prompt": "根据基因重组的含义，控制不同性状的基因发生重新组合，需要处于下列哪种过程？",
+                "options": [
+                  "生物体进行有性生殖的过程",
+                  "生物体进行无性繁殖的过程",
+                  "生物体细胞分裂形成体细胞的过程",
+                  "生物体由单个细胞发育成个体的过程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "生物体进行有性生殖的过程",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_36326fcaed345ef85d69"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "某生物减数分裂形成配子时，非同源染色体自由组合"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "某生物减数分裂形成配子时，同源染色体未发生自由组合"
+                    }
+                  ],
+                  "decision": "子代能否因基因重组产生变异",
+                  "outcomes": [
+                    "非等位基因随之自由组合，受精卵可能具有与亲代不同的基因型，子代产生变异",
+                    "非等位基因不能随之自由组合，受精卵的基因型与亲代相同，子代不产生变异"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 1,
+                "estimated_seconds": 60
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_67784026496ac530",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_353a690b6453fa56",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "accepted": false,
+                "issues": [
+                  "记录乙的“同源染色体未发生自由组合”不能推出选项中的“非等位基因不能随之自由组合，受精卵的基因型与亲代相同，子代不产生变异”。原文只说明非同源染色体自由组合时可能产生变异，不支持这一否定结论。可改用原文明确涉及的两种条件，如非同源染色体自由组合与雌雄配子结合，分别判断对应的基因组合关系或可能结果。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "attempt": 2,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_67784026496ac530",
+                "type": "choice",
+                "prompt": "关于基因突变在生物界中的存在情况，下列判断正确的是哪一项？",
+                "options": [
+                  "基因突变在生物界中是普遍存在的",
+                  "基因突变只发生在少数几种生物中",
+                  "基因突变只在人工诱变条件下才会出现",
+                  "基因突变在生物界中极为罕见，多数物种不会发生"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因突变在生物界中是普遍存在的",
+                "rubric": [],
+                "difficulty": -1.0,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_353a690b6453fa56",
+                "type": "choice",
+                "prompt": "根据基因重组的含义，控制不同性状的基因发生重新组合，需要处于下列哪种过程？",
+                "options": [
+                  "生物体进行有性生殖的过程",
+                  "生物体进行无性繁殖的过程",
+                  "生物体细胞分裂形成体细胞的过程",
+                  "生物体由单个细胞发育成个体的过程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "生物体进行有性生殖的过程",
+                "rubric": [],
+                "difficulty": 0.0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_36326fcaed345ef85d69"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "减数分裂形成配子时，非同源染色体自由组合"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "雌雄配子结合形成受精卵"
+                    }
+                  ],
+                  "decision": "子代基因型与亲代的关系",
+                  "outcomes": [
+                    "非等位基因自由组合，受精卵可能具有与亲代不同的基因型，子代产生变异",
+                    "配子结合成受精卵，其基因型与亲代相同，子代不产生变异"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 1.0,
+                "estimated_seconds": 60
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "accepted": false,
+                "issues": [
+                  "记录乙仅给出“雌雄配子结合形成受精卵”，原文并不支持据此断定“其基因型与亲代相同，子代不产生变异”；原文反而指出受精卵可能具有与亲代不同的基因型。记录甲也只支持非等位基因自由组合，不能据此断定特定子代必然变异。可分别给出是否发生非同源染色体自由组合的有据记录，询问对应的非等位基因组合关系；不要用未经支持的‘不产生变异’作反面结果。"
+                ]
+              }
+            ]
+          },
+          "received_repair_feedback": {
+            "attempt": 1,
+            "stage": "semantic_review",
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_67784026496ac530",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_353a690b6453fa56",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "accepted": false,
+                "issues": [
+                  "记录乙的“同源染色体未发生自由组合”不能推出选项中的“非等位基因不能随之自由组合，受精卵的基因型与亲代相同，子代不产生变异”。原文只说明非同源染色体自由组合时可能产生变异，不支持这一否定结论。可改用原文明确涉及的两种条件，如非同源染色体自由组合与雌雄配子结合，分别判断对应的基因组合关系或可能结果。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "attempt": 3,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_67784026496ac530",
+                "type": "choice",
+                "prompt": "关于基因突变在生物界中的存在情况，下列判断正确的是哪一项？",
+                "options": [
+                  "基因突变在生物界中是普遍存在的",
+                  "基因突变只发生在少数几种生物中",
+                  "基因突变只在人工诱变条件下才会出现",
+                  "基因突变在生物界中极为罕见，多数物种不会发生"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因突变在生物界中是普遍存在的",
+                "rubric": [],
+                "difficulty": -1.0,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_353a690b6453fa56",
+                "type": "choice",
+                "prompt": "根据基因重组的含义，控制不同性状的基因发生重新组合，需要处于下列哪种过程？",
+                "options": [
+                  "生物体进行有性生殖的过程",
+                  "生物体进行无性繁殖的过程",
+                  "生物体细胞分裂形成体细胞的过程",
+                  "生物体由单个细胞发育成个体的过程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "生物体进行有性生殖的过程",
+                "rubric": [],
+                "difficulty": 0.0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_36326fcaed345ef85d69"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "减数分裂形成配子时，非同源染色体自由组合"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "减数分裂形成配子时，非同源染色体不发生自由组合"
+                    }
+                  ],
+                  "decision": "非等位基因的组合情况",
+                  "outcomes": [
+                    "非等位基因也自由组合",
+                    "非等位基因不随之自由组合"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 1.0,
+                "estimated_seconds": 60
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "accepted": false,
+                "issues": [
+                  "原文只支持非同源染色体自由组合时，非等位基因也自由组合；未说明不发生自由组合时会怎样。记录乙对应的“非等位基因不随之自由组合”缺乏证据，不能据此排除“乙：非等位基因也自由组合”。建议将乙改为原文明确支持的另一条件，并判断两条记录尚未给出的对应结果，不要由原关系反推否定结论。"
+                ]
+              }
+            ]
+          },
+          "received_repair_feedback": {
+            "attempt": 2,
+            "stage": "semantic_review",
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_2e322d78ac15ba0d",
+                "accepted": false,
+                "issues": [
+                  "记录乙仅给出“雌雄配子结合形成受精卵”，原文并不支持据此断定“其基因型与亲代相同，子代不产生变异”；原文反而指出受精卵可能具有与亲代不同的基因型。记录甲也只支持非等位基因自由组合，不能据此断定特定子代必然变异。可分别给出是否发生非同源染色体自由组合的有据记录，询问对应的非等位基因组合关系；不要用未经支持的‘不产生变异’作反面结果。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "book_title": "biology-compulsory-2",
+        "chapter_id": "chapter_7f991ceb7fc96c21",
+        "chapter_title": "第6章 从杂交育种到基因工程",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_1a2371591e9a32ff",
+            "label": "杂交育种依据的遗传学原理是基因重组，但后代会出现性状分离，育种进程缓慢，过程复杂。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "basic_recognition",
+              "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"
+            },
+            "evidence": [
+              {
+                "page_number": 94,
+                "quote": "杂交育种依据的遣传学原理是",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 95,
+                "quote": "杂交育种只能利用已有基因的重组，按需选择，并不\n能创造新的基因。杂交后代会出现分离现象，育种进程\n缓慢，过程复杂。",
+                "anchor_quote": "能创造新的基因。杂交后代会出现分离现象，育种进程"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_6a5b5e43129e4018",
+            "label": "诱变育种是利用物理因素或化学因素处理生物，使生物发生基因突变，从而提高突变率，在较短时间内获得更多优良变异类型。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "relation_understanding",
+              "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+            },
+            "evidence": [
+              {
+                "page_number": 95,
+                "quote": "我们知道，物理因素或化学因素都能诱发基因突变。将\n这一原理应用在育种中，就发展为育种的新方法——诱变\n育种（mutationbreeding），也就是利用物理因素（如X射\n线、γ射线、紫外线、激光等）或化学因素（如亚硝酸、硫\n酸二乙酯等）来处理生物，使生物发生基因突变。",
+                "anchor_quote": "我们知道，物理因素或化学因素都能诱发基因突变。将"
+              },
+              {
+                "page_number": 95,
+                "quote": "我们知道，物理因素或化学因素都能诱发基因突变。将\n这一原理应用在育种中，就发展为育种的新方法——诱变\n育种（mutationbreeding），也就是利用物理因素（如X射\n线、γ射线、紫外线、激光等）或化学因素（如亚硝酸、硫\n酸二乙酯等）来处理生物，使生物发生基因突变。用这种\n方法可以提高突变率，在较短时问内获得更多的优良变异\n类型。",
+                "anchor_quote": "酸二乙酯等）来处理生物，使生物发生基因突变。用这种"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+            "label": "基因工程又叫做基因拼接技术或DNA重组技术，是按照人们的意愿把一种生物的某种基因提取出来，加以修饰改造，然后放到另一种生物的细胞里，定向地改造生物的遗传性状。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "source_application",
+              "goal": "把简短情境中的有据条件用于判断尚未给出的结论、对应或适用关系；条件必须实际参与作答，不得只套场景回忆原事实，也不得编造额外机制、工具用途或事实。"
+            },
+            "evidence": [
+              {
+                "page_number": 97,
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。基因工程是在DNA上\n进行的分子水平的设计施工，需要有专门的工具。",
+                "anchor_quote": "里，定向地改造生物的遗传性状。基因工程是在DNA上"
+              },
+              {
+                "page_number": 97,
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。",
+                "anchor_quote": "基因工程又叫做基因拼接技术或DNA重组技术。通"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "type": "choice",
+                "prompt": "杂交育种所依据的遗传学原理是什么？",
+                "options": [
+                  "基因重组",
+                  "基因突变",
+                  "染色体数目变异",
+                  "基因工程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因重组",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 25
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "type": "choice",
+                "prompt": "用X射线或亚硝酸处理生物，使其发生基因突变，从而在较短时间内获得更多优良变异类型，这属于哪种育种方法？",
+                "options": [
+                  "诱变育种",
+                  "杂交育种",
+                  "单倍体育种",
+                  "多倍体育种"
+                ],
+                "correct_index": 0,
+                "expected_answer": "诱变育种",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_66013150cf68134ca5ff",
+                    "src_9370bd9861dcc57a6b04"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "按人们意愿把一种生物的某种基因提取、修饰后放入另一种生物细胞"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "只利用已有基因的重组，按需选择，不创造新基因"
+                    }
+                  ],
+                  "decision": "该操作属于哪种技术",
+                  "outcomes": [
+                    "基因工程",
+                    "杂交育种"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 1,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "accepted": false,
+                "issues": [
+                  "原文仅写“杂交育种依据的遗传学原理是”，未给出答案；另一段虽提到“已有基因的重组”，但不能仅据此确认所问原理为“基因重组”。应补充明确原文证据。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "accepted": false,
+                "issues": [
+                  "题干已给出诱变育种的处理因素、基因突变和效果，仅要求在“诱变育种”等名称中辨认，未达到关系理解目标。可给定处理因素，改问尚未给出的变化或效果，并设置同轴选项。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "accepted": false,
+                "issues": [
+                  "记录乙“只利用已有基因的重组，按需选择，不创造新基因”所依据的原文不在所列source_refs中，无法支持“乙：杂交育种”的映射；须引用对应原文。",
+                  "记录甲几乎复述基因工程的完整定义，再与记录乙一起要求匹配技术名称，仍是定义命名。可给定技术或操作条件，改判两条记录各自尚未给出的作用对象、结果或适用关系，并保持两个结果同轴。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "attempt": 2,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "type": "choice",
+                "prompt": "关于杂交育种，下列哪项是原文明确指出的特点？",
+                "options": [
+                  "只能利用已有基因的重组，不能创造新的基因",
+                  "能创造新的基因，因此后代不会出现分离现象",
+                  "能创造新的基因，因此育种进程较快",
+                  "只能利用已有基因的重组，因此后代不会出现分离现象"
+                ],
+                "correct_index": 0,
+                "expected_answer": "只能利用已有基因的重组，不能创造新的基因",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "type": "choice",
+                "prompt": "用X射线或亚硝酸处理生物后，依据原文，诱变育种能带来的结果是下列哪项？",
+                "options": [
+                  "提高突变率，在较短时间内获得更多优良变异类型",
+                  "提高基因重组率，使后代不再出现性状分离",
+                  "使已有基因按需重新组合，定向改造遗传性状",
+                  "使生物发生基因突变，但突变率不会提高"
+                ],
+                "correct_index": 0,
+                "expected_answer": "提高突变率，在较短时间内获得更多优良变异类型",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_66013150cf68134ca5ff",
+                    "src_9370bd9861dcc57a6b04"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "把一种生物的某种基因提取、修饰后放入另一种生物细胞"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "只利用已有基因的重组，按需选择，不创造新基因"
+                    }
+                  ],
+                  "decision": "该操作能否定向改造遗传性状",
+                  "outcomes": [
+                    "能定向改造生物的遗传性状",
+                    "不能定向改造生物的遗传性状"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 1,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "accepted": false,
+                "issues": [
+                  "原文支持甲的操作能定向改造遗传性状，但未说明乙所述杂交育种“不能定向改造生物的遗传性状”；乙的否定结论不能从“不创造新的基因”推出，且所列引用均只涉及基因工程。可改为判断两条记录是否符合原文所述基因提取、修饰并放入另一生物细胞的操作，避免推断乙的改造能力。"
+                ]
+              }
+            ]
+          },
+          "received_repair_feedback": {
+            "attempt": 1,
+            "stage": "semantic_review",
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "accepted": false,
+                "issues": [
+                  "原文仅写“杂交育种依据的遗传学原理是”，未给出答案；另一段虽提到“已有基因的重组”，但不能仅据此确认所问原理为“基因重组”。应补充明确原文证据。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "accepted": false,
+                "issues": [
+                  "题干已给出诱变育种的处理因素、基因突变和效果，仅要求在“诱变育种”等名称中辨认，未达到关系理解目标。可给定处理因素，改问尚未给出的变化或效果，并设置同轴选项。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "accepted": false,
+                "issues": [
+                  "记录乙“只利用已有基因的重组，按需选择，不创造新基因”所依据的原文不在所列source_refs中，无法支持“乙：杂交育种”的映射；须引用对应原文。",
+                  "记录甲几乎复述基因工程的完整定义，再与记录乙一起要求匹配技术名称，仍是定义命名。可给定技术或操作条件，改判两条记录各自尚未给出的作用对象、结果或适用关系，并保持两个结果同轴。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "attempt": 3,
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "type": "choice",
+                "prompt": "关于杂交育种，下列哪项是原文明确指出的特点？",
+                "options": [
+                  "只能利用已有基因的重组，不能创造新的基因",
+                  "能创造新的基因，因此后代不会出现分离现象",
+                  "能创造新的基因，因此育种进程较快",
+                  "只能利用已有基因的重组，因此后代不会出现分离现象"
+                ],
+                "correct_index": 0,
+                "expected_answer": "只能利用已有基因的重组，不能创造新的基因",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "type": "choice",
+                "prompt": "用X射线或亚硝酸处理生物后，依据原文，诱变育种能带来的结果是下列哪项？",
+                "options": [
+                  "提高突变率，在较短时间内获得更多优良变异类型",
+                  "提高基因重组率，使后代不再出现性状分离",
+                  "使已有基因按需重新组合，定向改造遗传性状",
+                  "使生物发生基因突变，但突变率不会提高"
+                ],
+                "correct_index": 0,
+                "expected_answer": "提高突变率，在较短时间内获得更多优良变异类型",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "type": "choice",
+                "application_task": {
+                  "source_refs": [
+                    "src_66013150cf68134ca5ff",
+                    "src_9370bd9861dcc57a6b04"
+                  ],
+                  "records": [
+                    {
+                      "id": "r1",
+                      "conditions": "把一种生物的某种基因提取、修饰后放入另一种生物细胞"
+                    },
+                    {
+                      "id": "r2",
+                      "conditions": "把一种生物的某种基因提取后直接放回同种生物原细胞"
+                    }
+                  ],
+                  "decision": "是否符合原文所述基因工程操作",
+                  "outcomes": [
+                    "符合把一种生物的基因提取、修饰后放入另一种生物细胞的操作",
+                    "不符合把一种生物的基因提取、修饰后放入另一种生物细胞的操作"
+                  ],
+                  "mapping": [
+                    "a",
+                    "b"
+                  ]
+                },
+                "difficulty": 1,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "accepted": false,
+                "issues": [
+                  "记录甲几乎照搬原文操作，结果“符合把一种生物的基因提取、修饰后放入另一种生物细胞的操作”又复述记录条件，实际只是在做表述匹配。可给甲、乙不同的操作条件，依据原文的跨生物转入关系，判断各自的作用对象对应，而非重复条件作符合性分类。"
+                ]
+              }
+            ]
+          },
+          "received_repair_feedback": {
+            "attempt": 2,
+            "stage": "semantic_review",
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_1a2371591e9a32ff",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_6a5b5e43129e4018",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+                "accepted": false,
+                "issues": [
+                  "原文支持甲的操作能定向改造遗传性状，但未说明乙所述杂交育种“不能定向改造生物的遗传性状”；乙的否定结论不能从“不创造新的基因”推出，且所列引用均只涉及基因工程。可改为判断两条记录是否符合原文所述基因提取、修饰并放入另一生物细胞的操作，避免推断乙的改造能力。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

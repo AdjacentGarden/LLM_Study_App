@@ -63,6 +63,31 @@ def test_only_exact_unchanged_verified_component_is_reused_without_mutating_save
     assert cache.get(component)[1]["scope_checks"][0]["claim_quote"] == "可直接沿用原判断"
 
 
+@pytest.mark.parametrize("change", ["navigation_ids", "navigation_version"])
+def test_navigation_identity_is_required_even_if_sources_text_plan_and_content_are_unchanged(change):
+    sources, context, component, proof = setup()
+    component["navigation"] = {"version": "candidate-context-v1", "source_ids": []}
+    cache = VerifiedComponentReuse(source_texts=sources, context=context)
+    assert cache.remember(component, proof)
+    assert cache.get(deepcopy(component)) is not None
+    updated = deepcopy(component)
+    if change == "navigation_ids":
+        updated["navigation"]["source_ids"] = ["s2"]
+    else:
+        updated["navigation"]["version"] = "candidate-context-v2"
+    assert cache.get(updated) is None
+    legacy = {key: value for key, value in component.items() if key != "navigation"}
+    assert cache.get(legacy) is None
+
+
+def test_navigation_cannot_reference_a_source_outside_the_immutable_chapter():
+    sources, context, component, proof = setup()
+    component["navigation"] = {"version": "candidate-context-v1", "source_ids": ["unknown"]}
+    cache = VerifiedComponentReuse(source_texts=sources, context=context)
+    with pytest.raises(ValueError, match="navigation"):
+        cache.remember(component, proof)
+
+
 @pytest.mark.parametrize("change", ["answer", "citation", "boundary", "identity", "point"])
 def test_answer_citation_or_boundary_changes_cannot_inherit_previous_approval(change):
     sources, context, component, proof = setup()

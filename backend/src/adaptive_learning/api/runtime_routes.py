@@ -13,6 +13,7 @@ class RuntimeSnapshot(BaseModel):
 
     text_configured: StrictBool = False
     review_configured: StrictBool = False
+    diagnostics_configured: StrictBool = False
     ocr_configured: StrictBool = False
     ocr_worker_alive: StrictBool = False
     preparation_worker_alive: StrictBool = False
@@ -42,7 +43,7 @@ def runtime_router(snapshot: Callable[[], RuntimeSnapshot]) -> APIRouter:
                                 headers={"Cache-Control": "no-store"}) from error
         features = {
             "prepare": all((value.ocr_configured, value.ocr_worker_alive, value.text_configured,
-                            value.preparation_worker_alive, value.rag_configured)),
+                            value.review_configured, value.diagnostics_configured, value.preparation_worker_alive, value.rag_configured)),
             "courses": value.text_configured and value.review_configured and value.course_worker_alive,
             "qa": value.text_configured and value.rag_configured and value.rag_ready,
             "notes_ai": value.notes_configured and value.note_worker_alive,

@@ -350,5 +350,5 @@ def test_real_v13_first_response_can_be_repaired_only_for_its_actual_missing_rel
 def test_scope_repair_release_has_a_new_executable_course_revision():
     from adaptive_learning.personalization.teaching_content import TEACHING_CONTENT_VERSION
     assert TEACHING_CONTENT_VERSION == (
-        "whole-course-evidence-review-v20+scope-plan-v3+native-units-v1"
+        "whole-course-evidence-review-v20+scope-plan-v4+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+candidate-context-v1+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1"
     )

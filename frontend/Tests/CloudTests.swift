@@ -534,6 +534,110 @@ extension CloudTests {
     XCTAssertEqual(calls, 2, "Transport recovery is limited to one retry")
   }
 
+  private func generatedResourceWithoutDailyPlan() -> CloudResource {
+    let chapters = ["c1", "c2"].enumerated().map { index, id in
+      CloudChapter(chapter_id: id, order: index, title: id, start_page: index + 1, end_page: index + 1,
+        summary: "有原文依据的章节", knowledge_points: [], source_block_ids: [])
+    }
+    let courses = chapters.map {
+      CloudCourse(course_id: "generated-" + $0.chapter_id, version: 1, chapter_id: $0.chapter_id,
+        chapter_title: $0.title, opening: "测试用真实响应结构", summary: $0.summary,
+        original_reading: [], knowledge_points: [], flashcards: [], worked_examples: [],
+        checkpoint_questions: [], practice_items: [], estimated_minutes: 5,
+        created_at: "2026-10-24T00:00:00Z", unresolved_source_warnings: [])
+    }
+    return CloudResource(id: "generated-resource", book_id: "uploaded-book", workspace_id: "generated-workspace",
+      revision: 0, filename: "用户教材.pdf", status: "structured",
+      structure: CloudStructure(title: "用户教材", summary: "", source_page_count: 2, chapters: chapters),
+      courses: courses, progress: CloudProgress(revision: 4, completed_chapters: ["c1"],
+        task_status: ["existing-server-task": "done"]))
+  }
+
+  @MainActor private func installGeneratedResource(_ resource: CloudResource, store: AppStore) {
+    store.cloudState.authenticated = true
+    store.cloudState.cacheKey = "generated-no-plan"
+    store.cloudState.workspaces = [CloudWorkspace(id: resource.workspace_id, name: "个人课程",
+      preferences: [:], created: 0, updated: 0, resources: [resource])]
+    store.rebuildCloudCourses()
+    store.selectedCourseID = resource.workspace_id
+    store.selectedBookID = resource.book_id
+    store.selectedChapterID = "c2"
+    store.selectedLessonID = "generated-c2"
+    store.installCloudSources(workspaceID: resource.workspace_id)
+    store.restoreCloudMastery()
+  }
+
+  @MainActor func testGeneratedLessonCompletionWithoutPlanSurvivesOfflineCacheReload() async throws {
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let api = CloudAPI(baseURL: URL(string: "https://completion-\(UUID().uuidString).example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: directory)
+    let store = AppStore(repository: repo, cloud: api)
+    let resource = generatedResourceWithoutDailyPlan()
+    installGeneratedResource(resource, store: store)
+    XCTAssertTrue(store.plan?.tasks.isEmpty == true, "Reading completion must not fabricate a daily plan")
+    store.completeLesson()
+    await store.flush()
+    XCTAssertEqual(store.completedChapterIDs, Set(["c1", "c2"]))
+    XCTAssertTrue(store.mastered.isEmpty, "Reading a lesson is not evidence of knowledge mastery")
+    let progress = try XCTUnwrap(store.cloudState.pending[resource.id]?.value)
+    XCTAssertEqual(progress.completed_chapters, ["c1", "c2"])
+    XCTAssertEqual(progress.task_status, ["existing-server-task": "done"])
+    let loadedCache = try await repo.loadCloudState("generated-no-plan")
+    let cached = try XCTUnwrap(loadedCache)
+    let restored = AppStore(repository: try LocalBookCourseRepository(directory: directory), cloud: api)
+    restored.restoreCloudCache(cached)
+    restored.installCloudSources(workspaceID: resource.workspace_id)
+    XCTAssertEqual(restored.completedChapterIDs, Set(["c1", "c2"]))
+    XCTAssertEqual(restored.chapters.first { $0.id == "c2" }?.status, "completed")
+    XCTAssertTrue(restored.plan?.tasks.isEmpty == true)
+    var other = resource
+    other.id = "other-resource"
+    other.workspace_id = "other-workspace"
+    other.progress = CloudProgress()
+    restored.cloudState.workspaces.append(CloudWorkspace(id: other.workspace_id, name: "同书另一门课",
+      preferences: [:], created: 0, updated: 0, resources: [other]))
+    restored.selectedCourseID = other.workspace_id
+    XCTAssertTrue(restored.completedChapterIDs.isEmpty, "Completion belongs to this course material, not a shared book")
+    store.cloudState.retryTask?.cancel()
+    restored.cloudState.retryTask?.cancel()
+  }
+
+  @MainActor func testGeneratedLessonCompletionReceivesServerAcknowledgementWithoutPlan() async throws {
+    OfflineCloudProtocol.respond { request in
+      if request.url?.path.hasSuffix("/progress") == true {
+        let value: Any
+        if let input = request.httpBody { value = try JSONSerialization.jsonObject(with: input) }
+        else {
+          let stream = try XCTUnwrap(request.httpBodyStream)
+          stream.open()
+          defer { stream.close() }
+          value = try JSONSerialization.jsonObject(with: stream)
+        }
+        let body = try XCTUnwrap(value as? [String: Any])
+        XCTAssertEqual(body["completed_chapters"] as? [String], ["c1", "c2"])
+        XCTAssertEqual(body["task_status"] as? [String: String], ["existing-server-task": "done"])
+        return (200, try JSONEncoder().encode(CloudProgress(revision: 5, chapter_id: "c2", lesson_id: "generated-c2",
+          completed_chapters: ["c1", "c2"], task_status: ["existing-server-task": "done"])))
+      }
+      return (200, Data("{\"ok\":true}".utf8))
+    }
+    let api = CloudAPI(baseURL: URL(string: "https://ack-\(UUID().uuidString).example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo, cloud: api)
+    let resource = generatedResourceWithoutDailyPlan()
+    installGeneratedResource(resource, store: store)
+    store.completeLesson()
+    await store.flush()
+    XCTAssertTrue(store.cloudState.pending.isEmpty, store.cloudState.syncError ?? "Progress acknowledgement pending")
+    XCTAssertEqual(store.cloudResource?.progress.revision, 5)
+    XCTAssertEqual(store.completedChapterIDs, Set(["c1", "c2"]))
+    store.saveLocation(page: 2)
+    await store.flush()
+    XCTAssertEqual(store.cloudResource?.progress.completed_chapters, ["c1", "c2"])
+    XCTAssertTrue(store.plan?.tasks.isEmpty == true)
+  }
+
   private func isolatedCloudSession() -> URLSession {
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [OfflineCloudProtocol.self]
