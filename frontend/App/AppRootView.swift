@@ -139,6 +139,14 @@ struct AppRootView: View {
       .overlay(alignment: .top) {
         if store.cloudState.isWorking, store.cloudState.authenticated, !store.cloudState.showDiagnosis {
           ProgressView("正在同步学习资料…").padding(14).background(DS.surface, in: Capsule()).padding(.top, 8)
+        } else if store.cloudState.authenticated, let error = store.cloudState.syncError {
+          Button {
+            Task { await store.retryCloudConnection() }
+          } label: {
+            Label("进度待同步 · 重试", systemImage: "arrow.triangle.2.circlepath")
+              .font(DS.font(13)).padding(12).background(DS.surface, in: Capsule())
+          }.padding(.top, 8).accessibilityLabel("进度待同步：\(error)，轻点重试")
+            .accessibilityIdentifier("cloud.retrySync")
         }
       }
       .onChange(of: pad) { _, value in store.isPad = value }

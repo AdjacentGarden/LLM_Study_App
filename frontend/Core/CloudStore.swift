@@ -142,6 +142,30 @@ extension AppStore {
     persistCloud()
   }
 
+  func retryCloudConnection() async {
+    guard cloud != nil, cloudState.authenticated, !cloudState.isWorking else { return }
+    let epoch = cloudState.epoch
+    cloudState.isWorking = true
+    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
+    startCloudSync()
+    while let task = cloudState.syncTask { await task.value }
+    guard epoch == cloudState.epoch, cloudState.authenticated, !Task.isCancelled else { return }
+    // A successful metadata refresh must not hide a failed write or discard its queued edits.
+    guard cloudState.pending.isEmpty, cloudState.pendingReviews.isEmpty,
+      cloudState.pendingSelection == nil, cloudState.cacheWriteError == nil else { return }
+    do {
+      try await reloadCloud()
+      if let workspace = selectedCourseID { selectCourse(workspace) }
+      await reloadCloudLearningRecords()
+      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      persistCloud()
+    } catch {
+      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      handleCloudError(error)
+      cloudState.syncError = error.localizedDescription
+    }
+  }
+
   func logoutCloud() async {
     guard let cloud, !cloudState.isWorking else { return }
     cloudState.isWorking = true

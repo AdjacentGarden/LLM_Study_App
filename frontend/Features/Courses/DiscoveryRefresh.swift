@@ -24,9 +24,9 @@ struct DiscoveryRefreshScene: View {
   var body: some View {
     TimelineView(.animation(minimumInterval: 1 / 30, paused: phase != .loading || reduceMotion)) {
       timeline in
-      let progress = min(1, distance / 110)
-      let breath = phase == .loading && !reduceMotion
-        ? sin(timeline.date.timeIntervalSinceReferenceDate * 8) * 0.025 : 0
+      let progress: CGFloat = min(1, distance / 110)
+      let breath: CGFloat = phase == .loading && !reduceMotion
+        ? CGFloat(sin(timeline.date.timeIntervalSinceReferenceDate * 8) * 0.025) : 0
       GeometryReader { geometry in
         ZStack {
           LinearGradient(

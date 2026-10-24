@@ -871,6 +871,64 @@ extension CloudTests {
 }
 
 extension CloudTests {
+  @MainActor func testManualSyncRetryKeepsFailedEditsThenRefreshesAfterAcknowledgement() async throws {
+    let repo = try LocalBookCourseRepository(
+      directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let api = CloudAPI(baseURL: URL(string: "https://retry-\(UUID().uuidString).example")!,
+      session: isolatedCloudSession())
+    let account = cachedAccount()
+    let cached = try await seedOfflineCache(repo, api: api, account: account)
+    let store = AppStore(repository: repo, cloud: api)
+    store.restoreCloudCache(cached)
+    store.cloudState.authenticated = true
+    store.cloudState.account = account
+    store.cloudState.cacheKey = store.cloudCacheKey(account)
+    store.locations["workspace::book"] = StudyLocation(page: 4)
+    let pending = CloudPendingProgress(workspaceID: "workspace", resourceID: "resource",
+      value: CloudProgress(page: 4))
+    store.cloudState.pending["resource"] = pending
+    store.cloudState.syncError = "上一次同步失败"
+    store.saveCloudCacheOnly()
+    await store.persistTask?.value
+
+    OfflineCloudProtocol.respond { request in
+      XCTAssertTrue(request.url!.path.hasSuffix("/progress"), "Failed writes must not be hidden by a metadata refresh")
+      return (503, Data("{\"detail\":\"暂时无法保存进度\"}".utf8))
+    }
+    await store.retryCloudConnection()
+    await store.persistTask?.value
+    XCTAssertFalse(store.cloudState.isWorking)
+    XCTAssertNotNil(store.cloudState.syncError)
+    XCTAssertEqual(store.cloudState.pending["resource"]?.mutationID, pending.mutationID)
+    let saved = try await repo.loadCloudState(store.cloudCacheKey(account))
+    XCTAssertEqual(saved?.pending["resource"]?.value.page, 4)
+
+    var workspaces = cached.workspaces
+    workspaces[0].name = "已恢复连接的课程"
+    workspaces[0].resources[0].progress = CloudProgress(revision: 1, page: 4)
+    let bootstrap = CloudBootstrap(workspaces: workspaces, selection: nil, contract_version: 1,
+      library: [], learner_preferences: cached.snapshot.preferences, catalog: [])
+    OfflineCloudProtocol.respond { request in
+      switch request.url!.path {
+      case "/api/native/bootstrap": return (200, try JSONEncoder().encode(bootstrap))
+      case let path where path.hasSuffix("/progress"):
+        return (200, try JSONEncoder().encode(CloudProgress(revision: 1, page: 4)))
+      case "/api/native/selection": return (200, Data("{\"ok\":true}".utf8))
+      default:
+        XCTFail("Retry must only synchronize existing learning state: \(request.url!.path)")
+        return (404, Data("{}".utf8))
+      }
+    }
+    await store.retryCloudConnection()
+    await store.flush()
+    XCTAssertFalse(store.cloudState.isWorking)
+    XCTAssertNil(store.cloudState.syncError)
+    XCTAssertTrue(store.cloudState.pending.isEmpty)
+    XCTAssertEqual(store.courses.first?.name, "已恢复连接的课程")
+    XCTAssertEqual(store.locations["workspace::book"]?.page, 4)
+    XCTAssertEqual(store.notes.first?.id, "private-note")
+  }
+
   @MainActor func testOfflineQueueResumesAfterAuthenticatedNetworkRecovery() async throws {
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let url = URL(string: "https://recover-\(UUID().uuidString).example")!
