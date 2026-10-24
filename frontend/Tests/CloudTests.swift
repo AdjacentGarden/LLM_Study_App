@@ -377,7 +377,11 @@ final class CloudTests: XCTestCase {
     await store.boot()
     XCTAssertTrue(store.cloudState.authenticated, store.cloudState.error ?? "")
     XCTAssertTrue(store.sources.isEmpty, "Online accounts must not load bundled demo textbooks")
-    let (pdf, _) = try await probe.data(from: base.appendingPathComponent("api/native-test/pdf"))
+    // The one-second probe only detects whether the optional harness is available.
+    // Rendering the CJK PDF on a cold CI runner needs the normal integration budget.
+    let pdfRequest = URLRequest(
+      url: base.appendingPathComponent("api/native-test/pdf"), timeoutInterval: 20)
+    let (pdf, _) = try await probe.data(for: pdfRequest)
     let file = root.appendingPathComponent("生物教材.pdf")
     try pdf.write(to: file)
     var progress: [CloudUploadProgress] = []
