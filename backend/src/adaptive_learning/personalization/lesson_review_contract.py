@@ -34,6 +34,7 @@ GENERAL_CLAIM_RULE = (
     "以及同组件教师答复已明确反驳或纠正的被引述错误命题；这需要语义核验，不能按字段名自动豁免。"
     "题目中的真实前提仍是事实；answer/expected_answer/back/step_N/rubric_N中的教师结论仍须原文核验。"
     "若答复认可错误、未明确纠正或真假不明，不得将该命题视为已纠正；必须保留事实或范围否决。"
+    "同一断言的非事实角色与真实unbounded范围否决不能并存；须重新核验角色或矩阵，不能删除真实负判来修格式。"
     "同一片段混有安排与事实时，只要包含实际学科事实就必须is_factual=true，不能按主旨豁免。"
 )
 KINDS = {
@@ -306,6 +307,14 @@ def validate_assertion_review(
         findings = row["findings"]
         _check(isinstance(findings, list), "findings must be a list")
         if not factual:
+            _check(
+                not unbounded_sources.get(row["assertion_id"]),
+                "nonfactual assertion conflicts with its own unbounded scope matrix; "
+                + f"assertion_id={row['assertion_id']}, field={assertion['field']}; "
+                "recheck this exact assertion's semantic role and matrix together. "
+                "If it still asserts an uncorrected factual claim, set is_factual=true "
+                "and retain the real scope veto; never erase findings or normalize flags to approve it.",
+            )
             _check(
                 entailed and not findings,
                 "nonfactual teaching arrangement must be source=true with no findings",

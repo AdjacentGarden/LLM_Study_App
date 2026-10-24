@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedFreeformDiagnosticGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v6_repair import structure_for
 from test_diagnostic_v8_quality_patterns import case_input
@@ -61,7 +62,7 @@ def test_actual_three_rounds_keep_complete_feedback_but_never_approve_fake_appli
                 if len(reviews) == 1 else [target])
             return deepcopy(recorded['attempts'][len(reviews) - 1]['review_verdict'])
     cache = MemoryApprovals()
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=2)
     with pytest.raises(generation.DiagnosticGenerationError, match='review rejected'):
         subject.generate(structure_for(recorded['source']), chapter_cache=cache, cache_scope='offline_book')
@@ -99,7 +100,7 @@ def test_unsupported_mechanisms_cannot_be_laundered_as_given_conditions(recorded
                     '给定表示不能把无源的酶机制或数量结论变成教材事实；原假应用仍不合格。']}
                 for row in request['items']]}
     with pytest.raises(generation.DiagnosticGenerationError, match='无源'):
-        generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+        ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
             allow_grounded_answer_rewrite=True, validation_retries=0).generate(structure_for(recorded['source']))
     assert len(seen) == 1
 
@@ -143,7 +144,7 @@ def test_explicit_record_and_color_mapping_still_requires_independent_approval(a
                 'accepted': accept, 'issues': [] if accept else ['Controlled independent relation/uniqueness veto']}
                 for row in request['items']]}
     cache = MemoryApprovals()
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=0)
     if accept:
         assert len(subject.generate(structure, chapter_cache=cache, cache_scope='offline_book')) == 3
@@ -167,7 +168,7 @@ def test_new_construction_protocol_rechecks_previous_v8_approval(monkeypatch):
             calls.append('reviewer')
             return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
                 for row in json.loads(user)['items']]}
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=0)
     cache = MemoryApprovals()
     current = generation.DIAGNOSTIC_BANK_VERSION

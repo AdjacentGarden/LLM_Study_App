@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedFreeformDiagnosticGenerator
 from test_diagnostic_v6_repair import structure_for
 
 from adaptive_learning.assessment import item_generation as generation
@@ -55,7 +56,7 @@ def test_real_unchanged_structural_failure_feedback_and_source_reach_every_repai
             ids = [row["knowledge_point_id"] for row in request["items"]]
             prior = attempts[len(review_requests) - 1]["review_verdict"]["reviews"]
             return {"reviews": [deepcopy(row) for row in prior if row["knowledge_point_id"] in ids]}
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         validation_retries=2, allow_grounded_answer_rewrite=True)
     with pytest.raises(generation.DiagnosticGenerationError, match="review rejected"):
         subject.generate(structure_for(case["source"]))
@@ -110,7 +111,7 @@ def test_structural_redesign_keeps_evidence_and_still_requires_independent_appro
             verdict.update(accepted=accept_repair,
                 issues=[] if accept_repair else ["Controlled independent source/uniqueness veto"])
             return {"reviews": reviews}
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         validation_retries=1, allow_grounded_answer_rewrite=True)
     if accept_repair:
         assert len(subject.generate(structure_for(case["source"]))) == 3

@@ -8,6 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedFreeformDiagnosticGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 
 from adaptive_learning.assessment import item_generation as generation
@@ -102,7 +103,7 @@ def test_observed_defects_keep_independent_veto_feedback_and_never_enter_approva
                 'issues': [observed_case['human_issue']] if row['knowledge_point_id'] == target else []}
                 for row in payload['items']]}
     cache = MemoryApprovals()
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         validation_retries=1, allow_grounded_answer_rewrite=True)
     with pytest.raises(generation.DiagnosticGenerationError, match='review rejected'):
         subject.generate(structure, chapter_cache=cache, cache_scope='offline_observed_book')
@@ -132,7 +133,7 @@ def test_new_protocol_does_not_reuse_an_old_approval_of_the_observed_defect(obse
     prior = 'grounded-independent-review-v7+chapter-approvals-v1+balanced-options-v1'
     assert current != prior
     cache, reviewer = MemoryApprovals(), Reviewer()
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=reviewer,
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=reviewer,
         validation_retries=0, allow_grounded_answer_rewrite=True)
     # This is an explicit historical-approval adapter simulation, not a claim
     # that v7 and v8 prompts are the same or that the real bank was changed.
@@ -182,7 +183,7 @@ def test_low_burden_condition_mapping_with_absolute_wording_is_not_a_keyword_vet
             return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': independent_accepts, 'issues': [] if independent_accepts else ['Controlled semantic veto']}
                 for row in request['items']]}
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=0)
     if independent_accepts:
         assert len(subject.generate(structure)) == 3

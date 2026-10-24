@@ -5,9 +5,11 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedFreeformDiagnosticGenerator
+from test_diagnostic_generation import FakeClient
+
 from adaptive_learning.assessment import item_generation as generation
 from adaptive_learning.ingestion.models import BookStructure, ChapterDraft, SourceQuote
-from test_diagnostic_generation import FakeClient
 
 
 @pytest.fixture
@@ -53,7 +55,7 @@ def test_real_compact_tool_names_reach_semantic_review_without_padding_or_fact_a
                 "accepted": accepted, "issues": [] if accepted else [
                     "p98只说明缝合骨架缺口，当前额外重组场景需要来源支持，不能由标签补足。"]}
                 for row in request["items"]]}
-    generator = generation.DiagnosticItemGenerator(
+    generator = ArchivedFreeformDiagnosticGenerator(
         writer, review_client=Reviewer(), allow_grounded_answer_rewrite=True, validation_retries=0,
     )
     if accepted:
@@ -95,7 +97,7 @@ def test_real_unchanged_approved_items_are_not_sent_back_for_an_opposite_verdict
             return {"reviews": [{"knowledge_point_id": key, "accepted": accept_pending,
                 "issues": [] if accept_pending else ["未通过题仍有事实或干扰项问题。"]}
                 for key in pending_ids]}
-    generator = generation.DiagnosticItemGenerator(
+    generator = ArchivedFreeformDiagnosticGenerator(
         Writer(), review_client=Reviewer(), allow_grounded_answer_rewrite=True,
         validation_retries=1, audit_callback=events.append,
     )
@@ -133,7 +135,7 @@ def test_three_targets_are_program_assigned_and_identical_for_writer_and_reviewe
             assert "基础辨认" in request["question_contract"]
             return {"reviews": [{"knowledge_point_id": row["knowledge_point_id"],
                                   "accepted": True, "issues": []} for row in request["items"]]}
-    result = generation.DiagnosticItemGenerator(
+    result = ArchivedFreeformDiagnosticGenerator(
         Writer(case["generation_response"]), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=0,
     ).generate(structure_for(case["source"]))
@@ -158,7 +160,7 @@ def test_changed_review_identity_forces_recheck_and_can_reject_old_approved_item
             requests.append(request)
             assert len(request["items"]) == 3
             return deepcopy((first if len(requests) == 1 else second)["review_verdict"])
-    generator = generation.DiagnosticItemGenerator(
+    generator = ArchivedFreeformDiagnosticGenerator(
         Writer(), review_client=Reviewer(), allow_grounded_answer_rewrite=True,
         validation_retries=1,
     )
@@ -197,7 +199,7 @@ def test_pending_review_still_requires_exact_complete_strict_verdicts(observed, 
                 verdict["accepted"] = "true"
             return {"reviews": [verdict]}
     with pytest.raises(generation.DiagnosticGenerationError):
-        generation.DiagnosticItemGenerator(
+        ArchivedFreeformDiagnosticGenerator(
             Writer(), review_client=Reviewer(), allow_grounded_answer_rewrite=True,
             validation_retries=1,
         ).generate(structure_for(case["source"]))
@@ -217,7 +219,7 @@ def test_cached_approval_identity_changes_with_every_reviewed_input(observed, mo
         generation.ItemDraft.model_validate(case["generation_response"]["items"][0]),
         chapter, by_id, allow_rewrite=True,
     )
-    generator = generation.DiagnosticItemGenerator(FakeClient({}), review_client=FakeClient({}))
+    generator = ArchivedFreeformDiagnosticGenerator(FakeClient({}), review_client=FakeClient({}))
     key = generator._approval_key(source, item)
     assert generator._approval_key(deepcopy(source), item.model_copy(deep=True)) == key
     if change == "source":

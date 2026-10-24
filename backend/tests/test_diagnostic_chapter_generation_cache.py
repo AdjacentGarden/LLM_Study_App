@@ -5,6 +5,7 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
+from diagnostic_test_inputs import controlled_application
 
 from adaptive_learning.assessment import item_generation as generation
 from adaptive_learning.assessment.diagnostic_cache import DiagnosticChapterSubmissionBlocked
@@ -65,11 +66,13 @@ class Writer:
     def structured(self, *, user, **kwargs):
         request = json.loads(user)
         self.calls.append(request)
-        return {"items": [{"knowledge_point_id": point["knowledge_point_id"],
+        rows = [{"knowledge_point_id": point["knowledge_point_id"],
             "type": "choice", "prompt": "下面哪项符合这个原文概念的定义？",
             "options": [point["label"], "第一种受控测试干扰陈述", "第二种受控测试干扰陈述", "第三种受控测试干扰陈述"],
             "correct_index": 0, "expected_answer": point["label"], "rubric": [],
-            "difficulty": 0, "estimated_seconds": 40} for point in request["knowledge_points"]]}
+            "difficulty": 0, "estimated_seconds": 40} for point in request["knowledge_points"]]
+        rows[2] = controlled_application(request)
+        return {"items": rows}
 
 
 class Reviewer:

@@ -1112,6 +1112,9 @@ def test_scope_navigation_is_batch_local_except_when_writing_whole_lesson():
     TeachingContentGenerator(client).generate(bundle, chapter, evidence)
     for system, data in zip(client.systems, client.payloads, strict=True):
         if system == GENERATION_PROMPT:
+            from adaptive_learning.personalization.teaching_fact_wire import restore_fact_payload
+
+            data = restore_fact_payload(data)
             relevant = data["all_knowledge_points"] if data["include_lesson"] else data["batch_points"]
             expected = {item["point_id"] for item in relevant}
         elif system == FACT_REVIEW_PROMPT and data["candidate"]["points"]:

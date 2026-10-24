@@ -637,6 +637,7 @@ def test_length_risks_reach_independent_review_and_all_feedback_reaches_writer()
 
 
 def test_batch_repairs_schema_and_content_failures_together_without_serializing_exceptions() -> None:
+    from diagnostic_test_inputs import controlled_application
     value = structure()
     value.chapters[0].knowledge_points.append('丙的条件')
     value.chapters[0].knowledge_point_evidence['丙的条件'] = [SourceQuote(page_number=2, quote='丙需要满足限定条件。')]
@@ -661,14 +662,18 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
                 return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
                                     for row in payload['items']]}
             calls.append(payload)
+            repaired['items'][2] = controlled_application(payload)
             if len(calls) == 1:
+                broken['items'][2] = deepcopy(repaired['items'][2])
+                broken['items'][2]['application_task']['records'][1]['conditions'] = (
+                    broken['items'][2]['application_task']['records'][0]['conditions'])
                 return broken
             errors = payload['repair_feedback']['items']
             assert [row['knowledge_point_id'] for row in errors] == [row['knowledge_point_id'] for row in broken['items']]
             assert 'choice' in errors[0]['issues'][0]
             assert errors[1]['issues'][0]['type'] == 'value_error'
             assert 'ctx' not in errors[1]['issues'][0] and 'input' not in errors[1]['issues'][0]
-            assert 'unique' in errors[2]['issues'][0]
+            assert 'distinct conditions' in errors[2]['issues'][0]['msg']
             return repaired
     result = make_generator(RepairingClient(), allow_grounded_answer_rewrite=True, validation_retries=1).generate(value)
     assert len(result) == 3 and len(calls) == 2 and len(review_calls) == 1

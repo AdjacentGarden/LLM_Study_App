@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -97,3 +98,30 @@ def test_every_actual_v14_request_is_exactly_reconstructable_without_source_or_p
         )
         assert wire["sources"] == original["sources"]
         assert wire.get("support_spans") == original.get("support_spans")
+
+
+def test_writer_repeated_context_quotes_roundtrip_without_removing_conditions_or_feedback():
+    raw = "在温度保持不变时，才能沿用液体体积稳定这一结论。\n" * 20
+    original = {
+        "sources": {"s1": {"page_number": 1, "quote": raw}},
+        "all_knowledge_points": [{"point_id": "p" + str(i)} for i in range(12)],
+        "scope_contexts": [
+            {"point_id": "p" + str(i), "sources": [{"source_id": "s1", "quote": raw}]}
+            for i in range(12)
+        ],
+        "scope_conditions": {"p0": [{"condition": "温度保持不变", "source_ids": ["s1"]}]},
+        "review_feedback": [{"issue": "保留温度条件，仍须独立核验"}],
+        "allowed_repairs": {"p0": ["explanation"]},
+        "previous_candidate": {"points": [], "lesson": None},
+    }
+    before = deepcopy(original)
+    wire = compact_fact_payload(original)
+    assert restore_fact_payload(wire) == before == original
+    assert json.dumps(restore_fact_payload(wire), ensure_ascii=False) == json.dumps(
+        original, ensure_ascii=False
+    )
+    assert wire["sources"] == before["sources"]
+    assert wire["scope_conditions"] == before["scope_conditions"]
+    assert wire["review_feedback"] == before["review_feedback"]
+    assert wire["scope_contexts"][0]["sources"][0]["quote"] == {QUOTE_REF: "s1"}
+    assert len(json.dumps(wire, ensure_ascii=False)) < len(json.dumps(original, ensure_ascii=False)) / 3
