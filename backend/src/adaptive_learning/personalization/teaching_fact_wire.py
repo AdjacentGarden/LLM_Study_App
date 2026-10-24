@@ -38,7 +38,10 @@ def compact_fact_payload(payload: dict[str, Any]) -> dict[str, Any]:
             elif (
                 key == "quote"
                 and "source_id" in value
-                and ("actual_source_text" in path or "scope_contexts" in path)
+                and any(
+                    name in path
+                    for name in ("actual_source_text", "scope_contexts", "candidate_context_sources")
+                )
             ):
                 result[key] = reference(value["source_id"], child)
             elif key == "scope_context_sources":

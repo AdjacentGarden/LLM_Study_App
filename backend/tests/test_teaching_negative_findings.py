@@ -102,6 +102,13 @@ def test_normalized_negative_never_enters_approval_reuse(observed):
     client = SequenceClient([data["responses"][1], data["responses"][1]])
     events = []
     generator = teaching.TeachingContentGenerator(client, audit_callback=events.append)
+    # Historical isolated jobs predate candidate navigation. Add the real
+    # current derived metadata, preserving the recorded review and all its vetoes.
+    part = job["payload"]["lesson_components"]["example_3"]
+    part.update(generator._candidate_source_context(
+        generator._lesson_component_fields(job["lesson"], "example_3"),
+        part["source_ids"], job["evidence"],
+    ))
     cache = VerifiedComponentReuse(
         source_texts={key: value.quote for key, value in job["evidence"].sources.items()},
         context={"chapter_id": "example_3", "evidence_fingerprint": "a6171",

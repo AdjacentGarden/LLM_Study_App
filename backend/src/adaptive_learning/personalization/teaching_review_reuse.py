@@ -52,8 +52,22 @@ class VerifiedComponentReuse:
         return fingerprint({"sources": source_texts, "context": context}) == self._context_hash
 
     def key(self, component: dict[str, Any]) -> str:
-        if set(component) != {"owner_id", "component_id", "fields", "source_ids", "boundaries"}:
+        required = {"owner_id", "component_id", "fields", "source_ids", "boundaries"}
+        if not required <= component.keys() or component.keys() - required - {"navigation"}:
             raise ValueError("reuse component envelope is incomplete")
+        if "navigation" in component:
+            navigation = component["navigation"]
+            if (
+                not isinstance(navigation, dict)
+                or set(navigation) != {"version", "source_ids"}
+                or not isinstance(navigation["version"], str)
+                or not navigation["version"]
+                or not isinstance(navigation["source_ids"], list)
+                or not all(isinstance(key, str) for key in navigation["source_ids"])
+                or len(navigation["source_ids"]) != len(set(navigation["source_ids"]))
+                or not set(navigation["source_ids"]) <= self._sources.keys()
+            ):
+                raise ValueError("reuse candidate navigation is not bound to immutable sources")
         return fingerprint({"context": self._context_hash, "component": component})
 
     def remember(self, component: dict[str, Any], proof: dict[str, Any]) -> bool:
