@@ -56,7 +56,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -416,7 +416,11 @@ output_contract给出本批精确point_ids；不能增删或从all_knowledge_poi
 若 include_lesson=true，另生成全章 lesson：opening、summary、reading_source_ids、
 opening/summary每个定义、新术语、具体例子和数值必须由reading_source_ids自己的原文支持；
 它不是单纯选读清单。程序补锚点不代表所有新增断言已获支持。总结压缩不能抹掉正文已确认的范围。
-existing_point_content给出完整本章成稿，例题与检查题须对照全部成稿避免重复，仅复述本批最后一个主题不合格。
+existing_point_content给出完整本章当前稿，existing_questions列出已用闪卡和练习问题；
+先按每题的情境/已知前提、实际待答问项、必要推导目标建立比较，再设计例题与检查题。
+例题与检查题须对照全部知识点稿避免重复，仅复述本批最后一个主题不合格。
+若重复被拒绝，须更换为有原文支持的不同情境或不同作答目标；只换措辞、人名、数字或调换语序，
+而保留同一基本问题和推导目标，不算完成修复。检查新题也不能与其他例题、检查题互相重复。
 lesson各组件必须选用自己的准确来源，不可只扩大阅读目录而不核对各断言。
 worked_examples 2-3个、checkpoints 2-3个；否则 lesson=null。
 例题必须含 problem（独立完整问题）、steps（2-5步，每步明确运用哪个证据并真正推导）、
@@ -445,7 +449,13 @@ reading_source_ids 选取足以支撑本课的连续清晰段落，优先覆盖�
 答案和评分点只保留直接回答题目且有据可查的知识。allowed_repairs 指明本次允许修改的组件；
 同一点已经通过的其他组件必须从 previous_candidate 原样保留，不能借修一道题重写其余已通过内容。
 allowed_lesson_repairs限定全章修复：example_N/checkpoint_N只改对应第N项；
-worked_examples/checkpoints允许改对应列表；其余已通过导入、总结、例题和检查题原样保留。"""
+worked_examples/checkpoints允许改对应列表；其余已通过导入、总结、例题和检查题原样保留。
+lesson_revision_tasks把上述允许范围、必须实改的组件和每个类别的义务逐项列出；
+required_changes.lesson_categories_any不是任选一个类别：列出的每一类都至少要实改其中一项，
+lesson_components中的每个指定组件都要修改。editable_slots只表示可编辑，不能代替逐条解决review_feedback。
+按各槽位的原题与existing_questions比较，完成反馈要求后同步重写对应答案、步骤和准确引用；
+保持preserve_components原样。不得原样返回被拒绝的整份lesson，也不得只改无关项冒充修复。
+这些任务不是批准结果，不新增输出字段或自行宣布通过；修订后仍接受独立审查。"""
 
 FACT_REVIEW_PROMPT = """你是独立的教材事实与引用审校员，只负责事实、推理和适用范围。
 wire_format=teaching-fact-source-refs-v1中，quote={"$source_quote_ref":"s"}直接指sources[s].quote完整原文，
@@ -844,6 +854,18 @@ class TeachingContentGenerator:
                     payload = {
                         "chapter_title": chapter.title,
                         "depth": bundle.decision.depth.value,
+                        "lesson_revision_tasks": self._lesson_revision_tasks(
+                            rejected_lesson, lesson_repairs, requirements
+                        ) if include_lesson else None,
+                        "existing_questions": [
+                            {
+                                "point_id": point.point_id,
+                                "flashcard": point.flashcard.front,
+                                "practice": point.practice.prompt,
+                            }
+                            for point in approved_points.values()
+                            if include_lesson and point.point_id not in active_batch_ids
+                        ],
                         "scaffolds": bundle.decision.scaffolds,
                         "all_knowledge_points": inputs,
                         "sources": {
@@ -893,15 +915,6 @@ class TeachingContentGenerator:
                         ]
                         if include_lesson
                         else [],
-                        "existing_questions": [
-                            {
-                                "point_id": point.point_id,
-                                "flashcard": point.flashcard.front,
-                                "practice": point.practice.prompt,
-                            }
-                            for point in approved_points.values()
-                            if include_lesson and point.point_id not in active_batch_ids
-                        ],
                     }
                     response = self._structured(
                         system=GENERATION_PROMPT,
@@ -3450,6 +3463,64 @@ class TeachingContentGenerator:
         }
 
     @staticmethod
+    def _lesson_revision_tasks(
+        baseline: _Lesson | None, allowed: set[str], requirements: _RepairRequirements
+    ) -> dict[str, Any]:
+        """Describe the existing repair contract, never approve or author content.
+
+        Question text is the actual rejected slot, not a guessed semantic label.
+        The writer compares it with the full current question inventory; the
+        ordinary unchanged, factual, teacher and rubric gates remain decisive.
+        """
+        task: dict[str, Any] = {
+            "mode": "repair" if baseline is not None else "create",
+            "compare_with": "existing_questions",
+            "comparison_axes": ["情境与已知前提", "实际待答问项", "必要推导目标"],
+        }
+        if baseline is None:
+            return task
+        members = {
+            "reading": ["opening", "summary"],
+            "examples": [f"example_{i}" for i in range(1, len(baseline.worked_examples) + 1)],
+            "checkpoints": [f"checkpoint_{i}" for i in range(1, len(baseline.checkpoints) + 1)],
+        }
+        all_components = set(TeachingContentGenerator._lesson_components(baseline)) | {
+            "reading_source_ids"
+        }
+        members["all"] = sorted(all_components)
+        editable = allowed & all_components
+        for group, category in (("worked_examples", "examples"), ("checkpoints", "checkpoints")):
+            if group in allowed:
+                editable.update(members[category])
+        slots = []
+        for category, rows, field in (
+            ("example", baseline.worked_examples, "problem"),
+            ("checkpoint", baseline.checkpoints, "question"),
+        ):
+            for index, row in enumerate(rows, 1):
+                name = f"{category}_{index}"
+                if name in editable:
+                    slots.append({
+                        "component_id": name,
+                        "rejected_question": getattr(row, field),
+                        "exact_change_required": name in requirements.exact_lesson,
+                    })
+        task.update(
+            editable_components=sorted(editable),
+            editable_slots=slots,
+            preserve_components=sorted(all_components - editable),
+            required_component_edits=sorted(requirements.exact_lesson),
+            required_category_edits=[
+                {"category": category, "members": members[category], "minimum_changed_members": 1}
+                for category in sorted(requirements.lesson_categories)
+            ],
+            category_obligations="each_listed_category_not_one_of_them",
+            repair_feedback="review_feedback",
+            approval="independent_reviews_required",
+        )
+        return task
+
+    @staticmethod
     def _merge_lesson_repair(original: _Lesson, generated: _Lesson, allowed: set[str]) -> _Lesson:
         """A rejected example cannot rewrite an approved summary/checkpoint."""
         result = original.model_dump()
@@ -3508,12 +3579,21 @@ class TeachingContentGenerator:
                 selected_issues = []
                 for issue in overall["issues"]:
                     named = set(re.findall(r"kp_[0-9a-f]{16}", str(issue)))
+                    explicit_lesson = bool(re.match(
+                        r"(?:lesson[._]|worked_examples(?!\w)|checkpoints(?!\w))",
+                        str(issue).lstrip(),
+                    ))
                     lesson_only = bool(
                         re.search(
                             r"lesson|worked_examples|checkpoints|例题|检查题|导入|总结", str(issue)
                         )
                     )
-                    if named and not named & point_ids:
+                    # A lesson issue may cite a point only to identify the
+                    # practice/flashcard it duplicates. Those comparison IDs
+                    # must not turn a lesson-only task into a foreign point.
+                    if explicit_lesson and not include_lesson:
+                        continue
+                    if named and not named & point_ids and not (explicit_lesson and include_lesson):
                         continue
                     if not named and lesson_only and not include_lesson:
                         continue
@@ -3524,6 +3604,11 @@ class TeachingContentGenerator:
                     row = {**row, "factual_overall": {**overall, "issues": selected_issues}}
                 else:
                     row = {**row, "issues": selected_issues}
+                # Every issue above has already been scoped individually.
+                # A second whole-row point-ID filter would erase legitimate
+                # lesson comparisons after retaining them here.
+                scoped.append(row)
+                continue
             mentioned = set(re.findall(r"kp_[0-9a-f]{16}", json.dumps(row, ensure_ascii=False)))
             if not mentioned or mentioned & point_ids:
                 scoped.append(row)
