@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+from copy import deepcopy
 from typing import Any
 
 import pytest
@@ -347,6 +348,7 @@ def test_grounded_rewrite_uses_answer_length_instead_of_a_broad_label_for_readab
             result["items"] = result["items"][:1]
             result["items"][0]["knowledge_point_id"] = stable_knowledge_point_id("ch_1", label)
             result["items"][0]["expected_answer"] = "甲是一个用于测试的概念。"
+            result["items"][0]["options"][0] = "甲是一个用于测试的概念。"
             return result
 
     items = DiagnosticItemGenerator(
@@ -355,3 +357,112 @@ def test_grounded_rewrite_uses_answer_length_instead_of_a_broad_label_for_readab
     assert captured[0]["knowledge_points"][0]["minimum_distractor_characters"] == 8
     assert items[0].options[0] == "甲是一个用于测试的概念。"
     assert items[0].knowledge_point_labels == [label]
+
+
+def test_production_default_uses_grounded_understanding_but_explicit_zero_is_legacy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from adaptive_learning.config import get_settings
+
+    try:
+        for raw, expected in [(None, True), ("0", False), ("1", True), ("false", False), ("true", True)]:
+            if raw is None:
+                monkeypatch.delenv("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE", raising=False)
+            else:
+                monkeypatch.setenv("DIAGNOSTIC_ALLOW_GROUNDED_ANSWER_REWRITE", raw)
+            get_settings.cache_clear()
+            assert get_settings().diagnostic_allow_grounded_answer_rewrite is expected
+    finally:
+        get_settings.cache_clear()
+
+
+def test_grounded_answer_mismatch_is_rejected_without_rewriting_or_reviewing_it() -> None:
+    payload = valid_payload()
+    payload["items"][0]["expected_answer"] = "这是另一个与题目选项不同的回答"
+    client = FakeClient(payload)
+
+    with pytest.raises(DiagnosticGenerationError, match="do not silently replace"):
+        DiagnosticItemGenerator(
+            client, allow_grounded_answer_rewrite=True, validation_retries=0,
+        ).generate(structure())  # type: ignore[arg-type]
+
+    assert payload["items"][0]["options"][0] == "甲的定义"
+    assert client.calls == 1
+
+
+@pytest.mark.parametrize("tamper_accepted", [False, True])
+def test_rejected_concept_question_receives_full_previous_candidate_and_localized_repair(
+    tamper_accepted: bool,
+) -> None:
+    initial = valid_payload()
+    first, second = [row["knowledge_point_id"] for row in initial["items"]]
+    # A long, item-specific final issue must survive; the old concatenated
+    # first-1000-character string lost precisely this repair instruction.
+    issue = "定义逐字复述；" * 170 + "最后一条：应判断给定条件能支持的关系，不是机械换词。"
+    repaired = deepcopy(initial)
+    repaired["items"][0].update(
+        prompt="观察对象满足原文中甲所要求的条件，应作出哪个判断？",
+        options=["可以将该对象归入甲所描述的概念范围", "它只能证明另一对象必定完成任务",
+                 "它意味着甲所需的条件可以完全省略", "它只能用来确定另一任务持续的时间"],
+        expected_answer="可以将该对象归入甲所描述的概念范围",
+    )
+    generation_payloads = []
+    reviewer_payloads = []
+
+    class RepairClient:
+        def structured(self, *, system: str, user: str, **kwargs: object) -> dict[str, Any]:
+            payload = json.loads(user)
+            if "审校器" in system:
+                reviewer_payloads.append(payload)
+                assert set(payload["source"]) == {"book_title", "chapter_id", "chapter_title", "knowledge_points"}
+                assert "previous_candidate" not in payload and "repair_feedback" not in payload
+                rejected = len(reviewer_payloads) == 1
+                return {"reviews": [
+                    {"knowledge_point_id": first, "accepted": not rejected, "issues": [issue] if rejected else []},
+                    {"knowledge_point_id": second, "accepted": True, "issues": []},
+                ]}
+            generation_payloads.append(payload)
+            assert "正确选项必须与 expected_answer 逐字相同" in system
+            assert "先确定一个最小判断目标" in system
+            assert "正确选项文字必须与输入的 label 逐字相同" not in system
+            if len(generation_payloads) == 1:
+                return deepcopy(initial)
+            if len(generation_payloads) == 2:
+                assert payload["previous_candidate"]["items"] == initial["items"]
+                assert payload["repair_feedback"]["reviews"][0]["issues"] == [issue]
+                assert payload["preserve_accepted_items"] == [initial["items"][1]]
+                value = deepcopy(repaired)
+                if tamper_accepted:
+                    value["items"][1]["prompt"] = "不能改写已经审核通过的另一道题吗？"
+                return value
+            assert tamper_accepted
+            assert payload["repair_feedback"]["stage"] == "repair_scope"
+            assert payload["repair_feedback"]["changed_accepted_ids"] == [second]
+            assert payload["previous_candidate"]["items"][1] == initial["items"][1]
+            return deepcopy(repaired)
+
+    items = DiagnosticItemGenerator(
+        RepairClient(), allow_grounded_answer_rewrite=True, validation_retries=2,
+    ).generate(structure())  # type: ignore[arg-type]
+
+    assert items[0].prompt == repaired["items"][0]["prompt"]
+    assert items[0].expected_answer == repaired["items"][0]["expected_answer"]
+    assert items[1].prompt == initial["items"][1]["prompt"]
+    assert len(generation_payloads) == (3 if tamper_accepted else 2)
+    # Every published item still goes through a full fresh semantic review;
+    # unauthorized edits fail before spending another review request.
+    assert len(reviewer_payloads) == 2
+    assert reviewer_payloads[-1]["items"][0]["prompt"] == items[0].prompt
+    assert reviewer_payloads[-1]["items"][1]["prompt"] == items[1].prompt
+
+
+def test_reviewer_truthy_string_is_not_an_approval() -> None:
+    class InvalidReviewer:
+        def structured(self, *, system: str, user: str, **kwargs: object) -> dict[str, Any]:
+            if "审校器" not in system:
+                return valid_payload()
+            return {"reviews": [{"knowledge_point_id": row["knowledge_point_id"], "accepted": "true", "issues": []}
+                                for row in valid_payload()["items"]]}
+
+    with pytest.raises(DiagnosticGenerationError, match="review schema is invalid"):
+        DiagnosticItemGenerator(InvalidReviewer(), validation_retries=0).generate(structure())  # type: ignore[arg-type]

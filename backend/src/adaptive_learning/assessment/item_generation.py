@@ -5,7 +5,7 @@ import json
 import re
 from collections.abc import Iterable
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, StrictBool, ValidationError, model_validator
 
 from ..ingestion.models import BookStructure, ChapterDraft, SourceQuote
 from ..llm.book_parallel import ordered_book_map
@@ -23,6 +23,7 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 7. 同章题目应覆盖基础辨认、概念理解和情境应用的不同层次；难度必须与推理负担一致，不得为制造梯度而虚标难度。情境应用仍只能使用 evidence 支持的事实。
 8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
 9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
+10. 若输入包含 previous_candidate 与 repair_feedback，只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
 只返回 JSON：
 {"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["第一项完整陈述","第二项完整陈述","第三项完整陈述","第四项完整陈述"],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """
@@ -33,6 +34,8 @@ _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证�
 2. 选择题的指定正确项必须被原文明确支持，且其他选项不能也被原文支持；题干不得靠措辞或长度泄露答案。
 3. 所有题都必须是有且只有一个正确答案的四选一题；出现解释题、简答题或要求用户输入文字时应拒绝。
 4. 不允许借助常识补足证据，不允许出现 OCR、RAG、chunk 等内部词。
+5. 单纯要求认出或逐字复述定义应拒绝。若原文只提供定义，可以用原文已有的条件设计一个简单观察，检查该观察能支持什么判断；不得要求题目额外测量 evidence 未提供的机制。不能因为题目未考查题干没问、原文也未支持的知识而拒绝。
+6. 干扰项应表达可区分的理解错误，不能只把定义的一个词替换、其余整句复制。正确项不能独自最长、最具体或重复题干原文而泄露答案；问题应说明具体缺陷及可依原文修复的方向。
 只返回 JSON：{"reviews":[{"knowledge_point_id":"kp_...","accepted":true,"issues":[]}]}
 """
 
@@ -80,7 +83,7 @@ class ItemBatchDraft(BaseModel):
 
 class ItemReview(BaseModel):
     knowledge_point_id: str
-    accepted: bool
+    accepted: StrictBool
     issues: list[str] = Field(default_factory=list, max_length=10)
 
 
@@ -89,7 +92,9 @@ class ItemReviewBatch(BaseModel):
 
 
 class DiagnosticGenerationError(ValueError):
-    pass
+    def __init__(self, message: str, *, feedback: dict[str, object] | None = None) -> None:
+        super().__init__(message)
+        self.feedback = feedback
 
 
 def stable_knowledge_point_id(chapter_id: str, text: str) -> str:
@@ -205,6 +210,7 @@ class DiagnosticItemGenerator:
         expected_ids = [point[0] for point in points]
         by_id = {point[0]: point for point in points}
         last_error: Exception | None = None
+        preserved: dict[str, dict[str, object]] = {}
         system = _ITEM_SYSTEM
         if self.allow_grounded_answer_rewrite:
             system = system.replace(
@@ -217,11 +223,15 @@ class DiagnosticItemGenerator:
                 "设计顺序：先从 evidence 中找出一个可以区分的条件、关系或过程，再让学习者依据它判断一个具体情境。"
                 "情境只组合原文已有的对象和条件，也可设定满足原文定义的假想观察，不得引入额外学科事实。"
                 "不要问‘用一句话概括’‘何为’或要求认出原文定义；不要把整段定义原封不动作为正确项。"
-                "四个选项应回答题干中的同一个判断，分别体现不同理解，避免只对定义机械替换一两个词。"
+                "先确定一个最小判断目标，把已知条件放在题干；正确选项只回答这个判断，不把定义、类别和全部机制塞入一项。"
+                "四个选项应回答题干中的同一个判断，语法结构与长度接近，分别体现适用条件、推理方向或过程关系的不同理解；"
+                "每个干扰项要有独立的错误推理，不能把正确项只换一两个术语，不能靠‘只有/全部/立即’等显眼绝对词凑错误。"
+                "不要让正确项独自最长或独有详细限定；所有选项都应保留各自判断所需条件。"
                 "例如原文说明某过程需要条件甲时，可以给出甲成立或不成立的情境，考查能否据此判断该过程，"
                 "但不能据此添加原文没有的数量关系或结果。\n只返回 JSON：",
             )
         for attempt in range(self.validation_retries + 1):
+            candidate: list[dict[str, object]] | None = None
             try:
                 raw = self.client.structured(
                     system=system,
@@ -234,8 +244,19 @@ class DiagnosticItemGenerator:
                     raise DiagnosticGenerationError(
                         "model must return every requested knowledge point in input order"
                     )
+                candidate = [item.model_dump(mode="json") for item in draft.items]
                 items = [self._validate_item(item, chapter, by_id,
                          allow_rewrite=self.allow_grounded_answer_rewrite) for item in draft.items]
+                candidate = [self._candidate_item(item) for item in items]
+                changed = [row["knowledge_point_id"] for row in candidate
+                           if row["knowledge_point_id"] in preserved
+                           and row != preserved[str(row["knowledge_point_id"])]]
+                if changed:
+                    raise DiagnosticGenerationError(
+                        "repair changed previously accepted items",
+                        feedback={"stage": "repair_scope", "changed_accepted_ids": changed,
+                                  "repair": "restore preserve_accepted_items exactly; repair rejected items only"},
+                    )
                 if self.verify_items:
                     self._review_items(payload, items, expected_ids)
                 return items
@@ -243,6 +264,24 @@ class DiagnosticItemGenerator:
                 last_error = error
                 if attempt >= self.validation_retries:
                     break
+                feedback = (error.feedback if isinstance(error, DiagnosticGenerationError)
+                            and error.feedback else {"stage": "validation", "issues":
+                            error.errors(include_input=False, include_url=False)
+                            if isinstance(error, ValidationError) else [str(error)]})
+                if candidate is not None:
+                    # Keep actual reviewed options/answer positions, not a bare
+                    # complaint detached from the version that was rejected.
+                    payload["previous_candidate"] = {"items": [
+                        preserved.get(str(row["knowledge_point_id"]), row) for row in candidate]}
+                reviews = feedback.get("reviews")
+                if isinstance(reviews, list) and candidate is not None:
+                    accepted = {row["knowledge_point_id"] for row in reviews
+                                if isinstance(row, dict) and row.get("accepted") is True
+                                and not row.get("issues")}
+                    preserved = {str(row["knowledge_point_id"]): row for row in candidate
+                                 if row["knowledge_point_id"] in accepted}
+                    payload["preserve_accepted_items"] = list(preserved.values())
+                payload["repair_feedback"] = {"attempt": attempt + 1, **feedback}
                 payload["validation_feedback"] = (
                     "上次输出未通过程序校验。必须逐个、按输入顺序返回 knowledge_point_id；"
                     "options 必须恰好 4 个非空、不同的选项，不得在末尾添加空字符串或第5项，correct_index只能是0到3；"
@@ -250,8 +289,7 @@ class DiagnosticItemGenerator:
                        if self.allow_grounded_answer_rewrite else
                        "所有题都必须是 choice，正确选项必须逐字复制输入 label；") +
                     "不得生成 explanation、简答或填空题。具体问题："
-                    + (json.dumps(error.errors(include_input=False, include_url=False), ensure_ascii=False)
-                       if isinstance(error, ValidationError) else str(error))[:1000]
+                    + "完整问题见 repair_feedback，上一版见 previous_candidate。"
                 )
         assert last_error is not None
         raise DiagnosticGenerationError(
@@ -265,8 +303,10 @@ class DiagnosticItemGenerator:
         expected_ids: list[str],
     ) -> None:
         review_payload = {
-            "source": {key:value for key,value in source_payload.items()
-                       if key != "validation_feedback"},
+            # Prior verdicts/candidates are writer repair context, never hints
+            # to the independent reviewer about how it should judge this one.
+            "source": {key: source_payload[key] for key in (
+                "book_title", "chapter_id", "chapter_title", "knowledge_points")},
             "items": [
                 {
                     "knowledge_point_id": item.knowledge_point_ids[0],
@@ -298,7 +338,19 @@ class DiagnosticItemGenerator:
                 f"{entry.knowledge_point_id}: {','.join(entry.issues) or 'rejected'}"
                 for entry in rejected
             )
-            raise DiagnosticGenerationError(f"diagnostic review rejected items: {details}")
+            raise DiagnosticGenerationError(
+                f"diagnostic review rejected items: {details}",
+                feedback={"stage": "semantic_review",
+                          "reviews": [entry.model_dump() for entry in review.reviews]},
+            )
+
+    @staticmethod
+    def _candidate_item(item: DiagnosticItem) -> dict[str, object]:
+        return {"knowledge_point_id": item.knowledge_point_ids[0], "type": "choice",
+                "prompt": item.prompt, "options": list(item.options),
+                "correct_index": int(item.correct_option_ids[0]),
+                "expected_answer": item.expected_answer, "rubric": list(item.rubric),
+                "difficulty": item.difficulty, "estimated_seconds": item.estimated_seconds}
 
     @staticmethod
     def _validate_item(
@@ -324,7 +376,13 @@ class DiagnosticItemGenerator:
         answer_text = draft.expected_answer.strip() if allow_rewrite else label.strip()
         if not answer_text or len(answer_text) > 180:
             raise DiagnosticGenerationError("choice answer must contain 1 to 180 characters")
-        options[draft.correct_index] = answer_text
+        if allow_rewrite:
+            if options[draft.correct_index] != answer_text:
+                raise DiagnosticGenerationError(
+                    "correct option must equal the grounded expected_answer; do not silently replace it"
+                )
+        else:
+            options[draft.correct_index] = answer_text
         if len(set(options)) != 4:
             raise DiagnosticGenerationError("choice options must be unique")
         shortest_distractor = min(
