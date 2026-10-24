@@ -12,6 +12,7 @@ from test_upload_index import Encoder, Reranker
 
 from adaptive_learning.accounts import Accounts
 from adaptive_learning.api import qa_dependency
+from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
 from adaptive_learning.community import CommunityRepository
 from adaptive_learning.ingestion.jobs import OCRRunResult, SQLiteOCRJobRepository
 from adaptive_learning.ingestion.preparation import PreparationQueue
@@ -25,6 +26,7 @@ def setup(tmp_path, monkeypatch):
     accounts = Accounts(CommunityRepository(tmp_path / "state" / "community.sqlite3"))
     monkeypatch.setattr(api_module, "job_repository", jobs)
     monkeypatch.setattr(api_module, "account_repository", accounts)
+    monkeypatch.setattr(api_module, "assessment_repository", SQLiteAssessmentRepository(tmp_path / "state/assessments.sqlite3"))
     monkeypatch.setattr(api_module, "settings", replace(
         api_module.settings, data_dir=tmp_path, ocr_worker_enabled=False,
         rag_index_dir=None, rag_embedding_model_path=None, rag_reranker_model_path=None,
@@ -39,6 +41,65 @@ def setup(tmp_path, monkeypatch):
     owner, token, _ = accounts.repo.visitor(None, [])
     accounts.repo.bind_upload(owner, "private_book")
     return jobs, queue, token
+
+
+def test_only_explicit_owner_retry_of_failed_preparation_grants_submission_recovery(tmp_path, monkeypatch):
+    from test_diagnostic_chapter_cache import identity
+
+    jobs, queue, token = setup(tmp_path, monkeypatch)
+    ready_ocr(jobs, tmp_path)
+    repository = api_module.assessment_repository
+    value = identity(scope="private_book")
+    first = repository.claim_diagnostic_chapter(value)
+    repository.fail_diagnostic_chapter(value, first["token"], "unknown")
+    with TestClient(api_module.app) as client, TestClient(api_module.app) as anonymous:
+        client.cookies.set("zhiwo_visitor", token)
+        assert anonymous.post("/api/books/private_book/prepare?retry=true").status_code == 403
+        assert client.post("/api/books/private_book/prepare?retry=true").status_code == 200
+        assert repository.claim_diagnostic_chapter(value)["status"] == "unknown"
+        queue.update("private_book", "failed", "diagnostics")
+        assert client.post("/api/books/private_book/prepare").json()["status"] == "failed"
+        assert repository.claim_diagnostic_chapter(value)["status"] == "unknown"
+        assert client.post("/api/books/private_book/prepare?retry=true").json()["status"] == "queued"
+        assert repository.claim_diagnostic_chapter(value)["status"] == "claimed"
+        assert client.post("/api/books/private_book/prepare?retry=true").json()["status"] == "queued"
+        assert repository.claim_diagnostic_chapter(value)["status"] == "running"
+    with repository._connect() as db:
+        assert db.execute("SELECT epoch FROM diagnostic_recovery_epochs WHERE scope='private_book'").fetchone()[0] == 1
+
+
+def test_prepare_retry_nonce_does_not_regrant_after_a_new_failure_or_new_user_action(tmp_path, monkeypatch):
+    from test_diagnostic_chapter_cache import identity
+
+    jobs, queue, token = setup(tmp_path, monkeypatch)
+    ready_ocr(jobs, tmp_path)
+    repository = api_module.assessment_repository
+    value = identity(scope="private_book")
+    queue.enqueue("private_book")
+    initial = repository.claim_diagnostic_chapter(value)
+    repository.fail_diagnostic_chapter(value, initial["token"], "unknown")
+    with TestClient(api_module.app) as client:
+        client.cookies.set("zhiwo_visitor", token)
+        queue.update("private_book", "failed", "diagnostics")
+        first = "/api/books/private_book/prepare?retry=true&retry_request_id=retry_action_one"
+        second = "/api/books/private_book/prepare?retry=true&retry_request_id=retry_action_two"
+        assert client.post(first).status_code == 200
+        current = repository.claim_diagnostic_chapter(value)
+        assert current["status"] == "claimed"
+        repository.fail_diagnostic_chapter(value, current["token"], "unknown")
+        queue.update("private_book", "failed", "diagnostics")
+        assert client.post(first).status_code == 200
+        assert repository.claim_diagnostic_chapter(value)["status"] == "unknown"
+        queue.update("private_book", "failed", "diagnostics")
+        assert client.post(second).status_code == 200
+        current = repository.claim_diagnostic_chapter(value)
+        assert current["status"] == "claimed"
+        repository.fail_diagnostic_chapter(value, current["token"], "unknown")
+        queue.update("private_book", "failed", "diagnostics")
+        assert client.post(first).status_code == 200
+        assert repository.claim_diagnostic_chapter(value)["status"] == "unknown"
+    with repository._connect() as db:
+        assert db.execute("SELECT epoch FROM diagnostic_recovery_epochs WHERE scope='private_book'").fetchone()[0] == 2
 
 
 def ready_ocr(jobs: SQLiteOCRJobRepository, tmp_path: Path) -> None:

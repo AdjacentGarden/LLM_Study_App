@@ -548,8 +548,9 @@ def test_reviewer_failure_is_not_replaced_by_a_writer_verdict() -> None:
             assert "同一概念层级" in kwargs["system"]
             assert "题干已明示或同义给出完整答案" in kwargs["system"]
             raise LLMError("independent reviewer unavailable")
-    with pytest.raises(DiagnosticGenerationError, match="independent reviewer unavailable"):
-        DiagnosticItemGenerator(writer, review_client=UnavailableReviewer(), validation_retries=0).generate(structure())  # type: ignore[arg-type]
+    with pytest.raises(LLMError, match="independent reviewer unavailable"):
+        DiagnosticItemGenerator(writer, review_client=UnavailableReviewer(), validation_retries=2).generate(structure())  # type: ignore[arg-type]
+    assert writer.calls == 1  # Unknown reviewer outcomes must not start a new paid writer attempt.
     assert writer.calls == 1
 
 

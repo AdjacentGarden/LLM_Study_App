@@ -38,6 +38,7 @@ struct CloudBookPreparationReceipt: Codable, Sendable {
   var retriedFailure: String? = nil
   var refreshedSuccess: String? = nil
   var submissionEpoch: Int? = nil
+  var retryRequestID: String? = nil
   var lastOutcome: String? = nil
 }
 
@@ -119,7 +120,9 @@ actor BookPreparationService {
       // This command is reached only once per explicit user action, after GET
       // confirms a failed row. Observation and restart never infer retry=true.
       receipt.retriedFailure = marker
-      suffix = "?retry=true"
+      let retryRequestID = UUID().uuidString
+      receipt.retryRequestID = retryRequestID
+      suffix = "?retry=true&retry_request_id=\(retryRequestID)"
     case .refresh(let marker):
       guard receipt.refreshedSuccess != marker else {
         throw CloudError(status: 409, message: "诊断内容仍未就绪，已保留原任务，请检查服务后继续查询。")

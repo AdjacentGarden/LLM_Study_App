@@ -56,7 +56,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -647,6 +647,10 @@ assertion_contract.assertions覆盖组件全部真实字段，每条必须有ass
 逐条检查该断言全部事实只能由本组件实际引用的原文span支持；一个span只支持一句不能替同组件其他断言背书。
 正确的定义、机制和由原文+题设必要推出的结论均可；不可把仅可能变为必然、反推原因或把例子推广为所有情况。
 负向finding用{kind,quote,issue,evidence_source_ids,missing_text?}，quote必须属于当前assertion原句。
+若finding是unsupported_claim、contradiction或invalid_inference，该断言source_entailment必须为false，
+不能一边指出事实/推理不受支持，一边标true；保留具体否决，不得为修响应格式而删掉真实问题。
+source_entailment=true仍可有scope_overreach或missing_condition，但须由同一assertion及所引证据对应的
+scope_matrix真实unbounded判定共同支持；不得借另一断言的反例，也不得为匹配finding而伪造矩阵标志。
 scope_matrix每条断言一行{assertion_id,checks}，checks与scope_matrix_contract.boundary_ids逐一等长同序，
 每格严格为[is_class_definition,assigns_class_property,has_same_class_counterexample,candidate_explicitly_limited,limitation_index或null]。
 第一项包括一般过程、作用、性质、数量规则，不限于术语定义；第二项检查是否给该类成员赋予当前性质/功能。
@@ -2276,6 +2280,7 @@ class TeachingContentGenerator:
                         raise TeachingContentError("lesson组件必须是固定组件对象列表")
                     for row in raw["components"]:
                         if row.get("point_id") is None:
+                            self._preserve_lesson_negative_findings(row, payload, evidence, spans)
                             self._normalize_lesson_selection(row, payload, evidence, spans)
                     for (owner, name), row in cached_for_decode.items():
                         if owner is None:
@@ -2384,6 +2389,72 @@ class TeachingContentGenerator:
             for row in contract["assertions"]
         ]
         return materialize_scope_matrix(contract, rows)["expanded_boundaries"]
+
+    @staticmethod
+    def _lesson_negative_candidate(
+        row: dict[str, Any], payload: dict[str, Any], evidence: TeachingEvidence,
+        spans: dict[str, dict[str, str]],
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+        """Propose only a negative downgrade, after the full original validators.
+
+        No scope cell or finding is repaired, omitted or invented. A malformed
+        row keeps the normal bounded format-correction path below.
+        """
+        if set(row) != {"point_id", "component_id", "assertion_checks", "scope_matrix"}:
+            return None
+        if row.get("point_id") is not None or row.get("component_id") not in payload["lesson_components"]:
+            return None
+        part = payload["lesson_components"][row["component_id"]]
+        candidate = deepcopy(row)
+        changes = []
+        try:
+            index = {item["assertion_id"]: item for item in part["assertion_contract"]["assertions"]}
+            for check in candidate["assertion_checks"]:
+                findings = check.get("findings")
+                if (check.get("is_factual") is True and check.get("source_entailment") is True
+                        and isinstance(findings, list) and findings
+                        and all(isinstance(item, dict) and item.get("kind") in {
+                            "unsupported_claim", "contradiction", "invalid_inference"
+                        } for item in findings)):
+                    assertion = index[check["assertion_id"]]
+                    changes.append({
+                        "assertion_id": check["assertion_id"], "field": assertion["field"],
+                        "raw_assertion_check": deepcopy(check),
+                        "reason": "A located factual/inference veto conflicts with source_entailment=true; preserve the veto, never approval.",
+                        "normalized_source_entailment": False,
+                    })
+                    check["source_entailment"] = False
+            if not changes:
+                return None
+            scope = materialize_scope_matrix(
+                TeachingContentGenerator._lesson_matrix_contract(part), candidate["scope_matrix"]
+            )
+            validate_assertion_review(
+                part["assertion_contract"], candidate["assertion_checks"], spans,
+                {key: value.model_dump() for key, value in evidence.sources.items()},
+                scope_result=scope,
+            )
+        except (KeyError, TypeError, ValueError, TeachingContentError):
+            return None
+        return candidate, changes
+
+    def _preserve_lesson_negative_findings(
+        self, row: dict[str, Any], payload: dict[str, Any], evidence: TeachingEvidence,
+        spans: dict[str, dict[str, str]],
+    ) -> None:
+        proposed = self._lesson_negative_candidate(row, payload, evidence, spans)
+        if proposed is None:
+            return
+        candidate, changes = proposed
+        # model_response already stores the untouched complete response. Record
+        # the exact conflicting rows and reason before mutating our local copy.
+        self._audit(
+            "lesson_negative_normalization", component_id=row["component_id"],
+            changes=changes, approval_reusable=False,
+        )
+        row["assertion_checks"] = candidate["assertion_checks"]
+        # The caller still runs every original component/provenance validator.
+        # This component is source-negative and cannot enter the approval cache.
 
     @staticmethod
     def _normalize_lesson_selection(

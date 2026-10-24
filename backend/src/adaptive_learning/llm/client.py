@@ -55,15 +55,16 @@ _transport_slots = threading.BoundedSemaphore(8)
 
 
 def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | None) -> dict[str, Any]:
+    slots = _transport_slots
     if until is None:
         # The same process-wide cap applies without a whole-operation deadline.
-        with _transport_slots:
+        with slots:
             return call()
     remaining = until - time.monotonic()
-    if remaining <= 0 or not _transport_slots.acquire(timeout=max(0, remaining)):
+    if remaining <= 0 or not slots.acquire(timeout=max(0, remaining)):
         raise LLMTimeoutError("model time budget exceeded")
     if time.monotonic() >= until:
-        _transport_slots.release()
+        slots.release()
         raise LLMTimeoutError("model time budget exceeded")
     future: Future[dict[str, Any]] = Future()
 
@@ -75,12 +76,12 @@ def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | 
         except BaseException as error:
             future.set_exception(error)
         finally:
-            _transport_slots.release()
+            slots.release()
 
     try:
         threading.Thread(target=run, name="bounded-model-request", daemon=True).start()
     except BaseException:
-        _transport_slots.release()
+        slots.release()
         raise
     try:
         return future.result(timeout=max(0, until - time.monotonic()))
@@ -91,6 +92,22 @@ def _request_before_deadline(call: Callable[[], dict[str, Any]], until: float | 
 
 
 _deadline: ContextVar[float | None] = ContextVar("model_deadline", default=None)
+_block_ambiguous_retries: ContextVar[bool] = ContextVar("block_ambiguous_model_retries", default=False)
+
+
+@contextmanager
+def no_ambiguous_model_retries() -> Iterator[None]:
+    """Let a durable submission owner reconcile an uncertain call before replay.
+
+    This is scoped to the calling task. Explicit retryable HTTP replies retain
+    their existing handling; a lost transport or unusable body cannot initiate
+    another paid submission inside this context.
+    """
+    token = _block_ambiguous_retries.set(True)
+    try:
+        yield
+    finally:
+        _block_ambiguous_retries.reset(token)
 
 
 def remaining_model_time() -> float | None:
@@ -510,7 +527,7 @@ class OpenAICompatibleClient:
                 ValueError,
             ) as error:
                 last_error = error
-                if attempt >= self.config.max_retries:
+                if _block_ambiguous_retries.get() or attempt >= self.config.max_retries:
                     break
             delay = retry_after if retry_after is not None else 0.25 * (attempt + 1)
             if until is not None:

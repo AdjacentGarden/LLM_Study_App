@@ -102,7 +102,7 @@ class FixtureAnswerModel:
 
 
 class FixtureBank:
-    def generate(self, value):
+    def generate(self, value, *, chapter_cache=None, cache_scope=""):
         return [
             DiagnosticItem(
                 item_id="diagnostic_" + stable_knowledge_point_id(ch.chapter_id, point),

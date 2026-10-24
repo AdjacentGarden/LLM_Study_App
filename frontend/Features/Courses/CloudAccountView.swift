@@ -280,7 +280,7 @@ struct CloudLearningSetupView: View {
             store.cloudState.isWorking
               ? "正在准备…"
               : turn.phase == "profile_confirmation"
-                ? "确认并生成课程" : turn.phase == "complete" ? "查看课程生成进度" : "继续"
+                ? "确认并生成课程" : turn.phase == "complete" ? "生成或继续本章课程" : "继续"
           ) {
             Task {
               await store.advanceCloudInterview(
@@ -290,7 +290,25 @@ struct CloudLearningSetupView: View {
           }.disabled(store.cloudState.isWorking || (!options.isEmpty && selected.isEmpty))
             .accessibilityIdentifier("cloud.diagnosis.next")
         } else {
-          ProgressView("正在恢复诊断…")
+          if let error = store.cloudState.error {
+            Text("诊断准备尚未完成").font(DS.font(20, weight: .bold))
+            Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+            if !store.cloudState.isWorking {
+              BCButton("继续查询诊断", style: .secondary) {
+                Task { await store.restoreCloudDiagnosis() }
+              }
+              if store.canRetryCloudDiagnosis {
+                Text("重试会重新准备未完成的诊断题；已完成的内容会保留。")
+                  .font(DS.font(14)).foregroundStyle(DS.secondary)
+                BCButton("重试诊断") {
+                  Task { await store.beginCloudLearning(
+                    chapterID: store.cloudState.requestedChapterID, retryDiagnosis: true) }
+                }.accessibilityIdentifier("cloud.diagnosis.retry")
+              }
+            }
+          } else {
+            ProgressView("正在恢复诊断…")
+          }
         }
       }.padding(24).frame(maxWidth: 660).frame(maxWidth: .infinity)
     }.background(DS.background.ignoresSafeArea())

@@ -1,0 +1,578 @@
+{
+  "purpose": "Observed v6 residual failures; scripted replays verify wire contracts, never certify teaching quality.",
+  "cases": [
+    {
+      "target_knowledge_point_id": "kp_266e8a76e677b472",
+      "source": {
+        "chapter_id": "chapter_c9c510c2d238fec7",
+        "chapter_title": "第4章 基因的表达",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_31885e069b42e185",
+            "label": "RNA与DNA在化学组成上的区别是：RNA的五碳糖是核糖，碱基中没有T而含有U。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "basic_recognition",
+              "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"
+            },
+            "evidence": [
+              {
+                "page_number": 57,
+                "quote": "不是脱氧核糖（图4-1）；RNA的碱基组成中没有碱基T（胸",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 57,
+                "quote": "的副本。与DNA不同的是，组成RNA的五碳糖是核糖而",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 58,
+                "quote": "腺嘧啶），而替换成碱基U（尿嘧啶）（图4-2)；RNA一般",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_7c769ffefdf3c64b",
+            "label": "转录是在细胞核内进行的，以DNA双链中的一条为模板，按照碱基互补配对原则合成mRNA的过程。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "relation_understanding",
+              "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+            },
+            "evidence": [
+              {
+                "page_number": 58,
+                "quote": "转录是在细胞核内进行的，是以DNA双链中的一条为模板，合成mRNA的过程。",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 58,
+                "quote": "一条链为模板合成的，这一过程称为转录（transcription）。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_266e8a76e677b472",
+            "label": "核糖体沿着mRNA移动，读取密码子，tRNA依次转运氨基酸，通过肽键连接形成肽链，直至终止密码。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "source_application",
+              "goal": "将原文支持的条件或关系用于一个简短情境；不得编造额外机制、工具用途或事实，也不能仅给定义命名。"
+            },
+            "evidence": [
+              {
+                "page_number": 61,
+                "quote": "图4-6向你展示了蛋白质合成这条“生产线”的情景。\n注意，核糖体是可以沿着mRNA移动的。核糖体与mRNA\n的结合部位会形成2个tRNA的结合位点。",
+                "anchor_quote": "注意，核糖体是可以沿着mRNA移动的。核糖体与mRNA"
+              },
+              {
+                "page_number": 62,
+                "quote": "然后，核糖体沿着mRNA移动，读取下一个密码子。原占据位点1的\ntRNA离开核糖体，又去转运下一个甲硫氨酸，占据位点2的tRNA进入位点1，一个新的携带\n氨基酸的tRNA进入位点2，继续肽链的合成。上述步骤沿mRNA链不断进行，直至读取到\nmRNA上的终止密码，合成才告终止。",
+                "anchor_quote": "氨基酸的tRNA进入位点2，继续肽链的合成。上述步骤沿mRNA链不断进行，直至读取到"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_31885e069b42e185",
+                "type": "choice",
+                "prompt": "关于RNA与DNA在化学组成上的区别，下列表述正确的是哪一项？",
+                "options": [
+                  "RNA的五碳糖是核糖，碱基中没有T而含有U",
+                  "RNA的五碳糖是脱氧核糖，碱基中没有T而含有U",
+                  "RNA的五碳糖是核糖，碱基中没有U而含有T",
+                  "RNA的五碳糖是脱氧核糖，碱基中没有U而含有T"
+                ],
+                "correct_index": 0,
+                "expected_answer": "RNA的五碳糖是核糖，碱基中没有T而含有U",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_7c769ffefdf3c64b",
+                "type": "choice",
+                "prompt": "转录过程中，作为合成mRNA模板的是下列哪一项？",
+                "options": [
+                  "DNA双链中的一条链",
+                  "DNA双链中的两条链",
+                  "mRNA自身的一条链",
+                  "tRNA上暴露的碱基序列"
+                ],
+                "correct_index": 0,
+                "expected_answer": "DNA双链中的一条链",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_266e8a76e677b472",
+                "type": "choice",
+                "prompt": "翻译时，核糖体沿mRNA移动并读取下一个密码子后，携带氨基酸的tRNA会进入哪里继续肽链合成？",
+                "options": [
+                  "核糖体与mRNA结合部位形成的tRNA结合位点",
+                  "mRNA上已经读取过的终止密码位置",
+                  "细胞核内DNA双链的模板链上",
+                  "游离在细胞质中而不与核糖体结合"
+                ],
+                "correct_index": 0,
+                "expected_answer": "核糖体与mRNA结合部位形成的tRNA结合位点",
+                "rubric": [],
+                "difficulty": 1,
+                "estimated_seconds": 60
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_31885e069b42e185",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_7c769ffefdf3c64b",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_266e8a76e677b472",
+                "accepted": false,
+                "issues": [
+                  "题干仅复述翻译过程的一般步骤，没有设置供应用原文关系判断的具体情境，不符合有源应用目标。",
+                  "正确项“核糖体与mRNA结合部位形成的tRNA结合位点”独自明显更长、更具体；“细胞核内DNA双链的模板链上”等干扰项也未与其保持同一概念层级，容易凭选项形式排除。可设置简短的核糖体移动情境，并将选项统一为可比较的进入位置。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_31885e069b42e185",
+                "type": "choice",
+                "prompt": "关于RNA与DNA在化学组成上的区别，下列表述正确的是哪一项？",
+                "options": [
+                  "RNA的五碳糖是核糖，碱基中没有T而含有U",
+                  "RNA的五碳糖是脱氧核糖，碱基中没有T而含有U",
+                  "RNA的五碳糖是核糖，碱基中没有U而含有T",
+                  "RNA的五碳糖是脱氧核糖，碱基中没有U而含有T"
+                ],
+                "correct_index": 0,
+                "expected_answer": "RNA的五碳糖是核糖，碱基中没有T而含有U",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_7c769ffefdf3c64b",
+                "type": "choice",
+                "prompt": "转录过程中，作为合成mRNA模板的是下列哪一项？",
+                "options": [
+                  "DNA双链中的一条链",
+                  "DNA双链中的两条链",
+                  "mRNA自身的一条链",
+                  "tRNA上暴露的碱基序列"
+                ],
+                "correct_index": 0,
+                "expected_answer": "DNA双链中的一条链",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_266e8a76e677b472",
+                "type": "choice",
+                "prompt": "翻译时，核糖体沿mRNA移动并读取下一个密码子后，新携带氨基酸的tRNA进入的位置是哪里？",
+                "options": [
+                  "核糖体与mRNA结合部位形成的tRNA结合位点",
+                  "mRNA上已经读取过的终止密码位置",
+                  "细胞核内DNA双链的模板链上",
+                  "细胞质中不与核糖体结合的游离位置"
+                ],
+                "correct_index": 0,
+                "expected_answer": "核糖体与mRNA结合部位形成的tRNA结合位点",
+                "rubric": [],
+                "difficulty": 1,
+                "estimated_seconds": 60
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_266e8a76e677b472",
+                "accepted": false,
+                "issues": [
+                  "题干只是复述原文中的翻译步骤并询问进入位置，未将该关系用于简短情境，不符合有源应用目标。",
+                  "“细胞核内DNA双链的模板链上”和“细胞质中不与核糖体结合的游离位置”与正确项并非可比的tRNA结合位点，容易凭类别排除；可依据原文中位点1、位点2的关系设计同类干扰项。",
+                  "正确项“核糖体与mRNA结合部位形成的tRNA结合位点”独自明显更长、更具体，也未指出原文明确写出的位点2；宜让选项在相同层级上判断具体进入位置。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_31885e069b42e185",
+                "type": "choice",
+                "prompt": "关于RNA与DNA在化学组成上的区别，下列表述正确的是哪一项？",
+                "options": [
+                  "RNA的五碳糖是核糖，碱基中没有T而含有U",
+                  "RNA的五碳糖是脱氧核糖，碱基中没有T而含有U",
+                  "RNA的五碳糖是核糖，碱基中没有U而含有T",
+                  "RNA的五碳糖是脱氧核糖，碱基中没有U而含有T"
+                ],
+                "correct_index": 0,
+                "expected_answer": "RNA的五碳糖是核糖，碱基中没有T而含有U",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_7c769ffefdf3c64b",
+                "type": "choice",
+                "prompt": "转录过程中，作为合成mRNA模板的是下列哪一项？",
+                "options": [
+                  "DNA双链中的一条链",
+                  "DNA双链中的两条链",
+                  "mRNA自身的一条链",
+                  "tRNA上暴露的碱基序列"
+                ],
+                "correct_index": 0,
+                "expected_answer": "DNA双链中的一条链",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_266e8a76e677b472",
+                "type": "choice",
+                "prompt": "翻译时，核糖体沿mRNA移动并读取下一个密码子后，新携带氨基酸的tRNA进入核糖体与mRNA结合部位形成的哪个位点？",
+                "options": [
+                  "位点2",
+                  "位点1",
+                  "终止密码所在的位置",
+                  "DNA模板链上的对应位置"
+                ],
+                "correct_index": 0,
+                "expected_answer": "位点2",
+                "rubric": [],
+                "difficulty": 1,
+                "estimated_seconds": 60
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_266e8a76e677b472",
+                "accepted": false,
+                "issues": [
+                  "题干问的是tRNA进入核糖体的哪个结合位点，但“终止密码所在的位置”和“DNA模板链上的对应位置”都不是同类结合位点，与“位点1”“位点2”不可比，容易排除。应将干扰项改为同类、可比较的位点判断。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "target_knowledge_point_id": "kp_7fffae0761c49870",
+      "source": {
+        "chapter_id": "chapter_7f991ceb7fc96c21",
+        "chapter_title": "第6章 从杂交育种到基因工程",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_ed26dda697eb0589",
+            "label": "杂交育种依据的遗传学原理是基因重组，但杂交后代会出现性状分离，育种进程缓慢、过程复杂。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "basic_recognition",
+              "goal": "辨认原文核心概念、术语或基本事实；允许基础辨认，禁止年份页码等无关琐事。"
+            },
+            "evidence": [
+              {
+                "page_number": 94,
+                "quote": "杂交育种依据的遣传学原理是",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 95,
+                "quote": "杂交育种只能利用已有基因的重组，按需选择，并不\n能创造新的基因。杂交后代会出现分离现象，育种进程\n缓慢，过程复杂。",
+                "anchor_quote": "能创造新的基因。杂交后代会出现分离现象，育种进程"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_ece7fb042eff3351",
+            "label": "诱变育种是利用物理因素或化学因素处理生物，使生物发生基因突变，从而提高突变率、在较短时间内获得更多优良变异类型的方法。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "relation_understanding",
+              "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+            },
+            "evidence": [
+              {
+                "page_number": 95,
+                "quote": "我们知道，物理因素或化学因素都能诱发基因突变。将\n这一原理应用在育种中，就发展为育种的新方法——诱变\n育种（mutationbreeding），也就是利用物理因素（如X射\n线、γ射线、紫外线、激光等）或化学因素（如亚硝酸、硫\n酸二乙酯等）来处理生物，使生物发生基因突变。",
+                "anchor_quote": "我们知道，物理因素或化学因素都能诱发基因突变。将"
+              },
+              {
+                "page_number": 95,
+                "quote": "我们知道，物理因素或化学因素都能诱发基因突变。将\n这一原理应用在育种中，就发展为育种的新方法——诱变\n育种（mutationbreeding），也就是利用物理因素（如X射\n线、γ射线、紫外线、激光等）或化学因素（如亚硝酸、硫\n酸二乙酯等）来处理生物，使生物发生基因突变。用这种\n方法可以提高突变率，在较短时问内获得更多的优良变异\n类型。",
+                "anchor_quote": "酸二乙酯等）来处理生物，使生物发生基因突变。用这种"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_7fffae0761c49870",
+            "label": "基因工程又叫基因拼接技术或DNA重组技术，是按照人们的意愿把一种生物的某种基因提取出来，加以修饰改造后放到另一种生物的细胞里，定向改造生物遗传性状。",
+            "preferred_type": "choice",
+            "cognitive_target": {
+              "id": "source_application",
+              "goal": "将原文支持的条件或关系用于一个简短情境；不得编造额外机制、工具用途或事实，也不能仅给定义命名。"
+            },
+            "evidence": [
+              {
+                "page_number": 97,
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。基因工程是在DNA上\n进行的分子水平的设计施工，需要有专门的工具。",
+                "anchor_quote": "里，定向地改造生物的遗传性状。基因工程是在DNA上"
+              },
+              {
+                "page_number": 97,
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。",
+                "anchor_quote": "基因工程又叫做基因拼接技术或DNA重组技术。通"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_ed26dda697eb0589",
+                "type": "choice",
+                "prompt": "杂交育种所依据的遗传学原理是什么？",
+                "options": [
+                  "基因重组",
+                  "基因突变",
+                  "染色体数目变异",
+                  "基因工程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因重组",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 25
+              },
+              {
+                "knowledge_point_id": "kp_ece7fb042eff3351",
+                "type": "choice",
+                "prompt": "用X射线、紫外线或亚硝酸等处理生物进行诱变育种，主要能获得哪方面效果？",
+                "options": [
+                  "提高突变率，在较短时间内获得更多优良变异类型",
+                  "使杂交后代不再出现性状分离，育种进程加快",
+                  "把一种生物的基因提取出来放到另一种生物细胞中",
+                  "利用已有基因的重组，按需选择优良类型"
+                ],
+                "correct_index": 0,
+                "expected_answer": "提高突变率，在较短时间内获得更多优良变异类型",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_7fffae0761c49870",
+                "type": "choice",
+                "prompt": "人们按自己的意愿把一种生物的某种基因提取出来，加以修饰改造后放到另一种生物的细胞里，以定向改造生物的遗传性状。这一做法属于什么？",
+                "options": [
+                  "基因工程",
+                  "诱变育种",
+                  "杂交育种",
+                  "选择育种"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因工程",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_ed26dda697eb0589",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_ece7fb042eff3351",
+                "accepted": false,
+                "issues": [
+                  "题干问处理生物后能获得的效果，但“把一种生物的基因提取出来放到另一种生物细胞中”和“利用已有基因的重组，按需选择优良类型”描述的是不同做法，并非同类效果；应改为针对诱变育种效果的可比判断。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_7fffae0761c49870",
+                "accepted": false,
+                "issues": [
+                  "应用题题干几乎完整复述了原文对基因工程的定义，再问“这一做法属于什么”，使“基因工程”成为纯定义命名；应改为简短情境，并要求判断尚未给出的适用做法或关系。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_ed26dda697eb0589",
+                "type": "choice",
+                "prompt": "杂交育种所依据的遗传学原理是什么？",
+                "options": [
+                  "基因重组",
+                  "基因突变",
+                  "染色体数目变异",
+                  "基因工程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因重组",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 25
+              },
+              {
+                "knowledge_point_id": "kp_ece7fb042eff3351",
+                "type": "choice",
+                "prompt": "用X射线、紫外线或亚硝酸等处理生物进行诱变育种，主要能获得哪方面效果？",
+                "options": [
+                  "提高突变率，在较短时间内获得更多优良变异类型",
+                  "使杂交后代不再出现性状分离，育种进程加快",
+                  "使生物按需重组已有基因，定向改造遗传性状",
+                  "把一种生物的基因提取出来放到另一种生物细胞中"
+                ],
+                "correct_index": 0,
+                "expected_answer": "提高突变率，在较短时间内获得更多优良变异类型",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_7fffae0761c49870",
+                "type": "choice",
+                "prompt": "研究人员希望把一种生物的某种基因提取出来，加以修饰改造后放到另一种生物的细胞里，以定向改造生物的遗传性状。他们应采用下列哪种技术？",
+                "options": [
+                  "基因工程",
+                  "诱变育种",
+                  "杂交育种",
+                  "选择育种"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因工程",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_ece7fb042eff3351",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_7fffae0761c49870",
+                "accepted": false,
+                "issues": [
+                  "题干已完整复述原文对基因工程的描述：将一种生物的基因提取、修饰后放入另一种生物细胞，并定向改造遗传性状；选项“基因工程”只是给这段完整定义命名，不符合应用题要求。可只给出部分有据条件，让考生判断适用技术。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "generation_response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_ed26dda697eb0589",
+                "type": "choice",
+                "prompt": "杂交育种所依据的遗传学原理是什么？",
+                "options": [
+                  "基因重组",
+                  "基因突变",
+                  "染色体数目变异",
+                  "基因工程"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因重组",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 25
+              },
+              {
+                "knowledge_point_id": "kp_ece7fb042eff3351",
+                "type": "choice",
+                "prompt": "用X射线、紫外线或亚硝酸等处理生物进行诱变育种，主要能获得哪方面效果？",
+                "options": [
+                  "提高突变率，在较短时间内获得更多优良变异类型",
+                  "使杂交后代不再出现性状分离，育种进程加快",
+                  "使生物按需重组已有基因，定向改造遗传性状",
+                  "把一种生物的基因提取出来放到另一种生物细胞中"
+                ],
+                "correct_index": 0,
+                "expected_answer": "提高突变率，在较短时间内获得更多优良变异类型",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_7fffae0761c49870",
+                "type": "choice",
+                "prompt": "人们按照自己的意愿，把一种生物的某种基因提取出来，加以修饰改造后放到另一种生物的细胞里，以定向改造生物的遗传性状。这一过程属于哪种技术？",
+                "options": [
+                  "基因工程",
+                  "诱变育种",
+                  "杂交育种",
+                  "选择育种"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因工程",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              }
+            ]
+          },
+          "review_verdict": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_7fffae0761c49870",
+                "accepted": false,
+                "issues": [
+                  "题干完整复述原文对基因工程的定义，仅问技术名称；“基因工程”只是给完整定义命名，未将条件用于具体情境，不符合source_application。可只给出具体操作前提，询问尚未给出的适用技术或预期结果。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

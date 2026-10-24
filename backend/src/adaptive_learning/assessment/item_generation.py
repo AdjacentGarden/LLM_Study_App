@@ -6,13 +6,19 @@ import logging
 import re
 import uuid
 from collections.abc import Callable, Iterable
-from typing import cast
+from typing import Any, Protocol, cast
 
 from pydantic import BaseModel, Field, StrictBool, ValidationError, model_validator
 
 from ..ingestion.models import BookStructure, ChapterDraft, SourceQuote
 from ..llm.book_parallel import ordered_book_map
-from ..llm.client import LLMError, OpenAICompatibleClient
+from ..llm.client import (
+    LLMCooldownError,
+    LLMError,
+    OpenAICompatibleClient,
+    no_ambiguous_model_retries,
+)
+from .diagnostic_cache import DiagnosticChapterSubmissionBlocked, validate_chapter_items
 from .models import DiagnosticItem, ResponseType
 
 logger = logging.getLogger(__name__)
@@ -32,6 +38,10 @@ relation_understanding须考条件、对象或关系，source_application须将�
 正确结论可从原文找到不是泄题，不能因此否决。题干已经明示或同义给出完整答案才是泄漏；
 关系/应用题只抄完整定义让人命名仍须拒绝，基础辨认题则须有同类可信干扰项。
 干扰项必须同类、可比、回答同一问题，并体现可区分的条件、对象或关系误解。
+当原文只有两个位置、对象或功能等少数自然名称，不足四个同类名称时，不能添加不相关类别凑四项；
+改为四个平行的关系、对应或顺序判断，各项比较相同对象及同一维度，正确项与干扰项都完整回答同一问。
+有源应用可以在题干明确给出技术或过程名称，再问尚未给出的有据目的、作用对象、条件或关系；
+不必把完整定义或全部操作复述后再问名称。修复被拒题时应改变被指出的判断结构，不能只替换人物和句尾。
 自然术语的字数差异不是答案泄漏；结合choice_length_metrics与语义检查，正确项独自明显更长、更具体而提示答案仍须拒绝，不能填字凑长度。
 关键条件或对象的单词差异可以构成实质误解，不得只按替换词数判定机械换词；无实质区别的凑数、无关真话仍须拒绝。
 拒绝理由应定位题干限定和有问题的选项原文，说明它为何在该限定下也正确、答非所问或仅泄露答案；
@@ -141,7 +151,17 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v6+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v7+chapter-approvals-v1+balanced-options-v1"
+
+
+class DiagnosticChapterCache(Protocol):
+    """Private durable approvals; no audit data can populate this interface."""
+
+    def claim(self, identity: dict[str, Any]) -> dict[str, Any]: ...
+
+    def approve(self, identity: dict[str, Any], token: str, items: list[DiagnosticItem]) -> None: ...
+
+    def fail(self, identity: dict[str, Any], token: str, outcome: str) -> None: ...
 
 
 def _choice_length_metrics(options: list[str], correct: int) -> dict[str, object]:
@@ -275,7 +295,12 @@ class DiagnosticItemGenerator:
             # approve an item, or expose storage errors/provider credentials.
             logger.warning("private diagnostic audit unavailable")
 
-    def generate(self, structure: BookStructure) -> list[DiagnosticItem]:
+    def generate(
+        self, structure: BookStructure, *, chapter_cache: DiagnosticChapterCache | None = None,
+        cache_scope: str = "",
+    ) -> list[DiagnosticItem]:
+        if chapter_cache is not None and (not self.verify_items or not cache_scope.strip()):
+            raise ValueError("private chapter approvals require independent review and a book scope")
         context: dict[str, object] = {"invocation_id": uuid.uuid4().hex,
             "source_fingerprint": structure_fingerprint(structure),
             "diagnostic_version": DIAGNOSTIC_BANK_VERSION}
@@ -286,11 +311,13 @@ class DiagnosticItemGenerator:
                 return []
             # Generation and its mandatory semantic review stay together; a
             # different chapter may progress independently through the same gate.
-            return self._generate_chapter(structure.title, chapter, selected, audit_context=context)
+            if chapter_cache is None:
+                return self._generate_chapter(structure.title, chapter, selected, audit_context=context)
+            return self._cached_chapter(structure, chapter, selected, chapter_cache, cache_scope, context)
 
         try:
             batches = ordered_book_map(generate_chapter, structure.chapters)
-        except (DiagnosticGenerationError, LLMError) as error:
+        except (DiagnosticGenerationError, DiagnosticChapterSubmissionBlocked, LLMError) as error:
             self._audit(context, "bank_failed", error_type=type(error).__name__,
                         feedback=getattr(error, "feedback", None))
             raise
@@ -303,6 +330,89 @@ class DiagnosticItemGenerator:
             raise DiagnosticGenerationError("diagnostic item ids are not unique")
         items = self._balance_options(items, seed=structure_fingerprint(structure))
         self._audit(context, "bank_accepted", items=[item.model_dump(mode="json") for item in items])
+        return items
+
+    def _chapter_identity(
+        self, structure: BookStructure, chapter: ChapterDraft,
+        points: list[tuple[str, str, list[SourceQuote]]], scope: str,
+    ) -> dict[str, Any]:
+        def digest(value: object) -> str:
+            return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
+                                             allow_nan=False).encode()).hexdigest()
+
+        def route(client: OpenAICompatibleClient | None) -> dict[str, object]:
+            config = getattr(client, "config", None)
+            # Never persist API keys or arbitrary config dictionaries.
+            return {key: getattr(config, key, None)
+                    for key in ("base_url", "model", "reasoning_effort", "thinking_enabled")}
+
+        return {
+            "scope": scope, "chapter_id": chapter.chapter_id,
+            "point_ids": [point[0] for point in points],
+            "source_fingerprint": digest({"book_title": structure.title,
+                "chapter": chapter.model_dump(mode="json"),
+                "selected_points": [{"id": key, "label": label,
+                    "evidence": [quote.model_dump(mode="json") for quote in quotes],
+                    "target": _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]}
+                    for index, (key, label, quotes) in enumerate(points)]}),
+            "protocol_fingerprint": digest({"version": DIAGNOSTIC_BANK_VERSION,
+                "writer_prompt": _item_system(self.allow_grounded_answer_rewrite),
+                "writer_route": route(self.client), "points_per_chapter": self.points_per_chapter,
+                "rewrite": self.allow_grounded_answer_rewrite, "verify_items": self.verify_items}),
+            "review_fingerprint": digest({"version": DIAGNOSTIC_BANK_VERSION,
+                "prompt": _ITEM_REVIEW_SYSTEM, "identity": self.review_identity,
+                "route": route(self.review_client)}),
+        }
+
+    def _cached_chapter(
+        self, structure: BookStructure, chapter: ChapterDraft,
+        points: list[tuple[str, str, list[SourceQuote]]], cache: DiagnosticChapterCache,
+        scope: str, audit_context: dict[str, object],
+    ) -> list[DiagnosticItem]:
+        identity = self._chapter_identity(structure, chapter, points, scope)
+        claim = cache.claim(identity)
+        context = {**audit_context, "chapter_id": chapter.chapter_id}
+        if claim.get("status") == "approved":
+            cached = claim.get("items")
+            if not isinstance(cached, list) or any(not isinstance(item, DiagnosticItem) for item in cached):
+                raise DiagnosticChapterSubmissionBlocked("private chapter approval is invalid")
+            items = cast(list[DiagnosticItem], cached)
+            validate_chapter_items(identity, items)
+            by_id = {point[0]: point for point in points}
+            for item in items:
+                # Reconstruct deterministic IDs/source fields; reject corrupt
+                # cached content instead of silently replacing it or paying again.
+                expected = self._validate_item(ItemDraft.model_validate(self._candidate_item(item)),
+                    chapter, by_id, allow_rewrite=self.allow_grounded_answer_rewrite)
+                if item.model_dump(mode="json") != expected.model_dump(mode="json"):
+                    raise DiagnosticChapterSubmissionBlocked("private chapter approval source does not match")
+            self._audit(context, "chapter_approval_reused", item_ids=[item.item_id for item in items])
+            return [item.model_copy(deep=True) for item in items]
+        token = claim.get("token")
+        if claim.get("status") != "claimed" or not isinstance(token, str) or not token:
+            self._audit(context, "chapter_submission_blocked", status=claim.get("status"))
+            raise DiagnosticChapterSubmissionBlocked(
+                "diagnostic chapter has an in-flight or unknown submission; explicit recovery is required")
+        try:
+            with no_ambiguous_model_retries():
+                items = self._generate_chapter(structure.title, chapter, points, audit_context=audit_context)
+            validate_chapter_items(identity, items)
+            if self._chapter_identity(structure, chapter, points, scope) != identity:
+                raise DiagnosticGenerationError("chapter source or model identity changed during submission")
+            cache.approve(identity, token, items)
+        except BaseException as error:
+            outcome = ("not_admitted" if isinstance(error, LLMCooldownError) else
+                       "rejected" if isinstance(error, (DiagnosticGenerationError, ValidationError)) else "unknown")
+            try:
+                cache.fail(identity, token, outcome)
+            except Exception:
+                # A still-running claim safely blocks resubmission if ledger
+                # storage is unavailable. Never mask the original failure.
+                logger.warning("private diagnostic submission status could not be persisted")
+            self._audit(context, "chapter_submission_failed", outcome=outcome,
+                        error_type=type(error).__name__)
+            raise
+        self._audit(context, "chapter_approval_saved", item_ids=[item.item_id for item in items])
         return items
 
     @staticmethod
@@ -460,7 +570,7 @@ class DiagnosticItemGenerator:
                                            audit_context=attempt_context)
                 self._audit(attempt_context, "chapter_accepted", items=candidate)
                 return items
-            except (ValidationError, DiagnosticGenerationError, LLMError) as error:
+            except (ValidationError, DiagnosticGenerationError) as error:
                 last_error = error
                 self._audit(attempt_context, "attempt_failed", error_type=type(error).__name__,
                             feedback=getattr(error, "feedback", None))
@@ -516,7 +626,7 @@ class DiagnosticItemGenerator:
             "question_contract": _QUESTION_CONTRACT,
             "review_identity": self.review_identity,
             "review_route": {key: getattr(config, key, None)
-                             for key in ("base_url", "model", "reasoning_effort")},
+                             for key in ("base_url", "model", "reasoning_effort", "thinking_enabled")},
         }
         return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 

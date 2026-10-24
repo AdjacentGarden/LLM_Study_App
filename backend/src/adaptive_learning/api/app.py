@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+import re
 import shutil
 import signal
 import sys
@@ -23,6 +24,11 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import TypeAdapter
 
 from ..accounts import COOKIE, Accounts
+from ..assessment.diagnostic_cache import (
+    DiagnosticChapterCacheError,
+    DiagnosticChapterSubmissionBlocked,
+    RepositoryDiagnosticChapterCache,
+)
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
 from ..assessment.interview import InterviewOrchestrator
 from ..assessment.item_generation import (
@@ -672,7 +678,8 @@ def _require_upload_owner(book_id: str, request: Request) -> None:
 
 
 @app.post("/api/books/{book_id}/prepare")
-def prepare_book(book_id: str, request: Request, response: Response, retry: bool = False) -> dict:
+def prepare_book(book_id: str, request: Request, response: Response, retry: bool = False,
+                 retry_request_id: str | None = None) -> dict:
     _require_upload_owner(book_id, request)
     response.headers["Cache-Control"] = "private, no-store"
     job = job_repository.get_job(book_id)
@@ -683,7 +690,15 @@ def prepare_book(book_id: str, request: Request, response: Response, retry: bool
     bank = assessment_repository.get_bank(
         diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
     ) if structure is not None else None
-    ready = bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
+    ready = bank is not None and bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
+    if retry and existing and existing["status"] == "failed":
+        # The user's explicit recovery action is the only source of a new
+        # permission to supersede a prior uncertain model submission.
+        if retry_request_id is not None and not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id):
+            raise HTTPException(422, "重试请求标识无效")
+        marker = ("prepare:" + retry_request_id if retry_request_id is not None else
+                  json.dumps([existing["updated"], existing["stage"], existing["next_step"]]))
+        assessment_repository.grant_diagnostic_recovery(book_id, marker)
     return preparation_queue.enqueue(
         book_id, retry=retry,
         refresh=bool(existing and existing['status'] == 'succeeded' and not ready),
@@ -724,12 +739,18 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     if item_generator is None:
         raise HTTPException(status_code=503, detail="诊断内容暂时不可用，请稍后重试。")
     try:
-        items = item_generator.generate(structure)
+        items = item_generator.generate(structure,
+            chapter_cache=RepositoryDiagnosticChapterCache(assessment_repository), cache_scope=book_id)
         assessment_repository.save_bank(
             book_id=diagnostic_bank_key(book_id),
             structure_fingerprint=fingerprint,
             items=items,
         )
+    except DiagnosticChapterSubmissionBlocked as error:
+        raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请回教材准备页显式重试",
+                            headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
+    except DiagnosticChapterCacheError as error:
+        raise HTTPException(409, "诊断章节记录需核验，已审核内容已保留，请检查服务后继续") from error
     except (DiagnosticGenerationError, LLMError) as error:
         logger.warning("diagnostic bank generation failed", exc_info=error)
         raise HTTPException(status_code=502, detail="诊断题未通过原文证据校验") from error

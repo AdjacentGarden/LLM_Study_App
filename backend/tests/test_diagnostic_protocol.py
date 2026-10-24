@@ -23,9 +23,9 @@ def bank_environment(tmp_path, monkeypatch):
     api.job_repository.save_structure('book', value)
     class CountingBank(FixtureBank):
         calls = 0
-        def generate(self, value):
+        def generate(self, value, **kwargs):
             self.calls += 1
-            return super().generate(value)
+            return super().generate(value, **kwargs)
     generator = CountingBank()
     monkeypatch.setattr(api, 'item_generator', generator)
     return value, generator
@@ -126,6 +126,139 @@ def test_missing_independent_reviewer_never_generates_or_claims_a_bank(bank_envi
         api.generate_diagnostic_bank('book')
     assert failure.value.status_code == 503
     assert api.assessment_repository.get_bank(diagnostic_bank_key('book')) is None
+
+
+def test_book_submission_block_is_actionable_409_and_never_publishes_partial_bank(bank_environment, monkeypatch):
+    from adaptive_learning.assessment.diagnostic_cache import (
+        DiagnosticChapterSubmissionBlocked,
+        RepositoryDiagnosticChapterCache,
+    )
+
+    class BlockedBank:
+        def generate(self, value, *, chapter_cache, cache_scope):
+            assert isinstance(chapter_cache, RepositoryDiagnosticChapterCache)
+            assert cache_scope == 'book'
+            raise DiagnosticChapterSubmissionBlocked('uncertain private submission')
+    monkeypatch.setattr(api, 'item_generator', BlockedBank())
+    with pytest.raises(HTTPException) as failure:
+        api.generate_diagnostic_bank('book')
+    assert failure.value.status_code == 409
+    assert '显式重试' in failure.value.detail
+    assert failure.value.headers['X-CloudPath-Error-Code'] == 'diagnostic_submission_uncertain'
+    assert api.assessment_repository.get_bank(diagnostic_bank_key('book')) is None
+
+
+def test_native_submission_block_is_409_without_attaching_or_changing_a_session(bank_environment, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from adaptive_learning.api.native_routes import native_router
+    from adaptive_learning.assessment.diagnostic_cache import DiagnosticChapterSubmissionBlocked
+
+    class BlockedBank:
+        def generate(self, value, *, chapter_cache, cache_scope):
+            assert cache_scope == 'book'
+            raise DiagnosticChapterSubmissionBlocked('unknown')
+    monkeypatch.setattr(api, 'item_generator', BlockedBank())
+    app = FastAPI()
+    app.include_router(native_router(api))
+    monkeypatch.setenv('NATIVE_LOCAL_LOGIN_ENABLED', '1')
+    with TestClient(app, base_url='http://127.0.0.1', client=('127.0.0.1', 5000)) as client:
+        assert client.post('/api/native/local-login').status_code == 200
+        actor = api.account_repository.session_owner(client.cookies.get('zhiwo_account'))
+        api.account_repository.repo.bind_upload(actor, 'book')
+        api.native_repository.save_workspace(actor, 'workspace_block', '课程', {})
+        resource = api.native_repository.add_resource(actor, 'workspace_block', 'book')
+        response = client.post(f"/api/workspaces/workspace_block/resources/{resource['id']}/session")
+        assert response.status_code == 409 and '重试诊断' in response.text
+        assert response.headers['X-CloudPath-Error-Code'] == 'diagnostic_submission_uncertain'
+        assert api.native_repository.resource(actor, 'workspace_block', resource['id'])['session_id'] is None
+
+
+@pytest.mark.parametrize('failure,status,code', [
+    ('rejected', 502, 'diagnostic_generation_rejected'),
+    ('unknown', 409, 'diagnostic_submission_uncertain'),
+    ('cooldown', 503, 'diagnostic_generation_not_admitted'),
+])
+def test_first_native_diagnostic_failure_reports_stable_recovery_code_without_attaching_session(
+    bank_environment, monkeypatch, failure, status, code
+):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from adaptive_learning.api.native_routes import native_router
+    from adaptive_learning.assessment.item_generation import DiagnosticGenerationError
+    from adaptive_learning.llm.client import LLMCooldownError, LLMError
+
+    class FailedBank:
+        calls = 0
+        def generate(self, value, *, chapter_cache, cache_scope):
+            self.calls += 1
+            if failure == 'rejected':
+                raise DiagnosticGenerationError('completed quality rejection')
+            if failure == 'cooldown':
+                raise LLMCooldownError(1)
+            raise LLMError('transport outcome unknown')
+    generator = FailedBank()
+    monkeypatch.setattr(api, 'item_generator', generator)
+    app = FastAPI()
+    app.include_router(native_router(api))
+    monkeypatch.setenv('NATIVE_LOCAL_LOGIN_ENABLED', '1')
+    with TestClient(app, base_url='http://127.0.0.1', client=('127.0.0.1', 5000)) as client:
+        assert client.post('/api/native/local-login').status_code == 200
+        actor = api.account_repository.session_owner(client.cookies.get('zhiwo_account'))
+        api.account_repository.repo.bind_upload(actor, 'book')
+        api.native_repository.save_workspace(actor, 'workspace_failure', '课程', {})
+        resource = api.native_repository.add_resource(actor, 'workspace_failure', 'book')
+        response = client.post(f"/api/workspaces/workspace_failure/resources/{resource['id']}/session")
+        assert response.status_code == status and response.headers['X-CloudPath-Error-Code'] == code
+        assert '重试诊断' in response.json()['detail']
+        assert generator.calls == 1
+        assert api.native_repository.resource(actor, 'workspace_failure', resource['id'])['session_id'] is None
+        assert api.assessment_repository.get_bank(diagnostic_bank_key('book')) is None
+
+
+def test_native_explicit_retry_nonce_is_replay_safe_across_new_tokens_and_resource_revisions(bank_environment, monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from test_diagnostic_chapter_cache import identity
+
+    from adaptive_learning.api.native_routes import native_router
+    from adaptive_learning.assessment.diagnostic_cache import DiagnosticChapterSubmissionBlocked
+
+    class UnknownBank:
+        calls = 0
+        def generate(self, value, *, chapter_cache, cache_scope):
+            claim = chapter_cache.claim(identity(scope=cache_scope))
+            if claim['status'] == 'claimed':
+                self.calls += 1
+                chapter_cache.fail(identity(scope=cache_scope), claim['token'], 'unknown')
+            raise DiagnosticChapterSubmissionBlocked('outcome unknown')
+    generator = UnknownBank()
+    monkeypatch.setattr(api, 'item_generator', generator)
+    app = FastAPI()
+    app.include_router(native_router(api))
+    monkeypatch.setenv('NATIVE_LOCAL_LOGIN_ENABLED', '1')
+    value, _ = bank_environment
+    with TestClient(app, base_url='http://127.0.0.1', client=('127.0.0.1', 5000)) as client:
+        assert client.post('/api/native/local-login').status_code == 200
+        actor = api.account_repository.session_owner(client.cookies.get('zhiwo_account'))
+        api.account_repository.repo.bind_upload(actor, 'book')
+        api.native_repository.save_workspace(actor, 'workspace_retry', '课程', {})
+        resource = api.native_repository.add_resource(actor, 'workspace_retry', 'book')
+        url = f"/api/workspaces/workspace_retry/resources/{resource['id']}/session"
+        assert client.post(url).status_code == 409 and generator.calls == 1
+        assert client.post(url).status_code == 409 and generator.calls == 1
+        assert client.post(url + '?retry=true').status_code == 422 and generator.calls == 1
+        first_action = url + '?retry=true&retry_request_id=retry_action_one'
+        second_action = url + '?retry=true&retry_request_id=retry_action_two'
+        assert client.post(first_action).status_code == 409 and generator.calls == 2
+        assert client.post(first_action).status_code == 409 and generator.calls == 2
+        assert client.post(second_action).status_code == 409 and generator.calls == 3
+        assert client.post(first_action).status_code == 409 and generator.calls == 3
+        api.native_repository.save_structure(actor, 'workspace_retry', resource['id'], 0, value)
+        assert client.post(first_action).status_code == 409 and generator.calls == 3
+        assert api.assessment_repository.get_bank(diagnostic_bank_key('book')) is None
 
 
 def test_native_scoped_bank_refreshes_protocol_but_attached_session_stays_pinned(bank_environment, monkeypatch):

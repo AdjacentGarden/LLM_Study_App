@@ -5,7 +5,7 @@ import XCTest
 @testable import BookCourse
 
 private final class BookPreparationProtocol: URLProtocol, @unchecked Sendable {
-  typealias Handler = (URLRequest) throws -> (Int, Data)
+  typealias Handler = @Sendable (URLRequest) throws -> (Int, Data)
   static let lock = NSLock()
   nonisolated(unsafe) static var handlers: [String: Handler] = [:]
   static func install(_ host: String, _ handler: Handler?) { lock.withLock { handlers[host] = handler } }
@@ -55,7 +55,7 @@ private actor BookPreparationSignal {
   func wait() async { if !marked { await withCheckedContinuation { waiter = $0 } } }
 }
 
-final class BookPreparationServiceTests: XCTestCase {
+final class BookPreparationServiceTests: XCTestCase, @unchecked Sendable {
   private let prepare = "/api/books/book/prepare"
   private let readiness = "/api/native/books/book/readiness"
   private let diagnostics = "/api/books/book/diagnostics"
@@ -162,11 +162,19 @@ final class BookPreparationServiceTests: XCTestCase {
 
   func testExplicitRetryKeepsCheckpointAndRejectedAttemptCanRecover() async throws {
     let requests = BookPreparationRequests()
-    let (api, session, host, repository) = try fixture { request in
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let repository = try LocalBookCourseRepository(directory: root)
+    let (api, session, host, _) = try fixture { request in
       requests.append(request)
       if request.url!.path == self.prepare {
         if request.httpMethod == "POST" {
-          XCTAssertEqual(request.url!.query, "retry=true")
+          let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+          XCTAssertEqual(query.first { $0.name == "retry" }?.value, "true")
+          let nonce = try XCTUnwrap(query.first { $0.name == "retry_request_id" }?.value)
+          XCTAssertNotNil(UUID(uuidString: nonce))
+          let receipt = try XCTUnwrap(self.receipts(root).first)
+          XCTAssertEqual(receipt.retryRequestID, nonce, "The nonce must be committed before the POST")
+          XCTAssertEqual(receipt.lastOutcome, "submitting")
           if requests.count("POST", self.prepare) == 1 { return (503, try self.json(["detail": "cooldown"])) }
           return (200, try self.job("running", step: 2))
         }
@@ -186,6 +194,16 @@ final class BookPreparationServiceTests: XCTestCase {
     XCTAssertEqual(result.status, .succeeded)
     XCTAssertEqual(requests.count("POST", prepare), 2)
     XCTAssertEqual(try receipts(repository.directory).first?.submissionEpoch, 2)
+    let retryQueries = requests.all.filter { $0.method == "POST" }.compactMap(\.query)
+    XCTAssertEqual(Set(retryQueries).count, 2, "A later explicit action owns a new nonce")
+  }
+
+  func testLegacyPreparationReceiptDecodesWithoutARetryNonce() throws {
+    let value = try JSONDecoder().decode(CloudBookPreparationReceipt.self,
+      from: json(["bookID": "book", "creationAttempted": true, "submissionEpoch": 1]))
+    XCTAssertEqual(value.bookID, "book")
+    XCTAssertNil(value.retryRequestID)
+    XCTAssertEqual(value.submissionEpoch, 1)
   }
 
   func testUnknownCreateOnlyQueriesUntilExplicitRecoveryAndDoesNotRepeatOCR() async throws {

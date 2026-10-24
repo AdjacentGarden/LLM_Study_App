@@ -8,7 +8,10 @@ private final class CourseJobProtocol: URLProtocol, @unchecked Sendable {
   typealias Handler = @Sendable (URLRequest) throws -> (Int, Data)
   static let lock = NSLock()
   nonisolated(unsafe) static var handlers: [String: Handler] = [:]
-  static func install(_ host: String, _ handler: Handler?) { lock.withLock { handlers[host] = handler } }
+  nonisolated(unsafe) static var errorCodes: [String: String] = [:]
+  static func install(_ host: String, _ handler: Handler?, errorCode: String? = nil) {
+    lock.withLock { handlers[host] = handler; errorCodes[host] = errorCode }
+  }
   override class func canInit(with request: URLRequest) -> Bool { true }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
@@ -17,8 +20,12 @@ private final class CourseJobProtocol: URLProtocol, @unchecked Sendable {
         throw URLError(.unsupportedURL)
       }
       let (status, data) = try handler(request)
+      var headers = ["Content-Type": "application/json"]
+      if let code = Self.lock.withLock({ Self.errorCodes[request.url?.host ?? ""] }) {
+        headers["X-CloudPath-Error-Code"] = code
+      }
       let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
-        headerFields: ["Content-Type": "application/json"])!
+        headerFields: headers)!
       client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
       client?.urlProtocol(self, didLoad: data)
       client?.urlProtocolDidFinishLoading(self)
@@ -30,6 +37,7 @@ private final class CourseJobProtocol: URLProtocol, @unchecked Sendable {
 private final class CourseRequests: @unchecked Sendable {
   let lock = NSLock()
   private var values: [(String, [String: Any])] = []
+  private var urls: [URL] = []
   func append(_ request: URLRequest) throws -> Int {
     var data = request.httpBody ?? Data()
     if data.isEmpty, let stream = request.httpBodyStream {
@@ -42,9 +50,12 @@ private final class CourseRequests: @unchecked Sendable {
       }
     }
     let body = data.isEmpty ? [:] : try JSONSerialization.jsonObject(with: data) as! [String: Any]
-    return lock.withLock { values.append((request.httpMethod ?? "GET", body)); return values.count }
+    return lock.withLock {
+      values.append((request.httpMethod ?? "GET", body)); urls.append(request.url!); return values.count
+    }
   }
   var all: [(String, [String: Any])] { lock.withLock { values } }
+  var allURLs: [URL] { lock.withLock { urls } }
 }
 
 private actor CourseJobSignal {
@@ -55,10 +66,10 @@ private actor CourseJobSignal {
 }
 
 final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
-  private func fixture(_ handler: @escaping CourseJobProtocol.Handler) throws
+  private func fixture(errorCode: String? = nil, _ handler: @escaping CourseJobProtocol.Handler) throws
     -> (CloudAPI, URLSession, String, LocalBookCourseRepository) {
     let host = "course-job-\(UUID().uuidString.lowercased()).example"
-    CourseJobProtocol.install(host, handler)
+    CourseJobProtocol.install(host, handler, errorCode: errorCode)
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [CourseJobProtocol.self]
     let session = URLSession(configuration: config)
@@ -364,7 +375,11 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
         return (200, try JSONEncoder().encode(CloudBookStatus(book_id: "book", status: "ocr_ready",
           progress: 1, current_step: "原文已保存", retryable: false, needs_human_review: false)))
       case "/api/books/book/prepare":
-        if request.httpMethod == "POST" { XCTAssertEqual(request.url?.query, "retry=true") }
+        if request.httpMethod == "POST" {
+          let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+          XCTAssertEqual(query.first { $0.name == "retry" }?.value, "true")
+          XCTAssertNotNil(UUID(uuidString: query.first { $0.name == "retry_request_id" }?.value ?? ""))
+        }
         let submitted = requests.all.contains { $0.0 == "POST" }
         return (200, try JSONSerialization.data(withJSONObject: ["book_id": "book",
           "status": submitted ? "succeeded" : "failed", "stage": submitted ? "ready" : "diagnostics",
@@ -422,5 +437,182 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertNotNil(CloudAPI.validatedURL(CloudAPI.defaultServer))
     XCTAssertNotNil(CloudAPI.validatedURL("http://100.86.143.88:8100"))
     XCTAssertNotNil(CloudAPI.validatedURL("http://127.0.0.1:8100"))
+  }
+
+  private func diagnosisResource(sessionID: String? = nil) -> CloudResource {
+    CloudResource(id: "resource", book_id: "book", workspace_id: "workspace",
+      revision: 0, session_id: sessionID, filename: "教材.pdf", status: "structured",
+      courses: [], progress: CloudProgress())
+  }
+
+  @MainActor private func diagnosisStore(api: CloudAPI, repository: LocalBookCourseRepository,
+    sessionID: String? = nil) -> AppStore {
+    let resource = diagnosisResource(sessionID: sessionID)
+    let store = AppStore(repository: repository, cloud: api)
+    store.cloudState.authenticated = true
+    store.cloudState.workspaces = [CloudWorkspace(id: "workspace", name: "课程", preferences: [:],
+      created: 0, updated: 0, resources: [resource])]
+    store.selectedCourseID = "workspace"
+    store.selectedBookID = "book"
+    return store
+  }
+
+  @MainActor func testUncertainDiagnosisOnlyExplicitActionGrantsOneInFlightNonce() async throws {
+    let requests = CourseRequests()
+    let started = CourseJobSignal()
+    let (api, session, host, repository) = try fixture(errorCode: "diagnostic_submission_uncertain") { request in
+      _ = try requests.append(request)
+      if request.httpMethod == "GET" {
+        XCTAssertEqual(request.url?.path, "/api/workspaces/workspace/resources/resource")
+        return (200, try JSONEncoder().encode(self.diagnosisResource()))
+      }
+      XCTAssertEqual(request.url?.path, "/api/workspaces/workspace/resources/resource/session")
+      if request.url?.query == nil {
+        return (409, try JSONSerialization.data(withJSONObject: ["detail": "上次诊断提交结果待确认，请确认后点击重试诊断"]))
+      }
+      Task { await started.mark() }
+      Thread.sleep(forTimeInterval: 0.08)
+      let interview = CloudInterview(session_id: "session", phase: "profile_confirmation",
+        turn: CloudTurn(turn_id: "confirm", phase: "profile_confirmation", message: "请确认学习偏好",
+          question: "是否确认？", response_type: "single_choice", options: [.init(id: "yes", label: "确认")],
+          item: nil, why_asked: nil, progress: 0.5), profile: .object([:]))
+      return (200, try JSONEncoder().encode(interview))
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = diagnosisStore(api: api, repository: repository)
+    await store.beginCloudLearning(chapterID: "chapter")
+    XCTAssertTrue(store.cloudState.showDiagnosis)
+    XCTAssertTrue(store.canRetryCloudDiagnosis)
+    // Recovery must be GET-only; even POST/session without retry may start
+    // unstarted chapters on the backend.
+    let originalError = store.cloudState.error
+    await store.restoreCloudDiagnosis()
+    XCTAssertEqual(store.cloudState.error, originalError)
+    XCTAssertTrue(store.canRetryCloudDiagnosis)
+    let retry = Task { @MainActor in await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true) }
+    await started.wait()
+    XCTAssertTrue(store.cloudState.isWorking)
+    XCTAssertFalse(store.canRetryCloudDiagnosis)
+    await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true)
+    await retry.value
+    XCTAssertEqual(requests.all.count, 3)
+    XCTAssertEqual(requests.all.map(\.0), ["POST", "GET", "POST"])
+    XCTAssertEqual(store.cloudState.interview?.session_id, "session")
+    XCTAssertFalse(store.canRetryCloudDiagnosis)
+    XCTAssertTrue(requests.all.map(\.1).allSatisfy(\.isEmpty))
+    XCTAssertTrue(requests.allURLs.prefix(2).allSatisfy { $0.query == nil })
+    let query = URLComponents(url: requests.allURLs[2], resolvingAgainstBaseURL: false)!.queryItems!
+    XCTAssertEqual(Set(query.map(\.name)), ["retry", "retry_request_id"])
+    XCTAssertEqual(query.first { $0.name == "retry" }?.value, "true")
+    XCTAssertNotNil(UUID(uuidString: query.first { $0.name == "retry_request_id" }?.value ?? ""))
+  }
+
+  @MainActor func testDiagnosisLookupOnlyReadsAndRestoresALaterAttachedCompletedSession() async throws {
+    let requests = CourseRequests()
+    let (api, session, host, repository) = try fixture(errorCode: "diagnostic_submission_uncertain") { request in
+      let count = try requests.append(request)
+      if request.httpMethod == "POST" {
+        XCTAssertEqual(count, 1, "Only the initial start is allowed to POST")
+        return (409, try JSONSerialization.data(withJSONObject: ["detail": "上次诊断提交结果待确认"]))
+      }
+      if request.url?.path == "/api/workspaces/workspace/resources/resource" {
+        return (200, try JSONEncoder().encode(self.diagnosisResource(sessionID: count > 2 ? "session" : nil)))
+      }
+      XCTAssertEqual(request.url?.path, "/api/interviews/session")
+      let interview = CloudInterview(session_id: "session", phase: "complete",
+        turn: CloudTurn(turn_id: "complete", phase: "complete", message: "诊断已完成",
+          question: nil, response_type: nil, options: [], item: nil, why_asked: nil, progress: 1),
+        profile: .object([:]))
+      return (200, try JSONEncoder().encode(interview))
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = diagnosisStore(api: api, repository: repository)
+    await store.beginCloudLearning(chapterID: "chapter")
+    let originalError = store.cloudState.error
+    await store.restoreCloudDiagnosis()
+    XCTAssertTrue(store.canRetryCloudDiagnosis)
+    XCTAssertEqual(store.cloudState.error, originalError)
+    XCTAssertNil(store.cloudState.interview)
+    await store.restoreCloudDiagnosis()
+    XCTAssertEqual(requests.all.map(\.0), ["POST", "GET", "GET", "GET"])
+    XCTAssertTrue(requests.allURLs.allSatisfy { $0.query == nil })
+    XCTAssertEqual(store.cloudState.interview?.session_id, "session")
+    XCTAssertEqual(store.cloudState.interview?.phase, "complete")
+    XCTAssertEqual(store.cloudResource?.session_id, "session")
+    XCTAssertNil(store.cloudState.error)
+    XCTAssertNil(store.cloudState.courseJob, "Read-only recovery must not start course generation either")
+    XCTAssertFalse(store.canRetryCloudDiagnosis)
+  }
+
+  @MainActor func testGenericConflictAndAttachedOrChangedResourceCannotGrantDiagnosisRetry() async throws {
+    let cases: [(Int, String?, String?)] = [
+      (401, nil, nil),
+      (409, nil, nil), (409, "revision_conflict", nil),
+      (503, nil, nil), (503, "unrelated_service_failure", nil),
+      (409, "diagnostic_generation_rejected", nil), (502, "diagnostic_submission_uncertain", nil),
+      (409, "diagnostic_submission_uncertain", "already-attached"),
+      (502, "diagnostic_generation_rejected", "already-attached"),
+    ]
+    for (status, code, sessionID) in cases {
+      let requests = CourseRequests()
+      let (api, session, host, repository) = try fixture(errorCode: code) { request in
+        _ = try requests.append(request)
+        return (status, try JSONSerialization.data(withJSONObject: ["detail": "冲突，需要查询"]))
+      }
+      defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+      let store = diagnosisStore(api: api, repository: repository,
+        sessionID: sessionID)
+      await store.beginCloudLearning(chapterID: "chapter")
+      XCTAssertFalse(store.canRetryCloudDiagnosis)
+      XCTAssertFalse(store.cloudState.isWorking, "An epoch change on expired auth must not leave controls busy")
+      await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true)
+      XCTAssertEqual(requests.all.count, 1)
+      store.cloudState.diagnosisRetryAvailable = true
+      store.cloudState.diagnosisRetryEpoch = store.cloudState.epoch
+      store.selectedBookID = "another-book"
+      XCTAssertFalse(store.canRetryCloudDiagnosis)
+      await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true)
+      XCTAssertEqual(requests.all.count, 1)
+      store.selectedBookID = "book"
+      store.cloudState.epoch = UUID()
+      XCTAssertFalse(store.canRetryCloudDiagnosis)
+      await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true)
+      XCTAssertEqual(requests.all.count, 1)
+    }
+  }
+
+  @MainActor func testKnownRejectedOrNotAdmittedDiagnosisCanOnlyRestartByExplicitNonceAction() async throws {
+    for (status, code) in [(502, "diagnostic_generation_rejected"), (503, "diagnostic_generation_not_admitted")] {
+    let requests = CourseRequests()
+    let (api, session, host, repository) = try fixture(errorCode: code) { request in
+      let count = try requests.append(request)
+      if count == 1 {
+        return (status, try JSONSerialization.data(withJSONObject: ["detail": "诊断题尚未完成"]))
+      }
+      if request.httpMethod == "GET" {
+        return (200, try JSONEncoder().encode(self.diagnosisResource()))
+      }
+      let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+      XCTAssertEqual(query.first { $0.name == "retry" }?.value, "true")
+      XCTAssertNotNil(UUID(uuidString: query.first { $0.name == "retry_request_id" }?.value ?? ""))
+      let interview = CloudInterview(session_id: "session", phase: "profile_confirmation",
+        turn: CloudTurn(turn_id: "confirm", phase: "profile_confirmation", message: "请确认学习偏好",
+          question: "是否确认？", response_type: "single_choice", options: [], item: nil,
+          why_asked: nil, progress: 0.5), profile: .object([:]))
+      return (200, try JSONEncoder().encode(interview))
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = diagnosisStore(api: api, repository: repository)
+    await store.beginCloudLearning(chapterID: "chapter")
+    XCTAssertTrue(store.canRetryCloudDiagnosis)
+    let error = store.cloudState.error
+    await store.restoreCloudDiagnosis()
+    XCTAssertEqual(store.cloudState.error, error)
+    XCTAssertTrue(store.canRetryCloudDiagnosis)
+    await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true)
+    XCTAssertEqual(requests.all.map(\.0), ["POST", "GET", "POST"])
+    XCTAssertEqual(store.cloudState.interview?.session_id, "session")
+    XCTAssertFalse(store.canRetryCloudDiagnosis)
+    }
   }
 }

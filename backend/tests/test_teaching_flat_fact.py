@@ -8,6 +8,7 @@ from test_teaching_boundary_checks import FIELDS, selection
 from test_teaching_content import Client, advertised_fact_response, course
 
 from adaptive_learning.personalization.teaching_content import (
+    FACT_FORMAT_ATTEMPTS,
     FACT_REVIEW_PROMPT,
     TeachingContentError,
     TeachingContentGenerator,
@@ -68,13 +69,19 @@ def test_flat_wire_cannot_skip_or_borrow_any_component_pair(fault):
     # cannot publish a candidate with an incomplete/foreign factual envelope.
     point_requests = [payload for system, payload in zip(client.systems, client.payloads, strict=True)
         if system == FACT_REVIEW_PROMPT and payload["candidate"]["points"]]
-    assert Counter(tuple(payload["output_contract"]["point_ids"])
-                   for payload in point_requests) == {
-        (point.point_id,): 2 for point in bundle.knowledge_points}
+    counts = Counter(tuple(payload["output_contract"]["point_ids"]) for payload in point_requests)
+    assert counts and set(counts) <= {(point.point_id,) for point in bundle.knowledge_points}
+    assert all(1 <= count <= FACT_FORMAT_ATTEMPTS for count in counts.values())
+    # Exhausting one invalid leaf aborts publication and may cancel a sibling
+    # before its first/second request. No scheduler ordering is required here.
+    assert FACT_FORMAT_ATTEMPTS in counts.values()
     for point in bundle.knowledge_points:
         own_requests = [payload for payload in point_requests
                         if payload["output_contract"]["point_ids"] == [point.point_id]]
-        assert not own_requests[0]["format_feedback"] and own_requests[1]["format_feedback"]
+        if own_requests:
+            assert not own_requests[0]["format_feedback"]
+        if len(own_requests) > 1:
+            assert own_requests[1]["format_feedback"]
     assert client.review_calls <= 1
     assert len([batch for batch in client.generation_batches if batch]) == 1
     assert bundle.model_dump_json() == before

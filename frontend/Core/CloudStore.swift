@@ -13,6 +13,9 @@ extension AppStore {
     cloudState.error = error.localizedDescription
     showToast(error.localizedDescription)
     if let error = error as? CloudError, error.status == 401 {
+      cloudState.isWorking = false
+      cloudState.diagnosisRetryAvailable = false
+      cloudState.diagnosisRetryEpoch = nil
       cloudState.authenticated = false
       cloudState.showDiagnosis = false
       cloudState.epoch = UUID()
@@ -499,19 +502,86 @@ extension AppStore {
     await beginCloudLearning(chapterID: selectedChapterID ?? chapters.first?.id)
   }
 
-  func beginCloudLearning(chapterID: String?) async {
-    guard let cloud, let resource = cloudResource, !cloudState.isWorking else { return }
+  var canRetryCloudDiagnosis: Bool {
+    cloudState.diagnosisRetryAvailable && !cloudState.isWorking
+      && cloudState.diagnosisRetryEpoch == cloudState.epoch
+      && cloudState.interview == nil && cloudState.courseJob == nil
+      && cloudResource?.session_id == nil && cloudResource?.id == cloudState.diagnosisResourceID
+      && selectedCourseID == cloudState.diagnosisWorkspaceID
+  }
+
+  func restoreCloudDiagnosis() async {
+    guard let cloud, let resource = cloudResource, !cloudState.isWorking,
+      cloudState.courseJob == nil, resource.id == cloudState.diagnosisResourceID,
+      resource.workspace_id == cloudState.diagnosisWorkspaceID else { return }
+    let epoch = cloudState.epoch
     cloudState.isWorking = true
-    defer { cloudState.isWorking = false }
+    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
+    do {
+      // A POST/session without retry can still generate previously unstarted
+      // diagnostic chapters. Recovery is strictly these two reads.
+      let remote: CloudResource = try await cloud.request(resource.path)
+      guard remote.id == resource.id, remote.book_id == resource.book_id,
+        remote.workspace_id == resource.workspace_id else {
+        throw CloudError(status: 409, message: "诊断资源归属不匹配，请重新打开当前教材。")
+      }
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      // Keep the original uncertainty and explicit-retry eligibility while the
+      // server has not attached a session. Never silently submit another job.
+      guard let sessionID = remote.session_id,
+        let encoded = sessionID.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return }
+      let interview: CloudInterview = try await cloud.request("/api/interviews/\(encoded)")
+      guard interview.session_id == sessionID else {
+        throw CloudError(status: 409, message: "恢复的诊断会话不匹配，请重新查询当前教材。")
+      }
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      if let wi = cloudState.workspaces.firstIndex(where: { $0.id == resource.workspace_id }),
+        let ri = cloudState.workspaces[wi].resources.firstIndex(where: { $0.id == resource.id }) {
+        cloudState.workspaces[wi].resources[ri].session_id = sessionID
+      }
+      cloudState.interview = interview
+      cloudState.error = nil
+      cloudState.diagnosisRetryAvailable = false
+      cloudState.diagnosisRetryEpoch = nil
+      // Even phase=complete is only restored here. Creating a course remains
+      // a separate, explicit learning action, never a side effect of lookup.
+    } catch {
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      if let error = error as? CloudError, !error.transportFailure {
+        cloudState.diagnosisRetryAvailable = false
+        cloudState.diagnosisRetryEpoch = nil
+      }
+      handleCloudError(error)
+    }
+  }
+
+  func beginCloudLearning(chapterID: String?, retryDiagnosis: Bool = false) async {
+    guard let cloud, let resource = cloudResource, !cloudState.isWorking else { return }
+    guard !retryDiagnosis || canRetryCloudDiagnosis else { return }
+    let epoch = cloudState.epoch
+    // One explicit action owns this nonce. URLSession retransmits the same URL;
+    // ordinary start/recovery never grants a retry or generates a nonce.
+    let retryRequestID = retryDiagnosis ? UUID().uuidString : nil
+    cloudState.isWorking = true
+    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
     cloudState.error = nil
     cloudState.courseJob = nil
+    cloudState.interview = nil
+    cloudState.diagnosisRetryAvailable = false
+    cloudState.diagnosisRetryEpoch = nil
+    cloudState.showDiagnosis = true
     cloudState.requestedChapterID = chapterID ?? resource.structure?.chapters.first?.chapter_id
     cloudState.diagnosisWorkspaceID = resource.workspace_id
     cloudState.diagnosisResourceID = resource.id
     do {
+      let suffix = retryRequestID.map { "?retry=true&retry_request_id=\($0)" } ?? ""
       let interview: CloudInterview = try await cloud.request(
-        resource.path + "/session", method: "POST")
-      guard selectedCourseID == resource.workspace_id, selectedBookID == resource.book_id else {
+        resource.path + "/session" + suffix, method: "POST")
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else {
         return
       }
       cloudState.interview = interview
@@ -520,7 +590,17 @@ extension AppStore {
       } else {
         cloudState.showDiagnosis = true
       }
-    } catch { handleCloudError(error) }
+    } catch {
+      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+        cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
+      let failure = error as? CloudError
+      let retryable = (failure?.status == 409 && failure?.code == "diagnostic_submission_uncertain")
+        || (failure?.status == 502 && failure?.code == "diagnostic_generation_rejected")
+        || (failure?.status == 503 && failure?.code == "diagnostic_generation_not_admitted")
+      cloudState.diagnosisRetryAvailable = resource.session_id == nil && retryable
+      cloudState.diagnosisRetryEpoch = cloudState.diagnosisRetryAvailable ? epoch : nil
+      handleCloudError(error)
+    }
   }
 
   func advanceCloudInterview(selected: [String], confidence: Double, seconds: Double) async {

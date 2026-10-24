@@ -93,6 +93,8 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var showCompletionOnCompile = false
   var diagnosisWorkspaceID: String?
   var diagnosisResourceID: String?
+  var diagnosisRetryAvailable = false
+  var diagnosisRetryEpoch: UUID?
   var pending: [String: CloudPendingProgress] = [:]
   var pendingReviews: [CloudPendingReview] = []
   var cacheKey: String?

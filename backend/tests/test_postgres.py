@@ -58,6 +58,58 @@ def resource(root, owner='owner'):
     repo.save_workspace(owner, 'workspace', '课程', {})
     return repo, repo.add_resource(owner, 'workspace', native_catalog.BOOK_ID)
 
+
+def test_diagnostic_chapter_claim_approval_and_explicit_recovery_are_atomic(pg, tmp_path):
+    from test_diagnostic_chapter_cache import identity, items
+
+    repo = SQLiteAssessmentRepository(tmp_path / 'state/assessments.sqlite3')
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        claims = list(pool.map(lambda _: repo.claim_diagnostic_chapter(identity()), range(8)))
+    first = next(row for row in claims if row['status'] == 'claimed')
+    assert [row['status'] for row in claims].count('claimed') == 1
+    assert [row['status'] for row in claims].count('running') == 7
+    repo.fail_diagnostic_chapter(identity(), first['token'], 'unknown')
+    assert repo.claim_diagnostic_chapter(identity(), now=10**12)['status'] == 'unknown'
+    assert repo.grant_diagnostic_recovery('book', 'failed-revision') == 1
+    assert repo.grant_diagnostic_recovery('book', 'failed-revision') == 1
+    second = repo.claim_diagnostic_chapter(identity())
+    assert second['status'] == 'claimed'
+    from adaptive_learning.assessment.diagnostic_cache import DiagnosticChapterCacheError
+    with pytest.raises(DiagnosticChapterCacheError):
+        repo.approve_diagnostic_chapter(identity(), first['token'], items())
+    repo.approve_diagnostic_chapter(identity(), second['token'], items())
+    restored = SQLiteAssessmentRepository(tmp_path / 'state/assessments.sqlite3')
+    assert restored.claim_diagnostic_chapter(identity())['items'] == items()
+    assert restored.get_bank('diagnostic:book') is None
+    with connect(tmp_path / 'unused') as db:
+        assert db.execute('SELECT COUNT(*) FROM diagnostic_chapter_submissions').fetchone()[0] == 2
+        assert db.execute("SELECT state FROM diagnostic_chapter_submissions WHERE token=?", (first['token'],)).fetchone()[0] == 'unknown'
+
+
+def test_import_preserves_private_approvals_unknown_submissions_and_recovery_permissions(pg, tmp_path, monkeypatch):
+    from test_diagnostic_chapter_cache import identity, items
+
+    monkeypatch.delenv('DATABASE_URL')
+    data = tmp_path / 'source'
+    repo = SQLiteAssessmentRepository(data / 'state/assessments.sqlite3')
+    first = repo.claim_diagnostic_chapter(identity())
+    repo.fail_diagnostic_chapter(identity(), first['token'], 'unknown')
+    repo.grant_diagnostic_recovery('book', 'explicit-failed-revision')
+    resumed = repo.claim_diagnostic_chapter(identity())
+    repo.approve_diagnostic_chapter(identity(), resumed['token'], items())
+    pending = identity(scope='different-book')
+    repo.claim_diagnostic_chapter(pending)
+    monkeypatch.setenv('DATABASE_URL', pg)
+    result = import_sqlite(data_dir=data, backup_dir=tmp_path / 'backup', url=pg, writes_stopped=True)
+    assert result['verified'] and result['schema_version'] == 7
+    assert result['tables']['diagnostic_chapter_cache']['rows'] == 2
+    assert result['tables']['diagnostic_chapter_submissions']['rows'] == 3
+    assert result['tables']['diagnostic_recovery_epochs']['rows'] == 1
+    target = SQLiteAssessmentRepository(tmp_path / 'irrelevant')
+    assert target.claim_diagnostic_chapter(identity())['items'] == items()
+    assert target.claim_diagnostic_chapter(pending, now=10**12)['status'] == 'running'
+    assert target.get_bank('diagnostic:book') is None
+
 def test_binding_rollback_and_context_lifecycle(pg, tmp_path):
     with connect(tmp_path / 'unused') as db:
         row = db.execute("SELECT ? AS value, '50%?' AS literal", ('safe%?',)).fetchone()
@@ -161,7 +213,7 @@ def test_course_queue_pg_identity_and_cross_process_lock_contract(pg, tmp_path):
         actual = {row[0] for row in db.execute(
             'SELECT tablename FROM pg_tables WHERE schemaname=current_schema()'
         )}
-    assert len(expected) == 47
+    assert len(expected) == 51
     assert actual == expected | {'schema_migrations', 'worker_presence'}
     queue = CourseJobQueue(tmp_path / 'one/course_jobs.sqlite3', lambda *_: {'course_id': 'approved'})
     other = CourseJobQueue(tmp_path / 'two/course_jobs.sqlite3', lambda *_: pytest.fail('no duplicate'))
@@ -205,7 +257,7 @@ def test_import_keeps_course_aliases_note_aliases_and_preparation_stage(pg, tmp_
     monkeypatch.setenv('DATABASE_URL', pg)
     report = import_sqlite(data_dir=source, backup_dir=tmp_path / 'backup', url=pg,
                            writes_stopped=True)
-    assert report['verified'] and report['schema_version'] == 6
+    assert report['verified'] and report['schema_version'] == 7
     assert report['tables']['course_jobs']['rows'] == 1
     assert report['tables']['course_job_requests']['rows'] == 1
     assert report['tables']['studio_note_request_aliases']['rows'] == 1

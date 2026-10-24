@@ -6,6 +6,7 @@ struct CloudError: LocalizedError {
   let status: Int
   let message: String
   var transportFailure = false
+  var code: String? = nil
   var errorDescription: String? { message }
 }
 
@@ -241,7 +242,8 @@ actor CloudAPI {
       let message =
         json?["detail"]?.stringValue
         ?? (response.statusCode == 401 ? "登录已过期，请重新登录" : "服务暂时无法完成请求（\(response.statusCode)）")
-      throw CloudError(status: response.statusCode, message: message)
+      throw CloudError(status: response.statusCode, message: message,
+        code: response.value(forHTTPHeaderField: "X-CloudPath-Error-Code"))
     }
     return (bytes, response)
   }
