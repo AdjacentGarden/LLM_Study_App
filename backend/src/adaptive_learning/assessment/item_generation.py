@@ -4,8 +4,10 @@ import hashlib
 import json
 import logging
 import re
+import unicodedata
 import uuid
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Protocol, cast
 
 from pydantic import (
@@ -46,6 +48,7 @@ relation_understanding须考条件、对象或关系，source_application须将�
 每三题依次覆盖基础辨认、关系理解和有源应用，不能全部变成回忆题，也不能强迫仅定义证据去编造机制。
 给出条件/前提，要求判断题干尚未给出的结论、适用工具或原理，是允许的低负担任务；
 正确结论可从原文找到不是泄题，不能因此否决。题干已经明示或同义给出完整答案才是泄漏；
+给出目标对象或希望改变的对象，不等于给出了尚待判断的作用位置、受体或实现配置；不能仅因目标与正确项同名判泄漏，仍须核对原文支持和实际判断负担。若本问就是目标或接受者身份且题干已同义给全该答案，仍须拒绝；身份不充分且原文不能唯一定位时也须拒绝。
 关系/应用题只抄完整定义让人命名仍须拒绝，基础辨认题则须有同类可信干扰项。
 干扰项必须同类、可比、回答同一问题，并体现可区分的条件、对象或关系误解。
 对同样回答本问的选项，核查其与正确项在当前题设下是否真正互斥；上游原因、下游机制、定义中的结构变化或必要条件可能同时成立，
@@ -71,12 +74,14 @@ relation_understanding须考条件、对象或关系，source_application须将�
 修复建议只是编辑意见，不是事实来源，不能要求引入evidence没有的额外事实。"""
 
 _APPLICATION_CONTRACT = """source_application只使用私有source_scenario计划：一个具体情境、一项待判任务、四个同轴结果或方案及一个待审核答案。
-题设必须提供实际参与判断的条件、记录或对象别名；所问结论不得已在题设中明示。不能仅加人名、地点或把原文定义拆成清单，仍直接回忆原事实或检查字面条目齐备。
+题设必须提供实际参与判断的条件、记录或对象别名；所问结论不得已在题设中明示。不能仅加人名、地点或把原文定义拆成清单，仍直接回忆原事实。
+若题干未预先列全判断标准，允许运用原文真实必要条件评估新具体方案是否符合所问要求；不能把必要条件齐备写成过程一定发生的充分保证。
+若完整标准已在题面给出后仅逐字核齐，或仅按项目最多/篇幅最长选择，仍是假应用；低负担条件判断也须有可信同轴干扰与唯一答案，不能自动批准齐备题。
 程序绑定本知识点精确source_refs对应的不可变原文，规范生成公共题干、四选项及答案；结构合法和作者指定的correct_index都不是事实或质量批准。
 独立审核必须将具体情境条件代入原文关系，逐一核对全部适用条件、所选结论的来源支持、唯一答案、四个同轴可信选项、非泄题及真实应用。
 明示的中性编号、对象别名及待评估方案可以作为题设表示；它们不能夹带无源的学科机制、数量关系或因果事实。
 必要条件不能变成充分条件，不能把未完成状态当已完成；没有满足某项要求不能擅自推出过程不可能发生。只有原文明确定义的必要边界，才可据违反该边界判断不符合该定义。
-情况与原文关系不适配、选项多解、荒谬弱干扰、只是复制结论或检查清单时必须拒绝，不能因schema或引用ID有效就批准。
+情况与原文关系不适配、选项多解、荒谬弱干扰、只是复制结论、题面已预列完整标准后的字面核齐或按最多项目选择时必须拒绝，不能因schema或引用ID有效就批准。
 应用项只需返回knowledge_point_id、type、application_task、difficulty、estimated_seconds。公共prompt/options/correct_index/expected_answer/rubric均由程序重算，模型附带的旧回声不是事实或审批依据。
 应用项的正确文字由task.outcomes[task.correct_index]提出，必须经独立审查，永远不复制label作答案。label仅定位知识点；非应用项继续原有prompt/options/expected_answer格式。
 公开选项可被稳定打散，审核应核对实际正确文字，不能直接将公共correct_index与私有task的原始选项位置比较。preserve_accepted_items中的canonical task、来源及程序重算题面须全部原样保留。"""
@@ -104,7 +109,8 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 7. 严格遵循每题cognitive_target，依次覆盖基础辨认、关系理解和有源应用；难度必须与实际推理负担一致。情境只能组合evidence已有对象和条件，不能把标签或修改意见当新事实。
 8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
 9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
-10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部结构校验与审查问题，不能每轮只修一道；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
+10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部结构校验与审查问题，不能每轮只修一道；
+若有 required_repairs，prompt 非空表示必须实质修改该旧题干，option_texts 中每个旧选项都必须从整题四选项中移除并重写，不能仅换位置、空白、大小写、正确项位置或难度。应用项必须修改真实 situation/decision/outcomes，修改程序只读题面回声无效。修改只是再次独审的前提，不是批准；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
 只返回 JSON：以下是非source_application项示例；应用项按application_contract返回task：
 {"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["第一项完整陈述","第二项完整陈述","第三项完整陈述","第四项完整陈述"],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """ + "\n" + _QUESTION_CONTRACT + "\n" + _APPLICATION_CONTRACT + "\n" + _APPLICATION_PLAN_CONTRACT
@@ -127,13 +133,14 @@ _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证�
 4. 不允许借助常识补足证据，不允许出现 OCR、RAG、chunk 等内部词。
 5. 给出前提而询问题干尚未给出的结论、适用工具或原理可以合格；不能仅因条件与结论都能在原文找到就拒绝。基础辨认可考核心术语，但关系/应用题不能仅给完整定义再问名称。不得强迫原文只给定义的题去添加evidence没有的机制或工具用途，也不得把假设情境中的额外学科事实当作原文事实。
 6. 干扰项必须与正确项处于同一概念层级、属于同一类别并回答同一个判断；不能将过程名称、疾病类别和染色体结构混作选项来送分。干扰项应表达可区分的理解错误；不得仅凭改动一个词拒绝关键条件/对象的实质区别，但没有独立误解、仅复制整句凑数仍应拒绝。正确项若因独自明显更长、更具体而实际泄露答案才拒绝，自然术语最长本身不是拒绝依据；应定位具体措辞说明暗示及可依原文修复的方向。
-7. 问题反馈应短引有问题的选项原文，不得仅用 A/B/C/D 或位置号指代，因为选项会被稳定打散。
+7. issues应短引有问题的题干/选项原文。每个拒绝必须提供required_edits：prompt表示题干必须修改，option_indices为当前输入items中实际options数组的0起始索引，仅标必须替换的选项，不能使用私有application_task的原始位置。索引不得重复或越界；程序会转回原文给作者，不把裸位置作为修复意见。若需重设计整题，指定prompt和全部四项；不能只给笼统意见或空目标。
 8. 题干已明示或同义给出完整答案、仅换词让正确项复述题干必须拒绝。关系/应用题的情境外壳不能掩盖纯命名；基础辨认则按其目标核对同类可信干扰与唯一答案。不能把原文中的前提→尚未给出结论的关系一概称作泄题。
 9. 核对原因、机制、定义或必要条件选项是否在当前题设下同时回答本问且成立，不把不同因果层次自动当成互斥；不能因含有“只能”等词就判错。拒绝时短引歧义选项及原文限定，指出需要消除的重叠，不得用标签或外部知识替原文补证。
 10. 核对干扰项是否体现可信的同轴误解；三个荒谬或只凭常识/态度就可排除的选项须退回重设计。评价实际含义，不按绝对词或观点名称作黑名单判断。
 11. source_application必须使用题设条件选择未给出的结论、对应或适用关系；仅加人物/地点/无关条件后仍直接回忆原事实的外壳不算应用。允许低负担的一条件→一结论，不要求额外学科事实或复杂场景。
 12. 明确给定的记录编号、颜色、对象别名或待判断方案可作为题设表示，只要它们映射的是原文已有条件/关系且实际参与判断，不因原文没有该表示就拒绝。无源的学科机制或因果事实不能借“题设给定”获得支持；修复建议必须保留本题认知目标并给出可行判断方向，不能用直接回忆式问题代替应用设计。
-只返回 JSON：{"reviews":[{"knowledge_point_id":"kp_...","accepted":true,"issues":[]}]}
+接受项必须issues=[]且required_edits=null；拒绝项必须有具体issues且required_edits至少prompt=true或option_indices非空。不得返回未知字段。
+只返回 JSON：{"reviews":[{"knowledge_point_id":"kp_...","accepted":true,"issues":[],"required_edits":null},{"knowledge_point_id":"kp_other","accepted":false,"issues":["短引实际问题与原文限定"],"required_edits":{"prompt":false,"option_indices":[1,3]}}]}
 """ + "\n" + _QUESTION_CONTRACT + "\n" + _APPLICATION_CONTRACT + "\n" + _APPLICATION_PLAN_CONTRACT
 
 
@@ -310,20 +317,89 @@ class _ItemBatchEnvelope(BaseModel):
     items: list[dict[str, object]] = Field(min_length=1, max_length=8)
 
 
+class _RequiredEdits(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    prompt: StrictBool
+    option_indices: list[Annotated[StrictInt, Field(ge=0, le=3)]] = Field(max_length=4)
+
+    @model_validator(mode="after")
+    def concrete_unique_targets(self) -> _RequiredEdits:
+        if len(set(self.option_indices)) != len(self.option_indices):
+            raise ValueError("required edit indices must be unique")
+        if not self.prompt and not self.option_indices:
+            raise ValueError("rejection requires a concrete prompt or option edit")
+        return self
+
+
 class ItemReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     knowledge_point_id: str
     accepted: StrictBool
-    issues: list[str] = Field(default_factory=list, max_length=10)
+    issues: list[Annotated[str, Field(min_length=1)]] = Field(max_length=10)
+    # Required even for acceptance: old/malformed wire must never become approval.
+    required_edits: _RequiredEdits | None
+
+    @model_validator(mode="after")
+    def verdict_matches_edits(self) -> ItemReview:
+        if self.accepted:
+            if self.issues or self.required_edits is not None:
+                raise ValueError("accepted review cannot contain issues or edit targets")
+        elif not self.issues or self.required_edits is None or not all(issue.strip() for issue in self.issues):
+            raise ValueError("rejected review requires issues and concrete edit targets")
+        return self
 
 
 class ItemReviewBatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     reviews: list[ItemReview] = Field(min_length=1, max_length=8)
 
 
+@dataclass(frozen=True)
+class _ItemRepairTarget:
+    prompt: str | None
+    option_texts: tuple[str, ...]
+
+    def writer_payload(self, point_id: str) -> dict[str, object]:
+        return {"knowledge_point_id": point_id, "prompt": self.prompt,
+                "option_texts": list(self.option_texts)}
+
+
+def _repair_text(value: str) -> str:
+    text = "".join(char for char in unicodedata.normalize("NFKC", value).casefold()
+                   if not char.isspace() and unicodedata.category(char) != "Cf")
+    # Only explicit choice labels are formatting. A new semantic qualifier may
+    # repair a claim even when it contains the old wording; review decides that.
+    return re.sub(r"^(?:选项[a-d1-4][.:、]|[a-d][.:、]|[1-4]、|[（(\[][a-d1-4][）)\]][.:、]?)", "", text)
+
+
+def _check_required_repairs(candidate: list[dict[str, object]],
+                            required: dict[str, _ItemRepairTarget]) -> None:
+    failures: list[dict[str, object]] = []
+    for row in candidate:
+        key = str(row["knowledge_point_id"])
+        target = required.get(key)
+        if target is None:
+            continue
+        options = {_repair_text(str(value)) for value in cast(list[object], row["options"])}
+        unchanged_options = [text for text in target.option_texts if _repair_text(text) in options]
+        unchanged_prompt = target.prompt is not None and _repair_text(str(row["prompt"])) == _repair_text(target.prompt)
+        if unchanged_prompt or unchanged_options:
+            failures.append({"knowledge_point_id": key, "unchanged_prompt": unchanged_prompt,
+                             "unchanged_option_texts": unchanged_options})
+    if failures:
+        raise DiagnosticGenerationError(
+            "required diagnostic edits were not made",
+            feedback={"stage": "required_edits", "items": failures,
+                      "repair": "change the designated prompt and replace every old option text across all positions; then independently review"},
+        )
+
+
 class DiagnosticGenerationError(ValueError):
-    def __init__(self, message: str, *, feedback: dict[str, object] | None = None) -> None:
+    def __init__(self, message: str, *, feedback: dict[str, object] | None = None,
+                 required_repairs: dict[str, _ItemRepairTarget] | None = None) -> None:
         super().__init__(message)
         self.feedback = feedback
+        self.required_repairs = required_repairs
 
 
 def stable_knowledge_point_id(chapter_id: str, text: str) -> str:
@@ -337,7 +413,7 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v16+source-scenario-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v17+required-edits-v1+source-scenario-v1+chapter-approvals-v1+balanced-options-v1"
 DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v2"
 
 
@@ -745,6 +821,7 @@ class DiagnosticItemGenerator:
         last_error: Exception | None = None
         preserved: dict[str, dict[str, object]] = {}
         approved_keys: dict[str, str] = {}
+        required_repairs: dict[str, _ItemRepairTarget] = {}
         system = _item_system(self.allow_grounded_answer_rewrite)
         chapter_context = {**(audit_context or {}), "chapter_id": chapter.chapter_id}
         self._audit(chapter_context, "chapter_started", source=payload)
@@ -805,6 +882,7 @@ class DiagnosticItemGenerator:
                                   "repair": "restore preserve_accepted_items exactly; repair rejected items only"},
                     )
                 self._audit(attempt_context, "candidate", items=candidate)
+                _check_required_repairs(candidate, required_repairs)
                 if self.verify_items:
                     review_keys = {item.knowledge_point_ids[0]: self._approval_key(
                                        payload, item, application_tasks.get(item.knowledge_point_ids[0]))
@@ -830,6 +908,14 @@ class DiagnosticItemGenerator:
                 return items
             except (ValidationError, DiagnosticGenerationError) as error:
                 last_error = error
+                if isinstance(error, DiagnosticGenerationError) and error.required_repairs is not None:
+                    for key, target in error.required_repairs.items():
+                        previous = required_repairs.get(key)
+                        # A later rejection must not permit reintroducing an
+                        # earlier explicitly vetoed option before approval.
+                        old_options = previous.option_texts if previous is not None else ()
+                        required_repairs[key] = _ItemRepairTarget(
+                            target.prompt, tuple(dict.fromkeys((*old_options, *target.option_texts))))
                 self._audit(attempt_context, "attempt_failed", error_type=type(error).__name__,
                             feedback=getattr(error, "feedback", None))
                 if attempt >= self.validation_retries:
@@ -854,8 +940,11 @@ class DiagnosticItemGenerator:
                         if key in accepted and key in review_keys:
                             preserved[key] = row
                             approved_keys[key] = review_keys[key]
+                            required_repairs.pop(key, None)
                     payload["preserve_accepted_items"] = [preserved[key] for key in expected_ids
                                                          if key in preserved]
+                payload["required_repairs"] = [required_repairs[key].writer_payload(key)
+                                               for key in expected_ids if key in required_repairs]
                 payload["repair_feedback"] = {"attempt": attempt + 1, **feedback}
                 payload["validation_feedback"] = (
                     "上次输出未通过结构校验或独立审查。必须逐个、按输入顺序返回 knowledge_point_id；"
@@ -959,10 +1048,27 @@ class DiagnosticItemGenerator:
                 f"{entry.knowledge_point_id}: {','.join(entry.issues) or 'rejected'}"
                 for entry in rejected
             )
+            # Indices refer only to the exact public order sent to this review.
+            # Keep that wire in the private audit; expose exact text to the writer.
+            reviewed = {item.knowledge_point_ids[0]: item for item in review_items}
+            required: dict[str, _ItemRepairTarget] = {}
+            writer_reviews: list[dict[str, object]] = []
+            for entry in review.reviews:
+                row = entry.model_dump()
+                if entry.required_edits is not None:
+                    item = reviewed[entry.knowledge_point_id]
+                    target = _ItemRepairTarget(
+                        prompt=item.prompt if entry.required_edits.prompt else None,
+                        option_texts=tuple(item.options[index] for index in entry.required_edits.option_indices),
+                    )
+                    required[entry.knowledge_point_id] = target
+                    row["required_edits"] = {"prompt": entry.required_edits.prompt,
+                                             "option_texts": list(target.option_texts)}
+                writer_reviews.append(row)
             raise DiagnosticGenerationError(
                 f"diagnostic review rejected items: {details}",
-                feedback={"stage": "semantic_review",
-                          "reviews": [entry.model_dump() for entry in review.reviews]},
+                feedback={"stage": "semantic_review", "reviews": writer_reviews},
+                required_repairs=required,
             )
 
     @staticmethod

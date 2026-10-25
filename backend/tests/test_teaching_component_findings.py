@@ -114,7 +114,14 @@ def test_false_omission_repairs_only_the_reviewer_without_rewriting_teaching():
             if system == FACT_REVIEW_PROMPT and not data["format_feedback"]:
                 for row in result["components"]:
                     if (row["point_id"], row["component_id"]) == (target, "explanation"):
-                        row.update(scope_exceptions=False, findings=[finding()])
+                        part = data["candidate"]["points"][0]["component_evidence"]["explanation"]
+                        assertion = next(a for a in part["assertion_contract"]["assertions"]
+                                         if a["field"] == "explanation")
+                        check = next(a for a in row["assertion_checks"] if a["assertion_id"] == assertion["assertion_id"])
+                        check.update(source_entailment=False, findings=[{
+                            "kind": "missing_condition", "quote": assertion["text"],
+                            "issue": "该组件的结论遗漏适用条件，需要核对当前文字后准确定位。",
+                            "evidence_source_ids": ["s1"], "missing_text": "温度不变"}])
             return result
 
     client = FalseOmissionOnce()
@@ -128,7 +135,7 @@ def test_false_omission_repairs_only_the_reviewer_without_rewriting_teaching():
                      if target in payload["output_contract"]["point_ids"]]
     assert len(point_reviews) == 2
     retry = next(payload for payload in point_reviews if payload["format_feedback"])
-    assert "已存在" in json.dumps(retry["format_feedback"], ensure_ascii=False)
+    assert "not actually absent" in json.dumps(retry["format_feedback"], ensure_ascii=False)
     pairs = fact_pair_counts(client)
     assert all(pairs[point.point_id, name] == (2 if point.point_id == target else 1)
                for point in bundle.knowledge_points
@@ -220,8 +227,12 @@ def test_changing_one_failed_component_cannot_hide_another_unchanged_failed_comp
                     if "s2" not in source_ids:
                         field, quote = (("explanation", "测量开始前需要记录观测时刻。") if name == "explanation"
                                         else ("expected_answer", "还必须记录观测时刻。"))
-                        row.update(source_entailment=False, findings=[{
-                            "kind": "unsupported_claim", "candidate_field": field, "candidate_quote": quote,
+                        part = point["component_evidence"][name]
+                        assertion = next(a for a in part["assertion_contract"]["assertions"]
+                                         if a["field"] == field and quote in a["text"])
+                        check = next(a for a in row["assertion_checks"] if a["assertion_id"] == assertion["assertion_id"])
+                        check.update(source_entailment=False, findings=[{
+                            "kind": "unsupported_claim", "quote": quote,
                             "issue": "记录时刻的要求缺少该组件自身对s2的实际引用。", "evidence_source_ids": ["s2"]}])
             return result
 

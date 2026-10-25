@@ -1,0 +1,375 @@
+{
+  "purpose": "Mechanical regression from actual H v16 canonical candidates; typed targets are explicit human test annotations, not recorded reviewer output or content approval. Changed fields must still pass independent review.",
+  "cases": [
+    {
+      "id": "gene_control",
+      "source": {
+        "chapter_title": "第4章 基因的表达",
+        "knowledge_point": {
+          "knowledge_point_id": "kp_f31a91f60999a100",
+          "label": "基因通过控制酶的合成来控制代谢过程，进而控制生物体的性状。",
+          "preferred_type": "choice",
+          "cognitive_target": {
+            "id": "relation_understanding",
+            "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+          },
+          "response_shape": "ordinary_choice",
+          "evidence": [
+            {
+              "page_number": 64,
+              "quote": "从上述实例可以看出，基因通过控制酶的合成来控制\n代谢过程，进而控制生物体的性状。又如，人的白化症状\n是由于控制酪氨酸酶的基因异常而引起的。酪氨酸酶存在\n于正常人的皮肤、毛发等处，它能将酪氨酸转变为黑色素；\n如果一个人由于基因不正常而缺少酪氨酸酶，那么这个人\n就不能合成黑色素，而表现出白化症状（图4-8)。",
+              "anchor_quote": "是由于控制酪氨酸酶的基因异常而引起的。酪氨酸酶存在"
+            },
+            {
+              "page_number": 64,
+              "quote": "但是皱豌豆的蔗糖含量高，\n味道更甜美。\n从上述实例可以看出，基因通过控制酶的合成来控制\n代谢过程，进而控制生物体的性状。又如，人的白化症状\n是由于控制酪氨酸酶的基因异常而引起的。",
+              "anchor_quote": "代谢过程，进而控制生物体的性状。又如，人的白化症状"
+            }
+          ]
+        }
+      },
+      "previous_candidate": {
+        "knowledge_point_id": "kp_f31a91f60999a100",
+        "type": "choice",
+        "prompt": "根据原文，基因控制生物体性状时，先控制酶的合成，接下来控制的是什么？",
+        "options": [
+          "代谢过程",
+          "蛋白质的氨基酸顺序",
+          "mRNA的碱基序列",
+          "核孔的通过"
+        ],
+        "correct_index": 0,
+        "expected_answer": "代谢过程",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 40
+      },
+      "next_candidate": {
+        "knowledge_point_id": "kp_f31a91f60999a100",
+        "type": "choice",
+        "prompt": "根据原文，基因通过控制酶的合成来控制代谢过程，进而控制什么？",
+        "options": [
+          "生物体的性状",
+          "蛋白质的氨基酸顺序",
+          "mRNA的碱基序列",
+          "核孔的通过"
+        ],
+        "correct_index": 0,
+        "expected_answer": "生物体的性状",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 40
+      },
+      "recorded_prior_issues": [
+        "题干询问控制酶的合成后接着控制什么，原文支持“代谢过程”；但“核孔的通过”和“mRNA的碱基序列”来自不同关系，不是对同一控制链条的可信误解。建议将干扰项改为同轴的控制顺序或对象关系判断。"
+      ],
+      "recorded_next_issues": [
+        "题干给出控制酶合成、控制代谢过程的前提，再问所控制的结果，关系判断本身合格；但“核孔的通过”“mRNA的碱基序列”“蛋白质的氨基酸顺序”不是可信的同轴性状结果，容易按类别排除。宜改为四个平行的控制关系判断。"
+      ],
+      "explicit_test_edit_targets": {
+        "prompt": null,
+        "option_texts": [
+          "蛋白质的氨基酸顺序",
+          "mRNA的碱基序列",
+          "核孔的通过"
+        ]
+      },
+      "next_candidate_makes_all_designated_edits": false
+    },
+    {
+      "id": "target_recipient",
+      "source": {
+        "chapter_title": "第6章 从杂交育种到基因工程",
+        "knowledge_point": {
+          "knowledge_point_id": "kp_090d1ea658e8fd44",
+          "label": "基因工程又叫基因拼接技术或DNA重组技术，是按照人们的意愿把一种生物的某种基因提取出来，加以修饰改造后放到另一种生物的细胞里，定向改造生物的遗传性状。",
+          "preferred_type": "choice",
+          "cognitive_target": {
+            "id": "source_application",
+            "goal": "把简短情境中的有据条件用于判断尚未给出的结论、对应或适用关系；条件必须实际参与作答，不得只套场景回忆原事实，也不得编造额外机制、工具用途或事实。"
+          },
+          "response_shape": "private_application_plan",
+          "evidence": [
+            {
+              "page_number": 97,
+              "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。基因工程是在DNA上\n进行的分子水平的设计施工，需要有专门的工具。",
+              "anchor_quote": "里，定向地改造生物的遗传性状。基因工程是在DNA上"
+            },
+            {
+              "page_number": 97,
+              "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。",
+              "anchor_quote": "基因工程又叫做基因拼接技术或DNA重组技术。通"
+            }
+          ]
+        }
+      },
+      "previous_candidate": {
+        "knowledge_point_id": "kp_090d1ea658e8fd44",
+        "type": "choice",
+        "prompt": "甲生物体内有一基因A，研究人员按人们的意愿将其提取出来并加以修饰改造，准备放入乙生物的细胞里，以定向改造乙生物的遗传性状。\n按原文所述，修饰改造后的基因A应放入哪里？",
+        "options": [
+          "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+          "放回甲生物原来的细胞里，以保持甲生物性状不变",
+          "放入甲生物与乙生物杂交后产生的后代细胞里",
+          "放入培养甲、乙生物所用培养液的容器中"
+        ],
+        "correct_index": 0,
+        "expected_answer": "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_1f74a7544aba0f008d0c",
+            "src_c94e00d6bd0bbd0f2320"
+          ],
+          "situation": "甲生物体内有一基因A，研究人员按人们的意愿将其提取出来并加以修饰改造，准备放入乙生物的细胞里，以定向改造乙生物的遗传性状。",
+          "decision": "按原文所述，修饰改造后的基因A应放入哪里？",
+          "outcomes": [
+            "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+            "放回甲生物原来的细胞里，以保持甲生物性状不变",
+            "放入甲生物与乙生物杂交后产生的后代细胞里",
+            "放入培养甲、乙生物所用培养液的容器中"
+          ],
+          "correct_index": 0
+        }
+      },
+      "next_candidate": {
+        "knowledge_point_id": "kp_090d1ea658e8fd44",
+        "type": "choice",
+        "prompt": "研究人员按人们的意愿，从甲生物体内提取出基因A并加以修饰改造，希望定向改造乙生物的遗传性状。\n修饰改造后的基因A应放入哪种生物的细胞里？",
+        "options": [
+          "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+          "放回甲生物原来的细胞里，以保持甲生物性状不变",
+          "放入甲生物与乙生物杂交后产生的后代细胞里",
+          "放入培养甲、乙生物所用培养液的容器中"
+        ],
+        "correct_index": 0,
+        "expected_answer": "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_1f74a7544aba0f008d0c",
+            "src_c94e00d6bd0bbd0f2320"
+          ],
+          "situation": "研究人员按人们的意愿，从甲生物体内提取出基因A并加以修饰改造，希望定向改造乙生物的遗传性状。",
+          "decision": "修饰改造后的基因A应放入哪种生物的细胞里？",
+          "outcomes": [
+            "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+            "放回甲生物原来的细胞里，以保持甲生物性状不变",
+            "放入甲生物与乙生物杂交后产生的后代细胞里",
+            "放入培养甲、乙生物所用培养液的容器中"
+          ],
+          "correct_index": 0
+        }
+      },
+      "recorded_prior_issues": [
+        "题设已明示“准备放入乙生物的细胞里，以定向改造乙生物的遗传性状”，正确项“放入乙生物的细胞里，以定向改造乙生物的遗传性状”只是复述，未形成应用判断。可仅给定基因A来自甲、拟定向改造乙的性状，让考生判断修饰后的基因应置于甲还是乙的细胞，并将四项改为同轴、可信的配置方案；不要预先写出放入位置。"
+      ],
+      "recorded_next_issues": [
+        "应用情境已明确“希望定向改造乙生物的遗传性状”，正确项“放入乙生物的细胞里，以定向改造乙生物的遗传性状”几乎复述题设目标，应用判断被明显简化为直接回忆定义。应给出更中性的目标条件，再判断基因与受体细胞的对应关系。",
+        "干扰项“放入培养甲、乙生物所用培养液的容器中”不是与正确项同层级的生物学对象，凭基本常识即可排除；“放回甲生物原来的细胞里，以保持甲生物性状不变”也偏离题设目标，三个选项未形成充分可信的同轴误解。"
+      ],
+      "explicit_test_edit_targets": {
+        "prompt": "甲生物体内有一基因A，研究人员按人们的意愿将其提取出来并加以修饰改造，准备放入乙生物的细胞里，以定向改造乙生物的遗传性状。\n按原文所述，修饰改造后的基因A应放入哪里？",
+        "option_texts": [
+          "放入乙生物的细胞里，以定向改造乙生物的遗传性状",
+          "放回甲生物原来的细胞里，以保持甲生物性状不变",
+          "放入甲生物与乙生物杂交后产生的后代细胞里",
+          "放入培养甲、乙生物所用培养液的容器中"
+        ]
+      },
+      "next_candidate_makes_all_designated_edits": false
+    },
+    {
+      "id": "replication_conditions",
+      "source": {
+        "chapter_title": "第3章 基因的本质",
+        "knowledge_point": {
+          "knowledge_point_id": "kp_f1080a5715b6f3a6",
+          "label": "DNA复制是一个边解旋边复制的过程，需要模板、原料、能量和酶等基本条件；双螺旋结构提供精确模板，碱基互补配对保证复制准确进行。",
+          "preferred_type": "choice",
+          "cognitive_target": {
+            "id": "source_application",
+            "goal": "把简短情境中的有据条件用于判断尚未给出的结论、对应或适用关系；条件必须实际参与作答，不得只套场景回忆原事实，也不得编造额外机制、工具用途或事实。"
+          },
+          "response_shape": "private_application_plan",
+          "evidence": [
+            {
+              "page_number": 49,
+              "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。",
+              "anchor_quote": "DNA分子的复制是一个边解旋边复制的过程，复制需"
+            },
+            {
+              "page_number": 49,
+              "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。DNA分子独特的双",
+              "anchor_quote": "要模板，原料，能量和酶等基本条件。DNA分子独特的双"
+            },
+            {
+              "page_number": 49,
+              "quote": "螺旋结构，为复制提供了精确的模板，通过碱基互补配对，",
+              "anchor_quote": null
+            }
+          ]
+        }
+      },
+      "previous_candidate": {
+        "knowledge_point_id": "kp_f1080a5715b6f3a6",
+        "type": "choice",
+        "prompt": "某小组设置四组DNA复制实验：甲组有模板、原料、能量和酶；乙组有模板、原料和能量，无酶；丙组有模板、原料和酶，无能量；丁组有原料、能量和酶，无模板。\n依据复制所需的基本条件，哪一组能进行DNA复制？",
+        "options": [
+          "甲组同时具备模板、原料、能量和酶，能进行DNA复制",
+          "乙组缺少酶，但模板、原料和能量齐全，能进行DNA复制",
+          "丙组缺少能量，但模板、原料和酶齐全，能进行DNA复制",
+          "丁组缺少模板，但原料、能量和酶齐全，能进行DNA复制"
+        ],
+        "correct_index": 0,
+        "expected_answer": "甲组同时具备模板、原料、能量和酶，能进行DNA复制",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_fbe9a2b220c9bac6d221",
+            "src_9b1e0e3be67ed7db6b36",
+            "src_3392b71a78ee194f918c"
+          ],
+          "situation": "某小组设置四组DNA复制实验：甲组有模板、原料、能量和酶；乙组有模板、原料和能量，无酶；丙组有模板、原料和酶，无能量；丁组有原料、能量和酶，无模板。",
+          "decision": "依据复制所需的基本条件，哪一组能进行DNA复制？",
+          "outcomes": [
+            "甲组同时具备模板、原料、能量和酶，能进行DNA复制",
+            "乙组缺少酶，但模板、原料和能量齐全，能进行DNA复制",
+            "丙组缺少能量，但模板、原料和酶齐全，能进行DNA复制",
+            "丁组缺少模板，但原料、能量和酶齐全，能进行DNA复制"
+          ],
+          "correct_index": 0
+        }
+      },
+      "next_candidate": {
+        "knowledge_point_id": "kp_f1080a5715b6f3a6",
+        "type": "choice",
+        "prompt": "某小组为DNA复制实验准备材料：甲组备有模板、原料、能量和酶；乙组备有模板、原料和能量，未备酶；丙组备有模板、原料和酶，未备能量；丁组备有原料、能量和酶，未备模板。\n哪一组备齐了复制所需的基本条件？",
+        "options": [
+          "甲组备齐了模板、原料、能量和酶，符合复制所需的基本条件",
+          "乙组备有模板、原料和能量，只缺酶，仍符合复制所需的基本条件",
+          "丙组备有模板、原料和酶，只缺能量，仍符合复制所需的基本条件",
+          "丁组备有原料、能量和酶，只缺模板，仍符合复制所需的基本条件"
+        ],
+        "correct_index": 0,
+        "expected_answer": "甲组备齐了模板、原料、能量和酶，符合复制所需的基本条件",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_fbe9a2b220c9bac6d221",
+            "src_9b1e0e3be67ed7db6b36",
+            "src_3392b71a78ee194f918c"
+          ],
+          "situation": "某小组为DNA复制实验准备材料：甲组备有模板、原料、能量和酶；乙组备有模板、原料和能量，未备酶；丙组备有模板、原料和酶，未备能量；丁组备有原料、能量和酶，未备模板。",
+          "decision": "哪一组备齐了复制所需的基本条件？",
+          "outcomes": [
+            "甲组备齐了模板、原料、能量和酶，符合复制所需的基本条件",
+            "乙组备有模板、原料和能量，只缺酶，仍符合复制所需的基本条件",
+            "丙组备有模板、原料和酶，只缺能量，仍符合复制所需的基本条件",
+            "丁组备有原料、能量和酶，只缺模板，仍符合复制所需的基本条件"
+          ],
+          "correct_index": 0
+        }
+      },
+      "recorded_prior_issues": [
+        "原文仅说复制需要模板、原料、能量和酶，未说具备这些条件就足以进行复制；“甲组同时具备模板、原料、能量和酶，能进行DNA复制”把必要条件当成充分条件。可改问哪组满足原文列出的基本条件，并将四项改为平行的组别判断。"
+      ],
+      "recorded_next_issues": [
+        "题干逐组列出模板、原料、能量和酶后，直接问哪组“备齐”，只是核对原文条件清单，未达到有源应用要求。选项“乙组备有模板、原料和能量，只缺酶，仍符合复制所需的基本条件”等也重复清单判断。可保留甲乙等记录，依据原文的复制条件，给出各组待判断的复制方案，让考生选择哪一方案满足所需条件，而非直接核对是否备齐；修改后仍需独立审核。"
+      ],
+      "explicit_test_edit_targets": {
+        "prompt": "某小组设置四组DNA复制实验：甲组有模板、原料、能量和酶；乙组有模板、原料和能量，无酶；丙组有模板、原料和酶，无能量；丁组有原料、能量和酶，无模板。\n依据复制所需的基本条件，哪一组能进行DNA复制？",
+        "option_texts": [
+          "甲组同时具备模板、原料、能量和酶，能进行DNA复制",
+          "乙组缺少酶，但模板、原料和能量齐全，能进行DNA复制",
+          "丙组缺少能量，但模板、原料和酶齐全，能进行DNA复制",
+          "丁组缺少模板，但原料、能量和酶齐全，能进行DNA复制"
+        ]
+      },
+      "next_candidate_makes_all_designated_edits": true
+    },
+    {
+      "id": "hereditary_disease",
+      "source": {
+        "chapter_title": "第5章 基因突变及其他变异",
+        "knowledge_point": {
+          "knowledge_point_id": "kp_2a1408502f0b5d2d",
+          "label": "人类遗传病通常是指由于遗传物质改变而引起的人类疾病，主要分为单基因遗传病、多基因遗传病和染色体异常遗传病三大类。",
+          "preferred_type": "choice",
+          "cognitive_target": {
+            "id": "relation_understanding",
+            "goal": "辨别原文中的对象、条件或关系，或由已知前提选择尚未给出的结论；不能只问名称。"
+          },
+          "response_shape": "ordinary_choice",
+          "evidence": [
+            {
+              "page_number": 85,
+              "quote": "随着生活水平的提高和医药卫生条件的改善，人类的\n传染性疾病已经逐渐得到控制，而人类的遗传性疾病的发\n病率和死亡率却有逐年增高的趋势，人类的遗传性疾病已\n成为威胁人类健康的一个重要因素。\n人类常见遗传病的类型\n人类遗传病通常是指由于遗传物质改变而引起的人类\n疾病，主要可以分为单基因遗传病，多基因遗传病和染色\n体异常遗传病三大类。",
+              "anchor_quote": "人类常见遗传病的类型"
+            }
+          ]
+        }
+      },
+      "previous_candidate": {
+        "knowledge_point_id": "kp_2a1408502f0b5d2d",
+        "type": "choice",
+        "prompt": "某人因遗传物质改变而患病，医生将其归入单基因遗传病、多基因遗传病或染色体异常遗传病中的一类。这一归类依据的是该病的哪一特征？",
+        "options": [
+          "由遗传物质改变引起",
+          "由传染性病原体引起",
+          "由医药卫生条件引起",
+          "由生活水平提高引起"
+        ],
+        "correct_index": 0,
+        "expected_answer": "由遗传物质改变引起",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 40
+      },
+      "next_candidate": {
+        "knowledge_point_id": "kp_2a1408502f0b5d2d",
+        "type": "choice",
+        "prompt": "某人患病，经检查其病因是遗传物质发生了改变。依据人类遗传病的界定，该病是否属于人类遗传病？",
+        "options": [
+          "属于，因为人类遗传病由遗传物质改变引起",
+          "不属于，因为人类遗传病由传染性病原体引起",
+          "不属于，因为人类遗传病由医药卫生条件引起",
+          "不属于，因为人类遗传病由生活水平提高引起"
+        ],
+        "correct_index": 0,
+        "expected_answer": "属于，因为人类遗传病由遗传物质改变引起",
+        "rubric": [],
+        "difficulty": 0.0,
+        "estimated_seconds": 40
+      },
+      "recorded_prior_issues": [
+        "题干已明示“因遗传物质改变而患病”，正确项“由遗传物质改变引起”只是复述该条件，未考查尚待判断的关系。可给出疾病的成因，让考生判断其是否符合原文所述人类遗传病的界定，而不在题干中预先给出结论。"
+      ],
+      "recorded_next_issues": [
+        "题设已给出遗传物质改变，归类判断有原文支持，但干扰项不可信。“不属于，因为人类遗传病由生活水平提高引起”和“不属于，因为人类遗传病由医药卫生条件引起”把原文的背景条件误作病因；“不属于，因为人类遗传病由传染性病原体引起”则引入原文未给出的病因。建议改为比较遗传物质改变与三类遗传病的关系，设计同轴、可信的分类判断。"
+      ],
+      "explicit_test_edit_targets": {
+        "prompt": "某人因遗传物质改变而患病，医生将其归入单基因遗传病、多基因遗传病或染色体异常遗传病中的一类。这一归类依据的是该病的哪一特征？",
+        "option_texts": [
+          "由遗传物质改变引起",
+          "由传染性病原体引起",
+          "由医药卫生条件引起",
+          "由生活水平提高引起"
+        ]
+      },
+      "next_candidate_makes_all_designated_edits": true
+    }
+  ]
+}

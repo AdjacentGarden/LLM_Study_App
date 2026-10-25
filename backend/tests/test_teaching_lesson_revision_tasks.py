@@ -100,7 +100,7 @@ def test_narrow_and_list_permissions_do_not_expand_the_repair_or_lose_preservati
     assert tasks["required_component_edits"] == ["checkpoint_2"]
     assert tasks["editable_slots"] == [{
         "component_id": "checkpoint_2", "rejected_question": lesson.checkpoints[1].question,
-        "exact_change_required": True,
+        "exact_change_required": True, "question_change_required": False,
     }]
     assert set(tasks["preserve_components"]) == (
         set(teaching.TeachingContentGenerator._lesson_components(lesson)) | {"reading_source_ids"}

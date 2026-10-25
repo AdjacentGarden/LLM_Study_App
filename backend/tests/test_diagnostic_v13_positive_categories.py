@@ -124,7 +124,8 @@ class Reviewer:
         self.calls.append(request)
         return {
             "reviews": [
-                {
+                {"required_edits": None if (self.accept
+                    or row["cognitive_target"]["id"] != "source_application") else {"prompt": True, "option_indices": []},
                     "knowledge_point_id": row["knowledge_point_id"],
                     "accepted": self.accept
                     or row["cognitive_target"]["id"] != "source_application",
@@ -401,7 +402,8 @@ def test_numeric_private_plan_is_exactly_preserved_and_binds_every_new_component
             self.calls.append(request)
             return {
                 "reviews": [
-                    {
+                    {"required_edits": None if (len(self.calls) > 1
+                        or row["cognitive_target"]["id"] != "relation_understanding") else {"prompt": True, "option_indices": []},
                         "knowledge_point_id": row["knowledge_point_id"],
                         "accepted": len(self.calls) > 1
                         or row["cognitive_target"]["id"] != "relation_understanding",

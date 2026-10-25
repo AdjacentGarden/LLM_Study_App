@@ -15,6 +15,7 @@ from copy import deepcopy
 
 import pytest
 from test_teaching_content import (
+    advertised_fact_response,
     course,
     lesson_candidate,
     point_candidate,
@@ -159,7 +160,7 @@ class CandidateClient:
                 return {"malformed": True}
             if role == "rubric":
                 return positive_rubric_alignment_response(data)
-            return self.fact(data) if role == "fact" else self.teacher(data)
+            return advertised_fact_response(self.fact(data), data) if role == "fact" else self.teacher(data)
         finally:
             with self.lock:
                 self.active -= 1

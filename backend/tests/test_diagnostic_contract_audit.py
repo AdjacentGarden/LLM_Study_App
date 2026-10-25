@@ -2,6 +2,7 @@
 import json
 import stat
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 
 import pytest
 from test_diagnostic_generation import FakeClient, make_generator, structure, valid_payload
@@ -24,7 +25,7 @@ class ScriptedReview:
         assert '只有其他选项也在同一题设下回答本问且成立时才构成多解' in system
         assert '不能因它是其他条件下的教材真陈述就判多解' in system
         assert '关键条件或对象的单词差异可以构成实质误解' in payload['question_contract']
-        rows = [{'knowledge_point_id': item['knowledge_point_id'],
+        rows = [{"required_edits": None if (self.verdict == 'accept') else {"prompt": True, "option_indices": []}, 'knowledge_point_id': item['knowledge_point_id'],
                  'accepted': self.verdict == 'accept',
                  'issues': [] if self.verdict == 'accept' else ['当前题设下存在多解或纯命名；须依同一证据修复']}
                 for item in payload['items']]
@@ -72,7 +73,7 @@ def test_shared_basic_understanding_contract_does_not_override_semantic_veto(rea
     class Rejector(ScriptedReview):
         def structured(self, **kwargs):
             result = super().structured(**kwargs)
-            result['reviews'][0].update(accepted=False, issues=[reason])
+            result['reviews'][0].update(accepted=False, issues=[reason], required_edits={'prompt': True, 'option_indices': []})
             return result
     reviewer = Rejector()
     with pytest.raises(DiagnosticGenerationError, match=reason):
@@ -98,7 +99,15 @@ def test_private_audit_keeps_all_attempts_exact_review_inputs_and_source_without
     candidate = valid_payload()
     candidate['api_key'] = 'PRIVATE_PROVIDER_KEY'
     candidate['cookies'] = {'session': 'PRIVATE_COOKIE'}
-    writer, reviewer = FakeClient(candidate), ScriptedReview('reject')
+    class RepairingWriter(FakeClient):
+        def structured(self, **kwargs):
+            response = deepcopy(self.payload)
+            self.calls += 1
+            if self.calls > 1:
+                for row in response['items']:
+                    row['prompt'] += f'请核对第{self.calls}种判断。'
+            return response
+    writer, reviewer = RepairingWriter(candidate), ScriptedReview('reject')
     with pytest.raises(DiagnosticGenerationError, match='review rejected') as failure:
         DiagnosticItemGenerator(writer, review_client=reviewer, audit_callback=capture,
             review_identity={'provider': 'independent', 'model': 'review-model'},
@@ -111,7 +120,8 @@ def test_private_audit_keeps_all_attempts_exact_review_inputs_and_source_without
     assert 'repair_feedback' not in requests[0]['request']
     assert requests[1]['request']['repair_feedback']['reviews']
     responses = [event for event in events if event['event'] == 'generation_response']
-    assert len(responses) == 3 and all(event['response'] == candidate for event in responses)
+    assert len(responses) == 3 and responses[0]['response'] == candidate
+    assert len({event['response']['items'][0]['prompt'] for event in responses}) == 3
     for event in (event for event in events if event['event'] == 'review_request'):
         payload = event['request']
         assert payload['source']['knowledge_points'][0]['evidence']
@@ -187,7 +197,7 @@ def test_api_rejection_never_returns_private_candidates_reviews_or_audit_files(t
     class PrivateRejector(ScriptedReview):
         def structured(self, **kwargs):
             result = super().structured(**kwargs)
-            result['reviews'][0].update(accepted=False, issues=['PRIVATE_REVIEW_REASON'])
+            result['reviews'][0].update(accepted=False, issues=['PRIVATE_REVIEW_REASON'], required_edits={'prompt': True, 'option_indices': []})
             return result
     audit = PrivateTeachingAudit(tmp_path / 'private-diagnostic-audits')
     generator = DiagnosticItemGenerator(FakeClient(candidate), review_client=PrivateRejector(),

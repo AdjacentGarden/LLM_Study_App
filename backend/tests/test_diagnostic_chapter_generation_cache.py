@@ -84,7 +84,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         accepted = request["source"]["chapter_id"] != self.reject
-        return {"reviews": [{"knowledge_point_id": item["knowledge_point_id"],
+        return {"reviews": [{"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, "knowledge_point_id": item["knowledge_point_id"],
             "accepted": accepted, "issues": [] if accepted else ["Controlled semantic veto"]}
             for item in request["items"]]}
 

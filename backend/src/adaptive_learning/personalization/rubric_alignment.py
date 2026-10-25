@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
@@ -41,6 +41,9 @@ reason通常20–100字，最小答案和反例通常30–250字，repair通常2
 prompt_quote须为当前prompt的非空逐字片段，rubric_quote须为当前rubric条目的非空逐字片段，
 用于定位所问要求和待改子句；引文命中只是定位，不能代替必要性的语义判断，不得借别题或别评分点定位。
 required=false必须有非空counterexample_answer和repair；required=true这两个字段必须为null。
+每个否决另给repair_scope：仅删除或拆分未问评分要求即可、题干与事实答案无需变化时为rubric_only；
+若题设缺必要前提、问题不可唯一作答、最小答案需改或必须增加问项，为task_revision。不能为缩小编辑范围而隐瞒这些问题。
+该字段只限定作者可编辑字段，不是事实批准；缺省或不确定时使用task_revision。
 不得遗漏、重复、增添题目或rubric，不得改写rubric_text，不输出总accepted或改变其他审核意见。"""
 
 
@@ -82,6 +85,7 @@ class _Criterion(_Strict):
     rubric_quote: str = Field(min_length=1, max_length=3000)
     counterexample_answer: str | None = Field(max_length=3000)
     repair: str | None = Field(max_length=1600)
+    repair_scope: Literal["rubric_only", "task_revision"] = "task_revision"
 
     @field_validator("reason", "prompt_quote", "rubric_quote")
     @classmethod
@@ -171,6 +175,7 @@ class RubricCriterionVerdict:
     rubric_quote: str
     counterexample_answer: str | None
     repair: str | None
+    repair_scope: Literal["rubric_only", "task_revision"] = "task_revision"
 
 
 @dataclass(frozen=True)
@@ -212,6 +217,7 @@ class RubricAlignmentResult:
                 "minimal_sufficient_answer": item.minimal_sufficient_answer,
                 "counterexample_answer": row.counterexample_answer,
                 "repair": row.repair,
+                "repair_scope": row.repair_scope,
             }
             for item in self.items
             for row in item.rubric_checks

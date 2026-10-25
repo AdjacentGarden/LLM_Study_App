@@ -116,7 +116,7 @@ class Reviewer:
 
 
 def verdict(row, accepted):
-    return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+    return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
             'issues': [] if accepted else ['Controlled independent semantic veto; not a quality certificate.']}
 
 
@@ -177,7 +177,7 @@ def test_real_change_to_accepted_plan_is_rejected_before_review_reuse(cases):
 
 def test_v15_protocol_does_not_silently_reuse_v14_approval(cases, monkeypatch):
     current = generation.diagnostic_bank_fingerprint(book(cases[TRANSLATION]))
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v14+recorded')
     assert generation.diagnostic_bank_fingerprint(book(cases[TRANSLATION])) != current
     assert set(generation._APPLICATION_OUTPUT_SHAPES) == {'source_scenario'}

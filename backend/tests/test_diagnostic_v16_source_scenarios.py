@@ -47,7 +47,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         assert request['application_contract'] in system and request['application_plan_contract'] in system
-        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {
+        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {"required_edits": None,
             'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
             for row in request['items']]}
 
@@ -59,7 +59,7 @@ def generator(writer, reviewer, retries=0, **kwargs):
 
 def reject_application(row, call):
     accepted = row['cognitive_target']['id'] != 'source_application'
-    return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+    return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
             'issues': [] if accepted else ['Controlled independent semantic veto; structure is not approval.']}
 
 
@@ -184,6 +184,7 @@ def test_readonly_echoes_are_recomputed_and_raw_audit_is_unchanged(cases):
 def test_exact_accepted_plan_is_preserved_and_echo_cannot_override_it(cases, change):
     def mutate(request, rows, call):
         if call > 1:
+            rows[1]['prompt'] = '根据原文的限定关系，以下哪项判断成立？'
             rows[2] = deepcopy(next(row for row in request['preserve_accepted_items'] if 'application_task' in row))
             if change == 'echo_only':
                 rows[2]['expected_answer'] = '伪造旧回声'
@@ -195,7 +196,7 @@ def test_exact_accepted_plan_is_preserved_and_echo_cannot_override_it(cases, cha
                 rows[2]['application_task'][change] += '新增条件'
     def verdict(row, call):
         accepted = call > 1 or row['cognitive_target']['id'] != 'relation_understanding'
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else ['Controlled relation repair only']}
     writer, reviewer = Writer(cases[SUTTON], mutate), Reviewer(verdict)
     subject = generator(writer, reviewer, retries=1)
@@ -225,6 +226,6 @@ def test_combined_budget_is_actionable_and_long_natural_options_keep_existing_li
 def test_v16_source_protocol_requires_new_exact_approval(cases, monkeypatch):
     value = book(cases[SUTTON])
     current = generation.diagnostic_bank_fingerprint(value)
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v15+historical')
     assert generation.diagnostic_bank_fingerprint(value) != current

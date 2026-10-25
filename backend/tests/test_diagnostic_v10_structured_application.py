@@ -65,7 +65,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         assert request['application_contract'] in system
-        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {
+        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {"required_edits": None,
             'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
             for row in request['items']]}
 
@@ -194,7 +194,7 @@ def test_structural_completeness_never_overrides_independent_semantic_veto(failu
         return response
     def veto(row, call):
         accepted = row['cognitive_target']['id'] != 'source_application'
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else [f'Controlled independent veto: {failure}']}
     writer, reviewer, cache = Writer(transform), Reviewer(veto), MemoryApprovals()
     with pytest.raises(generation.DiagnosticGenerationError, match=failure):
@@ -204,7 +204,7 @@ def test_structural_completeness_never_overrides_independent_semantic_veto(failu
     assert 'source_supported' not in reviewer.calls[0]['items'][2]
     contract = reviewer.calls[0]['application_contract']
     assert '未完成状态当已完成' in contract
-    assert '只是复制结论或检查清单' in contract
+    assert '只是复制结论' in contract and '题面已预列完整标准后的字面核齐' in contract
 
 
 def test_f18_progressive_condition_remains_visible_to_the_independent_judge():
@@ -224,7 +224,7 @@ def test_f18_progressive_condition_remains_visible_to_the_independent_judge():
             assert '正逐步出现' in row['application_task']['records'][0]['conditions']
             assert row['application_task']['mapping'] == ['a', 'a']
             issues = ['逐步出现未说明隔离已经形成，不能套用一旦形成的完成阈值。']
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
+        return {"required_edits": None if (not issues) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
     reviewer, writer = Reviewer(verdict), Writer(transform)
     with pytest.raises(generation.DiagnosticGenerationError, match='完成阈值'):
         subject(writer, reviewer).generate(value)
@@ -260,7 +260,7 @@ def test_accepted_task_is_exactly_preserved_and_cannot_silently_change(change):
     def verdict(row, call):
         accepted = call > 1 or row['cognitive_target']['id'] != 'relation_understanding'
         calls.append((call, row['cognitive_target']['id']))
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else ['Controlled relationship repair required']}
     writer, reviewer = Writer(transform), Reviewer(verdict)
     if change:
@@ -292,7 +292,7 @@ def test_full_task_and_immutable_source_directory_bind_the_approval_hash():
     point = item.knowledge_point_ids[0]
     changed_source['application_source_refs'][point][0]['evidence']['quote'] += ' changed source condition'
     assert instance._approval_key(changed_source, item, candidate['application_task']) != original
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
 
 
 def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_task_mapping():
@@ -341,7 +341,7 @@ def test_f6_actual_source_can_supply_record_comparison_but_requires_fresh_indepe
             assert '复制能否成功' not in row['application_task']['decision']
             if not accepted:
                 issues = ['Controlled independent judge may still reject this comparison as insufficient application.']
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
+        return {"required_edits": None if (not issues) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
     writer, reviewer = Writer(transform), Reviewer(verdict)
     if accepted:
         bank = subject(writer, reviewer).generate(value)

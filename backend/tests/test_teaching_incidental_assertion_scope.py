@@ -4,6 +4,8 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
+from test_teaching_content import advertised_fact_response
+
 from adaptive_learning.personalization import teaching_content as teaching
 from adaptive_learning.personalization.models import SourceCitation
 from adaptive_learning.personalization.teaching_evidence import TeachingEvidence
@@ -18,6 +20,11 @@ def test_actual_multiple_assertions_keep_p25_context_in_the_request_and_a_negati
     condition = data['condition_source_id']
     evidence = TeachingEvidence({key: SourceCitation(**value) for key, value in payload['sources'].items()},
                                 {}, [], 'actual-f3405-incidental-scope')
+    for name, part in payload['candidate']['points'][0]['component_evidence'].items():
+        part['source_ids'] = point.source_ids if name == 'explanation' else getattr(point, name).source_ids
+        part['scope_boundaries'] = payload['candidate']['points'][0]['scope_boundaries']
+        teaching.TeachingContentGenerator._attach_assertion_contract(
+            part, name, payload['support_spans'], payload['sources'])
     calls = []
 
     class IndependentReviewer:
@@ -35,7 +42,7 @@ def test_actual_multiple_assertions_keep_p25_context_in_the_request_and_a_negati
                 component = row['component_id']
                 if component not in ('explanation', 'flashcard'):
                     continue
-                row['scope_exceptions'] = False
+                row['source_entailment'] = False
                 row['findings'] = [{
                     'kind': 'missing_condition',
                     'candidate_field': 'explanation' if component == 'explanation' else 'back',
@@ -44,7 +51,7 @@ def test_actual_multiple_assertions_keep_p25_context_in_the_request_and_a_negati
                     'evidence_source_ids': [condition],
                     'missing_text': '位于非同源染色体上\n的非等位基因',
                 }]
-            return response
+            return advertised_fact_response(response, actual)
 
     result = teaching.TeachingContentGenerator(IndependentReviewer())._request_fact_batch(
         payload=payload, batch=[point], lesson=None, evidence=evidence,
@@ -53,5 +60,5 @@ def test_actual_multiple_assertions_keep_p25_context_in_the_request_and_a_negati
     assert len(calls) == 1  # Same factual call, no new model pass or repair budget.
     assert not result.accepted
     assert set(result.points[0].failed_components) == {'explanation', 'flashcard'}
-    assert all(not getattr(result.points[0].components, name).scope_exceptions for name in ('explanation', 'flashcard'))
+    assert all(not getattr(result.points[0].components, name).source_entailment for name in ('explanation', 'flashcard'))
     assert result.points[0].components.practice.scope_exceptions

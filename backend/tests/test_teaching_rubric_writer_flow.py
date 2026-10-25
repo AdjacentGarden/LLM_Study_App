@@ -49,7 +49,8 @@ def test_actual_negative_rubrics_reach_only_their_writer_as_unverified_suggestio
     assert merged.points[1].model_dump() == teacher.points[1].model_dump()
     # Preserve every exact negative judgment and its source-free suggestion in
     # the private audit, including the real case containing extra mechanism.
-    assert merged._rubric_alignment["items"][0] == case["review"]
+    assert merged._rubric_alignment["items"][0] == {**case["review"], "rubric_checks": [
+        {**row, "repair_scope": "task_revision"} for row in case["review"]["rubric_checks"]]}
     assert teacher.accepted and teacher.points[0].practice_ok
     feedback = generator._review_feedback(merged, {point.point_id for point in points})
     own = generator._scoped_feedback(feedback, {points[0].point_id}, False)

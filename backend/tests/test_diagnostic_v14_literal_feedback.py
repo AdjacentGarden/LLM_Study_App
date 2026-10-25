@@ -127,7 +127,7 @@ def test_actual_numeric_field_feedback_reaches_writer_then_independent_review_ca
         def structured(self, *, user, **kwargs):
             request = json.loads(user)
             reviews.append(request)
-            return {'reviews': [{'knowledge_point_id': item['knowledge_point_id'],
+            return {'reviews': [{"required_edits": None if (accepted or item['cognitive_target']['id'] != 'source_application') else {"prompt": True, "option_indices": []}, 'knowledge_point_id': item['knowledge_point_id'],
                 'accepted': accepted or item['cognitive_target']['id'] != 'source_application',
                 'issues': [] if accepted or item['cognitive_target']['id'] != 'source_application'
                     else ['Controlled independent source/uniqueness/distractor veto']}
@@ -147,6 +147,6 @@ def test_actual_numeric_field_feedback_reaches_writer_then_independent_review_ca
 def test_changed_validation_protocol_cannot_reuse_v13_identity(cases, monkeypatch):
     value = book(cases[PLOIDY])
     current = generation.diagnostic_bank_fingerprint(value)
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v13+recorded')
     assert generation.diagnostic_bank_fingerprint(value) != current

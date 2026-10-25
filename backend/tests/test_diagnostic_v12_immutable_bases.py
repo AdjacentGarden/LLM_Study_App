@@ -56,7 +56,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         assert request['application_plan_contract'] in system
-        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {
+        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {"required_edits": None if (self.accepted or row['cognitive_target']['id'] != 'source_application') else {"prompt": True, "option_indices": []},
             'knowledge_point_id': row['knowledge_point_id'],
             'accepted': self.accepted or row['cognitive_target']['id'] != 'source_application',
             'issues': [] if self.accepted or row['cognitive_target']['id'] != 'source_application' else [self.issue]}
@@ -228,7 +228,7 @@ def test_canonical_plan_replays_exactly_and_every_private_component_binds_approv
         return response
     def verdict(row, call):
         accepted = call > 1 or row['cognitive_target']['id'] != 'relation_understanding'
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else ['Controlled relationship repair']}
     writer, reviewer, events = Writer(recorded[OBJECT_TRANSFER], transform), Reviewer(verdict=verdict), []
     instance = subject(writer, reviewer, audit_callback=events.append)
@@ -262,7 +262,7 @@ def test_v12_uses_a_new_protocol_claim_without_deleting_v11_approval_history(rec
     previous = deepcopy(cache.records)
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', current)
     instance.generate(value, chapter_cache=cache, cache_scope='same-book')
-    assert current.startswith('grounded-independent-review-v16+')
+    assert current.startswith('grounded-independent-review-v17+required-edits-v1+')
     assert len(writer.calls) == len(reviewer.calls) == len(cache.records) == 2
     assert all(cache.records[key] == record for key, record in previous.items())
 
