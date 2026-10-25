@@ -306,12 +306,18 @@ def test_numeric_plan_rejects_unverified_sources_ranges_scope_and_override_chann
             task["derivation"] = {"mapping": ["a", "a"], "approved": True}
         return response
 
-    writer, reviewer, cache = Writer(transform), Reviewer(), MemoryApprovals()
-    with pytest.raises(generation.DiagnosticGenerationError, match="batch validation failed"):
+    writer, reviewer, cache = Writer(transform), Reviewer(accept=defect != "derivation"), MemoryApprovals()
+    failure = "source semantics veto" if defect == "derivation" else "batch validation failed"
+    with pytest.raises(generation.DiagnosticGenerationError, match=failure):
         generator(writer, reviewer).generate(
             structure_for(recorded[PLOIDY]["source"]), chapter_cache=cache, cache_scope="H"
         )
-    assert reviewer.calls == [] and not cache.records
+    if defect == "derivation":
+        assert len(reviewer.calls) == 1
+        assert reviewer.calls[0]["items"][2]["application_task"]["derivation"]["mapping"] == ["a", "b"]
+    else:
+        assert reviewer.calls == []
+    assert not cache.records
 
 
 @pytest.mark.parametrize(

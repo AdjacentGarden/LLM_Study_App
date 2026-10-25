@@ -146,6 +146,6 @@ def test_actual_numeric_field_feedback_reaches_writer_then_independent_review_ca
 def test_changed_validation_protocol_cannot_reuse_v13_identity(cases, monkeypatch):
     value = book(cases[PLOIDY])
     current = generation.diagnostic_bank_fingerprint(value)
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v14+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v15+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v13+recorded')
     assert generation.diagnostic_bank_fingerprint(value) != current

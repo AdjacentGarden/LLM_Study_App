@@ -48,6 +48,15 @@ def controlled_application_v10(request, index=2):
             'decision': '受控过程的适用性', 'outcomes': ['适用', '不适用'], 'mapping': ['a', 'b']}}
 
 
+def _archived_echo_checked_render(entry, task):
+    """Preserve the historical v10/v11 echo contract only in explicit replay adapters."""
+    rendered = DiagnosticItemGenerator._render_application_task(entry, task)
+    if any(key in entry and entry[key] != rendered[key] for key in
+           ("prompt", "options", "correct_index", "expected_answer", "rubric")):
+        raise DiagnosticGenerationError("archived application echo differs from its task renderer")
+    return rendered
+
+
 class ArchivedV10StructuredGenerator(ArchivedFreeformDiagnosticGenerator):
     """Historical v10 task boundary, not the current forward-plan production boundary."""
     @staticmethod
@@ -56,7 +65,7 @@ class ArchivedV10StructuredGenerator(ArchivedFreeformDiagnosticGenerator):
         directory = source['application_source_refs'][entry['knowledge_point_id']]
         if not set(task.source_refs) <= {row['ref'] for row in directory}:
             raise DiagnosticGenerationError('application source_refs must identify exact evidence for this point')
-        return DiagnosticItemGenerator._render_application_task(entry, task), task.model_dump(mode='json')
+        return _archived_echo_checked_render(entry, task), task.model_dump(mode='json')
 
 
 class ArchivedV11PlanGenerator(ArchivedFreeformDiagnosticGenerator):
@@ -75,7 +84,7 @@ class ArchivedV11PlanGenerator(ArchivedFreeformDiagnosticGenerator):
         derived = task.model_dump(mode='json')
         if 'derivation' in raw and raw['derivation'] != derived:
             raise DiagnosticGenerationError('application derivation is read-only')
-        return DiagnosticItemGenerator._render_application_task(entry, task), {
+        return _archived_echo_checked_render(entry, task), {
             **plan.model_dump(mode='json'), 'derivation': derived}
 
 

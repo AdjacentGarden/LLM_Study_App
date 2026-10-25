@@ -79,11 +79,11 @@ decision（同一个待判结果轴）、outcomes（该结果轴上两个不同�
 独立审校必须逐条将给定条件代入source_refs的原文关系，核对两个映射及三个干扰组合：条件确实参与推断、来源支持结论、未给出完整答案，且没有额外机制或未支持的否定推论。
 结构完整或四种组合本身不是质量批准；仅用两条原文事实作真假分类、重复结论、装饰场景、无源推论仍须拒绝。程序不靠标签或词语自动判定这些语义。
 派生记录conditions最多48字，decision最多18字，每个outcome最多70字；程序生成的题干仍须不超过140字、每项不超过180字，不截断关键条件。
-应用项只需返回knowledge_point_id、type、application_task、difficulty、estimated_seconds；若保留上下文包含程序生成的prompt/options/correct_index/expected_answer，必须逐字原样返回，不能另写一条绕开记录的题干或选项。
+应用项只需返回knowledge_point_id、type、application_task、difficulty、estimated_seconds；prompt/options/correct_index/expected_answer/rubric与derivation均由程序从verified plan重算，作者无需返回；附带旧回声不作为题面、答案或审批依据。
 应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案；label仅定位知识点。后文普通项的label约束及JSON示例不适用于应用项。
 非应用项继续使用原有prompt/options/expected_answer格式。preserve_accepted_items中的完整task、来源引用、题干及选项一并原样保留。"""
 
-_APPLICATION_PLAN_CONTRACT = """v14封闭计划设计：
+_APPLICATION_PLAN_CONTRACT = """v15封闭计划设计：
 生产只允许required_conditions、positive_source_categories与role_transfer三个mode；不接受forward_instances或仅换名字、同前提的AA配对。
 原文完整列出必需项时优先required_conditions；原文有输入、接受者或作用对象方向时优先role_transfer；证据不适配时不得凑条件。
 先看各source_ref的plan_hints选择源内可行的模式；这是导航，不是事实或质量批准。数字分类优先positive_source_categories；
@@ -95,13 +95,13 @@ input_role说明所给条件对应哪个过程/对象或输入角色，不能只
 record_template中恰好各出现一次literal {input}与{output}，程序只用这两个槽放入对象甲/对象乙；其他花括号、属性路径、格式指令或转义均不允许。
 bindings给出按序的两个{input,output}，input/output各为a或b且每条不同，两条交换对象角色；r1/r2由程序按顺序生成，无须作者写id。
 result_role为input或output，指出basis.output_role所问结果落在哪个槽所绑定的对象上。程序据此计算四种同轴对象配对及正确映射。
-必须由basis.quote支持操作和结果角色关系；题设中性对象表示可给定，但不得引入未知机制。所问应是尚未给出的作用对象或结果，不能只问定义名称或复述已给的角色。
+必须由basis.quote支持操作和结果角色关系；题设中性对象表示可给定，但不得引入未知机制。所问output_role须是需要原文知识识别的具体对象或类别，不能只问record_template已直写的通用语法角色。所问应是尚未给出的作用对象或结果，不能只问定义名称或复述已给的角色。
 2.required_conditions：返回mode、basis、required（原文完整列出的2–6个必需项）、records（按序的两个{available}，一组已具备项的0起始索引）。
 required各项必须出现在basis.quote中，两条记录只给所列项目的不同子集；程序仅比较是否齐备，生成“原文列明条件齐备／仍缺原文列明条件”配对。
-required每个原文短语最多32字；最终记录48字、题干140字的上限不变，不能改写原文或截断限定来压短。
+required每个原文短语最多32字；最终记录48字、题干140字的上限不变，不能改写原文或截断限定来压短。预算反馈回指available索引，优先调整两记录所给项目的子集，不必删除完整required清单。
 不允许添加别的条件或自由结果；全部所列条件齐备不代表过程一定发生、正常进行或成功。独审还须核对required是否完整保留原文项目及其限定。
 3.positive_source_categories：仅表达原文明示的非负整数eq（等于）/gte（大于等于）分类，不支持任意谓词。
-返回basis、quantity（原文中的计数量）、shared_conditions（同ref逐字支持、逐记录保留的全部共同前提）、
+返回basis、quantity（原文中的中性计数量，不含固定计数；审校修改建议不是原文）、shared_conditions（同ref逐字支持、逐记录保留的全部共同前提）、
 rules（恰好两条{condition_quote,category,operator,threshold}）与records（按序的两条{value}）。
 condition_quote和category都必须逐字来自basis.quote；threshold必须对应短引中的原文数字；gte只有原文明示“以上/至少”等包含相等的范围才可用。
 “大于/超过”不是gte；离散eq不能推范围。两rule不得重叠，每条记录必须唯一命中一个rule且两记录命中不同rule。
@@ -110,7 +110,7 @@ condition_quote和category都必须逐字来自basis.quote；threshold必须对�
 三个mode均由程序生成公共题干、四项与答案，r1/r2固定；若作者仍给出id必须与顺序一致。required题面会显示basis.input_role中的过程/对象主题。
 不得为凑2项将同一条件改名重复或把上位概念与其子类型当作两个独立必需项；所有必需项及其限定都须有原文支持。
 原有records/outcomes/mapping不得作为自由覆盖输入。
-程序附带的derivation是只读派生记录，若随preserve_accepted_items返回必须完全一致，不能靠伪造派生记录或source_supported标记获得批准。
+程序附带的derivation及公共题面是只读派生记录，程序忽略作者回声并从verified plan重算；不能靠伪造派生记录或source_supported标记获得批准。preserve_accepted_items中的canonical plan及程序重算结果必须完全一致。
 独立审核须同时核对正向计划、原文与真实题面，逐条指出所给记录如何满足来源前提、结果属于哪个对象；
 所有事实、唯一答案、同轴可信干扰、条件实际参与以及非泄漏门禁仍保留。修复建议也必须给出在当前来源内可行的正向设计，
 不得建议用“是否P”去推未支持的非Q，也不得先建议复述条件作符合性分类、下一轮再否决为纯匹配。不能提供有据修改方向时应明确证据不足，不能虚构反面。"""
@@ -350,7 +350,7 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v14+precise-literal-feedback-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v15+actionable-render-feedback-v1+chapter-approvals-v1+balanced-options-v1"
 DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v2"
 
 
@@ -1035,8 +1035,6 @@ class DiagnosticItemGenerator:
         plan.basis.quote = quotation
         task = DiagnosticItemGenerator._derive_application(plan)
         derivation = task.model_dump(mode="json")
-        if isinstance(raw, dict) and "derivation" in raw and raw["derivation"] != derivation:
-            raise DiagnosticGenerationError("application derivation is read-only and must match the verified plan")
         rendered = DiagnosticItemGenerator._render_application_task(entry, task,
             subject=plan.basis.input_role if isinstance(plan, _RequiredConditionsPlan) else "")
         canonical = plan.model_dump(mode="json")
@@ -1065,13 +1063,16 @@ class DiagnosticItemGenerator:
                     errors.append({"pointer": pointer, "value": value, "reasons": reasons})
             return errors
 
-        def reject_literals(message: str, errors: list[dict[str, object]]) -> None:
+        def reject_literals(message: str, errors: list[dict[str, object]],
+                            **suggestions: object) -> None:
             raise DiagnosticGenerationError(message, feedback={
                 "stage": "application_literal_validation", "source_ref": plan.basis.source_ref,
                 "basis_quote": plan.basis.quote, "fields": errors,
                 "repair": "Repair every named field using continuous phrases from this exact basis_quote; "
                     "do not paraphrase, omit intervening words, or change valid sibling fields. "
-                    "Literal membership is not semantic approval; all original reviews still apply.",
+                    "Literal membership is not semantic approval; all original reviews still apply. "
+                    "Reviewer editing advice is not source text; quantities must not preselect a fixed count.",
+                **suggestions,
             })
 
         if isinstance(plan, _ForwardInstancesPlan):
@@ -1119,7 +1120,9 @@ class DiagnosticItemGenerator:
                 errors.append({"pointer": "/application_task/rules/1/category",
                     "value": plan.rules[1].category, "reasons": ["duplicate result category"]})
             if errors:
-                reject_literals("numeric categories and every shared condition require exact same-source phrases", errors)
+                candidates = DiagnosticItemGenerator._quantity_candidates(plan)
+                reject_literals("numeric categories and every shared condition require exact same-source phrases", errors,
+                                literal_quantity_candidates=candidates)
             for rule in plan.rules:
                 text = re.sub(r"\s+", "", rule.condition_quote)
                 inclusive = bool(re.search(r"以上|至少|不少于|不低于|≥|>=", text))
@@ -1170,8 +1173,63 @@ class DiagnosticItemGenerator:
             decision = "原文列明条件的齐备情况"
             outcomes = ["原文列明条件齐备", "仍缺原文列明条件"]
             mapping = ["a" if len(row.available) == len(terms) else "b" for row in plan.records]
+        subject = plan.basis.input_role if isinstance(plan, _RequiredConditionsPlan) else ""
+        prompt = DiagnosticItemGenerator._application_prompt(records, decision, subject)
+        if any(len(row["conditions"]) > 48 for row in records) or len(prompt) > 140:
+            details: dict[str, object] = {
+                "stage": "application_render_budget", "source_ref": plan.basis.source_ref,
+                "basis_quote": plan.basis.quote,
+                "records": [{"pointer": f"/application_task/records/{index}/available"
+                    if isinstance(plan, _RequiredConditionsPlan) else "/application_task/record_template"
+                    if isinstance(plan, _RoleTransferPlan) else f"/application_task/records/{index}",
+                    "available": plan.records[index].available if isinstance(plan, _RequiredConditionsPlan) else None,
+                    "record_template": plan.record_template if isinstance(plan, _RoleTransferPlan) else None,
+                    "binding_pointer": f"/application_task/bindings/{index}" if isinstance(plan, _RoleTransferPlan) else None,
+                    "binding": plan.bindings[index].model_dump(mode="json") if isinstance(plan, _RoleTransferPlan) else None,
+                    "rendered_text": row["conditions"], "characters": len(row["conditions"]), "limit": 48}
+                    for index, row in enumerate(records)],
+                "prompt": {"rendered_text": prompt, "characters": len(prompt), "limit": 140},
+                "repair": "Adjust raw records' available subsets or choose shorter complete literal required phrases; "
+                    "keep every necessary source qualification in required. Do not edit derived text or truncate sources.",
+            }
+            if isinstance(plan, _RequiredConditionsPlan):
+                details["required"] = [{"pointer": f"/application_task/required/{index}", "value": term,
+                    "characters": len(term)} for index, term in enumerate(plan.required)]
+            if isinstance(plan, _PositiveSourceCategoriesPlan):
+                details["render_inputs"] = [{"pointer": "/application_task/quantity", "value": plan.quantity}, *(
+                    {"pointer": f"/application_task/shared_conditions/{index}", "value": value}
+                    for index, value in enumerate(plan.shared_conditions))]
+            raise DiagnosticGenerationError("application rendered records/prompt exceed mobile budgets", feedback=details)
         return _ApplicationTask.model_validate({"source_refs": [plan.basis.source_ref],
             "records": records, "decision": decision, "outcomes": outcomes, "mapping": mapping})
+
+    @staticmethod
+    def _quantity_candidates(plan: _PositiveSourceCategoriesPlan) -> list[str]:
+        """Suggest a shared literal suffix, never approve its meaning or mutate a plan."""
+        quotation = re.sub(r"\s+", "", plan.basis.quote)
+        stems = []
+        for rule in plan.rules:
+            text, category = re.sub(r"\s+", "", rule.condition_quote), re.sub(r"\s+", "", rule.category)
+            if not category or text not in quotation or not text.endswith(category):
+                return []
+            stem = re.sub(r"(?:的)?(?:叫做|称为|称作)$", "", text[:-len(category)])
+            stems.append(stem)
+        suffix = ""
+        for first, second in zip(reversed(stems[0]), reversed(stems[1]), strict=False):
+            if first != second:
+                break
+            suffix = first + suffix
+        if (not 1 <= len(suffix) <= 16 or suffix not in quotation
+                or DiagnosticItemGenerator._source_numbers(suffix)
+                or suffix in {rule.category for rule in plan.rules}):
+            return []
+        return [suffix]
+
+    @staticmethod
+    def _application_prompt(records: list[dict[str, str]], decision: str, subject: str = "") -> str:
+        return ((f"关于{subject}，" if subject else "") +
+                f"记录甲：{records[0]['conditions']}；记录乙：{records[1]['conditions']}。"
+                f"依据原文，两条记录的{decision}如何对应？")
 
     @staticmethod
     def _source_numbers(text: str) -> set[int]:
@@ -1202,16 +1260,12 @@ class DiagnosticItemGenerator:
 
     @staticmethod
     def _render_application_task(entry: dict[str, object], task: _ApplicationTask, *, subject: str = "") -> dict[str, object]:
-        prompt = ((f"关于{subject}，" if subject else "") +
-                  f"记录甲：{task.records[0].conditions}；记录乙：{task.records[1].conditions}。"
-                  f"依据原文，两条记录的{task.decision}如何对应？")
+        prompt = DiagnosticItemGenerator._application_prompt(
+            [{"conditions": row.conditions} for row in task.records], task.decision, subject)
         options = [f"甲：{first}；乙：{second}" for first in task.outcomes for second in task.outcomes]
         correct_index = (0 if task.mapping[0] == "a" else 2) + (0 if task.mapping[1] == "a" else 1)
         rendered: dict[str, object] = {"prompt": prompt, "options": options,
             "correct_index": correct_index, "expected_answer": options[correct_index], "rubric": []}
-        if any(key in entry and entry[key] != value for key, value in rendered.items()):
-            raise DiagnosticGenerationError(
-                "application prompt/options/answer must match the task renderer; do not bypass its records")
         return {**entry, **rendered}
 
     @staticmethod
