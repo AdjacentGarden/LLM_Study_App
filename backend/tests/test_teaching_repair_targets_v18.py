@@ -320,7 +320,8 @@ def test_actual_v17_routing_keeps_rna_approved_and_recorded_unchanged_guard_inta
         rejected_points = {point.point_id: point for point in points if point.point_id in fields}
         assert returned_rna.point_id not in rejected_points
     assert actual == original
-    assert teacher.model_dump() == actual["teacher"]
+    assert teacher.model_dump() == {**actual["teacher"], "lesson": {
+        **actual["teacher"]["lesson"], "required_question_edits": []}}
     assert fact.model_dump() == actual["fact_review"]
     # An actual unlocated veto still restores all pending points, including
     # RNA: the router must not suppress a real global rejection to avoid a guard.

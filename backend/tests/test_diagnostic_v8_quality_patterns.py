@@ -98,7 +98,7 @@ def test_observed_defects_keep_independent_veto_feedback_and_never_enter_approva
                                         for row in observed_case['evidence']]
             if len(reviews) == 2:
                 assert [row['knowledge_point_id'] for row in payload['items']] == [target]
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+            return {'reviews': [{"required_edits": None if (row['knowledge_point_id'] != target) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': row['knowledge_point_id'] != target,
                 'issues': [observed_case['human_issue']] if row['knowledge_point_id'] == target else []}
                 for row in payload['items']]}
@@ -125,7 +125,7 @@ def test_new_protocol_does_not_reuse_an_old_approval_of_the_observed_defect(obse
         def structured(self, *, user, **kwargs):
             calls.append('reviewer')
             payload = json.loads(user)
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+            return {'reviews': [{"required_edits": None if (not self.reject or row['knowledge_point_id'] != target) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': not self.reject or row['knowledge_point_id'] != target,
                 'issues': [observed_case['human_issue']] if self.reject and row['knowledge_point_id'] == target else []}
                 for row in payload['items']]}
@@ -180,7 +180,7 @@ def test_low_burden_condition_mapping_with_absolute_wording_is_not_a_keyword_vet
             actual = next(row for row in request['items'] if row['knowledge_point_id'] == point)
             assert set(actual['options']) == set(case['candidate']['options'])
             assert actual['options'][actual['correct_index']] == '只适用于样本一'
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+            return {'reviews': [{"required_edits": None if (independent_accepts) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': independent_accepts, 'issues': [] if independent_accepts else ['Controlled semantic veto']}
                 for row in request['items']]}
     subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),

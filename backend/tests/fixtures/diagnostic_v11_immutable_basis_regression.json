@@ -1,0 +1,873 @@
+{
+  "provenance": "Actual failed G v11 application wire and exact application sources only; the first two points per case are explicit controlled offline inputs. No full bank, identities, or secrets. Scripted reviewers never certify semantics.",
+  "private_capture_sha256": "1587c95736a9684bd506309b0de09fa66ed84b9d4fb66426e16e7450a791f521",
+  "cases": [
+    {
+      "source": {
+        "chapter_id": "chapter_5f29761fe19bff97",
+        "chapter_title": "第2章 基因和染色体的关系",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_1f8922886aa0bee7",
+            "label": "受控离线基础前提1",
+            "evidence": [
+              {
+                "page_number": 12,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_3ceb6704880699d0",
+            "label": "受控离线基础前提2",
+            "evidence": [
+              {
+                "page_number": 12,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+            "label": "减数第二次分裂过程中染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开成为两条染色体。",
+            "evidence": [
+              {
+                "page_number": 12,
+                "quote": "染色体不再复制。每条染色体的着丝点分裂，\n姐妹染色单体分开，分别移向细胞的两极。",
+                "anchor_quote": "染色体不再复制。每条染色体的着丝点分裂，"
+              },
+              {
+                "page_number": 13,
+                "quote": "减数第一次分裂与减数第二次分裂之间通常没有间期\n或者间期时间很短，染色体不再复制。在减数第二次分裂\n过程中，每条染色体的着丝点分裂，两条姐妹染色单体也\n随之分开，成为两条染色体。在纺锤丝的牵引下，这两条\n染色体分别向细胞的两极移动，并且随着细胞的分裂进人",
+                "anchor_quote": "随之分开，成为两条染色体。在纺锤丝的牵引下，这两条"
+              }
+            ]
+          }
+        ]
+      },
+      "application_point_id": "kp_7f9a4a1e1a61f2a4",
+      "attempts": [
+        {
+          "attempt": 1,
+          "application_item": {
+            "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+            "type": "choice",
+            "application_task": {
+              "mode": "forward_instances",
+              "basis": {
+                "source_ref": "src_2ef6cdc82ca2542d28a2",
+                "quote": "染色体不再复制。每条染色体的着丝点分裂，\n姐妹染色单体分开，分别移向细胞的两极。",
+                "input_role": "减数第二次分裂中着丝点分裂的染色体",
+                "output_role": "姐妹染色单体分开后分别移向细胞两极"
+              },
+              "input_condition": "着丝点分裂",
+              "positive_result": "姐妹染色单体分开，分别移向细胞的两极",
+              "alternative_result": "姐妹染色单体不分开，共同移向细胞的一极",
+              "instances": [
+                "细胞甲",
+                "细胞乙"
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        },
+        {
+          "attempt": 2,
+          "application_item": {
+            "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+            "type": "choice",
+            "application_task": {
+              "mode": "forward_instances",
+              "basis": {
+                "source_ref": "src_2ef6cdc82ca2542d28a2",
+                "quote": "染色体不再复制。每条染色体的着丝点分裂，\n姐妹染色单体分开，分别移向细胞的两极。",
+                "input_role": "减数第二次分裂中着丝点分裂的染色体",
+                "output_role": "姐妹染色单体分开后分别移向细胞两极"
+              },
+              "input_condition": "着丝点分裂",
+              "positive_result": "姐妹染色单体分开，分别移向细胞的两极",
+              "alternative_result": "姐妹染色单体不分开，共同移向细胞的一极",
+              "instances": [
+                "细胞甲",
+                "细胞乙"
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        },
+        {
+          "attempt": 3,
+          "application_item": {
+            "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_2ef6cdc82ca2542d28a2",
+                "quote": "染色体不再复制。每条染色体的着丝点分裂，\n姐妹染色单体分开，分别移向细胞的两极。",
+                "input_role": "着丝点分裂的染色体",
+                "output_role": "分开后移向细胞两极的姐妹染色单体"
+              },
+              "record_template": "在减数第二次分裂中，{input}的着丝点分裂，{output}随之分开并分别移向细胞的两极",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_4d06459dc04a5d5d",
+        "chapter_title": "第3章 基因的本质",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_4931d2366468d43b",
+            "label": "受控离线基础前提1",
+            "evidence": [
+              {
+                "page_number": 49,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_cf956b539160f089",
+            "label": "受控离线基础前提2",
+            "evidence": [
+              {
+                "page_number": 49,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_f2009b064bb73251",
+            "label": "DNA复制是一个边解旋边复制的过程，需要模板、原料、能量和酶等基本条件。",
+            "evidence": [
+              {
+                "page_number": 49,
+                "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。",
+                "anchor_quote": "DNA分子的复制是一个边解旋边复制的过程，复制需"
+              }
+            ]
+          }
+        ]
+      },
+      "application_point_id": "kp_f2009b064bb73251",
+      "attempts": [
+        {
+          "attempt": 1,
+          "application_item": {
+            "knowledge_point_id": "kp_f2009b064bb73251",
+            "type": "choice",
+            "application_task": {
+              "mode": "required_conditions",
+              "basis": {
+                "source_ref": "src_8b32b2b4bd4b927a1137",
+                "quote": "DNA分子的复制是一个边解旋边复制的过程，复制需\n要模板，原料，能量和酶等基本条件。",
+                "input_role": "进行DNA复制时已具备的基本条件",
+                "output_role": "判断所列基本条件是否齐备"
+              },
+              "required": [
+                "模板",
+                "原料",
+                "能量",
+                "酶"
+              ],
+              "records": [
+                {
+                  "id": "r1",
+                  "available": [
+                    0,
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "id": "r2",
+                  "available": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            },
+            "difficulty": 0,
+            "estimated_seconds": 60
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_d58164c4b1599fca",
+        "chapter_title": "第5章 基因突变及其他变异",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_5ab80ae4955a192a",
+            "label": "受控离线基础前提1",
+            "evidence": [
+              {
+                "page_number": 78,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_0bfa637a8965af2a",
+            "label": "受控离线基础前提2",
+            "evidence": [
+              {
+                "page_number": 78,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_2e322d78ac15ba0d",
+            "label": "减数分裂形成配子时，非同源染色体上的非等位基因自由组合，导致基因重组。",
+            "evidence": [
+              {
+                "page_number": 78,
+                "quote": "基因重组（generecombination）是指在生物体进行有\n性生殖的过程中，控制不同性状的基因的重新组合。基因\n的自由组合定律告诉我们，在生物体通过减数分裂形成配\n子时，随着非同源染色体的自由组合，非等位基因也自由\n组合，这样，由雌雄配子结合形成的受精卵，就可能具有\n与亲代不同的基因型，从而使子代产生变异（图5−4)。",
+                "anchor_quote": "性生殖的过程中，控制不同性状的基因的重新组合。基因"
+              }
+            ]
+          }
+        ]
+      },
+      "application_point_id": "kp_2e322d78ac15ba0d",
+      "attempts": [
+        {
+          "attempt": 1,
+          "application_item": {
+            "knowledge_point_id": "kp_2e322d78ac15ba0d",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_36326fcaed345ef85d69",
+                "quote": "在生物体通过减数分裂形成配子时，随着非同源染色体的自由组合，非等位基因也自由组合",
+                "input_role": "减数分裂形成配子时自由组合的非同源染色体",
+                "output_role": "随之自由组合的非等位基因"
+              },
+              "record_template": "{input}自由组合时，{output}也自由组合",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        },
+        {
+          "attempt": 2,
+          "application_item": {
+            "knowledge_point_id": "kp_2e322d78ac15ba0d",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_36326fcaed345ef85d69",
+                "quote": "在生物体通过减数分裂形成配子时，随着非同源染色体的自由组合，非等位基因也自由组合",
+                "input_role": "减数分裂形成配子时自由组合的非同源染色体",
+                "output_role": "随之自由组合的非等位基因"
+              },
+              "record_template": "{input}自由组合时，{output}也自由组合",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        },
+        {
+          "attempt": 3,
+          "application_item": {
+            "knowledge_point_id": "kp_2e322d78ac15ba0d",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_36326fcaed345ef85d69",
+                "quote": "在生物体通过减数分裂形成配子时，随着非同源染色体的自由组合，非等位基因也自由组合",
+                "input_role": "减数分裂形成配子时自由组合的非同源染色体",
+                "output_role": "随之自由组合的非等位基因"
+              },
+              "record_template": "{input}自由组合时，{output}也自由组合",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_c9c510c2d238fec7",
+        "chapter_title": "第4章 基因的表达",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_fc01c104386ea1d6",
+            "label": "受控离线基础前提1",
+            "evidence": [
+              {
+                "page_number": 64,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_426f1ac7f849847e",
+            "label": "受控离线基础前提2",
+            "evidence": [
+              {
+                "page_number": 64,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_f31a91f60999a100",
+            "label": "基因通过控制酶的合成来控制代谢过程，进而控制生物体的性状。",
+            "evidence": [
+              {
+                "page_number": 64,
+                "quote": "从上述实例可以看出，基因通过控制酶的合成来控制\n代谢过程，进而控制生物体的性状。又如，人的白化症状\n是由于控制酪氨酸酶的基因异常而引起的。酪氨酸酶存在\n于正常人的皮肤、毛发等处，它能将酪氨酸转变为黑色素；\n如果一个人由于基因不正常而缺少酪氨酸酶，那么这个人\n就不能合成黑色素，而表现出白化症状（图4-8)。",
+                "anchor_quote": "是由于控制酪氨酸酶的基因异常而引起的。酪氨酸酶存在"
+              },
+              {
+                "page_number": 64,
+                "quote": "但是皱豌豆的蔗糖含量高，\n味道更甜美。\n从上述实例可以看出，基因通过控制酶的合成来控制\n代谢过程，进而控制生物体的性状。又如，人的白化症状\n是由于控制酪氨酸酶的基因异常而引起的。",
+                "anchor_quote": "代谢过程，进而控制生物体的性状。又如，人的白化症状"
+              }
+            ]
+          }
+        ]
+      },
+      "application_point_id": "kp_f31a91f60999a100",
+      "attempts": [
+        {
+          "attempt": 1,
+          "application_item": {
+            "knowledge_point_id": "kp_f31a91f60999a100",
+            "type": "choice",
+            "application_task": {
+              "mode": "forward_instances",
+              "basis": {
+                "source_ref": "src_bc175d8a4e5a99efe010",
+                "quote": "如果一个人由于基因不正常而缺少酪氨酸酶，那么这个人就不能合成黑色素，而表现出白化症状",
+                "input_role": "控制酪氨酸酶的基因不正常而缺少酪氨酸酶",
+                "output_role": "不能合成黑色素而表现出白化症状"
+              },
+              "input_condition": "缺少酪氨酸酶",
+              "positive_result": "不能合成黑色素",
+              "alternative_result": "能正常合成黑色素",
+              "instances": [
+                "甲",
+                "乙"
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        },
+        {
+          "attempt": 2,
+          "application_item": {
+            "knowledge_point_id": "kp_f31a91f60999a100",
+            "type": "choice",
+            "application_task": {
+              "mode": "forward_instances",
+              "basis": {
+                "source_ref": "src_bc175d8a4e5a99efe010",
+                "quote": "如果一个人由于基因不正常而缺少酪氨酸酶，那么这个人就不能合成黑色素，而表现出白化症状",
+                "input_role": "控制酪氨酸酶的基因不正常而缺少酪氨酸酶",
+                "output_role": "不能合成黑色素而表现出白化症状"
+              },
+              "input_condition": "缺少酪氨酸酶",
+              "positive_result": "不能合成黑色素",
+              "alternative_result": "能正常合成黑色素",
+              "instances": [
+                "甲",
+                "乙"
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        },
+        {
+          "attempt": 3,
+          "application_item": {
+            "knowledge_point_id": "kp_f31a91f60999a100",
+            "type": "choice",
+            "application_task": {
+              "mode": "forward_instances",
+              "basis": {
+                "source_ref": "src_bc175d8a4e5a99efe010",
+                "quote": "如果一个人由于基因不正常而缺少酪氨酸酶，那么这个人就不能合成黑色素，而表现出白化症状",
+                "input_role": "控制酪氨酸酶的基因不正常而缺少酪氨酸酶",
+                "output_role": "不能合成黑色素而表现出白化症状"
+              },
+              "input_condition": "缺少酪氨酸酶",
+              "positive_result": "不能合成黑色素",
+              "alternative_result": "能正常合成黑色素",
+              "instances": [
+                "甲",
+                "乙"
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_7f991ceb7fc96c21",
+        "chapter_title": "第6章 从杂交育种到基因工程",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_41761d3eb2fce38f",
+            "label": "受控离线基础前提1",
+            "evidence": [
+              {
+                "page_number": 97,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_80c38d744ec1b624",
+            "label": "受控离线基础前提2",
+            "evidence": [
+              {
+                "page_number": 97,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+            "label": "基因工程又叫做基因拼接技术或DNA重组技术，是按照人们的意愿把一种生物的某种基因提取出来，加以修饰改造，然后放到另一种生物的细胞里，定向地改造生物的遗传性状。",
+            "evidence": [
+              {
+                "page_number": 97,
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。基因工程是在DNA上\n进行的分子水平的设计施工，需要有专门的工具。",
+                "anchor_quote": "里，定向地改造生物的遗传性状。基因工程是在DNA上"
+              },
+              {
+                "page_number": 97,
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通\n俗地说，就是按照人们的意愿，把一种生物的某种基因\n提取出来，加以修饰改造，然后放到另一种生物的细胞\n里，定向地改造生物的遗传性状。",
+                "anchor_quote": "基因工程又叫做基因拼接技术或DNA重组技术。通"
+              }
+            ]
+          }
+        ]
+      },
+      "application_point_id": "kp_b7d89c2ee8f9487b",
+      "attempts": [
+        {
+          "attempt": 1,
+          "application_item": {
+            "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_9370bd9861dcc57a6b04",
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通俗地说，就是按照人们的意愿，把一种生物的某种基因提取出来，加以修饰改造，然后放到另一种生物的细胞里，定向地改造生物的遗传性状。",
+                "input_role": "提供某种基因的生物",
+                "output_role": "接受该基因并改造遗传性状的生物"
+              },
+              "record_template": "把{input}的某种基因提取出来，加以修饰改造，然后放到{output}的细胞里",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        },
+        {
+          "attempt": 2,
+          "application_item": {
+            "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_9370bd9861dcc57a6b04",
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通俗地说，就是按照人们的意愿，把一种生物的某种基因提取出来，加以修饰改造，然后放到另一种生物的细胞里，定向地改造生物的遗传性状。",
+                "input_role": "提供某种基因的生物",
+                "output_role": "接受该基因并改造遗传性状的生物"
+              },
+              "record_template": "把{input}的某种基因提取出来，加以修饰改造，然后放到{output}的细胞里",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        },
+        {
+          "attempt": 3,
+          "application_item": {
+            "knowledge_point_id": "kp_b7d89c2ee8f9487b",
+            "type": "choice",
+            "application_task": {
+              "mode": "role_transfer",
+              "basis": {
+                "source_ref": "src_9370bd9861dcc57a6b04",
+                "quote": "基因工程又叫做基因拼接技术或DNA重组技术。通俗地说，就是按照人们的意愿，把一种生物的某种基因提取出来，加以修饰改造，然后放到另一种生物的细胞里，定向地改造生物的遗传性状。",
+                "input_role": "提供某种基因的生物",
+                "output_role": "接受该基因并改造遗传性状的生物"
+              },
+              "record_template": "把{input}的某种基因提取出来，加以修饰改造，然后放到{output}的细胞里",
+              "bindings": [
+                {
+                  "id": "r1",
+                  "input": "a",
+                  "output": "b"
+                },
+                {
+                  "id": "r2",
+                  "input": "b",
+                  "output": "a"
+                }
+              ],
+              "result_role": "output"
+            },
+            "difficulty": 1,
+            "estimated_seconds": 60
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_445b90708e561e06",
+        "chapter_title": "第7章 现代生物进化理论",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_17d6a73589c38570",
+            "label": "受控离线基础前提1",
+            "evidence": [
+              {
+                "page_number": 114,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_814aa5197b485b15",
+            "label": "受控离线基础前提2",
+            "evidence": [
+              {
+                "page_number": 114,
+                "quote": "这是明确标记的离线回归前提，不作为教材事实或教学质量证据。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_a37af4fb6a65129a",
+            "label": "隔离是物种形成的必要条件，不同种群间在自然条件下基因不能自由交流的现象叫做隔离。",
+            "evidence": [
+              {
+                "page_number": 114,
+                "quote": "隔离在物种形成中的作用\n不同种群间的个体，在自然条件下基因不能自由交流\n的现象叫做隔离（isolation）。上面所说的地理隔离和生殖\n隔离，都是常见的隔离类型。下图是一个假想的情境，可\n以帮助你想像和思考。",
+                "anchor_quote": "隔离，都是常见的隔离类型。下图是一个假想的情境，可"
+              },
+              {
+                "page_number": 116,
+                "quote": "久而久\n之，这些种群的基因库就会形成明显的差异，并逐步出现\n生殖隔离。生殖隔离一旦形成，原来属于一个物种的地\n雀，就成了不同的物种。由此可见，隔离是物种形成的必",
+                "anchor_quote": "雀，就成了不同的物种。由此可见，隔离是物种形成的必"
+              }
+            ]
+          }
+        ]
+      },
+      "application_point_id": "kp_a37af4fb6a65129a",
+      "attempts": [
+        {
+          "attempt": 1,
+          "application_item": {
+            "knowledge_point_id": "kp_a37af4fb6a65129a",
+            "type": "choice",
+            "application_task": {
+              "mode": "required_conditions",
+              "basis": {
+                "source_ref": "src_485b8e55ace264ef3017",
+                "quote": "生殖隔离一旦形成，原来属于一个物种的地雀，就成了不同的物种。由此可见，隔离是物种形成的必",
+                "input_role": "物种形成所需的隔离条件",
+                "output_role": "物种形成是否具备必要条件"
+              },
+              "required": [
+                "隔离"
+              ],
+              "records": [
+                {
+                  "available": [
+                    0
+                  ]
+                },
+                {
+                  "available": []
+                }
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        },
+        {
+          "attempt": 2,
+          "application_item": {
+            "knowledge_point_id": "kp_a37af4fb6a65129a",
+            "type": "choice",
+            "application_task": {
+              "mode": "required_conditions",
+              "basis": {
+                "source_ref": "src_485b8e55ace264ef3017",
+                "quote": "生殖隔离一旦形成，原来属于一个物种的地雀，就成了不同的物种。由此可见，隔离是物种形成的必",
+                "input_role": "物种形成所需的隔离条件",
+                "output_role": "物种形成是否具备必要条件"
+              },
+              "required": [
+                "生殖隔离",
+                "隔离"
+              ],
+              "records": [
+                {
+                  "id": "r1",
+                  "available": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "id": "r2",
+                  "available": [
+                    1
+                  ]
+                }
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        },
+        {
+          "attempt": 3,
+          "application_item": {
+            "knowledge_point_id": "kp_a37af4fb6a65129a",
+            "type": "choice",
+            "application_task": {
+              "mode": "required_conditions",
+              "basis": {
+                "source_ref": "src_485b8e55ace264ef3017",
+                "quote": "生殖隔离一旦形成，原来属于一个物种的地雀，就成了不同的物种。由此可见，隔离是物种形成的必",
+                "input_role": "物种形成所需的隔离条件",
+                "output_role": "物种形成是否具备必要条件"
+              },
+              "required": [
+                "生殖隔离",
+                "隔离"
+              ],
+              "records": [
+                {
+                  "id": "r1",
+                  "available": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "id": "r2",
+                  "available": [
+                    1
+                  ]
+                }
+              ]
+            },
+            "difficulty": 1,
+            "estimated_seconds": 50
+          }
+        }
+      ]
+    }
+  ],
+  "selection_regression": {
+    "note": "Exact G7 source excerpts; pattern scores prioritize candidates only and cannot certify semantic applicability.",
+    "source": {
+      "chapter_id": "chapter_445b90708e561e06",
+      "chapter_title": "第7章 现代生物进化理论",
+      "knowledge_points": [
+        {
+          "knowledge_point_id": "kp_dcd5fd6931d6b2a0",
+          "label": "拉马克认为生物是由更古老的生物进化来的，各种适应性特征的形成是由于用进废退和获得性遗传。",
+          "evidence": [
+            {
+              "page_number": 105,
+              "quote": "他通过对植物和\n动物的大量观察，提出地球上的所有生物都不是神造的，\n而是由更古老的生物进化来的；生物是由低等到高等逐\n渐进化的：生物各种适应性特征的形成都是由于用进废\n退和获得性遗传。器官用得越多就越发达，比如食\n蚁兽的舌头之所以细长，是由于长期舔食蚂蚁的结\n果（图7-1）。器官废而不用，就会造成形态上的退\n化，比如假鼠长期生活在地下，眼情就萎缩、退化。",
+              "anchor_quote": "果（图7-1）。器官废而不用，就会造成形态上的退"
+            },
+            {
+              "page_number": 105,
+              "quote": "学家拉马克(J.B.Lamark,1744—1829)。他通过对植物和\n动物的大量观察，提出地球上的所有生物都不是神造的，\n而是由更古老的生物进化来的；生物是由低等到高等逐\n渐进化的：生物各种适应性特征的形成都是由于用进废\n退和获得性遗传。器官用得越多就越发达，比如食\n蚁兽的舌头之所以细长，是由于长期舔食蚂蚁的结\n果（图7-1）。",
+              "anchor_quote": "退和获得性遗传。器官用得越多就越发达，比如食"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_38b4a51f61a55fd6",
+          "label": "达尔文创立的进化论论证了生物是不断进化的，并对生物进化的原因提出了合理解释，使生物学第一次摆脱神学束缚。",
+          "evidence": [
+            {
+              "page_number": 106,
+              "quote": "达尔文创立的进化论从丰富的事实出发，论证了生物\n是不断进化的，并且对生物进化的原因提出了合理的解释。\n它使人们认识到，原来自然界的万千生物不是神灵预先设\n计好而永恒不变的，而是在客观规律的支配下不断发展变\n化的。这就使生物学第一次摆脱了神学的束缚，走上了科\n学的轨道。",
+              "anchor_quote": "化的。这就使生物学第一次摆脱了神学的束缚，走上了科"
+            },
+            {
+              "page_number": 106,
+              "quote": "达尔文创立的进化论从丰富的事实出发，论证了生物\n是不断进化的，并且对生物进化的原因提出了合理的解释。\n它使人们认识到，原来自然界的万千生物不是神灵预先设\n计好而永恒不变的，而是在客观规律的支配下不断发展变\n化的。",
+              "anchor_quote": "它使人们认识到，原来自然界的万千生物不是神灵预先设"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_ca13f51350d59a20",
+          "label": "现代生物进化理论以自然选择学说为核心，认为种群是生物进化的基本单位。",
+          "evidence": [
+            {
+              "page_number": 108,
+              "quote": "获得性遗传的观点，已经被大多数学者所摈弃。关\n于自然选择的作用等问题的研究，已经从以生物个体为单\n位，发展到以种群为基本单位。这样就形成了以自然选择\n学说为核心的现代生物进化理论，从而极大地丰富和发展\n了达尔文的自然选择学说。",
+              "anchor_quote": "位，发展到以种群为基本单位。这样就形成了以自然选择"
+            },
+            {
+              "page_number": 109,
+              "quote": "种群是生物进化的基本单位\n生活在一定区域的同种生物的全部个体叫做种群\n(population)。例如，一片树林中的全部猕猴是一个种群\n（图7-5)，一片草地的所有蒲公英也是一个种群。种群中\n的个体并不是机械地集合在一起，而是彼此可以交配，并\n通过繁殖将各自的基因传给后代。",
+              "anchor_quote": "（图7-5)，一片草地的所有蒲公英也是一个种群。种群中"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_a37af4fb6a65129a",
+          "label": "隔离是物种形成的必要条件，不同种群间在自然条件下基因不能自由交流的现象叫做隔离。",
+          "evidence": [
+            {
+              "page_number": 114,
+              "quote": "隔离在物种形成中的作用\n不同种群间的个体，在自然条件下基因不能自由交流\n的现象叫做隔离（isolation）。上面所说的地理隔离和生殖\n隔离，都是常见的隔离类型。下图是一个假想的情境，可\n以帮助你想像和思考。",
+              "anchor_quote": "隔离，都是常见的隔离类型。下图是一个假想的情境，可"
+            },
+            {
+              "page_number": 116,
+              "quote": "久而久\n之，这些种群的基因库就会形成明显的差异，并逐步出现\n生殖隔离。生殖隔离一旦形成，原来属于一个物种的地\n雀，就成了不同的物种。由此可见，隔离是物种形成的必",
+              "anchor_quote": "雀，就成了不同的物种。由此可见，隔离是物种形成的必"
+            }
+          ]
+        },
+        {
+          "knowledge_point_id": "kp_5fb7076bfe0ef75b",
+          "label": "能够在自然状态下相互交配并且产生可育后代的一群生物称为一个物种。",
+          "evidence": [
+            {
+              "page_number": 114,
+              "quote": "互交配并且产生可育后代的一群生物称为一个物种\n(species)，简称“种”。",
+              "anchor_quote": "互交配并且产生可育后代的一群生物称为一个物种"
+            }
+          ]
+        }
+      ]
+    },
+    "previous_application_point_id": "kp_a37af4fb6a65129a",
+    "candidate_application_point_id": "kp_ca13f51350d59a20"
+  }
+}

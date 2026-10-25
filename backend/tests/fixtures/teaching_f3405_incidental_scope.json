@@ -1,0 +1,760 @@
+{
+  "note": "One real failed F3405 factual request/response; retain only its referenced sources. The recorded positive response missed an incidental assertion and is not a quality approval. No credentials or complete course/bank.",
+  "capture_sha256": "1881a1c4264f80b07df148d6d695cb6fac65580109375330ffac3fa3019fc306",
+  "point_id": "kp_158bb6a882883c68",
+  "condition_source_id": "src_p25_499_823_32ce4892c57c",
+  "request": {
+    "chapter_title": "第2章 基因和染色体的关系",
+    "knowledge_points": [
+      {
+        "point_id": "kp_158bb6a882883c68",
+        "label": "萨顿发现基因和染色体行为存在平行关系，通过类比推理提出基因位于染色体上的假说。",
+        "scope_conditions": [
+          {
+            "boundary_type": "direction",
+            "condition": "萨顿的推理属于类比推理，结论不具有逻辑必然性，正确与否还需观察和实验检验",
+            "source_ids": [
+              "src_p23_0_500_77d1518f7a2b",
+              "src_p25_499_823_32ce4892c57c"
+            ]
+          }
+        ],
+        "scope_context_source_ids": [
+          "src_p23_0_500_77d1518f7a2b",
+          "src_p22_0_495_54bc8f6df3c4",
+          "src_p27_0_463_2d629c46a43d",
+          "src_p22_495_676_89d3d17d3424",
+          "src_p25_499_823_32ce4892c57c"
+        ]
+      }
+    ],
+    "scope_contexts": [
+      {
+        "point_id": "kp_158bb6a882883c68",
+        "label": "萨顿发现基因和染色体行为存在平行关系，通过类比推理提出基因位于染色体上的假说。",
+        "sources": [
+          {
+            "source_id": "src_p23_0_500_77d1518f7a2b",
+            "quote": {
+              "$source_quote_ref": "src_p23_0_500_77d1518f7a2b"
+            }
+          },
+          {
+            "source_id": "src_p22_0_495_54bc8f6df3c4",
+            "quote": {
+              "$source_quote_ref": "src_p22_0_495_54bc8f6df3c4"
+            }
+          },
+          {
+            "source_id": "src_p27_0_463_2d629c46a43d",
+            "quote": {
+              "$source_quote_ref": "src_p27_0_463_2d629c46a43d"
+            }
+          },
+          {
+            "source_id": "src_p22_495_676_89d3d17d3424",
+            "quote": {
+              "$source_quote_ref": "src_p22_495_676_89d3d17d3424"
+            }
+          },
+          {
+            "source_id": "src_p25_499_823_32ce4892c57c",
+            "quote": {
+              "$source_quote_ref": "src_p25_499_823_32ce4892c57c"
+            }
+          }
+        ]
+      }
+    ],
+    "scope_context_sources": {},
+    "sources": {
+      "src_p22_0_495_54bc8f6df3c4": {
+        "page_number": 22,
+        "block_id": "",
+        "quote": "第2节\n基因在染色体上\n问题探讨\n请你试一试，将孟德尔分离定律中的遗传因子\n换成同源染色休，把分离定律念一遍，你觉得这个替\n换有问题吗？由此你联想到什么？\n人只有23对染色体，却有儿万个基因，基因和\n染色体之间可能有对应关系吗？\n蝗虫精母细胞\n减数第一次分裂后期照片\n1903年，美国遗传学家萨顿（W.Sutton，1877—1916)\n本节聚焦\n用蝗虫细胞作材料，研究精子和卵细胞的形成过程。他发\n现孟德尔假设的一对遗传因子，也就是等位基因，它们的\n·科学家发现基因与染色\n分离与减数分裂中同源染色体的分离非常相似。\n体有哪些平行关系？\n什么实验证明了基因在\n萨顿的假说\n染色体上？\n萨顿发现，有一种蝗虫的体细胞中有24条染色体，生\n对孟德尔遗传规律的现\n殖细胞中只有12条染色体。精子和卵细胞结合形成的受精\n代解释是什么？\n卵，又具有了24条染色体。蝗虫子代体细胞中的染色体数\n目，与双亲的体细胞染色体数目一样。子代体细胞中的这\n24条染色体，按形态结构来分，两两成对，共12对，每对\n染色体中的一条来自父方，另一条来自母方。\n萨顿由此推论：基因是由染色体携带着从亲代传递给\n下一代的。"
+      },
+      "src_p22_495_676_89d3d17d3424": {
+        "page_number": 22,
+        "block_id": "",
+        "quote": "也就是说，基因就在染色体上，因为基因和染\n色体行为存在着明显的平行关系。\n（1)基因在杂交过程中保持完整性和独立性。染色体\n在配子形成和受精过程中，也有相对稳定的形态结构。\n(2)在体细胞中基因成对存在，染色体也是成对的。在\n配子中成对的基因只有一个，同样，成对的染色体也只有\n一条。\n（3)体细胞中成对的基因一个来自父方，一个来自母\n第2节基因在染色体上\n27"
+      },
+      "src_p23_0_500_77d1518f7a2b": {
+        "page_number": 23,
+        "block_id": "",
+        "quote": "方。同源染色体也是如此。\n（4）非等位基因在形成配子时自由组合，非同源染色\n体在减数第一次分裂后期也是自由组合的。\n思考与讨论\n矮茎\n减数\n分裂\n你同意以上分析吗？\n高茎\n矮茎\n如果你也认为基因在染色\n受\n高_减数\n体上，请你在图中染色体\nX\n茎分裂\nF2\n精\n上标注基因符号，解释孟\n丽\n高\n高茎\n茎\n德尔一对相对性状的杂交\n高\n减数\n实验（图中染色体上黑色\n茎\n横线代表基因的位置）。\n分裂\nP\n配子\nF\nF1配子\n类比推理这是科学研究中常用的方法之一。19世纪物理学家研究光的性质时，\n曾经将光与声进行类比。声有直线传播、反射和折射等现象，其原因在于它有波动性。\n后来发现光也有直线传播、反射和折射等现象，因此推测光也可能有波动性。上面介\n绍的萨顿的推理，也是类比推理。他将看不见的基因与看得见的染色体的行为进行类\n比，根据其惊人的一致性，提出基因位于染色体上的假说。应当注意的是，类比推理\n得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。\n基因位于染色体上的实验证据\n美国生物学家摩尔根（T.H.Morgan，1866—1945）.\n曾经明确表示过不相信孟德尔的遗传理论。"
+      },
+      "src_p25_0_499_d22ded67f5c9": {
+        "page_number": 25,
+        "block_id": "",
+        "quote": "黄身\n些解释。正是他们的工作，把一个特定的基因和一条特定\n白眼\n红宝石眼\n的染色体———X染色体联系起来，从而用实验证明了基因\n·截翅\n在染色体上。从此，摩尔根成了孟德尔理论的坚定支持者。\n我们知道，每种生物的基因数量，都要远远多于这种\n朱红眼\n生物染色体的数目。例如，果蝇体细胞内有4对染色体，被\n深红眼\n人们研究过的基因就达数百个；又如，人类的体细胞中有\n23对染色体，携带的基因大约有几万个。显然，一条染色\n棒眼\n体上应该有许多个基因。摩尔根和他的学生们经过十多年\n短硬毛\n的努力，发明了测定基因位于染色体上的相对位置的方法，\n图2-11果蝇某一条染色体\n并绘出了第一个果蝇各种基因在染色体上相对位置的图，\n上的几个基因\n说明基因在染色体上呈线性排列（图2-11)。\n现代分子生物学技术能够用特定的分子，与染色体\n上的某一个基因结合，这个分子又能被带有荧光标记的\n物质识别，通过荧光显示，就可以知道基因在染色体上\n的位置。\n孟德尔遗传规律的现代解释\n细胞遗传学的研究结果表明，孟德尔所说的一对遗传\n因子就是位于一对同源染色体上的等位基因，不同对的遗\n传因子就是位于非同源染色体上的非等位基因。"
+      },
+      "src_p25_499_823_32ce4892c57c": {
+        "page_number": 25,
+        "block_id": "",
+        "quote": "\n基因的分离定律的实质是：在杂合体的细胞中，位于\n一对同源染色体上的等位基因，具有一定的独立性：在减\n现代分子生物学技术将基因\n数分裂形成配子的过程中，等位基因会随同源染色体的分\n定位在染色体上\n开而分离，分别进入两个配子中，独立地随配子遗传给\n后代。\n基因的自由组合定律的实质是：位于非同源染色体上\n的非等位基因的分离或组合是互不干扰的：在减数分裂过\n程中，同源染色体上的等位基因彼此分离的同时，非同源\n染色体上的非等位基因自由组合。\n技能训练\n类比推理\n科学家观察到基因和染色体的行为存在着\n基因位于染色体上。后来这一推断得到了实\n明显的平行关系，通过类比推理的方法，推断出\n验的证实，实验还表明基因在染色体上呈线\n30第2章基因和染色体的关系"
+      },
+      "src_p27_0_463_2d629c46a43d": {
+        "page_number": 27,
+        "block_id": "",
+        "quote": "科学家的故事\n染色体遗传理论的莫基人——摩尔根\n说来也巧，就在遗传学之父孟德尔发\n表研究成果的那一年，也就是1866年，又\n基四克\n一位遗传学巨人——摩尔根出生了。时间\n的巧合，足以使人浮想联翩。\n摩尔根是一位敢于怀疑，勤奋实践的\n人。在一次国际遗传学会议上，摩尔根曾这\n样介绍自己的科学发现过程：“你若问我怎\n样去获得这些发现……那么，我会这样说\n靠勤奋………靠聪明地用假设，靠寻觅有\n飞去。虽然这项研究没有取得结果，但是这\n利的材料……”摩尔根就是抱着这样的态\n种近乎理想的实验动物，却被引进摩尔根\n度，无论对自己的假说，还是对别人的学\n在哥伦比亚大学的实验室里来了。果蝇开\n说，都一概采取依靠事实和运用实验来检\n始大量繁殖，摩尔根用果蝇做了一个又一\n验理论是否正确的科学态度。他对于孟德\n个的实验。大约在1910年5月，在摩尔根\n尔遗传规律的确证过程就是最好的例子。\n实验室中诞生了一只白眼雄果蝇，而它的\n最初，摩尔根认为孟德尔遗传规律是正确\n兄弟姐妹的眼晴都是红色的。很明显，这是\n的，因为它们建立在可靠的实验基础上。"
+      },
+      "src_p33_472_972_179f373a351b": {
+        "page_number": 33,
+        "block_id": "",
+        "quote": "同时，在这个过程\n中，同源染色体先联会后分离，在联会时同源染色体的非姐妹染色\n单体间还发生交叉互换，非同源染色体则自由组合，使配子的遗传\n组成多种多样。\n受精作用是卵细胞和精子结合成受精卵的过程。受精过程使配\n子中已经减半了的染色体数目，恢复为受精卵中与亲代一样的染色\n体数，使遗传性状相对稳定。同时，由于配子的多样性和受精的随\n机性，同一双亲的后代又呈现多样性\n在孟德尔的遗传规律被重新发现之后，科学家迫切地寻找基因\n在哪里，通过大量的观察，发现基因与染色体的行为具有平行关\n系，摩尔根的果蝇杂交实验证实了基因在染色体上。\n位于性染色体上的基因控制的性状在遗传中总是与性别相关联\n这种现象称为伴性遗传，由于基因具有显性和隐性的不同，又由于\n它们与性染色体相关联，因此，在遗传中会表现出不同的特点。\n生物学研究离不开细致的观察，并需要有一定的想像力。当然\n也需要在观察的基础上提出假说或预测，但是任何假说和预测最终\n都需要通过实验验证才得以确立。在本章的学习过程中，可以深切\n感受到科学家在科学研究过程中表现出的丰富的想像力，大胆质疑\n和勤奋实践的精神，以及对科学的热爱\n38第2章基因和染色体的关系"
+      },
+      "src_p22_408_674_d3b78dd445a0": {
+        "page_number": 22,
+        "block_id": "",
+        "quote": "子代体细胞中的这\n24条染色体，按形态结构来分，两两成对，共12对，每对\n染色体中的一条来自父方，另一条来自母方。\n萨顿由此推论：基因是由染色体携带着从亲代传递给\n下一代的。也就是说，基因就在染色体上，因为基因和染\n色体行为存在着明显的平行关系。\n（1)基因在杂交过程中保持完整性和独立性。染色体\n在配子形成和受精过程中，也有相对稳定的形态结构。\n(2)在体细胞中基因成对存在，染色体也是成对的。在\n配子中成对的基因只有一个，同样，成对的染色体也只有\n一条。\n（3)体细胞中成对的基因一个来自父方，一个来自母\n第2节基因在染色体上\n"
+      }
+    },
+    "source_warnings": [
+      "第 10 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 11 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 12 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 15 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 16 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 17 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 18 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 20 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 21 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 22 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 23 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 23 页可能含图表、公式或碎片化排版；仅使用文字明确支持的关系，不能推断丢失结构。",
+      "第 24 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 24 页可能含图表、公式或碎片化排版；仅使用文字明确支持的关系，不能推断丢失结构。",
+      "第 28 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 29 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 30 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 30 页可能含图表、公式或碎片化排版；仅使用文字明确支持的关系，不能推断丢失结构。",
+      "第 31 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 32 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 32 页可能含图表、公式或碎片化排版；仅使用文字明确支持的关系，不能推断丢失结构。",
+      "第 33 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 34 页原文含待核查识别片段，不能据此猜补事实或符号。",
+      "第 34 页可能含图表、公式或碎片化排版；仅使用文字明确支持的关系，不能推断丢失结构。",
+      "第 35 页原文含待核查识别片段，不能据此猜补事实或符号。"
+    ],
+    "support_spans": {
+      "span_80094c78bbc30d43ee61": {
+        "source_id": "src_p22_0_495_54bc8f6df3c4",
+        "quote": "第2节\n基因在染色体上\n问题探讨\n请你试一试，将孟德尔分离定律中的遗传因子\n换成同源染色休，把分离定律念一遍，你觉得这个替\n换有问题吗？由此你联想到什么？\n人只有23对染色体，却有儿万个基因，基因和\n染色体之间可能有对应关系吗？\n蝗虫精母细胞\n减数第一次分裂后期照片\n1903年，美国遗传学家萨顿（W.Sutton，1877—1916)\n本节聚焦\n用蝗虫细胞作材料，研究精子和卵细胞的形成过程。他发\n"
+      },
+      "span_fc56164c8de383677bdb": {
+        "source_id": "src_p22_0_495_54bc8f6df3c4",
+        "quote": "现孟德尔假设的一对遗传因子，也就是等位基因，它们的\n·科学家发现基因与染色\n分离与减数分裂中同源染色体的分离非常相似。\n体有哪些平行关系？\n什么实验证明了基因在\n萨顿的假说\n染色体上？\n萨顿发现，有一种蝗虫的体细胞中有24条染色体，生\n对孟德尔遗传规律的现\n殖细胞中只有12条染色体。精子和卵细胞结合形成的受精\n代解释是什么？\n卵，又具有了24条染色体。蝗虫子代体细胞中的染色体数\n目，与双亲的体细胞"
+      },
+      "span_037c93ba1528d6db531c": {
+        "source_id": "src_p22_0_495_54bc8f6df3c4",
+        "quote": "染色体数目一样。子代体细胞中的这\n24条染色体，按形态结构来分，两两成对，共12对，每对\n染色体中的一条来自父方，另一条来自母方。\n萨顿由此推论：基因是由染色体携带着从亲代传递给\n下一代的。"
+      },
+      "span_ce9da10a0f557fa2311a": {
+        "source_id": "src_p22_495_676_89d3d17d3424",
+        "quote": "也就是说，基因就在染色体上，因为基因和染\n色体行为存在着明显的平行关系。\n（1)基因在杂交过程中保持完整性和独立性。染色体\n在配子形成和受精过程中，也有相对稳定的形态结构。\n(2)在体细胞中基因成对存在，染色体也是成对的。在\n配子中成对的基因只有一个，同样，成对的染色体也只有\n一条。\n（3)体细胞中成对的基因一个来自父方，一个来自母\n第2节基因在染色体上\n27"
+      },
+      "span_497e9f649d29629bd4b3": {
+        "source_id": "src_p23_0_500_77d1518f7a2b",
+        "quote": "方。同源染色体也是如此。\n（4）非等位基因在形成配子时自由组合，非同源染色\n体在减数第一次分裂后期也是自由组合的。\n思考与讨论\n矮茎\n减数\n分裂\n你同意以上分析吗？\n高茎\n矮茎\n如果你也认为基因在染色\n受\n高_减数\n体上，请你在图中染色体\nX\n茎分裂\nF2\n精\n上标注基因符号，解释孟\n丽\n高\n高茎\n茎\n德尔一对相对性状的杂交\n高\n减数\n实验（图中染色体上黑色\n茎\n横线代表基因的位置）。\n分裂\nP\n"
+      },
+      "span_d7a349cd6d99fa69dce2": {
+        "source_id": "src_p23_0_500_77d1518f7a2b",
+        "quote": "配子\nF\nF1配子\n类比推理这是科学研究中常用的方法之一。19世纪物理学家研究光的性质时，\n曾经将光与声进行类比。声有直线传播、反射和折射等现象，其原因在于它有波动性。\n后来发现光也有直线传播、反射和折射等现象，因此推测光也可能有波动性。上面介\n绍的萨顿的推理，也是类比推理。他将看不见的基因与看得见的染色体的行为进行类\n比，根据其惊人的一致性，提出基因位于染色体上的假说。应当注意的是，类比推理\n得"
+      },
+      "span_e1996b83a4d6addadbb1": {
+        "source_id": "src_p23_0_500_77d1518f7a2b",
+        "quote": "出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。\n基因位于染色体上的实验证据\n美国生物学家摩尔根（T.H.Morgan，1866—1945）.\n曾经明确表示过不相信孟德尔的遗传理论。"
+      },
+      "span_06d31311997ea3d10c38": {
+        "source_id": "src_p25_0_499_d22ded67f5c9",
+        "quote": "黄身\n些解释。正是他们的工作，把一个特定的基因和一条特定\n白眼\n红宝石眼\n的染色体———X染色体联系起来，从而用实验证明了基因\n·截翅\n在染色体上。从此，摩尔根成了孟德尔理论的坚定支持者。\n我们知道，每种生物的基因数量，都要远远多于这种\n朱红眼\n生物染色体的数目。例如，果蝇体细胞内有4对染色体，被\n深红眼\n人们研究过的基因就达数百个；又如，人类的体细胞中有\n23对染色体，携带的基因大约有几万个。显"
+      },
+      "span_095784706600246aa5e0": {
+        "source_id": "src_p25_0_499_d22ded67f5c9",
+        "quote": "然，一条染色\n棒眼\n体上应该有许多个基因。摩尔根和他的学生们经过十多年\n短硬毛\n的努力，发明了测定基因位于染色体上的相对位置的方法，\n图2-11果蝇某一条染色体\n并绘出了第一个果蝇各种基因在染色体上相对位置的图，\n上的几个基因\n说明基因在染色体上呈线性排列（图2-11)。\n现代分子生物学技术能够用特定的分子，与染色体\n上的某一个基因结合，这个分子又能被带有荧光标记的\n物质识别，通过荧光显示，就可以"
+      },
+      "span_66183687b8037f55bda9": {
+        "source_id": "src_p25_0_499_d22ded67f5c9",
+        "quote": "知道基因在染色体上\n的位置。\n孟德尔遗传规律的现代解释\n细胞遗传学的研究结果表明，孟德尔所说的一对遗传\n因子就是位于一对同源染色体上的等位基因，不同对的遗\n传因子就是位于非同源染色体上的非等位基因。"
+      }
+    },
+    "previous_review_feedback": [],
+    "response_json_schema": {
+      "$defs": {
+        "_BoundaryCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "boundary_id": {
+              "type": "string"
+            },
+            "is_class_definition": {
+              "type": "boolean"
+            },
+            "assigns_class_property": {
+              "type": "boolean"
+            },
+            "has_same_class_counterexample": {
+              "type": "boolean"
+            },
+            "candidate_explicitly_limited": {
+              "type": "boolean"
+            },
+            "claim_field": {
+              "maxLength": 60,
+              "minLength": 1,
+              "type": "string"
+            },
+            "claim_quote": {
+              "maxLength": 240,
+              "minLength": 1,
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "bounded",
+                "unbounded",
+                "not_applicable"
+              ],
+              "type": "string"
+            },
+            "limitation_field": {
+              "anyOf": [
+                {
+                  "maxLength": 60,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "limitation_quote": {
+              "anyOf": [
+                {
+                  "maxLength": 240,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "rationale": {
+              "default": "",
+              "maxLength": 350,
+              "type": "string"
+            }
+          },
+          "required": [
+            "boundary_id",
+            "is_class_definition",
+            "assigns_class_property",
+            "has_same_class_counterexample",
+            "candidate_explicitly_limited",
+            "claim_field",
+            "claim_quote",
+            "status"
+          ],
+          "type": "object"
+        },
+        "_ComponentFinding": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "unsupported_claim",
+                "missing_condition",
+                "scope_overreach",
+                "contradiction",
+                "invalid_inference"
+              ],
+              "type": "string"
+            },
+            "candidate_field": {
+              "maxLength": 60,
+              "minLength": 1,
+              "type": "string"
+            },
+            "candidate_quote": {
+              "maxLength": 400,
+              "minLength": 1,
+              "type": "string"
+            },
+            "issue": {
+              "maxLength": 700,
+              "minLength": 8,
+              "type": "string"
+            },
+            "evidence_source_ids": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "type": "array"
+            },
+            "missing_text": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "kind",
+            "candidate_field",
+            "candidate_quote",
+            "issue",
+            "evidence_source_ids"
+          ],
+          "type": "object"
+        },
+        "_FlatFactComponent": {
+          "additionalProperties": false,
+          "properties": {
+            "source_entailment": {
+              "type": "boolean"
+            },
+            "scope_exceptions": {
+              "type": "boolean"
+            },
+            "rationale": {
+              "default": "",
+              "maxLength": 1000,
+              "type": "string"
+            },
+            "support_span_ids": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "findings": {
+              "items": {
+                "$ref": "#/$defs/_ComponentFinding"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            "scope_checks": {
+              "items": {
+                "$ref": "#/$defs/_BoundaryCheck"
+              },
+              "maxItems": 4096,
+              "type": "array"
+            },
+            "point_id": {
+              "type": "string"
+            },
+            "component_id": {
+              "type": "string",
+              "enum": [
+                "explanation",
+                "flashcard",
+                "practice"
+              ]
+            }
+          },
+          "required": [
+            "point_id",
+            "component_id",
+            "source_entailment",
+            "scope_exceptions",
+            "support_span_ids",
+            "findings",
+            "scope_checks"
+          ],
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/_FlatFactComponent"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "components"
+      ],
+      "type": "object"
+    },
+    "output_contract": {
+      "point_ids": [
+        "kp_158bb6a882883c68"
+      ],
+      "component_ids_by_point": {
+        "kp_158bb6a882883c68": [
+          "explanation",
+          "flashcard",
+          "practice"
+        ]
+      },
+      "lesson_component_ids": [],
+      "lesson_required": false
+    },
+    "candidate": {
+      "points": [
+        {
+          "point_id": "kp_158bb6a882883c68",
+          "title": "萨顿的类比推理假说",
+          "explanation": "萨顿用蝗虫细胞研究精子和卵细胞形成，发现孟德尔假设的一对遗传因子（等位基因）的分离与减数分裂中同源染色体的分离非常相似，且基因与染色体行为存在明显平行关系：基因在杂交中保持完整性和独立性，染色体在配子形成和受精中也有相对稳定的形态结构；体细胞中基因成对、染色体也成对，配子中只有一个；成对基因一个来自父方一个来自母方，同源染色体也如此；非等位基因形成配子时自由组合，非同源染色体在减数第一次分裂后期也自由组合。他据此推论基因由染色体携带着传给下一代，提出基因位于染色体上的假说。这属于类比推理，结论不具有逻辑必然性，正确与否还需观察和实验检验。",
+          "source_ids": [
+            "src_p22_0_495_54bc8f6df3c4",
+            "src_p22_495_676_89d3d17d3424",
+            "src_p23_0_500_77d1518f7a2b"
+          ],
+          "flashcard": {
+            "card_id": "card_b8b340298f562c7964f3",
+            "front": "萨顿依据什么提出基因位于染色体上的假说？这一推理的证据强度如何？",
+            "back": "萨顿发现基因与染色体行为存在明显平行关系，如体细胞中成对、配子中只有一个、成对者一个来自父方一个来自母方、非等位基因自由组合对应非同源染色体自由组合等，据此通过类比推理提出基因位于染色体上的假说。类比推理的结论不具有逻辑必然性，正确与否还需观察和实验检验。",
+            "source_ids": [
+              "src_p22_495_676_89d3d17d3424",
+              "src_p23_0_500_77d1518f7a2b"
+            ]
+          },
+          "practice": {
+            "item_id": "practice_b8b340298f562c7964f3",
+            "prompt": "萨顿观察到基因和染色体行为存在平行关系后，提出“基因位于染色体上”的假说。请说明这一假说的提出运用了什么推理方法，并判断：该假说提出时是否已经被证明成立？",
+            "expected_answer": "萨顿运用的是类比推理：把看不见的基因与看得见的染色体的行为进行类比，根据二者惊人的一致性提出基因位于染色体上的假说。类比推理得出的结论并不具有逻辑的必然性，其正确与否还需要观察和实验的检验，因此该假说提出时尚未被证明成立，后来才由摩尔根的果蝇杂交实验等提供实验证据。",
+            "rubric": [
+              "指出萨顿运用类比推理提出假说",
+              "判断该假说提出时尚未被证明，类比推理结论不具逻辑必然性、需观察和实验检验"
+            ],
+            "source_ids": [
+              "src_p22_495_676_89d3d17d3424",
+              "src_p23_0_500_77d1518f7a2b",
+              "src_p25_0_499_d22ded67f5c9"
+            ]
+          },
+          "scope_boundaries": [
+            {
+              "boundary_id": "boundary_632201b34c0df0f4",
+              "boundary_type": "direction",
+              "condition": "萨顿的推理属于类比推理，结论不具有逻辑必然性，正确与否还需观察和实验检验",
+              "source_ids": [
+                "src_p23_0_500_77d1518f7a2b",
+                "src_p25_499_823_32ce4892c57c"
+              ],
+              "actual_source_text": [
+                {
+                  "source_id": "src_p23_0_500_77d1518f7a2b",
+                  "quote": "方。同源染色体也是如此。\n（4）非等位基因在形成配子时自由组合，非同源染色\n体在减数第一次分裂后期也是自由组合的。\n思考与讨论\n矮茎\n减数\n分裂\n你同意以上分析吗？\n高茎\n矮茎\n如果你也认为基因在染色\n受\n高_减数\n体上，请你在图中染色体\nX\n茎分裂\nF2\n精\n上标注基因符号，解释孟\n丽\n高\n高茎\n茎\n德尔一对相对性状的杂交\n高\n减数\n实验（图中染色体上黑色\n茎\n横线代表基因的位置）。\n分裂\nP\n配子\nF\nF1配子\n类比推理这是科学研究中常用的方法之一。19世纪物理学家研究光的性质时，\n曾经将光与声进行类比。声有直线传播、反射和折射等现象，其原因在于它有波动性。\n后来发现光也有直线传播、反射和折射等现象，因此推测光也可能有波动性。上面介\n绍的萨顿的推理，也是类比推理。他将看不见的基因与看得见的染色体的行为进行类\n比，根据其惊人的一致性，提出基因位于染色体上的假说。应当注意的是，类比推理\n得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。\n基因位于染色体上的实验证据\n美国生物学家摩尔根（T.H.Morgan，1866—1945）.\n曾经明确表示过不相信孟德尔的遗传理论。"
+                },
+                {
+                  "source_id": "src_p25_499_823_32ce4892c57c",
+                  "quote": "\n基因的分离定律的实质是：在杂合体的细胞中，位于\n一对同源染色体上的等位基因，具有一定的独立性：在减\n现代分子生物学技术将基因\n数分裂形成配子的过程中，等位基因会随同源染色体的分\n定位在染色体上\n开而分离，分别进入两个配子中，独立地随配子遗传给\n后代。\n基因的自由组合定律的实质是：位于非同源染色体上\n的非等位基因的分离或组合是互不干扰的：在减数分裂过\n程中，同源染色体上的等位基因彼此分离的同时，非同源\n染色体上的非等位基因自由组合。\n技能训练\n类比推理\n科学家观察到基因和染色体的行为存在着\n基因位于染色体上。后来这一推断得到了实\n明显的平行关系，通过类比推理的方法，推断出\n验的证实，实验还表明基因在染色体上呈线\n30第2章基因和染色体的关系"
+                }
+              ]
+            }
+          ],
+          "component_evidence": {
+            "explanation": {
+              "actual_source_text": [
+                {
+                  "source_id": "src_p22_0_495_54bc8f6df3c4",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_0_495_54bc8f6df3c4"
+                  }
+                },
+                {
+                  "source_id": "src_p22_495_676_89d3d17d3424",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_495_676_89d3d17d3424"
+                  }
+                },
+                {
+                  "source_id": "src_p23_0_500_77d1518f7a2b",
+                  "quote": {
+                    "$source_quote_ref": "src_p23_0_500_77d1518f7a2b"
+                  }
+                }
+              ],
+              "allowed_support_span_ids": [
+                "span_80094c78bbc30d43ee61",
+                "span_fc56164c8de383677bdb",
+                "span_037c93ba1528d6db531c",
+                "span_ce9da10a0f557fa2311a",
+                "span_497e9f649d29629bd4b3",
+                "span_d7a349cd6d99fa69dce2",
+                "span_e1996b83a4d6addadbb1"
+              ],
+              "component_fields": {
+                "title": "萨顿的类比推理假说",
+                "explanation": "萨顿用蝗虫细胞研究精子和卵细胞形成，发现孟德尔假设的一对遗传因子（等位基因）的分离与减数分裂中同源染色体的分离非常相似，且基因与染色体行为存在明显平行关系：基因在杂交中保持完整性和独立性，染色体在配子形成和受精中也有相对稳定的形态结构；体细胞中基因成对、染色体也成对，配子中只有一个；成对基因一个来自父方一个来自母方，同源染色体也如此；非等位基因形成配子时自由组合，非同源染色体在减数第一次分裂后期也自由组合。他据此推论基因由染色体携带着传给下一代，提出基因位于染色体上的假说。这属于类比推理，结论不具有逻辑必然性，正确与否还需观察和实验检验。"
+              },
+              "candidate_context_version": "candidate-context-v1",
+              "candidate_context_sources": [
+                {
+                  "source_id": "src_p22_408_674_d3b78dd445a0",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_408_674_d3b78dd445a0"
+                  }
+                },
+                {
+                  "source_id": "src_p25_0_499_d22ded67f5c9",
+                  "quote": {
+                    "$source_quote_ref": "src_p25_0_499_d22ded67f5c9"
+                  }
+                }
+              ],
+              "component_roles": {
+                "question_fields": [],
+                "teacher_response_fields": [],
+                "semantic_classification_verified": false,
+                "question_fields_automatically_nonfactual": false
+              }
+            },
+            "flashcard": {
+              "actual_source_text": [
+                {
+                  "source_id": "src_p22_495_676_89d3d17d3424",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_495_676_89d3d17d3424"
+                  }
+                },
+                {
+                  "source_id": "src_p23_0_500_77d1518f7a2b",
+                  "quote": {
+                    "$source_quote_ref": "src_p23_0_500_77d1518f7a2b"
+                  }
+                }
+              ],
+              "allowed_support_span_ids": [
+                "span_ce9da10a0f557fa2311a",
+                "span_497e9f649d29629bd4b3",
+                "span_d7a349cd6d99fa69dce2",
+                "span_e1996b83a4d6addadbb1"
+              ],
+              "component_fields": {
+                "front": "萨顿依据什么提出基因位于染色体上的假说？这一推理的证据强度如何？",
+                "back": "萨顿发现基因与染色体行为存在明显平行关系，如体细胞中成对、配子中只有一个、成对者一个来自父方一个来自母方、非等位基因自由组合对应非同源染色体自由组合等，据此通过类比推理提出基因位于染色体上的假说。类比推理的结论不具有逻辑必然性，正确与否还需观察和实验检验。"
+              },
+              "candidate_context_version": "candidate-context-v1",
+              "candidate_context_sources": [
+                {
+                  "source_id": "src_p33_472_972_179f373a351b",
+                  "quote": {
+                    "$source_quote_ref": "src_p33_472_972_179f373a351b"
+                  }
+                },
+                {
+                  "source_id": "src_p22_408_674_d3b78dd445a0",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_408_674_d3b78dd445a0"
+                  }
+                }
+              ],
+              "component_roles": {
+                "question_fields": [
+                  "front"
+                ],
+                "teacher_response_fields": [
+                  "back"
+                ],
+                "semantic_classification_verified": false,
+                "question_fields_automatically_nonfactual": false
+              }
+            },
+            "practice": {
+              "actual_source_text": [
+                {
+                  "source_id": "src_p22_495_676_89d3d17d3424",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_495_676_89d3d17d3424"
+                  }
+                },
+                {
+                  "source_id": "src_p23_0_500_77d1518f7a2b",
+                  "quote": {
+                    "$source_quote_ref": "src_p23_0_500_77d1518f7a2b"
+                  }
+                },
+                {
+                  "source_id": "src_p25_0_499_d22ded67f5c9",
+                  "quote": {
+                    "$source_quote_ref": "src_p25_0_499_d22ded67f5c9"
+                  }
+                }
+              ],
+              "allowed_support_span_ids": [
+                "span_ce9da10a0f557fa2311a",
+                "span_497e9f649d29629bd4b3",
+                "span_d7a349cd6d99fa69dce2",
+                "span_e1996b83a4d6addadbb1",
+                "span_06d31311997ea3d10c38",
+                "span_095784706600246aa5e0",
+                "span_66183687b8037f55bda9"
+              ],
+              "component_fields": {
+                "prompt": "萨顿观察到基因和染色体行为存在平行关系后，提出“基因位于染色体上”的假说。请说明这一假说的提出运用了什么推理方法，并判断：该假说提出时是否已经被证明成立？",
+                "expected_answer": "萨顿运用的是类比推理：把看不见的基因与看得见的染色体的行为进行类比，根据二者惊人的一致性提出基因位于染色体上的假说。类比推理得出的结论并不具有逻辑的必然性，其正确与否还需要观察和实验的检验，因此该假说提出时尚未被证明成立，后来才由摩尔根的果蝇杂交实验等提供实验证据。",
+                "rubric_1": "指出萨顿运用类比推理提出假说",
+                "rubric_2": "判断该假说提出时尚未被证明，类比推理结论不具逻辑必然性、需观察和实验检验"
+              },
+              "candidate_context_version": "candidate-context-v1",
+              "candidate_context_sources": [
+                {
+                  "source_id": "src_p25_499_823_32ce4892c57c",
+                  "quote": {
+                    "$source_quote_ref": "src_p25_499_823_32ce4892c57c"
+                  }
+                },
+                {
+                  "source_id": "src_p22_408_674_d3b78dd445a0",
+                  "quote": {
+                    "$source_quote_ref": "src_p22_408_674_d3b78dd445a0"
+                  }
+                }
+              ],
+              "component_roles": {
+                "question_fields": [
+                  "prompt"
+                ],
+                "teacher_response_fields": [
+                  "expected_answer",
+                  "rubric_1",
+                  "rubric_2"
+                ],
+                "semantic_classification_verified": false,
+                "question_fields_automatically_nonfactual": false
+              }
+            }
+          }
+        }
+      ],
+      "lesson": null
+    },
+    "lesson_components": {},
+    "format_feedback": [],
+    "wire_format": "teaching-fact-source-refs-v1",
+    "wire_metadata": {
+      "scope_conditions_from_knowledge_points": true,
+      "top_key_order": [
+        "chapter_title",
+        "knowledge_points",
+        "scope_contexts",
+        "scope_context_sources",
+        "scope_conditions",
+        "sources",
+        "source_warnings",
+        "support_spans",
+        "previous_review_feedback",
+        "response_json_schema",
+        "output_contract",
+        "candidate",
+        "lesson_components",
+        "format_feedback"
+      ]
+    }
+  },
+  "observed_response": {
+    "components": [
+      {
+        "point_id": "kp_158bb6a882883c68",
+        "component_id": "explanation",
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "rationale": "将基因位于染色体上表述为萨顿提出的假说，并明确类比结论尚需检验。",
+        "support_span_ids": [
+          "span_80094c78bbc30d43ee61",
+          "span_fc56164c8de383677bdb",
+          "span_037c93ba1528d6db531c",
+          "span_ce9da10a0f557fa2311a",
+          "span_497e9f649d29629bd4b3",
+          "span_d7a349cd6d99fa69dce2",
+          "span_e1996b83a4d6addadbb1"
+        ],
+        "findings": [],
+        "scope_checks": [
+          {
+            "boundary_id": "boundary_632201b34c0df0f4",
+            "is_class_definition": true,
+            "assigns_class_property": true,
+            "has_same_class_counterexample": false,
+            "candidate_explicitly_limited": true,
+            "claim_field": "explanation",
+            "claim_quote": "他据此推论基因由染色体携带着传给下一代，提出基因位于染色体上的假说。",
+            "status": "bounded",
+            "limitation_field": "explanation",
+            "limitation_quote": "这属于类比推理，结论不具有逻辑必然性，正确与否还需观察和实验检验。",
+            "rationale": "明确区分提出假说与证明结论。"
+          }
+        ]
+      },
+      {
+        "point_id": "kp_158bb6a882883c68",
+        "component_id": "flashcard",
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "rationale": "答案列举平行关系，并明确类比推理不能单独证明假说。",
+        "support_span_ids": [
+          "span_ce9da10a0f557fa2311a",
+          "span_497e9f649d29629bd4b3",
+          "span_d7a349cd6d99fa69dce2",
+          "span_e1996b83a4d6addadbb1"
+        ],
+        "findings": [],
+        "scope_checks": [
+          {
+            "boundary_id": "boundary_632201b34c0df0f4",
+            "is_class_definition": true,
+            "assigns_class_property": true,
+            "has_same_class_counterexample": false,
+            "candidate_explicitly_limited": true,
+            "claim_field": "back",
+            "claim_quote": "据此通过类比推理提出基因位于染色体上的假说。",
+            "status": "bounded",
+            "limitation_field": "back",
+            "limitation_quote": "类比推理的结论不具有逻辑必然性，正确与否还需观察和实验检验。",
+            "rationale": "答案自身交代了推理的证据限度。"
+          }
+        ]
+      },
+      {
+        "point_id": "kp_158bb6a882883c68",
+        "component_id": "practice",
+        "source_entailment": true,
+        "scope_exceptions": true,
+        "rationale": "题干与答案区分假说提出和后来的实验证明；评分点也要求说明检验的必要性。",
+        "support_span_ids": [
+          "span_ce9da10a0f557fa2311a",
+          "span_d7a349cd6d99fa69dce2",
+          "span_e1996b83a4d6addadbb1",
+          "span_06d31311997ea3d10c38"
+        ],
+        "findings": [],
+        "scope_checks": [
+          {
+            "boundary_id": "boundary_632201b34c0df0f4",
+            "is_class_definition": true,
+            "assigns_class_property": true,
+            "has_same_class_counterexample": false,
+            "candidate_explicitly_limited": true,
+            "claim_field": "expected_answer",
+            "claim_quote": "根据二者惊人的一致性提出基因位于染色体上的假说。",
+            "status": "bounded",
+            "limitation_field": "expected_answer",
+            "limitation_quote": "类比推理得出的结论并不具有逻辑的必然性，其正确与否还需要观察和实验的检验，因此该假说提出时尚未被证明成立",
+            "rationale": "答案明确说明提出时未获证明，并区分后续实验证据。"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -65,7 +65,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         assert request['application_contract'] in system
-        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {
+        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {"required_edits": None,
             'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
             for row in request['items']]}
 
@@ -194,7 +194,7 @@ def test_structural_completeness_never_overrides_independent_semantic_veto(failu
         return response
     def veto(row, call):
         accepted = row['cognitive_target']['id'] != 'source_application'
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else [f'Controlled independent veto: {failure}']}
     writer, reviewer, cache = Writer(transform), Reviewer(veto), MemoryApprovals()
     with pytest.raises(generation.DiagnosticGenerationError, match=failure):
@@ -204,7 +204,7 @@ def test_structural_completeness_never_overrides_independent_semantic_veto(failu
     assert 'source_supported' not in reviewer.calls[0]['items'][2]
     contract = reviewer.calls[0]['application_contract']
     assert '未完成状态当已完成' in contract
-    assert '仅用两条原文事实作真假分类' in contract
+    assert '只是复制结论' in contract and '题面已预列完整标准后的字面核齐' in contract
 
 
 def test_f18_progressive_condition_remains_visible_to_the_independent_judge():
@@ -224,7 +224,7 @@ def test_f18_progressive_condition_remains_visible_to_the_independent_judge():
             assert '正逐步出现' in row['application_task']['records'][0]['conditions']
             assert row['application_task']['mapping'] == ['a', 'a']
             issues = ['逐步出现未说明隔离已经形成，不能套用一旦形成的完成阈值。']
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
+        return {"required_edits": None if (not issues) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
     reviewer, writer = Reviewer(verdict), Writer(transform)
     with pytest.raises(generation.DiagnosticGenerationError, match='完成阈值'):
         subject(writer, reviewer).generate(value)
@@ -260,7 +260,7 @@ def test_accepted_task_is_exactly_preserved_and_cannot_silently_change(change):
     def verdict(row, call):
         accepted = call > 1 or row['cognitive_target']['id'] != 'relation_understanding'
         calls.append((call, row['cognitive_target']['id']))
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else ['Controlled relationship repair required']}
     writer, reviewer = Writer(transform), Reviewer(verdict)
     if change:
@@ -292,7 +292,7 @@ def test_full_task_and_immutable_source_directory_bind_the_approval_hash():
     point = item.knowledge_point_ids[0]
     changed_source['application_source_refs'][point][0]['evidence']['quote'] += ' changed source condition'
     assert instance._approval_key(changed_source, item, candidate['application_task']) != original
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v11+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
 
 
 def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_task_mapping():
@@ -306,7 +306,8 @@ def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_ta
     for rewrite in (True, False):
         system = generation._item_system(rewrite)
         assert '以下输出字段规则仅适用于非source_application项' in system
-        assert '应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案' in system
+        assert '应用项的正确文字由task.outcomes[task.correct_index]提出' in system
+        assert '永远不复制label作答案' in system
         assert ('correct_index 指向的选项文字必须与输入的 label 逐字相同' in system) is not rewrite
 
 
@@ -340,7 +341,7 @@ def test_f6_actual_source_can_supply_record_comparison_but_requires_fresh_indepe
             assert '复制能否成功' not in row['application_task']['decision']
             if not accepted:
                 issues = ['Controlled independent judge may still reject this comparison as insufficient application.']
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
+        return {"required_edits": None if (not issues) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': not issues, 'issues': issues}
     writer, reviewer = Writer(transform), Reviewer(verdict)
     if accepted:
         bank = subject(writer, reviewer).generate(value)
@@ -358,8 +359,8 @@ def test_actual_grounded_prompt_retains_design_guidance_and_separates_task_answe
     assert '设计顺序：先按cognitive_target确定最小任务' in system
     assert 'label 仅用于标识待测知识点，不能当作事实依据' in system
     assert '正确选项必须与 expected_answer 逐字相同' in system
-    assert '应用项的正确文字由task的mapping派生配对选项' in system
-    assert '非应用项继续使用原有prompt/options/expected_answer格式' in system
+    assert '应用项的正确文字由task.outcomes[task.correct_index]提出' in system
+    assert '非应用项继续原有prompt/options/expected_answer格式' in system
 
 
 def test_application_requires_an_independent_judge_even_in_unverified_legacy_mode():
@@ -379,7 +380,7 @@ def test_legacy_repair_payload_distinguishes_task_mapping_from_non_application_l
             response['items'][2]['application_task']['source_refs'] = ['unknown']
         else:
             assert '非source_application项的正确选项必须逐字复制输入label' in request['validation_feedback']
-            assert '答案仅由程序核验计划派生配对，不能复制label' in request['validation_feedback']
+            assert '答案由task.outcomes[correct_index]提出并须独立审核' in request['validation_feedback']
         return response
     writer, reviewer = Writer(transform), Reviewer()
     bank = ArchivedV10StructuredGenerator(writer, review_client=reviewer, validation_retries=1).generate(source_book())

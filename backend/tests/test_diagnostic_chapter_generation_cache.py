@@ -49,7 +49,7 @@ def book():
     chapters = []
     for index in range(6):
         labels = [f"第{index}章概念{point}的定义" for point in range(3)]
-        quote = SourceQuote(page_number=index + 1, quote=f"第{index}章原文证据，包含三个受控概念。条件甲成立时过程乙适用。")
+        quote = SourceQuote(page_number=index + 1, quote=f"第{index}章原文证据，包含三个受控概念。条件甲成立时过程乙适用。过程乙需要条件甲、条件乙。")
         chapters.append(ChapterDraft(chapter_id=f"chapter_{index}", order=index + 1,
             title=f"第{index}章", start_page=index + 1, end_page=index + 1,
             summary="Controlled offline source", knowledge_points=labels,
@@ -84,7 +84,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         accepted = request["source"]["chapter_id"] != self.reject
-        return {"reviews": [{"knowledge_point_id": item["knowledge_point_id"],
+        return {"reviews": [{"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, "knowledge_point_id": item["knowledge_point_id"],
             "accepted": accepted, "issues": [] if accepted else ["Controlled semantic veto"]}
             for item in request["items"]]}
 

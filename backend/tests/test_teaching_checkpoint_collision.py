@@ -112,6 +112,18 @@ def test_collision_targets_equal_the_legacy_normalized_set_membership(mode):
 
 
 class ReplayClient:
+    def __getattribute__(self, name):
+        method = object.__getattribute__(self, name)
+        if name != "structured":
+            return method
+
+        def adapt(**kwargs):
+            from teaching_writer_test_support import advertised_writer_response
+
+            return advertised_writer_response(method(**kwargs), json.loads(kwargs["user"]))
+
+        return adapt
+
     def __init__(self, *, repair):
         self.requests = []
         self.repair = repair

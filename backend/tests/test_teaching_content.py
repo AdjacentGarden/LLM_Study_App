@@ -117,6 +117,61 @@ def restore_legacy_fact_payload(data):
     return data
 
 
+def assertion_component_response(point_id, name, part, proof):
+    """Translate a mechanical legacy fault fixture, never a production verdict."""
+    if not proof["source_entailment"] and not proof.get("findings"):
+        return {"point_id": point_id, "component_id": name, **deepcopy(proof)}
+    if (not proof["scope_exceptions"] and not proof.get("findings")
+            and not any(check.get("status") == "unbounded" for check in proof.get("scope_checks", []))):
+        return {"point_id": point_id, "component_id": name, **deepcopy(proof)}
+    assertions = part["assertion_contract"]["assertions"]
+    if ({check["boundary_id"] for check in proof.get("scope_checks", [])}
+            != set(part["scope_matrix_contract"]["boundary_ids"])):
+        return {"point_id": point_id, "component_id": name, **deepcopy(proof)}
+    if any(finding.get("candidate_field") not in part["component_fields"]
+           or finding.get("candidate_quote", "") not in part["component_fields"][finding["candidate_field"]]
+           for finding in proof.get("findings", [])):
+        return {"point_id": point_id, "component_id": name, **deepcopy(proof)}
+    rows = []
+    matrix = []
+    for assertion in assertions:
+        findings = []
+        for finding in proof.get("findings", []):
+            if (finding["candidate_field"] == assertion["field"]
+                    and (finding["candidate_quote"] in assertion["text"]
+                         or assertion["text"] in finding["candidate_quote"])):
+                findings.append({key: value for key, value in {
+                    "kind": finding["kind"], "quote": (finding["candidate_quote"]
+                        if finding["candidate_quote"] in assertion["text"] else assertion["text"]),
+                    "issue": finding["issue"], "evidence_source_ids": finding["evidence_source_ids"],
+                    "missing_text": finding.get("missing_text"),
+                }.items() if value is not None})
+        supporting = deepcopy(proof["support_span_ids"])
+        if not proof["source_entailment"] and not supporting and not findings:
+            supporting = part["allowed_support_span_ids"][:1]
+        rows.append({"assertion_id": assertion["assertion_id"], "is_factual": True,
+                     "source_entailment": proof["source_entailment"] if findings else True,
+                     "support_span_ids": supporting, "findings": findings})
+        checks = []
+        for boundary_id in part["scope_matrix_contract"]["boundary_ids"]:
+            check = next((check for check in proof.get("scope_checks", [])
+                          if check["boundary_id"] == boundary_id
+                          and check["claim_field"] == assertion["field"]
+                          and check["claim_quote"] in assertion["text"]), None)
+            flags = [False, False, False, False, None]
+            if check is not None:
+                flags[:4] = [check[key] for key in ("is_class_definition", "assigns_class_property",
+                                                    "has_same_class_counterexample", "candidate_explicitly_limited")]
+                if flags[3]:
+                    flags[4] = next(i for i, row in enumerate(assertions)
+                                    if row["field"] == check["limitation_field"]
+                                    and check["limitation_quote"] in row["text"])
+            checks.append(flags)
+        matrix.append({"assertion_id": assertion["assertion_id"], "checks": checks})
+    return {"point_id": point_id, "component_id": name,
+            "assertion_checks": rows, "scope_matrix": matrix}
+
+
 def advertised_fact_response(result, data):
     """Translate only after the subclass has injected its final fault.
 
@@ -125,7 +180,20 @@ def advertised_fact_response(result, data):
     adapter never invents approval to hide a negative regression fixture.
     """
     if "components" in result:
-        return result
+        converted = []
+        legacy_keys = {"point_id", "component_id", "source_entailment", "scope_exceptions",
+                       "support_span_ids", "source_ids", "rationale", "findings", "scope_checks"}
+        for row in result["components"]:
+            if (isinstance(row, dict) and row.get("point_id") is not None
+                    and {"source_entailment", "scope_exceptions"} <= set(row)
+                    and set(row) <= legacy_keys):
+                point = next((point for point in data["candidate"]["points"]
+                              if point["point_id"] == row["point_id"]), None)
+                if point is not None and row["component_id"] in point["component_evidence"]:
+                    row = assertion_component_response(row["point_id"], row["component_id"],
+                        point["component_evidence"][row["component_id"]], row)
+            converted.append(row)
+        return {**result, "components": converted}
     from adaptive_learning.personalization.teaching_content import _FactSelection
     try:
         parsed = _FactSelection.model_validate(result)
@@ -168,8 +236,10 @@ def advertised_fact_response(result, data):
     flat = []
     for point in result["points"]:
         for name in pending.get(point["point_id"], ("explanation", "flashcard", "practice")):
-            flat.append({"point_id": point["point_id"], "component_id": name,
-                         "findings": [], **deepcopy(point["components"][name])})
+            part = next(row for row in data["candidate"]["points"]
+                        if row["point_id"] == point["point_id"])["component_evidence"][name]
+            flat.append(assertion_component_response(point["point_id"], name, part,
+                        {"findings": [], **deepcopy(point["components"][name])}))
     for name, part in data["lesson_components"].items():
         proof = result["lesson"]["components"][name]
         if proof["scope_exceptions"] is not True or proof.get("findings"):
@@ -241,6 +311,10 @@ class Client:
                     data = restore_legacy_fact_payload(data)
                     user = json.dumps(data, ensure_ascii=False)
                 result = method(system=system, user=user, **kwargs)
+                if system == GENERATION_PROMPT:
+                    from teaching_writer_test_support import advertised_writer_response
+
+                    return advertised_writer_response(result, data)
                 return advertised_fact_response(result, data) if system == FACT_REVIEW_PROMPT else result
 
         return adapt
@@ -995,7 +1069,8 @@ def test_rejected_component_can_report_missing_support_without_inventing_any_pro
     review = generator._fact_review(points, lesson, inputs, chapter, evidence, [])
     assert all(count == 1 for count in fact_targets(client).values())  # No format repair for a located veto.
     assert not generator._fact_accepted(review.points[0])
-    assert review.points[0].components.practice.support_quotes == []
+    proof = review.points[0].components.practice
+    assert all(not row["support_span_ids"] for row in proof.assertion_checks if row["findings"])
     assert review.points[0].issues
 
 

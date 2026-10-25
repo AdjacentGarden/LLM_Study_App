@@ -1,0 +1,372 @@
+{
+  "note": "Actual three failed H v13 application wires only. No complete bank or identity. Exact excerpts remain unchanged; no approval is imported.",
+  "capture_sha256": "fcea3caf5d7a111daf5c1574798fddde01e14e2f5b96d8d51aa35b1f66143cc6",
+  "cases": [
+    {
+      "chapter_id": "chapter_5f29761fe19bff97",
+      "chapter_title": "第2章 基因和染色体的关系",
+      "label": "萨顿发现基因和染色体行为存在明显的平行关系，通过类比推理提出基因位于染色体上的假说。",
+      "point_id": "kp_4e8beace986bb3ff",
+      "source_ref": "src_92bca2078f385e6dd893",
+      "evidence": {
+        "page_number": 23,
+        "quote": "他将看不见的基因与看得见的染色体的行为进行类\n比，根据其惊人的一致性，提出基因位于染色体上的假说。应当注意的是，类比推理\n得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。",
+        "anchor_quote": "得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。"
+      },
+      "application_items": [
+        {
+          "knowledge_point_id": "kp_4e8beace986bb3ff",
+          "type": "choice",
+          "application_task": {
+            "mode": "required_conditions",
+            "basis": {
+              "source_ref": "src_92bca2078f385e6dd893",
+              "input_role": "萨顿提出基因位于染色体上的假说",
+              "output_role": "该假说是否具有逻辑必然性"
+            },
+            "required": [
+              "将看不见的基因与看得见的染色体的行为进行类比",
+              "根据其惊人的一致性",
+              "观察和实验的检验"
+            ],
+            "records": [
+              {
+                "available": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "available": [
+                  0,
+                  1,
+                  2
+                ]
+              }
+            ]
+          },
+          "difficulty": 1,
+          "estimated_seconds": 60
+        },
+        {
+          "knowledge_point_id": "kp_4e8beace986bb3ff",
+          "type": "choice",
+          "application_task": {
+            "mode": "required_conditions",
+            "basis": {
+              "source_ref": "src_92bca2078f385e6dd893",
+              "input_role": "萨顿提出基因位于染色体上的假说",
+              "output_role": "该假说是否具有逻辑必然性"
+            },
+            "required": [
+              "基因与染色体行为类比",
+              "根据其惊人的一致性",
+              "观察和实验的检验"
+            ],
+            "records": [
+              {
+                "available": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "available": [
+                  0,
+                  1,
+                  2
+                ]
+              }
+            ]
+          },
+          "difficulty": 1,
+          "estimated_seconds": 60
+        },
+        {
+          "knowledge_point_id": "kp_4e8beace986bb3ff",
+          "type": "choice",
+          "application_task": {
+            "mode": "required_conditions",
+            "basis": {
+              "source_ref": "src_92bca2078f385e6dd893",
+              "input_role": "萨顿提出基因位于染色体上的假说",
+              "output_role": "该假说是否具有逻辑必然性"
+            },
+            "required": [
+              "基因与染色体行为类比",
+              "惊人的一致性",
+              "观察和实验的检验"
+            ],
+            "records": [
+              {
+                "available": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "available": [
+                  0,
+                  1,
+                  2
+                ]
+              }
+            ]
+          },
+          "difficulty": 1,
+          "estimated_seconds": 60
+        }
+      ]
+    },
+    {
+      "chapter_id": "chapter_c9c510c2d238fec7",
+      "chapter_title": "第4章 基因的表达",
+      "label": "翻译是以mRNA为模板合成具有一定氨基酸顺序的蛋白质的过程，在细胞质中进行。",
+      "point_id": "kp_9d2fec0915864bd3",
+      "source_ref": "src_f01215d1fd4bacbf79bd",
+      "evidence": {
+        "page_number": 59,
+        "quote": "遗传信息的翻译\nmRNA合成以后，就通过核孔进入细胞质中。游离在\n细胞质中的各种氨基酸，就以mRNA为模板合成具有一定\n氨基酸顺序的蛋白质，这一过程叫做翻译（translation)。",
+        "anchor_quote": "mRNA合成以后，就通过核孔进入细胞质中。游离在"
+      },
+      "application_items": [
+        {
+          "knowledge_point_id": "kp_9d2fec0915864bd3",
+          "type": "choice",
+          "application_task": {
+            "mode": "required_conditions",
+            "basis": {
+              "source_ref": "src_f01215d1fd4bacbf79bd",
+              "input_role": "翻译过程",
+              "output_role": "翻译的场所"
+            },
+            "required": [
+              "mRNA通过核孔进入细胞质中",
+              "游离在细胞质中的各种氨基酸",
+              "以mRNA为模板"
+            ],
+            "records": [
+              {
+                "available": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              {
+                "available": [
+                  0,
+                  1
+                ]
+              }
+            ]
+          },
+          "difficulty": 0,
+          "estimated_seconds": 50
+        },
+        {
+          "knowledge_point_id": "kp_9d2fec0915864bd3",
+          "type": "choice",
+          "application_task": {
+            "mode": "required_conditions",
+            "basis": {
+              "source_ref": "src_f01215d1fd4bacbf79bd",
+              "input_role": "翻译过程",
+              "output_role": "翻译的场所"
+            },
+            "required": [
+              "mRNA进入细胞质",
+              "游离的氨基酸",
+              "以mRNA为模板"
+            ],
+            "records": [
+              {
+                "available": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              {
+                "available": [
+                  0,
+                  1
+                ]
+              }
+            ]
+          },
+          "difficulty": 0,
+          "estimated_seconds": 50
+        },
+        {
+          "knowledge_point_id": "kp_9d2fec0915864bd3",
+          "type": "choice",
+          "application_task": {
+            "mode": "required_conditions",
+            "basis": {
+              "source_ref": "src_f01215d1fd4bacbf79bd",
+              "input_role": "翻译过程",
+              "output_role": "翻译的场所"
+            },
+            "required": [
+              "mRNA进入细胞质",
+              "游离的氨基酸",
+              "以mRNA为模板"
+            ],
+            "records": [
+              {
+                "available": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              {
+                "available": [
+                  0,
+                  1
+                ]
+              }
+            ]
+          },
+          "difficulty": 0,
+          "estimated_seconds": 50
+        }
+      ]
+    },
+    {
+      "chapter_id": "chapter_d58164c4b1599fca",
+      "chapter_title": "第5章 基因突变及其他变异",
+      "label": "由受精卵发育而成的个体，体细胞中含有两个染色体组的叫做二倍体，含有三个或三个以上染色体组的叫做多倍体。",
+      "point_id": "kp_1e5d4a4538846a91",
+      "source_ref": "src_2d32622a565710a2ba9b",
+      "evidence": {
+        "page_number": 82,
+        "quote": "由受精卵发育而成的\n个体，体细胞中含有\n两个染色体组的叫做\n二倍体(diploid)；体细\n胞中含有三个或三个\n以上染色体组的叫做\n多倍体（polyploid）。",
+        "anchor_quote": "由受精卵发育而成的"
+      },
+      "application_items": [
+        {
+          "knowledge_point_id": "kp_1e5d4a4538846a91",
+          "type": "choice",
+          "application_task": {
+            "mode": "positive_source_categories",
+            "basis": {
+              "source_ref": "src_2d32622a565710a2ba9b",
+              "input_role": "由受精卵发育而成的个体体细胞中的染色体组数",
+              "output_role": "该个体属于二倍体还是多倍体"
+            },
+            "quantity": "体细胞中的染色体组数",
+            "shared_conditions": [
+              "由受精卵发育而成的个体"
+            ],
+            "rules": [
+              {
+                "condition_quote": "体细胞中含有两个染色体组的叫做二倍体",
+                "category": "二倍体",
+                "operator": "eq",
+                "threshold": 2
+              },
+              {
+                "condition_quote": "体细胞中含有三个或三个以上染色体组的叫做多倍体",
+                "category": "多倍体",
+                "operator": "gte",
+                "threshold": 3
+              }
+            ],
+            "records": [
+              {
+                "value": 2
+              },
+              {
+                "value": 4
+              }
+            ]
+          },
+          "difficulty": 0,
+          "estimated_seconds": 45
+        },
+        {
+          "knowledge_point_id": "kp_1e5d4a4538846a91",
+          "type": "choice",
+          "application_task": {
+            "mode": "positive_source_categories",
+            "basis": {
+              "source_ref": "src_2d32622a565710a2ba9b",
+              "input_role": "由受精卵发育而成的个体体细胞中的染色体组数",
+              "output_role": "该个体属于二倍体还是多倍体"
+            },
+            "quantity": "体细胞中的染色体组数",
+            "shared_conditions": [
+              "由受精卵发育而成的个体"
+            ],
+            "rules": [
+              {
+                "condition_quote": "体细胞中含有两个染色体组的叫做二倍体",
+                "category": "二倍体",
+                "operator": "eq",
+                "threshold": 2
+              },
+              {
+                "condition_quote": "体细胞中含有三个或三个以上染色体组的叫做多倍体",
+                "category": "多倍体",
+                "operator": "gte",
+                "threshold": 3
+              }
+            ],
+            "records": [
+              {
+                "value": 2
+              },
+              {
+                "value": 4
+              }
+            ]
+          },
+          "difficulty": 0,
+          "estimated_seconds": 45
+        },
+        {
+          "knowledge_point_id": "kp_1e5d4a4538846a91",
+          "type": "choice",
+          "application_task": {
+            "mode": "positive_source_categories",
+            "basis": {
+              "source_ref": "src_2d32622a565710a2ba9b",
+              "input_role": "由受精卵发育而成的个体体细胞中的染色体组数",
+              "output_role": "该个体属于二倍体还是多倍体"
+            },
+            "quantity": "体细胞中的染色体组数",
+            "shared_conditions": [
+              "由受精卵发育而成的个体"
+            ],
+            "rules": [
+              {
+                "condition_quote": "体细胞中含有两个染色体组的叫做二倍体",
+                "category": "二倍体",
+                "operator": "eq",
+                "threshold": 2
+              },
+              {
+                "condition_quote": "体细胞中含有三个或三个以上染色体组的叫做多倍体",
+                "category": "多倍体",
+                "operator": "gte",
+                "threshold": 3
+              }
+            ],
+            "records": [
+              {
+                "value": 2
+              },
+              {
+                "value": 4
+              }
+            ]
+          },
+          "difficulty": 0,
+          "estimated_seconds": 45
+        }
+      ]
+    }
+  ]
+}

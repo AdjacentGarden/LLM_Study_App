@@ -15,6 +15,7 @@ from copy import deepcopy
 
 import pytest
 from test_teaching_content import (
+    advertised_fact_response,
     course,
     lesson_candidate,
     point_candidate,
@@ -42,6 +43,21 @@ def separate_pool(monkeypatch):
 
 
 class CandidateClient:
+    def __getattribute__(self, name):
+        method = object.__getattribute__(self, name)
+        if name != "structured":
+            return method
+
+        def adapt(*, system, user, **kwargs):
+            result = method(system=system, user=user, **kwargs)
+            if system == draft.GENERATION_PROMPT:
+                from teaching_writer_test_support import advertised_writer_response
+
+                return advertised_writer_response(result, json.loads(user))
+            return result
+
+        return adapt
+
     def __init__(
         self,
         *,
@@ -144,7 +160,7 @@ class CandidateClient:
                 return {"malformed": True}
             if role == "rubric":
                 return positive_rubric_alignment_response(data)
-            return self.fact(data) if role == "fact" else self.teacher(data)
+            return advertised_fact_response(self.fact(data), data) if role == "fact" else self.teacher(data)
         finally:
             with self.lock:
                 self.active -= 1

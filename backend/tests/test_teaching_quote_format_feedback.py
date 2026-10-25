@@ -1,7 +1,8 @@
-"""Portable synthetic regressions for precise point-quote format feedback.
+"""Fixed assertion IDs remove copied point-quote responses from production.
 
-All fake responses traverse the production strict batch validators. No external
-run evidence, cloned implementation, provider client or model call is needed.
+Keep direct coverage of the legacy literal-location helper, and exercise the
+new provider contract's same-candidate bounded format correction. All responses
+are offline controls; no fake semantic verdict is evidence of lesson quality.
 """
 
 import json
@@ -11,9 +12,6 @@ import pytest
 from test_teaching_content import Client, course, point_candidate
 
 from adaptive_learning.personalization import teaching_content as teaching
-
-GENERIC_CLAIM = "范围核验的断言片段必须逐字属于当前组件的真实字段"
-GENERIC_LIMITATION = "bounded必须给出当前组件内真实存在的限缩原句，不能借另一组件补例外"
 
 
 class SequenceClient:
@@ -30,25 +28,22 @@ class SequenceClient:
 
 @pytest.fixture
 def batch(monkeypatch):
-    # Preserve adversarial cross-point quote coverage in the strict decoder;
-    # the production scheduler now sends one point per request.
     monkeypatch.setattr(teaching, "FACT_BATCH_SIZE", 2)
     bundle, chapter, evidence = course(2)
     seed = Client()
     generator = teaching.TeachingContentGenerator(seed)
     inputs = generator._inputs(bundle, evidence)
     for item in inputs:
-        item["scope_conditions"] = [{
-            "boundary_type": "precondition",
+        item["scope_conditions"] = [{"boundary_type": "precondition",
             "condition": "温度保持不变且容器密闭时才能直接沿用体积稳定结论。",
-            "scope_effect": "温度改变后不能直接沿用，应重新测量。",
-            "source_ids": ["s1"],
-        }]
+            "scope_effect": "温度改变后不能直接沿用，应重新测量。", "source_ids": ["s1"]}]
     points = [teaching._Point.model_validate(point_candidate(item)) for item in inputs]
     job, = generator._build_fact_jobs(points, None, inputs, chapter, evidence, [])
     raw = seed.structured(system=teaching.FACT_REVIEW_PROMPT,
         user=json.dumps({**job["payload"], "format_feedback": []}, ensure_ascii=False))
-    assert "components" in raw and len(raw["components"]) == 6
+    assert len(raw["components"]) == 6
+    assert all(set(row) == {"point_id", "component_id", "assertion_checks", "scope_matrix"}
+               for row in raw["components"])
     return job, raw
 
 
@@ -57,181 +52,120 @@ def component(raw, point, name="explanation"):
                 if row["point_id"] == point.point_id and row["component_id"] == name)
 
 
-def boundary_check(raw, point, name="explanation"):
-    check, = component(raw, point, name)["scope_checks"]
-    return check
+def selected(batch):
+    job, raw = batch
+    materialized = deepcopy(raw)
+    for row in materialized["components"]:
+        teaching.TeachingContentGenerator._normalize_component_selection(
+            row, job["payload"], job["evidence"], job["spans"])
+    return teaching.TeachingContentGenerator._decode_fact_selection(materialized, job["batch"], set())
 
 
-def invalid_claim(batch, name="explanation"):
-    job, good = batch
-    bad = deepcopy(good)
-    point = job["batch"][1]
-    boundary_check(bad, point, name)["claim_quote"] = "这段无效引用没有出现在当前教学字段中"
-    return bad
-
-
-def request(job, responses):
+def request(responses):
     client = SequenceClient(responses)
-    generator = teaching.TeachingContentGenerator(client)
-    return generator, client
+    return teaching.TeachingContentGenerator(client), client
 
 
 @pytest.mark.parametrize("name", ["explanation", "flashcard", "practice"])
 def test_correction_names_exact_owner_component_boundary_and_actual_field(batch, name):
     job, _ = batch
     point = job["batch"][1]
-    bad = invalid_claim(batch, name)
-    selected = teaching.TeachingContentGenerator._decode_fact_selection(bad, job["batch"], set())
-    before = selected.model_dump()
-    detail = teaching.TeachingContentGenerator._point_quote_format_correction(selected, job["batch"])
-    check = boundary_check(bad, point, name)
-    fields = teaching.TeachingContentGenerator._point_component_fields(point, name)
-    assert detail["format_correction"] == "invalid_point_scope_quote"
+    review = selected(batch)
+    proof = getattr(review.points[1].components, name)
+    field = {"explanation": "explanation", "flashcard": "back", "practice": "expected_answer"}[name]
+    check = next(row for row in proof.scope_checks if row.claim_field == field)
+    check.claim_quote = "这段无效引用没有出现在当前教学字段中"
+    before = review.model_dump()
+    detail = teaching.TeachingContentGenerator._point_quote_format_correction(review, job["batch"])
     assert (detail["point_id"], detail["component_id"], detail["boundary_id"]) == (
-        point.point_id, name, check["boundary_id"]
-    )
-    assert detail["quote_key"] == "claim_quote"
-    assert detail["field"] == check["claim_field"]
-    assert detail["invalid_quote"] == check["claim_quote"]
-    assert detail["actual_field_text"] == fields[check["claim_field"]]
-    assert detail["allowed_field_names"] == list(fields)
+        point.point_id, name, check.boundary_id)
+    assert detail["quote_key"] == "claim_quote" and detail["field"] == field
+    assert detail["actual_field_text"] == teaching.TeachingContentGenerator._point_component_fields(point, name)[field]
+    assert detail["invalid_quote"] == check.claim_quote
     assert detail["quote_max_characters"] == 240
-    assert len(json.dumps(detail, ensure_ascii=False)) < 2000
-    assert selected.model_dump() == before
+    assert review.model_dump() == before
 
 
 def test_only_invalid_quote_changes_before_complete_batch_validation(batch):
     job, good = batch
-    bad = invalid_claim(batch)
-    point = job["batch"][1]
-    repaired = deepcopy(bad)
-    boundary_check(repaired, point)["claim_quote"] = boundary_check(good, point)["claim_quote"]
-    assert repaired == good
+    bad = deepcopy(good)
+    component(bad, job["batch"][1])["assertion_checks"][0]["assertion_id"] = "foreign_assertion"
     snapshot = deepcopy(bad)
-    generator, client = request(job, [bad, repaired])
+    generator, client = request([bad, good])
     review = generator._request_fact_batch(**job)
-    assert review.accepted is True and len(review.points) == 2
+    assert review.accepted and len(review.points) == 2
     assert len(client.requests) == teaching.FACT_FORMAT_ATTEMPTS == 2
     first, second = deepcopy(client.requests)
     assert first.pop("format_feedback") == []
-    feedback = second.pop("format_feedback")
-    assert first == second
-    assert feedback[0] == GENERIC_CLAIM
-    assert json.loads(feedback[1])["invalid_quote"] == boundary_check(bad, point)["claim_quote"]
-    assert bad == snapshot
+    assert "exactly cover" in " ".join(second.pop("format_feedback"))
+    assert first == second and bad == snapshot
+    # The source text and exact field spans are already in the fixed directory;
+    # a provider no longer needs to copy a claim_quote back to prove its ID.
+    assert all("claim_quote" not in row for row in good["components"])
 
 
 @pytest.mark.parametrize("mode", ["deleted_middle", "cross_field", "cross_point", "source_text"])
 def test_noncontiguous_or_foreign_quote_still_exhausts_two_attempts(batch, mode):
     job, good = batch
     bad = deepcopy(good)
-    point = job["batch"][1]
-    check = boundary_check(bad, point)
+    target = component(bad, job["batch"][1])
     if mode == "deleted_middle":
-        check["claim_quote"] = point.explanation[:6] + point.explanation[9:36]
+        original = target["assertion_checks"][0]["assertion_id"]
+        foreign = original[:12] + original[16:]
     elif mode == "cross_field":
-        check["claim_quote"] = point.flashcard.front
+        foreign = component(good, job["batch"][1], "flashcard")["assertion_checks"][0]["assertion_id"]
     elif mode == "cross_point":
-        check["claim_quote"] = job["batch"][0].explanation[:60]
+        foreign = component(good, job["batch"][0])["assertion_checks"][0]["assertion_id"]
     else:
-        check["claim_quote"] = job["evidence"].sources["s1"].quote[:60]
-    assert check["claim_quote"] not in point.explanation
-    snapshot = deepcopy(bad)
-    generator, client = request(job, [bad, bad])
-    with pytest.raises(teaching._TeachingReviewFormatError) as caught:
+        foreign = job["evidence"].sources["s1"].quote
+    target["assertion_checks"][0]["assertion_id"] = foreign
+    generator, client = request([bad, bad])
+    with pytest.raises(teaching.TeachingServiceUnavailableError):
         generator._request_fact_batch(**job)
     assert len(client.requests) == teaching.FACT_FORMAT_ATTEMPTS == 2
-    issues = caught.value.review_feedback["format_issues"]
-    assert len(issues) == 4 and issues[0] == issues[2] == GENERIC_CLAIM
-    assert json.loads(issues[1])["point_id"] == point.point_id
-    assert json.loads(issues[3])["invalid_quote"] == check["claim_quote"]
-    assert bad == snapshot
 
 
 def test_limitation_correction_reports_its_own_field_not_the_claim_field(batch):
-    job, good = batch
-    point = job["batch"][1]
-    bad = deepcopy(good)
-    check = boundary_check(bad, point, "practice")
-    assert check["claim_field"] == "expected_answer"
-    check["limitation_field"] = "prompt"
-    check["limitation_quote"] = "该限制引文没有出现在真实题干中"
-    repaired = deepcopy(bad)
-    boundary_check(repaired, point, "practice")["limitation_quote"] = point.practice.prompt
-    generator, client = request(job, [bad, repaired])
-    assert generator._request_fact_batch(**job).accepted is True
-    feedback = client.requests[1]["format_feedback"]
-    assert feedback[0] == GENERIC_LIMITATION
-    detail = json.loads(feedback[1])
-    assert detail["quote_key"] == "limitation_quote"
-    assert detail["component_id"] == "practice" and detail["field"] == "prompt"
-    assert detail["actual_field_text"] == point.practice.prompt
-    assert len(client.requests) == 2
-
-
-def test_other_format_error_keeps_generic_feedback_without_unrelated_quote_advice(batch):
-    job, good = batch
-    bad = deepcopy(good)
-    bad["components"].pop()
-    generator, client = request(job, [bad, good])
-    assert generator._request_fact_batch(**job).accepted is True
-    feedback = client.requests[1]["format_feedback"]
-    assert len(feedback) == 1
-    assert "invalid_point_scope_quote" not in feedback[0]
-
-
-@pytest.mark.parametrize("fault", ["unknown_id", "missing_id", "string_bool"])
-def test_unknown_missing_identifier_and_nonboolean_remain_fail_closed(batch, fault):
-    job, good = batch
-    bad = deepcopy(good)
-    if fault == "unknown_id":
-        bad["components"][0]["point_id"] = "unknown_point"
-    elif fault == "missing_id":
-        bad["components"].pop()
-    else:
-        bad["components"][0]["source_entailment"] = "true"
-    generator, client = request(job, [bad, bad])
-    with pytest.raises(teaching._TeachingReviewFormatError):
-        generator._request_fact_batch(**job)
-    assert len(client.requests) == 2
-    assert client.requests[1]["format_feedback"]
+    job, _ = batch
+    review = selected(batch)
+    proof = review.points[1].components.flashcard
+    check = proof.scope_checks[0]
+    fields = teaching.TeachingContentGenerator._point_component_fields(job["batch"][1], "flashcard")
+    check.claim_field, check.claim_quote = "front", fields["front"]
+    check.status, check.candidate_explicitly_limited = "bounded", True
+    check.limitation_field, check.limitation_quote = "back", "其他字段中不存在的限缩原句"
+    detail = teaching.TeachingContentGenerator._point_quote_format_correction(review, job["batch"])
+    assert detail["quote_key"] == "limitation_quote" and detail["field"] == "back"
+    assert detail["actual_field_text"] == fields["back"]
 
 
 def test_quote_repair_cannot_turn_another_component_negative_verdict_true(batch):
     job, good = batch
-    other = job["batch"][0]
-    row = component(good, other)
-    row.update(source_entailment=False, support_span_ids=[])
-    row["findings"] = [{
-        "kind": "unsupported_claim", "candidate_field": "explanation",
-        "candidate_quote": other.explanation[:30],
-        "issue": "该独立组件仍有审核器明确指出的原文支持问题。",
-        "evidence_source_ids": ["s1"],
-    }]
-    bad = deepcopy(good)
-    boundary_check(bad, job["batch"][1])["claim_quote"] = "该断言引用不是当前字段的连续原文"
-    generator, client = request(job, [bad, good])
+    rejected = deepcopy(good)
+    point = job["batch"][0]
+    row = component(rejected, point, "practice")
+    part = job["payload"]["candidate"]["points"][0]["component_evidence"]["practice"]
+    assertion = next(a for a in part["assertion_contract"]["assertions"] if a["field"] == "expected_answer")
+    check = next(a for a in row["assertion_checks"] if a["assertion_id"] == assertion["assertion_id"])
+    check.update(source_entailment=False, support_span_ids=[], findings=[{
+        "kind": "invalid_inference", "quote": assertion["text"],
+        "issue": "当前答案的这项具体推理不受原文前提支持。", "evidence_source_ids": ["s1"]}])
+    bad = deepcopy(rejected)
+    component(bad, job["batch"][1])["assertion_checks"][0]["assertion_id"] = "unknown"
+    generator, client = request([bad, rejected])
     review = generator._request_fact_batch(**job)
-    rejected = next(row for row in review.points if row.point_id == other.point_id)
-    assert review.accepted is False
-    assert rejected.components.explanation.source_entailment is False
-    assert rejected.components.explanation.findings[0].candidate_quote == other.explanation[:30]
-    assert rejected.failed_components == ["explanation"]
+    assert not review.accepted and review.points[0].failed_components == ["practice"]
     assert len(client.requests) == 2
+    assert review.points[0].components.practice.findings
 
 
 def test_different_second_format_error_preserves_history_in_terminal_feedback(batch):
     job, good = batch
-    missing = deepcopy(good)
-    missing["components"].pop()
-    bad_quote = invalid_claim(batch)
-    generator, client = request(job, [missing, bad_quote])
+    first, second = deepcopy(good), deepcopy(good)
+    component(first, job["batch"][1])["assertion_checks"][0]["assertion_id"] = "unknown"
+    component(second, job["batch"][1])["assertion_checks"][0]["support_span_ids"] = ["unknown_span"]
+    generator, client = request([first, second])
     with pytest.raises(teaching._TeachingReviewFormatError) as caught:
         generator._request_fact_batch(**job)
-    prior_feedback = client.requests[1]["format_feedback"]
-    assert len(prior_feedback) == 1
-    final_feedback = caught.value.review_feedback["format_issues"]
-    assert final_feedback[0] == prior_feedback[0]
-    assert final_feedback[1] == GENERIC_CLAIM
-    assert json.loads(final_feedback[2])["point_id"] == job["batch"][1].point_id
-    assert len(client.requests) == 2
+    issues = caught.value.review_feedback["format_issues"]
+    assert len(client.requests) == 2 and len(issues) == 2 and issues[0] != issues[1]

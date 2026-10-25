@@ -184,8 +184,8 @@ def test_independent_review_rejects_unanswerable_item() -> None:
             second = stable_knowledge_point_id("ch_1", "乙的作用")
             return {
                 "reviews": [
-                    {"knowledge_point_id": first, "accepted": True, "issues": []},
-                    {
+                    {"required_edits": None, "knowledge_point_id": first, "accepted": True, "issues": []},
+                    {"required_edits": {"prompt": True, "option_indices": []},
                         "knowledge_point_id": second,
                         "accepted": False,
                         "issues": ["原文不足以回答题目"],
@@ -226,7 +226,7 @@ def test_visually_guessable_choice_is_rejected_instead_of_becoming_open_answer()
             self.calls += 1
             request = json.loads(user)
             assert request['items'][0]['choice_length_metrics']['correct_is_uniquely_longest']
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+            return {'reviews': [{"required_edits": {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': False, 'issues': ['正确项独自更完整，长度和具体程度明显暗示答案。']}
                 for row in request['items']]}
     reviewer = LengthReviewer()
@@ -258,7 +258,7 @@ def test_parallel_chapters_keep_semantic_review_and_return_only_a_complete_order
                 chapter_id = payload["source"]["chapter_id"]
                 reviewed.append(chapter_id)
                 return {"reviews": [
-                    {"knowledge_point_id": item["knowledge_point_id"],
+                    {"required_edits": None if (not (reject_second and chapter_id == "ch_2")) else {"prompt": True, "option_indices": []}, "knowledge_point_id": item["knowledge_point_id"],
                      "accepted": not (reject_second and chapter_id == "ch_2"),
                      "issues": ["证据不足"] if reject_second and chapter_id == "ch_2" else []}
                     for item in payload["items"]
@@ -303,7 +303,7 @@ def test_empty_tail_choices_are_format_only_and_do_not_bypass_semantic_review(
             source = json.loads(user)
             reviewed.extend(source["items"])
             return {"reviews": [
-                {"knowledge_point_id": item["knowledge_point_id"], "accepted": accepted,
+                {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, "knowledge_point_id": item["knowledge_point_id"], "accepted": accepted,
                  "issues": [] if accepted else ["原文不支持指定答案"]}
                 for item in source["items"]
             ]}
@@ -371,7 +371,7 @@ def test_grounded_rewrite_uses_answer_length_instead_of_a_broad_label_for_readab
             payload = json.loads(user)
             if "审校器" in system:
                 assert payload["source"]["knowledge_points"][0]["label"] == label
-                return {"reviews": [{"knowledge_point_id": stable_knowledge_point_id("ch_1", label),
+                return {"reviews": [{"required_edits": None, "knowledge_point_id": stable_knowledge_point_id("ch_1", label),
                                      "accepted": True, "issues": []}]}
             captured.append(payload)
             result = valid_payload()
@@ -451,7 +451,7 @@ def test_rejected_concept_question_receives_full_previous_candidate_and_localize
                 assert "previous_candidate" not in payload and "repair_feedback" not in payload
                 rejected = len(reviewer_payloads) == 1
                 return {"reviews": [
-                    {"knowledge_point_id": row['knowledge_point_id'],
+                    {"required_edits": None if (not (rejected and row['knowledge_point_id'] == first)) else {"prompt": True, "option_indices": []}, "knowledge_point_id": row['knowledge_point_id'],
                      "accepted": not (rejected and row['knowledge_point_id'] == first),
                      "issues": [issue] if rejected and row['knowledge_point_id'] == first else []}
                     for row in payload['items']]}
@@ -495,7 +495,7 @@ def test_reviewer_truthy_string_is_not_an_approval() -> None:
         def structured(self, *, system: str, user: str, **kwargs: object) -> dict[str, Any]:
             if "审校器" not in system:
                 return valid_payload()
-            return {"reviews": [{"knowledge_point_id": row["knowledge_point_id"], "accepted": "true", "issues": []}
+            return {"reviews": [{"required_edits": None, "knowledge_point_id": row["knowledge_point_id"], "accepted": "true", "issues": []}
                                 for row in valid_payload()["items"]]}
 
     with pytest.raises(DiagnosticGenerationError, match="review schema is invalid"):
@@ -581,7 +581,9 @@ def test_public_shuffle_keeps_original_option_ids_and_replays_pending_turn_verba
     item = make_generator(FakeClient(valid_payload()), verify_items=False).generate(structure())[0]
     orchestrator = InterviewOrchestrator(AdaptiveAssessmentEngine(min_items=1, max_items=1))
     positions = set()
-    for number in range(16):
+    # This tests seed diversity, not a promise that any four sessions cover
+    # all positions. Full-bank four-position balancing has its own regression.
+    for number in range(128):
         session = orchestrator.start(user_id='reader', book_id='book', book_title='教材',
                                      chapter_titles=['第一章'], items=[item])
         session.session_id = f'deterministic-session-{number}'
@@ -613,7 +615,9 @@ def test_length_risks_reach_independent_review_and_all_feedback_reaches_writer()
                 reviews.append(payload)
                 for row in payload['items']:
                     assert row['choice_length_metrics']['correct_characters'] == 40
-                return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+                return {'reviews': [{"required_edits": None if len(reviews) > 1 else {"prompt": False,
+                        "option_indices": [index for index, text in enumerate(row['options'])
+                                           if text != row['expected_answer']]}, 'knowledge_point_id': row['knowledge_point_id'],
                     'accepted': len(reviews) > 1,
                     'issues': [] if len(reviews) > 1 else ['正确项独自明显更长、更具体，提示了答案；应重写同类选项。']}
                     for row in payload['items']]}
@@ -640,7 +644,7 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
     from diagnostic_test_inputs import controlled_application
     value = structure()
     value.chapters[0].knowledge_points.append('丙的条件')
-    value.chapters[0].knowledge_point_evidence['丙的条件'] = [SourceQuote(page_number=2, quote='条件甲成立时过程乙适用。')]
+    value.chapters[0].knowledge_point_evidence['丙的条件'] = [SourceQuote(page_number=2, quote='过程乙需要条件甲、条件乙。')]
     repaired = valid_payload()
     repaired['items'].append({**deepcopy(repaired['items'][0]),
                               'knowledge_point_id': stable_knowledge_point_id('ch_1', '丙的条件'),
@@ -659,21 +663,21 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
             payload = json.loads(user)
             if '审校器' in system:
                 review_calls.append(payload)
-                return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
+                return {'reviews': [{"required_edits": None, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
                                     for row in payload['items']]}
             calls.append(payload)
             repaired['items'][2] = controlled_application(payload)
             if len(calls) == 1:
                 broken['items'][2] = deepcopy(repaired['items'][2])
-                broken['items'][2]['application_task']['instances'][1] = (
-                    broken['items'][2]['application_task']['instances'][0])
+                broken['items'][2]['application_task']['source_refs'] *= 2
                 return broken
             errors = payload['repair_feedback']['items']
             assert [row['knowledge_point_id'] for row in errors] == [row['knowledge_point_id'] for row in broken['items']]
             assert 'choice' in errors[0]['issues'][0]
             assert errors[1]['issues'][0]['type'] == 'value_error'
             assert 'ctx' not in errors[1]['issues'][0] and 'input' not in errors[1]['issues'][0]
-            assert 'distinct neutral identifiers' in errors[2]['issues'][0]
+            assert errors[2]['issues'][0]['type'] == 'value_error'
+            assert 'source_refs and four outcomes must be unique' in errors[2]['issues'][0]['msg']
             return repaired
     result = make_generator(RepairingClient(), allow_grounded_answer_rewrite=True, validation_retries=1).generate(value)
     assert len(result) == 3 and len(calls) == 2 and len(review_calls) == 1
@@ -692,7 +696,7 @@ def test_comparable_short_choices_pass_length_gate_but_still_require_concept_rev
                 return payload
             value = json.loads(user)
             reviewed.append(value)
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+            return {'reviews': [{"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                                  'issues': [] if accepted else ['只是定义命名，未测理解']}
                                 for row in value['items']]}
     generator = make_generator(ReviewingClient(), allow_grounded_answer_rewrite=True, validation_retries=0)
@@ -718,7 +722,7 @@ def test_length_risk_cannot_override_an_independent_rejection() -> None:
             request = json.loads(user)
             assert all(row['choice_length_metrics']['correct_is_uniquely_longest']
                        for row in request['items'])
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': False,
+            return {'reviews': [{"required_edits": {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': False,
                 'issues': ['正确项明显独自更长，具体程度提示了答案。']} for row in request['items']]}
     reviewer = Reviewer()
     with pytest.raises(DiagnosticGenerationError) as failure:

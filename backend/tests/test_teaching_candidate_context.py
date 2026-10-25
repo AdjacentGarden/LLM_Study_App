@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
-from test_teaching_content import lesson_candidate
+from test_teaching_content import advertised_fact_response, lesson_candidate
 from test_teaching_v15_integration import CandidateClient
 
 from adaptive_learning.personalization import teaching_content as teaching
@@ -83,7 +83,9 @@ class RecordedPointReviewer:
             for row in result["components"]:
                 if row["component_id"] not in OBSERVED["claim_quotes"]:
                     continue
-                row["scope_exceptions"] = False
+                # An unplanned condition has no invented matrix column. Its
+                # actual assertion remains a source-negative semantic veto.
+                row["source_entailment"] = False
                 row["findings"] = [negative_finding(row["component_id"])]
                 if self.fault == "invented_source_phrase":
                     row["findings"][0]["missing_text"] = "不存在的限定原句"
@@ -91,7 +93,7 @@ class RecordedPointReviewer:
                     row["findings"][0]["candidate_quote"] = "其他组件中的一句话"
                 elif self.fault == "unknown_boundary":
                     row["scope_checks"][0]["boundary_id"] = "not_a_planned_boundary"
-        return result
+        return advertised_fact_response(result, payload)
 
 
 @pytest.mark.parametrize("component", ["explanation", "flashcard"])
@@ -163,7 +165,7 @@ def test_unplanned_actual_condition_is_a_legal_component_veto_without_invented_b
     point = result.points[0]
     for component in ("explanation", "flashcard"):
         proof = getattr(point.components, component)
-        assert proof.source_entailment and not proof.scope_exceptions
+        assert not proof.source_entailment and proof.scope_exceptions
         assert proof.findings[0].model_dump() == {**negative_finding(component)}
         assert all(row.status in {"bounded", "not_applicable"} for row in proof.scope_checks)
     assert {"explanation", "flashcard"} <= set(point.failed_components)
@@ -197,7 +199,7 @@ def test_navigation_alone_changes_the_real_reuse_key_while_identical_navigation_
         client.negative = True
         changed = generator._run_fact_job(current)
         assert client.calls[-1]["output_contract"]["component_ids_by_point"][point.point_id] == ["explanation", "practice"]
-        assert not changed.points[0].components.explanation.scope_exceptions
+        assert not changed.points[0].components.explanation.source_entailment
         assert len(client.calls) == 3
     finally:
         teaching._FACT_REUSE.reset(token)

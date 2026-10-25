@@ -1,0 +1,105 @@
+{
+  "description": "Three actual H immutable sources with offline authored candidate scenarios. These drafts demonstrate expressibility only; scripted verdicts do not certify semantic quality. Translation remains a cognitive-role boundary for the mandatory independent reviewer.",
+  "source_capture_sha256": "f103e1ba7371f92018f06cc0fbbca946eeda6d9fc592fe6e94a917e6ab787c23",
+  "cases": [
+    {
+      "chapter_id": "chapter_5f29761fe19bff97",
+      "chapter_title": "第2章 基因和染色体的关系",
+      "point_id": "kp_4e8beace986bb3ff",
+      "label": "萨顿发现基因和染色体行为存在明显的平行关系，通过类比推理提出基因位于染色体上的假说。",
+      "source_ref": "src_92bca2078f385e6dd893",
+      "evidence": {
+        "page_number": 23,
+        "quote": "他将看不见的基因与看得见的染色体的行为进行类\n比，根据其惊人的一致性，提出基因位于染色体上的假说。应当注意的是，类比推理\n得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。",
+        "anchor_quote": "得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。"
+      },
+      "application_item": {
+        "knowledge_point_id": "kp_4e8beace986bb3ff",
+        "type": "choice",
+        "difficulty": 0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_92bca2078f385e6dd893"
+          ],
+          "situation": "研究者只发现两类对象的行为有多项相似，便提出它们还具有另一共同性质。",
+          "decision": "仅凭这份记录，对该推断应怎样处理？",
+          "outcomes": [
+            "作待检验假说，继续观察和实验",
+            "相似已足以证明，无须再检验",
+            "再列几项相似便可免去检验",
+            "因不能逻辑必然推出就直接判错"
+          ],
+          "correct_index": 0
+        }
+      }
+    },
+    {
+      "chapter_id": "chapter_445b90708e561e06",
+      "chapter_title": "第7章 现代生物进化理论",
+      "point_id": "kp_e93bcb901f0374f9",
+      "label": "生活在一定区域的同种生物的全部个体叫做种群，种群是生物进化的基本单位。",
+      "source_ref": "src_bf9352d01b8a29255357",
+      "evidence": {
+        "page_number": 109,
+        "quote": "种群是生物进化的基本单位\n生活在一定区域的同种生物的全部个体叫做种群\n(population)。例如，一片树林中的全部猕猴是一个种群\n（图7-5)，一片草地的所有蒲公英也是一个种群。种群中\n的个体并不是机械地集合在一起，而是彼此可以交配，并\n通过繁殖将各自的基因传给后代。",
+        "anchor_quote": "（图7-5)，一片草地的所有蒲公英也是一个种群。种群中"
+      },
+      "application_item": {
+        "knowledge_point_id": "kp_e93bcb901f0374f9",
+        "type": "choice",
+        "difficulty": 0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_bf9352d01b8a29255357"
+          ],
+          "situation": "一片草地的蒲公英已全部登记。甲表含全部个体；乙表只含其中10株，甲表还有未列入乙表的个体。",
+          "decision": "按原文界定该草地蒲公英种群的完整个体范围，应采用哪种记录？",
+          "outcomes": [
+            "仅甲表覆盖完整范围",
+            "仅乙表覆盖完整范围",
+            "甲乙分别都覆盖完整范围",
+            "甲乙均不覆盖完整范围"
+          ],
+          "correct_index": 0
+        }
+      }
+    },
+    {
+      "chapter_id": "chapter_c9c510c2d238fec7",
+      "chapter_title": "第4章 基因的表达",
+      "point_id": "kp_9d2fec0915864bd3",
+      "label": "翻译是以mRNA为模板合成具有一定氨基酸顺序的蛋白质的过程，在细胞质中进行。",
+      "source_ref": "src_1f30aac1d6ea568e13fd",
+      "evidence": {
+        "page_number": 59,
+        "quote": "游离在\n细胞质中的各种氨基酸，就以mRNA为模板合成具有一定\n氨基酸顺序的蛋白质，这一过程叫做翻译（translation)。\n你已经知道，核酸中的碱基序列就是遗传信息。翻译\n实质上是将mRNA中的碱基序列翻译为蛋白质的氨基酸序\n列。",
+        "anchor_quote": "你已经知道，核酸中的碱基序列就是遗传信息。翻译"
+      },
+      "application_item": {
+        "knowledge_point_id": "kp_9d2fec0915864bd3",
+        "type": "choice",
+        "difficulty": 0,
+        "estimated_seconds": 45,
+        "application_task": {
+          "mode": "source_scenario",
+          "source_refs": [
+            "src_1f30aac1d6ea568e13fd"
+          ],
+          "situation": "研究记录的甲栏保存蛋白质的氨基酸序列，乙栏保存mRNA的碱基序列。",
+          "decision": "用两栏表示翻译中遗传信息的转换方向，箭头应怎样连接？",
+          "outcomes": [
+            "乙栏→甲栏",
+            "甲栏→乙栏",
+            "甲栏→甲栏",
+            "乙栏→乙栏"
+          ],
+          "correct_index": 0
+        }
+      }
+    }
+  ]
+}

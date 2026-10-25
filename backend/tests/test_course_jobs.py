@@ -1,5 +1,6 @@
 import json
 import threading
+from contextvars import copy_context
 
 import pytest
 
@@ -8,6 +9,7 @@ from adaptive_learning.api.course_jobs import (
     CourseJobQueue,
     CourseRetryLimit,
 )
+from adaptive_learning.personalization.course_progress import CourseStage, report_course_stage
 
 
 def test_network_retries_and_restart_reuse_the_same_task(tmp_path):
@@ -196,6 +198,7 @@ def test_lost_postgres_owner_cannot_publish_result_through_a_fresh_connection(tm
 
     def generate(*_):
         queue._consumer.connection = LostOwner()
+        report_course_stage(CourseStage.REVIEWING)
         return {'course_id': 'late-unowned-result'}
 
     queue = CourseJobQueue(tmp_path / 'jobs.sqlite3', generate)
@@ -204,5 +207,116 @@ def test_lost_postgres_owner_cannot_publish_result_through_a_fresh_connection(tm
         queue.process_one()
     current = queue.get('s', task['job_id'])
     assert current['status'] == 'running'
+    assert current['stage'] == 'generating'
     assert current['course'] is None and current['attempts'] == 1
     queue._consumer.connection = None
+
+
+def test_real_in_flight_phase_is_durable_and_same_phase_batches_do_not_write(tmp_path, monkeypatch):
+    from adaptive_learning.api import course_jobs as module
+
+    clock = [100.0]
+    monkeypatch.setattr(module.time, 'time', lambda: clock[0])
+    entered, continue_generation = threading.Event(), threading.Event()
+    captured = []
+
+    def generate(*_):
+        clock[0] = 102.0
+        report_course_stage(CourseStage.PLANNING)
+        captured.append(copy_context())
+        entered.set()
+        assert continue_generation.wait(3)
+        clock[0] = 103.0
+        for _ in range(100):
+            report_course_stage(CourseStage.PLANNING)
+        same = queue.get('s', task['job_id'])
+        assert same['stage'] == 'planning'
+        assert same['updated_at'] == '1970-01-01T00:01:42+00:00'
+        report_course_stage(CourseStage.WRITING)
+        return {'course_id': 'approved'}
+
+    path = tmp_path / 'jobs.sqlite3'
+    queue = CourseJobQueue(path, generate)
+    task = queue.enqueue('s', 'c', 'v')
+    thread = threading.Thread(target=queue.process_one)
+    thread.start()
+    try:
+        assert entered.wait(2)
+        # A separate instance/connection sees progress while generation is blocked.
+        observed = CourseJobQueue(path, lambda *_: pytest.fail('read must not regenerate'))
+        row = observed.get('s', task['job_id'])
+        assert row['status'] == 'running' and row['stage'] == 'planning'
+        assert row['updated_at'] != task['updated_at']
+        assert row['course'] is None and row['attempts'] == 1
+    finally:
+        continue_generation.set()
+        thread.join(3)
+    assert not thread.is_alive()
+    completed = queue.get('s', task['job_id'])
+    assert completed['status'] == 'succeeded' and completed['stage'] == 'ready'
+    captured[0].run(report_course_stage, CourseStage.REFINING)
+    assert queue.get('s', task['job_id']) == completed
+
+
+def test_phase_observer_fences_terminal_attempt_and_current_run_identity(tmp_path):
+    queue = CourseJobQueue(tmp_path / 'jobs.sqlite3', lambda *_: {})
+    task = queue.enqueue('s', 'c', 'v')
+    with queue.connect() as db:
+        db.execute("UPDATE course_jobs SET status='running',stage='generating',attempts=1")
+        row = db.execute('SELECT * FROM course_jobs WHERE job_id=?', (task['job_id'],)).fetchone()
+    with queue._worker_lock() as acquired:
+        assert acquired
+        with queue._progress_scope(row, 1):
+            report_course_stage(CourseStage.PLANNING)
+            with queue.connect() as db:
+                db.execute("UPDATE course_jobs SET status='failed',stage='failed'")
+            failed = queue.get('s', task['job_id'])
+            report_course_stage(CourseStage.WRITING)
+            assert queue.get('s', task['job_id']) == failed
+            with queue.connect() as db:
+                db.execute("UPDATE course_jobs SET status='running',stage='generating',attempts=2")
+            retried = queue.get('s', task['job_id'])
+            report_course_stage(CourseStage.REVIEWING)
+            assert queue.get('s', task['job_id']) == retried
+        with queue._progress_scope(row, 2):
+            queue._consumer.progress_token = 'another-run'
+            report_course_stage(CourseStage.REFINING)
+            assert queue.get('s', task['job_id']) == retried
+
+
+def test_copied_leaf_context_cannot_write_public_progress(tmp_path):
+    def generate(*_):
+        report_course_stage(CourseStage.REVIEWING)
+        context = copy_context()
+        thread = threading.Thread(target=lambda: context.run(report_course_stage, CourseStage.WRITING))
+        thread.start()
+        thread.join(2)
+        assert not thread.is_alive()
+        assert queue.get('s', task['job_id'])['stage'] == 'reviewing'
+        return {'course_id': 'approved'}
+
+    queue = CourseJobQueue(tmp_path / 'jobs.sqlite3', generate)
+    task = queue.enqueue('s', 'c', 'v')
+    queue.process_one()
+    assert queue.get('s', task['job_id'])['status'] == 'succeeded'
+
+
+def test_progress_storage_error_does_not_replay_generation_or_publish_private_text(tmp_path, monkeypatch, caplog):
+    calls = []
+
+    def generate(*_):
+        calls.append('one-physical-generation')
+        with monkeypatch.context() as patch:
+            patch.setattr(queue, '_check_worker_connection', lambda: (_ for _ in ()).throw(
+                RuntimeError('PRIVATE_PROVIDER_PROMPT_AND_BODY')))
+            report_course_stage(CourseStage.PLANNING)
+            report_course_stage(CourseStage.WRITING)
+        return {'course_id': 'approved'}
+
+    queue = CourseJobQueue(tmp_path / 'jobs.sqlite3', generate)
+    task = queue.enqueue('s', 'c', 'v')
+    queue.process_one()
+    result = queue.get('s', task['job_id'])
+    assert result['status'] == 'succeeded' and result['attempts'] == 1
+    assert calls == ['one-physical-generation']
+    assert 'PRIVATE' not in json.dumps(result) and 'PRIVATE' not in caplog.text

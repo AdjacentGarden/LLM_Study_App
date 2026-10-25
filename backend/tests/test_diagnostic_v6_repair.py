@@ -51,7 +51,7 @@ def test_real_compact_tool_names_reach_semantic_review_without_padding_or_fact_a
             assert sorted(tool["choice_length_metrics"]["option_characters"]) == [2, 3, 6, 8]
             assert tool["choice_length_metrics"]["correct_characters"] == 6
             assert not tool["choice_length_metrics"]["correct_is_uniquely_longest"]
-            return {"reviews": [{"knowledge_point_id": row["knowledge_point_id"],
+            return {"reviews": [{"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, "knowledge_point_id": row["knowledge_point_id"],
                 "accepted": accepted, "issues": [] if accepted else [
                     "p98只说明缝合骨架缺口，当前额外重组场景需要来源支持，不能由标签补足。"]}
                 for row in request["items"]]}
@@ -94,7 +94,7 @@ def test_real_unchanged_approved_items_are_not_sent_back_for_an_opposite_verdict
             # Previously these exact approved inputs received opposite verdicts.
             # They must be reused internally, never re-sent to this fake judge.
             assert [row["knowledge_point_id"] for row in request["items"]] == pending_ids
-            return {"reviews": [{"knowledge_point_id": key, "accepted": accept_pending,
+            return {"reviews": [{"required_edits": None if (accept_pending) else {"prompt": True, "option_indices": []}, "knowledge_point_id": key, "accepted": accept_pending,
                 "issues": [] if accept_pending else ["未通过题仍有事实或干扰项问题。"]}
                 for key in pending_ids]}
     generator = ArchivedFreeformDiagnosticGenerator(
@@ -133,7 +133,7 @@ def test_three_targets_are_program_assigned_and_identical_for_writer_and_reviewe
             assert "正确结论可从原文找到不是泄题" in system
             assert "自然术语最长本身不是拒绝依据" in system
             assert "基础辨认" in request["question_contract"]
-            return {"reviews": [{"knowledge_point_id": row["knowledge_point_id"],
+            return {"reviews": [{"required_edits": None, "knowledge_point_id": row["knowledge_point_id"],
                                   "accepted": True, "issues": []} for row in request["items"]]}
     result = ArchivedFreeformDiagnosticGenerator(
         Writer(case["generation_response"]), review_client=Reviewer(),
@@ -186,7 +186,7 @@ def test_pending_review_still_requires_exact_complete_strict_verdicts(observed, 
             if self.calls == 1:
                 return deepcopy(first["review_verdict"])
             assert len(request["items"]) == 1
-            verdict = {"knowledge_point_id": request["items"][0]["knowledge_point_id"],
+            verdict = {"required_edits": None, "knowledge_point_id": request["items"][0]["knowledge_point_id"],
                        "accepted": True, "issues": []}
             if fault == "omitted":
                 return {"reviews": []}

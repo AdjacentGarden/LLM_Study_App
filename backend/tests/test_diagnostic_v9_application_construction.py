@@ -94,7 +94,7 @@ def test_unsupported_mechanisms_cannot_be_laundered_as_given_conditions(recorded
             assert 'given_conditions' not in row and 'source_supported' not in row and 'application_plan' not in row
             assert row['prompt'] == item['prompt']
             assert set(row['options']) == set(item['options'])
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+            return {'reviews': [{"required_edits": None if (row['knowledge_point_id'] != target) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': row['knowledge_point_id'] != target,
                 'issues': [] if row['knowledge_point_id'] != target else [
                     '给定表示不能把无源的酶机制或数量结论变成教材事实；原假应用仍不合格。']}
@@ -140,7 +140,7 @@ def test_explicit_record_and_color_mapping_still_requires_independent_approval(a
             actual = next(row for row in request['items'] if row['knowledge_point_id'] == target)
             assert actual['prompt'] == case['candidate']['prompt']
             assert actual['options'][actual['correct_index']] == case['candidate']['expected_answer']
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'],
+            return {'reviews': [{"required_edits": None if (accept) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'],
                 'accepted': accept, 'issues': [] if accept else ['Controlled independent relation/uniqueness veto']}
                 for row in request['items']]}
     cache = MemoryApprovals()
@@ -166,7 +166,7 @@ def test_new_construction_protocol_rechecks_previous_v8_approval(monkeypatch):
     class Reviewer:
         def structured(self, *, user, **kwargs):
             calls.append('reviewer')
-            return {'reviews': [{'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
+            return {'reviews': [{"required_edits": None, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': True, 'issues': []}
                 for row in json.loads(user)['items']]}
     subject = ArchivedFreeformDiagnosticGenerator(Writer(), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=0)

@@ -1,0 +1,868 @@
+{
+  "note": "Three failed H chapters only, with exact application sources and rejected wire. Scripted review replay does not certify semantic correctness. No complete bank, account identity or secrets.",
+  "private_capture_sha256": "15fe0559f5e39057fc5761dd90eeefd3a1dbb05ca2c89a4c5f75a5d59ab07a7e",
+  "cases": [
+    {
+      "source": {
+        "chapter_id": "chapter_5f29761fe19bff97",
+        "chapter_title": "第2章 基因和染色体的关系",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+            "label": "减数第二次分裂过程中染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开成为两条染色体。",
+            "evidence": [
+              {
+                "page_number": 12,
+                "quote": "染色体不再复制。每条染色体的着丝点分裂，\n姐妹染色单体分开，分别移向细胞的两极。",
+                "anchor_quote": "染色体不再复制。每条染色体的着丝点分裂，"
+              },
+              {
+                "page_number": 13,
+                "quote": "减数第一次分裂与减数第二次分裂之间通常没有间期\n或者间期时间很短，染色体不再复制。在减数第二次分裂\n过程中，每条染色体的着丝点分裂，两条姐妹染色单体也\n随之分开，成为两条染色体。在纺锤丝的牵引下，这两条\n染色体分别向细胞的两极移动，并且随着细胞的分裂进人",
+                "anchor_quote": "随之分开，成为两条染色体。在纺锤丝的牵引下，这两条"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_7b9c5a6f4d3f4cfe",
+            "label": "受精作用是卵细胞和精子相互识别、融合成为受精卵的过程，受精卵中染色体数目恢复到体细胞数目，一半来自父方，一半来自母方。",
+            "evidence": [
+              {
+                "page_number": 19,
+                "quote": "受精作用是卵细胞和精子相互识别、融合成",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 20,
+                "quote": "受精卵中的染色体数目又恢复到体细胞中的数目，其中有一",
+                "anchor_quote": null
+              },
+              {
+                "page_number": 20,
+                "quote": "半的染色体来自精子（父方），另一半来自卵细胞（母方）。",
+                "anchor_quote": null
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_4e8beace986bb3ff",
+            "label": "萨顿发现基因和染色体行为存在明显的平行关系，通过类比推理提出基因位于染色体上的假说。",
+            "evidence": [
+              {
+                "page_number": 22,
+                "quote": "萨顿由此推论：基因是由染色体携带着从亲代传递给\n下一代的。也就是说，基因就在染色体上，因为基因和染\n色体行为存在着明显的平行关系。",
+                "anchor_quote": "色体行为存在着明显的平行关系。"
+              },
+              {
+                "page_number": 22,
+                "quote": "子代体细胞中的这\n24条染色体，按形态结构来分，两两成对，共12对，每对\n染色体中的一条来自父方，另一条来自母方。\n萨顿由此推论：基因是由染色体携带着从亲代传递给\n下一代的。也就是说，基因就在染色体上，因为基因和染\n色体行为存在着明显的平行关系。",
+                "anchor_quote": "下一代的。也就是说，基因就在染色体上，因为基因和染"
+              },
+              {
+                "page_number": 23,
+                "quote": "他将看不见的基因与看得见的染色体的行为进行类\n比，根据其惊人的一致性，提出基因位于染色体上的假说。应当注意的是，类比推理\n得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。",
+                "anchor_quote": "得出的结论并不具有逻辑的必然性，其正确与否，还需要观察和实验的检验。"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+                "type": "choice",
+                "prompt": "在减数第二次分裂过程中，关于染色体行为，下列叙述正确的是哪一项？",
+                "options": [
+                  "染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开",
+                  "染色体进行复制，着丝点不分裂，姐妹染色单体保持相连",
+                  "染色体不再复制，着丝点不分裂，姐妹染色单体分别移向两极",
+                  "染色体进行复制，着丝点分裂，姐妹染色单体分开成为两条染色体"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_7b9c5a6f4d3f4cfe",
+                "type": "choice",
+                "prompt": "受精卵中的染色体数目与来源关系，下列叙述正确的是哪一项？",
+                "options": [
+                  "染色体数目恢复到体细胞中的数目，一半来自父方，一半来自母方",
+                  "染色体数目比体细胞中的数目多一倍，全部来自父方",
+                  "染色体数目恢复到体细胞中的数目，全部来自母方",
+                  "染色体数目比体细胞中的数目少一半，一半来自父方，一半来自母方"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色体数目恢复到体细胞中的数目，一半来自父方，一半来自母方",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_4e8beace986bb3ff",
+                "type": "choice",
+                "prompt": "萨顿将看不见的基因与看得见的染色体的行为进行类比，根据其惊人的一致性提出假说。这一假说的内容是什么？",
+                "options": [
+                  "基因位于染色体上",
+                  "基因和染色体行为没有对应关系",
+                  "基因独立于染色体传递",
+                  "基因由蛋白质携带传递给下一代"
+                ],
+                "correct_index": 0,
+                "expected_answer": "基因位于染色体上",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              }
+            ]
+          },
+          "review": null
+        },
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+                "type": "choice",
+                "prompt": "在减数第二次分裂过程中，关于染色体行为，下列叙述正确的是哪一项？",
+                "options": [
+                  "染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开",
+                  "染色体进行复制，着丝点不分裂，姐妹染色单体保持相连",
+                  "染色体不再复制，着丝点不分裂，姐妹染色单体分别移向两极",
+                  "染色体进行复制，着丝点分裂，姐妹染色单体分开成为两条染色体"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_7b9c5a6f4d3f4cfe",
+                "type": "choice",
+                "prompt": "受精卵中的染色体数目与来源关系，下列叙述正确的是哪一项？",
+                "options": [
+                  "染色体数目恢复到体细胞中的数目，一半来自父方，一半来自母方",
+                  "染色体数目比体细胞中的数目多一倍，全部来自父方",
+                  "染色体数目恢复到体细胞中的数目，全部来自母方",
+                  "染色体数目比体细胞中的数目少一半，一半来自父方，一半来自母方"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色体数目恢复到体细胞中的数目，一半来自父方，一半来自母方",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_4e8beace986bb3ff",
+                "type": "choice",
+                "application_task": {
+                  "mode": "role_transfer",
+                  "basis": {
+                    "source_ref": "src_92bca2078f385e6dd893",
+                    "input_role": "萨顿类比推理中作为依据的、看得见的染色体行为",
+                    "output_role": "类比推理后提出的假说中基因所在的位置"
+                  },
+                  "record_template": "将{input}与{output}进行类比，根据其一致性提出基因位于染色体上的假说",
+                  "bindings": [
+                    {
+                      "input": "a",
+                      "output": "b"
+                    },
+                    {
+                      "input": "b",
+                      "output": "a"
+                    }
+                  ],
+                  "result_role": "output"
+                },
+                "difficulty": 0,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_7b9c5a6f4d3f4cfe",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_4e8beace986bb3ff",
+                "accepted": false,
+                "issues": [
+                  "两条记录均已写明“提出基因位于染色体上的假说”，题干却再问基因所在位置；“甲：对象乙；乙：对象甲”不能由此推出，因为记录未说明对象乙或对象甲分别是染色体。原文的类比有明确的基因与染色体角色，交换未标明角色的对象不支持交换结论。应在记录中给定哪一对象代表看得见的染色体行为、哪一对象代表基因行为，且不要预先写出假说结论，再判断假说中的位置对应。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_7f9a4a1e1a61f2a4",
+                "type": "choice",
+                "prompt": "在减数第二次分裂过程中，关于染色体行为，下列叙述正确的是哪一项？",
+                "options": [
+                  "染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开",
+                  "染色体进行复制，着丝点不分裂，姐妹染色单体保持相连",
+                  "染色体不再复制，着丝点不分裂，姐妹染色单体分别移向两极",
+                  "染色体进行复制，着丝点分裂，姐妹染色单体分开成为两条染色体"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色体不再复制，每条染色体的着丝点分裂，姐妹染色单体分开",
+                "rubric": [],
+                "difficulty": -1.0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_7b9c5a6f4d3f4cfe",
+                "type": "choice",
+                "prompt": "受精卵中的染色体数目与来源关系，下列叙述正确的是哪一项？",
+                "options": [
+                  "染色体数目恢复到体细胞中的数目，一半来自父方，一半来自母方",
+                  "染色体数目比体细胞中的数目多一倍，全部来自父方",
+                  "染色体数目恢复到体细胞中的数目，全部来自母方",
+                  "染色体数目比体细胞中的数目少一半，一半来自父方，一半来自母方"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色体数目恢复到体细胞中的数目，一半来自父方，一半来自母方",
+                "rubric": [],
+                "difficulty": 0.0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_4e8beace986bb3ff",
+                "type": "choice",
+                "application_task": {
+                  "mode": "role_transfer",
+                  "basis": {
+                    "source_ref": "src_92bca2078f385e6dd893",
+                    "input_role": "萨顿类比推理中作为依据的、看得见的染色体行为",
+                    "output_role": "类比推理后提出的假说中基因所在的位置"
+                  },
+                  "record_template": "将{input}与{output}进行类比，根据其一致性提出基因位于染色体上的假说",
+                  "bindings": [
+                    {
+                      "id": "r1",
+                      "input": "a",
+                      "output": "b"
+                    },
+                    {
+                      "id": "r2",
+                      "input": "b",
+                      "output": "a"
+                    }
+                  ],
+                  "result_role": "output",
+                  "derivation": {
+                    "source_refs": [
+                      "src_92bca2078f385e6dd893"
+                    ],
+                    "records": [
+                      {
+                        "id": "r1",
+                        "conditions": "将对象甲与对象乙进行类比，根据其一致性提出基因位于染色体上的假说"
+                      },
+                      {
+                        "id": "r2",
+                        "conditions": "将对象乙与对象甲进行类比，根据其一致性提出基因位于染色体上的假说"
+                      }
+                    ],
+                    "decision": "类比推理后提出的假说中基因所在的位置",
+                    "outcomes": [
+                      "对象甲",
+                      "对象乙"
+                    ],
+                    "mapping": [
+                      "b",
+                      "a"
+                    ]
+                  }
+                },
+                "difficulty": 0.0,
+                "estimated_seconds": 50
+              }
+            ]
+          },
+          "review": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_4e8beace986bb3ff",
+                "accepted": false,
+                "issues": [
+                  "两条记录都已写明“提出基因位于染色体上的假说”，却未说明对象甲、对象乙哪个代表染色体；仅交换“将对象甲与对象乙进行类比”的顺序，不能依据原文推出“甲：对象乙；乙：对象甲”。“甲：对象甲；乙：对象乙”等配对也无法由现有题设排除。可保留应用目标，先在记录中明确给定两对象分别代表基因行为和染色体行为，再交换其代号，让考生判断假说中基因所在位置对应哪个对象；不要在记录中先写出该假说的结论。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_d58164c4b1599fca",
+        "chapter_title": "第5章 基因突变及其他变异",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_0435d6d962bd132f",
+            "label": "减数分裂形成四分体时期，同源染色体上的等位基因随非姐妹染色单体的交换而发生交换，导致染色单体上的基因重组。",
+            "evidence": [
+              {
+                "page_number": 78,
+                "quote": "基因重组（generecombination）是指在生物体进行有\n性生殖的过程中，控制不同性状的基因的重新组合。基因\n的自由组合定律告诉我们，在生物体通过减数分裂形成配\n子时，随着非同源染色体的自由组合，非等位基因也自由\n组合，这样，由雌雄配子结合形成的受精卵，就可能具有\n与亲代不同的基因型，从而使子代产生变异（图5−4)。另\n一种类型的基因重组发生在减数分裂形成四分体时期，位\n于同源染色体上的等位基因有时会随着非姐妹染色单体的\n交换而发生交换，导致染色单体上的基因重组。",
+                "anchor_quote": "与亲代不同的基因型，从而使子代产生变异（图5−4)。另"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_2a1408502f0b5d2d",
+            "label": "人类遗传病通常是指由于遗传物质改变而引起的人类疾病，主要分为单基因遗传病、多基因遗传病和染色体异常遗传病三大类。",
+            "evidence": [
+              {
+                "page_number": 85,
+                "quote": "随着生活水平的提高和医药卫生条件的改善，人类的\n传染性疾病已经逐渐得到控制，而人类的遗传性疾病的发\n病率和死亡率却有逐年增高的趋势，人类的遗传性疾病已\n成为威胁人类健康的一个重要因素。\n人类常见遗传病的类型\n人类遗传病通常是指由于遗传物质改变而引起的人类\n疾病，主要可以分为单基因遗传病，多基因遗传病和染色\n体异常遗传病三大类。",
+                "anchor_quote": "人类常见遗传病的类型"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_1e5d4a4538846a91",
+            "label": "由受精卵发育而成的个体，体细胞中含有两个染色体组的叫做二倍体，含有三个或三个以上染色体组的叫做多倍体。",
+            "evidence": [
+              {
+                "page_number": 82,
+                "quote": "由受精卵发育而成的\n个体，体细胞中含有\n两个染色体组的叫做\n二倍体(diploid)；体细\n胞中含有三个或三个\n以上染色体组的叫做\n多倍体（polyploid）。",
+                "anchor_quote": "由受精卵发育而成的"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_0435d6d962bd132f",
+                "type": "choice",
+                "prompt": "在减数分裂形成四分体时期，同源染色体上的等位基因随非姐妹染色单体的交换而发生交换，这一过程导致的结果是？",
+                "options": [
+                  "染色单体上的基因重组",
+                  "非同源染色体的自由组合",
+                  "受精卵基因型的改变",
+                  "配子中染色体数目加倍"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色单体上的基因重组",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_2a1408502f0b5d2d",
+                "type": "choice",
+                "prompt": "根据原文对人类遗传病类型的划分，下列哪一项属于人类遗传病的主要类别？",
+                "options": [
+                  "单基因遗传病、多基因遗传病和染色体异常遗传病",
+                  "传染性疾病、遗传性疾病和代谢性疾病",
+                  "显性遗传病、隐性遗传病和伴性遗传病",
+                  "基因突变引起的疾病和基因重组引起的疾病"
+                ],
+                "correct_index": 0,
+                "expected_answer": "单基因遗传病、多基因遗传病和染色体异常遗传病",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_1e5d4a4538846a91",
+                "type": "choice",
+                "prompt": "某个体由受精卵发育而成，其体细胞中含有三个染色体组。按照原文的划分，该个体属于？",
+                "options": [
+                  "多倍体",
+                  "二倍体",
+                  "单倍体",
+                  "四分体"
+                ],
+                "correct_index": 0,
+                "expected_answer": "多倍体",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              }
+            ]
+          },
+          "review": null
+        },
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_0435d6d962bd132f",
+                "type": "choice",
+                "prompt": "在减数分裂形成四分体时期，同源染色体上的等位基因随非姐妹染色单体的交换而发生交换，这一过程导致的结果是？",
+                "options": [
+                  "染色单体上的基因重组",
+                  "非同源染色体的自由组合",
+                  "受精卵基因型的改变",
+                  "配子中染色体数目加倍"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色单体上的基因重组",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_2a1408502f0b5d2d",
+                "type": "choice",
+                "prompt": "根据原文对人类遗传病类型的划分，下列哪一项属于人类遗传病的主要类别？",
+                "options": [
+                  "单基因遗传病、多基因遗传病和染色体异常遗传病",
+                  "传染性疾病、遗传性疾病和代谢性疾病",
+                  "显性遗传病、隐性遗传病和伴性遗传病",
+                  "基因突变引起的疾病和基因重组引起的疾病"
+                ],
+                "correct_index": 0,
+                "expected_answer": "单基因遗传病、多基因遗传病和染色体异常遗传病",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_1e5d4a4538846a91",
+                "type": "choice",
+                "application_task": {
+                  "mode": "role_transfer",
+                  "basis": {
+                    "source_ref": "src_2d32622a565710a2ba9b",
+                    "input_role": "由受精卵发育而成的个体及其体细胞中的染色体组数",
+                    "output_role": "该个体按染色体组数划分所属的类型"
+                  },
+                  "record_template": "由受精卵发育而成、体细胞中含有{input}的个体，属于{output}",
+                  "bindings": [
+                    {
+                      "input": "a",
+                      "output": "b"
+                    },
+                    {
+                      "input": "b",
+                      "output": "a"
+                    }
+                  ],
+                  "result_role": "output"
+                },
+                "difficulty": 0,
+                "estimated_seconds": 45
+              }
+            ]
+          },
+          "review": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_0435d6d962bd132f",
+                "accepted": false,
+                "issues": [
+                  "“配子中染色体数目加倍”与所问的基因重组结果不在同一判断轴上，且原文未支持；“非同源染色体的自由组合”是另一过程而非该交换的结果。应改用同类、可信的结果误解作干扰项。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_2a1408502f0b5d2d",
+                "accepted": false,
+                "issues": [
+                  "题干仅要求选出原文列举的类别，未考查类别与条件或对象的关系，不符合关系理解目标。正确项“单基因遗传病、多基因遗传病和染色体异常遗传病”还独自完整、具体地列出三类，与其余选项不够可比。可给定一种分类判断，要求辨别它与原文三类的对应关系，并设置平行选项。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_1e5d4a4538846a91",
+                "accepted": false,
+                "issues": [
+                  "两条记录已分别写明“属于对象乙”和“属于对象甲”，正确项“甲：对象乙；乙：对象甲”只是复述题干；“对象甲／对象乙”也未指明两个或三个及以上染色体组，无法代入原文判断类型。可分别给出两条记录的具体染色体组数，不预先写出所属类型，再依据原文判断二倍体、多倍体的对应关系。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_0435d6d962bd132f",
+                "type": "choice",
+                "prompt": "在减数分裂形成四分体时期，同源染色体上的等位基因随非姐妹染色单体的交换而发生交换，这一过程导致的结果是？",
+                "options": [
+                  "染色单体上的基因重组",
+                  "非同源染色体上的非等位基因自由组合",
+                  "受精卵具有与亲代不同的基因型",
+                  "配子中染色体数目加倍"
+                ],
+                "correct_index": 0,
+                "expected_answer": "染色单体上的基因重组",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_2a1408502f0b5d2d",
+                "type": "choice",
+                "prompt": "某人因遗传物质改变而患某种人类疾病，按原文对人类遗传病主要类别的划分，该疾病应归入哪一类？",
+                "options": [
+                  "单基因遗传病、多基因遗传病或染色体异常遗传病",
+                  "传染性疾病、代谢性疾病或遗传性疾病",
+                  "显性遗传病、隐性遗传病或伴性遗传病",
+                  "基因突变引起的疾病或基因重组引起的疾病"
+                ],
+                "correct_index": 0,
+                "expected_answer": "单基因遗传病、多基因遗传病或染色体异常遗传病",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 45
+              },
+              {
+                "knowledge_point_id": "kp_1e5d4a4538846a91",
+                "type": "choice",
+                "application_task": {
+                  "mode": "role_transfer",
+                  "basis": {
+                    "source_ref": "src_2d32622a565710a2ba9b",
+                    "input_role": "由受精卵发育而成的个体及其体细胞中的染色体组数",
+                    "output_role": "该个体按染色体组数划分所属的类型"
+                  },
+                  "record_template": "由受精卵发育而成、体细胞中含有{input}的个体，属于{output}",
+                  "bindings": [
+                    {
+                      "id": "r1",
+                      "input": "a",
+                      "output": "b"
+                    },
+                    {
+                      "id": "r2",
+                      "input": "b",
+                      "output": "a"
+                    }
+                  ],
+                  "result_role": "output"
+                },
+                "difficulty": 0,
+                "estimated_seconds": 45
+              }
+            ]
+          },
+          "review": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_0435d6d962bd132f",
+                "accepted": false,
+                "issues": [
+                  "题干所问是非姐妹染色单体交换的结果，但“受精卵具有与亲代不同的基因型”和“非同源染色体上的非等位基因自由组合”分别指向其他对象或过程，“配子中染色体数目加倍”也不是同类结果。应改为四个平行的、针对该交换过程的结果判断。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_2a1408502f0b5d2d",
+                "accepted": false,
+                "issues": [
+                  "题干要求按原文的遗传病主要类别划分，但“传染性疾病、代谢性疾病或遗传性疾病”“基因突变引起的疾病或基因重组引起的疾病”“显性遗传病、隐性遗传病或伴性遗传病”使用不同分类维度，不能同轴比较；正确项还独自列出原文三类，容易凭具体程度识别。应围绕同一分类关系设计四个平行判断。"
+                ]
+              },
+              {
+                "knowledge_point_id": "kp_1e5d4a4538846a91",
+                "accepted": false,
+                "issues": [
+                  "两条记录均已写明个体“属于对象乙”或“属于对象甲”，所问类型因此直接出现在题干中；“甲：对象乙；乙：对象甲”只是复述记录。且“对象甲／对象乙”未给出对应的染色体组数，无法运用原文中组数与二倍体、多倍体的关系。应给两条记录分别指定两个、三个或三个以上染色体组，再询问尚未给出的类型对应。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "source": {
+        "chapter_id": "chapter_445b90708e561e06",
+        "chapter_title": "第7章 现代生物进化理论",
+        "knowledge_points": [
+          {
+            "knowledge_point_id": "kp_0b57e65065602ebd",
+            "label": "拉马克认为生物由更古老生物进化而来，由低等到高等逐渐进化，适应性特征的形成是由于用进废退和获得性遗传。",
+            "evidence": [
+              {
+                "page_number": 105,
+                "quote": "他通过对植物和\n动物的大量观察，提出地球上的所有生物都不是神造的，\n而是由更古老的生物进化来的；生物是由低等到高等逐\n渐进化的：生物各种适应性特征的形成都是由于用进废\n退和获得性遗传。器官用得越多就越发达，比如食\n蚁兽的舌头之所以细长，是由于长期舔食蚂蚁的结\n果（图7-1）。器官废而不用，就会造成形态上的退\n化，比如假鼠长期生活在地下，眼情就萎缩、退化。",
+                "anchor_quote": "果（图7-1）。器官废而不用，就会造成形态上的退"
+              },
+              {
+                "page_number": 105,
+                "quote": "学家拉马克(J.B.Lamark,1744—1829)。他通过对植物和\n动物的大量观察，提出地球上的所有生物都不是神造的，\n而是由更古老的生物进化来的；生物是由低等到高等逐\n渐进化的：生物各种适应性特征的形成都是由于用进废\n退和获得性遗传。器官用得越多就越发达，比如食\n蚁兽的舌头之所以细长，是由于长期舔食蚂蚁的结\n果（图7-1）。",
+                "anchor_quote": "退和获得性遗传。器官用得越多就越发达，比如食"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_60549827e181cc5d",
+            "label": "达尔文接受器官用进废退和获得性遗传的观点，其解释局限于个体水平，且强调物种形成都是渐变，不能很好解释物种大爆发。",
+            "evidence": [
+              {
+                "page_number": 107,
+                "quote": "获得性遗传的观点，并且举了不少例子来说明。例如，家\n猪的腿和吻比野猪的短（图7-4)，是由于家猪使用腿和吻\n较少的结果。他对生物进化的解释也局限于个体水平，而\n实际上，如果个体出现可遗传的变异，相应基因必须在群\n体里扩散并取代原有的基因，这样新的生物类型才可能形",
+                "anchor_quote": "较少的结果。他对生物进化的解释也局限于个体水平，而"
+              },
+              {
+                "page_number": 108,
+                "quote": "成。达尔文强调物种形成都是渐变的结果，不能很好地解\n释物种大爆发等现象。",
+                "anchor_quote": "成。达尔文强调物种形成都是渐变的结果，不能很好地解"
+              },
+              {
+                "page_number": 108,
+                "quote": "成。达尔文强调物种形成都是渐变的结果，不能很好地解\n释物种大爆发等现象。这些都说明，即使像达尔文这样伟\n大的科学家，其思想观点也会有历史的局限性。",
+                "anchor_quote": "释物种大爆发等现象。这些都说明，即使像达尔文这样伟"
+              }
+            ]
+          },
+          {
+            "knowledge_point_id": "kp_e93bcb901f0374f9",
+            "label": "生活在一定区域的同种生物的全部个体叫做种群，种群是生物进化的基本单位。",
+            "evidence": [
+              {
+                "page_number": 109,
+                "quote": "种群是生物进化的基本单位\n生活在一定区域的同种生物的全部个体叫做种群\n(population)。例如，一片树林中的全部猕猴是一个种群\n（图7-5)，一片草地的所有蒲公英也是一个种群。种群中\n的个体并不是机械地集合在一起，而是彼此可以交配，并\n通过繁殖将各自的基因传给后代。",
+                "anchor_quote": "（图7-5)，一片草地的所有蒲公英也是一个种群。种群中"
+              }
+            ]
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_0b57e65065602ebd",
+                "type": "choice",
+                "prompt": "拉马克认为，生物各种适应性特征的形成主要由于什么？",
+                "options": [
+                  "用进废退和获得性遗传",
+                  "自然选择与生存斗争",
+                  "基因突变与基因重组",
+                  "隔离与物种大爆发"
+                ],
+                "correct_index": 0,
+                "expected_answer": "用进废退和获得性遗传",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_60549827e181cc5d",
+                "type": "choice",
+                "prompt": "达尔文强调物种形成都是渐变的结果，这一观点在解释哪类现象时存在困难？",
+                "options": [
+                  "物种大爆发等现象",
+                  "家猪腿和吻比野猪短的现象",
+                  "食蚁兽舌头细长的现象",
+                  "鼹鼠长期生活在地下眼睛退化的现象"
+                ],
+                "correct_index": 0,
+                "expected_answer": "物种大爆发等现象",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_e93bcb901f0374f9",
+                "type": "choice",
+                "prompt": "某草地上的全部蒲公英彼此可以交配，并通过繁殖将各自基因传给后代。按照原文，这片草地上的全部蒲公英构成什么？",
+                "options": [
+                  "一个种群",
+                  "一个群落",
+                  "一个生态系统",
+                  "一个物种的全部个体"
+                ],
+                "correct_index": 0,
+                "expected_answer": "一个种群",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              }
+            ]
+          },
+          "review": null
+        },
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_0b57e65065602ebd",
+                "type": "choice",
+                "prompt": "拉马克认为，生物各种适应性特征的形成主要由于什么？",
+                "options": [
+                  "用进废退和获得性遗传",
+                  "自然选择与生存斗争",
+                  "基因突变与基因重组",
+                  "隔离与物种大爆发"
+                ],
+                "correct_index": 0,
+                "expected_answer": "用进废退和获得性遗传",
+                "rubric": [],
+                "difficulty": -1,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_60549827e181cc5d",
+                "type": "choice",
+                "prompt": "达尔文强调物种形成都是渐变的结果，这一观点在解释哪类现象时存在困难？",
+                "options": [
+                  "物种大爆发等现象",
+                  "家猪腿和吻比野猪短的现象",
+                  "食蚁兽舌头细长的现象",
+                  "鼹鼠长期生活在地下眼睛退化的现象"
+                ],
+                "correct_index": 0,
+                "expected_answer": "物种大爆发等现象",
+                "rubric": [],
+                "difficulty": 0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_e93bcb901f0374f9",
+                "type": "choice",
+                "application_task": {
+                  "mode": "role_transfer",
+                  "basis": {
+                    "source_ref": "src_bf9352d01b8a29255357",
+                    "input_role": "生活在一定区域的同种生物的全部个体",
+                    "output_role": "由这些个体构成的种群"
+                  },
+                  "record_template": "{input}构成{output}",
+                  "bindings": [
+                    {
+                      "input": "a",
+                      "output": "b"
+                    },
+                    {
+                      "input": "b",
+                      "output": "a"
+                    }
+                  ],
+                  "result_role": "output"
+                },
+                "difficulty": 0,
+                "estimated_seconds": 45
+              }
+            ]
+          },
+          "review": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_0b57e65065602ebd",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_60549827e181cc5d",
+                "accepted": true,
+                "issues": []
+              },
+              {
+                "knowledge_point_id": "kp_e93bcb901f0374f9",
+                "accepted": false,
+                "issues": [
+                  "“对象甲构成对象乙”和“对象乙构成对象甲”未说明哪个对象是一定区域内同种生物的全部个体；原文不能据此判定哪个对象是种群。“甲：对象乙；乙：对象甲”仅把题干中的构成关系换词复述。可让两条记录明确交换‘全部个体’与‘种群’的角色，再依据原文判断尚未明示的种群对象。"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "response": {
+            "items": [
+              {
+                "knowledge_point_id": "kp_0b57e65065602ebd",
+                "type": "choice",
+                "prompt": "拉马克认为，生物各种适应性特征的形成主要由于什么？",
+                "options": [
+                  "用进废退和获得性遗传",
+                  "自然选择与生存斗争",
+                  "基因突变与基因重组",
+                  "隔离与物种大爆发"
+                ],
+                "correct_index": 0,
+                "expected_answer": "用进废退和获得性遗传",
+                "rubric": [],
+                "difficulty": -1.0,
+                "estimated_seconds": 30
+              },
+              {
+                "knowledge_point_id": "kp_60549827e181cc5d",
+                "type": "choice",
+                "prompt": "达尔文强调物种形成都是渐变的结果，这一观点在解释哪类现象时存在困难？",
+                "options": [
+                  "物种大爆发等现象",
+                  "家猪腿和吻比野猪短的现象",
+                  "食蚁兽舌头细长的现象",
+                  "鼹鼠长期生活在地下眼睛退化的现象"
+                ],
+                "correct_index": 0,
+                "expected_answer": "物种大爆发等现象",
+                "rubric": [],
+                "difficulty": 0.0,
+                "estimated_seconds": 40
+              },
+              {
+                "knowledge_point_id": "kp_e93bcb901f0374f9",
+                "type": "choice",
+                "application_task": {
+                  "mode": "role_transfer",
+                  "basis": {
+                    "source_ref": "src_bf9352d01b8a29255357",
+                    "input_role": "生活在一定区域的同种生物的全部个体",
+                    "output_role": "由这些个体构成的种群"
+                  },
+                  "record_template": "{input}构成{output}",
+                  "bindings": [
+                    {
+                      "id": "r1",
+                      "input": "a",
+                      "output": "b"
+                    },
+                    {
+                      "id": "r2",
+                      "input": "b",
+                      "output": "a"
+                    }
+                  ],
+                  "result_role": "output"
+                },
+                "difficulty": 0.0,
+                "estimated_seconds": 45
+              }
+            ]
+          },
+          "review": {
+            "reviews": [
+              {
+                "knowledge_point_id": "kp_e93bcb901f0374f9",
+                "accepted": false,
+                "issues": [
+                  "记录仅给出“对象甲构成对象乙”和反向表述，未给出对象是“一定区域的同种生物的全部个体”。原文只支持这类个体构成种群，不能据此认定“甲：对象乙；乙：对象甲”中的任一对象为种群。两条记录还直接写明了构成方向，所问只是复述题设。应在记录中给出原文要求的区域、同种及全部个体条件，再判断尚未给出的对应关系；不能仅交换对象名称。"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

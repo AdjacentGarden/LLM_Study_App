@@ -1,4 +1,4 @@
-"""Actual G source/wire inputs exercise closed plans and independent vetoes.
+"""Archived v11 G source/wire inputs exercise old closed plans and independent vetoes.
 
 Scripted judges only test mechanical boundaries and rejection persistence, never
 certify semantic quality. Archived v10 replays cannot enter production approvals.
@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from diagnostic_test_inputs import ArchivedV10StructuredGenerator
+from diagnostic_test_inputs import ArchivedV10StructuredGenerator, ArchivedV11PlanGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v6_repair import structure_for
 
@@ -71,7 +71,7 @@ class Reviewer:
         request = json.loads(user)
         self.calls.append(request)
         assert request['application_plan_contract'] in system
-        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {
+        return {'reviews': [self.verdict(row, len(self.calls)) if self.verdict else {"required_edits": None if (self.accepted or row['cognitive_target']['id'] != 'source_application') else {"prompt": True, "option_indices": []},
             'knowledge_point_id': row['knowledge_point_id'],
             'accepted': self.accepted or row['cognitive_target']['id'] != 'source_application',
             'issues': [] if self.accepted or row['cognitive_target']['id'] != 'source_application'
@@ -80,7 +80,7 @@ class Reviewer:
 
 
 def subject(writer, reviewer, retries=0, **kwargs):
-    return generation.DiagnosticItemGenerator(writer, review_client=reviewer,
+    return ArchivedV11PlanGenerator(writer, review_client=reviewer,
         allow_grounded_answer_rewrite=True, validation_retries=retries, **kwargs)
 
 
@@ -282,7 +282,7 @@ def test_full_plan_derivation_and_basis_are_preserved_and_bound_to_approval(reco
         return response
     def verdict(row, call):
         accepted = call > 1 or row['cognitive_target']['id'] != 'relation_understanding'
-        return {'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
+        return {"required_edits": None if (accepted) else {"prompt": True, "option_indices": []}, 'knowledge_point_id': row['knowledge_point_id'], 'accepted': accepted,
                 'issues': [] if accepted else ['Controlled relationship repair required']}
     writer, reviewer, events = Writer(recorded[2], 2, transform), Reviewer(verdict=verdict), []
     instance = subject(writer, reviewer, retries=1, audit_callback=events.append)
@@ -313,7 +313,7 @@ def test_v11_protocol_retains_old_approval_history_but_requires_a_new_source_pro
     previous = deepcopy(cache.claims[-1])
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', current)
     instance.generate(value, chapter_cache=cache, cache_scope='G-history')
-    assert current.startswith('grounded-independent-review-v11+')
+    assert current.startswith('grounded-independent-review-v17+required-edits-v1+')
     assert previous['source_fingerprint'] == cache.claims[-1]['source_fingerprint']
     assert previous['protocol_fingerprint'] != cache.claims[-1]['protocol_fingerprint']
     assert previous['review_fingerprint'] != cache.claims[-1]['review_fingerprint']

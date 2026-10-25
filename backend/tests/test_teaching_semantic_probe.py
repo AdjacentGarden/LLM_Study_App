@@ -95,12 +95,14 @@ def test_model_requests_never_contain_case_identity_expected_labels_or_prior_ver
                         for key in data["knowledge_points"][0]["scope_context_source_ids"]]}]}
             assert system == FACT_REVIEW_PROMPT
             point = data["candidate"]["points"][0]
-            return {"accepted": True, "issues": [], "points": [{
+            result = {"accepted": True, "issues": [], "points": [{
                 "point_id": point["point_id"], "accepted": True, "source_entailment": True,
                 "scope_exceptions": True, "failed_components": [], "issues": [],
                 "support_summary": "source_a与source_b共同支持本装置的适用条件与重新校准步骤。",
                 "components": {name: selected_proof(point["source_ids"] if name == "explanation"
                     else point[name]["source_ids"], data) for name in probe.COMPONENTS}}]}
+            from test_teaching_content import advertised_fact_response
+            return advertised_fact_response(result, data)
 
     client = Client()
     generator = TeachingContentGenerator(client)

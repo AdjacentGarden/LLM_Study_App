@@ -4,7 +4,9 @@ from copy import deepcopy
 import pytest
 
 from adaptive_learning.personalization.teaching_content import (
-    TeachingContentError, TeachingContentGenerator, _ComponentFactSelection,
+    TeachingContentError,
+    TeachingContentGenerator,
+    _ComponentFactSelection,
 )
 
 
@@ -110,7 +112,7 @@ def test_fact_wire_contract_is_one_flat_typed_batch_specific_object():
     assert row["properties"]["component_id"]["enum"] == ["explanation", "flashcard", "practice"]
     assert row["properties"]["point_id"] == {"type": "string"}
     assert "source_ids" not in row["properties"]
-    assert {"point_id", "component_id", "findings", "scope_checks", "support_span_ids"} <= set(row["required"])
+    assert set(row["required"]) == {"point_id", "component_id", "assertion_checks", "scope_matrix"}
     lesson = TeachingContentGenerator._fact_response_schema({"example_2", "checkpoint_1"}, False)
     row = lesson["$defs"]["_FlatFactComponent"]
     assert row["properties"]["component_id"]["enum"] == ["checkpoint_1", "example_2"]
