@@ -83,9 +83,11 @@ decision（同一个待判结果轴）、outcomes（该结果轴上两个不同�
 应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案；label仅定位知识点。后文普通项的label约束及JSON示例不适用于应用项。
 非应用项继续使用原有prompt/options/expected_answer格式。preserve_accepted_items中的完整task、来源引用、题干及选项一并原样保留。"""
 
-_APPLICATION_PLAN_CONTRACT = """v12封闭计划设计：
-生产只允许required_conditions与role_transfer两个mode；不接受forward_instances或仅换名字、同前提的AA配对。
+_APPLICATION_PLAN_CONTRACT = """v13封闭计划设计：
+生产只允许required_conditions、positive_source_categories与role_transfer三个mode；不接受forward_instances或仅换名字、同前提的AA配对。
 原文完整列出必需项时优先required_conditions；原文有输入、接受者或作用对象方向时优先role_transfer；证据不适配时不得凑条件。
+先看各source_ref的plan_hints选择源内可行的模式；这是导航，不是事实或质量批准。数字分类优先positive_source_categories；
+完整联合定义中的每个限定可作required，但不能遗漏区域、对象、范围等限定。不能把未指定角色的甲乙硬塞进分类或历史类比。
 application_task先提供basis={source_ref,input_role,output_role}。只选择本知识点目录中现有source_ref，不抄写或改写quote；
 程序从不可变目录复原完整原文作为只读basis.quote，作者附带的quote回声不作为来源或匹配依据。
 input_role说明所给条件对应哪个过程/对象或输入角色，不能只写“原文条件”；output_role说明尚待判断的结果或作用对象，均不是审批结论。
@@ -97,7 +99,14 @@ result_role为input或output，指出basis.output_role所问结果落在哪个�
 2.required_conditions：返回mode、basis、required（原文完整列出的2–6个必需项）、records（按序的两个{available}，一组已具备项的0起始索引）。
 required各项必须出现在basis.quote中，两条记录只给所列项目的不同子集；程序仅比较是否齐备，生成“原文列明条件齐备／仍缺原文列明条件”配对。
 不允许添加别的条件或自由结果；全部所列条件齐备不代表过程一定发生、正常进行或成功。独审还须核对required是否完整保留原文项目及其限定。
-两个mode均由程序生成公共题干、四项与答案，r1/r2固定；若作者仍给出id必须与顺序一致。required题面会显示basis.input_role中的过程/对象主题。
+3.positive_source_categories：仅表达原文明示的非负整数eq（等于）/gte（大于等于）分类，不支持任意谓词。
+返回basis、quantity（原文中的计数量）、shared_conditions（同ref逐字支持、逐记录保留的全部共同前提）、
+rules（恰好两条{condition_quote,category,operator,threshold}）与records（按序的两条{value}）。
+condition_quote和category都必须逐字来自basis.quote；threshold必须对应短引中的原文数字；gte只有原文明示“以上/至少”等包含相等的范围才可用。
+“大于/超过”不是gte；离散eq不能推范围。两rule不得重叠，每条记录必须唯一命中一个rule且两记录命中不同rule。
+记录value是明确给定的假想计数，可以将原文范围用于未逐字列出的数值，但不得扩展eq或省略shared_conditions；不得写入类别答案。
+程序从前提和计数生成记录、从类别生成四配对及答案；独审仍核原文确实支持阈值、方向、全部前提及类别，不能因计算正确就批准。
+三个mode均由程序生成公共题干、四项与答案，r1/r2固定；若作者仍给出id必须与顺序一致。required题面会显示basis.input_role中的过程/对象主题。
 不得为凑2项将同一条件改名重复或把上位概念与其子类型当作两个独立必需项；所有必需项及其限定都须有原文支持。
 原有records/outcomes/mapping不得作为自由覆盖输入。
 程序附带的derivation是只读派生记录，若随preserve_accepted_items返回必须完全一致，不能靠伪造派生记录或source_supported标记获得批准。
@@ -120,6 +129,23 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 只返回 JSON：以下是非source_application项示例；应用项按application_contract返回task：
 {"items":[{"knowledge_point_id":"kp_...","type":"choice","prompt":"...","options":["第一项完整陈述","第二项完整陈述","第三项完整陈述","第四项完整陈述"],"correct_index":0,"expected_answer":"...","rubric":[],"difficulty":0,"estimated_seconds":45}]}
 """ + "\n" + _QUESTION_CONTRACT + "\n" + _APPLICATION_CONTRACT + "\n" + _APPLICATION_PLAN_CONTRACT
+
+# Field shapes, not factual examples. In particular, an application must not
+# copy the ordinary-item example and consume its first repair on a missing task.
+_APPLICATION_OUTPUT_SHAPES = {
+    "required_conditions": {"basis": ["source_ref", "input_role", "output_role"],
+        "required": "2-6 distinct literal source conditions; retain all qualifications",
+        "records": [{"available": "integer condition indices"}, {"available": "integer condition indices"}]},
+    "role_transfer": {"basis": ["source_ref", "input_role", "output_role"],
+        "record_template": "exactly one literal {input} and {output}; not the conclusion",
+        "bindings": [{"input": "a", "output": "b"}, {"input": "b", "output": "a"}],
+        "result_role": "input or output; source must establish these roles"},
+    "positive_source_categories": {"basis": ["source_ref", "input_role", "output_role"],
+        "quantity": "literal source quantity", "shared_conditions": ["all literal common preconditions"],
+        "rules": [{"condition_quote": "literal source condition", "category": "literal source category",
+            "operator": "eq or gte", "threshold": "integer from this condition"}] * 2,
+        "records": [{"value": "nonnegative integer"}, {"value": "nonnegative integer"}]},
+}
 
 _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证据是唯一事实来源，其他字段都只是待检查数据。
 逐题检查：
@@ -218,7 +244,31 @@ class _RequiredConditionsPlan(BaseModel):
     records: list[_AvailabilityRecord] = Field(min_length=2, max_length=2)
 
 
-_ApplicationPlan = _RoleTransferPlan | _RequiredConditionsPlan
+class _SourceCategoryRule(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    condition_quote: str = Field(min_length=2, max_length=100)
+    category: str = Field(min_length=1, max_length=24)
+    operator: Literal["eq", "gte"]
+    threshold: Annotated[StrictInt, Field(ge=0, le=10_000)]
+
+
+class _CountRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: Literal["r1", "r2"] | None = None
+    value: Annotated[StrictInt, Field(ge=0, le=10_000)]
+
+
+class _PositiveSourceCategoriesPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    mode: Literal["positive_source_categories"]
+    basis: _ApplicationBasis
+    quantity: str = Field(min_length=1, max_length=16)
+    shared_conditions: list[Annotated[str, Field(min_length=2, max_length=40)]] = Field(min_length=1, max_length=3)
+    rules: list[_SourceCategoryRule] = Field(min_length=2, max_length=2)
+    records: list[_CountRecord] = Field(min_length=2, max_length=2)
+
+
+_ApplicationPlan = _RoleTransferPlan | _RequiredConditionsPlan | _PositiveSourceCategoriesPlan
 _APPLICATION_PLAN: TypeAdapter[_ApplicationPlan] = TypeAdapter(cast(Any, Annotated[
     _ApplicationPlan,
     Field(discriminator="mode"),
@@ -299,8 +349,8 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v12+immutable-application-bases-v1+chapter-approvals-v1+balanced-options-v1"
-DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v13+positive-source-categories-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v2"
 
 
 class DiagnosticChapterCache(Protocol):
@@ -369,6 +419,7 @@ def diagnostic_bank_fingerprint(
         "grounded_rewrite": allow_grounded_answer_rewrite,
         "points_per_chapter": points_per_chapter,
         "cognitive_targets": _COGNITIVE_TARGETS,
+        "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
@@ -507,6 +558,7 @@ class DiagnosticItemGenerator:
                     for index, (key, label, quotes) in enumerate(points)]}),
             "protocol_fingerprint": digest({"version": DIAGNOSTIC_BANK_VERSION,
                 "point_selection": DIAGNOSTIC_POINT_SELECTION_VERSION,
+                "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
                 "writer_prompt": _item_system(self.allow_grounded_answer_rewrite),
                 "writer_route": route(self.client), "points_per_chapter": self.points_per_chapter,
                 "rewrite": self.allow_grounded_answer_rewrite, "verify_items": self.verify_items}),
@@ -622,6 +674,8 @@ class DiagnosticItemGenerator:
         score = 0
         for quote in quotes:
             text = re.sub(r"\s+", "", quote.quote)
+            if len(re.findall(r"叫做|称为|称作", text)) >= 2 and re.search(r"以上|至少|不少于|≥|>=", text):
+                score = max(score, 4)
             for sentence in re.split(r"[。！？!?]", text):
                 required = re.search(r"(?:需要|必须具备|必须满足|必需条件)[^。！？]{2,120}", sentence)
                 if required and re.search(r"[^、，,和及与]{1,30}[、，,和及与][^、，,和及与]{1,30}", required.group()):
@@ -671,6 +725,10 @@ class DiagnosticItemGenerator:
             "question_contract": _QUESTION_CONTRACT,
             "application_contract": _APPLICATION_CONTRACT,
             "application_plan_contract": _APPLICATION_PLAN_CONTRACT,
+            "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
+            "application_response_fields": ["knowledge_point_id", "type=choice", "application_task.mode",
+                "application_task.basis", "mode-specific fields from application_output_shapes",
+                "difficulty", "estimated_seconds"],
             "application_source_refs": self._application_sources(points),
             "choice_length_rule": {
                 "applies_to": "non-source_application",
@@ -687,6 +745,7 @@ class DiagnosticItemGenerator:
                     "label": label,
                     "preferred_type": "choice",
                     "cognitive_target": dict(_COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]),
+                    "response_shape": "private_application_plan" if index % 3 == 2 else "ordinary_choice",
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
                 }
                 for index, (point_id, label, quotes) in enumerate(points)
@@ -930,9 +989,21 @@ class DiagnosticItemGenerator:
     @staticmethod
     def _application_sources(points: list[tuple[str, str, list[SourceQuote]]]) -> dict[str, object]:
         """Bind references to exact supplied quotes, not provider-written summaries."""
+        def hints(quote: SourceQuote) -> list[str]:
+            text = re.sub(r"\s+", "", quote.quote)
+            modes = []
+            if len(re.findall(r"叫做|称为|称作", text)) >= 2 and re.search(r"以上|至少|不少于|≥|>=", text):
+                modes.append("positive_source_categories")
+            if (re.search(r"(?:需要|必须具备|必须满足|必需条件)[^。！？]{1,80}[、，,和及与]", text)
+                    or re.search(r"的[^。！？]{2,80}的[^。！？]{2,50}(?:叫做|称为|称作)", text)):
+                modes.append("required_conditions")
+            if re.search(r"(?:把|将)[^。！？]{2,80}(?:转入|传给|传递给|送到|放到|移入)[^。！？]{2,60}", text):
+                modes.append("role_transfer")
+            return modes
         return {point_id: [{"ref": "src_" + hashlib.sha256(json.dumps(
                     {"point_id": point_id, "evidence": quote.model_dump(mode="json")},
                     ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:20],
+                "plan_hints": hints(quote),
                 "evidence": quote.model_dump(mode="json")} for quote in quotes]
                 for point_id, _, quotes in points}
 
@@ -1010,6 +1081,40 @@ class DiagnosticItemGenerator:
             decision = plan.basis.output_role
             outcomes = ["对象甲", "对象乙"]
             mapping = [getattr(row, plan.result_role) for row in plan.bindings]
+        elif isinstance(plan, _PositiveSourceCategoriesPlan):
+            phrases = [plan.quantity, *plan.shared_conditions, *(
+                phrase for rule in plan.rules for phrase in (rule.condition_quote, rule.category))]
+            if (not all(in_quote(phrase) for phrase in phrases)
+                    or len(set(plan.shared_conditions)) != len(plan.shared_conditions)
+                    or len({rule.category for rule in plan.rules}) != 2):
+                raise DiagnosticGenerationError("numeric categories and every shared condition require exact same-source phrases")
+            for rule in plan.rules:
+                text = re.sub(r"\s+", "", rule.condition_quote)
+                inclusive = bool(re.search(r"以上|至少|不少于|不低于|≥|>=", text))
+                unsupported = bool(re.search(r"大于(?!等于)|超过|多于|以下|至多|不超过|小于|<=|≤", text))
+                if (rule.threshold not in DiagnosticItemGenerator._source_numbers(text) or unsupported
+                        or inclusive != (rule.operator == "gte")):
+                    raise DiagnosticGenerationError("numeric rule threshold/operator must match its literal source; only eq and explicit inclusive gte")
+            first, second = plan.rules
+            overlap = (first.threshold == second.threshold if first.operator == second.operator == "eq"
+                else True if first.operator == second.operator == "gte" else
+                (first.threshold >= second.threshold if first.operator == "eq" else second.threshold >= first.threshold))
+            if overlap:
+                raise DiagnosticGenerationError("positive source category rules must not overlap")
+            matches = [[index for index, rule in enumerate(plan.rules)
+                if row.value == rule.threshold or rule.operator == "gte" and row.value >= rule.threshold]
+                for row in plan.records]
+            if (any(len(match) != 1 for match in matches) or matches[0] == matches[1]
+                    or any(row.id is not None and row.id != key
+                        for row, key in zip(plan.records, ("r1", "r2"), strict=True))):
+                raise DiagnosticGenerationError("numeric records require unique, different source-rule matches in r1/r2 order")
+            records = [{"id": key, "conditions": "，".join(plan.shared_conditions)
+                + f"；{plan.quantity}数量为{row.value}"}
+                for row, key in zip(plan.records, ("r1", "r2"), strict=True)]
+            if any(rule.category in row["conditions"] for rule in plan.rules for row in records):
+                raise DiagnosticGenerationError("numeric given records must not contain their result categories")
+            decision, outcomes = plan.basis.output_role, [rule.category for rule in plan.rules]
+            mapping = ["a" if match[0] == 0 else "b" for match in matches]
         else:
             terms = [term.strip() for term in plan.required]
             if (any(not term or len(term) > 16 or not in_quote(term) for term in terms)
@@ -1030,6 +1135,33 @@ class DiagnosticItemGenerator:
             mapping = ["a" if len(row.available) == len(terms) else "b" for row in plan.records]
         return _ApplicationTask.model_validate({"source_refs": [plan.basis.source_ref],
             "records": records, "decision": decision, "outcomes": outcomes, "mapping": mapping})
+
+    @staticmethod
+    def _source_numbers(text: str) -> set[int]:
+        """Bounded Arabic/Chinese cardinal literals; not a semantic source parser."""
+        digits = {character: index for index, character in enumerate("零一二三四五六七八九")}
+        digits.update({"〇": 0, "两": 2})
+        units = {"十": 10, "百": 100, "千": 1000, "万": 10000}
+        result = set()
+        for token in re.findall(r"[-负]?(?:[0-9]+(?:\.[0-9]+)?|[零〇一二两三四五六七八九十百千万亿兆点]+)", text):
+            if len(token) > 12 or any(character in token for character in "-负.点亿兆"):
+                continue
+            if token.isascii() and token.isdigit():
+                value = int(token)
+            elif not any(character in units for character in token):
+                value = int("".join(str(digits[character]) for character in token))
+            else:
+                total = current = 0
+                for character in token:
+                    if character in digits:
+                        current = digits[character]
+                    else:
+                        total += (current or 1) * units[character]
+                        current = 0
+                value = total + current
+            if value <= 10000:
+                result.add(value)
+        return result
 
     @staticmethod
     def _render_application_task(entry: dict[str, object], task: _ApplicationTask, *, subject: str = "") -> dict[str, object]:

@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+component-patches-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+component-patches-v1+lesson-patch-envelope-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -471,6 +471,7 @@ lesson_components中的每个指定组件都要修改。editable_slots只表示�
 保持preserve_components原样。不得原样返回被拒绝的整份lesson，也不得只改无关项冒充修复。
 这些任务不是批准结果，不新增输出字段或自行宣布通过；修订后仍接受独立审查。
 repair_contract非null时，改用其精确补丁输出，不能返回上述初稿整份结构。
+repair_contract.output_shape给出根结构；只修lesson也应保留points:[]，lesson内只返回列出的组件键。
 points中每行仅含point_id与该点列出的待改组件；explanation组件是{title,explanation,source_ids}，
 flashcard与practice结构同上。lesson为null或只含列出的组件：example_N/checkpoint_N直接是该槽位对象。
 所有列出的组件都须返回，不返回冻结组件，不额外输出修改说明或批准结果；程序将合并并独立审核。
@@ -497,6 +498,8 @@ source_entailment：对每项实际使用的事实，只以该项自己的 sourc
 scope_exceptions：主动检索全章 sources 中关于同一概念的条件、量词、例外和边界，
 检查候选是否遗漏它们而扩大了定义或结论。尤其检查“所有/部分”“只能/可以”“必然/通常”等范围。
 scope_plan/scope_conditions不是原文边界的穷尽清单，已列边界全部通过不代表其他实际条件可以省略。
+同一组件含多条独立断言时须逐一核对各自适用范围，不能用已经限缩的主旨断言替其余断言过关。
+同一边界原文包含多个关系时须逐一与候选实际命题比较，不能仅按planner的condition解读整段原文。
 每组件candidate_context_sources按其实际文字检索同主题原文，包括没有显式转折词的结构/适用条件；
 先逐条比较真实断言与这些段落及全章sources，再决定它们是否相关，不能把导航命中直接当作边界或批准。
 若同主题原文限定了对象、位置、类别或适用情境，候选却无条件推广，仍必须给出精确否决，不能因scope_plan没列它而放过。
@@ -865,6 +868,14 @@ class TeachingContentGenerator:
             },
             "lesson_components": sorted(lesson_components),
             "lesson_required": include_lesson,
+            "output_shape": {
+                "points": [
+                    {"point_id": key, **{name: "完整组件对象" for name in sorted(allowed_points[key])}}
+                    for key in sorted(point_ids)
+                ],
+                "lesson": {name: "完整组件值，沿用该组件schema"
+                           for name in sorted(lesson_components)} if include_lesson else None,
+            },
             "explanation_shape": ["title", "explanation", "source_ids"],
             "unchanged_and_independent_review_required": True,
         }
@@ -889,6 +900,16 @@ class TeachingContentGenerator:
         if not isinstance(raw, dict):
             raise TeachingContentError("局部修复必须返回精确points/lesson补丁")
         value = raw
+        added_empty_points = (
+            contract.get("mode") == "component-patches-v1"
+            and contract.get("lesson_required") is True
+            and contract.get("point_components") == {}
+            and set(raw) == {"lesson"}
+        )
+        if added_empty_points:
+            # A known lesson-only task cannot contain point content. Restore
+            # just its omitted empty envelope field, never a point or lesson value.
+            value = {"points": [], "lesson": raw["lesson"]}
         if set(raw) == {"type", "points", "lesson"} and raw["type"] == "json_object":
             value = {"points": raw["points"], "lesson": raw["lesson"]}
         if set(value) != {"points", "lesson"} or not isinstance(value["points"], list):
@@ -940,6 +961,13 @@ class TeachingContentGenerator:
             return hashlib.sha256(
                 json.dumps(content, ensure_ascii=False, sort_keys=True).encode()
             ).hexdigest()
+        if added_empty_points:
+            self._audit(
+                "generation_patch_envelope_normalized",
+                added_empty_fields={"points": []},
+                original_sha256=digest(raw), normalized_sha256=digest(value),
+                approved=False, independent_review_required=True,
+            )
         self._audit(
             "generation_patch_materialized", patch=raw,
             merge_baseline_sha256=digest(baseline),
