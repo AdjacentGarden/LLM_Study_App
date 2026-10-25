@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+component-patches-v1+lesson-patch-envelope-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+component-patches-v1+lesson-patch-envelope-v1+lesson-slot-envelope-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -443,13 +443,8 @@ answer（明确结果与条件）、title、source_ids；“阅读/思考/用自
 检查题要整合章节知识或检查易错条件，不能复制 practice/flashcard；每题另给 expected_answer 和 source_ids 供审校。
 reading_source_ids 选取足以支撑本课的连续清晰段落，优先覆盖条件/例外，最多12段。
 所有正常中文保留科学符号，不输出隐形字符或词中错误空格。不要向用户暴露内部ID、模型或OCR技术细节。
-仅返回严格 JSON：
-{"points":[{"point_id":"原ID","title":"概念","explanation":"讲解","source_ids":["s1"],
-"flashcard":{"card_id":"原ID","front":"问题","back":"答案","source_ids":["s1"]},
-"practice":{"item_id":"原ID","prompt":"应用题","expected_answer":"参考答案","rubric":["具体要点1","具体要点2"],"source_ids":["s1"]}}],
-"lesson":null或{"opening":"导入","summary":"总结","reading_source_ids":["s1"],
-"worked_examples":[{"title":"例题","problem":"题目","steps":["推导步骤1","推导步骤2"],"answer":"结论","source_ids":["s1"]}],
-"checkpoints":[{"question":"检查题","expected_answer":"核验用答案","source_ids":["s1"]}]}}。
+仅按当前请求generation_output_shape的完整字段结构返回严格JSON；其中占位文字须替换为真实待审内容。
+previous_candidate仅为只读上下文，不是本次输出schema；具体ID仍须严格遵守output_contract。
 如有 review_feedback，逐条修复后重写，不能只承诺已修改。
 审校意见是编辑指令，不是学习者要学习的内容。要求删除不支持的事实就直接删除，或补上实际支持的来源。
 审校提出的 minimal_sufficient_answer、counterexample_answer、repair 和其他反馈都只是待核验的编辑建议，
@@ -470,10 +465,10 @@ lesson_components中的每个指定组件都要修改。editable_slots只表示�
 按各槽位的原题与existing_questions比较，完成反馈要求后同步重写对应答案、步骤和准确引用；
 保持preserve_components原样。不得原样返回被拒绝的整份lesson，也不得只改无关项冒充修复。
 这些任务不是批准结果，不新增输出字段或自行宣布通过；修订后仍接受独立审查。
-repair_contract非null时，改用其精确补丁输出，不能返回上述初稿整份结构。
+repair_contract非null时，只返回其精确补丁结构，不能照搬previous_candidate的初稿结构。
 repair_contract.output_shape给出根结构；只修lesson也应保留points:[]，lesson内只返回列出的组件键。
 points中每行仅含point_id与该点列出的待改组件；explanation组件是{title,explanation,source_ids}，
-flashcard与practice结构同上。lesson为null或只含列出的组件：example_N/checkpoint_N直接是该槽位对象。
+flashcard与practice的必填字段见当前output_shape。lesson为null或只含列出的组件：example_N/checkpoint_N直接是该槽位对象。
 所有列出的组件都须返回，不返回冻结组件，不额外输出修改说明或批准结果；程序将合并并独立审核。
 point_revision_tasks给出每个待改组件的当前值与拒绝反馈：直接解决文字中的缺陷，
 被指出缺少适用条件时须在本组件的讲解或答案写清真正必要限定，或删除该泛化断言；
@@ -839,6 +834,44 @@ class TeachingContentGenerator:
         return _Generation.model_validate(raw)
 
     @staticmethod
+    def _writer_shapes() -> dict[str, Any]:
+        """Field-complete placeholders, never candidate facts or approval flags."""
+        refs = ["sources中的真实ID"]
+        return {
+            "explanation": {"title": "完整标题", "explanation": "完整讲解（70–1200字）",
+                            "source_ids": list(refs)},
+            "flashcard": {"card_id": "原card_id", "front": "完整问题（6–120字）",
+                          "back": "完整答案（12–360字）", "source_ids": list(refs)},
+            "practice": {"item_id": "原item_id", "prompt": "完整题干（8–300字）",
+                         "expected_answer": "完整参考答案（20–800字）",
+                         "rubric": ["必要原子评分目标1", "必要原子评分目标2"],
+                         "source_ids": list(refs)},
+            "opening": "完整导入（12–300字）", "summary": "完整总结（30–680字）",
+            "reading_source_ids": list(refs),
+            "example": {"title": "完整例题标题", "problem": "完整问题（8–220字）",
+                        "steps": ["完整推导步骤1", "完整推导步骤2"],
+                        "answer": "完整答案（15–250字）", "source_ids": list(refs)},
+            "checkpoint": {"question": "完整检查问题（8–180字）",
+                           "expected_answer": "完整核验答案（12–500字）", "source_ids": list(refs)},
+        }
+
+    @staticmethod
+    def _initial_output_shape(batch: list[dict[str, Any]], include_lesson: bool) -> dict[str, Any]:
+        shapes = TeachingContentGenerator._writer_shapes()
+        points = []
+        for item in batch:
+            card, practice = deepcopy(shapes["flashcard"]), deepcopy(shapes["practice"])
+            card["card_id"], practice["item_id"] = item["card_id"], item["item_id"]
+            points.append({"point_id": item["point_id"], **deepcopy(shapes["explanation"]),
+                           "flashcard": card, "practice": practice})
+        return {"points": points, "lesson": {
+            "opening": shapes["opening"], "summary": shapes["summary"],
+            "reading_source_ids": list(shapes["reading_source_ids"]),
+            "worked_examples": [deepcopy(shapes["example"]) for _ in range(3)],
+            "checkpoints": [deepcopy(shapes["checkpoint"]) for _ in range(3)],
+        } if include_lesson else None}
+
+    @staticmethod
     def _repair_contract(
         point_ids: set[str], rejected_points: dict[str, _Point],
         allowed_points: dict[str, set[str]], lesson: _Lesson | None,
@@ -861,6 +894,22 @@ class TeachingContentGenerator:
             for group, prefix in (("worked_examples", "example_"), ("checkpoints", "checkpoint_")):
                 if group in allowed_lesson:
                     lesson_components.update(key for key in available if key.startswith(prefix))
+        shapes = TeachingContentGenerator._writer_shapes()
+        point_shapes = []
+        for key in sorted(point_ids):
+            row: dict[str, Any] = {"point_id": key}
+            for name in sorted(allowed_points[key]):
+                row[name] = deepcopy(shapes[name])
+                if name == "flashcard":
+                    row[name]["card_id"] = rejected_points[key].flashcard.card_id
+                elif name == "practice":
+                    row[name]["item_id"] = rejected_points[key].practice.item_id
+            point_shapes.append(row)
+        lesson_shape = {
+            name: deepcopy(shapes[name.split("_")[0]]
+                           if name.startswith(("example_", "checkpoint_")) else shapes[name])
+            for name in sorted(lesson_components)
+        }
         return {
             "mode": "component-patches-v1",
             "point_components": {
@@ -869,12 +918,8 @@ class TeachingContentGenerator:
             "lesson_components": sorted(lesson_components),
             "lesson_required": include_lesson,
             "output_shape": {
-                "points": [
-                    {"point_id": key, **{name: "完整组件对象" for name in sorted(allowed_points[key])}}
-                    for key in sorted(point_ids)
-                ],
-                "lesson": {name: "完整组件值，沿用该组件schema"
-                           for name in sorted(lesson_components)} if include_lesson else None,
+                "points": point_shapes,
+                "lesson": lesson_shape if include_lesson else None,
             },
             "explanation_shape": ["title", "explanation", "source_ids"],
             "unchanged_and_independent_review_required": True,
@@ -910,6 +955,7 @@ class TeachingContentGenerator:
             # A known lesson-only task cannot contain point content. Restore
             # just its omitted empty envelope field, never a point or lesson value.
             value = {"points": [], "lesson": raw["lesson"]}
+        empty_points_value = value
         if set(raw) == {"type", "points", "lesson"} and raw["type"] == "json_object":
             value = {"points": raw["points"], "lesson": raw["lesson"]}
         if set(value) != {"points", "lesson"} or not isinstance(value["points"], list):
@@ -935,12 +981,37 @@ class TeachingContentGenerator:
                     raise TeachingContentError("局部修复包含未知知识点组件")
             points.append(_Point.model_validate(original))
         merged_lesson = None
+        normalized_lesson_lists = False
         if contract["lesson_required"]:
             patch = value["lesson"]
+            full_slots = {"opening", "summary", "reading_source_ids", *(
+                f"{kind}_{i}" for kind in ("example", "checkpoint") for i in range(1, 4)
+            )}
+            if (contract.get("mode") == "component-patches-v1"
+                    and contract.get("point_components") == {} and lesson is not None
+                    and len(lesson.worked_examples) == len(lesson.checkpoints) == 3
+                    and set(contract["lesson_components"]) == full_slots
+                    and isinstance(patch, dict) and set(patch) == set(_Lesson.model_fields)):
+                complete = _Lesson.model_validate(patch)
+                if len(complete.worked_examples) != 3 or len(complete.checkpoints) != 3:
+                    raise TeachingContentError("完整全章列表修复必须恰好含三个例题和三个检查题")
+                patch = {"opening": complete.opening, "summary": complete.summary,
+                         "reading_source_ids": list(complete.reading_source_ids), **{
+                             f"{kind}_{i}": row.model_dump()
+                             for kind, group in (("example", complete.worked_examples),
+                                                 ("checkpoint", complete.checkpoints))
+                             for i, row in enumerate(group, 1)}}
+                value = {**value, "lesson": patch}
+                normalized_lesson_lists = True
             if lesson is None or not isinstance(patch, dict) or set(patch) != set(
                 contract["lesson_components"]
             ):
-                raise TeachingContentError("局部修复必须且只能返回允许的全章组件")
+                raise TeachingContentError(
+                    "局部修复必须且只能返回允许的全章组件；expected="
+                    + json.dumps(contract["lesson_components"], ensure_ascii=False)
+                    + "；received=" + json.dumps(sorted(patch) if isinstance(patch, dict)
+                                                 else type(patch).__name__, ensure_ascii=False)
+                )
             result = lesson.model_dump()
             for name, component in patch.items():
                 if name in {"opening", "summary", "reading_source_ids"}:
@@ -965,7 +1036,14 @@ class TeachingContentGenerator:
             self._audit(
                 "generation_patch_envelope_normalized",
                 added_empty_fields={"points": []},
-                original_sha256=digest(raw), normalized_sha256=digest(value),
+                original_sha256=digest(raw), normalized_sha256=digest(empty_points_value),
+                approved=False, independent_review_required=True,
+            )
+        if normalized_lesson_lists:
+            self._audit(
+                "generation_lesson_slots_normalized",
+                original_sha256=digest(empty_points_value), normalized_sha256=digest(value),
+                transformed_fields=["worked_examples", "checkpoints"],
                 approved=False, independent_review_required=True,
             )
         self._audit(
@@ -1064,6 +1142,8 @@ class TeachingContentGenerator:
                     current_drafts = {**approved_points, **retained_drafts}
                     payload = {
                         "repair_contract": repair_contract,
+                        "generation_output_shape": repair_contract["output_shape"]
+                        if repair_contract else self._initial_output_shape(batch, include_lesson),
                         "point_revision_tasks": [
                             {
                                 "point_id": key,
@@ -2106,6 +2186,20 @@ class TeachingContentGenerator:
                     ):
                         return None
                 return ({owner_point_id: {short.group(1)}}, set())
+        bracketed = re.match(
+            r"(explanation|flashcard|practice)(?:（(kp_[0-9a-f]{16})）|\((kp_[0-9a-f]{16})\))"
+            r"(?=[ \t]*[：:]|$)", text,
+        )
+        if bracketed:
+            point_id = bracketed.group(2) or bracketed.group(3)
+            body = text[bracketed.end():]
+            if (point_id not in known_ids
+                    or owner_point_id is not None and point_id != owner_point_id
+                    or set(re.findall(r"kp_[A-Za-z0-9_]+", text)) != {point_id}
+                    or re.search(r"[A-Za-z_]+[（(]kp_|(?:explanation|flashcard|practice)"
+                                 r"(?:[ \t]+kp_|_kp_)|lesson\.", body)):
+                return None
+            return ({point_id: {bracketed.group(1)}}, set())
         component = re.match(
             r"(explanation|flashcard|practice)[ \t]+(kp_[0-9a-f]{16})(?![A-Za-z0-9_])",
             text,
