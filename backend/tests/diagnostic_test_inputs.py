@@ -88,13 +88,19 @@ class ArchivedV11PlanGenerator(ArchivedFreeformDiagnosticGenerator):
             **plan.model_dump(mode='json'), 'derivation': derived}
 
 
+class ArchivedV15PlanGenerator(DiagnosticItemGenerator):
+    """Explicit retired closed-plan replay; current production accepts source_scenario only."""
+    _render_application = staticmethod(DiagnosticItemGenerator._render_closed_application)
+    _application_sources = staticmethod(DiagnosticItemGenerator._closed_application_sources)
+
+
 def controlled_application(request, index=2):
-    """Explicit condition-list test input; a scripted verdict never certifies semantics."""
+    """A current scenario test input; scripted approval is not semantic certification."""
     point = request['knowledge_points'][index]
-    source = request['application_source_refs'][point['knowledge_point_id']][0]
     return {'knowledge_point_id': point['knowledge_point_id'], 'type': 'choice',
         'difficulty': 0, 'estimated_seconds': 45, 'application_task': {
-            'mode': 'required_conditions', 'basis': {'source_ref': source['ref'],
-                'input_role': '受控过程乙的必需条件', 'output_role': '受控条件齐备情况'},
-            'required': ['条件甲', '条件乙'],
-            'records': [{'available': [0, 1]}, {'available': [0]}]}}
+            'mode': 'source_scenario',
+            'source_refs': [request['application_source_refs'][point['knowledge_point_id']][0]['ref']],
+            'situation': '受控记录给出条件甲与条件乙，需按原文关系选择处理方案',
+            'decision': '哪种方案符合该记录的原文条件？',
+            'outcomes': ['受控方案甲', '受控方案乙', '受控方案丙', '受控方案丁'], 'correct_index': 0}}

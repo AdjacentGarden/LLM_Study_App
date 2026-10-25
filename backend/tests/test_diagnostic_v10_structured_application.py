@@ -204,7 +204,7 @@ def test_structural_completeness_never_overrides_independent_semantic_veto(failu
     assert 'source_supported' not in reviewer.calls[0]['items'][2]
     contract = reviewer.calls[0]['application_contract']
     assert '未完成状态当已完成' in contract
-    assert '仅用两条原文事实作真假分类' in contract
+    assert '只是复制结论或检查清单' in contract
 
 
 def test_f18_progressive_condition_remains_visible_to_the_independent_judge():
@@ -292,7 +292,7 @@ def test_full_task_and_immutable_source_directory_bind_the_approval_hash():
     point = item.knowledge_point_ids[0]
     changed_source['application_source_refs'][point][0]['evidence']['quote'] += ' changed source condition'
     assert instance._approval_key(changed_source, item, candidate['application_task']) != original
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v15+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
 
 
 def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_task_mapping():
@@ -306,7 +306,8 @@ def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_ta
     for rewrite in (True, False):
         system = generation._item_system(rewrite)
         assert '以下输出字段规则仅适用于非source_application项' in system
-        assert '应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案' in system
+        assert '应用项的正确文字由task.outcomes[task.correct_index]提出' in system
+        assert '永远不复制label作答案' in system
         assert ('correct_index 指向的选项文字必须与输入的 label 逐字相同' in system) is not rewrite
 
 
@@ -358,8 +359,8 @@ def test_actual_grounded_prompt_retains_design_guidance_and_separates_task_answe
     assert '设计顺序：先按cognitive_target确定最小任务' in system
     assert 'label 仅用于标识待测知识点，不能当作事实依据' in system
     assert '正确选项必须与 expected_answer 逐字相同' in system
-    assert '应用项的正确文字由task的mapping派生配对选项' in system
-    assert '非应用项继续使用原有prompt/options/expected_answer格式' in system
+    assert '应用项的正确文字由task.outcomes[task.correct_index]提出' in system
+    assert '非应用项继续原有prompt/options/expected_answer格式' in system
 
 
 def test_application_requires_an_independent_judge_even_in_unverified_legacy_mode():
@@ -379,7 +380,7 @@ def test_legacy_repair_payload_distinguishes_task_mapping_from_non_application_l
             response['items'][2]['application_task']['source_refs'] = ['unknown']
         else:
             assert '非source_application项的正确选项必须逐字复制输入label' in request['validation_feedback']
-            assert '答案仅由程序核验计划派生配对，不能复制label' in request['validation_feedback']
+            assert '答案由task.outcomes[correct_index]提出并须独立审核' in request['validation_feedback']
         return response
     writer, reviewer = Writer(transform), Reviewer()
     bank = ArchivedV10StructuredGenerator(writer, review_client=reviewer, validation_retries=1).generate(source_book())

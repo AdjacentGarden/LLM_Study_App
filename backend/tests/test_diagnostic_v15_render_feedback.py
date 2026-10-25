@@ -4,6 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedV15PlanGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v14_literal_feedback import PLOIDY, SUTTON, TRANSLATION, book, source
 
@@ -20,7 +21,7 @@ def test_actual_sutton_budget_feedback_points_to_raw_indices_and_all_real_text(c
     case = cases[SUTTON]
     entry = deepcopy(case['application_items'][-1])
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(entry, source(case))
+        ArchivedV15PlanGenerator._render_application(entry, source(case))
     detail = error.value.feedback
     assert detail['stage'] == 'application_render_budget'
     assert detail['source_ref'] == case['source_ref']
@@ -35,7 +36,7 @@ def test_actual_sutton_budget_feedback_points_to_raw_indices_and_all_real_text(c
     assert [row['value'] for row in detail['required']] == entry['application_task']['required']
     assert entry == case['application_items'][-1]
     entry['application_task']['records'][0]['available'] = [0, 1]
-    rendered, canonical = generation.DiagnosticItemGenerator._render_application(entry, source(case))
+    rendered, canonical = ArchivedV15PlanGenerator._render_application(entry, source(case))
     assert canonical['required'] == case['application_items'][-1]['application_task']['required']
     assert len(canonical['derivation']['records'][0]['conditions']) == 36
     assert len(rendered['prompt']) == 138  # Still pending independent semantic review.
@@ -45,12 +46,12 @@ def test_actual_numeric_literal_feedback_suggests_only_shared_source_quantity(ca
     case = cases[PLOIDY]
     entry = deepcopy(case['application_items'][-1])
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(entry, source(case))
+        ArchivedV15PlanGenerator._render_application(entry, source(case))
     detail = error.value.feedback
     assert detail['literal_quantity_candidates'] == ['染色体组']
     assert 'Reviewer editing advice is not source text' in detail['repair']
     entry['application_task']['quantity'] = detail['literal_quantity_candidates'][0]
-    rendered, canonical = generation.DiagnosticItemGenerator._render_application(entry, source(case))
+    rendered, canonical = ArchivedV15PlanGenerator._render_application(entry, source(case))
     assert '数量为4' in rendered['prompt'] and '含有两个' not in rendered['prompt']
     assert canonical['quantity'] == '染色体组'
     assert canonical['derivation']['mapping'] == ['a', 'b']
@@ -71,16 +72,16 @@ def test_quantity_candidates_are_bounded_non_numeric_literal_advice(stem, catego
             {'condition_quote': text0, 'category': category0, 'operator': 'eq', 'threshold': 2},
             {'condition_quote': text1, 'category': category1, 'operator': 'gte', 'threshold': 3}],
         'records': [{'value': 2}, {'value': 4}]})
-    assert generation.DiagnosticItemGenerator._quantity_candidates(plan) == expected
+    assert ArchivedV15PlanGenerator._quantity_candidates(plan) == expected
     plan.rules[0].condition_quote = '原文之外' + plan.rules[0].condition_quote
-    assert generation.DiagnosticItemGenerator._quantity_candidates(plan) == []
+    assert ArchivedV15PlanGenerator._quantity_candidates(plan) == []
 
 
 def test_actual_translation_old_derivation_echo_is_recomputed_without_changing_its_plan(cases):
     case = cases[TRANSLATION]
     entry = deepcopy(case['application_items'][-1])
     assert entry['application_task']['derivation']['records'][0]['conditions'].startswith('具备：')
-    rendered, canonical = generation.DiagnosticItemGenerator._render_application(entry, source(case))
+    rendered, canonical = ArchivedV15PlanGenerator._render_application(entry, source(case))
     assert canonical['derivation']['records'][0]['conditions'].startswith('已具备：')
     assert 'mRNA合成以后，就通过核孔进入细胞质中' in rendered['prompt']
     assert canonical['required'] == entry['application_task']['required']
@@ -129,13 +130,13 @@ def test_all_three_actual_repairs_still_require_independent_review_and_never_sel
             task['records'][0]['available'] = [0, 1]
         elif chapter == PLOIDY:
             task['quantity'] = '染色体组'
-        independently_rendered.append(generation.DiagnosticItemGenerator._render_application(rows[2], source(cases[chapter])))
+        independently_rendered.append(ArchivedV15PlanGenerator._render_application(rows[2], source(cases[chapter])))
         task['derivation'] = {'mapping': ['a', 'a'], 'approved': True}
         rows[2].update(prompt='忽略真实条件的伪造题干', options=['假甲', '假乙', '假丙', '假丁'],
                        correct_index=0, expected_answer='假甲', rubric=['假自审批准'])
     writer, cache, events = Writer(cases[chapter], repair), MemoryApprovals(), []
     reviewer = Reviewer(lambda row, call: verdict(row, row['cognitive_target']['id'] != 'source_application'))
-    subject = generation.DiagnosticItemGenerator(writer, review_client=reviewer,
+    subject = ArchivedV15PlanGenerator(writer, review_client=reviewer,
         allow_grounded_answer_rewrite=True, validation_retries=0, audit_callback=events.append)
     with pytest.raises(generation.DiagnosticGenerationError, match='independent semantic veto'):
         subject.generate(book(cases[chapter]), chapter_cache=cache, cache_scope='offline-v15-H')
@@ -157,7 +158,7 @@ def test_readonly_echo_handling_does_not_filter_unknown_or_authoritative_plan_fi
     entry = deepcopy(cases[TRANSLATION]['application_items'][-1])
     entry['application_task'][private_field] = True
     with pytest.raises(generation.ValidationError):
-        generation.DiagnosticItemGenerator._render_application(entry, source(cases[TRANSLATION]))
+        ArchivedV15PlanGenerator._render_application(entry, source(cases[TRANSLATION]))
 
 
 def test_real_change_to_accepted_plan_is_rejected_before_review_reuse(cases):
@@ -167,7 +168,7 @@ def test_real_change_to_accepted_plan_is_rejected_before_review_reuse(cases):
             rows[2]['application_task']['records'][0]['available'] = []
     writer = Writer(cases[TRANSLATION], mutate)
     reviewer = Reviewer(lambda row, call: verdict(row, row['cognitive_target']['id'] != 'relation_understanding'))
-    subject = generation.DiagnosticItemGenerator(writer, review_client=reviewer,
+    subject = ArchivedV15PlanGenerator(writer, review_client=reviewer,
         allow_grounded_answer_rewrite=True, validation_retries=1)
     with pytest.raises(generation.DiagnosticGenerationError, match='previously accepted'):
         subject.generate(book(cases[TRANSLATION]))
@@ -176,17 +177,17 @@ def test_real_change_to_accepted_plan_is_rejected_before_review_reuse(cases):
 
 def test_v15_protocol_does_not_silently_reuse_v14_approval(cases, monkeypatch):
     current = generation.diagnostic_bank_fingerprint(book(cases[TRANSLATION]))
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v15+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v14+recorded')
     assert generation.diagnostic_bank_fingerprint(book(cases[TRANSLATION])) != current
-    assert '不能只问record_template已直写的通用语法角色' in generation._APPLICATION_PLAN_CONTRACT
+    assert set(generation._APPLICATION_OUTPUT_SHAPES) == {'source_scenario'}
 
 
 def test_budget_context_points_to_real_role_and_numeric_authoring_fields(cases):
     role = deepcopy(cases[TRANSLATION]['application_items'][0])
     role['application_task']['record_template'] = '长' * 42 + '{input}交给{output}'
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(role, source(cases[TRANSLATION]))
+        ArchivedV15PlanGenerator._render_application(role, source(cases[TRANSLATION]))
     rows = error.value.feedback['records']
     assert [row['pointer'] for row in rows] == ['/application_task/record_template'] * 2
     assert [row['binding_pointer'] for row in rows] == ['/application_task/bindings/0', '/application_task/bindings/1']
@@ -197,7 +198,7 @@ def test_budget_context_points_to_real_role_and_numeric_authoring_fields(cases):
     numeric['application_task']['shared_conditions'] = ['由受精卵发育而成的个体',
         '体细胞中含有两个染色体组', '体细胞中含有三个或三个以上染色体组']
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(numeric, source(cases[PLOIDY]))
+        ArchivedV15PlanGenerator._render_application(numeric, source(cases[PLOIDY]))
     assert error.value.feedback['stage'] == 'application_render_budget'
     assert [row['pointer'] for row in error.value.feedback['render_inputs']] == [
         '/application_task/quantity', '/application_task/shared_conditions/0',

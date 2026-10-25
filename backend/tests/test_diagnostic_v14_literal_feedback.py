@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedV15PlanGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 
 from adaptive_learning.assessment import item_generation as generation
@@ -33,7 +34,7 @@ def test_actual_last_payload_names_every_bad_field_with_its_value_and_exact_sele
     case = cases[chapter]
     entry = deepcopy(case['application_items'][-1])
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(entry, source(case))
+        ArchivedV15PlanGenerator._render_application(entry, source(case))
     detail = error.value.feedback
     assert detail['source_ref'] == case['source_ref']
     assert detail['basis_quote'] == case['evidence']['quote']
@@ -52,7 +53,7 @@ def test_real_long_continuous_phrase_is_allowed_without_paraphrasing_or_truncati
     # returned review, not this mechanical renderer, must assess requirements.
     entry['application_task']['required'] = [original, '观察']
     entry['application_task']['records'] = [{'available': [0]}, {'available': [1]}]
-    rendered, task = generation.DiagnosticItemGenerator._render_application(entry, source(case))
+    rendered, task = ArchivedV15PlanGenerator._render_application(entry, source(case))
     assert task['required'] == [original, '观察']
     assert all(len(row['conditions']) <= 48 for row in task['derivation']['records'])
     assert len(generation.ItemDraft.model_validate(rendered).prompt) <= 140
@@ -63,7 +64,7 @@ def test_all_required_errors_include_source_and_length_reasons_in_one_response(c
     entry = deepcopy(case['application_items'][0])
     entry['application_task']['required'] = [case['evidence']['quote'][:33], '并非来自所选原文的短语']
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(entry, source(case))
+        ArchivedV15PlanGenerator._render_application(entry, source(case))
     fields = error.value.feedback['fields']
     assert [row['pointer'] for row in fields] == ['/application_task/required/0', '/application_task/required/1']
     assert any('exceeds 32 characters' in reason for reason in fields[0]['reasons'])
@@ -78,7 +79,7 @@ def test_all_numeric_literal_fields_are_reported_together_not_as_a_generic_share
     task['rules'][0]['category'] = '未出现在原文中的类别'
     task['rules'][1]['condition_quote'] = '未出现在原文中的数量条件'
     with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(entry, source(case))
+        ArchivedV15PlanGenerator._render_application(entry, source(case))
     assert {row['pointer'] for row in error.value.feedback['fields']} == {
         '/application_task/quantity', '/application_task/shared_conditions/0',
         '/application_task/rules/0/category', '/application_task/rules/1/condition_quote',
@@ -132,7 +133,7 @@ def test_actual_numeric_field_feedback_reaches_writer_then_independent_review_ca
                     else ['Controlled independent source/uniqueness/distractor veto']}
                 for item in request['items']]}
 
-    subject = generation.DiagnosticItemGenerator(Writer(), review_client=Reviewer(),
+    subject = ArchivedV15PlanGenerator(Writer(), review_client=Reviewer(),
         allow_grounded_answer_rewrite=True, validation_retries=1)
     if accepted:
         assert len(subject.generate(book(case), chapter_cache=cache, cache_scope='offline-H')) == 3
@@ -146,6 +147,6 @@ def test_actual_numeric_field_feedback_reaches_writer_then_independent_review_ca
 def test_changed_validation_protocol_cannot_reuse_v13_identity(cases, monkeypatch):
     value = book(cases[PLOIDY])
     current = generation.diagnostic_bank_fingerprint(value)
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v15+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v16+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v13+recorded')
     assert generation.diagnostic_bank_fingerprint(value) != current

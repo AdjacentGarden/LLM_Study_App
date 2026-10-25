@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedV15PlanGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v6_repair import structure_for
 
@@ -88,11 +89,7 @@ class Writer:
         request = json.loads(user)
         self.calls.append(request)
         assert request["knowledge_points"][2]["response_shape"] == "private_application_plan"
-        assert set(request["application_output_shapes"]) == {
-            "required_conditions",
-            "role_transfer",
-            "positive_source_categories",
-        }
+        assert set(request["application_output_shapes"]) == {"source_scenario"}
         rows = [
             {
                 "knowledge_point_id": point["knowledge_point_id"],
@@ -141,7 +138,7 @@ class Reviewer:
 
 
 def generator(writer, reviewer, retries=0, **kwargs):
-    return generation.DiagnosticItemGenerator(
+    return ArchivedV15PlanGenerator(
         writer,
         review_client=reviewer,
         allow_grounded_answer_rewrite=True,
@@ -248,7 +245,7 @@ def test_numeric_records_are_strict_bounded_integers(recorded, value):
     ],
 )
 def test_source_cardinals_do_not_parse_negative_decimal_or_large_number_fragments(text, expected):
-    assert generation.DiagnosticItemGenerator._source_numbers(text) == expected
+    assert ArchivedV15PlanGenerator._source_numbers(text) == expected
 
 
 @pytest.mark.parametrize(
@@ -368,7 +365,7 @@ def test_strict_greater_source_does_not_authorize_inclusive_gte(recorded, phrase
     # Source hints are navigation only, so provide the explicit negative plan
     # even when this unsupported operator intentionally has no numeric hint.
     writer = Writer(transform)
-    original = generation.DiagnosticItemGenerator._application_sources
+    original = ArchivedV15PlanGenerator._application_sources
 
     class NegativeWriter(Writer):
         def structured(self, **kwargs):
@@ -384,7 +381,7 @@ def test_strict_greater_source_does_not_authorize_inclusive_gte(recorded, phrase
     with pytest.raises(generation.DiagnosticGenerationError, match="explicit inclusive gte"):
         generator(writer, reviewer).generate(structure_for(case["source"]))
     assert (
-        reviewer.calls == [] and generation.DiagnosticItemGenerator._application_sources is original
+        reviewer.calls == [] and ArchivedV15PlanGenerator._application_sources is original
     )
 
 

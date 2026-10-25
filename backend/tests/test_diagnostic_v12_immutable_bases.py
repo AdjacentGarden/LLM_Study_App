@@ -9,6 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from diagnostic_test_inputs import ArchivedV15PlanGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v6_repair import structure_for
 
@@ -63,7 +64,7 @@ class Reviewer:
 
 
 def subject(writer, reviewer, **kwargs):
-    return generation.DiagnosticItemGenerator(writer, review_client=reviewer,
+    return ArchivedV15PlanGenerator(writer, review_client=reviewer,
         allow_grounded_answer_rewrite=True, validation_retries=0, **kwargs)
 
 
@@ -261,7 +262,7 @@ def test_v12_uses_a_new_protocol_claim_without_deleting_v11_approval_history(rec
     previous = deepcopy(cache.records)
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', current)
     instance.generate(value, chapter_cache=cache, cache_scope='same-book')
-    assert current.startswith('grounded-independent-review-v15+')
+    assert current.startswith('grounded-independent-review-v16+')
     assert len(writer.calls) == len(reviewer.calls) == len(cache.records) == 2
     assert all(cache.records[key] == record for key, record in previous.items())
 

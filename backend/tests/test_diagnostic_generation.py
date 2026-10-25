@@ -667,15 +667,15 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
             repaired['items'][2] = controlled_application(payload)
             if len(calls) == 1:
                 broken['items'][2] = deepcopy(repaired['items'][2])
-                broken['items'][2]['application_task']['records'][1]['available'] = (
-                    broken['items'][2]['application_task']['records'][0]['available'])
+                broken['items'][2]['application_task']['source_refs'] *= 2
                 return broken
             errors = payload['repair_feedback']['items']
             assert [row['knowledge_point_id'] for row in errors] == [row['knowledge_point_id'] for row in broken['items']]
             assert 'choice' in errors[0]['issues'][0]
             assert errors[1]['issues'][0]['type'] == 'value_error'
             assert 'ctx' not in errors[1]['issues'][0] and 'input' not in errors[1]['issues'][0]
-            assert 'distinct valid source-term index sets' in errors[2]['issues'][0]
+            assert errors[2]['issues'][0]['type'] == 'value_error'
+            assert 'source_refs and four outcomes must be unique' in errors[2]['issues'][0]['msg']
             return repaired
     result = make_generator(RepairingClient(), allow_grounded_answer_rewrite=True, validation_retries=1).generate(value)
     assert len(result) == 3 and len(calls) == 2 and len(review_calls) == 1
