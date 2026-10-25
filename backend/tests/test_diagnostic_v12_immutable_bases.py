@@ -256,7 +256,7 @@ def test_v12_uses_a_new_protocol_claim_without_deleting_v11_approval_history(rec
     previous = deepcopy(cache.records)
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', current)
     instance.generate(value, chapter_cache=cache, cache_scope='same-book')
-    assert current.startswith('grounded-independent-review-v13+')
+    assert current.startswith('grounded-independent-review-v14+')
     assert len(writer.calls) == len(reviewer.calls) == len(cache.records) == 2
     assert all(cache.records[key] == record for key, record in previous.items())
 

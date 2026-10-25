@@ -83,7 +83,7 @@ decision（同一个待判结果轴）、outcomes（该结果轴上两个不同�
 应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案；label仅定位知识点。后文普通项的label约束及JSON示例不适用于应用项。
 非应用项继续使用原有prompt/options/expected_answer格式。preserve_accepted_items中的完整task、来源引用、题干及选项一并原样保留。"""
 
-_APPLICATION_PLAN_CONTRACT = """v13封闭计划设计：
+_APPLICATION_PLAN_CONTRACT = """v14封闭计划设计：
 生产只允许required_conditions、positive_source_categories与role_transfer三个mode；不接受forward_instances或仅换名字、同前提的AA配对。
 原文完整列出必需项时优先required_conditions；原文有输入、接受者或作用对象方向时优先role_transfer；证据不适配时不得凑条件。
 先看各source_ref的plan_hints选择源内可行的模式；这是导航，不是事实或质量批准。数字分类优先positive_source_categories；
@@ -98,6 +98,7 @@ result_role为input或output，指出basis.output_role所问结果落在哪个�
 必须由basis.quote支持操作和结果角色关系；题设中性对象表示可给定，但不得引入未知机制。所问应是尚未给出的作用对象或结果，不能只问定义名称或复述已给的角色。
 2.required_conditions：返回mode、basis、required（原文完整列出的2–6个必需项）、records（按序的两个{available}，一组已具备项的0起始索引）。
 required各项必须出现在basis.quote中，两条记录只给所列项目的不同子集；程序仅比较是否齐备，生成“原文列明条件齐备／仍缺原文列明条件”配对。
+required每个原文短语最多32字；最终记录48字、题干140字的上限不变，不能改写原文或截断限定来压短。
 不允许添加别的条件或自由结果；全部所列条件齐备不代表过程一定发生、正常进行或成功。独审还须核对required是否完整保留原文项目及其限定。
 3.positive_source_categories：仅表达原文明示的非负整数eq（等于）/gte（大于等于）分类，不支持任意谓词。
 返回basis、quantity（原文中的计数量）、shared_conditions（同ref逐字支持、逐记录保留的全部共同前提）、
@@ -349,7 +350,7 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v13+positive-source-categories-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v14+precise-literal-feedback-v1+chapter-approvals-v1+balanced-options-v1"
 DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v2"
 
 
@@ -1051,6 +1052,28 @@ class DiagnosticItemGenerator:
         def in_quote(text: str) -> bool:
             return bool(text.strip()) and re.sub(r"\s+", "", text) in re.sub(r"\s+", "", plan.basis.quote)
 
+        def literal_errors(fields: Iterable[tuple[str, str]], *, maximum: int | None = None
+                           ) -> list[dict[str, object]]:
+            errors: list[dict[str, object]] = []
+            for pointer, value in fields:
+                reasons = []
+                if maximum is not None and len(value) > maximum:
+                    reasons.append(f"exceeds {maximum} characters (actual {len(value)})")
+                if not in_quote(value):
+                    reasons.append("not a continuous literal source phrase; only whitespace may differ")
+                if reasons:
+                    errors.append({"pointer": pointer, "value": value, "reasons": reasons})
+            return errors
+
+        def reject_literals(message: str, errors: list[dict[str, object]]) -> None:
+            raise DiagnosticGenerationError(message, feedback={
+                "stage": "application_literal_validation", "source_ref": plan.basis.source_ref,
+                "basis_quote": plan.basis.quote, "fields": errors,
+                "repair": "Repair every named field using continuous phrases from this exact basis_quote; "
+                    "do not paraphrase, omit intervening words, or change valid sibling fields. "
+                    "Literal membership is not semantic approval; all original reviews still apply.",
+            })
+
         if isinstance(plan, _ForwardInstancesPlan):
             instances = [value.strip() for value in plan.instances]
             if (any(not value or len(value) > 8 for value in instances)
@@ -1082,12 +1105,21 @@ class DiagnosticItemGenerator:
             outcomes = ["对象甲", "对象乙"]
             mapping = [getattr(row, plan.result_role) for row in plan.bindings]
         elif isinstance(plan, _PositiveSourceCategoriesPlan):
-            phrases = [plan.quantity, *plan.shared_conditions, *(
-                phrase for rule in plan.rules for phrase in (rule.condition_quote, rule.category))]
-            if (not all(in_quote(phrase) for phrase in phrases)
-                    or len(set(plan.shared_conditions)) != len(plan.shared_conditions)
-                    or len({rule.category for rule in plan.rules}) != 2):
-                raise DiagnosticGenerationError("numeric categories and every shared condition require exact same-source phrases")
+            fields = [("/application_task/quantity", plan.quantity), *(
+                (f"/application_task/shared_conditions/{index}", phrase)
+                for index, phrase in enumerate(plan.shared_conditions)), *(
+                (f"/application_task/rules/{index}/{name}", getattr(rule, name))
+                for index, rule in enumerate(plan.rules) for name in ("condition_quote", "category"))]
+            errors = literal_errors(fields)
+            for index, phrase in enumerate(plan.shared_conditions):
+                if phrase in plan.shared_conditions[:index]:
+                    errors.append({"pointer": f"/application_task/shared_conditions/{index}",
+                        "value": phrase, "reasons": ["duplicate shared condition"]})
+            if plan.rules[0].category == plan.rules[1].category:
+                errors.append({"pointer": "/application_task/rules/1/category",
+                    "value": plan.rules[1].category, "reasons": ["duplicate result category"]})
+            if errors:
+                reject_literals("numeric categories and every shared condition require exact same-source phrases", errors)
             for rule in plan.rules:
                 text = re.sub(r"\s+", "", rule.condition_quote)
                 inclusive = bool(re.search(r"以上|至少|不少于|不低于|≥|>=", text))
@@ -1117,9 +1149,14 @@ class DiagnosticItemGenerator:
             mapping = ["a" if match[0] == 0 else "b" for match in matches]
         else:
             terms = [term.strip() for term in plan.required]
-            if (any(not term or len(term) > 16 or not in_quote(term) for term in terms)
-                    or len(set(terms)) != len(terms)):
-                raise DiagnosticGenerationError("required conditions must be distinct literal source terms, at most 16 characters")
+            errors = literal_errors(((f"/application_task/required/{index}", term)
+                for index, term in enumerate(terms)), maximum=32)
+            for index, term in enumerate(terms):
+                if term in terms[:index]:
+                    errors.append({"pointer": f"/application_task/required/{index}",
+                        "value": term, "reasons": ["duplicate required condition"]})
+            if errors:
+                reject_literals("required conditions must be distinct literal source terms, at most 32 characters", errors)
             if (any(row.id is not None and row.id != key
                     for row, key in zip(plan.records, ("r1", "r2"), strict=True))
                     or any(len(set(row.available)) != len(row.available)
