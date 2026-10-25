@@ -42,6 +42,10 @@ enum CloudMapping {
 
   static func source(_ resource: CloudResource) -> SourceContent {
     if var content = resource.source_content {
+      // Published legacy catalog lessons used "generated" for available content.
+      for index in content.lessons.indices where content.lessons[index].status == "generated" {
+        content.lessons[index].status = "ready"
+      }
       for i in content.plan.tasks.indices {
         let task = content.plan.tasks[i]
         content.plan.tasks[i].status =

@@ -131,6 +131,20 @@ final class CloudTests: XCTestCase {
     XCTAssertTrue(try BuiltinCourseCatalog.merging([]).isEmpty)
   }
 
+  func testPublishedLegacyCatalogLessonsCanBeCompletedWithoutPromotingPendingLessons() throws {
+    var source = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+    let legacy = try XCTUnwrap(source.lessons.firstIndex { $0.status == "generated" })
+    let pending = try XCTUnwrap(source.lessons.indices.first { $0 != legacy })
+    source.lessons[pending].status = "pending"
+    let resource = CloudResource(id: "catalog-resource", book_id: source.id, workspace_id: "course",
+      revision: 0, filename: "教材", status: "ready", courses: [], progress: CloudProgress(),
+      source_content: source)
+    let mapped = CloudMapping.source(resource)
+    XCTAssertEqual(mapped.lessons[legacy].status, "ready")
+    XCTAssertEqual(mapped.lessons[pending].status, "pending")
+    XCTAssertEqual(mapped.lessons[legacy].blocks, source.lessons[legacy].blocks)
+  }
+
   // SQLite actors can outlive a test's async frame. Leave their databases in the
   // Simulator's temporary directory instead of unlinking live WAL connections.
   @MainActor func testLocalDefaultAccountAutomaticallyRestoresWorkspace() async throws {
