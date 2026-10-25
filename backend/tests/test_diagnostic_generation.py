@@ -581,7 +581,9 @@ def test_public_shuffle_keeps_original_option_ids_and_replays_pending_turn_verba
     item = make_generator(FakeClient(valid_payload()), verify_items=False).generate(structure())[0]
     orchestrator = InterviewOrchestrator(AdaptiveAssessmentEngine(min_items=1, max_items=1))
     positions = set()
-    for number in range(16):
+    # This tests seed diversity, not a promise that any four sessions cover
+    # all positions. Full-bank four-position balancing has its own regression.
+    for number in range(128):
         session = orchestrator.start(user_id='reader', book_id='book', book_title='教材',
                                      chapter_titles=['第一章'], items=[item])
         session.session_id = f'deterministic-session-{number}'
@@ -640,7 +642,7 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
     from diagnostic_test_inputs import controlled_application
     value = structure()
     value.chapters[0].knowledge_points.append('丙的条件')
-    value.chapters[0].knowledge_point_evidence['丙的条件'] = [SourceQuote(page_number=2, quote='条件甲成立时过程乙适用。')]
+    value.chapters[0].knowledge_point_evidence['丙的条件'] = [SourceQuote(page_number=2, quote='过程乙需要条件甲、条件乙。')]
     repaired = valid_payload()
     repaired['items'].append({**deepcopy(repaired['items'][0]),
                               'knowledge_point_id': stable_knowledge_point_id('ch_1', '丙的条件'),
@@ -665,15 +667,15 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
             repaired['items'][2] = controlled_application(payload)
             if len(calls) == 1:
                 broken['items'][2] = deepcopy(repaired['items'][2])
-                broken['items'][2]['application_task']['instances'][1] = (
-                    broken['items'][2]['application_task']['instances'][0])
+                broken['items'][2]['application_task']['records'][1]['available'] = (
+                    broken['items'][2]['application_task']['records'][0]['available'])
                 return broken
             errors = payload['repair_feedback']['items']
             assert [row['knowledge_point_id'] for row in errors] == [row['knowledge_point_id'] for row in broken['items']]
             assert 'choice' in errors[0]['issues'][0]
             assert errors[1]['issues'][0]['type'] == 'value_error'
             assert 'ctx' not in errors[1]['issues'][0] and 'input' not in errors[1]['issues'][0]
-            assert 'distinct neutral identifiers' in errors[2]['issues'][0]
+            assert 'distinct valid source-term index sets' in errors[2]['issues'][0]
             return repaired
     result = make_generator(RepairingClient(), allow_grounded_answer_rewrite=True, validation_retries=1).generate(value)
     assert len(result) == 3 and len(calls) == 2 and len(review_calls) == 1

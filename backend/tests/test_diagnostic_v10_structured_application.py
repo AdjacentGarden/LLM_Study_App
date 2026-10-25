@@ -292,7 +292,7 @@ def test_full_task_and_immutable_source_directory_bind_the_approval_hash():
     point = item.knowledge_point_ids[0]
     changed_source['application_source_refs'][point][0]['evidence']['quote'] += ' changed source condition'
     assert instance._approval_key(changed_source, item, candidate['application_task']) != original
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v11+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v12+')
 
 
 def test_legacy_label_mode_keeps_non_application_answers_but_never_overwrites_task_mapping():

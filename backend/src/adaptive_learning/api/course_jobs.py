@@ -17,6 +17,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..database import DATABASE_ERRORS, Connection, connect
+from ..personalization.course_progress import CourseStage, observe_course_progress
 
 logger = logging.getLogger(__name__)
 _WORKER_LOCK_KEY = 2026102301
@@ -169,7 +170,8 @@ class CourseJobQueue:
                     return False
             db.execute("UPDATE course_jobs SET status='running',stage='generating',attempts=attempts+1,updated=? WHERE job_id=?", (time.time(), row['job_id']))
         try:
-            course = self.generate(row['session_id'], row['chapter_id'])
+            with self._progress_scope(row, int(row['attempts']) + 1):
+                course = self.generate(row['session_id'], row['chapter_id'])
             encoded = json.dumps(course, ensure_ascii=False, allow_nan=False)
         except Exception as error:
             # Provider responses and private audit text must not enter task status.
@@ -183,6 +185,46 @@ class CourseJobQueue:
             with self.connect() as db:
                 db.execute("UPDATE course_jobs SET status='succeeded',stage='ready',error=NULL,result=?,updated=? WHERE job_id=?", (encoded, time.time(), row['job_id']))
         return True
+
+    @contextmanager
+    def _progress_scope(self, row: Any, attempt: int) -> Iterator[None]:
+        """Only this live owner/attempt can publish coarse, deduplicated phases."""
+        owner_thread = threading.get_ident()
+        run_token = uuid.uuid4().hex
+        previous_token = getattr(self._consumer, 'progress_token', None)
+        self._consumer.progress_token = run_token
+        active = True
+        last_stage: CourseStage | None = None
+
+        def update(stage: CourseStage) -> None:
+            nonlocal last_stage
+            # A copied Context may survive a cancelled review map. It is not a
+            # permit for a leaf/old run to overwrite a terminal or retried job.
+            if (not active or threading.get_ident() != owner_thread
+                    or getattr(self._consumer, 'progress_token', None) != run_token
+                    or stage == last_stage):
+                return
+            self._check_worker_connection()
+            with self.connect() as db:
+                db.begin_write(serialize=False)
+                changed = db.execute(
+                    "UPDATE course_jobs SET stage=?,updated=? WHERE job_id=? "
+                    "AND session_id=? AND chapter_id=? AND status='running' "
+                    "AND attempts=? AND stage<>?",
+                    (stage.value, time.time(), row['job_id'], row['session_id'],
+                     row['chapter_id'], attempt, stage.value),
+                ).rowcount
+            if changed:
+                # Same-phase batches/format checks produce no extra DB writes.
+                # Preserve real phase changes rather than a timer-based fake %.
+                last_stage = stage
+
+        try:
+            with observe_course_progress(update):
+                yield
+        finally:
+            active = False
+            self._consumer.progress_token = previous_token
 
     def start(self) -> None:
         if self.thread and self.thread.is_alive():

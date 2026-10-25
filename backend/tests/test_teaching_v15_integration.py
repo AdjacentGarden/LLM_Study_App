@@ -42,6 +42,21 @@ def separate_pool(monkeypatch):
 
 
 class CandidateClient:
+    def __getattribute__(self, name):
+        method = object.__getattribute__(self, name)
+        if name != "structured":
+            return method
+
+        def adapt(*, system, user, **kwargs):
+            result = method(system=system, user=user, **kwargs)
+            if system == draft.GENERATION_PROMPT:
+                from teaching_writer_test_support import advertised_writer_response
+
+                return advertised_writer_response(result, json.loads(user))
+            return result
+
+        return adapt
+
     def __init__(
         self,
         *,

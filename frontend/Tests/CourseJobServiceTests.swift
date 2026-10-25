@@ -65,6 +65,11 @@ private actor CourseJobSignal {
   func wait() async { if !marked { await withCheckedContinuation { waiter = $0 } } }
 }
 
+private actor CoursePhaseUpdates {
+  var stages: [String] = []
+  func append(_ job: CloudCourseJob) { stages.append(job.stage) }
+}
+
 final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
   private func fixture(errorCode: String? = nil, _ handler: @escaping CourseJobProtocol.Handler) throws
     -> (CloudAPI, URLSession, String, LocalBookCourseRepository) {
@@ -167,6 +172,60 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       .waitForCourse(sessionID: "session", chapterID: "chapter", pollInterval: .milliseconds(1)) { _ in }
     XCTAssertEqual(result.course_id, "approved")
     XCTAssertEqual(requests.all.map(\.0), ["POST", "GET", "GET"])
+  }
+
+  func testRunningPhaseMessagesAreUserFacingAndTerminalStatusWins() throws {
+    let expected = ["planning": "整理本章重点", "writing": "编写课程",
+      "reviewing": "检查教学内容", "refining": "完善教学内容"]
+    for (phase, message) in expected {
+      var response = try JSONSerialization.jsonObject(with: job("running")) as! [String: Any]
+      response["stage"] = phase
+      let current = try JSONDecoder().decode(CloudCourseJob.self,
+        from: JSONSerialization.data(withJSONObject: response))
+      XCTAssertTrue(current.isPending)
+      XCTAssertTrue(current.message.contains(message))
+      response["status"] = "succeeded"
+      let done = try JSONDecoder().decode(CloudCourseJob.self,
+        from: JSONSerialization.data(withJSONObject: response))
+      XCTAssertFalse(done.isPending)
+      XCTAssertTrue(done.message.contains("课程已生成"))
+    }
+    var response = try JSONSerialization.jsonObject(with: job("running")) as! [String: Any]
+    response["stage"] = "PRIVATE_PROVIDER_PAYLOAD"
+    let unknown = try JSONDecoder().decode(CloudCourseJob.self,
+      from: JSONSerialization.data(withJSONObject: response))
+    XCTAssertFalse(unknown.message.contains("PRIVATE"))
+    XCTAssertTrue(unknown.isPending)
+    response["stage"] = "ready"
+    let notPublished = try JSONDecoder().decode(CloudCourseJob.self,
+      from: JSONSerialization.data(withJSONObject: response))
+    XCTAssertTrue(notPublished.isPending)
+    XCTAssertFalse(notPublished.message.contains("课程已生成"))
+  }
+
+  func testInFlightPhasesAreObservedThroughGETWithoutAnotherSubmission() async throws {
+    let requests = CourseRequests()
+    let stages = ["queued", "planning", "writing", "reviewing", "refining", "reviewing", "ready"]
+    let (api, session, host, repository) = try fixture { request in
+      let index = try requests.append(request) - 1
+      XCTAssertTrue(index < stages.count)
+      let status = index == 0 ? "queued" : (index == stages.count - 1 ? "succeeded" : "running")
+      var response = try JSONSerialization.jsonObject(
+        with: self.job(status, course: status == "succeeded")) as! [String: Any]
+      response["stage"] = stages[index]
+      return (status == "succeeded" ? 200 : 202, try JSONSerialization.data(withJSONObject: response))
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let updates = CoursePhaseUpdates()
+    let result = try await CourseJobService(api: api, repository: repository, accountKey: "owner")
+      .waitForCourse(sessionID: "session", chapterID: "chapter", pollInterval: .milliseconds(1)) {
+        await updates.append($0)
+      }
+    let observed = await updates.stages
+    XCTAssertEqual(observed, stages)
+    XCTAssertEqual(result.course_id, "approved")
+    XCTAssertEqual(requests.all.map(\.0), ["POST"] + Array(repeating: "GET", count: stages.count - 1))
+    XCTAssertEqual(try diskRequestIDs(repository.directory).count, 1)
   }
 
   func testLostPOSTRestoresSameDurableRequestAndNeverRetriesFailedJob() async throws {

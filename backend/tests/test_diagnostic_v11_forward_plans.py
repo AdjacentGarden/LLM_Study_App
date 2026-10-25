@@ -1,4 +1,4 @@
-"""Actual G source/wire inputs exercise closed plans and independent vetoes.
+"""Archived v11 G source/wire inputs exercise old closed plans and independent vetoes.
 
 Scripted judges only test mechanical boundaries and rejection persistence, never
 certify semantic quality. Archived v10 replays cannot enter production approvals.
@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from diagnostic_test_inputs import ArchivedV10StructuredGenerator
+from diagnostic_test_inputs import ArchivedV10StructuredGenerator, ArchivedV11PlanGenerator
 from test_diagnostic_chapter_generation_cache import MemoryApprovals
 from test_diagnostic_v6_repair import structure_for
 
@@ -80,7 +80,7 @@ class Reviewer:
 
 
 def subject(writer, reviewer, retries=0, **kwargs):
-    return generation.DiagnosticItemGenerator(writer, review_client=reviewer,
+    return ArchivedV11PlanGenerator(writer, review_client=reviewer,
         allow_grounded_answer_rewrite=True, validation_retries=retries, **kwargs)
 
 
@@ -313,7 +313,7 @@ def test_v11_protocol_retains_old_approval_history_but_requires_a_new_source_pro
     previous = deepcopy(cache.claims[-1])
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', current)
     instance.generate(value, chapter_cache=cache, cache_scope='G-history')
-    assert current.startswith('grounded-independent-review-v11+')
+    assert current.startswith('grounded-independent-review-v12+')
     assert previous['source_fingerprint'] == cache.claims[-1]['source_fingerprint']
     assert previous['protocol_fingerprint'] != cache.claims[-1]['protocol_fingerprint']
     assert previous['review_fingerprint'] != cache.claims[-1]['review_fingerprint']

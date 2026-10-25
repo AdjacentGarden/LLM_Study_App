@@ -83,27 +83,23 @@ decision（同一个待判结果轴）、outcomes（该结果轴上两个不同�
 应用项的正确文字由task的mapping派生配对选项，永远不复制label作答案；label仅定位知识点。后文普通项的label约束及JSON示例不适用于应用项。
 非应用项继续使用原有prompt/options/expected_answer格式。preserve_accepted_items中的完整task、来源引用、题干及选项一并原样保留。"""
 
-_APPLICATION_PLAN_CONTRACT = """v11封闭计划设计：
-先选择能保留实际判断差异的模式：原文列有完整必需项时优先required_conditions；
-有输入与作用对象的正向关系时优先role_transfer。不得仅为避免反向推理而复制同一条件换实例名；
-若两记录只有名字不同，混合AB/BA可只凭相同条件排除，就不能当作四个可信选择的应用题。
-application_task必须使用下列三个封闭mode之一，并先提供basis={source_ref,quote,input_role,output_role}。
-source_ref必须来自本知识点目录；quote必须逐字、连续摘自该ref的原文，不能拼接、概括或把修复意见当原文；
-input_role说明正向给定条件或输入角色，output_role说明尚待判断的正向结果或作用对象，均不是审批结论。
-1.forward_instances：返回mode、basis、input_condition、positive_result、alternative_result、instances（两个不同的中性实例标识，最多8字）。
-input_condition及positive_result必须是basis.quote中的连续词句（仅容许排版空白差异）。程序让两个实例都满足同一正向input_condition，
-正确映射固定为两者均positive_result；alternative_result是当前正向条件下的可信错误理解，仍须审核。
-不要为了第二条记录造非P→非Q、逆命题或另一个没有来源的条件。两实例同结果AA完全合法，不强凑一正一反。
-两个实例仍要真正应用原文关系；仅换名字装饰、抄完整结论再识别名称仍须拒绝，AA结构不代表已达应用目标。
-2.role_transfer：返回mode、basis、record_template、bindings及result_role。
+_APPLICATION_PLAN_CONTRACT = """v12封闭计划设计：
+生产只允许required_conditions与role_transfer两个mode；不接受forward_instances或仅换名字、同前提的AA配对。
+原文完整列出必需项时优先required_conditions；原文有输入、接受者或作用对象方向时优先role_transfer；证据不适配时不得凑条件。
+application_task先提供basis={source_ref,input_role,output_role}。只选择本知识点目录中现有source_ref，不抄写或改写quote；
+程序从不可变目录复原完整原文作为只读basis.quote，作者附带的quote回声不作为来源或匹配依据。
+input_role说明所给条件对应哪个过程/对象或输入角色，不能只写“原文条件”；output_role说明尚待判断的结果或作用对象，均不是审批结论。
+1.role_transfer：返回mode、basis、record_template、bindings及result_role。
 record_template中恰好各出现一次literal {input}与{output}，程序只用这两个槽放入对象甲/对象乙；其他花括号、属性路径、格式指令或转义均不允许。
-bindings按r1/r2顺序给出{id,input,output}，input/output各为a或b且每条不同，两条交换对象角色；
+bindings给出按序的两个{input,output}，input/output各为a或b且每条不同，两条交换对象角色；r1/r2由程序按顺序生成，无须作者写id。
 result_role为input或output，指出basis.output_role所问结果落在哪个槽所绑定的对象上。程序据此计算四种同轴对象配对及正确映射。
 必须由basis.quote支持操作和结果角色关系；题设中性对象表示可给定，但不得引入未知机制。所问应是尚未给出的作用对象或结果，不能只问定义名称或复述已给的角色。
-3.required_conditions：返回mode、basis、required（原文完整列出的2–6个必需项）、records（r1/r2各含available，一组已具备项的0起始索引）。
+2.required_conditions：返回mode、basis、required（原文完整列出的2–6个必需项）、records（按序的两个{available}，一组已具备项的0起始索引）。
 required各项必须出现在basis.quote中，两条记录只给所列项目的不同子集；程序仅比较是否齐备，生成“原文列明条件齐备／仍缺原文列明条件”配对。
 不允许添加别的条件或自由结果；全部所列条件齐备不代表过程一定发生、正常进行或成功。独审还须核对required是否完整保留原文项目及其限定。
-三个mode均由程序生成公共题干、四项与答案，原有records/outcomes/mapping不得作为自由覆盖输入。
+两个mode均由程序生成公共题干、四项与答案，r1/r2固定；若作者仍给出id必须与顺序一致。required题面会显示basis.input_role中的过程/对象主题。
+不得为凑2项将同一条件改名重复或把上位概念与其子类型当作两个独立必需项；所有必需项及其限定都须有原文支持。
+原有records/outcomes/mapping不得作为自由覆盖输入。
 程序附带的derivation是只读派生记录，若随preserve_accepted_items返回必须完全一致，不能靠伪造派生记录或source_supported标记获得批准。
 独立审核须同时核对正向计划、原文与真实题面，逐条指出所给记录如何满足来源前提、结果属于哪个对象；
 所有事实、唯一答案、同轴可信干扰、条件实际参与以及非泄漏门禁仍保留。修复建议也必须给出在当前来源内可行的正向设计，
@@ -177,7 +173,7 @@ class _ApplicationTask(BaseModel):
 class _ApplicationBasis(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     source_ref: str = Field(min_length=1, max_length=64)
-    quote: str = Field(min_length=5, max_length=350)
+    quote: str = Field(min_length=5, max_length=500)
     input_role: str = Field(min_length=2, max_length=24)
     output_role: str = Field(min_length=2, max_length=18)
 
@@ -194,7 +190,7 @@ class _ForwardInstancesPlan(BaseModel):
 
 class _RoleBinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    id: Literal["r1", "r2"]
+    id: Literal["r1", "r2"] | None = None
     input: Literal["a", "b"]
     output: Literal["a", "b"]
 
@@ -210,7 +206,7 @@ class _RoleTransferPlan(BaseModel):
 
 class _AvailabilityRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    id: Literal["r1", "r2"]
+    id: Literal["r1", "r2"] | None = None
     available: list[StrictInt] = Field(max_length=6)
 
 
@@ -222,7 +218,7 @@ class _RequiredConditionsPlan(BaseModel):
     records: list[_AvailabilityRecord] = Field(min_length=2, max_length=2)
 
 
-_ApplicationPlan = _ForwardInstancesPlan | _RoleTransferPlan | _RequiredConditionsPlan
+_ApplicationPlan = _RoleTransferPlan | _RequiredConditionsPlan
 _APPLICATION_PLAN: TypeAdapter[_ApplicationPlan] = TypeAdapter(cast(Any, Annotated[
     _ApplicationPlan,
     Field(discriminator="mode"),
@@ -303,7 +299,8 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v11+forward-application-plans-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v12+immutable-application-bases-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v1"
 
 
 class DiagnosticChapterCache(Protocol):
@@ -364,6 +361,7 @@ def diagnostic_bank_fingerprint(
     payload = {
         "structure": structure_fingerprint(structure),
         "protocol": DIAGNOSTIC_BANK_VERSION,
+        "point_selection": DIAGNOSTIC_POINT_SELECTION_VERSION,
         "writer_prompt": _item_system(allow_grounded_answer_rewrite),
         "review_prompt": _ITEM_REVIEW_SYSTEM,
         "writer_revision": writer_revision,
@@ -508,6 +506,7 @@ class DiagnosticItemGenerator:
                     "target": _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]}
                     for index, (key, label, quotes) in enumerate(points)]}),
             "protocol_fingerprint": digest({"version": DIAGNOSTIC_BANK_VERSION,
+                "point_selection": DIAGNOSTIC_POINT_SELECTION_VERSION,
                 "writer_prompt": _item_system(self.allow_grounded_answer_rewrite),
                 "writer_route": route(self.client), "points_per_chapter": self.points_per_chapter,
                 "rewrite": self.allow_grounded_answer_rewrite, "verify_items": self.verify_items}),
@@ -588,16 +587,55 @@ class DiagnosticItemGenerator:
             if not quotes:
                 continue
             candidates.append((stable_knowledge_point_id(chapter.chapter_id, label), label, quotes))
-        if len(candidates) <= self.points_per_chapter:
-            return candidates
         indexed = list(enumerate(candidates))
         ranked = sorted(
             indexed,
             key=lambda pair: (self._point_value(pair[1][1], pair[1][2]), -pair[0]),
             reverse=True,
         )[: self.points_per_chapter]
-        # Present the chosen concepts in their original reading order.
-        return [candidate for _, candidate in sorted(ranked)]
+        selected = sorted(ranked)
+        if self.points_per_chapter == 3 and len(selected) == 3:
+            # Signals choose a candidate, never establish that a task or its
+            # answer is valid. Keep every original quote and independent gate.
+            # Equal signals preserve the old application assignment, avoiding
+            # arbitrary role changes when several points share an excerpt.
+            application = max(indexed, key=lambda pair: (
+                self._application_signal(pair[1][2]), pair[0] == selected[2][0],
+                self._point_value(pair[1][1], pair[1][2]), -pair[0]))
+            if self._application_signal(application[1][2]) > 0:
+                ordinary = sorted(sorted((pair for pair in indexed if pair[0] != application[0]),
+                    key=lambda pair: (self._point_value(pair[1][1], pair[1][2]), -pair[0]),
+                    reverse=True)[:2])
+                return [candidate for _, candidate in ordinary] + [application[1]]
+        # With no signal, retain the old selection and fail the normal review
+        # if no honest application can be formed; never manufacture conditions.
+        return [candidate for _, candidate in selected]
+
+    @staticmethod
+    def _application_signal(quotes: list[SourceQuote]) -> int:
+        """Conservative Chinese source-pattern priorities, not semantic proof.
+
+        Whitespace is normalized only for ranking. Source IDs, quotations,
+        rendered tasks and approvals continue to use the exact original text.
+        Labels and feedback never supply these signals.
+        """
+        score = 0
+        for quote in quotes:
+            text = re.sub(r"\s+", "", quote.quote)
+            for sentence in re.split(r"[。！？!?]", text):
+                required = re.search(r"(?:需要|必须具备|必须满足|必需条件)[^。！？]{2,120}", sentence)
+                if required and re.search(r"[^、，,和及与]{1,30}[、，,和及与][^、，,和及与]{1,30}", required.group()):
+                    score = max(score, 3)
+                if re.search(r"(?:能够|能在|满足|具有|具备)[^。！？]{1,100}(?:并且|而且|且|同时)"
+                             r"[^。！？]{1,70}(?:叫做|称为|称作|定义为)", sentence):
+                    score = max(score, 3)
+                if re.search(r"(?:把|将)[^。！？]{2,80}(?:转入|传给|传递给|送到|放到|移入)[^。！？]{2,60}", sentence):
+                    score = max(score, 2)
+                # A complete nested-constraint definition is a weaker hint.
+                # It may still fail semantic review or lack suitable records.
+                if re.search(r"[^。！？]{2,120}的[^。！？]{2,80}的[^。！？]{2,50}(?:叫做|称为|称作)", sentence):
+                    score = max(score, 1)
+        return score
 
     @staticmethod
     def _point_value(label: str, quotes: list[SourceQuote]) -> float:
@@ -799,7 +837,8 @@ class DiagnosticItemGenerator:
             "source": {key: source[key] for key in (
                 "book_title", "chapter_id", "chapter_title", "knowledge_points")},
             "application_source_refs": source.get("application_source_refs"),
-            "protocol": DIAGNOSTIC_BANK_VERSION, "review_prompt": _ITEM_REVIEW_SYSTEM,
+            "protocol": DIAGNOSTIC_BANK_VERSION, "point_selection": DIAGNOSTIC_POINT_SELECTION_VERSION,
+            "review_prompt": _ITEM_REVIEW_SYSTEM,
             "question_contract": _QUESTION_CONTRACT,
             "review_identity": self.review_identity,
             "review_route": {key: getattr(config, key, None)
@@ -901,25 +940,41 @@ class DiagnosticItemGenerator:
     def _render_application(entry: dict[str, object], source: dict[str, object]
                             ) -> tuple[dict[str, object], dict[str, object]]:
         raw = entry.get("application_task")
-        plan = _APPLICATION_PLAN.validate_python(
-            {key: value for key, value in raw.items() if key != "derivation"}
-            if isinstance(raw, dict) else raw)
+        if not isinstance(raw, dict) or not isinstance(raw.get("basis"), dict):
+            raise DiagnosticGenerationError("application plan requires a basis with an exact source_ref")
         directories = cast(dict[str, list[dict[str, object]]], source["application_source_refs"])
         known = {row["ref"]: cast(dict[str, object], row["evidence"])
                  for row in directories[str(entry["knowledge_point_id"])]}
-        evidence = known.get(plan.basis.source_ref)
-        if evidence is None or plan.basis.quote not in str(evidence["quote"]):
+        basis = cast(dict[str, object], raw["basis"])
+        reference = basis.get("source_ref")
+        evidence = known.get(reference) if isinstance(reference, str) else None
+        if evidence is None or not isinstance(evidence.get("quote"), str):
             raise DiagnosticGenerationError(
-                "application basis must quote a continuous literal passage from this point's exact source_ref")
+                "application basis must select this point's exact immutable source_ref")
+        # Provider quotations are untrusted echoes. The source ID, never fuzzy
+        # text matching, selects the complete original. generation_response
+        # keeps the raw echo in the private audit; candidate keeps this result.
+        quotation = cast(str, evidence["quote"])
+        if not 5 <= len(quotation) <= 500:
+            raise DiagnosticGenerationError("application basis source exceeds its bounded literal evidence")
+        plan = _APPLICATION_PLAN.validate_python({
+            **{key: value for key, value in raw.items() if key != "derivation"},
+            "basis": {**basis, "quote": quotation}})
+        plan.basis.quote = quotation
         task = DiagnosticItemGenerator._derive_application(plan)
         derivation = task.model_dump(mode="json")
         if isinstance(raw, dict) and "derivation" in raw and raw["derivation"] != derivation:
             raise DiagnosticGenerationError("application derivation is read-only and must match the verified plan")
-        rendered = DiagnosticItemGenerator._render_application_task(entry, task)
-        return rendered, {**plan.model_dump(mode="json"), "derivation": derivation}
+        rendered = DiagnosticItemGenerator._render_application_task(entry, task,
+            subject=plan.basis.input_role if isinstance(plan, _RequiredConditionsPlan) else "")
+        canonical = plan.model_dump(mode="json")
+        for row, key in zip(canonical["bindings" if isinstance(plan, _RoleTransferPlan) else "records"],
+                            ("r1", "r2"), strict=True):
+            row["id"] = key
+        return rendered, {**canonical, "derivation": derivation}
 
     @staticmethod
-    def _derive_application(plan: _ApplicationPlan) -> _ApplicationTask:
+    def _derive_application(plan: _ApplicationPlan | _ForwardInstancesPlan) -> _ApplicationTask:
         # Literal source membership anchors the design, not its semantics. The
         # independent judge must still establish the relation and applicability.
         def in_quote(text: str) -> bool:
@@ -943,14 +998,15 @@ class DiagnosticItemGenerator:
             if (template.count("{input}") != 1 or template.count("{output}") != 1
                     or "{" in residual or "}" in residual):
                 raise DiagnosticGenerationError("role template requires exactly one literal {input} and {output}; no other formatting")
-            if ([row.id for row in plan.bindings] != ["r1", "r2"]
+            if (any(row.id is not None and row.id != key
+                    for row, key in zip(plan.bindings, ("r1", "r2"), strict=True))
                     or any(row.input == row.output for row in plan.bindings)
                     or plan.bindings[0].input == plan.bindings[1].input):
                 raise DiagnosticGenerationError("role bindings must be ordered r1/r2 and swap two distinct objects")
             names = {"a": "对象甲", "b": "对象乙"}
-            records = [{"id": row.id, "conditions": template.replace(
+            records = [{"id": key, "conditions": template.replace(
                 "{input}", names[row.input]).replace("{output}", names[row.output])}
-                for row in plan.bindings]
+                for row, key in zip(plan.bindings, ("r1", "r2"), strict=True)]
             decision = plan.basis.output_role
             outcomes = ["对象甲", "对象乙"]
             mapping = [getattr(row, plan.result_role) for row in plan.bindings]
@@ -959,15 +1015,16 @@ class DiagnosticItemGenerator:
             if (any(not term or len(term) > 16 or not in_quote(term) for term in terms)
                     or len(set(terms)) != len(terms)):
                 raise DiagnosticGenerationError("required conditions must be distinct literal source terms, at most 16 characters")
-            if ([row.id for row in plan.records] != ["r1", "r2"]
+            if (any(row.id is not None and row.id != key
+                    for row, key in zip(plan.records, ("r1", "r2"), strict=True))
                     or any(len(set(row.available)) != len(row.available)
                            or any(index < 0 or index >= len(terms) for index in row.available)
                            for row in plan.records)
                     or set(plan.records[0].available) == set(plan.records[1].available)):
                 raise DiagnosticGenerationError("condition records require ordered r1/r2 and distinct valid source-term index sets")
-            records = [{"id": row.id, "conditions": "已具备：" + "、".join(
+            records = [{"id": key, "conditions": "已具备：" + "、".join(
                 terms[index] for index in sorted(row.available)) if row.available else "尚未提供所列条件"}
-                for row in plan.records]
+                for row, key in zip(plan.records, ("r1", "r2"), strict=True)]
             decision = "原文列明条件的齐备情况"
             outcomes = ["原文列明条件齐备", "仍缺原文列明条件"]
             mapping = ["a" if len(row.available) == len(terms) else "b" for row in plan.records]
@@ -975,8 +1032,9 @@ class DiagnosticItemGenerator:
             "records": records, "decision": decision, "outcomes": outcomes, "mapping": mapping})
 
     @staticmethod
-    def _render_application_task(entry: dict[str, object], task: _ApplicationTask) -> dict[str, object]:
-        prompt = (f"记录甲：{task.records[0].conditions}；记录乙：{task.records[1].conditions}。"
+    def _render_application_task(entry: dict[str, object], task: _ApplicationTask, *, subject: str = "") -> dict[str, object]:
+        prompt = ((f"关于{subject}，" if subject else "") +
+                  f"记录甲：{task.records[0].conditions}；记录乙：{task.records[1].conditions}。"
                   f"依据原文，两条记录的{task.decision}如何对应？")
         options = [f"甲：{first}；乙：{second}" for first in task.outcomes for second in task.outcomes]
         correct_index = (0 if task.mapping[0] == "a" else 2) + (0 if task.mapping[1] == "a" else 1)

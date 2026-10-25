@@ -241,6 +241,10 @@ class Client:
                     data = restore_legacy_fact_payload(data)
                     user = json.dumps(data, ensure_ascii=False)
                 result = method(system=system, user=user, **kwargs)
+                if system == GENERATION_PROMPT:
+                    from teaching_writer_test_support import advertised_writer_response
+
+                    return advertised_writer_response(result, data)
                 return advertised_fact_response(result, data) if system == FACT_REVIEW_PROMPT else result
 
         return adapt

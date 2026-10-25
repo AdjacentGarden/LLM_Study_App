@@ -17,7 +17,14 @@ struct CloudCourseJob: Codable, Sendable {
   var message: String {
     switch status {
     case .queued: "课程已排队，可以稍后继续查看。"
-    case .running: "正在生成并审核课程，可以稍后继续查看。"
+    case .running:
+      switch stage {
+      case "planning": "正在整理本章重点，可以稍后继续查看。"
+      case "writing": "正在编写课程，可以稍后继续查看。"
+      case "reviewing": "正在检查教学内容，可以稍后继续查看。"
+      case "refining": "正在完善教学内容，可以稍后继续查看。"
+      default: "正在生成并审核课程，可以稍后继续查看。"
+      }
     case .succeeded: "课程已生成，正在同步学习内容。"
     case .failed: error ?? "课程生成未完成，已有教材和学习记录仍保留。"
     }

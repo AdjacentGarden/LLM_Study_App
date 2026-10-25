@@ -7,10 +7,31 @@ are rejected, including the two published F defects. No archive output is
 converted into a v10 approval or stored in a production repository.
 """
 
-from adaptive_learning.assessment.item_generation import DiagnosticItemGenerator, _ApplicationTask
+from typing import Annotated
+
+from pydantic import Field, TypeAdapter
+
+from adaptive_learning.assessment.item_generation import (
+    DiagnosticGenerationError,
+    DiagnosticItemGenerator,
+    _ApplicationTask,
+    _ForwardInstancesPlan,
+    _RequiredConditionsPlan,
+    _RoleTransferPlan,
+)
 
 
 class ArchivedFreeformDiagnosticGenerator(DiagnosticItemGenerator):
+    def _select_points(self, chapter):
+        # Historical replays must not silently apply a later role assignment.
+        from adaptive_learning.assessment.item_generation import stable_knowledge_point_id
+        candidates = [(stable_knowledge_point_id(chapter.chapter_id, label), label,
+                       chapter.knowledge_point_evidence[label]) for label in chapter.knowledge_points
+                      if chapter.knowledge_point_evidence.get(label)]
+        ranked = sorted(enumerate(candidates), key=lambda pair: (
+            self._point_value(pair[1][1], pair[1][2]), -pair[0]), reverse=True)[:self.points_per_chapter]
+        return [point for _, point in sorted(ranked)]
+
     @staticmethod
     def _render_application(entry, source):
         return entry, {}
@@ -27,25 +48,44 @@ def controlled_application_v10(request, index=2):
             'decision': '受控过程的适用性', 'outcomes': ['适用', '不适用'], 'mapping': ['a', 'b']}}
 
 
-class ArchivedV10StructuredGenerator(DiagnosticItemGenerator):
+class ArchivedV10StructuredGenerator(ArchivedFreeformDiagnosticGenerator):
     """Historical v10 task boundary, not the current forward-plan production boundary."""
     @staticmethod
     def _render_application(entry, source):
         task = _ApplicationTask.model_validate(entry.get('application_task'))
         directory = source['application_source_refs'][entry['knowledge_point_id']]
         if not set(task.source_refs) <= {row['ref'] for row in directory}:
-            from adaptive_learning.assessment.item_generation import DiagnosticGenerationError
             raise DiagnosticGenerationError('application source_refs must identify exact evidence for this point')
         return DiagnosticItemGenerator._render_application_task(entry, task), task.model_dump(mode='json')
 
 
+class ArchivedV11PlanGenerator(ArchivedFreeformDiagnosticGenerator):
+    """Explicit v11 wire adapter; its AA mode is forbidden in the current product."""
+    @staticmethod
+    def _render_application(entry, source):
+        raw = entry.get('application_task')
+        adapter = TypeAdapter(Annotated[_ForwardInstancesPlan | _RoleTransferPlan | _RequiredConditionsPlan,
+                                        Field(discriminator='mode')])
+        plan = adapter.validate_python({key: value for key, value in raw.items() if key != 'derivation'})
+        directory = source['application_source_refs'][entry['knowledge_point_id']]
+        evidence = next((row['evidence'] for row in directory if row['ref'] == plan.basis.source_ref), None)
+        if evidence is None or plan.basis.quote not in evidence['quote']:
+            raise DiagnosticGenerationError('application basis must quote a continuous literal passage from its exact source_ref')
+        task = DiagnosticItemGenerator._derive_application(plan)
+        derived = task.model_dump(mode='json')
+        if 'derivation' in raw and raw['derivation'] != derived:
+            raise DiagnosticGenerationError('application derivation is read-only')
+        return DiagnosticItemGenerator._render_application_task(entry, task), {
+            **plan.model_dump(mode='json'), 'derivation': derived}
+
+
 def controlled_application(request, index=2):
-    """Explicit forward-plan test input; a scripted verdict never certifies semantics."""
+    """Explicit condition-list test input; a scripted verdict never certifies semantics."""
     point = request['knowledge_points'][index]
     source = request['application_source_refs'][point['knowledge_point_id']][0]
     return {'knowledge_point_id': point['knowledge_point_id'], 'type': 'choice',
         'difficulty': 0, 'estimated_seconds': 45, 'application_task': {
-            'mode': 'forward_instances', 'basis': {'source_ref': source['ref'],
-                'quote': '条件甲成立时过程乙适用。', 'input_role': '受控给定条件', 'output_role': '受控过程的适用性'},
-            'input_condition': '条件甲成立', 'positive_result': '过程乙适用',
-            'alternative_result': '过程乙不适用', 'instances': ['受控实例甲', '受控实例乙']}}
+            'mode': 'required_conditions', 'basis': {'source_ref': source['ref'],
+                'input_role': '受控过程乙的必需条件', 'output_role': '受控条件齐备情况'},
+            'required': ['条件甲', '条件乙'],
+            'records': [{'available': [0, 1]}, {'available': [0]}]}}
