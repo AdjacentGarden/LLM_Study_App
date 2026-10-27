@@ -87,6 +87,7 @@ class Settings:
 
     teaching_review_provider: str = ""
     teaching_review_model: str = ""
+    teaching_review_timeout_seconds: int = 120
 
     text_thinking_enabled: bool | None = None
     text_reasoning_effort: str | None = None
@@ -97,6 +98,8 @@ class Settings:
             raise ValueError("RAG_MAX_OUTPUT_TOKENS must be between 1 and 10000")
         if self.rag_generation_timeout_seconds <= 0:
             raise ValueError("RAG_GENERATION_TIMEOUT_SECONDS must be positive")
+        if not math.isfinite(self.teaching_review_timeout_seconds) or self.teaching_review_timeout_seconds <= 0:
+            raise ValueError("TEACHING_REVIEW_TIMEOUT_SECONDS must be positive and finite")
         if not 0 <= self.quality_review <= self.quality_accept <= 1:
             raise ValueError("OCR quality thresholds require 0 <= review <= accept <= 1")
         if not 0 <= self.ocr_page_structured_review <= self.ocr_page_quality_review <= self.ocr_page_quality_accept <= 1:
@@ -195,6 +198,7 @@ def get_settings() -> Settings:
         llm_provider=os.getenv("LLM_PROVIDER", "rules"),
         teaching_review_provider=os.getenv("TEACHING_REVIEW_PROVIDER", "").strip(),
         teaching_review_model=os.getenv("TEACHING_REVIEW_MODEL", "").strip(),
+        teaching_review_timeout_seconds=_int("TEACHING_REVIEW_TIMEOUT_SECONDS", 120),
         llm_https_proxy=os.getenv("LLM_HTTPS_PROXY") or None,
         pucoding_base_url=os.getenv("PUCODING_BASE_URL", "https://pucoding.com/v1"),
         pucoding_api_key=os.getenv("PUCODING_API_KEY", ""),

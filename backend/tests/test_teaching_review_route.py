@@ -18,7 +18,7 @@ from adaptive_learning.personalization.teaching_scope import SCOPE_PLANNING_PROM
 
 @pytest.fixture
 def clean_review_env(monkeypatch):
-    for key in ("TEACHING_REVIEW_PROVIDER", "TEACHING_REVIEW_MODEL", "PUCODING_API_KEY"):
+    for key in ("TEACHING_REVIEW_PROVIDER", "TEACHING_REVIEW_MODEL", "PUCODING_API_KEY", "TEACHING_REVIEW_TIMEOUT_SECONDS"):
         monkeypatch.delenv(key, raising=False)
     get_settings.cache_clear()
     yield
@@ -95,3 +95,25 @@ def test_reviewer_model_change_invalidates_approved_cache_without_get_generation
         teaching_review_provider="pucoding", teaching_review_model="gpt-6-sol"))
     stale = env.client.get("/api/interviews/session/courses/morgan")
     assert stale.status_code == 409 and env.generator.calls == 1
+
+
+@pytest.mark.parametrize("configured_timeout,expected", [(None, 120), ("300", 300)])
+def test_review_client_uses_validated_configured_timeout(clean_review_env, monkeypatch, configured_timeout, expected):
+    from types import SimpleNamespace
+
+    app = importlib.import_module("adaptive_learning.api.app")
+    if configured_timeout is not None:
+        monkeypatch.setenv("TEACHING_REVIEW_TIMEOUT_SECONDS", configured_timeout)
+    settings = replace(get_settings(), teaching_review_provider="pucoding", teaching_review_model="gpt-6-sol", pucoding_api_key="fixture-key")
+    client = app._create_teaching_review_client(settings, lambda config: SimpleNamespace(config=config))
+    assert settings.teaching_review_timeout_seconds == expected
+    assert client.config.timeout_seconds == expected
+    assert client.config.reasoning_effort == "low"
+    assert replace(settings, teaching_review_timeout_seconds=600).teaching_review_revision == settings.teaching_review_revision
+
+
+@pytest.mark.parametrize("invalid", ["0", "-1", "nan", "inf", "not-a-number"])
+def test_invalid_review_timeout_is_rejected_before_client_creation(clean_review_env, monkeypatch, invalid):
+    monkeypatch.setenv("TEACHING_REVIEW_TIMEOUT_SECONDS", invalid)
+    with pytest.raises(ValueError):
+        get_settings()
