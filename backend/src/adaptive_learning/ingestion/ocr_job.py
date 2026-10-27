@@ -432,7 +432,7 @@ def write_report(
     markdown = find_artifact(raw_dir, ".md")
     expected_pages = pdf_page_count(source)
     fast_metadata = None
-    if backend in {"paddle-gpu", "rapidocr-onnx"}:
+    if backend in {"paddle-gpu", "rapidocr-onnx", "apple-vision"}:
         fast_metadata = json.loads((raw_dir / "fast_ocr_metadata.json").read_text(encoding="utf-8"))
         if (
             not isinstance(fast_metadata, dict)
@@ -452,6 +452,12 @@ def write_report(
             or capabilities.get("execution_provider") != "CPUExecutionProvider"
         ):
             raise RuntimeError("Configured RapidOCR CPU backend does not match the OCR service")
+        if backend == "apple-vision" and (
+            capabilities["engine"] != "apple-vision"
+            or capabilities.get("framework") != "Vision"
+            or capabilities.get("resident_gpu") is not False
+        ):
+            raise RuntimeError("Configured Apple Vision backend does not match the OCR output")
         raw_blocks = json.loads(content_list.read_text(encoding="utf-8"))
         if not isinstance(raw_blocks, list) or any(
             not isinstance(block, dict)
@@ -544,7 +550,9 @@ def write_report(
 """
     if fast_metadata is not None:
         engine = fast_metadata["capabilities"]["engine"]
-        summary += f"\n> 快速模式使用 {engine} 文本检测和识别，不执行 VLM 版面分析、表格结构还原或专用公式识别；跨栏阅读顺序未经验证，章标题提示由真实 OCR 大字和目录原文交叉推断。\n"
+        summary += f"\n> 文本行模式使用 {engine} 文本检测和识别，不执行 VLM 版面分析、表格结构还原或专用公式识别；跨栏阅读顺序未经验证。\n"
+        if backend == "paddle-gpu":
+            summary += "> 章标题提示由真实 OCR 大字和目录原文交叉推断。\n"
     (output_dir / "quality_report.md").write_text(summary, encoding="utf-8")
     artifact_paths = [
         output_dir / "quality_report.json",
@@ -579,13 +587,17 @@ def main() -> None:
     if not source.is_file():
         raise FileNotFoundError(source)
     if args.skip_run:
-        if args.backend in {"paddle-gpu", "rapidocr-onnx"}:
+        if args.backend in {"paddle-gpu", "rapidocr-onnx", "apple-vision"}:
             metadata = json.loads((raw_dir / "fast_ocr_metadata.json").read_text(encoding="utf-8"))
-            log_path = raw_dir / "paddle.log"
+            log_path = raw_dir / ("vision.log" if args.backend == "apple-vision" else "paddle.log")
             duration = float(metadata["duration_seconds"])
         else:
             log_path = output / "mineru.log"
             duration = infer_log_duration(log_path)
+    elif args.backend == "apple-vision":
+        from .apple_vision import run_apple_vision
+
+        duration, log_path = run_apple_vision(source, raw_dir)
     elif args.backend == "paddle-gpu":
         duration, log_path = run_paddle_gpu(source, raw_dir)
     elif args.backend == "rapidocr-onnx":

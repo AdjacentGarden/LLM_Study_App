@@ -75,6 +75,29 @@ def test_default_chat_payload_does_not_change_provider_behavior(
     assert "reasoning_effort" not in captured
 
 
+@pytest.mark.parametrize("base", ["https://api.minimax.cn/v1", "https://api.minimaxi.com/v1",
+                                  "https://api.minimax.io/v1"])
+@pytest.mark.parametrize("enabled,expected", [(True, "adaptive"), (False, "disabled")])
+def test_explicit_minimax_thinking_uses_the_official_protocol(monkeypatch, base, enabled, expected):
+    captured = {}
+
+    def post(self, url, **kwargs):
+        captured.update(kwargs["json"])
+        assert captured["thinking"] == {"type": expected}
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "choices": [{"message": {"content": '{"ok":true}'}}],
+        })
+
+    monkeypatch.setattr(httpx.Client, "post", post)
+    client = OpenAICompatibleClient(LLMConfig(
+        base, "test-key", "MiniMax-M3", thinking_enabled=enabled,
+    ))
+    try:
+        assert client.structured(system="Return JSON", user="test") == {"ok": True}
+    finally:
+        client.close()
+
+
 @pytest.mark.parametrize("retries", [0, 1])
 def test_length_stopped_response_is_rejected_even_when_json_is_valid(
     monkeypatch: pytest.MonkeyPatch, retries: int,

@@ -17,6 +17,9 @@ def providers(monkeypatch):
     monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
     monkeypatch.delenv("STUDIO_LLM_PROVIDER", raising=False)
     monkeypatch.delenv("STUDIO_MEDIA_PAUSED_REASON", raising=False)
+    monkeypatch.delenv("STUDIO_VIDEO_ENABLED", raising=False)
+    monkeypatch.delenv("STUDIO_VIDEO_PAUSED_REASON", raising=False)
+    monkeypatch.delenv("MINIMAX_VIDEO_BASE_URL", raising=False)
     monkeypatch.delenv("LLM_HTTPS_PROXY", raising=False)
     get_settings.cache_clear()
     yield Studio.__new__(Studio)
@@ -30,6 +33,31 @@ def test_image_capability_does_not_require_minimax_key(providers):
     assert capabilities["image_provider"] == "PUCODING"
     assert capabilities["image_model"] == "gpt-image-2"
     assert capabilities["video_model"] == "MiniMax-H3-Max"
+
+
+@pytest.mark.parametrize("disabled", ["false", "0", "off", "no"])
+def test_video_can_be_paused_without_disabling_images_or_notes(providers, monkeypatch, disabled):
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-test")
+    monkeypatch.setenv("STUDIO_FFMPEG", "fixture-ffmpeg")
+    monkeypatch.setattr(providers, "voice_runtime_ready", lambda: False)
+    assert providers.capabilities()["video"]
+    monkeypatch.setenv("STUDIO_VIDEO_ENABLED", disabled)
+    monkeypatch.setenv("STUDIO_VIDEO_PAUSED_REASON", "视频账户待充值")
+    capabilities = providers.capabilities()
+    assert not capabilities["video"]
+    assert capabilities["image"] and capabilities["notes_ai"]
+    assert capabilities["video_notice"] == "视频账户待充值"
+
+
+def test_video_base_is_independent_of_text_base_and_retains_explicit_version(providers, monkeypatch):
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-test")
+    monkeypatch.setenv("MINIMAX_BASE_URL", "https://api.minimaxi.com/v1")
+    monkeypatch.setenv("MINIMAX_VIDEO_BASE_URL", "https://api.minimax.cn/v1/")
+    requests = []
+    monkeypatch.setattr(providers, "media_request", lambda *args: requests.append(args) or {})
+    assert providers.minimax("/v2/video_generation", {"model": "MiniMax-H3-Max"}) == {}
+    assert requests == [("https://api.minimax.cn", "/v2/video_generation", "minimax-test",
+                         {"model": "MiniMax-H3-Max"})]
 
 
 def test_pucoding_images_use_the_pucoding_key_and_documented_endpoint(providers, monkeypatch):

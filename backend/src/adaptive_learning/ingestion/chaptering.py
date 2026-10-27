@@ -507,9 +507,11 @@ def load_normalized_pages(path: Path) -> list[PageExtraction]:
                 method = {
                     "paddle_gpu": ExtractionMethod.PADDLE_GPU,
                     "rapidocr_onnx": ExtractionMethod.RAPIDOCR_ONNX,
+                    "apple_vision": ExtractionMethod.APPLE_VISION,
                     "vision_rescue": ExtractionMethod.VISION_RESCUE,
                 }.get(raw.get("extraction_method"), ExtractionMethod.MINERU_VLM)
-                text_line_ocr = method in {ExtractionMethod.PADDLE_GPU, ExtractionMethod.RAPIDOCR_ONNX}
+                text_line_ocr = method in {ExtractionMethod.PADDLE_GPU, ExtractionMethod.RAPIDOCR_ONNX,
+                                          ExtractionMethod.APPLE_VISION}
             except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"invalid normalized page at line {line_number}") from error
             blocks: list[TextBlock] = []

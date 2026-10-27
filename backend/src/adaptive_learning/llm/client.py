@@ -445,11 +445,16 @@ class OpenAICompatibleClient:
                 for mime, data in images
             ] + [{"type": "text", "text": user}]
         if not anthropic and not responses:
-            # These are explicit Chat Completions settings: providers differ in
-            # supported values, so do not infer them from a provider/model name.
+            # Keep thinking opt-in; encode the explicit policy using each
+            # service's accepted Chat Completions values.
             if self.config.thinking_enabled is not None:
+                enabled_type = (
+                    "adaptive" if urlsplit(base_url).hostname in {
+                        "api.minimax.cn", "api.minimaxi.com", "api.minimax.io",
+                    } else "enabled"
+                )
                 payload["thinking"] = {
-                    "type": "enabled" if self.config.thinking_enabled else "disabled"
+                    "type": enabled_type if self.config.thinking_enabled else "disabled"
                 }
             if self.config.reasoning_effort is not None:
                 payload["reasoning_effort"] = self.config.reasoning_effort

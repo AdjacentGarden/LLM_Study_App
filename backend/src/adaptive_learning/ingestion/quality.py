@@ -8,7 +8,9 @@ from .models import QualityBand, QualitySignals
 
 _CJK = re.compile(r"[\u3400-\u9fff]")
 _VALID = re.compile(r"[\u3400-\u9fffA-Za-z0-9，。！？；：、“”‘’（）《》—…·,.!?;:'\"()\-\s]")
-_SUSPICIOUS = re.compile(r"(?:[A-Za-z]{1,2}\s*){6,}|[□�]{1,}|[_|]{3,}|\s{8,}")
+# Require spaces between short Latin fragments. Optional spaces matched every
+# ordinary English word of six letters or more and incorrectly rejected English OCR.
+_SUSPICIOUS = re.compile(r"\b(?:[A-Za-z]{1,2}[ \t]+){5,}[A-Za-z]{1,2}\b|[□�]{1,}|[_|]{3,}|\s{8,}")
 
 
 def _clamp(value: float) -> float:

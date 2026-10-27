@@ -575,7 +575,10 @@ class Studio:
         s = get_settings()
         media_enabled = not os.getenv("STUDIO_MEDIA_PAUSED_REASON")
         image_ready = bool(s.pucoding_api_key) and media_enabled
-        video_ready = bool(os.getenv("MINIMAX_API_KEY")) and media_enabled
+        video_enabled = os.getenv("STUDIO_VIDEO_ENABLED", "true").strip().lower() not in {
+            "false", "0", "no", "off",
+        }
+        video_ready = bool(os.getenv("MINIMAX_API_KEY")) and media_enabled and video_enabled
         studio_provider = os.getenv("STUDIO_LLM_PROVIDER", "").strip().lower()
         if studio_provider == "minimax":
             text = vision = bool(os.getenv("MINIMAX_API_KEY"))
@@ -602,6 +605,7 @@ class Studio:
             "image_model": os.getenv("PUCODING_IMAGE_MODEL", "gpt-image-2"),
             "video_provider": "MiniMax",
             "video_model": os.getenv("MINIMAX_VIDEO_MODEL", "MiniMax-H3-Max"),
+            "video_notice": os.getenv("STUDIO_VIDEO_PAUSED_REASON", "") if not video_enabled else "",
             "notes_ai": note_text and vision,
             "voice_notes": note_text and self.voice_runtime_ready(),
             "media_review_mode": media_review_mode(),
@@ -1730,7 +1734,8 @@ class Studio:
             return value
 
     def minimax(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.cn").rstrip("/")
+        base = (os.getenv("MINIMAX_VIDEO_BASE_URL", "").strip()
+                or os.getenv("MINIMAX_BASE_URL", "https://api.minimax.cn")).rstrip("/")
         # Existing deployments sometimes store the text API's /v1 base. Media
         # paths carry their explicit v1/v2 prefix, including the current H3 API.
         if base.endswith("/v1"):

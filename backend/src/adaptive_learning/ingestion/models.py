@@ -12,6 +12,7 @@ class ExtractionMethod(StrEnum):
     MINERU_VLM = "mineru_vlm"
     PADDLE_GPU = "paddle_gpu"
     RAPIDOCR_ONNX = "rapidocr_onnx"
+    APPLE_VISION = "apple_vision"
     VISION_RESCUE = "vision_rescue"
     CONSENSUS = "consensus"
 

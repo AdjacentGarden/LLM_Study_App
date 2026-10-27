@@ -10,3 +10,14 @@ def test_clean_chinese_text_scores_better_than_garbled_ocr() -> None:
 
     assert clean_score > broken_score
     assert broken_score < 0.72
+
+
+def test_normal_english_words_are_not_ocr_fragments() -> None:
+    text = "Biology describes genetic information. DNA carries instructions for cell growth and repair."
+    assert evaluate_text_quality(text).suspicious_fragments == []
+
+
+def test_spaced_letter_fragments_and_replacement_characters_remain_suspicious() -> None:
+    signals = evaluate_text_quality("A B C D E F G H □□□")
+    assert any("A B C" in fragment for fragment in signals.suspicious_fragments)
+    assert any("□" in fragment for fragment in signals.suspicious_fragments)
