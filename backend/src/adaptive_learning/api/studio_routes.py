@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import Field
 
 from ..studio import get_studio
-from ..studio_models import MediaInput, NoteAction, NoteInput, Strict
+from ..studio_models import MediaInput, NoteAction, NoteInput, SpeechTextInput, Strict
 
 
 class Accept(Strict):
@@ -121,6 +121,14 @@ def studio_router(
             },
         )
 
+    @router.put("/studio/notes/{key}/speech-text")
+    def save_speech_text(
+        key: str, data: SpeechTextInput, owner: str = Depends(visitor)
+    ) -> dict[str, Any]:
+        value = studio.note(owner, key)
+        owned_book(owner, value["book_id"])
+        return studio.save_voice_speech_text(owner, key, data)
+
     @router.post("/studio/notes/{key}/analyze")
     def analyze(key: str, data: NoteAction, owner: str = Depends(visitor)) -> dict[str, Any]:
         value = studio.note(owner, key)
@@ -129,15 +137,17 @@ def studio_router(
             raise HTTPException(409, "笔记已有新版本，请重新打开")
         voice = value.get("input_mode", "ink") == "voice"
         if data.action == "voice_note" and not voice:
-            raise HTTPException(422, "语音笔记生成仅支持已保存的录音")
-        if voice and not value.get("audio_ready"):
+            raise HTTPException(422, "语音笔记生成仅支持已保存的语音资料")
+        speech = voice and data.action == "voice_note" and value.get("speech_ready", False)
+        if voice and not value.get("audio_ready") and not speech:
             raise HTTPException(422, "请先录下一点内容，再请 AI 帮你整理")
         if not voice and not value["strokes"]:
             raise HTTPException(422, "先写下一点内容，再请 AI 帮你看看")
         if data.action == "improve" and (len(data.transcript) < 2 or "[待确认]" in data.transcript):
             raise HTTPException(422, "请先核对并补充识别文字，再检查理解")
         capabilities = studio.capabilities()
-        ready = (capabilities["voice_notes"] if voice and data.action == "voice_note" else
+        ready = (capabilities.get("voice_text_notes", False) if speech else
+                 capabilities["voice_notes"] if voice and data.action == "voice_note" else
                  capabilities.get("voice_notes_legacy", capabilities["voice_notes"]) if voice else capabilities["notes_ai"])
         if not ready:
             raise HTTPException(

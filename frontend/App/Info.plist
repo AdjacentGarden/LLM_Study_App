@@ -47,6 +47,8 @@
 	<string>CloudPath 连接你配置的本地学习服务，用于登录、教材上传与学习进度同步。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CloudPath 使用麦克风录制语音笔记和教材语音批注，录音保存在本机。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>在本机将保存的录音识别为文字，用于生成语音笔记，录音不上传。</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Fonts/BookCourseNotoSansSC-Regular.ttf</string>

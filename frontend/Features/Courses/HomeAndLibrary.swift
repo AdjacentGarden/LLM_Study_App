@@ -679,7 +679,8 @@ struct CourseDetailView: View {
         Text(source?.summary.title ?? "资料暂时不可用").font(DS.font(16, weight: .bold))
         Text(
           source?.summary.content_mode == "directory"
-            ? "教材目录 · 尚未生成教学内容" : source?.summary.status == "ready" ? "可开始学习" : "待整理 · 原文件已保留"
+            ? "教材目录 · 尚未生成教学内容" : source?.summary.status == "ready" ? "可开始学习"
+            : source?.summary.status == "source_ready" ? "本机原文已就绪 · 可阅读与检索" : "待整理 · 原文件已保留"
         ).font(DS.font(14)).foregroundStyle(DS.secondary)
       }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -692,6 +693,11 @@ struct CourseDetailView: View {
     }
   }
   @ViewBuilder private func resourceControls(_ source: SourceContent?, id: String) -> some View {
+    if source?.summary.content_mode == "local_original", source?.summary.status == "source_ready" {
+      detailAction("在 Wi-Fi 下生成课程", icon: "Sparkles") {
+        store.prepareLocalCourseOnWiFi(bookID: id)
+      }.accessibilityIdentifier("course.prepareOnWiFi.\(id)")
+    }
     if store.sourceFileURL(id) != nil {
       detailAction("读原文", icon: "BookOpen") {
         store.selectSource(id)

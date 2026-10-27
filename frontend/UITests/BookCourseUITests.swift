@@ -10,6 +10,7 @@ final class BookCourseUITests: XCTestCase {
     let app = XCUIApplication()
     app.launchArguments = [
       "--fixture", "--fixture-session", session, "--route", route, "--chapter", chapter,
+      "--fixture-network", "wifi",
     ]
     if visual { app.launchArguments += ["--fixture-reduce-motion", "--visual-baseline"] }
     if let sheet { app.launchArguments += ["--sheet", sheet] }

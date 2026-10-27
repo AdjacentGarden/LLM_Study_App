@@ -387,7 +387,7 @@ final class CloudTests: XCTestCase {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let store = AppStore(
       repository: try LocalBookCourseRepository(directory: root.appendingPathComponent("first")),
-      cloud: api)
+      cloud: api, processingPolicy: stableWiFiProcessingPolicyForTesting())
     await store.boot()
     XCTAssertTrue(store.cloudState.authenticated, store.cloudState.error ?? "")
     XCTAssertTrue(store.sources.isEmpty, "Online accounts must not load bundled demo textbooks")
@@ -708,7 +708,8 @@ extension CloudTests {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let repo = try LocalBookCourseRepository(directory: root)
     let api = CloudAPI(baseURL: URL(string: "https://local-original.example")!, session: isolatedCloudSession())
-    let store = AppStore(repository: repo, cloud: api)
+    let store = AppStore(repository: repo, cloud: api,
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
     let account = cachedAccount()
     let key = store.cloudCacheKey(account)
     store.cloudState.authenticated = true
@@ -740,7 +741,8 @@ extension CloudTests {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let repo = try LocalBookCourseRepository(directory: root)
     let api = CloudAPI(baseURL: URL(string: "https://existing-course.example")!, session: isolatedCloudSession())
-    let store = AppStore(repository: repo, cloud: api)
+    let store = AppStore(repository: repo, cloud: api,
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
     store.cloudState.authenticated = true
     store.cloudState.account = cachedAccount()
     store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount())
@@ -769,7 +771,8 @@ extension CloudTests {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let repo = try LocalBookCourseRepository(directory: root)
     let api = CloudAPI(baseURL: URL(string: "https://online-attachment.example")!, session: isolatedCloudSession())
-    let store = AppStore(repository: repo, cloud: api)
+    let store = AppStore(repository: repo, cloud: api,
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
     let account = cachedAccount(), key = store.cloudCacheKey(cachedAccount())
     store.cloudState.authenticated = true; store.cloudState.account = account; store.cloudState.cacheKey = key
     let workspace = CloudWorkspace(id: "existing-online-course", name: "在线课程", preferences: [:],

@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import Observation
 import SwiftUI
 
@@ -297,6 +298,7 @@ struct NotesVoiceNoteView: View {
   @State private var voiceWidth: CGFloat = 834
   @State private var studioTask: Task<Void, Never>?
   @State private var studioError: String?
+  @State private var usedOnDeviceRecognition = false
   @State private var recordingGeneration = UUID()
   @State private var generateOnFinish = false
   @State private var active = false
@@ -322,6 +324,8 @@ struct NotesVoiceNoteView: View {
   }
   private var progressTitle: String {
     switch phase {
+    case "waitingNetwork": "正在选择语音识别方式…"
+    case "recognizingLocally": "正在本机识别中文语音…"
     case "uploading": "正在准备录音…"
     case "transcribing": "正在理解录音内容…"
     case "restoring": "正在读取生成结果…"
@@ -395,6 +399,7 @@ struct NotesVoiceNoteView: View {
       generateOnFinish = false
       recordingGeneration = UUID()
       studioTask?.cancel()
+      studioTask = nil
       audio.onFinish = nil
       audio.shutdown()
       currentNote = nil
@@ -411,6 +416,7 @@ struct NotesVoiceNoteView: View {
       Button("重新录制", role: .destructive) {
         generateOnFinish = false
         studioTask?.cancel()
+        studioTask = nil
         recordingGeneration = UUID()
         audio.reset()
         saved = false
@@ -456,13 +462,21 @@ struct NotesVoiceNoteView: View {
         }
       }
       if audio.state == .ready && organized.isEmpty && !working {
-        Text("生成时会将录音发送到学习服务，在后台识别并整理，直接展示笔记。")
+        Text("按当前网络选择语音识别方式；选择本机识别时，只将识别文字交给 DeepSeek 整理，录音不上传。")
           .font(DS.font(12)).foregroundStyle(DS.muted)
         BCButton(studioError == nil ? "生成笔记" : "重试生成笔记", icon: "Sparkles") {
           generateNote(retryFailed: studioError != nil)
         }.disabled(!saved || saving).accessibilityIdentifier("voice.generate")
       }
       if let studioError { Text(studioError).font(DS.font(13)).foregroundStyle(DS.danger) }
+      if studioError != nil, usedOnDeviceRecognition, !working,
+        store.processingPolicy.connection == .cellular {
+        Button("重新选择处理方式") {
+          store.processingPolicy.reconsiderCellularChoice()
+          generateNote(retryFailed: true)
+        }.font(DS.font(14, weight: .semibold)).foregroundStyle(DS.primary)
+          .accessibilityIdentifier("voice.reconsiderProcessing")
+      }
       if working {
         ProgressView(progressTitle).font(DS.font(14)).foregroundStyle(DS.primary)
           .accessibilityIdentifier("voice.generating")
@@ -577,8 +591,8 @@ struct NotesVoiceNoteView: View {
     note.anchor = anchor
     note.duration = audio.seconds
     note.updatedAt = .now
-    // Legacy transcripts stay in storage for compatibility and are never displayed.
-    // New recordings only store their original audio and the finished note.
+    // Local recognition text is retained privately with its recording digest.
+    // Neither local nor legacy raw transcripts are displayed in this view.
     note.organizedText = organized.isEmpty ? nil : organized
     note.position = capturePosition
     do {
@@ -603,6 +617,7 @@ struct NotesVoiceNoteView: View {
   }
   private func finishAndClose() {
     generateOnFinish = false
+    studioTask?.cancel()
     audio.onFinish = nil
     audio.stop()
     Task {
@@ -616,23 +631,61 @@ struct NotesVoiceNoteView: View {
   private func generateNote(retryFailed: Bool = false) {
     guard studioTask == nil else { return }
     studioError = nil
-    phase = "uploading"
+    phase = "waitingNetwork"
     let generation = recordingGeneration, epoch = store.cloudState.epoch
     studioTask = Task { @MainActor in
-      defer { studioTask = nil }
+      defer { if generation == recordingGeneration, epoch == store.cloudState.epoch { studioTask = nil } }
       do {
-        guard await saveCurrent(), let note = currentNote, let path = note.audioPath else {
+        guard await saveCurrent(), var note = currentNote, let path = note.audioPath else {
           throw CloudError(status: 409, message: "请先保存原始录音，再重试生成笔记。")
         }
+        try Task.checkCancellation()
+        guard active, generation == recordingGeneration, epoch == store.cloudState.epoch else { throw CancellationError() }
+        let route = await store.processingPolicy.route(for: .asr)
+        try Task.checkCancellation()
+        guard active, generation == recordingGeneration, epoch == store.cloudState.epoch,
+          currentNote?.id == note.id else { throw CancellationError() }
+        if route == .cancelled { throw CancellationError() }
+        usedOnDeviceRecognition = route == .onDevice
         guard let api = store.cloud, store.cloudState.authenticated else {
           throw CloudError(status: 503, message: "学习服务尚未连接。录音已保存在本机，连接后可生成笔记。")
         }
         let service = StudioService(api: api)
-        let result = try await service.generateVoice(note: note, fileURL: store.attachmentURL(path),
-          retryFailed: retryFailed, onProgress: { next in
-            guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
-            phase = next
-          })
+        let onProgress: @MainActor @Sendable (String) -> Void = { next in
+          guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+          phase = next
+        }
+        let fileURL = store.attachmentURL(path)
+        let result: (remoteNote: StudioNote, job: StudioJob)
+        switch route {
+        case .cancelled: throw CancellationError()
+        case .existing:
+          phase = "uploading"
+          result = try await service.generateVoice(note: note, fileURL: fileURL,
+            retryFailed: retryFailed, onProgress: onProgress)
+        case .onDevice:
+          phase = "recognizingLocally"
+          let hash = try recordingDigest(fileURL)
+          let text: String
+          if let existing = note.localSpeechTranscript(audioSHA256: hash) { text = existing }
+          else {
+            text = try await AppleSpeechTranscriber().transcribe(fileURL: fileURL)
+            try Task.checkCancellation()
+            guard active, generation == recordingGeneration, epoch == store.cloudState.epoch,
+              currentNote?.id == note.id else { throw CancellationError() }
+            note.transcript = text
+            note.voiceRecognitionSource = "apple-speech-on-device"
+            note.voiceRecognitionAudioSHA256 = hash
+            note.updatedAt = .now
+            try await store.saveNote(note)
+            try Task.checkCancellation()
+            guard active, generation == recordingGeneration, epoch == store.cloudState.epoch else { throw CancellationError() }
+            currentNote = note
+          }
+          phase = "organizing"
+          result = try await service.generateVoiceFromTranscript(note: note, transcript: text,
+            retryFailed: retryFailed, onProgress: onProgress)
+        }
         try Task.checkCancellation()
         guard generation == recordingGeneration, epoch == store.cloudState.epoch,
           currentNote?.id == note.id else { return }
@@ -656,19 +709,29 @@ struct NotesVoiceNoteView: View {
     phase = "restoring"
     let generation = recordingGeneration, epoch = store.cloudState.epoch
     studioTask = Task { @MainActor in
-      defer { studioTask = nil }
+      defer { if generation == recordingGeneration, epoch == store.cloudState.epoch { studioTask = nil } }
       do {
         let service = StudioService(api: api)
-        guard let result = try await service.restoreVoice(note: note, fileURL: store.attachmentURL(path),
-          onProgress: { next in
-            guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
-            phase = next
-          }) else { phase = "idle"; return }
+        let onProgress: @MainActor @Sendable (String) -> Void = { next in
+          guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+          phase = next
+        }
+        let fileURL = store.attachmentURL(path)
+        let restored: (remoteNote: StudioNote, job: StudioJob)?
+        if note.voiceRecognitionSource == "apple-speech-on-device" {
+          guard let text = note.localSpeechTranscript(audioSHA256: try recordingDigest(fileURL)) else {
+            phase = "idle"; return
+          }
+          restored = try await service.restoreVoiceFromTranscript(note: note, transcript: text, onProgress: onProgress)
+        } else {
+          restored = try await service.restoreVoice(note: note, fileURL: fileURL, onProgress: onProgress)
+        }
+        try Task.checkCancellation()
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { throw CancellationError() }
+        guard let result = restored else { phase = "idle"; return }
         try Task.checkCancellation()
         guard generation == recordingGeneration, epoch == store.cloudState.epoch,
           currentNote?.id == note.id else { return }
-        try await service.accept(note: result.remoteNote, job: result.job)
-        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
         organized = result.job.polished
         phase = "complete"
         _ = await saveCurrent()
@@ -680,6 +743,14 @@ struct NotesVoiceNoteView: View {
         phase = organized.isEmpty ? "idle" : "complete"
       }
     }
+  }
+  private func recordingDigest(_ url: URL) throws -> String {
+    let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+    guard values.isRegularFile == true, let size = values.fileSize, size > 0, size <= 20 * 1024 * 1024 else {
+      throw CloudError(status: 413, message: "原始录音暂不可读取或超过 20 MB，未上传任何录音。")
+    }
+    return SHA256.hash(data: try Data(contentsOf: url, options: .mappedIfSafe))
+      .map { String(format: "%02x", $0) }.joined()
   }
   private func formatTime(_ value: Double) -> String {
     let value = max(0, Int(value))

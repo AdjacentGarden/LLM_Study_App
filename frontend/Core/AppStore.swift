@@ -164,12 +164,19 @@ import SwiftUI
   @ObservationIgnored private var creditRevision = 0
   @ObservationIgnored var selectionGeneration = 0
   @ObservationIgnored let assistant: AssistantService
+  let processingPolicy: ProcessingNetworkPolicy
+  @ObservationIgnored let appleTextbookSearch: AppleTextbookSearch
+  var activeImportRoute: ProcessingRoute?
   @ObservationIgnored var cloud: CloudAPI?
   let cloudState = CloudState()
-  init(repository: LocalBookCourseRepository, cloud: CloudAPI? = nil) {
+  init(repository: LocalBookCourseRepository, cloud: CloudAPI? = nil,
+       processingPolicy: ProcessingNetworkPolicy? = nil,
+       appleTextbookSearch: AppleTextbookSearch? = nil) {
     self.repository = repository
     self.cloud = cloud
     self.assistant = AssistantService()
+    self.processingPolicy = processingPolicy ?? ProcessingNetworkPolicy()
+    self.appleTextbookSearch = appleTextbookSearch ?? AppleTextbookSearch()
   }
   var currentCourse: Course? { courses.first { $0.id == selectedCourseID } }
   var currentSource: SourceContent? { sources.first { $0.id == selectedBookID } }
@@ -546,20 +553,40 @@ import SwiftUI
     saveLocation()
     go(.lesson)
   }
-  func openSource(_ target: SourcePageTarget) {
-    if cloud != nil, sourceFileURL(target.bookID) == nil,
-      sources.first(where: { $0.id == target.bookID })?.summary.content_mode != "catalog"
-    {
-      Task {
-        do {
-          try await ensureCloudPDF(bookID: target.bookID)
-          openSource(target)
-        } catch { handleCloudError(error) }
-      }
+  func openSource(_ target: SourcePageTarget, allowDownload: Bool = true) {
+    guard let source = sources.first(where: { $0.id == target.bookID }) else {
+      showToast("这份资料尚未导入")
       return
     }
-    guard sources.contains(where: { $0.id == target.bookID }) else {
-      showToast("这份资料尚未导入")
+    let localOnly = target.bookID.hasPrefix("book_local_")
+    if allowDownload, cloud != nil, !localOnly, sourceFileURL(target.bookID) == nil,
+      source.summary.content_mode != "catalog"
+    {
+      let epoch = cloudState.epoch, generation = selectionGeneration
+      let book = selectedBookID, course = selectedCourseID, originRoute = route
+      Task {
+        do {
+          let choice = await processingPolicy.route(for: .retrieval)
+          try Task.checkCancellation()
+          guard epoch == cloudState.epoch, generation == selectionGeneration,
+            book == selectedBookID, course == selectedCourseID, route == originRoute else { return }
+          switch choice {
+          case .cancelled: return
+          case .onDevice: openSource(target, allowDownload: false)
+          case .existing:
+            try await ensureCloudPDF(bookID: target.bookID)
+            try Task.checkCancellation()
+            guard epoch == cloudState.epoch, generation == selectionGeneration,
+              book == selectedBookID, course == selectedCourseID, route == originRoute else { return }
+            openSource(target)
+          }
+        } catch is CancellationError {
+          return
+        } catch {
+          guard epoch == cloudState.epoch, generation == selectionGeneration else { return }
+          handleCloudError(error)
+        }
+      }
       return
     }
     if route != .source {
@@ -567,7 +594,31 @@ import SwiftUI
         courseID: selectedCourseID, bookID: selectedBookID,
         chapterID: selectedChapterID, lessonID: selectedLessonID)
     }
-    if selectedBookID != target.bookID { selectSource(target.bookID) }
+    if selectedBookID != target.bookID {
+      if allowDownload && !localOnly { selectSource(target.bookID) }
+      else {
+        // A cached-text selection must not hydrate cloud content, fetch learning
+        // records, or enqueue cloud selection writes through selectSource().
+        selectionGeneration += 1
+        selectedBookID = target.bookID
+        if sourceTarget?.bookID != target.bookID { sourceTarget = nil }
+        if let index = courses.firstIndex(where: {
+          $0.id == selectedCourseID && $0.resourceIDs.contains(target.bookID)
+        }) {
+          courses[index].activeResourceID = target.bookID
+        } else if let course = courses.first(where: { $0.resourceIDs.contains(target.bookID) }) {
+          selectedCourseID = course.id
+        }
+        let location = locations[locationKey]
+        selectedChapterID = location?.chapterID ?? source.plan.tasks.first(where: {
+          $0.status != "done" && $0.status != "completed"
+        })?.chapter_id ?? source.chapters.first(where: { $0.level == 2 })?.id
+        selectedLessonID = location?.lessonID
+          ?? source.lessons.first(where: { $0.chapter_id == selectedChapterID })?.id
+        chatMessages = []
+        if cloud != nil { saveCloudCacheOnly() } else { persist() }
+      }
+    }
     var t = target
     if t.from == nil { t.from = route }
     sourceTarget = t
@@ -820,9 +871,13 @@ import SwiftUI
         else { continue }
         processingMessage = "正在读取 \(sources[index].summary.filename ?? "资料")"
         do {
-          let source = try await LocalFileImporter.extract(
-            url: file, bookID: id,
-            filename: sources[index].summary.filename ?? file.lastPathComponent)
+          let filename = sources[index].summary.filename ?? file.lastPathComponent
+          let source: SourceContent
+          if AppleDocumentOCR.supportedExtensions.contains(file.pathExtension.lowercased()) {
+            source = try await AppleDocumentOCR.extract(url: file, bookID: id, filename: filename)
+          } else {
+            source = try await LocalFileImporter.extract(url: file, bookID: id, filename: filename)
+          }
           try Task.checkCancellation()
           if let i = sources.firstIndex(where: { $0.id == id }) { sources[i] = source }
           processingProgress = Double(n + 1) / Double(max(ids.count, 1))
@@ -855,8 +910,8 @@ import SwiftUI
     if processGeneration == generation { processTask = nil }
   }
   func cancelImport() {
-    if let cloud {
-      let books = importJob?.bookIDs ?? []
+    if let cloud, activeImportRoute == .existing {
+      let books = (importJob?.bookIDs ?? []).filter { !$0.hasPrefix("book_local_") }
       Task {
         for bookID in books {
           do {
@@ -1144,7 +1199,7 @@ import SwiftUI
     let book = selectedBookID ?? ""
     do {
       chatMessages.append(ChatMessage(role: "user", text: question))
-      let result = try await assistant.ask(
+      let result = try await answerAssistant(
         question: question, bookID: book, bookIDs: scope, chapterID: selectedChapterID,
         sources: sources, history: Array(chatMessages.suffix(8)))
       guard generation == selectionGeneration, !Task.isCancelled else {

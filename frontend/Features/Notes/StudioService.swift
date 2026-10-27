@@ -18,6 +18,7 @@ struct StudioCapabilities: Decodable, Sendable {
   var image_height: Int?
   var video_resolution: String?
   var video_requires_image: Bool?
+  var voice_text_notes: Bool?
 }
 
 struct StudioNote: Decodable, Sendable {
@@ -26,6 +27,8 @@ struct StudioNote: Decodable, Sendable {
   var revision: Int
   var audio_ready: Bool
   var audio_sha256: String
+  var speech_ready: Bool? = nil
+  var speech_sha256: String? = nil
 }
 
 struct StudioJob: Codable, Sendable {
@@ -201,6 +204,11 @@ actor StudioService {
     onProgress: (@MainActor @Sendable (String) -> Void)? = nil) async throws -> (remoteNote: StudioNote, job: StudioJob) {
     try Task.checkCancellation()
     let remote = try await prepareVoice(note: note, fileURL: fileURL)
+    return try await generatePreparedVoice(remote, retryFailed: retryFailed, onProgress: onProgress)
+  }
+
+  private func generatePreparedVoice(_ remote: StudioNote, retryFailed: Bool,
+    onProgress: (@MainActor @Sendable (String) -> Void)?) async throws -> (remoteNote: StudioNote, job: StudioJob) {
     let key = voiceRequestKey(remote)
     var requestID = UserDefaults.standard.string(forKey: key)
     if let existingID = requestID {
@@ -220,6 +228,69 @@ actor StudioService {
     return try await completedVoice(remote, initial: initial, onProgress: onProgress)
   }
 
+  private func speechText(_ text: String, source: String, language: String) throws -> String {
+    let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty, text.count <= 12000, source == "apple-speech-on-device", language == "zh-CN" else {
+      throw CloudError(status: 422, message: "请先完成本机中文语音识别，识别文字应在 12000 字以内。")
+    }
+    return text
+  }
+
+  private func speechRemoteID(_ note: StudyNote, scope: String) -> String {
+    remoteNoteID(localID: anchoredIdentity(note) + "|on-device-speech", scope: scope)
+  }
+
+  func generateVoiceFromTranscript(note: StudyNote, transcript: String,
+    source: String = "apple-speech-on-device", language: String = "zh-CN", retryFailed: Bool = false,
+    onProgress: (@MainActor @Sendable (String) -> Void)? = nil) async throws -> (remoteNote: StudioNote, job: StudioJob) {
+    try Task.checkCancellation()
+    let text = try speechText(transcript, source: source, language: language)
+    let capability = try await capabilities()
+    guard capability.voice_text_notes == true else {
+      throw CloudError(status: 503, message: "文字整理服务尚未就绪，本机录音和识别文字仍保留；不会改为上传录音。")
+    }
+    let id = speechRemoteID(note, scope: capability.draft_scope)
+    var remote: StudioNote
+    if let existing = try await existingNote(id: id) { remote = existing }
+    else {
+      remote = try await api.request("/api/studio/notes", method: "POST", body: anchorBody(note, remoteID: id, revision: 0))
+    }
+    let hash = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    if remote.speech_ready != true || remote.speech_sha256 != hash {
+      remote = try await api.request("/api/studio/notes/\(id)/speech-text", method: "PUT", body: [
+        "revision": .number(Double(remote.revision)), "text": .string(text),
+        "source": .string(source), "language": .string(language),
+      ])
+    }
+    return try await generatePreparedVoice(remote, retryFailed: retryFailed, onProgress: onProgress)
+  }
+
+  /// A text-path receipt is independent of an audio-upload receipt for the same note.
+  func restoreVoiceFromTranscript(note: StudyNote, transcript: String,
+    source: String = "apple-speech-on-device", language: String = "zh-CN",
+    onProgress: (@MainActor @Sendable (String) -> Void)? = nil) async throws -> (remoteNote: StudioNote, job: StudioJob)? {
+    try Task.checkCancellation()
+    let text = try speechText(transcript, source: source, language: language)
+    let capability = try await capabilities()
+    let id = speechRemoteID(note, scope: capability.draft_scope)
+    guard let remote = try await existingNote(id: id), remote.speech_ready == true else { return nil }
+    let hash = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+    guard remote.speech_sha256 == hash else { return nil }
+    return try await restorePreparedVoice(remote, onProgress: onProgress)
+  }
+
+  private func restorePreparedVoice(_ remote: StudioNote,
+    onProgress: (@MainActor @Sendable (String) -> Void)?) async throws -> (remoteNote: StudioNote, job: StudioJob)? {
+    guard let requestID = UserDefaults.standard.string(forKey: voiceRequestKey(remote)) else { return nil }
+    guard let existing = try await existingVoiceJob(remote, requestID: requestID) else {
+      if submittedAnalysis(requestID) {
+        throw CloudError(status: 409, message: "上次生成请求尚未确认，请稍后查询原任务，不会重复提交。")
+      }
+      return nil
+    }
+    return try await completedVoice(remote, initial: existing, onProgress: onProgress)
+  }
+
   /// Reopening a recording performs GETs only. It never uploads audio or submits
   /// a model request, including when no server note or receipt exists yet.
   func restoreVoice(note: StudyNote, fileURL: URL,
@@ -234,16 +305,8 @@ actor StudioService {
     }
     let bytes = try Data(contentsOf: fileURL, options: .mappedIfSafe)
     let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-    guard remote.audio_sha256 == hash, let requestID = UserDefaults.standard.string(forKey: voiceRequestKey(remote)) else {
-      return nil
-    }
-    guard let existing = try await existingVoiceJob(remote, requestID: requestID) else {
-      if submittedAnalysis(requestID) {
-        throw CloudError(status: 409, message: "上次生成请求尚未确认，请稍后查询原任务，不会重复提交。")
-      }
-      return nil
-    }
-    return try await completedVoice(remote, initial: existing, onProgress: onProgress)
+    guard remote.audio_sha256 == hash else { return nil }
+    return try await restorePreparedVoice(remote, onProgress: onProgress)
   }
 
   func mediaJobs(bookID: String) async throws -> [StudioJob] {

@@ -45,7 +45,7 @@ from .llm.client import (
     model_time_budget,
 )
 from .studio_diagram import render_diagram
-from .studio_models import Improvement, MediaReview, NoteInput, Recognition, Review, TeachingPlan, VoiceNoteDraft
+from .studio_models import Improvement, MediaReview, NoteInput, Recognition, Review, SpeechTextInput, TeachingPlan, VoiceNoteDraft
 from .voice_worker import VoiceWorker
 
 ACTIVE = ("queued", "planning", "submitting", "polling", "reviewing")
@@ -644,6 +644,7 @@ class Studio:
             "video_notice": os.getenv("STUDIO_VIDEO_PAUSED_REASON", "") if not video_enabled else "",
             "notes_ai": note_text and vision,
             "voice_notes": bool(s.deepseek_api_key) and self.voice_runtime_ready(),
+            "voice_text_notes": bool(s.deepseek_api_key),
             "voice_notes_provider": "DeepSeek",
             "voice_notes_model": "deepseek-flash",
             "voice_notes_legacy": note_text and self.voice_runtime_ready(),
@@ -672,21 +673,27 @@ class Studio:
                     "audio_mime",
                     "audio_duration_seconds",
                     "audio_sha256",
+                    "speech_ready",
+                    "speech_sha256",
                 ):
                     serialized[field] = existing_audio.get(
                         field,
                         False
-                        if field == "audio_ready"
+                        if field in {"audio_ready", "speech_ready"}
                         else 0
                         if field == "audio_duration_seconds"
                         else "",
                     )
+                if "_speech_input" in existing_audio:
+                    serialized["_speech_input"] = existing_audio["_speech_input"]
             else:
                 serialized.update(
                     audio_ready=False,
                     audio_mime="",
                     audio_duration_seconds=0,
                     audio_sha256="",
+                    speech_ready=False,
+                    speech_sha256="",
                 )
             if old and old["revision"] == data.revision + 1:
                 existing = json.loads(old["data"])
@@ -797,7 +804,8 @@ class Studio:
             note = self.public_note(row)
             if note.get("input_mode", "ink") != "voice":
                 raise HTTPException(422, "这不是语音笔记")
-            if note["revision"] == revision + 1 and note.get("audio_sha256") == digest:
+            if (note["revision"] == revision + 1 and note.get("audio_ready")
+                    and note.get("audio_sha256") == digest):
                 return note
             if note["revision"] != revision:
                 raise HTTPException(409, "笔记已有新版本，请重新打开")
@@ -808,12 +816,15 @@ class Studio:
             os.chmod(temporary, 0o600)
             temporary.replace(path)
             data = json.loads(row["data"])
+            data.pop("_speech_input", None)
             data.update(
                 revision=revision + 1,
                 audio_ready=True,
                 audio_mime=mime,
                 audio_duration_seconds=round(duration, 2),
                 audio_sha256=digest,
+                speech_ready=False,
+                speech_sha256="",
             )
             now = time.time()
             db.execute(
@@ -821,6 +832,50 @@ class Studio:
                 (revision + 1, json.dumps(data, ensure_ascii=False), now, key),
             )
             return {**data, "updated": now}
+
+    def save_voice_speech_text(
+        self, owner: str, key: str, speech: SpeechTextInput
+    ) -> dict[str, Any]:
+        """Store device ASR privately; a saved text source supersedes old audio."""
+        digest = hashlib.sha256(speech.text.encode("utf-8")).hexdigest()
+        with self.repo.connect() as db:
+            db.begin_write()
+            row = db.execute(
+                "SELECT * FROM studio_notes WHERE id=? AND owner=?", (key, owner)
+            ).fetchone()
+            if not row:
+                raise HTTPException(404, "笔记不存在")
+            data = json.loads(row["data"])
+            if data.get("input_mode", "ink") != "voice":
+                raise HTTPException(422, "这不是语音笔记")
+            private = {"text": speech.text, "sha256": digest,
+                       "source": speech.source, "language": speech.language}
+            if (row["revision"] in {speech.revision, speech.revision + 1}
+                    and data.get("speech_ready") and data.get("_speech_input") == private):
+                return self.public_note(row)
+            if row["revision"] != speech.revision:
+                raise HTTPException(409, "笔记已有新版本，请重新打开")
+            data.update(revision=speech.revision + 1, speech_ready=True, speech_sha256=digest,
+                        _speech_input=private, audio_ready=False, audio_mime="",
+                        audio_duration_seconds=0, audio_sha256="")
+            now = time.time()
+            db.execute("UPDATE studio_notes SET revision=?,data=?,updated=? WHERE id=?",
+                       (data["revision"], json.dumps(data, ensure_ascii=False), now, key))
+            return self.public_note(
+                db.execute("SELECT * FROM studio_notes WHERE id=?", (key,)).fetchone())
+
+    def voice_speech_input(self, owner: str, key: str, revision: int) -> dict[str, Any]:
+        with self.repo.connect() as db:
+            row = db.execute("SELECT * FROM studio_notes WHERE id=? AND owner=?", (key, owner)).fetchone()
+        if not row or row["revision"] != revision:
+            raise ValueError("voice source revision changed")
+        data = json.loads(row["data"])
+        private = data.get("_speech_input", {})
+        if (not data.get("speech_ready") or not private.get("text")
+                or private.get("sha256") != data.get("speech_sha256")
+                or hashlib.sha256(private["text"].encode("utf-8")).hexdigest() != private["sha256"]):
+            raise ValueError("device speech source is not ready")
+        return private
 
     def voice_runtime_ready(self) -> bool:
         script = os.getenv(
@@ -883,7 +938,8 @@ class Studio:
 
     @staticmethod
     def public_note(row: sqlite3.Row) -> dict[str, Any]:
-        return {**json.loads(row["data"]), "updated": row["updated"]}
+        return {**{key: value for key, value in json.loads(row["data"]).items()
+                   if not key.startswith("_")}, "updated": row["updated"]}
 
     @staticmethod
     def public_note_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -2418,13 +2474,21 @@ class Studio:
     def process_voice_note(self, row: sqlite3.Row, data: dict[str, Any], note: dict[str, Any]) -> None:
         """ASR is private source material; publish only the single Flash note draft."""
         key = row["id"]
-        result: dict[str, Any] = {"phase": "transcribing", "provider": "DeepSeek", "model": "deepseek-flash"}
-        if note.get("input_mode") != "voice" or not note.get("audio_ready"):
+        speech = note.get("speech_ready", False)
+        result: dict[str, Any] = {"phase": "preparing" if speech else "transcribing",
+                                  "provider": "DeepSeek", "model": "deepseek-flash"}
+        if note.get("input_mode") != "voice" or not (speech or note.get("audio_ready")):
             self.update(key, status="failed", error="请先录音，再生成语音笔记")
             return
         self.update(key, result=json.dumps(result, ensure_ascii=False))
-        asr = self.transcribe_voice(row["owner"], note)
-        result["_voice_asr"] = {**asr.model_dump(), "audio_sha256": note.get("audio_sha256", "")}
+        if speech:
+            private = self.voice_speech_input(row["owner"], str(note["id"]), data["revision"])
+            asr = Recognition(transcript=private["text"], uncertain=[])
+            result["_voice_asr"] = {**asr.model_dump(), "speech_sha256": private["sha256"],
+                                    "source": private["source"], "language": private["language"]}
+        else:
+            asr = self.transcribe_voice(row["owner"], note)
+            result["_voice_asr"] = {**asr.model_dump(), "audio_sha256": note.get("audio_sha256", "")}
         self._save_note_trace("voice_note_asr", response=result["_voice_asr"])
         if not asr.transcript.strip():
             self.update(key, status="failed", result=json.dumps(result, ensure_ascii=False),

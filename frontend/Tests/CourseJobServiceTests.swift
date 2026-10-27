@@ -457,7 +457,8 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
     let original = Data("Saved original PDF bytes".utf8)
     let path = try await repository.saveAttachment(original, extension: "pdf")
-    let store = AppStore(repository: repository, cloud: api)
+    let store = AppStore(repository: repository, cloud: api,
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = "import-owner"
     store.draft.resourceIDs = ["book"]
@@ -476,7 +477,8 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertFalse(requests.all.contains { $0.0 == "POST" })
     let loadedCache = try await repository.loadCloudState("import-owner")
     let cached = try XCTUnwrap(loadedCache)
-    let restored = AppStore(repository: try LocalBookCourseRepository(directory: repository.directory), cloud: api)
+    let restored = AppStore(repository: try LocalBookCourseRepository(directory: repository.directory), cloud: api,
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
     restored.cloudState.authenticated = true
     restored.cloudState.cacheKey = "import-owner"
     restored.restoreCloudCache(cached)

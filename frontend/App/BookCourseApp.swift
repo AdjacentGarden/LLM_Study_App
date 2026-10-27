@@ -28,8 +28,17 @@ import UIKit
       } else {
         directory = nil
       }
+      var processingPolicy: ProcessingNetworkPolicy?
+      #if DEBUG
+        if ContentBundle.fixtureMode, let index = args.firstIndex(of: "--fixture-network"),
+          args.indices.contains(index + 1) {
+          let policy = ProcessingNetworkPolicy(monitoring: false, wifiStability: 0, cellularDebounce: 0)
+          policy.updatePath(.init(kind: args[index + 1] == "cellular" ? .cellular : .wifi))
+          processingPolicy = policy
+        }
+      #endif
       self._store = State(
-        initialValue: AppStore(repository: try LocalBookCourseRepository(directory: directory, includeFixtures: ContentBundle.fixtureMode), cloud: CloudAPI.configured()))
+        initialValue: AppStore(repository: try LocalBookCourseRepository(directory: directory, includeFixtures: ContentBundle.fixtureMode), cloud: CloudAPI.configured(), processingPolicy: processingPolicy))
     } catch { startupError = error.localizedDescription }
   }
   var body: some Scene {

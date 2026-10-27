@@ -63,6 +63,8 @@ class NoteInput(Anchor):
     audio_mime: str = Field(default="", max_length=80)
     audio_duration_seconds: float = Field(default=0, ge=0, le=602)
     audio_sha256: str = Field(default="", max_length=64)
+    speech_ready: bool = False
+    speech_sha256: str = Field(default="", max_length=64)
 
     @model_validator(mode="after")
     def bounded_points(self) -> NoteInput:
@@ -77,6 +79,13 @@ class NoteAction(Strict):
     action: Literal["recognize", "improve", "complete", "voice_note"]
     transcript: str = Field(default="", max_length=12000)
     consent: Literal[True]
+
+
+class SpeechTextInput(Strict):
+    revision: int = Field(ge=1)
+    text: str = Field(min_length=1, max_length=12000)
+    source: Literal["apple-speech-on-device"]
+    language: Literal["zh-CN"]
 
 
 class VoiceNoteDraft(Strict):

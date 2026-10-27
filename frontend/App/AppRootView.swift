@@ -150,13 +150,23 @@ struct AppRootView: View {
         }
       }
       .onChange(of: pad) { _, value in store.isPad = value }
+      .overlay {
+        let prompt = store.processingPolicy.prompt
+        BottomPanelLayer(presentationID: prompt?.id.uuidString, onDismiss: {
+          if let prompt { store.processingPolicy.resolvePrompt(.cancelled, promptID: prompt.id) }
+        }) {
+          if let prompt { ProcessingNetworkChoicePanel(prompt: prompt).id(prompt.id) }
+        }
+      }
     }
     .background(pageBackground.ignoresSafeArea()).font(DS.font()).foregroundStyle(DS.text).tint(
       DS.primary
     )
     .onChange(of: scenePhase) { _, phase in
       if phase != .active { store.persist() } else { store.startCloudSync() }
+      if phase == .background { store.processingPolicy.cancelPending() }
     }
+    .onChange(of: store.cloudState.epoch) { _, _ in store.processingPolicy.reset() }
     .sheet(isPresented: Binding(get: { store.cloudState.showDiagnosis }, set: { store.cloudState.showDiagnosis = $0 })) {
       CloudLearningSetupView().environment(store)
     }
@@ -745,6 +755,7 @@ struct AssistantChatView: View {
         }
         .frame(width: viewport.size.width, height: viewport.size.height)
         .background(.white).contentShape(Rectangle()).clipped()
+        .accessibilityIdentifier("assistant.scroll")
         .scrollDismissesKeyboard(.interactively)
         .onChange(of: focused) { _, value in
           if value { revealComposer(proxy) }
@@ -790,6 +801,7 @@ struct AssistantChatView: View {
       return
     }
     inputError = nil
+    focused = false
     question = ""
     Task { await store.ask(text) }
   }

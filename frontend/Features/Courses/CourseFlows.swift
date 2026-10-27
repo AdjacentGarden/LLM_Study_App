@@ -1016,7 +1016,9 @@ struct CourseProcessingView: View {
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var started = false
   @State private var importStage = 0
+  private var onDevice: Bool { !importing && (store.activeImportRoute == .onDevice || store.cloud == nil) }
   private var stages: [String] {
+    if onDevice { return ["本机识别原文", "原文已保存，可阅读与检索"] }
     if !importing, store.cloud != nil {
       return ["识别教材原文", "准备检索索引", "整理教材目录", "生成并审核诊断题", "教材已就绪"]
     }
@@ -1032,6 +1034,7 @@ struct CourseProcessingView: View {
   }
   private var activeStage: Int {
     if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return importing ? -1 : 0 }
+    if onDevice { return store.importJob?.status == .completed ? 1 : 0 }
     if !importing, store.cloud != nil {
       if store.importJob?.status == .completed { return 4 }
       switch store.importJob?.preparationStage {
@@ -1095,6 +1098,12 @@ struct CourseProcessingView: View {
             Group {
               if store.importError != nil {
                 BCButton("返回查看资料", style: .secondary) { store.replace(.parseReady) }
+                if store.processingPolicy.connection == .cellular {
+                  BCButton("重新选择处理方式", style: .secondary) {
+                    store.processingPolicy.reconsiderCellularChoice()
+                    Task { await store.processImport() }
+                  }
+                }
                 if store.importJob?.preparationFailed == true {
                   BCButton("重试教材准备") { Task { await store.processImport(retryPreparation: true) } }
                     .disabled(store.cloudState.isWorking)

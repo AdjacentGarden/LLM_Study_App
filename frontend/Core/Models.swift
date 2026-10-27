@@ -370,6 +370,8 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
   var audioPath: String?
   var duration: Double
   var transcript: String?
+  var voiceRecognitionSource: String?
+  var voiceRecognitionAudioSHA256: String?
   var organizedText: String?
   var drawingPath: String?
   var conversation: [ChatMessage]?
@@ -378,7 +380,8 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
     anchor: NoteAnchor? = nil, createdAt: Date = .now, updatedAt: Date = .now,
     position: UnitPointValue? = nil, audioPath: String? = nil, duration: Double = 0,
     transcript: String? = nil, organizedText: String? = nil, drawingPath: String? = nil,
-    conversation: [ChatMessage]? = nil
+    conversation: [ChatMessage]? = nil, voiceRecognitionSource: String? = nil,
+    voiceRecognitionAudioSHA256: String? = nil
   ) {
     self.id = id
     self.kind = kind
@@ -391,9 +394,20 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
     self.audioPath = audioPath
     self.duration = duration
     self.transcript = transcript
+    self.voiceRecognitionSource = voiceRecognitionSource
+    self.voiceRecognitionAudioSHA256 = voiceRecognitionAudioSHA256
     self.organizedText = organizedText
     self.drawingPath = drawingPath
     self.conversation = conversation
+  }
+  /// Legacy transcripts have no provenance and must never be treated as a new
+  /// on-device recognition. Tie a reusable result to the exact saved recording.
+  func localSpeechTranscript(audioSHA256: String) -> String? {
+    guard voiceRecognitionSource == "apple-speech-on-device", !audioSHA256.isEmpty,
+      voiceRecognitionAudioSHA256 == audioSHA256,
+      let text = transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !text.isEmpty, text.count <= 12000 else { return nil }
+    return text
   }
 }
 struct SourcePageTarget: Codable, Hashable, Sendable {

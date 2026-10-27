@@ -220,8 +220,17 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
         try db.get("cloud-note", key + ":" + id).first.map { try decoder.decode(StudyNote.self, from: $0) }
       }
       state.sources = state.workspaces.flatMap(\.resources).map(CloudMapping.source)
-      state.sources += try disk.sourceIDs.compactMap { id in
-        try db.get("cloud-source", key + ":" + id).first.map { try decoder.decode(SourceContent.self, from: $0) }
+      for id in disk.sourceIDs {
+        guard let bytes = try db.get("cloud-source", key + ":" + id).first else { continue }
+        let local = try decoder.decode(SourceContent.self, from: bytes)
+        let matching = state.sources.indices.filter { state.sources[$0].id == local.id }
+        if matching.isEmpty {
+          state.sources.append(local)
+        } else {
+          for index in matching {
+            state.sources[index] = Self.mergingLocalOCR(from: local, into: state.sources[index])
+          }
+        }
       }
       return state
     }
@@ -232,7 +241,16 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   func saveCloudState(_ value: CloudLocalSnapshot, key: String) throws {
     var state = value
     let resourceBooks = Set(value.workspaces.flatMap(\.resources).map(\.book_id))
-    let extraSources = value.sources.filter { !resourceBooks.contains($0.id) }
+    let extraSources = value.sources.compactMap { source -> SourceContent? in
+      guard resourceBooks.contains(source.id) else { return source }
+      let chunks = Self.localOCRChunks(in: source)
+      guard !chunks.isEmpty else { return nil }
+      // Keep only the device text overlay. Server teaching bodies continue to
+      // live once in their versioned content cache, independently of this input.
+      return SourceContent(summary: source.summary, chapters: [], lessons: [], chunks: chunks,
+        assets: [], flashcards: [], quizzes: [], plan: StudyPlan(
+          user_id: "", book_id: source.id, days: 0, daily_minutes: 0, tasks: []))
+    }
     try db.execute("BEGIN IMMEDIATE")
     do {
       for wi in state.workspaces.indices {
@@ -268,6 +286,42 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
       try? db.execute("ROLLBACK")
       throw error
     }
+  }
+
+  private static func localOCRChunks(in source: SourceContent) -> [SourceChunk] {
+    source.chunks.filter {
+      $0.book_id == source.id
+        && $0.source_metadata?["execution_device"] == .string("ios-device")
+        && $0.source_metadata?["network_required"] == .bool(false)
+        && ["apple-vision-ios", "pdfkit-text"].contains(
+          $0.source_metadata?["parser"]?.stringValue ?? "")
+    }
+  }
+
+  /// Preserve fresh server chapters, lessons, assets and citation IDs while
+  /// restoring account-local OCR text. Repeated installs do not duplicate it.
+  static func mergingLocalOCR(from local: SourceContent, into server: SourceContent) -> SourceContent {
+    guard local.id == server.id else { return server }
+    let chunks = localOCRChunks(in: local)
+    guard !chunks.isEmpty else { return server }
+    var source = server
+    let existingLocalIDs = Set(localOCRChunks(in: server).map(\.id))
+    var positions: [String: Int] = [:]
+    for (index, chunk) in source.chunks.enumerated() where positions[chunk.id] == nil {
+      positions[chunk.id] = index
+    }
+    for chunk in chunks {
+      if let index = positions[chunk.id] {
+        if existingLocalIDs.contains(chunk.id) { source.chunks[index] = chunk }
+      } else {
+        positions[chunk.id] = source.chunks.count
+        source.chunks.append(chunk)
+      }
+    }
+    source.summary.chunk_count = source.chunks.count
+    source.summary.page_count = max(source.summary.page_count, local.summary.page_count)
+    source.summary.updated_at = max(source.summary.updated_at, local.summary.updated_at)
+    return source
   }
   func loadNotes() throws -> [StudyNote] {
     try retireUnchangedPreviewContent()

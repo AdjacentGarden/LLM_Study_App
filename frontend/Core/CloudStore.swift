@@ -19,6 +19,7 @@ extension AppStore {
       cloudState.authenticated = false
       cloudState.showDiagnosis = false
       cloudState.epoch = UUID()
+      processingPolicy.reset()
       cloudState.syncTask?.cancel()
       cloudState.retryTask?.cancel()
       cloudState.contentTask?.cancel()
@@ -92,7 +93,7 @@ extension AppStore {
       if let pending = cloudState.pending[resource.id] { resource.progress = pending.value }
       let source = CloudMapping.source(resource)
       if let index = sources.firstIndex(where: { $0.id == source.id }) {
-        sources[index] = source
+        sources[index] = LocalBookCourseRepository.mergingLocalOCR(from: sources[index], into: source)
       } else {
         sources.append(source)
       }
@@ -175,6 +176,7 @@ extension AppStore {
     defer { cloudState.isWorking = false }
     await persistTask?.value
     cloudState.epoch = UUID()
+    processingPolicy.reset()
     cloudState.retryTask?.cancel()
     cloudState.contentTask?.cancel()
     cloudState.courseTask?.cancel()
@@ -297,11 +299,19 @@ extension AppStore {
   ) async {
     guard let cloud, cloudState.authenticated else { return }
     let epoch = cloudState.epoch
+    let routingSelection = selectionGeneration
     importError = nil
     var originalSaved = false
     do {
       guard url.pathExtension.lowercased() == "pdf" else {
         throw CloudError(status: 415, message: "云端课程目前支持 PDF，请选择 PDF 文件。")
+      }
+      let processingRoute = await processingPolicy.route(for: .ocr)
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
+      guard processingRoute != .cancelled else {
+        importError = "已取消本次导入，原文件未上传。"
+        return
       }
       let staged = try await LocalFileImporter.stage(url: url, repository: repository)
       try Task.checkCancellation()
@@ -310,6 +320,10 @@ extension AppStore {
       originalSaved = true
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
+      if processingRoute == .onDevice {
+        showToast("教材已保存在本机，将使用本机文字识别。")
+        return
+      }
       let uploaded = try await cloud.uploadPDF(
         repository.attachmentURL(staged.relativePath), filename: url.lastPathComponent,
         onProgress: onProgress)
@@ -329,6 +343,23 @@ extension AppStore {
 
   func processCloudImport(retryPreparation: Bool = false) async {
     guard let cloud, let accountKey = cloudState.cacheKey, !cloudState.isWorking else { return }
+    let routingEpoch = cloudState.epoch
+    let routingSelection = selectionGeneration
+    let processingRoute = await processingPolicy.route(for: .ocr)
+    guard !Task.isCancelled, routingEpoch == cloudState.epoch,
+      routingSelection == selectionGeneration else { return }
+    guard processingRoute != .cancelled else {
+      importError = "已取消本次处理，原文件已保留。"
+      processingMessage = "处理已取消"
+      if route == .processing { replace(.parseReady) }
+      return
+    }
+    activeImportRoute = processingRoute
+    defer { activeImportRoute = nil }
+    if processingRoute == .onDevice {
+      await processOnDeviceImport()
+      return
+    }
     cloudState.isWorking = true
     let epoch = cloudState.epoch
     let selectedGeneration = selectionGeneration
@@ -852,6 +883,16 @@ extension AppStore {
     question: String, bookID: String, bookIDs: [String], chapterID: String?,
     sources: [SourceContent], history: [ChatMessage]
   ) async throws -> AssistantAnswer {
+    let epoch = cloudState.epoch
+    let routingSelection = selectionGeneration
+    let processingRoute = await processingPolicy.route(for: .retrieval)
+    try Task.checkCancellation()
+    guard epoch == cloudState.epoch, routingSelection == selectionGeneration,
+      processingRoute != .cancelled else { throw CancellationError() }
+    if processingRoute == .onDevice {
+      return try await answerFromOnDeviceTextbook(question: question, bookID: bookID,
+        bookIDs: bookIDs, sources: sources)
+    }
     guard let cloud, !bookID.hasPrefix("book_local_") else {
       return try await assistant.ask(
         question: question, bookID: bookID, bookIDs: bookIDs,
