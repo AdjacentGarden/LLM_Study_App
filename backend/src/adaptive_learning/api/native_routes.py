@@ -30,6 +30,7 @@ from ..assessment.models import DiagnosticItem
 from ..assessment.preview import create_preview_session
 from ..bootstrap import BootstrapService, builtin_content_version
 from ..ingestion.chaptering import load_normalized_pages
+from ..ingestion.covers import cover_url
 from ..ingestion.models import BookStructure
 from ..learning_design import NativeLearningDesign
 from ..learning_preferences import LearningDesignOverrides
@@ -235,6 +236,9 @@ def native_router(services: Any) -> APIRouter:
             "session_id": row["session_id"],
             "session_purpose": session_purpose,
             "filename": stored.original_name if stored else "教材.pdf",
+            "cover_url": cover_url(services.settings.data_dir, row["book_id"])
+            or (curated.snapshot()["source"]["summary"].get("cover_url")
+                if row["book_id"] == curated.BOOK_ID else None),
             "status": "ready"
             if row["book_id"] == curated.BOOK_ID
             else stored.status
@@ -266,7 +270,8 @@ def native_router(services: Any) -> APIRouter:
         }
 
     bootstrap_service = BootstrapService(services.native_repository, services.assessment_repository,
-                                         services.job_repository, services.account_repository.repo)
+                                         services.job_repository, services.account_repository.repo,
+                                         data_dir=services.settings.data_dir)
 
     @router.get("/native/bootstrap")
     def bootstrap(mode: Literal["full", "metadata"] = "full", actor: str = Depends(owner)) -> dict[str, Any]:

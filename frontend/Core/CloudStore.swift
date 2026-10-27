@@ -74,9 +74,12 @@ extension AppStore {
       !courses.contains { remote in Set(local.resourceIDs).isSubset(of: Set(remote.resourceIDs)) }
     }
     for workspace in cloudState.workspaces {
-      for resource in workspace.resources
-      where !sources.contains(where: { $0.id == resource.book_id }) {
-        sources.append(CloudMapping.source(resource))
+      for resource in workspace.resources {
+        if let index = sources.firstIndex(where: { $0.id == resource.book_id }) {
+          if let cover = resource.cover_url { sources[index].summary.cover_url = cover }
+        } else {
+          sources.append(CloudMapping.source(resource))
+        }
       }
     }
   }

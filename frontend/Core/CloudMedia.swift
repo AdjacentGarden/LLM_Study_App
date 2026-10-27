@@ -24,6 +24,30 @@ extension LessonMediaRequest {
 
 extension StudioCapabilities {
   func available(_ kind: LearningMediaKind) -> Bool { kind == .image ? image : video }
+
+  func unavailableNotice(_ kind: LearningMediaKind) -> String {
+    let notices = kind == .video ? [video_notice, media_notice] : [media_notice]
+    if let notice = notices.compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+      .first(where: { !$0.isEmpty }) { return notice }
+    return kind == .image
+      ? "辅助图生成服务暂未就绪，请检查后端的图像服务配置。"
+      : "视频生成服务暂未就绪，请检查后端的视频服务配置。"
+  }
+
+  /// These are the current submission settings, never metadata for an older asset.
+  func generationTarget(_ kind: LearningMediaKind) -> String? {
+    if kind == .image {
+      guard let width = image_width, let height = image_height, width > 0, height > 0 else { return nil }
+      return "新生成图片目标尺寸：\(width) × \(height) 像素。"
+    }
+    guard let resolution = video_resolution?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !resolution.isEmpty else { return nil }
+    return "新生成视频目标分辨率：\(resolution)。"
+  }
+
+  func generationRequirement(_ kind: LearningMediaKind) -> String? {
+    kind == .video && video_requires_image == true ? "低价视频需先生成当前选段的辅助图。" : nil
+  }
 }
 
 extension StudioJob: Identifiable {
@@ -146,7 +170,7 @@ extension CloudAPI {
       }
       refreshID += 1
       if receipt == nil, capabilities?.available(kind) != true {
-        error = capabilities?.media_notice ?? "媒体生成服务暂未就绪，请检查连接与模型配置后重试。"
+        error = capabilities?.unavailableNotice(kind) ?? "媒体生成服务暂未就绪，请检查连接与模型配置后重试。"
       }
     } catch is CancellationError { } catch { await handleFailure(error) }
   }
@@ -188,7 +212,7 @@ extension CloudAPI {
       capabilities = try await service.capabilities()
       try await requireIdentity()
       guard capabilities?.available(kind) == true else {
-        throw ContentError.invalid("媒体生成服务暂不可用，未提交生成。")
+        throw ContentError.invalid(capabilities?.unavailableNotice(kind) ?? "媒体生成服务暂不可用，未提交生成。")
       }
       receipt = LessonMediaReceipt(requestID: "media_" + UUID().uuidString.replacingOccurrences(of: "-", with: ""),
         state: "submitting", submissionUncertain: true)

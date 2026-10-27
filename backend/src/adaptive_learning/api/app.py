@@ -52,11 +52,12 @@ from ..assessment.repository import SessionConflictError, SQLiteAssessmentReposi
 from ..assessment.scoring import OpenAnswerScorer
 from ..community import CommunityRepository
 from ..config import get_settings
-from ..database import close_pools, healthcheck
+from ..database import DATABASE_ERRORS, close_pools, healthcheck
 from ..ingestion.chaptering import (
     ChapterReconstructor,
     load_normalized_pages,
 )
+from ..ingestion.covers import cover_url, get_cover_service
 from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRunner
 from ..ingestion.models import BookStructure, ChapterDraft
 from ..ingestion.ocr_job import sha256_file
@@ -280,6 +281,28 @@ def _reviewed_course(bundle: ChapterLearningBundle) -> ChapterLearningBundle:
     return reviewed
 
 
+def _enqueue_cover(book_id: str) -> None:
+    try:
+        get_cover_service(settings.data_dir, job_repository).enqueue(book_id)
+    except (OSError, ValueError, *DATABASE_ERRORS):
+        logger.warning("PDF cover enqueue unavailable", extra={"book_id": book_id})
+
+
+def _backfill_active_covers() -> None:
+    # Existing active courses and published books only; abandoned test uploads
+    # must not create a startup batch of paid model calls.
+    book_ids = set(settings.published_book_ids)
+    try:
+        with native_repository.connect() as connection:
+            book_ids.update(str(row[0]) for row in connection.execute(
+                "SELECT DISTINCT r.book_id FROM native_resources r "
+                "JOIN native_workspaces w ON w.id=r.workspace_id"))
+    except DATABASE_ERRORS:
+        logger.warning("PDF cover backfill storage temporarily unavailable")
+    for book_id in book_ids:
+        _enqueue_cover(book_id)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from ..studio import get_studio
@@ -304,11 +327,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         get_studio(settings.data_dir).start()
     preparation_queue.start()
     course_job_queue.start()
+    _backfill_active_covers()
     try:
         yield
     finally:
         course_job_queue.stop()
         preparation_queue.stop()
+        get_cover_service(settings.data_dir, job_repository).close()
         if settings.studio_worker_enabled:
             get_studio(settings.data_dir).stop()
         if settings.ocr_worker_enabled:
@@ -430,6 +455,7 @@ async def upload_book(file: Annotated[UploadFile, File()], request: Request, res
         source_sha256=sha256_file(target),
     )
     account_repository.repo.bind_upload(owner, book_id)
+    _enqueue_cover(book_id)
     return UploadResponse(
         book_id=book_id,
         filename=file.filename or "book.pdf",
@@ -455,25 +481,30 @@ def list_published_books() -> list[BookCatalogItem]:
                 chapter_count=len(structure.chapters),
                 summary=structure.summary,
                 diagnostics_ready=bool(_items_for_book(book_id)),
-                cover_url=(
-                    f"/api/books/{book_id}/cover"
-                    if (settings.data_dir / "covers" / f"{book_id}.jpg").is_file()
-                    else None
-                ),
+                cover_url=cover_url(settings.data_dir, book_id),
             )
         )
     return result
 
 
 @app.get("/api/books/{book_id}/cover")
-def book_cover(book_id: str) -> FileResponse:
-    if book_id not in settings.published_book_ids:
+def book_cover(book_id: str, request: Request) -> FileResponse:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
         raise HTTPException(status_code=404, detail="未找到教材封面")
+    published = book_id in settings.published_book_ids
+    if not published:
+        actor = account_repository.request_owner(request)
+        if not actor or not (account_repository.repo.owns_upload(actor, book_id)
+                             or account_repository.repo.owns(actor, book_id)):
+            raise HTTPException(status_code=404, detail="未找到教材封面")
     path = settings.data_dir / "covers" / f"{book_id}.jpg"
     if not path.is_file():
         raise HTTPException(status_code=404, detail="封面尚未生成")
     return FileResponse(
-        path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"}
+        path, media_type="image/jpeg", headers={
+            "Cache-Control": "public, max-age=86400" if published else "private, no-store",
+            "Vary": "Cookie", "X-Content-Type-Options": "nosniff",
+        }
     )
 
 

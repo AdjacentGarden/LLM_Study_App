@@ -18,6 +18,7 @@ from ..assessment.item_generation import diagnostic_bank_fingerprint, diagnostic
 from ..assessment.models import InterviewSession, ResponseType
 from ..assessment.repository import SQLiteAssessmentRepository
 from ..community import CommunityRepository, text_fingerprint
+from ..ingestion.covers import cover_url
 from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..ingestion.models import BookStructure
 from ..social import SocialRepository
@@ -160,6 +161,7 @@ def community_router(
         """Read readiness from durable products, never the earlier claim snapshot."""
         value = dict(entry)
         book_id = str(value["book_id"])
+        value["cover_url"] = cover_url(data_dir, book_id) or value.get("cover_url")
         structure, bank = None, None
         try:
             structure = jobs().get_structure(book_id)
@@ -241,7 +243,7 @@ def community_router(
             "chapter_count": len(structure.chapters),
             "summary": structure.summary,
             "diagnostics_ready": False,
-            "cover_url": None,
+            "cover_url": cover_url(data_dir, book_id),
         }
         job = jobs().get_job(book_id)
         output_dir = job.output_dir if job is not None else stored.file_path.parent / "ocr"

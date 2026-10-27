@@ -97,6 +97,10 @@ def test_same_request_matches_parsed_original_json_not_storage_format_and_checks
 
 @pytest.mark.parametrize("kind", ["recognize", "image", "video", "diagram"])
 def test_media_policy_and_recognition_fingerprints_are_independent_of_note_revision(tmp_path, monkeypatch, kind):
+    monkeypatch.setenv("STUDIO_IMAGE_PROVIDER", "minimax")
+    monkeypatch.setenv("MINIMAX_IMAGE_MODEL", "image-01")
+    monkeypatch.setenv("MINIMAX_VIDEO_MODEL", "MiniMax-H3-Lite")
+    monkeypatch.setenv("MINIMAX_VIDEO_RESOLUTION", "480P")
     studio = Studio(tmp_path)
     data = spec(kind)
     key = studio.submit("owner", data, kind)["id"]
@@ -104,10 +108,15 @@ def test_media_policy_and_recognition_fingerprints_are_independent_of_note_revis
     expected = old_fingerprint(data)
     if kind in {"image", "video"}:
         from adaptive_learning.studio import media_review_mode
-        expected = hashlib.sha256(json.dumps({
+        media_identity = {
             "body": {k: v for k, v in data.items() if k != "request_id"},
             "media_review_mode": media_review_mode(), "media_review_revision": 1,
-        }, sort_keys=True).encode()).hexdigest()
+        }
+        if kind == "image":
+            media_identity["image_generator"] = studio.image_generation_config()
+        else:
+            media_identity["video_generator"] = studio.video_generation_config()
+        expected = hashlib.sha256(json.dumps(media_identity, sort_keys=True).encode()).hexdigest()
     assert before["fingerprint"] == expected
     monkeypatch.setattr("adaptive_learning.studio.NOTE_REVIEW_REVISION", "unrelated-note-revision")
     assert studio.submit("owner", {**data, "request_id": "unchanged_media_222"}, kind)["id"] == key

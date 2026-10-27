@@ -13,6 +13,11 @@ struct StudioCapabilities: Decodable, Sendable {
   var image_estimate: Double?
   var video_estimate: Double?
   var media_notice: String?
+  var video_notice: String?
+  var image_width: Int?
+  var image_height: Int?
+  var video_resolution: String?
+  var video_requires_image: Bool?
 }
 
 struct StudioNote: Decodable, Sendable {

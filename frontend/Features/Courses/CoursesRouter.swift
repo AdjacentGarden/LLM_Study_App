@@ -248,7 +248,8 @@ extension AppStore {
   }
   func courseFeatureCover(_ course: Course) -> String? {
     let bookID = course.activeResourceID ?? course.resourceIDs.first
-    return sources.first { $0.id == bookID }?.summary.cover_url
+    return cloudState.workspaces.first { $0.id == course.id }?.resources.first { $0.book_id == bookID }?.cover_url
+      ?? sources.first { $0.id == bookID }?.summary.cover_url
       ?? community.first { $0.id == bookID }?.cover
       ?? shelf.first { $0.bookId == bookID }?.coverUrl
   }
@@ -282,14 +283,26 @@ struct CourseBadgeIcon: View {
 
 /// Shared source composition: the cover crosses from the lavender stage into the white sheet.
 struct CourseCoverImage: View {
+  @Environment(AppStore.self) private var store
+  @State private var remoteCover = CloudBookCoverModel()
   let path: String?
   var contentMode: ContentMode = .fill
   var documentKind: String? = nil
+
+  private var remoteRequest: CloudBookCoverRequest? {
+    guard let path, CloudAPI.isBookCoverPath(path), let api = store.cloud,
+      store.cloudState.authenticated, let account = store.cloudState.account, account.account != nil else { return nil }
+    return CloudBookCoverRequest(path: path, origin: api.baseURL.absoluteString,
+      accountID: account.user_id, epoch: store.cloudState.epoch)
+  }
 
   var body: some View {
     Group {
       if let path, ContentBundle.url(path) != nil {
         AssetImage(path, contentMode: contentMode)
+      } else if let request = remoteRequest, request == remoteCover.request,
+        let data = remoteCover.data, let image = UIImage(data: data) {
+        Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
       } else {
         ZStack {
           DS.primarySoft
@@ -305,6 +318,7 @@ struct CourseCoverImage: View {
         }
       }
     }.accessibilityHidden(true)
+      .task(id: remoteRequest) { await remoteCover.load(remoteRequest, api: store.cloud) }
   }
 }
 

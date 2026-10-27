@@ -149,6 +149,8 @@ class FixtureTeachingGenerator:
 
 
 def configure(root: Path, patch) -> FastAPI:
+    # Native workflow tests replace paid adapters and keep cover inference offline.
+    patch.setenv("PDF_COVER_ENABLED", "false")
     patch.setenv("AUTH_DEMO_MODE", "1")
     patch.setenv("NATIVE_LOCAL_LOGIN_ENABLED", "0")
     patch.setenv("APP_ENV", "development")

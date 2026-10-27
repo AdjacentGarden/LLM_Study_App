@@ -42,8 +42,10 @@ struct LearningMediaSheet: View {
             BCButton("核对并刷新原任务", style: .secondary) { perform { await model.refresh() } }
           }
           if let error = model.error {
-            Text(error).font(DS.font(16)).foregroundStyle(DS.danger)
-              .accessibilityIdentifier("lesson.media.error")
+            if error != model.job?.error {
+              Text(error).font(DS.font(16)).foregroundStyle(DS.danger)
+                .accessibilityIdentifier("lesson.media.error")
+            }
             BCButton(model.job == nil ? "重新连接" : "刷新状态", style: .secondary) {
               perform { await model.refresh() }
             }.accessibilityIdentifier("lesson.media.refresh")
@@ -107,6 +109,14 @@ struct LearningMediaSheet: View {
         Text(model.kind == .image ? "根据当前教材选段生成辅助图解。"
           : "根据当前图示说明和章节内容，生成约 \(capabilities.video_seconds ?? 6) 秒的讲解短片。")
           .font(DS.font(16))
+        if let target = capabilities.generationTarget(model.kind) {
+          Text(target).font(DS.font(14)).foregroundStyle(DS.secondary)
+            .accessibilityIdentifier("lesson.media.generationTarget")
+        }
+        if let requirement = capabilities.generationRequirement(model.kind) {
+          Text(requirement).font(DS.font(14)).foregroundStyle(DS.secondary)
+            .accessibilityIdentifier("lesson.media.generationRequirement")
+        }
         if let estimate = model.kind == .image ? capabilities.image_estimate : capabilities.video_estimate {
           Text("预计服务费用 ¥\(estimate, specifier: "%.2f")，以服务方实际计费为准。")
             .font(DS.font(14)).foregroundStyle(DS.secondary)
@@ -117,11 +127,8 @@ struct LearningMediaSheet: View {
           perform { await model.submit() }
         }.disabled(model.submitting || model.context.excerpt.count < 4)
           .accessibilityIdentifier("lesson.media.generate")
-      } else if model.capabilities != nil {
-        Text(
-          model.capabilities?.media_notice?.isEmpty == false
-            ? model.capabilities!.media_notice! : "视频生成服务暂未就绪，请检查后端的视频服务配置。"
-        )
+      } else if let capabilities = model.capabilities {
+        Text(capabilities.unavailableNotice(model.kind))
         .font(DS.font(16)).foregroundStyle(DS.secondary)
         .accessibilityIdentifier("lesson.media.unavailable")
         BCButton("刷新服务状态", style: .secondary) { perform { await model.load() } }

@@ -42,6 +42,7 @@ enum CloudMapping {
 
   static func source(_ resource: CloudResource) -> SourceContent {
     if var content = resource.source_content {
+      content.summary.cover_url = resource.cover_url ?? content.summary.cover_url
       // Published legacy catalog lessons used "generated" for available content.
       for index in content.lessons.indices where content.lessons[index].status == "generated" {
         content.lessons[index].status = "ready"
@@ -156,6 +157,7 @@ enum CloudMapping {
     return SourceContent(
       summary: SourceSummary(
         book_id: bookID, title: structure?.title ?? resource.filename,
+        cover_url: resource.cover_url,
         filename: resource.filename, status: status,
         page_count: structure?.source_page_count ?? 0, chapter_count: chapters.count,
         chunk_count: 0,

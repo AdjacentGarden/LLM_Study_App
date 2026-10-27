@@ -27,6 +27,13 @@ from adaptive_learning.studio_models import Recognition, TeachingPlan
 @pytest.fixture
 def setup(community, monkeypatch):
     a, b, repo, _ = community
+    # Existing image fixtures explicitly exercise the legacy provider adapter.
+    monkeypatch.setenv("STUDIO_IMAGE_PROVIDER", "pucoding")
+    monkeypatch.setenv("PUCODING_API_KEY", "pucoding-test")
+    # Existing scenarios exercise the optional V2 text-to-video adapter.
+    monkeypatch.setenv("MINIMAX_VIDEO_MODEL", "MiniMax-H3-Lite")
+    monkeypatch.setenv("MINIMAX_VIDEO_RESOLUTION", "480P")
+    get_settings.cache_clear()
     studio = get_studio(repo.path.parent.parent)
     monkeypatch.setattr(
         Studio,
@@ -1483,7 +1490,9 @@ def test_video_reuses_first_frame_without_extra_generation(setup, monkeypatch):
 
     def provider(path, payload):
         calls.append(path)
-        assert payload["model"] == "MiniMax-H3-Max"
+        assert payload["model"] == "MiniMax-H3-Lite"
+        assert payload["resolution"] == "480P"
+        assert "extra" not in payload
         assert payload["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
         assert payload["content"][1]["role"] == "first_frame"
         assert payload["ratio"] == "adaptive"
@@ -1499,6 +1508,7 @@ def test_video_reuses_first_frame_without_extra_generation(setup, monkeypatch):
     assert calls == ["/v2/video_generation"]
     value = a.get("/api/studio/jobs/" + key).json()
     assert value["status"] == "polling" and value["result"]["reference_image_id"] == image_id
+    assert value["result"]["ratio"] == "adaptive"
 
 
 def test_video_poll_is_resumable_and_does_not_generate_again(setup, monkeypatch):

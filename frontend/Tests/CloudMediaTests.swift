@@ -292,10 +292,76 @@ private final class MediaProtocol: URLProtocol, @unchecked Sendable {
     let caps = try JSONDecoder().decode(StudioCapabilities.self, from: JSONSerialization.data(withJSONObject: [
       "image": true, "video": false, "voice_notes": false, "notes_ai": false, "draft_scope": "owner"]))
     XCTAssertNil(caps.video_estimate)
+    XCTAssertNil(caps.video_notice)
+    XCTAssertNil(caps.image_width)
+    XCTAssertNil(caps.image_height)
+    XCTAssertNil(caps.video_resolution)
+    XCTAssertNil(caps.video_requires_image)
+    XCTAssertNil(caps.generationTarget(.image))
+    XCTAssertNil(caps.generationTarget(.video))
+    XCTAssertNil(caps.generationRequirement(.video))
     let bytes = Data([137, 80, 78, 71, 13, 10, 26, 10, 0])
     MediaProtocol.handler = { _ in (200, ["Content-Type": "image/png"], bytes) }
     let downloaded = try await api().downloadMedia(value)
     XCTAssertEqual(downloaded, bytes)
+  }
+
+  func testVideoNoticeOverridesGlobalNoticeAndTargetCopyAppliesOnlyToNewGeneration() throws {
+    var wire = capabilities
+    wire["video_notice"] = " 视频维护中 "
+    wire["media_notice"] = "媒体服务维护中"
+    wire["image_width"] = 2048
+    wire["image_height"] = 1536
+    wire["video_resolution"] = "2K"
+    var caps = try JSONDecoder().decode(StudioCapabilities.self,
+      from: JSONSerialization.data(withJSONObject: wire))
+    XCTAssertEqual(caps.unavailableNotice(.video), "视频维护中")
+    XCTAssertEqual(caps.unavailableNotice(.image), "媒体服务维护中")
+    XCTAssertEqual(caps.generationTarget(.image), "新生成图片目标尺寸：2048 × 1536 像素。")
+    XCTAssertEqual(caps.generationTarget(.video), "新生成视频目标分辨率：2K。")
+    caps.video_notice = " \n "
+    XCTAssertEqual(caps.unavailableNotice(.video), "媒体服务维护中")
+    caps.media_notice = ""
+    XCTAssertEqual(caps.unavailableNotice(.video), "视频生成服务暂未就绪，请检查后端的视频服务配置。")
+    XCTAssertEqual(caps.unavailableNotice(.image), "辅助图生成服务暂未就绪，请检查后端的图像服务配置。")
+    caps.image_width = 0
+    XCTAssertNil(caps.generationTarget(.image))
+  }
+
+  func testDisabledVideoShowsSpecificReasonWithoutSubmittingAnyGeneration() async throws {
+    let context = try context(), root = storage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = CloudMediaModel(api: api(), request: context, storageRoot: root)
+    var posts = 0
+    MediaProtocol.handler = { request in
+      if request.httpMethod == "POST" { posts += 1; throw URLError(.badServerResponse) }
+      if request.url!.path.hasSuffix("capabilities") {
+        var wire = self.capabilities
+        wire["video"] = false
+        wire["video_notice"] = "视频服务暂停配置"
+        return try self.json(wire)
+      }
+      return try self.json(["items": []])
+    }
+    await model.load()
+    XCTAssertEqual(model.error, "视频服务暂停配置")
+    XCTAssertFalse(model.canSubmit)
+    await model.submit()
+    XCTAssertEqual(posts, 0)
+    XCTAssertNil(model.receipt)
+  }
+
+  func testOnlyImageToVideoModelExplainsCurrentExcerptImageRequirement() throws {
+    var wire = capabilities
+    wire["video_requires_image"] = true
+    let imageToVideo = try JSONDecoder().decode(StudioCapabilities.self,
+      from: JSONSerialization.data(withJSONObject: wire))
+    XCTAssertEqual(imageToVideo.generationRequirement(.video), "低价视频需先生成当前选段的辅助图。")
+    XCTAssertNil(imageToVideo.generationRequirement(.image))
+    wire["video_requires_image"] = false
+    let textToVideo = try JSONDecoder().decode(StudioCapabilities.self,
+      from: JSONSerialization.data(withJSONObject: wire))
+    XCTAssertNil(textToVideo.generationRequirement(.video))
   }
 
   func testHistoryCannotReplaceAnUnresolvedGenerationWithAnOlderFailedTask() async throws {

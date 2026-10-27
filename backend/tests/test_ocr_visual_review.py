@@ -113,6 +113,70 @@ def test_failed_correction_verification_skips_instead_of_publishing_candidate(tm
     assert "guessed answer" not in text and '"skipped"' in text
 
 
+def test_both_visual_roles_distinguish_pdf_page_identity_and_preserve_printed_footer(tmp_path):
+    source, normalized = inputs(tmp_path, ("front matter", "Cu2S"), ("accepted", "review"))
+    with pymupdf.open(source) as doc:
+        page = doc[1]
+        page.insert_text((page.rect.width / 2, page.rect.height - 30), "7")
+        doc.saveIncr()
+    report_path = normalized / "quality_report.json"
+    report = json.loads(report_path.read_text())
+    report["source_sha256"] = sha256_file(source)
+    report_path.write_text(json.dumps(report))
+    model = Model([
+        {"action": "correct", "reason": "subscript corrected; printed footer is 7",
+         "blocks": [{"type": "equation", "text": "Cu₂S"}, {"type": "text", "text": "7"}]},
+        {"verified": True, "reason": "formula and printed footer match the image"},
+    ])
+    output = run(source, normalized, model)
+    assert len(model.calls) == 2
+    for call in model.calls:
+        payload = json.loads(call["user"])
+        assert payload["page_number"] == 2
+        assert payload["page_number_kind"] == "pdf_physical_page_1_based"
+        assert "从1开始的PDF物理页序" in payload["page_number_description"]
+        assert "不是书上印刷页码" in payload["page_number_description"]
+        assert "二者数字不一致本身不是OCR错误" in payload["page_number_description"]
+        assert "页脚印刷页码应原样保留在blocks中" in payload["page_number_description"]
+        assert "从1开始的PDF物理页序" in call["system"]
+        assert "不是书上印刷页码" in call["system"]
+        assert "数字不一致本身不是OCR错误" in call["system"]
+        assert "页脚印刷页码应原样保留在blocks中，不要改成物理页序" in call["system"]
+    verification = json.loads(model.calls[1]["user"])
+    assert verification["candidate_blocks"][-1] == {"type": "text", "text": "7"}
+    pages = [json.loads(line) for line in (output / "pages.jsonl").read_text().splitlines()]
+    assert pages[1]["page_number"] == 2
+    assert pages[1]["processing_status"] == "corrected"
+    assert pages[1]["text"] == "Cu₂S\n7"
+    assert pages[1]["blocks"][-1]["text"] == "7"
+
+
+def test_page_identity_revision_invalidates_old_skipped_decision_cache(tmp_path, monkeypatch):
+    from adaptive_learning.ingestion import ocr_review
+
+    source, normalized = inputs(tmp_path, ("source with printed footer 7",), ("review",))
+    current_version = ocr_review.VERSION
+    assert current_version != "visual-page-review-v1"
+    with monkeypatch.context() as legacy:
+        legacy.setattr(ocr_review, "VERSION", "visual-page-review-v1")
+        old = Model([{"action": "unreadable", "reason": "page number mismatch", "blocks": []}])
+        previous = run(source, normalized, old)
+        assert load_normalized_pages(previous / "pages.jsonl")[0].processing_status == "skipped"
+
+    current = Model([
+        {"action": "correct", "reason": "printed footer preserved",
+         "blocks": [{"type": "text", "text": "source with printed footer 7"}]},
+        {"verified": True, "reason": "content matches original image"},
+    ])
+    output = run(source, normalized, current)
+    assert len(current.calls) == 2, "Old page-number judgments must be reviewed under the new policy"
+    assert load_normalized_pages(output / "pages.jsonl")[0].processing_status == "corrected"
+    report = json.loads((output / "quality_report.json").read_text())
+    assert report["review_version"] == current_version
+    run(source, normalized, current)
+    assert len(current.calls) == 2, "The new completed decision remains reusable"
+
+
 def test_transport_failure_retains_completed_pages_and_resumes(tmp_path):
     source, normalized = inputs(tmp_path, ("page one", "page two"), ("review", "review"))
     first = Model([{"action": "accept", "reason": "readable", "blocks": []}, LLMNotSubmittedError("connection")])

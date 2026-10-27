@@ -88,7 +88,7 @@ final class BookCourseUITests: XCTestCase {
 
     func assertStatusBar(dimmed: Bool) throws {
       let image = try XCTUnwrap(XCUIScreen.main.screenshot().image.cgImage)
-      let scale = CGFloat(image.width) / app.windows.firstMatch.frame.width
+      let scale: CGFloat = CGFloat(image.width) / app.windows.firstMatch.frame.width
       let context = try XCTUnwrap(CGContext(
         data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
@@ -342,7 +342,7 @@ final class BookCourseUITests: XCTestCase {
         data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
         space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
       // Sample above the clock, island and indicators, away from rounded corners.
-      for fraction in [0.08, 0.30, 0.70, 0.92] {
+      for fraction: CGFloat in [0.08, 0.30, 0.70, 0.92] {
         let pixel = try XCTUnwrap(image.cropping(to: CGRect(
           x: CGFloat(image.width) * fraction, y: 16 * scale, width: 1, height: 1)))
         context.draw(pixel, in: CGRect(x: 0, y: 0, width: 1, height: 1))

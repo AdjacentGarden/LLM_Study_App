@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import ImageIO
 import Security
 
 struct CloudError: LocalizedError {
@@ -70,6 +71,14 @@ private final class CloudUploadObserver: NSObject, URLSessionTaskDelegate, @unch
   }
 }
 
+private final class CoverRedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+  func urlSession(_ session: URLSession, task: URLSessionTask,
+    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+    completionHandler: @escaping (URLRequest?) -> Void) {
+    completionHandler(nil)
+  }
+}
+
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
   nonisolated static let defaultServer = "http://10.249.44.137:8100"
@@ -82,6 +91,7 @@ actor CloudAPI {
   nonisolated let cacheOrigins: [String]
   private let credentialKeys: [String]
   private let credentialKey: String
+  private let coverCache = NSCache<NSString, NSData>()
 
   init(baseURL: URL, session: URLSession? = nil) {
     let normalized = Self.normalizedURL(baseURL)
@@ -107,6 +117,8 @@ actor CloudAPI {
       }
       self.session = URLSession(configuration: config)
     }
+    coverCache.countLimit = 64
+    coverCache.totalCostLimit = 32 * 1024 * 1024
   }
 
   private nonisolated static func credentialKeyForOrigin(_ origin: String) -> String {
@@ -242,6 +254,43 @@ actor CloudAPI {
     return bytes
   }
 
+  nonisolated static func isBookCoverPath(_ path: String) -> Bool {
+    guard let parts = URLComponents(string: path), parts.scheme == nil, parts.host == nil,
+      parts.fragment == nil,
+      parts.percentEncodedPath.range(of: #"^/api/books/[A-Za-z0-9_-]{1,160}/cover$"#,
+        options: .regularExpression) != nil else { return false }
+    let query = parts.queryItems ?? []
+    return query.isEmpty || (query.count == 1 && query[0].name == "v"
+      && query[0].value?.range(of: #"^[A-Za-z0-9_-]{1,160}$"#, options: .regularExpression) != nil)
+  }
+
+  func downloadBookCover(_ path: String, accountID: String, epoch: UUID) async throws -> Data {
+    guard Self.isBookCoverPath(path) else { throw CloudError(status: 422, message: "教材封面地址无效") }
+    guard let identity = verifiedAccount(), identity.account != nil, identity.user_id == accountID else {
+      throw CloudError(status: 401, message: "请登录后查看教材封面")
+    }
+    // The API instance belongs to one origin; both account and UI identity epoch
+    // must match before cached bytes may be reused.
+    let key = (accountID + "|" + epoch.uuidString + "|" + path) as NSString
+    if let cached = coverCache.object(forKey: key) { return cached as Data }
+    let (bytes, response) = try await send(path, method: "GET", data: nil, contentType: nil,
+      privateAsset: true)
+    let jpeg = response.mimeType == "image/jpeg" && bytes.starts(with: [0xff, 0xd8, 0xff])
+    let png = response.mimeType == "image/png" && bytes.starts(with: [137, 80, 78, 71, 13, 10, 26, 10])
+    guard bytes.count <= 5 * 1024 * 1024, jpeg || png,
+      let source = CGImageSourceCreateWithData(bytes as CFData, nil), CGImageSourceGetCount(source) == 1,
+      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+      let width = properties[kCGImagePropertyPixelWidth] as? Int,
+      let height = properties[kCGImagePropertyPixelHeight] as? Int,
+      width > 0, height > 0, width <= 8192, height <= 8192, width * height <= 16_000_000 else {
+      throw CloudError(status: 422, message: "教材封面暂不可用")
+    }
+    try Task.checkCancellation()
+    guard verifiedAccount()?.user_id == accountID else { throw CancellationError() }
+    coverCache.setObject(bytes as NSData, forKey: key, cost: bytes.count)
+    return bytes
+  }
+
   func uploadStudioAudio(noteID: String, revision: Int, duration: Double, fileURL: URL) async throws -> Data {
     guard Self.validStudioID(noteID), revision >= 1, duration.isFinite, (0...602).contains(duration) else {
       throw CloudError(status: 422, message: "录音信息不完整，原始文件仍保留在本机。")
@@ -282,6 +331,7 @@ actor CloudAPI {
 
   func clearCredentials() {
     cookies = [:]
+    coverCache.removeAllObjects()
     for key in credentialKeys {
       Self.writeCredential(key, data: nil)
       Self.writeCredential(key + ".identity", data: nil)
@@ -291,7 +341,7 @@ actor CloudAPI {
   private func send(
     _ path: String, method: String, data: Data?, contentType: String?,
     headers: [String: String] = [:], uploadFile: URL? = nil,
-    uploadObserver: CloudUploadObserver? = nil
+    uploadObserver: CloudUploadObserver? = nil, privateAsset: Bool = false
   ) async throws
     -> (Data, HTTPURLResponse)
   {
@@ -299,6 +349,7 @@ actor CloudAPI {
       throw CloudError(status: 0, message: "服务地址无效")
     }
     var request = URLRequest(url: url)
+    if privateAsset { request.cachePolicy = .reloadIgnoringLocalCacheData }
     request.httpMethod = method
     if uploadFile != nil {
       request.timeoutInterval = 60
@@ -332,7 +383,7 @@ actor CloudAPI {
         (bytes, raw) = try await session.upload(
           for: request, fromFile: uploadFile, delegate: uploadObserver)
       } else {
-        (bytes, raw) = try await load(request, canRetry: canRetry)
+        (bytes, raw) = try await load(request, canRetry: canRetry, allowRedirects: !privateAsset)
       }
     } catch where uploadObserver?.didStall == true {
       throw CloudError(
@@ -375,12 +426,13 @@ actor CloudAPI {
     return (bytes, response)
   }
 
-  private func load(_ request: URLRequest, canRetry: Bool) async throws -> (Data, URLResponse) {
-    do { return try await session.data(for: request) }
+  private func load(_ request: URLRequest, canRetry: Bool, allowRedirects: Bool) async throws -> (Data, URLResponse) {
+    let delegate: URLSessionTaskDelegate? = allowRedirects ? nil : CoverRedirectPolicy()
+    do { return try await session.data(for: request, delegate: delegate) }
     catch let error as URLError where canRetry
       && [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(error.code) {
       try Task.checkCancellation()
-      return try await session.data(for: request)
+      return try await session.data(for: request, delegate: delegate)
     }
   }
 
@@ -525,6 +577,7 @@ struct CloudResource: Codable, Sendable, Identifiable {
   var content_key: String? = nil
   var content_path: String? = nil
   var session_purpose: String? = nil
+  var cover_url: String? = nil
   var isPreview: Bool { session_purpose == "preview" }
   var path: String { "/api/workspaces/\(workspace_id)/resources/\(id)" }
 }

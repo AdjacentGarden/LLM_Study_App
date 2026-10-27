@@ -4,12 +4,14 @@ from __future__ import annotations
 import hashlib
 import json
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from . import native_catalog as curated
 from .assessment.models import InterviewSession
 from .assessment.repository import SQLiteAssessmentRepository
 from .community import CommunityRepository
+from .ingestion.covers import cover_url
 from .ingestion.jobs import SQLiteOCRJobRepository
 from .learning_preferences import LearningDesignOverrides, resolve_learning_design
 from .native import NativeRepository
@@ -23,8 +25,10 @@ def builtin_content_version() -> str:
 
 class BootstrapService:
     def __init__(self, native: NativeRepository, assessments: SQLiteAssessmentRepository,
-                 jobs: SQLiteOCRJobRepository, community: CommunityRepository) -> None:
+                 jobs: SQLiteOCRJobRepository, community: CommunityRepository,
+                 *, data_dir: Path | None = None) -> None:
         self.native, self.assessments, self.jobs, self.community = native, assessments, jobs, community
+        self.data_dir = data_dir
 
     def assemble(self, owner: str, *, light: bool) -> dict[str, Any]:
         with self.native.connect() as db:
@@ -42,6 +46,9 @@ class BootstrapService:
             selection_row = db.execute("SELECT workspace_id,resource_id FROM native_selection WHERE owner=?", (owner,)).fetchone()
         preferences = json.loads(preferences_row[0]) if preferences_row else None
         library = self.community.library(owner)
+        if self.data_dir is not None:
+            library = [{**entry, "cover_url": cover_url(self.data_dir, str(entry["book_id"]))
+                        or entry.get("cover_url")} for entry in library]
         book_ids = sorted({r["book_id"] for r in resources} | {r["book_id"] for r in library})
         stored: dict[str, Any] = {}
         structures: dict[str, Any] = {}
@@ -78,6 +85,10 @@ class BootstrapService:
             builtin = row["book_id"] == curated.BOOK_ID
             version = builtin_content_version() if builtin else hashlib.sha256(json.dumps([row["revision"], structures.get(row["book_id"]), content_versions.get(row["session_id"], [])], sort_keys=True).encode()).hexdigest()
             resource = {"id": row["id"], "book_id": row["book_id"], "workspace_id": row["workspace_id"], "revision": row["revision"], "session_id": row["session_id"], "session_purpose": session_purposes.get(row["session_id"]), "filename": book["original_name"] if book else "教材.pdf", "status": "ready" if builtin else book["status"] if book else "missing", "progress": value, "flashcard_reviews": session_states.get(row["session_id"], reviews.get(row["id"], {})), "structure": None if light else structure, "courses": [] if light else courses, "source_content": curated.public_source(row["id"], value) if builtin and not light else None}
+            resource["cover_url"] = (cover_url(self.data_dir, row["book_id"])
+                                     if self.data_dir is not None else None)
+            if not resource["cover_url"] and builtin:
+                resource["cover_url"] = curated.snapshot()["source"]["summary"].get("cover_url")
             if light:
                 resource["content_key"] = ("builtin:" if builtin else row["id"] + ":") + version
                 resource["content_path"] = "/api/native/builtin-content/" + version if builtin else f'/api/workspaces/{row["workspace_id"]}/resources/{row["id"]}'
