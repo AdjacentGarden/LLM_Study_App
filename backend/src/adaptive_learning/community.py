@@ -178,6 +178,28 @@ class CommunityRepository:
             ).fetchone()
         return bool(row and row["owner"] == owner)
 
+    def book_publication(self, owner: str, book_id: str, source_hash: str | None = None) -> dict[str, Any]:
+        """Read the existing canonical book publication without claiming or publishing it."""
+        with self.connect() as db:
+            asset = db.execute("SELECT canonical FROM assets WHERE book_id=?", (book_id,)).fetchone()
+            if asset is None and source_hash:
+                asset = db.execute("SELECT canonical FROM assets WHERE source_hash=? LIMIT 1", (source_hash,)).fetchone()
+            canonical = str(asset[0]) if asset else book_id
+            post = db.execute(
+                "SELECT id,owner FROM posts WHERE book_id=? AND kind='book' AND active=1 ORDER BY created DESC LIMIT 1",
+                (canonical,),
+            ).fetchone()
+        mine = bool(post and post["owner"] == owner)
+        return {"book_id": book_id, "post_id": str(post["id"]) if post else None,
+                "publication_status": "shared" if mine else "shared_by_other" if post else "unshared",
+                "can_withdraw": mine}
+
+    def is_public_book(self, book_id: str) -> bool:
+        with self.connect() as db:
+            return db.execute(
+                "SELECT 1 FROM posts WHERE book_id=? AND kind='book' AND active=1 LIMIT 1", (book_id,),
+            ).fetchone() is not None
+
     def remove_book(self, owner: str, book_id: str) -> None:
         with self.connect() as db:
             db.begin_write()
@@ -299,8 +321,8 @@ class CommunityRepository:
             if old:
                 if not old["active"]:
                     db.execute(
-                        "UPDATE posts SET active=1,owner=?,created=? WHERE id=?",
-                        (owner, time.time(), old["id"]),
+                        "UPDATE posts SET active=1,owner=?,title=?,description=?,content=?,created=? WHERE id=?",
+                        (owner, title, description, json.dumps(content, ensure_ascii=False), time.time(), old["id"]),
                     )
                 return str(old["id"]), bool(old["active"])
             post_id = uuid.uuid4().hex

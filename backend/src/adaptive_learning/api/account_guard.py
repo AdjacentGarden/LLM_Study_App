@@ -20,7 +20,9 @@ def learning_guard(
         if len(parts) >= 3 and parts[:2] == ["api", "books"]:
             with accounts.repo.connect() as db:
                 row = db.execute("SELECT owner FROM upload_owners WHERE book_id=?", (parts[2],)).fetchone()
-            if row:
+            public_cover = (request.method in {"GET", "HEAD"} and len(parts) == 4
+                            and parts[3] == "cover" and accounts.repo.is_public_book(parts[2]))
+            if row and not public_cover:
                 actor = accounts.request_owner(request)
                 if request.cookies.get(COOKIE) and not actor:
                     return JSONResponse({"detail": "登录已过期，请重新登录"}, status_code=401)

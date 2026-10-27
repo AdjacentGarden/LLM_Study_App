@@ -513,7 +513,7 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
   }
 }
 enum SheetRoute: String, Codable, Identifiable, CaseIterable, Sendable {
-  case chat, note, noteType, editChapter, bookSwitcher, addMaterials
+  case chat, note, noteType, editChapter, bookSwitcher, addMaterials, shareBook
   var id: String { rawValue }
 }
 struct AppSnapshot: Codable, Sendable {

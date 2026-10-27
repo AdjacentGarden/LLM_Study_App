@@ -316,7 +316,46 @@ def community_router(
         page: int = Query(default=0, ge=0, le=10000),
         owner: str = Depends(visitor),
     ) -> dict[str, Any]:
-        return repo.list_posts(owner, kind, search.strip(), page)
+        result = repo.list_posts(owner, kind, search.strip(), page)
+        for post in result["items"]:
+            if isinstance(post.get("book"), dict):
+                book_id = str(post["book"]["book_id"])
+                post["book"]["cover_url"] = cover_url(data_dir, book_id) or post["book"].get("cover_url")
+        return result
+
+    def available_pdf(book_id: str) -> bool:
+        stored = jobs().get_book(book_id)
+        if stored is None or stored.file_path.suffix.lower() != ".pdf":
+            return False
+        try:
+            with stored.file_path.open("rb") as source:
+                return source.read(1024).lstrip().startswith(b"%PDF-")
+        except OSError:
+            return False
+
+    @router.get("/community/book-share-candidates")
+    def book_share_candidates(owner: str = Depends(visitor)) -> list[dict[str, Any]]:
+        with repo.connect() as db:
+            uploaded = [str(row[0]) for row in db.execute(
+                "SELECT book_id FROM upload_owners WHERE owner=? ORDER BY created DESC,book_id", (owner,))]
+        result = []
+        for book_id in uploaded:
+            structure = jobs().get_structure(book_id)
+            if structure is None or not available_pdf(book_id):
+                continue
+            stored = jobs().get_book(book_id)
+            result.append({"book_id": book_id, "title": structure.title.removesuffix(".pdf"),
+                "filename": stored.original_name, "page_count": structure.source_page_count,
+                "chapter_count": len(structure.chapters), "summary": structure.summary,
+                "cover_url": cover_url(data_dir, book_id),
+                **repo.book_publication(owner, book_id, jobs().source_fingerprint(book_id))})
+        return result
+
+    @router.get("/community/books/{book_id}/publication")
+    def book_publication(book_id: str, owner: str = Depends(visitor)) -> dict[str, Any]:
+        if not (repo.owns_upload(owner, book_id) or repo.owns(owner, book_id)):
+            raise HTTPException(403, "只能查看自己教材的分享状态")
+        return repo.book_publication(owner, book_id, jobs().source_fingerprint(book_id))
 
     @router.get("/community/share-candidates/{session_id}")
     def candidates(session_id: str, owner: str = Depends(visitor)) -> list[dict[str, Any]]:
@@ -343,6 +382,13 @@ def community_router(
         ]
 
     def prepare_share(body: ShareInput, owner: str) -> tuple[str, dict[str, Any]]:
+        if body.kind == "book" and repo.owns_upload(owner, body.book_id):
+            if not available_pdf(body.book_id):
+                raise HTTPException(409, "教材原 PDF 暂不可用，请重新上传后再分享")
+            if repo.asset(body.book_id) is None or not repo.owns(owner, body.book_id):
+                # Native uploads already own the original file, but do not need
+                # a generated tutorial/diagnostic bank to publish the parsed PDF.
+                claim_uploaded_book(body.book_id, owner)
         owned_book(owner, body.book_id)
         book_asset = repo.asset(body.book_id)
         if book_asset is None:

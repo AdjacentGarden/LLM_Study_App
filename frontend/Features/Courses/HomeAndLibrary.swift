@@ -657,11 +657,15 @@ struct CourseDetailView: View {
       if store.isPad {
         HStack(spacing: 10) {
           resourceCopy(source)
+          resourceSharingAction(source, id: id)
           resourceControls(source, id: id)
         }
       } else {
         VStack(alignment: .leading, spacing: 10) {
-          resourceCopy(source)
+          HStack(spacing: 10) {
+            resourceCopy(source)
+            resourceSharingAction(source, id: id)
+          }
           HStack(spacing: 10) { resourceControls(source, id: id) }
         }
       }
@@ -678,6 +682,13 @@ struct CourseDetailView: View {
             ? "教材目录 · 尚未生成教学内容" : source?.summary.status == "ready" ? "可开始学习" : "待整理 · 原文件已保留"
         ).font(DS.font(14)).foregroundStyle(DS.secondary)
       }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+  @ViewBuilder private func resourceSharingAction(_ source: SourceContent?, id: String) -> some View {
+    if store.cloud != nil && id.hasPrefix("book_") && source?.summary.content_mode != "catalog" {
+      detailAction("分享", icon: "Upload") { store.openCommunitySharing(bookID: id) }
+        .accessibilityLabel("分享到发现：\(source?.summary.title ?? "教材")")
+        .accessibilityIdentifier("course.share.open.\(id)")
     }
   }
   @ViewBuilder private func resourceControls(_ source: SourceContent?, id: String) -> some View {

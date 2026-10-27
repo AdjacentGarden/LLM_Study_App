@@ -474,9 +474,11 @@ struct AppOverlay: View {
     case .editChapter: "编辑章节"
     case .bookSwitcher: "切换课程"
     case .addMaterials: "添加资料"
+    case .shareBook: "分享到发现"
     }
   }
   private var height: CGFloat {
+    if sheet == .shareBook { return store.isPad ? 740 : 780 }
     if store.isPad {
       return sheet == .chat
         ? 0

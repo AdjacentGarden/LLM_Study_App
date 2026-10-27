@@ -492,7 +492,8 @@ def book_cover(book_id: str, request: Request) -> FileResponse:
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
         raise HTTPException(status_code=404, detail="未找到教材封面")
     published = book_id in settings.published_book_ids
-    if not published:
+    community_public = not published and account_repository.repo.is_public_book(book_id)
+    if not published and not community_public:
         actor = account_repository.request_owner(request)
         if not actor or not (account_repository.repo.owns_upload(actor, book_id)
                              or account_repository.repo.owns(actor, book_id)):
@@ -502,6 +503,8 @@ def book_cover(book_id: str, request: Request) -> FileResponse:
         raise HTTPException(status_code=404, detail="封面尚未生成")
     return FileResponse(
         path, media_type="image/jpeg", headers={
+            # Community publication is revocable; never leave its image in a
+            # public browser cache after the publisher withdraws the post.
             "Cache-Control": "public, max-age=86400" if published else "private, no-store",
             "Vary": "Cookie", "X-Content-Type-Options": "nosniff",
         }

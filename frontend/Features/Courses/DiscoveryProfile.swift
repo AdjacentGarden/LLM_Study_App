@@ -31,7 +31,20 @@ struct CourseDiscoveryView: View {
     GeometryReader { geometry in
       let gutter = store.isPad ? 32.0 : max(16.0, geometry.size.width * 0.04)
       VStack(spacing: 0) {
-        searchHeader
+        HStack(spacing: 10) {
+          searchHeader
+          Button {
+            store.openCommunitySharing()
+          } label: {
+            HStack(spacing: 6) {
+              BCGlyph("Upload", color: DS.primary).frame(width: 18, height: 18)
+              Text("分享").font(DS.font(16, weight: .bold))
+            }.frame(width: 86, height: 52)
+              .background(DS.primarySoft, in: Capsule())
+              .overlay(Capsule().stroke(DS.primary.opacity(0.18)))
+          }.buttonStyle(.plain).foregroundStyle(DS.primary)
+            .accessibilityLabel("分享到发现").accessibilityIdentifier("community.share.open")
+        }
           .padding(.horizontal, gutter).padding(.top, 4).padding(.bottom, 12)
           .navigationBarSurface()
         ScrollView {
@@ -190,7 +203,7 @@ private struct CommunityCourseTile: View {
   private var visual: some View {
     GeometryReader { geometry in
       let coverWidth = geometry.size.width * 0.80
-      AssetImage(book.cover).frame(width: coverWidth, height: coverWidth * 1.355)
+      CourseCoverImage(path: book.cover).frame(width: coverWidth, height: coverWidth * 1.355)
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 2))
         .shadow(color: DS.text.opacity(0.18), radius: 10, x: 6, y: 12)

@@ -287,7 +287,7 @@ final class CoreTests: XCTestCase {
   func testRoutesAndSheetsCoverSourceContracts() {
     XCTAssertEqual(Route.allCases.count, 29)
     XCTAssertTrue(Route.allCases.contains(.preferenceSetup))
-    XCTAssertEqual(SheetRoute.allCases.count, 6)
+    XCTAssertEqual(SheetRoute.allCases.count, 7)
   }
   @MainActor func testFailedCreditWriteDoesNotSpendOrStartOperation() async throws {
     let repository = try LocalBookCourseRepository(includeFixtures: true,

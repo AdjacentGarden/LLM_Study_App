@@ -29,6 +29,24 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["PROFILE"].firstMatch.waitForExistence(timeout: 8))
   }
 
+  func testCommunitySharingPanelOpensAndClosesWithoutPublishing() throws {
+    XCUIDevice.shared.orientation = .portrait
+    let app = launch("community")
+    let share = app.buttons["community.share.open"]
+    XCTAssertTrue(share.waitForExistence(timeout: 20))
+    share.tap()
+    XCTAssertTrue(app.staticTexts["让好教材被更多人看见"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["登录后分享你的教材"].exists)
+    XCTAssertFalse(app.buttons["community.share.publish"].exists)
+    let close = app.buttons["overlay-close"]
+    XCTAssertTrue(close.isHittable)
+    keepScreenshot("community-sharing-empty", app: app)
+    close.tap()
+    XCTAssertTrue(close.waitForNonExistence(timeout: 10))
+    XCTAssertTrue(share.isHittable)
+    XCTAssertTrue(app.textFields["community.search"].isHittable)
+  }
+
   func testProfileHeaderCentersOnScrollAndRestoresSettingsAtTop() throws {
     XCUIDevice.shared.orientation = .portrait
     let app = launch("profile")
@@ -488,7 +506,7 @@ final class BookCourseUITests: XCTestCase {
       add(screenshot)
       app.terminate()
     }
-    for sheet in ["chat", "note", "noteType", "editChapter", "bookSwitcher", "addMaterials"] {
+    for sheet in ["chat", "note", "noteType", "editChapter", "bookSwitcher", "addMaterials", "shareBook"] {
       let app = launch("study", sheet: sheet)
       XCTAssertTrue(app.buttons["关闭"].firstMatch.waitForExistence(timeout: 20), sheet)
       let screenshot = XCTAttachment(screenshot: app.screenshot())

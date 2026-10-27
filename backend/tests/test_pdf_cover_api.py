@@ -19,6 +19,7 @@ def test_private_cover_requires_upload_or_shelf_ownership(tmp_path, monkeypatch)
     monkeypatch.setattr(api, "settings", replace(api.settings, data_dir=tmp_path, published_book_ids=("published",)))
     monkeypatch.setattr(api, "_backfill_active_covers", lambda: None)
     repo = SimpleNamespace(
+        is_public_book=lambda book: False,
         owns_upload=lambda owner, book: owner == "uploader" and book == "private",
         owns=lambda owner, book: owner == "reader" and book == "private",
     )

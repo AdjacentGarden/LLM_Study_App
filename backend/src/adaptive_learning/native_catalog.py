@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from .community import CommunityRepository
+from .ingestion.covers import cover_url
 from .ingestion.models import BookStructure, ChapterDraft
 from .rag.index import RAGIndexError
 from .rag.upload_index import build_upload_index
@@ -101,7 +102,8 @@ def catalog(
                 "title": title,
                 "catalogTitle": title,
                 "owner": "社区公开分享",
-                "cover": str(metadata.get("cover_url") or ""),
+                "cover": str(cover_url(repository.path.parent.parent, str(post["book_id"]))
+                             or metadata.get("cover_url") or ""),
                 "subject": str(metadata.get("subject") or ""),
                 "grade": str(metadata.get("grade") or ""),
                 "version": str(metadata.get("version") or ""),

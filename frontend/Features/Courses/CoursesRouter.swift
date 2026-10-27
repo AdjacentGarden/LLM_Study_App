@@ -40,6 +40,7 @@ struct CourseSheetView: View {
     case .editChapter: EditCourseChapterView()
     case .bookSwitcher: CourseSwitcherView()
     case .addMaterials: CourseUploadView(addingToCurrentCourse: true)
+    case .shareBook: CommunitySharingSheet()
     default: EmptyView()
     }
   }

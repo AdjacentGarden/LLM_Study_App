@@ -7,6 +7,7 @@ import SwiftUI
   var route: Route = .onboarding
   var path: [Route] = []
   var sheet: SheetRoute?
+  var sharingBookID: String?
   var toast: String?
   var isPad = false
   var bootError: String?
