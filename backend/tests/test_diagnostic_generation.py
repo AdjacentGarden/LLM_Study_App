@@ -523,20 +523,35 @@ def test_answer_positions_are_balanced_deterministic_and_preserve_reviewed_seman
     assert first != DiagnosticItemGenerator._balance_options(bank, seed="other-book")
 
 
-def test_semantic_review_never_falls_back_to_writer_or_same_model_route() -> None:
-    from adaptive_learning.llm.client import LLMConfig
-
+def test_semantic_review_never_falls_back_to_writer_client() -> None:
     writer = FakeClient(valid_payload())
     with pytest.raises(ValueError, match="separate independent"):
         DiagnosticItemGenerator(writer)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="separate independent"):
         DiagnosticItemGenerator(writer, review_client=writer)  # type: ignore[arg-type]
-    writer.config = LLMConfig(base_url="https://writer.invalid/v1", api_key="unused", model="same")
-    reviewer = FakeClient({})
-    reviewer.config = LLMConfig(base_url="https://writer.invalid/v1/", api_key="unused-other", model="same")
-    with pytest.raises(ValueError, match="different model routes"):
-        DiagnosticItemGenerator(writer, review_client=reviewer)  # type: ignore[arg-type]
-    assert writer.calls == reviewer.calls == 0
+    assert writer.calls == 0
+
+
+@pytest.mark.parametrize("accepted", [True, False])
+def test_same_flash_model_still_requires_separate_review_verdict(accepted) -> None:
+    from adaptive_learning.llm.client import LLMConfig
+
+    writer = FakeClient(valid_payload())
+    writer.config = LLMConfig(base_url="https://api.deepseek.com/v1", api_key="unused",
+                              model="deepseek-flash", thinking_enabled=False)
+    reviewer = FakeClient({"reviews": [{
+        "knowledge_point_id": row["knowledge_point_id"], "accepted": accepted,
+        "issues": [] if accepted else ["Controlled same-model independent semantic veto"],
+        "required_edits": None if accepted else {"prompt": True, "option_indices": []},
+    } for row in valid_payload()["items"]]})
+    reviewer.config = writer.config
+    generator = DiagnosticItemGenerator(writer, review_client=reviewer, validation_retries=0)
+    if accepted:
+        assert len(generator.generate(structure())) == 2
+    else:
+        with pytest.raises(DiagnosticGenerationError, match="same-model independent semantic veto"):
+            generator.generate(structure())
+    assert writer.calls == reviewer.calls == 1
 
 
 def test_reviewer_failure_is_not_replaced_by_a_writer_verdict() -> None:

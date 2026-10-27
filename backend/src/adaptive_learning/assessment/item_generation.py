@@ -529,12 +529,8 @@ class DiagnosticItemGenerator:
             raise ValueError("validation_retries must not be negative")
         if verify_items and (review_client is None or review_client is client):
             raise ValueError("diagnostic generation requires a separate independent review client")
-        writer_config = getattr(client, "config", None)
-        review_config = getattr(review_client, "config", None)
-        if verify_items and writer_config is not None and review_config is not None and (
-            writer_config.base_url.rstrip("/"), writer_config.model
-        ) == (review_config.base_url.rstrip("/"), review_config.model):
-            raise ValueError("diagnostic writer and reviewer must use different model routes")
+        # Independent review is a separate request/client role. Deployments may
+        # deliberately use one model for both roles; its verdict is still required.
         self.client = client
         self.review_client = review_client
         self.audit_callback = audit_callback

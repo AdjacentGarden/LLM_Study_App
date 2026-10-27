@@ -751,21 +751,27 @@ def test_malformed_partial_repair_keeps_other_points_and_lesson_then_retries_sam
     assert len(output.knowledge_points) == 3
 
 
-def test_malformed_initial_batch_preserves_successful_earlier_batches():
+def test_malformed_initial_batch_preserves_successful_independent_batches():
     bundle, chapter, evidence = course(13)
+    ids = [point.point_id for point in bundle.knowledge_points]
+    failed_batch = ids[6:12]
 
     class MalformedSecondBatch(Client):
         def structured(self, *, system, user, **kwargs):
             result = super().structured(system=system, user=user, **kwargs)
-            if system == GENERATION_PROMPT and len(self.generation_batches) == 2:
+            data = json.loads(user)
+            if (system == GENERATION_PROMPT
+                    and [row["point_id"] for row in data["batch_points"]] == failed_batch
+                    and self.generation_batches.count(failed_batch) == 1):
                 result["points"] = []
             return result
 
     client = MalformedSecondBatch()
     TeachingContentGenerator(client).generate(bundle, chapter, evidence)
-    assert [len(batch) for batch in point_batches(client)] == [6, 6, 6, 1]
-    assert not set(point_batches(client)[0]) & set(point_batches(client)[2])
-    assert point_batches(client)[1] == point_batches(client)[2]
+    assert Counter(tuple(batch) for batch in point_batches(client)) == {
+        tuple(ids[:6]): 1, tuple(failed_batch): 2, tuple(ids[12:]): 1
+    }
+    assert point_batches(client)[-1] == failed_batch
 
 
 def test_teacher_receives_previous_pedagogical_feedback_and_factual_feedback_stays_in_scope():
@@ -900,7 +906,7 @@ def test_later_fact_batch_format_repair_does_not_repeat_earlier_approved_batches
     assert len(repaired) == 1 and target in repaired[0]["output_contract"]["point_ids"]
     assert all(count == (2 if pair[0] in repaired[0]["output_contract"]["point_ids"] else 1)
                for pair, count in fact_targets(client).items())
-    assert [len(batch) for batch in point_batches(client)] == [6, 1]
+    assert Counter(len(batch) for batch in point_batches(client)) == {6: 1, 1: 1}
     assert client.review_calls == 1
 
 
@@ -924,7 +930,7 @@ def test_exhausted_fact_format_repair_fails_without_outer_reaudit_or_teaching_re
     failed_owners = set(failed_batch[0]["output_contract"]["point_ids"])
     assert all(count == (2 if pair[0] in failed_owners else 1)
                for pair, count in fact_targets(client).items())
-    assert [len(batch) for batch in point_batches(client)] == [6, 1]
+    assert Counter(len(batch) for batch in point_batches(client)) == {6: 1, 1: 1}
     assert client.review_calls == 1
 
 

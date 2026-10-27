@@ -5,6 +5,7 @@ Authored semantic decisions are explicit; no real model quality is claimed.
 """
 
 import json
+from collections import Counter
 from copy import deepcopy
 
 import pytest
@@ -201,7 +202,9 @@ def test_unchanged_lesson_retry_keeps_repaired_drafts_but_requires_both_reviews(
         result = generator.generate(bundle, chapter, sources)
         assert result.teaching_review["accepted"] and result.teaching_fact_review["accepted"]
     assert client.lesson_writes == 3
-    assert [len(row["batch_points"]) for row in client.generations] == [6, 2, 0, 6, 2, 0, 0]
+    sizes = [len(row["batch_points"]) for row in client.generations]
+    assert Counter(sizes[:2]) == Counter(sizes[3:5]) == {6: 1, 2: 1}
+    assert sizes[2] == 0 and sizes[5:] == [0, 0]
     assert len(client.teacher_payloads) == 2  # No review of the incomplete repair.
     last = client.teacher_payloads[-1]["candidate"]
     assert all(FIXED in point["practice"]["expected_answer"] for point in last["points"])

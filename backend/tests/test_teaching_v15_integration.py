@@ -329,7 +329,8 @@ def test_teacher_starts_with_fact_first_window_and_same_candidate_is_audited(mon
 
     def trace_map(function, jobs):
         jobs = list(jobs)
-        scheduled.extend(job[0] for job in jobs)
+        scheduled.extend(job[0] for job in jobs
+                         if isinstance(job, tuple) and job and isinstance(job[0], str))
         return original_map(function, jobs)
 
     monkeypatch.setattr(draft, "ordered_review_map", trace_map)

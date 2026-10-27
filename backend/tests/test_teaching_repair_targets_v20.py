@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 
 import pytest
@@ -275,7 +276,7 @@ def test_pure_false_category_without_issues_keeps_its_conservative_category(clea
     assert generator._combined_repair_plan(fact, teacher, points, lesson) == ({}, fallback)
 
 
-def test_actual_first_repair_batch_passes_unchanged_guard_before_next_batch(actual):
+def test_actual_parallel_repair_contracts_survive_sibling_service_failure(actual):
     _, points, lesson, fact, teacher = state(actual)
     source_fixture = json.loads((Path(__file__).parent / "fixtures/teaching_v18_checkpoint_collision_regression.json").read_text())
     evidence = TeachingEvidence(
@@ -285,6 +286,7 @@ def test_actual_first_repair_batch_passes_unchanged_guard_before_next_batch(actu
     )
     reviewed = False
     repair_requests = []
+    valid_batch_finished = Event()
     by_id = {point.point_id: point for point in points}
 
     class Client:
@@ -292,8 +294,10 @@ def test_actual_first_repair_batch_passes_unchanged_guard_before_next_batch(actu
             payload = json.loads(kwargs["user"])
             if reviewed:
                 repair_requests.append(payload)
-                if len(repair_requests) == 1:
+                if "kp_e54a48da99a35e27" in payload["allowed_repairs"]:
+                    valid_batch_finished.set()
                     return deepcopy(actual["repair_responses"][0])
+                assert valid_batch_finished.wait(timeout=5)
                 raise teaching.TeachingServiceUnavailableError("sentinel reached second repair batch")
             return {
                 "points": [by_id[row["point_id"]].model_dump() for row in payload["batch_points"]],
@@ -314,8 +318,12 @@ def test_actual_first_repair_batch_passes_unchanged_guard_before_next_batch(actu
     chapter = SimpleNamespace(title="actual v19 routing replay")
     with pytest.raises(teaching.TeachingServiceUnavailableError, match="sentinel reached second"):
         generator._generate(bundle, chapter, evidence)
-    assert len(repair_requests) == 2
-    first = repair_requests[0]["allowed_repairs"]
+    # Sibling leaves may already be running when the service veto arrives.
+    # They remain point-only patches and never authorize lesson publication.
+    assert 2 <= len(repair_requests) <= 3
+    assert all(not row["include_lesson"] for row in repair_requests)
+    first, = [row["allowed_repairs"] for row in repair_requests
+              if "kp_e54a48da99a35e27" in row["allowed_repairs"]]
     assert first["kp_e54a48da99a35e27"] == ["explanation", "practice"]
     assert first["kp_876deca6f6081f84"] == ["practice"]
     assert "flashcard" not in first["kp_e54a48da99a35e27"]

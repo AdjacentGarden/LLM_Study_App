@@ -7,7 +7,8 @@ the client's existing process-wide transport limit still applies.
 
 TEACHING_REVIEW_CONCURRENCY defaults to four and accepts 1..8. The first
 nonempty outer call fixes the process-wide pool size; restart to change it.
-Scope planning and independent reviews share this process-wide leaf capacity.
+Scope planning, point writing and independent reviews share this process-wide
+leaf capacity.
 """
 
 from __future__ import annotations

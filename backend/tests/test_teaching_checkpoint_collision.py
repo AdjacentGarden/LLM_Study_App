@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -178,7 +179,8 @@ def test_targeted_structural_repair_preserves_all_points_and_every_noncolliding_
     client = ReplayClient(repair=True)
     generator, bundle, chapter, reviews, applied = replay_generator(client)
     generator._generate(bundle, chapter, evidence())
-    assert [len(row["batch_points"]) for row in client.requests] == [6, 6, 1, 0, 0]
+    assert Counter(len(row["batch_points"]) for row in client.requests[:3]) == {6: 2, 1: 1}
+    assert [len(row["batch_points"]) for row in client.requests[3:]] == [0, 0]
     retry = client.requests[-1]
     assert retry["allowed_lesson_repairs"] == ["checkpoint_3"]
     assert retry["output_contract"]["points_must_be_empty"] is True
@@ -207,7 +209,8 @@ def test_unchanged_duplicate_never_reaches_mocked_reviews_or_apply():
     generator, bundle, chapter, reviews, applied = replay_generator(client)
     with pytest.raises(teaching.TeachingContentError):
         generator._generate(bundle, chapter, evidence())
-    assert [len(row["batch_points"]) for row in client.requests] == [6, 6, 1, 0, 0, 0]
+    assert Counter(len(row["batch_points"]) for row in client.requests[:3]) == {6: 2, 1: 1}
+    assert [len(row["batch_points"]) for row in client.requests[3:]] == [0, 0, 0]
     assert [row["allowed_lesson_repairs"] for row in client.requests[-2:]] == [["checkpoint_3"], ["checkpoint_3"]]
     assert not reviews and not applied
 

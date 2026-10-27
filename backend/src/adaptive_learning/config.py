@@ -110,14 +110,25 @@ class Settings:
                 raise ValueError(f"{name} must be positive and finite")
         if bool(self.teaching_review_provider) != bool(self.teaching_review_model):
             raise ValueError("TEACHING_REVIEW_PROVIDER and TEACHING_REVIEW_MODEL must be set together")
-        if self.teaching_review_provider not in {"", "pucoding"}:
-            raise ValueError("TEACHING_REVIEW_PROVIDER must be pucoding or unset")
-        if self.teaching_review_model and not re.fullmatch(r"(?:gpt|codex)-[A-Za-z0-9_.-]{1,100}", self.teaching_review_model):
-            raise ValueError("TEACHING_REVIEW_MODEL must be a valid explicitly configured Responses model name")
+        if self.teaching_review_provider not in {"", "pucoding", "deepseek"}:
+            raise ValueError("TEACHING_REVIEW_PROVIDER must be pucoding, deepseek, or unset")
+        model_pattern = (r"deepseek-[A-Za-z0-9_.-]{1,100}"
+                         if self.teaching_review_provider == "deepseek"
+                         else r"(?:gpt|codex)-[A-Za-z0-9_.-]{1,100}")
+        if self.teaching_review_model and not re.fullmatch(model_pattern, self.teaching_review_model):
+            raise ValueError("TEACHING_REVIEW_MODEL must be a valid explicitly configured provider model name")
+
+    @property
+    def teaching_review_base_url(self) -> str:
+        return self.deepseek_base_url if self.teaching_review_provider == "deepseek" else self.pucoding_base_url
+
+    @property
+    def teaching_review_api_key(self) -> str:
+        return self.deepseek_api_key if self.teaching_review_provider == "deepseek" else self.pucoding_api_key
 
     @property
     def teaching_review_configured(self) -> bool:
-        return bool(self.teaching_review_provider and self.teaching_review_model and self.pucoding_api_key)
+        return bool(self.teaching_review_provider and self.teaching_review_model and self.teaching_review_api_key)
 
     @property
     def teaching_review_identity(self) -> dict[str, str]:
@@ -125,10 +136,19 @@ class Settings:
                 "reasoning_effort": "low"}
 
     @property
+    def _teaching_review_thinking_policy(self) -> str:
+        if self.text_thinking_enabled is None:
+            return "default"
+        return "enabled" if self.text_thinking_enabled else "disabled"
+
+    @property
     def teaching_review_revision(self) -> str:
         # Credentials never enter cache identity or public metadata.
-        return "|".join((self.teaching_review_provider, self.teaching_review_model,
-                         self.pucoding_base_url if self.teaching_review_provider else "", "reasoning=low"))
+        parts = [self.teaching_review_provider, self.teaching_review_model,
+                 self.teaching_review_base_url if self.teaching_review_provider else "", "reasoning=low"]
+        if self.teaching_review_provider == "deepseek":
+            parts.append("thinking=" + self._teaching_review_thinking_policy)
+        return "|".join(parts)
 
     @property
     def text_base_url(self) -> str:

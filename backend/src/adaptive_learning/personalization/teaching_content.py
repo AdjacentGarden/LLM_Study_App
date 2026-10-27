@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import unicodedata
 import uuid
@@ -75,6 +76,16 @@ _FACT_REUSE: ContextVar[VerifiedComponentReuse | None] = ContextVar(
 _AUDIT_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
     "teaching_audit_context", default=None
 )
+
+
+def _configured_point_batch_size() -> int:
+    try:
+        batch_size = int(os.getenv("TEACHING_POINT_BATCH_SIZE", str(POINT_BATCH_SIZE)))
+    except ValueError as error:
+        raise ValueError("TEACHING_POINT_BATCH_SIZE must be an integer between 1 and 6") from error
+    if not 1 <= batch_size <= POINT_BATCH_SIZE:
+        raise ValueError("TEACHING_POINT_BATCH_SIZE must be between 1 and 6")
+    return batch_size
 
 
 class StructuredClient(Protocol):
@@ -446,7 +457,8 @@ existing_point_content给出完整本章当前稿，existing_questions列出已�
 而保留同一基本问题和推导目标，不算完成修复。检查新题也不能与其他例题、检查题互相重复。
 lesson各组件必须选用自己的准确来源，不可只扩大阅读目录而不核对各断言。
 worked_examples 2-3个、checkpoints 2-3个；否则 lesson=null。
-例题必须含 problem（独立完整问题）、steps（2-5步，每步明确运用哪个证据并真正推导）、
+例题必须含 problem（独立完整问题）、steps（2-5步，每步明确运用哪个证据并真正推导，
+每步归一化去除标点和空白后至少12个字符，末步结论也不例外）、
 answer（明确结果与条件）、title、source_ids；“阅读/思考/用自己的话解释”不算解答步骤。
 可从原文明确前提进行逻辑推导和条件判断，推导步骤不必逐字出现在原文；不得新增未经支持的事实前提。
 检查题要整合章节知识或检查易错条件，不能复制 practice/flashcard；每题另给 expected_answer 和 source_ids 供审校。
@@ -1082,6 +1094,7 @@ class TeachingContentGenerator:
     ) -> ChapterLearningBundle:
         from .teaching_feedback_wire import compact_writer_feedback
 
+        point_batch_size = _configured_point_batch_size()
         if self.client is None:
             raise TeachingServiceUnavailableError("整课教学服务暂时不可用")
         if self.review_client is None:
@@ -1146,149 +1159,188 @@ class TeachingContentGenerator:
             try:
                 pending = [item for item in inputs if item["point_id"] in pending_ids]
                 batches = [
-                    pending[offset : offset + POINT_BATCH_SIZE]
-                    for offset in range(0, len(pending), POINT_BATCH_SIZE)
+                    pending[offset : offset + point_batch_size]
+                    for offset in range(0, len(pending), point_batch_size)
                 ]
-                if lesson is None:
-                    # Write the lesson after every point draft is available,
-                    # so its examples/checkpoints can compare all real items.
-                    batches.append([])
-                for batch in batches:
+
+                def generate_batch(batch: list[dict[str, Any]]) -> _Generation | Exception:
+                    # Inputs and repair baselines stay immutable for all leaves
+                    # in this round. Only the caller below changes draft state.
+                    try:
+                        include_lesson = lesson is None and not batch
+                        active_batch_ids = {item["point_id"] for item in batch}
+                        repair_contract = self._repair_contract(
+                            active_batch_ids, rejected_points, repair_fields,
+                            rejected_lesson, lesson_repairs, include_lesson, requirements=requirements,
+                        )
+                        drafts_by_id = {**approved_points, **retained_drafts}
+                        current_drafts = {
+                            item["point_id"]: drafts_by_id[item["point_id"]]
+                            for item in inputs if item["point_id"] in drafts_by_id
+                        }
+                        payload = {
+                            "repair_contract": repair_contract,
+                            "generation_output_shape": repair_contract["output_shape"]
+                            if repair_contract else self._initial_output_shape(batch, include_lesson),
+                            "point_revision_tasks": [
+                                {
+                                    "point_id": key,
+                                    "components": {
+                                        name: self._point_component(rejected_points[key], name)
+                                        for name in names
+                                    },
+                                    "rejection_feedback": compact_writer_feedback(
+                                        self._scoped_feedback(feedback, {key}, False),
+                                        boundaries=self._scope_boundaries(
+                                            next(item for item in batch if item["point_id"] == key),
+                                            evidence,
+                                        ),
+                                        sources={key: value.model_dump()
+                                                 for key, value in evidence.sources.items()},
+                                    ),
+                                }
+                                for key, names in (
+                                    repair_contract["point_components"].items()
+                                    if repair_contract else []
+                                )
+                            ],
+                            "chapter_title": chapter.title,
+                            "depth": bundle.decision.depth.value,
+                            "lesson_revision_tasks": self._lesson_revision_tasks(
+                                rejected_lesson, lesson_repairs, requirements
+                            ) if include_lesson else None,
+                            "existing_questions": [
+                                {
+                                    "point_id": point.point_id,
+                                    "flashcard": point.flashcard.front,
+                                    "practice": point.practice.prompt,
+                                }
+                                for point in current_drafts.values()
+                                if include_lesson and point.point_id not in active_batch_ids
+                            ],
+                            "scaffolds": bundle.decision.scaffolds,
+                            "all_knowledge_points": inputs,
+                            "sources": {
+                                key: value.model_dump() for key, value in evidence.sources.items()
+                            },
+                            "source_warnings": evidence.warnings,
+                    "source_coverage": evidence.source_coverage,
+                            "batch_points": batch,
+                            "include_lesson": include_lesson,
+                            "output_contract": {
+                                "point_ids": [item["point_id"] for item in batch],
+                                "card_ids": [item["card_id"] for item in batch],
+                                "practice_ids": [item["item_id"] for item in batch],
+                                "lesson_required": include_lesson,
+                                "lesson_only": include_lesson and not batch,
+                                "points_must_be_empty": not batch,
+                            },
+                            "scope_contexts": self._scope_contexts(
+                                inputs if include_lesson else batch, evidence
+                            ),
+                            "scope_conditions": {
+                                item["point_id"]: item["scope_conditions"]
+                                for item in (inputs if include_lesson else batch)
+                            },
+                            "review_feedback": compact_writer_feedback(
+                                self._scoped_feedback(feedback, active_batch_ids, include_lesson),
+                                boundaries=[
+                                    boundary
+                                    for item in inputs
+                                    for boundary in self._scope_boundaries(item, evidence)
+                                ],
+                                sources={
+                                    key: value.model_dump() for key, value in evidence.sources.items()
+                                },
+                            ),
+                            "previous_candidate": self._scoped_candidate(
+                                previous, active_batch_ids, include_lesson
+                            ),
+                            "allowed_repairs": {
+                                item["point_id"]: sorted(repair_fields[item["point_id"]])
+                                for item in batch
+                                if item["point_id"] in repair_fields
+                            },
+                            "allowed_lesson_repairs": sorted(lesson_repairs) if include_lesson else [],
+                            "required_changes": requirements.payload(active_batch_ids, include_lesson),
+                            "existing_point_content": [
+                                point.model_dump() for point in current_drafts.values()
+                            ]
+                            if include_lesson
+                            else [],
+                        }
+                        report_course_stage(
+                            CourseStage.WRITING if _attempt == 0 else CourseStage.REFINING
+                        )
+                        response = self._structured(
+                            system=GENERATION_PROMPT,
+                            user=json.dumps(compact_fact_payload(payload), ensure_ascii=False),
+                            max_tokens=10000,
+                        )
+                        generated = (
+                            self._materialize_generation_patch(
+                                response, repair_contract, rejected_points,
+                                rejected_lesson, content_rejection,
+                            ) if repair_contract else self._validate_generation_response(response)
+                        )
+                        # A repair of a practice item cannot accidentally rewrite
+                        # an already-approved explanation or flashcard.
+                        preserved = []
+                        for point in generated.points:
+                            original = rejected_points.get(point.point_id)
+                            allowed = repair_fields.get(point.point_id)
+                            if original is not None and allowed is not None:
+                                updates = {}
+                                if "explanation" not in allowed:
+                                    updates.update(
+                                        title=original.title,
+                                        explanation=original.explanation,
+                                        source_ids=list(original.source_ids),
+                                    )
+                                if "flashcard" not in allowed:
+                                    updates["flashcard"] = original.flashcard.model_copy(deep=True)
+                                if "practice" not in allowed:
+                                    updates["practice"] = original.practice.model_copy(deep=True)
+                                point = point.model_copy(update=updates)
+                            preserved.append(point)
+                        generated.points = preserved
+                        self._validate_points(generated.points, batch, evidence)
+                        if include_lesson != (generated.lesson is not None):
+                            raise TeachingContentError("模型遗漏或重复生成全章教学结构")
+                        if generated.lesson is not None:
+                            if rejected_lesson is not None and lesson_repairs:
+                                generated.lesson = self._merge_lesson_repair(
+                                    rejected_lesson, generated.lesson, lesson_repairs
+                                )
+                            generated.lesson = _Lesson.model_validate(
+                                {
+                                    **generated.lesson.model_dump(),
+                                    "reading_source_ids": list(
+                                        dict.fromkeys(
+                                            [
+                                                *generated.lesson.reading_source_ids,
+                                                *(
+                                                    ids[0]
+                                                    for ids in evidence.point_sources.values()
+                                                    if ids
+                                                ),
+                                            ]
+                                        )
+                                    ),
+                                }
+                            )
+                        return generated
+                    except (LLMError, TeachingServiceUnavailableError):
+                        # Stop submitting paid leaves on a service/audit outage.
+                        raise
+                    except (KeyError, TypeError, ValueError, TeachingContentError) as error:
+                        return error
+
+                def retain_batch(batch: list[dict[str, Any]], generated: _Generation) -> None:
+                    nonlocal lesson, active_batch_ids, active_batch_includes_lesson
                     include_lesson = lesson is None and not batch
                     active_batch_ids = {item["point_id"] for item in batch}
                     active_batch_includes_lesson = include_lesson
-                    repair_contract = self._repair_contract(
-                        active_batch_ids, rejected_points, repair_fields,
-                        rejected_lesson, lesson_repairs, include_lesson, requirements=requirements,
-                    )
-                    current_drafts = {**approved_points, **retained_drafts}
-                    payload = {
-                        "repair_contract": repair_contract,
-                        "generation_output_shape": repair_contract["output_shape"]
-                        if repair_contract else self._initial_output_shape(batch, include_lesson),
-                        "point_revision_tasks": [
-                            {
-                                "point_id": key,
-                                "components": {
-                                    name: self._point_component(rejected_points[key], name)
-                                    for name in names
-                                },
-                                "rejection_feedback": compact_writer_feedback(
-                                    self._scoped_feedback(feedback, {key}, False),
-                                    boundaries=self._scope_boundaries(
-                                        next(item for item in batch if item["point_id"] == key),
-                                        evidence,
-                                    ),
-                                    sources={key: value.model_dump()
-                                             for key, value in evidence.sources.items()},
-                                ),
-                            }
-                            for key, names in (
-                                repair_contract["point_components"].items()
-                                if repair_contract else []
-                            )
-                        ],
-                        "chapter_title": chapter.title,
-                        "depth": bundle.decision.depth.value,
-                        "lesson_revision_tasks": self._lesson_revision_tasks(
-                            rejected_lesson, lesson_repairs, requirements
-                        ) if include_lesson else None,
-                        "existing_questions": [
-                            {
-                                "point_id": point.point_id,
-                                "flashcard": point.flashcard.front,
-                                "practice": point.practice.prompt,
-                            }
-                            for point in current_drafts.values()
-                            if include_lesson and point.point_id not in active_batch_ids
-                        ],
-                        "scaffolds": bundle.decision.scaffolds,
-                        "all_knowledge_points": inputs,
-                        "sources": {
-                            key: value.model_dump() for key, value in evidence.sources.items()
-                        },
-                        "source_warnings": evidence.warnings,
-                "source_coverage": evidence.source_coverage,
-                        "batch_points": batch,
-                        "include_lesson": include_lesson,
-                        "output_contract": {
-                            "point_ids": [item["point_id"] for item in batch],
-                            "card_ids": [item["card_id"] for item in batch],
-                            "practice_ids": [item["item_id"] for item in batch],
-                            "lesson_required": include_lesson,
-                            "lesson_only": include_lesson and not batch,
-                            "points_must_be_empty": not batch,
-                        },
-                        "scope_contexts": self._scope_contexts(
-                            inputs if include_lesson else batch, evidence
-                        ),
-                        "scope_conditions": {
-                            item["point_id"]: item["scope_conditions"]
-                            for item in (inputs if include_lesson else batch)
-                        },
-                        "review_feedback": compact_writer_feedback(
-                            self._scoped_feedback(feedback, active_batch_ids, include_lesson),
-                            boundaries=[
-                                boundary
-                                for item in inputs
-                                for boundary in self._scope_boundaries(item, evidence)
-                            ],
-                            sources={
-                                key: value.model_dump() for key, value in evidence.sources.items()
-                            },
-                        ),
-                        "previous_candidate": self._scoped_candidate(
-                            previous, active_batch_ids, include_lesson
-                        ),
-                        "allowed_repairs": {
-                            item["point_id"]: sorted(repair_fields[item["point_id"]])
-                            for item in batch
-                            if item["point_id"] in repair_fields
-                        },
-                        "allowed_lesson_repairs": sorted(lesson_repairs) if include_lesson else [],
-                        "required_changes": requirements.payload(active_batch_ids, include_lesson),
-                        "existing_point_content": [
-                            point.model_dump() for point in current_drafts.values()
-                        ]
-                        if include_lesson
-                        else [],
-                    }
-                    report_course_stage(
-                        CourseStage.WRITING if _attempt == 0 else CourseStage.REFINING
-                    )
-                    response = self._structured(
-                        system=GENERATION_PROMPT,
-                        user=json.dumps(compact_fact_payload(payload), ensure_ascii=False),
-                        max_tokens=10000,
-                    )
-                    generated = (
-                        self._materialize_generation_patch(
-                            response, repair_contract, rejected_points,
-                            rejected_lesson, content_rejection,
-                        ) if repair_contract else self._validate_generation_response(response)
-                    )
-                    # A repair of a practice item cannot accidentally rewrite
-                    # an already-approved explanation or flashcard.
-                    preserved = []
-                    for point in generated.points:
-                        original = rejected_points.get(point.point_id)
-                        allowed = repair_fields.get(point.point_id)
-                        if original is not None and allowed is not None:
-                            updates = {}
-                            if "explanation" not in allowed:
-                                updates.update(
-                                    title=original.title,
-                                    explanation=original.explanation,
-                                    source_ids=list(original.source_ids),
-                                )
-                            if "flashcard" not in allowed:
-                                updates["flashcard"] = original.flashcard.model_copy(deep=True)
-                            if "practice" not in allowed:
-                                updates["practice"] = original.practice.model_copy(deep=True)
-                            point = point.model_copy(update=updates)
-                        preserved.append(point)
-                    generated.points = preserved
-                    self._validate_points(generated.points, batch, evidence)
                     invalid_repairs: dict[str, TeachingContentError] = {}
                     for point in generated.points:
                         rejected = rejected_points.get(point.point_id)
@@ -1313,36 +1365,49 @@ class TeachingContentGenerator:
                             pending_ids.difference_update(valid)
                         active_batch_ids = set(invalid_repairs)
                         raise next(iter(invalid_repairs.values()))
-                    if include_lesson != (generated.lesson is not None):
-                        raise TeachingContentError("模型遗漏或重复生成全章教学结构")
-                    if generated.lesson is not None:
-                        if rejected_lesson is not None and lesson_repairs:
-                            generated.lesson = self._merge_lesson_repair(
-                                rejected_lesson, generated.lesson, lesson_repairs
-                            )
-                        generated.lesson = _Lesson.model_validate(
-                            {
-                                **generated.lesson.model_dump(),
-                                "reading_source_ids": list(
-                                    dict.fromkeys(
-                                        [
-                                            *generated.lesson.reading_source_ids,
-                                            *(
-                                                ids[0]
-                                                for ids in evidence.point_sources.values()
-                                                if ids
-                                            ),
-                                        ]
-                                    )
-                                ),
-                            }
-                        )
                     approved_points.update({point.point_id: point for point in generated.points})
                     for point in generated.points:
                         retained_drafts.pop(point.point_id, None)
                     pending_ids.difference_update(active_batch_ids)
                     if generated.lesson is not None:
                         lesson = generated.lesson
+
+                # Independent point batches share the global leaf pool with
+                # scope planning/reviews. Ordered results preserve source order
+                # even when later batches finish first. Failed batches cannot
+                # publish, and valid siblings survive a local repair retry.
+                outcomes = ordered_review_map(generate_batch, batches)
+                failures: list[Exception] = []
+                failed_ids: set[str] = set()
+                for batch, outcome in zip(batches, outcomes, strict=True):
+                    if isinstance(outcome, Exception):
+                        failed_ids.update(item["point_id"] for item in batch)
+                        failures.append(outcome)
+                        continue
+                    try:
+                        retain_batch(batch, outcome)
+                    except TeachingServiceUnavailableError:
+                        raise
+                    except TeachingContentError as error:
+                        failed_ids.update(active_batch_ids or ())
+                        failures.append(error)
+                if failures:
+                    active_batch_ids = failed_ids
+                    active_batch_includes_lesson = False
+                    # A service outage must not become a paid content retry.
+                    service_error = next((error for error in failures if isinstance(
+                        error, (LLMError, TeachingServiceUnavailableError)
+                    )), None)
+                    raise service_error or failures[0]
+                if lesson is None:
+                    # Lesson questions compare every completed point draft;
+                    # this dependent request starts only after all point leaves.
+                    outcome = ordered_review_map(generate_batch, [[]])[0]
+                    active_batch_ids = set()
+                    active_batch_includes_lesson = True
+                    if isinstance(outcome, Exception):
+                        raise outcome
+                    retain_batch([], outcome)
                 active_batch_ids = None
                 if lesson is None:
                     raise TeachingContentError("没有全章例题和检查题")
@@ -4428,16 +4493,27 @@ class TeachingContentGenerator:
                         "normalized_question": normalized_question,
                     }
                 )
-        for example in lesson.worked_examples:
+        for example_index, example in enumerate(lesson.worked_examples):
             _citations(example.source_ids, evidence)
             if len({_normalized(step) for step in example.steps}) != len(example.steps):
                 raise TeachingContentError("例题解答机械重复步骤")
-            for step in example.steps:
-                if len(_normalized(step)) < 12 or re.match(
+            for step_index, step in enumerate(example.steps):
+                path = f"lesson.worked_examples[{example_index}].steps[{step_index}]"
+                step_length = len(_normalized(step))
+                if step_length < 12:
+                    raise TeachingContentError(
+                        f"{path}：例题推导步骤归一化后只有{step_length}个字符，"
+                        "每一步至少需要12个字符；请写明推理依据、条件或计算过程，"
+                        "结论末步也必须满足，不能只给简短结论。"
+                    )
+                if re.match(
                     r"^(?:(?:第?[一二三四五12345]+步[：:、.． ]*)?)(?:请|先)?(?:阅读|思考|用自己的话|自行)",
                     step,
                 ):
-                    raise TeachingContentError("例题必须有真正的推导步骤，不能用阅读任务占位")
+                    raise TeachingContentError(
+                        f"{path}：例题必须有真正的推导步骤，不能用阅读任务占位；"
+                        "请写明实际推理依据、条件或计算过程，每步归一化后至少12个字符。"
+                    )
             rendered = _render_example(example)
             if len(rendered) > 1200:
                 raise TeachingContentError("例题过长，无法完整展示")

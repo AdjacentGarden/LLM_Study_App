@@ -18,14 +18,15 @@ from adaptive_learning.personalization.teaching_scope import SCOPE_PLANNING_PROM
 
 @pytest.fixture
 def clean_review_env(monkeypatch):
-    for key in ("TEACHING_REVIEW_PROVIDER", "TEACHING_REVIEW_MODEL", "PUCODING_API_KEY", "TEACHING_REVIEW_TIMEOUT_SECONDS"):
+    for key in ("TEACHING_REVIEW_PROVIDER", "TEACHING_REVIEW_MODEL", "PUCODING_API_KEY",
+                "DEEPSEEK_API_KEY", "TEACHING_REVIEW_TIMEOUT_SECONDS"):
         monkeypatch.delenv(key, raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
 
 
-@pytest.mark.parametrize("provider,model", [("unknown", "gpt-6-sol"), ("deepseek", "deepseek-flash"),
+@pytest.mark.parametrize("provider,model", [("unknown", "gpt-6-sol"), ("deepseek", "gpt-6-sol"),
     ("pucoding", ""), ("", "gpt-6-sol"), ("pucoding", "sk-invalid-secret"), ("pucoding", "gpt-6-sol\nother")])
 def test_strict_review_route_rejects_partial_unknown_and_secret_like_configuration(clean_review_env, monkeypatch, provider, model):
     monkeypatch.setenv("TEACHING_REVIEW_PROVIDER", provider)

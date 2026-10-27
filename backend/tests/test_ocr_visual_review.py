@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,9 +15,20 @@ from adaptive_learning.ingestion.models import ChapterDraft, SourceQuote
 from adaptive_learning.ingestion.ocr_job import sha256_file
 from adaptive_learning.ingestion.ocr_review import VERSION, OCRReviewUnavailable, review_pages
 from adaptive_learning.llm.client import LLMError, LLMNotSubmittedError, LLMTimeoutError
+from adaptive_learning.llm import teaching_parallel
 from adaptive_learning.personalization.teaching_evidence import build_teaching_evidence
 from adaptive_learning.rag.grounded_qa import AnswerStatus, EvidenceChunk, GroundedAnswerGenerator
 from adaptive_learning.rag.upload_index import _chunks, upload_chunks
+
+
+@pytest.fixture(autouse=True)
+def review_workers(monkeypatch, request):
+    # Legacy response-list fixtures intentionally model serial replay. Tests
+    # that exercise concurrency opt in to a larger independent leaf pool.
+    workers = getattr(request, "param", 1)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        monkeypatch.setattr(teaching_parallel, "_pool", (pool, workers))
+        yield workers
 
 
 class Model:
@@ -208,6 +222,165 @@ def test_cancellation_during_model_call_does_not_publish(tmp_path):
     model.structured = submit
     with pytest.raises(InterruptedError):
         run(source, normalized, model, lambda *args: active[0])
+    assert not list((tmp_path / "review").glob("published-*"))
+
+
+@pytest.mark.parametrize("review_workers", [3], indirect=True)
+def test_page_reviews_overlap_but_verification_depends_on_own_review(tmp_path, review_workers):
+    source, normalized = inputs(tmp_path, ("one", "two", "three"), ("review",) * 3)
+    model = Model([])
+    simultaneous = threading.Barrier(review_workers)
+    reviewed = set()
+    events = []
+    state_lock = threading.Lock()
+    heartbeat_lock = threading.Lock()
+    last_verified = threading.Event()
+
+    def heartbeat(*args):
+        assert heartbeat_lock.acquire(blocking=False), "Queue heartbeat must not run concurrently"
+        try:
+            time.sleep(.001)
+            return True
+        finally:
+            heartbeat_lock.release()
+
+    def submit(**kwargs):
+        payload = json.loads(kwargs["user"])
+        page = payload["page_number"]
+        if "ocr" in payload:
+            simultaneous.wait(timeout=5)  # Serial implementations cannot reach this barrier.
+            with state_lock:
+                reviewed.add(page)
+                events.append((page, "review"))
+            return {"action": "correct", "reason": "fixed original", "blocks": [
+                {"type": "text", "text": f"corrected {page}"}]}
+        with state_lock:
+            assert page in reviewed
+            assert payload["candidate_blocks"] == [{"type": "text", "text": f"corrected {page}"}]
+        if page != 3:
+            assert last_verified.wait(timeout=5)
+        with state_lock:
+            events.append((page, "verify"))
+        if page == 3:
+            last_verified.set()
+        return {"verified": True, "reason": "matches original image"}
+
+    model.structured = submit
+    output = run(source, normalized, model, heartbeat)
+    rows = [json.loads(row) for row in (output / "pages.jsonl").read_text().splitlines()]
+    assert [row["page_number"] for row in rows] == [1, 2, 3]
+    assert [row["text"] for row in rows] == ["corrected 1", "corrected 2", "corrected 3"]
+    assert [page for page, phase in events if phase == "verify"][0] == 3
+    for page in (1, 2, 3):
+        assert events.index((page, "review")) < events.index((page, "verify"))
+    assert json.loads((tmp_path / "review" / "budget.json").read_text()) == {"calls": 6}
+    # Independently completed pages are reused even under parallel replay.
+    model.structured = lambda **kwargs: pytest.fail("Completed page was submitted twice")
+    run(source, normalized, model)
+
+
+@pytest.mark.parametrize("review_workers", [8], indirect=True)
+def test_parallel_page_budget_reservation_is_atomic(tmp_path, monkeypatch, review_workers):
+    source, normalized = inputs(tmp_path, tuple(f"page {n}" for n in range(8)), ("review",) * 8)
+    monkeypatch.setenv("OCR_REVIEW_MAX_CALLS_PER_BOOK", "3")
+    model = Model([])
+    admitted = threading.Barrier(3)
+    calls = []
+    lock = threading.Lock()
+
+    def submit(**kwargs):
+        with lock:
+            calls.append(json.loads(kwargs["user"])["page_number"])
+        admitted.wait(timeout=5)
+        return {"action": "accept", "reason": "matches", "blocks": []}
+
+    model.structured = submit
+    with pytest.raises(OCRReviewUnavailable, match="budget exhausted"):
+        run(source, normalized, model)
+    assert len(calls) == 3
+    assert json.loads((tmp_path / "review" / "budget.json").read_text()) == {"calls": 3}
+    assert not list((tmp_path / "review").glob("published-*"))
+
+
+@pytest.mark.parametrize("review_workers", [2], indirect=True)
+def test_parallel_failure_drains_started_calls_before_closing_client(tmp_path, monkeypatch, review_workers):
+    from adaptive_learning.ingestion import ocr_review
+
+    source, normalized = inputs(tmp_path, ("one", "two"), ("review",) * 2)
+    model = Model([])
+    started = threading.Barrier(2)
+    failed, release, finished, closed = (threading.Event() for _ in range(4))
+
+    def submit(**kwargs):
+        page = json.loads(kwargs["user"])["page_number"]
+        started.wait(timeout=5)
+        if page == 1:
+            failed.set()
+            raise LLMNotSubmittedError("connection failed")
+        assert release.wait(timeout=5)
+        assert not closed.is_set(), "Client closed while an admitted model call was running"
+        finished.set()
+        return {"action": "accept", "reason": "matches", "blocks": []}
+
+    model.structured = submit
+    model.close = closed.set
+    monkeypatch.setattr(ocr_review, "review_client", lambda: model)
+    with ThreadPoolExecutor(max_workers=1) as caller:
+        result = caller.submit(review_pages, source, normalized, tmp_path / "review", lambda *args: True)
+        try:
+            assert failed.wait(timeout=5)
+            with pytest.raises(TimeoutError):
+                result.result(timeout=.05)
+            assert not closed.is_set()
+        finally:
+            release.set()
+        with pytest.raises(OCRReviewUnavailable, match="temporarily unavailable"):
+            result.result(timeout=5)
+    assert finished.is_set() and closed.is_set()
+    assert not list((tmp_path / "review").glob("published-*"))
+    records = [json.loads(path.read_text()) for path in (tmp_path / "review").glob("*.json")
+               if path.name != "budget.json"]
+    assert {record["phase"] for record in records} == {"retry_wait", "submitted"}
+
+
+@pytest.mark.parametrize("review_workers", [2], indirect=True)
+def test_parallel_verification_timeout_retains_completed_sibling_and_cannot_replay(tmp_path, monkeypatch, review_workers):
+    from adaptive_learning.ingestion import ocr_review
+
+    source, normalized = inputs(tmp_path, ("one", "two"), ("review",) * 2)
+    model = Model([])
+    first_done = threading.Event()
+    atomic = ocr_review._atomic
+    calls = []
+
+    def save(path, value):
+        atomic(path, value)
+        if value.get("phase") == "done":
+            first_done.set()
+
+    def submit(**kwargs):
+        payload = json.loads(kwargs["user"])
+        calls.append((payload["page_number"], "review" if "ocr" in payload else "verify"))
+        if payload["page_number"] == 1:
+            return {"action": "accept", "reason": "matches", "blocks": []}
+        assert first_done.wait(timeout=5)
+        if "ocr" in payload:
+            return {"action": "correct", "reason": "fixed", "blocks": [{"type": "text", "text": "two fixed"}]}
+        raise LLMTimeoutError("verification result not received")
+
+    monkeypatch.setattr(ocr_review, "_atomic", save)
+    model.structured = submit
+    with pytest.raises(OCRReviewUnavailable, match="uncertain"):
+        run(source, normalized, model)
+    assert len(calls) == 3 and first_done.is_set()
+    records = [json.loads(path.read_text()) for path in (tmp_path / "review").glob("*.json")
+               if path.name != "budget.json"]
+    assert {record["phase"] for record in records} == {"done", "uncertain"}
+    uncertain = next(record for record in records if record["phase"] == "uncertain")
+    assert uncertain["operation"] == "verify" and uncertain["review"]["action"] == "correct"
+    model.structured = lambda **kwargs: pytest.fail("Completed or uncertain page was charged twice")
+    with pytest.raises(OCRReviewUnavailable, match="reconciliation"):
+        run(source, normalized, model)
     assert not list((tmp_path / "review").glob("published-*"))
 
 

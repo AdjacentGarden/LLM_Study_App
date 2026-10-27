@@ -201,9 +201,11 @@ def _create_teaching_review_client(configuration, client_type=OpenAICompatibleCl
         return None
     try:
         return client_type(LLMConfig(
-            base_url=configuration.pucoding_base_url, api_key=configuration.pucoding_api_key,
+            base_url=configuration.teaching_review_base_url, api_key=configuration.teaching_review_api_key,
             model=configuration.teaching_review_model, proxy_url=configuration.llm_https_proxy,
-            timeout_seconds=configuration.teaching_review_timeout_seconds, reasoning_effort="low"))
+            timeout_seconds=configuration.teaching_review_timeout_seconds, reasoning_effort="low",
+            thinking_enabled=(configuration.text_thinking_enabled
+                              if configuration.teaching_review_provider == "deepseek" else None)))
     except Exception:
         # An unavailable independent reviewer must not silently reuse generation.
         logger.warning("independent teaching reviewer could not be initialized")

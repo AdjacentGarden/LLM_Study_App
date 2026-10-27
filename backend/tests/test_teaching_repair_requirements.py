@@ -221,8 +221,9 @@ def test_global_guard_waits_for_third_point_batch_instead_of_rejecting_unchanged
         row for row in client.generations
         if row["previous_candidate"] is not None and row["batch_points"]
     ]
-    assert [len(row["batch_points"]) for row in point_repairs] == [6, 6, 1]
-    assert point_repairs[2]["output_contract"]["point_ids"] == [client.target]
+    assert Counter(len(row["batch_points"]) for row in point_repairs) == {6: 2, 1: 1}
+    single, = [row for row in point_repairs if len(row["batch_points"]) == 1]
+    assert single["output_contract"]["point_ids"] == [client.target]
     assert len(client.teacher_requests) == 2
     assert all(len(row["candidate"]["points"]) == 13 for row in client.teacher_requests)
 
