@@ -523,7 +523,32 @@ extension AppStore {
     }
     cloudState.isWorking = false
     cloudState.showCompletionOnCompile = true
-    await beginCloudLearning(chapterID: selectedChapterID ?? chapters.first?.id)
+    requestCloudLearning(chapterID: selectedChapterID ?? chapters.first?.id)
+  }
+
+  var isCloudCoursePreview: Bool { cloudResource?.isPreview == true }
+
+  func flashcardFamiliarityLabel(_ card: Flashcard) -> String {
+    if isCloudCoursePreview, cloudResource?.flashcard_reviews?[card.id] == nil,
+      !isMastered(card.id) { return "尚未评估" }
+    return isMastered(card.id) || card.mastery >= 80
+      ? "较熟悉" : card.mastery >= 50 ? "巩固中" : "待加强"
+  }
+
+  func requestCloudLearning(chapterID: String?) {
+    guard let resource = cloudResource, !cloudState.isWorking else { return }
+    if resource.session_id != nil {
+      Task { await beginCloudLearning(chapterID: chapterID) }
+      return
+    }
+    cloudState.requestedChapterID = chapterID ?? resource.structure?.chapters.first?.chapter_id
+    cloudState.diagnosisWorkspaceID = resource.workspace_id
+    cloudState.diagnosisResourceID = resource.id
+    cloudState.interview = nil
+    cloudState.courseJob = nil
+    cloudState.error = nil
+    cloudState.choosingLearningMode = true
+    cloudState.showDiagnosis = true
   }
 
   var canRetryCloudDiagnosis: Bool {
@@ -564,6 +589,7 @@ extension AppStore {
       if let wi = cloudState.workspaces.firstIndex(where: { $0.id == resource.workspace_id }),
         let ri = cloudState.workspaces[wi].resources.firstIndex(where: { $0.id == resource.id }) {
         cloudState.workspaces[wi].resources[ri].session_id = sessionID
+        cloudState.workspaces[wi].resources[ri].session_purpose = interview.purpose
       }
       cloudState.interview = interview
       cloudState.error = nil
@@ -582,9 +608,11 @@ extension AppStore {
     }
   }
 
-  func beginCloudLearning(chapterID: String?, retryDiagnosis: Bool = false) async {
+  func beginCloudLearning(chapterID: String?, retryDiagnosis: Bool = false,
+    preview: Bool = false) async {
     guard let cloud, let resource = cloudResource, !cloudState.isWorking else { return }
     guard !retryDiagnosis || canRetryCloudDiagnosis else { return }
+    guard !preview || (resource.session_id == nil && !retryDiagnosis) else { return }
     let epoch = cloudState.epoch
     // One explicit action owns this nonce. URLSession retransmits the same URL;
     // ordinary start/recovery never grants a retry or generates a nonce.
@@ -597,19 +625,25 @@ extension AppStore {
     cloudState.diagnosisRetryAvailable = false
     cloudState.diagnosisRetryEpoch = nil
     cloudState.showDiagnosis = true
+    cloudState.choosingLearningMode = false
     cloudState.requestedChapterID = chapterID ?? resource.structure?.chapters.first?.chapter_id
     cloudState.diagnosisWorkspaceID = resource.workspace_id
     cloudState.diagnosisResourceID = resource.id
     do {
       let suffix = retryRequestID.map { "?retry=true&retry_request_id=\($0)" } ?? ""
       let interview: CloudInterview = try await cloud.request(
-        resource.path + "/session" + suffix, method: "POST")
+        resource.path + (preview ? "/preview-session" : "/session") + suffix, method: "POST")
       guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
         cloudResource?.id == resource.id, selectedBookID == resource.book_id else {
         return
       }
       cloudState.interview = interview
-      if interview.phase == "complete" {
+      if let wi = cloudState.workspaces.firstIndex(where: { $0.id == resource.workspace_id }),
+        let ri = cloudState.workspaces[wi].resources.firstIndex(where: { $0.id == resource.id }) {
+        cloudState.workspaces[wi].resources[ri].session_id = interview.session_id
+        cloudState.workspaces[wi].resources[ri].session_purpose = interview.purpose
+      }
+      if interview.canGenerateCourse {
         try await compileCloudChapter()
       } else {
         cloudState.showDiagnosis = true
@@ -649,10 +683,10 @@ extension AppStore {
           path + "/respond", method: "POST", body: body)
         cloudState.interview = CloudInterview(
           session_id: interview.session_id, phase: result.next_turn.phase,
-          turn: result.next_turn, profile: result.profile)
+          turn: result.next_turn, profile: result.profile, purpose: interview.purpose)
       } else if interview.phase == "adaptive_diagnosis" {
         cloudState.interview = try await cloud.request(path + "/next", method: "POST")
-      } else if interview.phase != "complete" {
+      } else if !interview.canGenerateCourse {
         cloudState.interview = try await cloud.request(
           path + "/profile", method: "POST",
           body: [
@@ -660,7 +694,7 @@ extension AppStore {
             "selected_option_ids": .array(selected.map(JSONValue.string)),
           ])
       }
-      if cloudState.interview?.phase == "complete" { try await compileCloudChapter() }
+      if cloudState.interview?.canGenerateCourse == true { try await compileCloudChapter() }
     } catch is CancellationError { return
     } catch {
       handleCloudError(error)
@@ -675,6 +709,7 @@ extension AppStore {
 
   func compileCloudChapter(retry: Bool = false) async throws {
     guard let cloud, let interview = cloudState.interview,
+      interview.canGenerateCourse,
       let chapterID = cloudState.requestedChapterID, let accountKey = cloudState.cacheKey,
       let workspaceID = cloudState.diagnosisWorkspaceID,
       let resourceID = cloudState.diagnosisResourceID else {
@@ -731,6 +766,7 @@ extension AppStore {
   func pauseCloudCourseGeneration() {
     cloudState.courseTask?.cancel()
     cloudState.showDiagnosis = false
+    cloudState.choosingLearningMode = false
   }
 
   func restartCloudCourseGeneration() async {

@@ -155,7 +155,7 @@ class SQLiteOCRJobRepository:
                 INSERT INTO books(
                     book_id, original_name, file_path, source_sha256, status, progress,
                     current_step, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, 'uploaded', 0, '等待文档重建', ?, ?)
+                ) VALUES (?, ?, ?, ?, 'uploaded', 0, '等待教材识别', ?, ?)
                 """,
                 (book_id, original_name, str(file_path), source_sha256, timestamp, timestamp),
             )
@@ -189,6 +189,7 @@ class SQLiteOCRJobRepository:
         max_attempts: int,
         now: float | None = None,
         force_retry: bool = False,
+        allow_ready: bool = False,
     ) -> OCRJob:
         if max_attempts < 1:
             raise ValueError("max_attempts must be positive")
@@ -209,21 +210,24 @@ class SQLiteOCRJobRepository:
             if book is None:
                 connection.rollback()
                 raise KeyError(book_id)
+            if allow_ready and (not force_retry or existing is None or str(existing["status"]) != "ocr_ready"):
+                connection.rollback()
+                raise JobStateError("Only a completed OCR job can be explicitly reprocessed")
             if existing is None:
                 connection.execute(
                     """
                     INSERT INTO ocr_jobs(
                         book_id, output_dir, status, progress, current_step, attempts,
                         max_attempts, available_at, created_at, updated_at
-                    ) VALUES (?, ?, 'queued', 0.02, '已进入 GPU 文档重建队列', 0, ?, ?, ?, ?)
+                    ) VALUES (?, ?, 'queued', 0.02, '已进入教材识别队列', 0, ?, ?, ?, ?)
                     """,
                     (book_id, str(output_dir), max_attempts, timestamp, timestamp, timestamp),
                 )
-            elif force_retry and str(existing["status"]) in {"failed", "ocr_review_required", "cancelled"}:
+            elif force_retry and str(existing["status"]) in ({"failed", "ocr_review_required", "cancelled"} | ({"ocr_ready"} if allow_ready else set())):
                 connection.execute(
                     """
                     UPDATE ocr_jobs SET status='queued', progress=0.02,
-                        current_step='已重新进入 GPU 文档重建队列', attempts=0,
+                        current_step='已重新进入教材识别队列', attempts=0,
                         max_attempts=?, available_at=?, lease_owner=NULL,
                         lease_expires_at=NULL, last_error=NULL, result_json=NULL,
                         updated_at=?, finished_at=NULL WHERE book_id=?
@@ -598,27 +602,51 @@ class SubprocessOCRRunner:
 
         checkpoint = job.output_dir / "extraction-checkpoint.json"
         source_hash = sha256_file(job.source_path)
+        identity = None
+        if self.backend == "apple-vision":
+            from .apple_vision import extraction_identity
+
+            identity = extraction_identity()
+
+        def current_extraction(candidate: Path) -> bool:
+            if identity is None:
+                return True
+            try:
+                report = json.loads((candidate / "quality_report.json").read_text(encoding="utf-8"))
+                return (report.get("source_sha256") == source_hash
+                        and report.get("backend") == self.backend
+                        and report.get("extraction_identity") == identity
+                        and report.get("ocr_capabilities", {}).get("extraction_identity") == identity)
+            except (OSError, ValueError, TypeError, AttributeError):
+                return False
+
         normalized = None
         if checkpoint.is_file():
             saved = json.loads(checkpoint.read_text(encoding="utf-8"))
             candidate = Path(saved["normalized"])
             if (saved.get("source_hash") == source_hash and saved.get("backend") == self.backend
+                    and (identity is None or saved.get("extraction_identity") == identity)
                     and candidate.resolve().is_relative_to(job.output_dir.resolve())
-                    and (candidate / "quality_report.json").is_file()):
+                    and (candidate / "quality_report.json").is_file()
+                    and current_extraction(candidate)):
                 normalized = candidate
         # Old review-required jobs can reuse completed OCR without re-uploading or re-running OCR.
         if normalized is None:
             candidate = job.output_dir / "normalized"
             if (candidate / "quality_report.json").is_file():
                 report = json.loads((candidate / "quality_report.json").read_text(encoding="utf-8"))
-                if report.get("source_sha256") == source_hash and report.get("backend") == self.backend:
+                if (report.get("source_sha256") == source_hash and report.get("backend") == self.backend
+                        and current_extraction(candidate)):
                     normalized = candidate.resolve()
         if normalized is None:
             extracted = self._extract(job, heartbeat)
             assert extracted.artifact_dir is not None
             normalized = extracted.artifact_dir
+            if not current_extraction(normalized):
+                raise RuntimeError("OCR extraction identity does not match the current Apple Vision helper")
             _atomic(checkpoint, {"source_hash": source_hash, "backend": self.backend,
-                                 "normalized": str(normalized.resolve())})
+                                 "normalized": str(normalized.resolve()),
+                                 **({"extraction_identity": identity} if identity is not None else {})})
         if get_settings().vision_rescue_enabled:
             normalized = review_pages(job.source_path, normalized, job.output_dir / "review", heartbeat)
         report = json.loads((normalized / "quality_report.json").read_text(encoding="utf-8"))

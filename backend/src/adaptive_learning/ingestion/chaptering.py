@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import statistics
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +33,7 @@ _CHINESE_CHAPTER = re.compile(
     re.IGNORECASE,
 )
 _ENGLISH_CHAPTER = re.compile(
-    r"^\s*((?:chapter|unit)\s+([0-9]+|[ivxlcdm]+))\s*(?:[:.\-—]\s*|\s*)"
+    r"^\s*((?:chapter|unit)(?=\s|[0-9])\s*([0-9]+|[ivxlcdm]+))\s*(?:[:.\-—]\s*|\s*)"
     r"(.{0,80}?)\s*$",
     re.IGNORECASE,
 )
@@ -57,7 +58,8 @@ _CHAPTER_SUMMARY_SYSTEM = """你是书籍章节摘要器。输入只包含同一
 _BOOK_SUMMARY_SYSTEM = """你是整书摘要器。输入是已经核验的章节摘要。
 只能综合输入摘要，不补充外部知识。面向手机阅读，用 3-5 个短段说明全书主线，每段 1-2 句，
 总长通常 180-480 字，最长 680 字；段落之间用两个换行符分隔。不写标题、不重复书名、不逐章机械罗列。
-返回实际使用且不重复的 chapter_ids。
+必须覆盖输入 chapters 的每一个条目，包括主章、练习册和附录/索引；附录按其检索或参考作用概述，不把附录冒充主课。
+chapter_ids 必须完整返回 required_chapter_ids 的全部标识，每个恰好一次；不得按重要性省略、添加未知标识或重复标识。
 只返回 JSON：{"summary":"...","chapter_ids":["chapter_..."]}。
 """
 
@@ -75,6 +77,7 @@ class ChapterCandidate:
     block_id: str
     score: float
     toc_page: bool
+    boundary_evidence: dict[str, Any] = field(default_factory=dict)
 
 
 class KnowledgePointDraft(BaseModel):
@@ -155,10 +158,178 @@ def _toc_pages(pages: list[PageExtraction]) -> set[int]:
         matches = sum(bool((heading := _heading(block.text)) and heading[0] == 'chapter') for block in page.blocks)
         has_label = any(_TOC_LABEL.fullmatch(block.text.strip()) for block in page.blocks)
         dotted_rows = len(re.findall(r"(?:\.{3,}|…+|·{3,})\s*\d+", page.raw_text))
-        page_references = sum(bool(re.search(r"\s\d{1,4}$", line.strip()))
-                              for line in page.raw_text.splitlines() if len(line) < 120)
-        if has_label or matches >= 3 or dotted_rows >= 3 or page_references >= 5:
+        if has_label or matches >= 3 or dotted_rows >= 3:
             result.add(page.page_number)
+    # A following TOC leaf can omit the label, but retains several printed
+    # page references. Do not classify an ordinary next chapter as TOC.
+    for page in pages:
+        if page.page_number - 1 in result:
+            references = sum(bool(re.fullmatch(r"(?:p\.?\s*)?\d+", b.text.strip(), re.I)) for b in page.blocks)
+            if references >= 5:
+                result.add(page.page_number)
+    return result
+
+def _display_key(text: str) -> str:
+    return re.sub(r"[\s•·]+", "", text).casefold()
+
+
+def _toc_text(text: str) -> str:
+    if re.fullmatch(r"(?:unit|chapter)\s*[0-9ivxlcdm]+|第\s*\S+\s*章", text.strip(), re.I):
+        return text.strip()
+    text = re.sub(r"^\s*p\.?\s*\d+\s*", "", text, flags=re.I)
+    return re.sub(r"(?:[.·…]{2,}|\s+)\d+\s*$", "", text).strip()
+
+
+def _infer_text_line_headings(pages: list[PageExtraction], toc_pages: set[int]) -> list[ChapterCandidate]:
+    """Cross-check display text and actual TOC rows; never rewrite the OCR source."""
+    entries: list[dict[str, Any]] = []
+    auxiliary = re.compile(r"^(?:workbook|appendices|附录.+)$", re.I)
+    for page in pages:
+        if page.page_number not in toc_pages:
+            continue
+        headings = [(b, _heading(_toc_text(b.text))) for b in page.blocks]
+        headings = [(b, h) for b, h in headings if h and h[0] == "chapter"]
+        workbook = next((b for b in page.blocks if _display_key(b.text) == "workbook"), None)
+        for block, parsed in headings:
+            kind, ordinal, full_title = parsed
+            prefix = re.match(r"^(?:第\s*\S+\s*章|(?:unit|chapter)\s*\S+)", full_title, re.I)
+            if prefix is None:
+                continue
+            title = full_title[prefix.end():].strip()
+            sources = [block.block_id]
+            scope = ("WORKBOOK" if workbook and block.bbox and workbook.bbox
+                     and block.bbox[1] >= workbook.bbox[1] - 8 else "")
+            if not title and not scope and block.bbox:
+                later = [other.bbox[1] for other, _ in headings if other.bbox
+                         and other.bbox[1] > block.bbox[1] + 8]
+                bottom = min(later, default=block.bbox[1] + 140)
+                pieces = []
+                for other in page.blocks:
+                    if other.block_id == block.block_id or not other.bbox:
+                        continue
+                    if not (block.bbox[3] - 3 <= other.bbox[1] < bottom):
+                        continue
+                    if not (block.bbox[0] - 80 <= other.bbox[0] <= block.bbox[0] + 25
+                            and other.bbox[2] <= block.bbox[0] + 225):
+                        continue
+                    value = _toc_text(other.text)
+                    if value and re.fullmatch(r"[A-Z][A-Z\s&'’\-]+", value):
+                        pieces.append((other.bbox[1], other.bbox[0], value, other.block_id))
+                pieces.sort()
+                title = " ".join(value for _, _, value, _ in pieces)
+                sources.extend(key for _, _, _, key in pieces)
+            if not title and not scope:
+                continue
+            refs = []
+            if block.bbox:
+                for other in page.blocks:
+                    if other.bbox and (match := re.fullmatch(r"(?:p\.?\s*)?(\d+)", other.text.strip(), re.I)):
+                        distance = abs(other.bbox[1] - block.bbox[1])
+                        if distance <= (6 if scope else 85):
+                            refs.append((distance, int(match[1]), other.block_id))
+            printed = min(refs)[1] if refs else None
+            if refs:
+                sources.append(min(refs)[2])
+            if scope and workbook:
+                sources.append(workbook.block_id)
+            entries.append({"kind": kind, "ordinal": ordinal, "title": title,
+                            "prefix": prefix[0], "scope": scope, "printed": printed,
+                            "toc_page": page.page_number, "toc_blocks": sources})
+        for block in page.blocks:
+            title = _toc_text(block.text)
+            if auxiliary.fullmatch(title):
+                refs = [(abs(other.bbox[1] - block.bbox[1]), int(match[1]), other.block_id)
+                        for other in page.blocks if block.bbox and other.bbox
+                        and abs(other.bbox[1] - block.bbox[1]) < 8
+                        and (match := re.fullmatch(r"(?:p\.?\s*)?(\d+)", other.text.strip(), re.I))]
+                entries.append({"kind": "appendix", "ordinal": _display_key(title),
+                                "title": title, "match_title": re.sub(r"^附录\s*[ⅠⅡⅢⅣIVXivx皿™]*\s*", "", title), "prefix": "", "scope": "", "printed": min(refs)[1] if refs else None,
+                                "toc_page": page.page_number, "toc_blocks": [block.block_id, *([min(refs)[2]] if refs else [])]})
+
+    result: list[ChapterCandidate] = []
+    offsets: list[tuple[int, str]] = []
+    for page in pages:
+        if page.page_number in toc_pages:
+            continue
+        if page.method not in {ExtractionMethod.APPLE_VISION, ExtractionMethod.PADDLE_GPU,
+                               ExtractionMethod.RAPIDOCR_ONNX, ExtractionMethod.VISION_RESCUE}:
+            continue
+        heights = [b.bbox[3] - b.bbox[1] for b in page.blocks if b.bbox
+                   and len(b.text.strip()) >= 12 and 260 < b.bbox[1] < 930]
+        if not heights:
+            heights = [b.bbox[3] - b.bbox[1] for b in page.blocks if b.bbox and len(b.text.strip()) >= 12]
+        body_height = statistics.median(heights) if heights else None
+        display = [b for b in page.blocks if (
+            b.metadata.get("text_level") == 1 and b.source_method == ExtractionMethod.VISION_RESCUE
+        ) or (body_height and b.bbox and b.bbox[1] < 300
+              and b.bbox[3] - b.bbox[1] >= 1.7 * body_height)]
+        # A large explicit chapter/appendix marker may have a smaller subtitle.
+        markers = [b for b in display if re.fullmatch(r"第\s*\S+\s*章|unit|chapter|附录\s*\S*", b.text.strip(), re.I)]
+        if markers and body_height:
+            display += [b for b in page.blocks if b not in display and b.bbox
+                        and b.bbox[1] < 300 and b.bbox[3] - b.bbox[1] >= 1.1 * body_height
+                        and len(b.text) <= 80]
+        display.sort(key=lambda b: ((b.bbox[1] if b.bbox else -1), (b.bbox[0] if b.bbox else 0)))
+        pieces = []
+        for block in display:
+            value = block.text.strip()
+            if re.fullmatch(r"\d+|unit|chapter|第\s*\S+\s*章|附录\s*\S*", value, re.I):
+                continue
+            if parsed := _heading(value):
+                value = re.sub(r"^(?:第\s*\S+\s*章|(?:unit|chapter)\s*[0-9ivxlcdm]+)\s*", "", parsed[2], flags=re.I)
+            value = re.sub(r"^(appendices|appendix)\s*附录$", r"\1", value, flags=re.I)
+            pieces.append(_display_key(value))
+        spans = {"".join(pieces[start:end]) for start in range(len(pieces))
+                 for end in range(start + 1, len(pieces) + 1)}
+        matches = [e for e in entries if not e["scope"] and e["title"]
+                   and _display_key(e.get("match_title", e["title"])) in spans]
+        # Repeated running headers cannot match the enlarged display geometry.
+        by_title = {(_display_key(e["title"]), e["ordinal"]): e for e in matches}
+        if len(by_title) != 1:
+            continue
+        entry = next(iter(by_title.values()))
+        title = (entry["prefix"] + " " + entry["title"]).strip()
+        body_ids = [b.block_id for b in display]
+        result.append(ChapterCandidate(entry["kind"], entry["ordinal"], title,
+            page.page_number, body_ids[0], .95, False,
+            {"method": "exact_toc_title_and_display_heading", "body_block_ids": body_ids,
+             "toc_page": entry["toc_page"], "toc_block_ids": entry["toc_blocks"]}))
+        if entry["printed"] is not None:
+            offsets.append((page.page_number - entry["printed"], body_ids[0]))
+    # TOC subdivisions may use normal-size Unit headers. Require a page offset
+    # corroborated by two display openers plus the actual matching Unit header.
+    agreed = {offset for offset, _ in offsets}
+    if len(offsets) >= 2 and len(agreed) == 1:
+        offset = next(iter(agreed))
+        page_map = {p.page_number: p for p in pages}
+        for entry in entries:
+            if (not entry["scope"] and entry["kind"] != "appendix") or entry["printed"] is None:
+                continue
+            page = page_map.get(entry["printed"] + offset)
+            if page is None or page.page_number in toc_pages:
+                continue
+            if entry["kind"] == "appendix":
+                body = [b for b in page.blocks if b.bbox is None or b.bbox[1] < 300]
+                body_text = "".join(_display_key(b.text) for b in body)
+                if _display_key(entry.get("match_title", entry["title"])) not in body_text:
+                    continue
+                title, ordinal, kind = entry["title"], entry["ordinal"], "appendix"
+            else:
+                body = [b for b in page.blocks if (b.bbox is None or b.bbox[1] < 180)
+                        and (h := _heading(b.text)) and h[1] == entry["ordinal"]]
+                title = entry["scope"] + " " + entry["prefix"]
+                ordinal, kind = entry["scope"] + ":" + entry["ordinal"], "chapter"
+            skipped_start = not body and page.processing_status == "skipped"
+            if not body and not skipped_start:
+                continue
+            result.append(ChapterCandidate(kind, ordinal,
+                title, page.page_number, body[0].block_id if body else entry["toc_blocks"][0], .96, False,
+                {"method": ("toc_subdivision_verified_offset_skipped_start" if skipped_start
+                            else "toc_subdivision_and_verified_page_offset"),
+                 "start_page_skipped": skipped_start, "body_block_ids": [b.block_id for b in body],
+                 "toc_page": entry["toc_page"], "toc_block_ids": entry["toc_blocks"],
+                 "printed_page": entry["printed"], "pdf_page_offset": offset,
+                 "offset_evidence_block_ids": [key for _, key in offsets]}))
     return result
 
 
@@ -226,6 +397,7 @@ class ChapterBoundaryDetector:
                         toc_page=toc_page,
                     )
                 )
+        candidates.extend(_infer_text_line_headings(pages, toc_pages))
         return candidates
 
     def detect(self, pages: list[PageExtraction]) -> tuple[list[ChapterDraft], bool]:
@@ -244,7 +416,7 @@ class ChapterBoundaryDetector:
                 continue
             selected.append(max(body_occurrences, key=lambda item: (item.score, -item.page_number)))
         if any(item.kind == "chapter" for item in selected):
-            selected = [item for item in selected if item.kind == "chapter"]
+            selected = [item for item in selected if item.kind != "part"]
         selected.sort(key=lambda item: item.page_number)
         # OCR can corrupt an ordinal while preserving the same visible title. One boundary per page.
         selected = list({item.page_number: item for item in selected}.values())
@@ -283,12 +455,13 @@ class ChapterBoundaryDetector:
                     chapter_id=_stable_chapter_id(marker.title, marker.page_number),
                     order=index + 1,
                     title=marker.title,
+                    boundary_evidence=marker.boundary_evidence,
                     start_page=marker.page_number,
                     end_page=end,
                     summary="",
                     knowledge_points=[],
                     source_block_ids=[
-                        marker.block_id,
+                        *([marker.block_id] if marker.block_id in sources else []),
                         *[item for item in sources if item != marker.block_id],
                     ],
                 )
@@ -415,33 +588,49 @@ class ChapterReconstructor:
         usable = [chapter for chapter in chapters if chapter.summary]
         if not usable:
             return ""
-        raw = self.client.structured(
-            system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
-            user=json.dumps(
-                {
-                    "chapters": [
-                        {
-                            "chapter_id": chapter.chapter_id,
-                            "title": chapter.title,
-                            "summary": chapter.summary,
-                            "source_coverage": chapter.source_coverage,
-                        }
-                        for chapter in usable
-                    ]
-                },
-                ensure_ascii=False,
-            ),
-            temperature=0,
-            max_tokens=900,
-        )
-        try:
-            draft = BookSummaryDraft.model_validate(raw)
-        except ValidationError as error:
-            raise ChapteringValidationError("book summary schema is invalid") from error
         valid_ids = {chapter.chapter_id for chapter in usable}
-        if set(draft.chapter_ids) != valid_ids:
-            raise ChapteringValidationError("book summary must cover every known chapter exactly")
-        return draft.summary.strip()
+        payload: dict[str, Any] = {
+            "chapters": [
+                {"chapter_id": chapter.chapter_id, "title": chapter.title,
+                 "summary": chapter.summary, "source_coverage": chapter.source_coverage}
+                for chapter in usable
+            ],
+            "required_chapter_ids": [chapter.chapter_id for chapter in usable],
+        }
+        last_error: ValueError | None = None
+        for attempt in range(self.validation_retries + 1):
+            raw = self.client.structured(
+                system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
+                user=json.dumps(payload, ensure_ascii=False),
+                temperature=0,
+                max_tokens=900,
+            )
+            try:
+                draft = BookSummaryDraft.model_validate(raw)
+                returned = set(draft.chapter_ids)
+                if returned != valid_ids or len(draft.chapter_ids) != len(valid_ids):
+                    raise ChapteringValidationError("book summary must cover every known chapter exactly")
+                return draft.summary.strip()
+            except (ValidationError, ChapteringValidationError) as error:
+                last_error = error
+                if attempt >= self.validation_retries:
+                    break
+                if isinstance(error, ValidationError):
+                    feedback: Any = error.errors(include_input=False, include_url=False)
+                else:
+                    feedback = {"missing_chapter_ids": sorted(valid_ids - returned),
+                                "unknown_chapter_ids": sorted(returned - valid_ids),
+                                "duplicate_chapter_ids": sorted({value for value in draft.chapter_ids
+                                                                  if draft.chapter_ids.count(value) > 1})}
+                payload["validation_feedback"] = (
+                    "上一次整书摘要未通过校验。请覆盖全部输入章节（包括练习册、附录和索引），"
+                    "并完整返回 required_chapter_ids，每个恰好一次，不得新增未知标识。具体问题："
+                    + json.dumps(feedback, ensure_ascii=False)[:1600]
+                )
+        assert last_error is not None
+        if isinstance(last_error, ValidationError):
+            raise ChapteringValidationError("book summary schema is invalid") from last_error
+        raise ChapteringValidationError(str(last_error)) from last_error
 
     def _evidence_units(
         self, pages: list[PageExtraction]

@@ -182,10 +182,7 @@ struct LearningFlashcardsView: View {
             ).foregroundStyle(DS.secondary).padding(.horizontal, 9).padding(.vertical, 6)
               .background(theme.pill, in: Capsule())
             Spacer()
-            Text(
-              store.isMastered(card.id)
-                ? "较熟悉" : card.mastery >= 80 ? "较熟悉" : card.mastery >= 50 ? "巩固中" : "待加强"
-            )
+            Text(store.flashcardFamiliarityLabel(card))
             .font(DS.font(14, weight: .bold)).foregroundStyle(theme.muted)
             .padding(.horizontal, 9).padding(.vertical, 6).background(
               theme.accent.opacity(0.1), in: Capsule())

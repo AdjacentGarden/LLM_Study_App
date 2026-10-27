@@ -88,6 +88,7 @@ class ChapterDraft(BaseModel):
     evidence: list[SourceQuote] = Field(default_factory=list)
     knowledge_point_evidence: dict[str, list[SourceQuote]] = Field(default_factory=dict)
     source_coverage: dict[str, Any] = Field(default_factory=dict)
+    boundary_evidence: dict[str, Any] = Field(default_factory=dict)
 
 
 class BookStructure(BaseModel):

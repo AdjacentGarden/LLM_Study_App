@@ -40,6 +40,8 @@ DOCUMENT_VISION_RESCUE_ENABLED=false
 
 上述配置关闭付费视觉救援，使本机 OCR 无需调用外部模型。需要视觉复核时，可另行配置已验证的视觉模型并开启 `DOCUMENT_VISION_RESCUE_ENABLED`，OCR 初次提取仍由本机 Vision 执行。
 
+抽查发现某些公式或阅读顺序有误时，可将 `OCR_REVIEW_PAGE_MANIFEST` 指向私密 JSON 文件，按原 PDF 的 SHA256 指定必须复核的页，例如 `{"<PDF SHA256>": {"pages": [6, 11], "reason": "抽查发现公式下标遗漏"}}`。开启视觉复核后，这些页即使自动质量分通过也会进入图像复核；修正内容仍需独立验证。选择原因写入报告，不修改原质量分，也不将未核验修正发布为教材证据。页码必须唯一且在该 PDF 范围内。
+
 ## 本地语音笔记
 
 语音转写可安装 `./backend[voice]` 依赖并准备本地 Faster Whisper 模型目录。设置 `VOICE_ASR_PYTHON` 为该环境的 Python、`VOICE_ASR_MODEL` 为模型目录、`VOICE_ASR_SCRIPT` 为 `deployment/server/transcribe_voice_note.py` 的绝对路径；若设置 `VOICE_ASR_PYTHONPATH`，应指向实际存在的依赖目录。Mac 使用 `VOICE_ASR_DEVICE=cpu` 和 `VOICE_ASR_COMPUTE_TYPE=int8`。启动前应以一段真实音频运行该脚本，确认模型能够转写；目录存在仅代表配置齐全。

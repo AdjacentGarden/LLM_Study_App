@@ -524,6 +524,8 @@ struct CloudResource: Codable, Sendable, Identifiable {
   var flashcard_reviews: [String: CloudReviewState]? = nil
   var content_key: String? = nil
   var content_path: String? = nil
+  var session_purpose: String? = nil
+  var isPreview: Bool { session_purpose == "preview" }
   var path: String { "/api/workspaces/\(workspace_id)/resources/\(id)" }
 }
 struct CloudStructure: Codable, Sendable {
@@ -618,6 +620,12 @@ struct CloudInterview: Codable, Sendable {
   var phase: String
   var turn: CloudTurn
   var profile: JSONValue
+  var purpose: String? = nil
+  var isPreview: Bool { purpose == "preview" }
+  var canGenerateCourse: Bool {
+    ((purpose == nil || purpose == "learning") && phase == "complete")
+      || (isPreview && phase == "preview_ready")
+  }
 }
 struct CloudTurn: Codable, Sendable {
   struct Option: Codable, Sendable, Identifiable {

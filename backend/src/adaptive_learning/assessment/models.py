@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,6 +17,7 @@ class InterviewPhase(StrEnum):
     ADAPTIVE_DIAGNOSIS = "adaptive_diagnosis"
     PROFILE_CONFIRMATION = "profile_confirmation"
     COMPLETE = "complete"
+    PREVIEW_READY = "preview_ready"
 
 
 class ResponseType(StrEnum):
@@ -221,6 +223,7 @@ class InterviewTurn(BaseModel):
 class InterviewSession(BaseModel):
     session_id: str
     profile: LearnerProfile
+    purpose: Literal["learning", "preview"] = "learning"
     phase: InterviewPhase = InterviewPhase.BOOK_BRIEFING
     asked_item_ids: list[str] = Field(default_factory=list)
     follow_up_item_ids: list[str] = Field(default_factory=list)

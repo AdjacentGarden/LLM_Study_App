@@ -34,7 +34,12 @@ func render(_ page: CGPDFPage, dpi: Double) throws -> CGImage {
     let rect = CGRect(x: 0, y: 0, width: width, height: height)
     context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(rect)
-    context.concatenate(page.getDrawingTransform(.cropBox, rect: rect,
+    // CoreGraphics does not enlarge a PDF page to a larger destination rect.
+    // Scale PDF points to pixels explicitly, then map the crop box and rotation
+    // in point coordinates so OCR receives the requested text resolution.
+    context.scaleBy(x: CGFloat(width) / widthPoints, y: CGFloat(height) / heightPoints)
+    let pointRect = CGRect(x: 0, y: 0, width: widthPoints, height: heightPoints)
+    context.concatenate(page.getDrawingTransform(.cropBox, rect: pointRect,
                                                 rotate: 0, preserveAspectRatio: true))
     context.drawPDFPage(page)
     guard let image = context.makeImage() else { throw OCRError.invalid("Cannot render PDF page") }

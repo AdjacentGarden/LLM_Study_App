@@ -501,6 +501,34 @@ def process_book(book_id: str) -> BookStatusResponse:
     return _status(book)
 
 
+def _require_original_uploader(book_id: str, request: Request | None) -> None:
+    if request is None:
+        raise HTTPException(403, "请使用原上传账号操作这本教材")
+    actor = account_repository.request_owner(request)
+    if not actor or not account_repository.repo.owns_upload(actor, book_id):
+        raise HTTPException(403, "请使用原上传账号操作这本教材")
+
+
+@app.post("/api/books/{book_id}/process/reprocess", response_model=BookStatusResponse)
+def reprocess_book(book_id: str, request: Request) -> BookStatusResponse:
+    _require_original_uploader(book_id, request)
+    book = _book_or_404(book_id)
+    current = job_repository.get_job(book_id)
+    if current is None or current.status != "ocr_ready":
+        raise HTTPException(409, "仅可重新处理已完成识别的教材，请等待当前任务完成")
+    from ..ingestion.jobs import JobStateError
+
+    try:
+        job = job_repository.enqueue(
+            book_id=book_id, output_dir=settings.data_dir / "books" / book_id / "ocr",
+            max_attempts=settings.ocr_max_attempts, force_retry=True, allow_ready=True,
+        )
+    except JobStateError as error:
+        raise HTTPException(409, "教材已有正在进行的任务，请等待完成") from error
+    _sync_book_from_job(book, job.status, job.progress, job.current_step)
+    return _status(book)
+
+
 @app.post("/api/books/{book_id}/process/retry", response_model=BookStatusResponse)
 def retry_process_book(book_id: str) -> BookStatusResponse:
     book = _book_or_404(book_id)
@@ -615,10 +643,14 @@ def book_status(book_id: str) -> BookStatusResponse:
 def generate_book_structure(
     book_id: str,
     reconstructor: Annotated[ChapterReconstructor, Depends(require_chapter_reconstructor)],
+    request: Request = None,  # type: ignore[assignment]
+    refresh: bool = False,
 ) -> BookStructure:
     book = _book_or_404(book_id)
+    if refresh:
+        _require_original_uploader(book_id, request)
     existing = job_repository.get_structure(book_id)
-    if existing is not None:
+    if existing is not None and not refresh:
         return existing
     job = job_repository.get_job(book_id)
     if job is None or job.status != "ocr_ready":
@@ -814,6 +846,7 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
     return InterviewResponse(
         session_id=session.session_id,
         phase=session.phase,
+        purpose=session.purpose,
         turn=session.pending_turn,
         profile=session.profile,
     )
@@ -836,6 +869,7 @@ def answer_profile(session_id: str, request: ProfileAnswerRequest) -> InterviewR
     return InterviewResponse(
         session_id=session.session_id,
         phase=session.phase,
+        purpose=session.purpose,
         turn=turn,
         profile=session.profile,
     )
@@ -849,6 +883,7 @@ def get_interview(session_id: str) -> InterviewResponse:
     return InterviewResponse(
         session_id=session.session_id,
         phase=session.phase,
+        purpose=session.purpose,
         turn=session.pending_turn,
         profile=session.profile,
     )
@@ -866,6 +901,7 @@ def next_diagnostic(session_id: str) -> InterviewResponse:
     return InterviewResponse(
         session_id=session.session_id,
         phase=session.phase,
+        purpose=session.purpose,
         turn=turn,
         profile=session.profile,
     )
@@ -903,6 +939,7 @@ def confirm(session_id: str, request: ProfileConfirmationRequest) -> InterviewRe
     return InterviewResponse(
         session_id=session.session_id,
         phase=session.phase,
+        purpose=session.purpose,
         turn=turn,
         profile=session.profile,
     )
@@ -917,8 +954,10 @@ def compile_course(session_id: str, chapter_id: str) -> PublicChapterLearningBun
 
 def _course_context(session_id: str, chapter_id: str) -> tuple[InterviewSession, ChapterDraft, TeachingEvidence, str, str]:
     session = _session_or_404(session_id)
-    if session.phase != InterviewPhase.COMPLETE:
-        raise HTTPException(status_code=409, detail="请先确认学习画像再生成课程")
+    if not ((session.purpose == "learning" and session.phase == InterviewPhase.COMPLETE) or (
+        session.purpose == "preview" and session.phase == InterviewPhase.PREVIEW_READY
+    )):
+        raise HTTPException(status_code=409, detail="请先确认学习画像或选择课程预览再生成课程")
     context = native_repository.session_context(session_id)
     structure = (BookStructure.model_validate_json(context["structure_json"]) if context
                  else job_repository.get_structure(session.profile.book_id))
@@ -964,6 +1003,8 @@ def _compile_course(session_id: str, chapter_id: str, *, refresh_profile: bool =
         return PublicChapterLearningBundle.from_private(latest)
     version = assessment_repository.next_course_version(session_id, chapter_id)
     decision = personalization_policy.decide(profile, chapter_id)
+    if session.purpose == "preview":
+        decision.explanation = "课程预览：未做诊断，掌握度未知；依据教材原文与课程偏好生成，实际练习会逐步校准掌握情况。"
     try:
         bundle = course_compiler.compile(
             chapter=chapter,
@@ -1146,8 +1187,10 @@ def course_task_status(session_id: str, job_id: str, request: Request) -> dict:
 @app.post("/api/interviews/{session_id}/courses", response_model=list[CourseResponse])
 def compile_book_courses(session_id: str) -> list[PublicChapterLearningBundle]:
     session = _session_or_404(session_id)
-    if session.phase != InterviewPhase.COMPLETE:
-        raise HTTPException(status_code=409, detail="请先确认学习画像再生成课程")
+    if not ((session.purpose == "learning" and session.phase == InterviewPhase.COMPLETE) or (
+        session.purpose == "preview" and session.phase == InterviewPhase.PREVIEW_READY
+    )):
+        raise HTTPException(status_code=409, detail="请先确认学习画像或选择课程预览再生成课程")
     context = native_repository.session_context(session_id)
     structure = (BookStructure.model_validate_json(context["structure_json"]) if context
                  else job_repository.get_structure(session.profile.book_id))

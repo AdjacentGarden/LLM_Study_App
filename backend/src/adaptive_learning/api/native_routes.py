@@ -27,6 +27,7 @@ from ..assessment.item_generation import (
     structure_fingerprint,
 )
 from ..assessment.models import DiagnosticItem
+from ..assessment.preview import create_preview_session
 from ..bootstrap import BootstrapService, builtin_content_version
 from ..ingestion.chaptering import load_normalized_pages
 from ..ingestion.models import BookStructure
@@ -220,9 +221,11 @@ def native_router(services: Any) -> APIRouter:
             ]
         progress = services.native_repository.progress(row["id"])
         reviews = services.native_repository.catalog_review_states(row["id"]) if row["book_id"] == curated.BOOK_ID else {}
+        session_purpose = None
         if row["session_id"]:
             session = services.assessment_repository.get_session(row["session_id"])
             if session:
+                session_purpose = session.purpose
                 reviews = {key: value.model_dump(mode="json") for key, value in session.profile.flashcard_reviews.items()}
         return {
             "id": row["id"],
@@ -230,6 +233,7 @@ def native_router(services: Any) -> APIRouter:
             "workspace_id": row["workspace_id"],
             "revision": row["revision"],
             "session_id": row["session_id"],
+            "session_purpose": session_purpose,
             "filename": stored.original_name if stored else "教材.pdf",
             "status": "ready"
             if row["book_id"] == curated.BOOK_ID
@@ -814,6 +818,37 @@ def native_router(services: Any) -> APIRouter:
         except NativeConflict as error:
             raise HTTPException(409, str(error)) from error
         return resource_state(resource(wid, rid, actor))
+
+    @router.post("/workspaces/{wid}/resources/{rid}/preview-session")
+    def preview_session(wid: str, rid: str, actor: str = Depends(owner)) -> Any:
+        row = resource(wid, rid, actor)
+        if row["session_id"]:
+            existing = services.assessment_repository.get_session(row["session_id"])
+            if existing is None or existing.purpose != "preview":
+                raise HTTPException(409, "已有诊断与学习记录，不能改为课程预览；请创建独立课程")
+            return services.get_interview(existing.session_id)
+        structure = effective_structure(row)
+        if structure is None:
+            raise HTTPException(409, "请先完成教材解析并确认目录")
+        job = services.job_repository.get_job(row["book_id"])
+        if job is None or job.status != "ocr_ready":
+            raise HTTPException(409, "教材原文尚未准备完成，暂时不能预览课程")
+        session = create_preview_session(
+            user_id=actor, book_id=row["book_id"], structure=structure,
+            learning_design=design.config(actor, wid),
+        )
+        services.assessment_repository.create_session(session)
+        services.account_repository.repo.claim_session(actor, session.session_id)
+        try:
+            sid = services.native_repository.attach_session(
+                rid, row["revision"], session.session_id, structure, "[]",
+            )
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        attached = services.assessment_repository.get_session(sid)
+        if attached is None or attached.purpose != "preview":
+            raise HTTPException(409, "已有诊断与学习记录，不能改为课程预览；请创建独立课程")
+        return services.get_interview(sid)
 
     @router.post("/workspaces/{wid}/resources/{rid}/session")
     def start_session(wid: str, rid: str, actor: str = Depends(owner), retry: bool = False,

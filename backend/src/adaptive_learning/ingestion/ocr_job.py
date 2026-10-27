@@ -510,6 +510,11 @@ def write_report(
     }
     if fast_metadata is not None:
         manifest["ocr_capabilities"] = fast_metadata["capabilities"]
+        if backend == "apple-vision" and fast_metadata.get("extraction_identity") is not None:
+            identity = fast_metadata["extraction_identity"]
+            if fast_metadata["capabilities"].get("extraction_identity") != identity:
+                raise RuntimeError("Apple Vision extraction identity disagrees with engine metadata")
+            manifest["extraction_identity"] = identity
         manifest["resident_ocr_pid"] = fast_metadata.get("pid")
         manifest["inferred_headings"] = fast_metadata.get("inferred_headings", 0)
         manifest["reading_order_quality_verified"] = False

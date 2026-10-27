@@ -504,7 +504,7 @@ import SwiftUI
   }
   func openLesson(_ lesson: Lesson) {
     if cloud != nil, lesson.status == "pending" {
-      Task { await beginCloudLearning(chapterID: lesson.chapter_id) }
+      requestCloudLearning(chapterID: lesson.chapter_id)
       return
     }
     if selectedBookID != lesson.book_id { selectSource(lesson.book_id) }

@@ -111,6 +111,7 @@ class CourseActivityResponse(BaseModel):
 class InterviewResponse(BaseModel):
     session_id: str
     phase: str
+    purpose: Literal["learning", "preview"] = "learning"
     turn: InterviewTurn
     profile: LearnerProfile
 

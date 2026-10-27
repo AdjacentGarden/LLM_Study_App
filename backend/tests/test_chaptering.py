@@ -215,7 +215,7 @@ def test_load_normalized_pages_preserves_heading_metadata(tmp_path: Path) -> Non
 def test_real_biology_artifact_has_six_verified_body_chapters() -> None:
     artifact = Path(__file__).parents[2] / "artifacts" / "ocr" / "biology-20260829" / "pages.jsonl"
     if not artifact.is_file():
-        pytest.skip('historical OCR fixture is not distributed with the source checkout')
+        pytest.skip("historical OCR fixture is not distributed with the source checkout")
     pages = load_normalized_pages(artifact)
 
     chapters, fallback = ChapterBoundaryDetector().detect(pages)
@@ -232,3 +232,86 @@ def test_real_biology_artifact_has_six_verified_body_chapters() -> None:
     ]
     assert chapters[0].title == "第2章 基因和染色体的关系"
     assert chapters[-1].title == "第 7 章 现代生物进化理论"
+
+
+@pytest.mark.parametrize("issue", ["missing_appendix", "unknown", "duplicate", "schema"])
+def test_book_summary_retries_with_explicit_coverage_feedback(issue):
+    from adaptive_learning.ingestion.models import ChapterDraft
+
+    chapters = [
+        ChapterDraft(
+            chapter_id=key,
+            order=i + 1,
+            title=title,
+            start_page=i + 1,
+            end_page=i + 1,
+            summary="已核验的章节摘要。",
+            knowledge_points=[],
+            source_block_ids=[],
+        )
+        for i, (key, title) in enumerate(
+            [("main", "第一章"), ("workbook", "WORKBOOK"), ("appendix", "附录 索引")]
+        )
+    ]
+
+    class Client:
+        calls = []
+
+        def structured(self, *, user, system, **kwargs):
+            payload = json.loads(user)
+            self.calls.append(payload)
+            assert "附录" in system and payload["required_chapter_ids"] == [
+                "main",
+                "workbook",
+                "appendix",
+            ]
+            if len(self.calls) == 1:
+                if issue == "schema":
+                    return {"summary": "摘要", "chapter_ids": "main"}
+                ids = {
+                    "missing_appendix": ["main", "workbook"],
+                    "unknown": ["main", "workbook", "appendix", "invented"],
+                    "duplicate": ["main", "workbook", "appendix", "appendix"],
+                }[issue]
+                return {"summary": "摘要", "chapter_ids": ids}
+            assert "validation_feedback" in payload
+            assert "required_chapter_ids" in payload["validation_feedback"]
+            return {
+                "summary": "主章提供讲解，练习册用于练习，附录支持检索。",
+                "chapter_ids": payload["required_chapter_ids"],
+            }
+
+    client = Client()
+    result = ChapterReconstructor(
+        cast(OpenAICompatibleClient, client), validation_retries=1
+    )._summarize_book(chapters)
+    assert "附录" in result and len(client.calls) == 2
+
+
+def test_book_summary_failure_is_bounded_without_silently_adding_missing_ids():
+    from adaptive_learning.ingestion.models import ChapterDraft
+
+    chapter = ChapterDraft(
+        chapter_id="appendix",
+        order=1,
+        title="附录",
+        start_page=1,
+        end_page=1,
+        summary="附录用于检索。",
+        knowledge_points=[],
+        source_block_ids=[],
+    )
+
+    class Client:
+        calls = 0
+
+        def structured(self, **kwargs):
+            self.calls += 1
+            return {"summary": "仅有摘要，但故意不返回所需标识。", "chapter_ids": ["other"]}
+
+    client = Client()
+    with pytest.raises(ChapteringValidationError, match="every known chapter"):
+        ChapterReconstructor(
+            cast(OpenAICompatibleClient, client), validation_retries=1
+        )._summarize_book([chapter])
+    assert client.calls == 2

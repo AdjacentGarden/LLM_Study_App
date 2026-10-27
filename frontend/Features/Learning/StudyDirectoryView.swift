@@ -201,6 +201,11 @@ struct StudyDirectoryView: View {
           }.buttonStyle(.plain).transition(.opacity)
         }
       }
+      if store.isCloudCoursePreview {
+        Text("课程预览 · 未做诊断 · 掌握度未知")
+          .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
+          .accessibilityIdentifier("study.preview.notice")
+      }
       if directoryOnly {
         Text("教材目录 · 当前尚无生成的教学内容")
           .font(DS.font(14)).foregroundStyle(DS.secondary)

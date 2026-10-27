@@ -89,6 +89,7 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var workspaces: [CloudWorkspace] = []
   var interview: CloudInterview?
   var showDiagnosis = false
+  var choosingLearningMode = false
   var requestedChapterID: String?
   var showCompletionOnCompile = false
   var diagnosisWorkspaceID: String?

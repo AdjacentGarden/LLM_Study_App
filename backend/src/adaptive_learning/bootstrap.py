@@ -53,6 +53,7 @@ class BootstrapService:
         sessions = sorted({r["session_id"] for r in resources if r["session_id"]})
         bundles: dict[str, dict[str, ChapterLearningBundle]] = {}
         session_states: dict[str, Any] = {}
+        session_purposes: dict[str, str] = {}
         content_versions: dict[str, list[Any]] = {}
         if sessions:
             placeholders = ",".join("?" for _ in sessions)
@@ -66,6 +67,7 @@ class BootstrapService:
                         bundles.setdefault(row["session_id"], {})[row["chapter_id"]] = bundle
                 for row in db.execute(f"SELECT session_id,session_json FROM interview_sessions WHERE session_id IN ({placeholders})", sessions):
                     session = InterviewSession.model_validate_json(row["session_json"])
+                    session_purposes[row["session_id"]] = session.purpose
                     session_states[row["session_id"]] = {k: v.model_dump(mode="json") for k, v in session.profile.flashcard_reviews.items()}
         assembled: dict[str, list[dict[str, Any]]] = {}
         for row in resources:
@@ -75,7 +77,7 @@ class BootstrapService:
             value = progress.get(row["id"], {"revision": 0, "page": 1, "chapter_id": None, "lesson_id": None, "completed_chapters": [], "task_status": {}, "mastered_ids": []})
             builtin = row["book_id"] == curated.BOOK_ID
             version = builtin_content_version() if builtin else hashlib.sha256(json.dumps([row["revision"], structures.get(row["book_id"]), content_versions.get(row["session_id"], [])], sort_keys=True).encode()).hexdigest()
-            resource = {"id": row["id"], "book_id": row["book_id"], "workspace_id": row["workspace_id"], "revision": row["revision"], "session_id": row["session_id"], "filename": book["original_name"] if book else "教材.pdf", "status": "ready" if builtin else book["status"] if book else "missing", "progress": value, "flashcard_reviews": session_states.get(row["session_id"], reviews.get(row["id"], {})), "structure": None if light else structure, "courses": [] if light else courses, "source_content": curated.public_source(row["id"], value) if builtin and not light else None}
+            resource = {"id": row["id"], "book_id": row["book_id"], "workspace_id": row["workspace_id"], "revision": row["revision"], "session_id": row["session_id"], "session_purpose": session_purposes.get(row["session_id"]), "filename": book["original_name"] if book else "教材.pdf", "status": "ready" if builtin else book["status"] if book else "missing", "progress": value, "flashcard_reviews": session_states.get(row["session_id"], reviews.get(row["id"], {})), "structure": None if light else structure, "courses": [] if light else courses, "source_content": curated.public_source(row["id"], value) if builtin and not light else None}
             if light:
                 resource["content_key"] = ("builtin:" if builtin else row["id"] + ":") + version
                 resource["content_path"] = "/api/native/builtin-content/" + version if builtin else f'/api/workspaces/{row["workspace_id"]}/resources/{row["id"]}'

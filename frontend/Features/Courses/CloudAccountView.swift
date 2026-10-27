@@ -210,12 +210,33 @@ struct CloudLearningSetupView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 22) {
         HStack {
-          Text("准备专属课程").font(DS.font(24, weight: .bold))
+          Text(store.isCloudCoursePreview ? "准备预览课程" : "准备专属课程")
+            .font(DS.font(24, weight: .bold))
           Spacer()
           Button("稍后继续") { store.pauseCloudCourseGeneration() }.disabled(
             store.cloudState.isWorking && store.cloudState.courseTask == nil)
         }
-        if let job = store.cloudState.courseJob {
+        if store.isCloudCoursePreview {
+          Text("课程预览 · 未做诊断 · 掌握度未知")
+            .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
+            .accessibilityIdentifier("cloud.preview.notice")
+        }
+        if store.cloudState.choosingLearningMode {
+          VStack(alignment: .leading, spacing: 16) {
+            Text("选择学习方式").font(DS.font(21, weight: .bold))
+            Text("先预览本章讲解、闪卡和练习，或先做诊断再生成适合自己的课程。")
+              .font(DS.font(16)).foregroundStyle(DS.secondary)
+            BCButton("直接预览课程") {
+              Task { await store.beginCloudLearning(
+                chapterID: store.cloudState.requestedChapterID, preview: true) }
+            }.accessibilityIdentifier("cloud.learning.preview")
+            Text("预览不代做诊断，不记录诊断分数；掌握度保持未知。")
+              .font(DS.font(14)).foregroundStyle(DS.secondary)
+            BCButton("先做学习诊断", style: .secondary) {
+              Task { await store.beginCloudLearning(chapterID: store.cloudState.requestedChapterID) }
+            }.accessibilityIdentifier("cloud.learning.diagnosis")
+          }
+        } else if let job = store.cloudState.courseJob {
           VStack(alignment: .leading, spacing: 16) {
             if job.isPending { ProgressView() }
             Text(job.message).font(DS.font(18, weight: .bold)).lineSpacing(5)
@@ -234,7 +255,7 @@ struct CloudLearningSetupView: View {
             }
           }.accessibilityIdentifier("cloud.courseJob")
         } else if let turn {
-          BCProgress(value: turn.progress)
+          if store.cloudState.interview?.isPreview != true { BCProgress(value: turn.progress) }
           Text(turn.message).font(DS.font(17)).lineSpacing(5)
           if let question = turn.item?.prompt ?? turn.question {
             Text(question).font(DS.font(21, weight: .bold)).lineSpacing(4)
@@ -280,7 +301,8 @@ struct CloudLearningSetupView: View {
             store.cloudState.isWorking
               ? "正在准备…"
               : turn.phase == "profile_confirmation"
-                ? "确认并生成课程" : turn.phase == "complete" ? "生成或继续本章课程" : "继续"
+                ? "确认并生成课程"
+                : store.cloudState.interview?.canGenerateCourse == true ? "生成或继续本章课程" : "继续"
           ) {
             Task {
               await store.advanceCloudInterview(

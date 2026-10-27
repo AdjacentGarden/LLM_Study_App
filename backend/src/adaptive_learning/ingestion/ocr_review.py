@@ -64,6 +64,29 @@ class OCRReviewUnavailable(RuntimeError):
     pass
 
 
+def _requested_pages(source_hash: str, page_numbers: set[int]) -> tuple[set[int], str]:
+    """Select known problem pages by exact PDF identity, without changing scores."""
+    manifest = os.getenv("OCR_REVIEW_PAGE_MANIFEST", "").strip()
+    if not manifest:
+        return set(), ""
+    try:
+        entries = json.loads(Path(manifest).read_text(encoding="utf-8"))
+        if not isinstance(entries, dict):
+            raise ValueError("manifest must be an object")
+        entry = entries.get(source_hash)
+        if entry is None:
+            return set(), ""
+        pages, reason = entry["pages"], entry["reason"]
+        if (not isinstance(pages, list) or not pages
+                or any(type(page) is not int or page not in page_numbers for page in pages)
+                or len(set(pages)) != len(pages)
+                or not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 1000):
+            raise ValueError("invalid review selection")
+        return set(pages), reason.strip()
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise OCRReviewUnavailable("OCR review page manifest is invalid") from error
+
+
 def _atomic(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     staging = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
@@ -98,8 +121,9 @@ def review_pages(source: Path, normalized: Path, cache_root: Path,
     if source_hash != report.get("source_sha256"):
         raise OCRReviewUnavailable("OCR artifacts do not match source PDF")
     bands = {int(p["page_number"]): p for p in report["pages"]}
+    requested, selection_reason = _requested_pages(source_hash, set(bands))
     candidates = [p for p in original if bands[int(p["page_number"])]["band"]
-                  in {"missing", "review", "rescue"}]
+                  in {"missing", "review", "rescue"} or int(p["page_number"]) in requested]
     own_client = client is None
     stopped, lost = threading.Event(), threading.Event()
     progress = [0]
@@ -246,6 +270,9 @@ def review_pages(source: Path, normalized: Path, cache_root: Path,
         target.mkdir()
         report.update(review_version=VERSION, source_coverage=coverage_context(output),
                       needs_human_review=False,
+                      review_selection={"source_sha256": source_hash,
+                                        "requested_pages": sorted(requested),
+                                        "reason": selection_reason},
                       review_decisions={str(k): v for k, v in decisions.items()},
                       resolution_counts=dict(Counter(p["processing_status"] for p in output)))
         (target / "pages.jsonl").write_text("".join(json.dumps(p, ensure_ascii=False) + "\n" for p in output), encoding="utf-8")

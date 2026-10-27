@@ -675,4 +675,108 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertFalse(store.canRetryCloudDiagnosis)
     }
   }
+
+  func testPreviewReadinessRequiresExplicitPurposeAndSurvivesResourceCache() throws {
+    let turn = CloudTurn(turn_id: "preview", phase: "preview_ready", message: "未做诊断",
+      options: [], progress: 0)
+    let preview = CloudInterview(session_id: "session", phase: "preview_ready", turn: turn,
+      profile: .object([:]), purpose: "preview")
+    XCTAssertTrue(preview.canGenerateCourse)
+    let unmarked = CloudInterview(session_id: "session", phase: "preview_ready", turn: turn,
+      profile: .object([:]))
+    XCTAssertFalse(unmarked.canGenerateCourse, "An unknown phase cannot bypass learning preparation")
+    var inconsistent = preview
+    inconsistent.phase = "complete"
+    XCTAssertFalse(inconsistent.canGenerateCourse, "A preview cannot claim a completed diagnosis")
+    inconsistent.purpose = "unknown"
+    XCTAssertFalse(inconsistent.canGenerateCourse)
+    var resource = diagnosisResource(sessionID: "session")
+    resource.session_purpose = "preview"
+    let decoded = try JSONDecoder().decode(CloudResource.self, from: JSONEncoder().encode(resource))
+    XCTAssertTrue(CloudContent(resource: decoded).applying(to: decoded).isPreview)
+    let legacy = Data("""
+      {"session_id":"old","phase":"complete","turn":{"turn_id":"done", "phase":"complete",
+       "message":"完成","options":[],"progress":1},"profile":{}}
+      """.utf8)
+    let restored = try JSONDecoder().decode(CloudInterview.self, from: legacy)
+    XCTAssertTrue(restored.canGenerateCourse)
+    XCTAssertFalse(restored.isPreview)
+  }
+
+  @MainActor func testNewResourceOffersPreviewWithoutSubmittingDiagnosisOrCreatingEvidence() async throws {
+    let requests = CourseRequests()
+    let (api, session, host, repository) = try fixture { request in
+      _ = try requests.append(request)
+      throw URLError(.unsupportedURL)
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = diagnosisStore(api: api, repository: repository)
+    store.requestCloudLearning(chapterID: "chapter")
+    XCTAssertTrue(store.cloudState.choosingLearningMode)
+    XCTAssertTrue(store.cloudState.showDiagnosis)
+    XCTAssertEqual(store.cloudState.requestedChapterID, "chapter")
+    XCTAssertNil(store.cloudState.interview)
+    XCTAssertTrue(requests.all.isEmpty, "Selecting a pending lesson first asks for learning mode")
+    store.pauseCloudCourseGeneration()
+    XCTAssertFalse(store.cloudState.choosingLearningMode)
+  }
+
+  @MainActor func testPreviewSessionAndManualContinuationNeverAnswerProfileOrDiagnosticQuestions() async throws {
+    let requests = CourseRequests()
+    let preview = CloudInterview(session_id: "session", phase: "preview_ready",
+      turn: CloudTurn(turn_id: "preview", phase: "preview_ready", message: "课程预览，未做诊断",
+        options: [], progress: 0), profile: .object([:]), purpose: "preview")
+    let (api, session, host, repository) = try fixture { request in
+      _ = try requests.append(request)
+      switch request.url?.path {
+      case "/api/workspaces/workspace/resources/resource/preview-session":
+        XCTAssertEqual(request.httpMethod, "POST")
+        return (200, try JSONEncoder().encode(preview))
+      case "/api/interviews/session":
+        XCTAssertEqual(request.httpMethod, "GET", "Recovery never creates diagnostic responses")
+        return (200, try JSONEncoder().encode(preview))
+      case "/api/interviews/session/course-jobs", "/api/interviews/session/course-jobs/course_job_owned":
+        return (200, try self.job("failed"))
+      default:
+        XCTFail("Preview must not submit a diagnosis or profile answer: \(request.url?.path ?? "")")
+        throw URLError(.unsupportedURL)
+      }
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = diagnosisStore(api: api, repository: repository)
+    store.cloudState.cacheKey = "owner"
+    await store.beginCloudLearning(chapterID: "chapter", preview: true)
+    XCTAssertTrue(store.isCloudCoursePreview)
+    XCTAssertEqual(store.cloudResource?.session_id, "session")
+    XCTAssertEqual(store.cloudState.interview?.purpose, "preview")
+    let card = Flashcard(card_id: "card", book_id: "book", lesson_id: "lesson", chapter_id: "chapter",
+      front: "概念", back: "原文解释", concept: "概念", source_chunk_ids: [], page_start: 1,
+      page_end: 1, mastery: 0, reason: "预览")
+    XCTAssertEqual(store.flashcardFamiliarityLabel(card), "尚未评估")
+    XCTAssertEqual(requests.allURLs.first?.path,
+      "/api/workspaces/workspace/resources/resource/preview-session")
+    XCTAssertTrue(requests.allURLs.dropFirst().allSatisfy { $0.path.contains("/course-jobs") })
+    // Even manual continuation from preview_ready may only query/generate a course.
+    await store.advanceCloudInterview(selected: [], confidence: 0, seconds: 1)
+    XCTAssertTrue(requests.allURLs.dropFirst().allSatisfy {
+      $0.path.contains("/course-jobs") || $0.path == "/api/interviews/session"
+    })
+    XCTAssertTrue(store.mastered.isEmpty)
+    store.cloudState.syncTask?.cancel()
+    store.cloudState.retryTask?.cancel()
+    await store.flush()
+  }
+
+  @MainActor func testExistingLearningSessionCannotBeReplacedWithPreview() async throws {
+    let requests = CourseRequests()
+    let (api, session, host, repository) = try fixture { request in
+      _ = try requests.append(request)
+      throw URLError(.unsupportedURL)
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = diagnosisStore(api: api, repository: repository, sessionID: "existing-learning")
+    await store.beginCloudLearning(chapterID: "chapter", preview: true)
+    XCTAssertTrue(requests.all.isEmpty)
+    XCTAssertEqual(store.cloudResource?.session_id, "existing-learning")
+  }
 }

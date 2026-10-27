@@ -409,6 +409,8 @@ final class CloudTests: XCTestCase {
     XCTAssertTrue(store.draft.parseCompleted)
     await store.confirmCloudChapters()
     XCTAssertTrue(store.cloudState.showDiagnosis, store.cloudState.error ?? "")
+    XCTAssertTrue(store.cloudState.choosingLearningMode)
+    await store.beginCloudLearning(chapterID: store.cloudState.requestedChapterID)
     for _ in 0..<12 {
       guard let interview = store.cloudState.interview, interview.phase != "complete" else { break }
       let selected =
