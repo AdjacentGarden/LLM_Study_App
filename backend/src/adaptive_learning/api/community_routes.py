@@ -570,6 +570,14 @@ def community_router(
 
     router.include_router(social_router(social, visitor, make_attachment))
     router.include_router(retention_router(repo, visitor, owned_book, owned_session, assessments))
-    router.include_router(studio_router(data_dir, visitor, owned_book))
+
+    def studio_owned_book(owner: str, book_id: str) -> None:
+        # Native uploads already have durable ownership before an optional shelf
+        # claim/publication. Studio access must not claim or publish on a read.
+        if repo.owns_upload(owner, book_id) and jobs().get_book(book_id) is not None:
+            return
+        owned_book(owner, book_id)
+
+    router.include_router(studio_router(data_dir, visitor, studio_owned_book))
     router.include_router(account_router(accounts, social, visitor, assessments))
     return router

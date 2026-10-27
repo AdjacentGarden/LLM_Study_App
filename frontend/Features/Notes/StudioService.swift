@@ -130,12 +130,15 @@ actor StudioService {
     return try await api.request("/api/studio/notes", method: "POST", body: body)
   }
 
-  func analyze(note: StudioNote, action: String, transcript: String = "") async throws -> StudioJob {
-    guard ["recognize", "improve"].contains(action) else {
+  func analyze(note: StudioNote, action: String, transcript: String = "", requestID: String? = nil) async throws -> StudioJob {
+    guard ["recognize", "improve", "voice_note"].contains(action) else {
       throw CloudError(status: 422, message: "不支持的笔记操作")
     }
     guard transcript.count <= 12000 else { throw CloudError(status: 422, message: "笔记文字过长，请分段整理；原稿仍保留。") }
-    let requestID = "native_" + digest(api.baseURL.absoluteString + "|" + note.id + "|\(note.revision)|" + action + "|" + transcript)
+    let requestID = requestID ?? ("native_" + digest(api.baseURL.absoluteString + "|" + note.id + "|\(note.revision)|" + action + "|" + transcript))
+    guard (8...100).contains(requestID.utf8.count), requestID.utf8.allSatisfy({
+      (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 || $0 == 95
+    }) else { throw CloudError(status: 422, message: "笔记生成请求标识无效。") }
     let receipt = "native.studio.note." + digest(requestID)
     if let id = UserDefaults.standard.string(forKey: receipt + ".job") { return try await job(id: id) }
     if UserDefaults.standard.bool(forKey: receipt + ".submitted") {
@@ -160,6 +163,89 @@ actor StudioService {
     }
   }
 
+  private func voiceRequestKey(_ note: StudioNote) -> String {
+    "native.studio.voice.latest." + digest(api.baseURL.absoluteString + "|" + note.id + "|\(note.revision)")
+  }
+
+  private func submittedAnalysis(_ requestID: String) -> Bool {
+    UserDefaults.standard.bool(forKey: "native.studio.note." + digest(requestID) + ".submitted")
+  }
+
+  private func existingVoiceJob(_ remote: StudioNote, requestID: String) async throws -> StudioJob? {
+    let key = "native.studio.note." + digest(requestID)
+    if let id = UserDefaults.standard.string(forKey: key + ".job") {
+      do { return try await job(id: id) }
+      catch let error as CloudError where error.status == 404 { }
+    }
+    return try await job(requestID: requestID, bookID: remote.book_id)
+  }
+
+  private func completedVoice(_ remote: StudioNote, initial: StudioJob,
+    onProgress: (@MainActor @Sendable (String) -> Void)?) async throws -> (remoteNote: StudioNote, job: StudioJob) {
+    try Task.checkCancellation()
+    guard initial.kind == "voice_note", initial.book_id == remote.book_id else {
+      throw CloudError(status: 422, message: "返回任务与当前语音笔记不一致。")
+    }
+    let result = try await waitForJob(initial, onProgress: onProgress)
+    try Task.checkCancellation()
+    guard result.kind == "voice_note", result.book_id == remote.book_id, result.status == "succeeded",
+      !result.polished.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      throw CloudError(status: 422, message: "服务没有返回完整的生成笔记，原始录音仍保留。")
+    }
+    return (remote, result)
+  }
+
+  /// Called only after an explicit Generate action. A new attempt is allowed
+  /// only after the previous job is confirmed failed; ambiguous writes are read back.
+  func generateVoice(note: StudyNote, fileURL: URL, retryFailed: Bool = false,
+    onProgress: (@MainActor @Sendable (String) -> Void)? = nil) async throws -> (remoteNote: StudioNote, job: StudioJob) {
+    try Task.checkCancellation()
+    let remote = try await prepareVoice(note: note, fileURL: fileURL)
+    let key = voiceRequestKey(remote)
+    var requestID = UserDefaults.standard.string(forKey: key)
+    if let existingID = requestID {
+      if let existing = try await existingVoiceJob(remote, requestID: existingID) {
+        if retryFailed && ["failed", "cancelled"].contains(existing.status) {
+          requestID = nil
+        } else {
+          return try await completedVoice(remote, initial: existing, onProgress: onProgress)
+        }
+      } else if submittedAnalysis(existingID) {
+        throw CloudError(status: 409, message: "上次生成请求尚未确认，请稍后查询原任务，不会重复提交。")
+      }
+    }
+    let attempt = requestID ?? ("native_voice_" + UUID().uuidString.replacingOccurrences(of: "-", with: ""))
+    UserDefaults.standard.set(attempt, forKey: key)
+    let initial = try await analyze(note: remote, action: "voice_note", requestID: attempt)
+    return try await completedVoice(remote, initial: initial, onProgress: onProgress)
+  }
+
+  /// Reopening a recording performs GETs only. It never uploads audio or submits
+  /// a model request, including when no server note or receipt exists yet.
+  func restoreVoice(note: StudyNote, fileURL: URL,
+    onProgress: (@MainActor @Sendable (String) -> Void)? = nil) async throws -> (remoteNote: StudioNote, job: StudioJob)? {
+    try Task.checkCancellation()
+    let capability = try await capabilities()
+    let id = remoteNoteID(localID: anchoredIdentity(note), scope: capability.draft_scope)
+    guard let remote = try await existingNote(id: id), remote.audio_ready else { return nil }
+    let values = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+    guard values.isRegularFile == true, let size = values.fileSize, (32...20 * 1024 * 1024).contains(size) else {
+      throw CloudError(status: 413, message: "原始录音文件暂不可读取，请先确认本机录音仍保留。")
+    }
+    let bytes = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+    let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    guard remote.audio_sha256 == hash, let requestID = UserDefaults.standard.string(forKey: voiceRequestKey(remote)) else {
+      return nil
+    }
+    guard let existing = try await existingVoiceJob(remote, requestID: requestID) else {
+      if submittedAnalysis(requestID) {
+        throw CloudError(status: 409, message: "上次生成请求尚未确认，请稍后查询原任务，不会重复提交。")
+      }
+      return nil
+    }
+    return try await completedVoice(remote, initial: existing, onProgress: onProgress)
+  }
+
   func mediaJobs(bookID: String) async throws -> [StudioJob] {
     struct Jobs: Decodable, Sendable { var items: [StudioJob] }
     guard let query = bookID.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else {
@@ -181,9 +267,11 @@ actor StudioService {
     return response.items.first { $0.request_id == requestID && $0.book_id == bookID }
   }
 
-  func waitForJob(_ initial: StudioJob) async throws -> StudioJob {
+  func waitForJob(_ initial: StudioJob,
+    onProgress: (@MainActor @Sendable (String) -> Void)? = nil) async throws -> StudioJob {
     var current = initial
     let deadline = ContinuousClock.now + .seconds(600)
+    if let onProgress { await onProgress(progressPhase(current)) }
     while !current.isFinished {
       try Task.checkCancellation()
       guard ContinuousClock.now < deadline else {
@@ -191,11 +279,18 @@ actor StudioService {
       }
       try await Task.sleep(for: .seconds(2))
       current = try await job(id: current.id)
+      if let onProgress { await onProgress(progressPhase(current)) }
     }
     if ["failed", "cancelled", "uncertain"].contains(current.status) {
       throw CloudError(status: 409, message: current.error ?? "服务未完成处理，原稿仍保留；请稍后查看原任务。")
     }
     return current
+  }
+
+  private func progressPhase(_ job: StudioJob) -> String {
+    let phase = job.result["phase"]?.stringValue ?? job.status
+    return ["transcribing", "organizing", "queued", "planning", "submitting", "succeeded", "failed"].contains(phase)
+      ? phase : "generating"
   }
 
   func accept(note: StudioNote, job: StudioJob) async throws {

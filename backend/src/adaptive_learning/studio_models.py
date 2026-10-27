@@ -74,9 +74,14 @@ class NoteInput(Anchor):
 class NoteAction(Strict):
     request_id: str = Field(min_length=8, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
     revision: int = Field(ge=1)
-    action: Literal["recognize", "improve", "complete"]
+    action: Literal["recognize", "improve", "complete", "voice_note"]
     transcript: str = Field(default="", max_length=12000)
     consent: Literal[True]
+
+
+class VoiceNoteDraft(Strict):
+    summary: str = Field(min_length=1, max_length=700)
+    polished: str = Field(min_length=1, max_length=20000)
 
 
 class DiagramFact(Strict):

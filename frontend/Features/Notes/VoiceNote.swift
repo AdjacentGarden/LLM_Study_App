@@ -20,14 +20,18 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
   private var player: AVAudioPlayer?
   private var timer: Timer?
   private var completed = false
+  private var captureGeneration = UUID()
 
   func start() async {
+    let generation = UUID()
+    captureGeneration = generation
     error = nil
     state = .requesting
     isSample = false
     let allowed = await withCheckedContinuation { continuation in
       AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
     }
+    guard generation == captureGeneration, state == .requesting else { return }
     guard allowed else {
       state = .idle
       error = "未获得麦克风权限。请在系统设置中允许录音，已有文字笔记仍可编辑。"
@@ -56,6 +60,8 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
       recorder = audio
       audioURL = url
       seconds = 0
+      playbackPosition = 0
+      playbackDuration = 0
       completed = false
       state = .recording
       waveform = Array(repeating: 0.08, count: 32)
@@ -110,11 +116,14 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
     timer?.invalidate()
     audioURL = url
     seconds = duration
+    playbackPosition = 0
+    playbackDuration = 0
     state = .ready
     completed = true
     if let player = try? AVAudioPlayer(contentsOf: url) { playbackDuration = player.duration }
   }
   func reset() {
+    captureGeneration = UUID()
     stopPlayback()
     recorder?.stop()
     recorder = nil
@@ -122,6 +131,8 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
     timer = nil
     audioURL = nil
     seconds = 0
+    playbackPosition = 0
+    playbackDuration = 0
     state = .idle
     completed = false
     error = nil
@@ -141,6 +152,7 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
       if player == nil {
         let value = try AVAudioPlayer(contentsOf: url)
         value.delegate = self
+        value.currentTime = playbackPosition
         player = value
         playbackDuration = value.duration
       }
@@ -228,6 +240,8 @@ final class NotesAudioController: NSObject, AVAudioRecorderDelegate, AVAudioPlay
   }
   #endif
   func shutdown() {
+    captureGeneration = UUID()
+    if state == .requesting { state = .idle }
     stop()
     onFinish = nil
     stopPlayback()
@@ -269,7 +283,6 @@ struct NotesVoiceNoteView: View {
   var onClose: (() -> Void)?
   @State private var audio = NotesAudioController()
   @State private var currentNote: StudyNote?
-  @State private var transcript = ""
   @State private var annotation = ""
   @State private var organized = ""
   @State private var phase = "idle"
@@ -284,17 +297,16 @@ struct NotesVoiceNoteView: View {
   @State private var voiceWidth: CGFloat = 834
   @State private var studioTask: Task<Void, Never>?
   @State private var studioError: String?
-  @State private var remoteNote: StudioNote?
-  @State private var resultJob: StudioJob?
-  @State private var organizedAccepted = true
   @State private var recordingGeneration = UUID()
+  @State private var generateOnFinish = false
+  @State private var active = false
   private var anchor: NoteAnchor? { captureAnchor ?? currentNote?.anchor }
+  private var working: Bool { studioTask != nil }
   private var linkedChapterTitle: String {
     if let anchor,
       let chapter = store.sources.first(where: { $0.id == anchor.bookID })?.chapters.first(where: {
         $0.id == anchor.chapterID
-      })
-    {
+      }) {
       return chapter.source_title.replacingOccurrences(
         of: "^第\\s*[一二三四五六七八九十0-9]+\\s*[章节]\\s*", with: "", options: .regularExpression)
     }
@@ -304,8 +316,16 @@ struct NotesVoiceNoteView: View {
     switch audio.state {
     case .recording: "正在听你说…"
     case .paused: "录音已暂停"
-    case .ready: saved ? "这段想法已经记下" : "录音尚未保存到设备"
-    default: "录一段语音笔记"
+    case .ready: saved ? "原始录音已保存" : "正在保存录音"
+    default: "说出你的想法，记成一份笔记"
+    }
+  }
+  private var progressTitle: String {
+    switch phase {
+    case "uploading": "正在准备录音…"
+    case "transcribing": "正在理解录音内容…"
+    case "restoring": "正在读取生成结果…"
+    default: "DeepSeek 正在整理笔记…"
     }
   }
   var body: some View {
@@ -321,9 +341,8 @@ struct NotesVoiceNoteView: View {
                   BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 20, height: 20)
                   VStack(alignment: .leading, spacing: 3) {
                     Text(linkedChapterTitle).font(DS.font(16, weight: .bold))
-                    Text(anchor.map { "教材第 \($0.printedPage ?? $0.page) 页" } ?? "可在整理前补充章节").font(
-                      DS.font(12)
-                    ).foregroundStyle(DS.muted)
+                    Text(anchor.map { "教材第 \($0.printedPage ?? $0.page) 页" } ?? "自由语音笔记")
+                      .font(DS.font(12)).foregroundStyle(DS.muted)
                   }
                 }
                 if let quote = anchor?.quote { NotesQuote(quote: quote, rounded: true) }
@@ -345,53 +364,63 @@ struct NotesVoiceNoteView: View {
             recorderCard
             results
           }
-        }.padding(.horizontal, embedded ? 16 : store.isPad ? 32 : 16).padding(
-          .top, embedded ? 16 : store.isPad ? 21 : 12
-        ).padding(.bottom, 20).frame(maxWidth: 1120).frame(maxWidth: .infinity)
+        }.padding(.horizontal, embedded ? 16 : store.isPad ? 32 : 16)
+          .padding(.top, embedded ? 16 : store.isPad ? 21 : 12)
+          .padding(.bottom, 20).frame(maxWidth: 1120).frame(maxWidth: .infinity)
       }.accessibilityIdentifier("voice.scroll")
     }.background(
       GeometryReader { geometry in
-        Color.clear.onAppear { voiceWidth = geometry.size.width }.onChange(of: geometry.size.width)
-        { _, value in voiceWidth = value }
+        Color.clear.onAppear { voiceWidth = geometry.size.width }.onChange(of: geometry.size.width) {
+          _, value in voiceWidth = value
+        }
       }
     )
+    .onAppear { active = true }
     .task { initialize() }
     .onChange(of: scenePhase) { _, phase in if phase != .active { audio.interrupt() } }
     .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) {
       _ in audio.interrupt()
     }
-    .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) {
-      notification in
+    .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { notification in
       if let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-        reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue
-      {
-        audio.interrupt()
-      }
+        reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue { audio.interrupt() }
     }
-    .onDisappear { studioTask?.cancel(); audio.shutdown() }
+    .onDisappear {
+      active = false
+      generateOnFinish = false
+      studioTask?.cancel()
+      audio.shutdown()
+    }
+    .onChange(of: store.cloudState.epoch) { _, _ in
+      generateOnFinish = false
+      recordingGeneration = UUID()
+      studioTask?.cancel()
+      audio.onFinish = nil
+      audio.shutdown()
+      currentNote = nil
+      organized = ""
+      annotation = ""
+      saved = false
+      phase = "idle"
+    }
     .onChange(of: closeRequest) { _, _ in finishAndClose() }
-    .interactiveDismissDisabled(
-      audio.state == .recording || audio.state == .paused || saving
-        || (!saved && audio.audioURL != nil)
-    )
+    .interactiveDismissDisabled(audio.state == .recording || audio.state == .paused || saving
+      || (!saved && audio.audioURL != nil))
     .alert("重新录制？", isPresented: $showReset) {
       Button("取消", role: .cancel) {}
       Button("重新录制", role: .destructive) {
+        generateOnFinish = false
         studioTask?.cancel()
         recordingGeneration = UUID()
         audio.reset()
         saved = false
-        transcript = ""
         organized = ""
+        annotation = ""
         phase = "idle"
         currentNote = nil
-        remoteNote = nil
-        resultJob = nil
         studioError = nil
       }
-    } message: {
-      Text("已保存的旧录音仍可在笔记列表中找到。")
-    }
+    } message: { Text("已保存的旧录音和笔记仍可在笔记列表中找到。") }
   }
   @ViewBuilder private var recorderCard: some View {
     if embedded { recorderContent } else { BCCard { recorderContent } }
@@ -400,61 +429,45 @@ struct NotesVoiceNoteView: View {
     VStack(spacing: embedded ? 10 : 14) {
       HStack(alignment: .center, spacing: embedded ? 2 : 4) {
         ForEach(Array(audio.waveform.enumerated()), id: \.offset) { _, value in
-          Capsule().fill(
-            LinearGradient(
-              colors: [Color(hex: 0x71c9f2), DS.primary], startPoint: .top, endPoint: .bottom)
-          ).frame(width: embedded ? 2 : 4, height: max(4, value * (embedded ? 36 : 90)))
+          Capsule().fill(LinearGradient(colors: [Color(hex: 0x71c9f2), DS.primary],
+            startPoint: .top, endPoint: .bottom))
+            .frame(width: embedded ? 2 : 4, height: max(4, value * (embedded ? 36 : 90)))
         }
       }.frame(maxWidth: .infinity).frame(height: embedded ? 64 : store.isPad ? 146 : 110)
-        .background(
-          RadialGradient(
-            colors: [DS.primary.opacity(0.14), Color(hex: 0xf7f4ff)], center: .center,
-            startRadius: 0, endRadius: 160), in: RoundedRectangle(cornerRadius: 18)
-        )
-        .accessibilityLabel("实时录音波形").animation(
-          reduceMotion ? nil : .easeOut(duration: 0.12), value: audio.waveform)
-      Text(formatTime(audio.seconds)).font(DS.font(embedded ? 18 : 20, weight: .bold)).frame(
-        minHeight: 29
-      ).monospacedDigit().foregroundStyle(DS.primary)
+        .background(RadialGradient(colors: [DS.primary.opacity(0.14), Color(hex: 0xf7f4ff)],
+          center: .center, startRadius: 0, endRadius: 160), in: RoundedRectangle(cornerRadius: 18))
+        .accessibilityLabel("实时录音波形")
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: audio.waveform)
+      Text(formatTime(audio.seconds)).font(DS.font(embedded ? 18 : 20, weight: .bold))
+        .frame(minHeight: 29).monospacedDigit().foregroundStyle(DS.primary)
       Text(title).font(DS.font(embedded ? 16 : 20, weight: .bold)).frame(minHeight: 29)
         .multilineTextAlignment(.center)
-      Text(audio.state == .ready ? "先回放确认，再生成可编辑逐字稿。" : "最长 10 分钟；原始录音会与整理版分别保留。")
-        .font(DS.font(embedded ? 13 : 20)).foregroundStyle(DS.muted).lineSpacing(5)
-        .multilineTextAlignment(.center)
-      if let error = saveError ?? audio.error {
-        VStack(alignment: .leading, spacing: 8) {
-          Text("录音提示").font(DS.font(14, weight: .bold))
-          Text(error).font(DS.font(13))
-          HStack {
-            if saveError != nil {
-              BCButton("重试保存", style: .secondary) { Task { _ = await saveCurrent() } }
-            } else {
-              BCButton("重新尝试", style: .secondary) { Task { await audio.start() } }
-            }
-          }
-        }.padding(12).foregroundStyle(DS.danger).background(
-          Color(hex: 0xfff0f3), in: RoundedRectangle(cornerRadius: 14))
-      }
+      Text(audio.state == .ready
+        ? "录音可随时回放，整理后的笔记会自动保存。"
+        : "最长 10 分钟。结束并生成笔记后，DeepSeek 会结合教材整理你的想法。")
+        .font(DS.font(embedded ? 13 : 16)).foregroundStyle(DS.muted)
+        .lineSpacing(5).multilineTextAlignment(.center)
       controls
-      if audio.state == .ready {
-        if saving { ProgressView("正在保存原始录音…").font(DS.font(13)) }
-        if phase == "idle" {
-          Text("转写时会将这段录音发送到你连接的学习服务；原始录音继续保存在本机。").font(DS.font(12)).foregroundStyle(DS.muted)
-          BCButton("上传录音并转写", icon: "Sparkles") { transcribe() }.disabled(!saved || saving)
-          BCButton("手动填写逐字稿", style: .text) { phase = "needs_confirmation" }
-        }
-        BCTextField("补充这段录音的想法", text: $annotation)
-        BCButton("保存批注文字", style: .text) { Task { _ = await saveCurrent() } }.disabled(saving)
-      }
-      if let studioError {
-        Text(studioError).font(DS.font(13)).foregroundStyle(DS.danger)
-        if phase != "transcribing" && phase != "organizing" {
-          BCButton("重新查询转写", style: .secondary) { transcribe() }.disabled(!saved || saving)
+      if saving { ProgressView("正在保存录音与笔记…").font(DS.font(13)) }
+      if let error = saveError ?? audio.error {
+        Text(error).font(DS.font(13)).foregroundStyle(DS.danger)
+        if saveError != nil {
+          BCButton("重试保存", style: .secondary) { Task { _ = await saveCurrent() } }.disabled(saving)
         }
       }
-      if phase == "transcribing" || phase == "organizing" {
-        ProgressView(phase == "transcribing" ? "正在上传并转写真实录音…" : "正在按确认后的文字整理…").font(DS.font(13))
-          .foregroundStyle(DS.primary)
+      if audio.state == .ready && organized.isEmpty && !working {
+        Text("生成时会将录音发送到学习服务，在后台识别并整理，直接展示笔记。")
+          .font(DS.font(12)).foregroundStyle(DS.muted)
+        BCButton(studioError == nil ? "生成笔记" : "重试生成笔记", icon: "Sparkles") {
+          generateNote(retryFailed: studioError != nil)
+        }.disabled(!saved || saving).accessibilityIdentifier("voice.generate")
+      }
+      if let studioError { Text(studioError).font(DS.font(13)).foregroundStyle(DS.danger) }
+      if working {
+        ProgressView(progressTitle).font(DS.font(14)).foregroundStyle(DS.primary)
+          .accessibilityIdentifier("voice.generating")
+        Text("你可以离开此页，稍后回来继续查看。")
+          .font(DS.font(12)).foregroundStyle(DS.muted)
       }
     }.padding(2).padding(.bottom, embedded ? 0 : 7)
   }
@@ -462,22 +475,24 @@ struct NotesVoiceNoteView: View {
     HStack(spacing: 14) {
       switch audio.state {
       case .recording, .paused:
-        roundControl(
-          audio.state == .paused ? "Play" : "Pause",
-          title: audio.state == .paused ? "继续录音" : "暂停录音", main: false
-        ) { audio.togglePause() }
-        roundControl("Square", title: "结束录音", main: true, stop: true) { audio.stop() }
+        roundControl(audio.state == .paused ? "Play" : "Pause",
+          title: audio.state == .paused ? "继续录音" : "暂停录音", main: false) { audio.togglePause() }
+        VStack(spacing: 5) {
+          roundControl("Square", title: "结束并生成笔记", main: true, stop: true) {
+            generateOnFinish = true
+            audio.stop()
+          }
+          Text("结束并生成笔记").font(DS.font(12)).foregroundStyle(DS.primary)
+        }
       case .ready:
-        roundControl("RotateCcw", title: "重新录制", main: false) { showReset = true }
-        roundControl(
-          audio.playing ? "Pause" : "Play", title: audio.playing ? "暂停回放" : "播放录音", main: false
-        ) { audio.togglePlayback() }
+        roundControl("RotateCcw", title: "重新录制", main: false) { showReset = true }.disabled(working || saving)
+        roundControl(audio.playing ? "Pause" : "Play",
+          title: audio.playing ? "暂停回放" : "播放录音", main: false) { audio.togglePlayback() }
         if audio.playbackDuration > 0 {
           VStack(spacing: 3) {
-            Slider(
-              value: Binding(get: { audio.playbackPosition }, set: { audio.seek($0) }),
-              in: 0...max(0.01, audio.playbackDuration)
-            ).tint(DS.primary).accessibilityLabel("录音回放位置")
+            Slider(value: Binding(get: { audio.playbackPosition }, set: { audio.seek($0) }),
+              in: 0...max(0.01, audio.playbackDuration)).tint(DS.primary)
+              .accessibilityLabel("录音回放位置")
             Text("\(formatTime(audio.playbackPosition)) / \(formatTime(audio.playbackDuration))")
               .font(DS.font(10)).foregroundStyle(DS.muted)
           }
@@ -487,47 +502,28 @@ struct NotesVoiceNoteView: View {
       }
     }.frame(maxWidth: .infinity).frame(minHeight: embedded ? 56 : 68)
   }
-  private func roundControl(
-    _ icon: String, title: String, main: Bool, stop: Bool = false, action: @escaping () -> Void
-  ) -> some View {
+  private func roundControl(_ icon: String, title: String, main: Bool, stop: Bool = false,
+    action: @escaping () -> Void) -> some View {
     Button(action: action) {
       NotesGlyph(name: icon, size: main ? (embedded ? 24 : 30) : (embedded ? 20 : 24))
-        .foregroundStyle(main ? .white : DS.primary).frame(
-          width: main ? (embedded ? 56 : 68) : (embedded ? 44 : 52),
-          height: main ? (embedded ? 56 : 68) : (embedded ? 44 : 52)
-        ).background(
-          main ? (stop ? Color(hex: 0xe04462) : DS.primary) : DS.primarySoft, in: Circle()
-        ).shadow(color: main ? DS.primary.opacity(0.22) : .clear, radius: 11, y: 6)
+        .foregroundStyle(main ? .white : DS.primary)
+        .frame(width: main ? (embedded ? 56 : 68) : (embedded ? 44 : 52),
+          height: main ? (embedded ? 56 : 68) : (embedded ? 44 : 52))
+        .background(main ? (stop ? Color(hex: 0xe04462) : DS.primary) : DS.primarySoft, in: Circle())
+        .shadow(color: main ? DS.primary.opacity(0.22) : .clear, radius: 11, y: 6)
     }.buttonStyle(.plain).accessibilityLabel(title)
   }
-  private var results: some View {
-    VStack(spacing: 16) {
-      if phase == "needs_confirmation" {
-        BCCard {
-          VStack(alignment: .leading, spacing: 14) {
-            BCPill("请确认逐字稿", color: Color(hex: 0x3c9fcc))
-            Text("AI 不会替你猜测原话").font(DS.font(20, weight: .bold))
-            Text("请回放原始录音并核对文字，无法确定的内容请手动修正后再整理。").font(DS.font(13)).foregroundStyle(DS.muted)
-            BCTextEditor(text: $transcript, placeholder: "请修正逐字稿").frame(minHeight: 190)
-              .accessibilityIdentifier("voice.transcript")
-            BCButton("确认并继续整理", icon: "Save") { organize() }.disabled(
-              transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || saving)
-            BCButton("只保存逐字稿", style: .secondary) { Task { _ = await saveCurrent() } }.disabled(saving)
-          }
-        }
-      }
-      if phase == "complete" && !organized.isEmpty {
-        BCCard {
-          VStack(alignment: .leading, spacing: 14) {
-            BCPill(organizedAccepted ? "已保留的独立整理版" : "服务端整理建议 · 待确认", color: DS.mint)
-            Text("独立整理版").font(DS.font(20, weight: .bold))
-            Text(organized).font(DS.font(14)).lineSpacing(6).textSelection(.enabled)
-            Text("原始录音与确认后的逐字稿均已保留，整理版不会覆盖它们。").font(DS.font(12)).foregroundStyle(DS.muted)
-            BCButton("保留整理版", style: .secondary) {
-              keepOrganized()
-            }
-            BCButton("修改逐字稿", style: .text) { phase = "needs_confirmation" }
-          }
+  @ViewBuilder private var results: some View {
+    if !organized.isEmpty {
+      BCCard {
+        VStack(alignment: .leading, spacing: 14) {
+          BCPill(saving ? "正在保存" : saveError == nil ? "已保存" : "待保存", color: DS.mint)
+          Text("整理后的笔记").font(DS.font(20, weight: .bold))
+          Text(organized).font(DS.font(16)).lineSpacing(7).textSelection(.enabled)
+            .accessibilityIdentifier("voice.organized")
+          Text("原始录音已保留，可随时回放。")
+            .font(DS.font(12)).foregroundStyle(DS.muted)
+          if !embedded { BCButton("完成", style: .secondary) { finishAndClose() } }
         }
       }
     }
@@ -535,9 +531,9 @@ struct NotesVoiceNoteView: View {
   private func initialize() {
     guard !initialized else { return }
     initialized = true
-    let record =
-      existingNote
-      ?? NotesCaptureContext.existingNoteID.flatMap { id in store.notes.first { $0.id == id } }
+    let record = existingNote ?? NotesCaptureContext.existingNoteID.flatMap { id in
+      store.notes.first { $0.id == id }
+    }
     NotesCaptureContext.existingNoteID = nil
     NotesCaptureContext.pendingKind = nil
     currentNote = record
@@ -548,48 +544,51 @@ struct NotesVoiceNoteView: View {
     capturePosition = record?.position ?? NotesCaptureContext.position
     captureTitle = record?.title ?? store.activeLesson?.title ?? store.chapterTitle
     if let record {
-      transcript = record.transcript ?? ""
       annotation = record.body
       organized = record.organizedText ?? ""
-      phase = !organized.isEmpty ? "complete" : !transcript.isEmpty ? "needs_confirmation" : "idle"
+      phase = organized.isEmpty ? "idle" : "complete"
       if let path = record.audioPath {
         audio.load(url: store.attachmentURL(path), duration: record.duration)
         saved = true
       }
     }
-    audio.onFinish = { Task { _ = await saveCurrent() } }
+    audio.onFinish = {
+      let shouldGenerate = generateOnFinish
+      let generation = recordingGeneration, epoch = store.cloudState.epoch
+      generateOnFinish = false
+      Task {
+        if await saveCurrent(), shouldGenerate, active,
+          generation == recordingGeneration, epoch == store.cloudState.epoch { generateNote() }
+      }
+    }
+    if organized.isEmpty && saved { restoreGeneratedNote() }
   }
   @discardableResult private func saveCurrent() async -> Bool {
     guard let url = audio.audioURL else { return true }
     guard !saving else { return false }
     saving = true
-    let generation = recordingGeneration
-    let epoch = store.cloudState.epoch
+    let generation = recordingGeneration, epoch = store.cloudState.epoch
     saveError = nil
-    var note =
-      currentNote
-      ?? StudyNote(
-        kind: .voice, title: "\(captureTitle.isEmpty ? "语音笔记" : captureTitle) · 语音",
-        body: annotation)
-    note = NotesAnnotationRecord.mergingConversation(
-      draft: note, stored: store.notes.first { $0.id == note.id })
+    var note = currentNote ?? StudyNote(kind: .voice,
+      title: "\(captureTitle.isEmpty ? "语音笔记" : captureTitle) · 语音", body: annotation)
+    note = NotesAnnotationRecord.mergingConversation(draft: note,
+      stored: store.notes.first { $0.id == note.id })
     note.body = annotation
     note.anchor = anchor
     note.duration = audio.seconds
     note.updatedAt = .now
-    note.transcript = transcript.isEmpty ? nil : transcript
-    if organizedAccepted { note.organizedText = organized.isEmpty ? nil : organized }
+    // Legacy transcripts stay in storage for compatibility and are never displayed.
+    // New recordings only store their original audio and the finished note.
+    note.organizedText = organized.isEmpty ? nil : organized
     note.position = capturePosition
     do {
       if note.audioPath == nil || !saved {
         let bytes = try Data(contentsOf: url)
-        guard !bytes.isEmpty else {
-          throw NSError(
-            domain: "NotesAudio", code: 4, userInfo: [NSLocalizedDescriptionKey: "录音文件为空，请重新录制。 "])
-        }
-        note.audioPath = try await store.saveAttachment(
-          bytes, extension: url.pathExtension.isEmpty ? "m4a" : url.pathExtension)
+        guard !bytes.isEmpty else { throw CloudError(status: 422, message: "录音文件为空，请重新录制。") }
+        note.audioPath = try await store.saveAttachment(bytes,
+          extension: url.pathExtension.isEmpty ? "m4a" : url.pathExtension)
       }
+      guard generation == recordingGeneration, epoch == store.cloudState.epoch else { saving = false; return false }
       try await store.saveNote(note)
       guard generation == recordingGeneration, epoch == store.cloudState.epoch else { saving = false; return false }
       currentNote = note
@@ -597,121 +596,88 @@ struct NotesVoiceNoteView: View {
       saving = false
       return true
     } catch {
-      saveError = "录音保存失败，原始文件仍保留，可重试：\(error.localizedDescription)"
-      saved = false
+      saveError = "保存失败，原始录音仍保留，可重试：\(error.localizedDescription)"
       saving = false
       return false
     }
   }
   private func finishAndClose() {
+    generateOnFinish = false
     audio.onFinish = nil
     audio.stop()
     Task {
       while saving { try? await Task.sleep(for: .milliseconds(50)) }
       if await saveCurrent() {
+        studioTask?.cancel()
         if let onClose { onClose() } else if embedded { dismiss() } else { store.back() }
-      } else {
-        audio.onFinish = { Task { _ = await saveCurrent() } }
       }
     }
   }
-  private func transcribe() {
+  private func generateNote(retryFailed: Bool = false) {
     guard studioTask == nil else { return }
     studioError = nil
-    phase = "transcribing"
-    let generation = recordingGeneration
-    let epoch = store.cloudState.epoch
+    phase = "uploading"
+    let generation = recordingGeneration, epoch = store.cloudState.epoch
     studioTask = Task { @MainActor in
       defer { studioTask = nil }
       do {
         guard await saveCurrent(), let note = currentNote, let path = note.audioPath else {
-          throw CloudError(status: 409, message: "请先保存原始录音，再重试转写。")
+          throw CloudError(status: 409, message: "请先保存原始录音，再重试生成笔记。")
         }
         guard let api = store.cloud, store.cloudState.authenticated else {
-          throw CloudError(status: 503, message: "尚未连接学习服务，录音已保存在本机；连接后可转写，也可以手动填写逐字稿。")
+          throw CloudError(status: 503, message: "学习服务尚未连接。录音已保存在本机，连接后可生成笔记。")
         }
         let service = StudioService(api: api)
-        let remote = try await service.prepareVoice(note: note, fileURL: store.attachmentURL(path))
-        let submitted = try await service.analyze(note: remote, action: "recognize")
-        let result = try await service.waitForJob(submitted)
+        let result = try await service.generateVoice(note: note, fileURL: store.attachmentURL(path),
+          retryFailed: retryFailed, onProgress: { next in
+            guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+            phase = next
+          })
         try Task.checkCancellation()
-        guard generation == recordingGeneration, epoch == store.cloudState.epoch, currentNote?.id == note.id else { return }
-        guard !result.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-          throw CloudError(status: 422, message: "未识别到可用文字，请回放录音并手动补充；原始录音仍保留。")
-        }
-        remoteNote = remote
-        transcript = result.transcript
-        phase = "needs_confirmation"
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch,
+          currentNote?.id == note.id else { return }
+        try await service.accept(note: result.remoteNote, job: result.job)
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+        organized = result.job.polished
+        phase = "complete"
         _ = await saveCurrent()
       } catch is CancellationError {
-        if generation == recordingGeneration { phase = transcript.isEmpty ? "idle" : "needs_confirmation" }
-        return
-      }
-      catch {
-        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
-        studioError = error.localizedDescription
-        phase = transcript.isEmpty ? "idle" : "needs_confirmation"
-      }
-    }
-  }
-  private func organize() {
-    guard studioTask == nil else { return }
-    studioError = nil
-    phase = "organizing"
-    let confirmed = transcript
-    let generation = recordingGeneration
-    let epoch = store.cloudState.epoch
-    studioTask = Task { @MainActor in
-      defer { studioTask = nil }
-      do {
-        guard await saveCurrent(), let note = currentNote, let path = note.audioPath else {
-          throw CloudError(status: 409, message: "请先保存原始录音和逐字稿。")
-        }
-        guard let api = store.cloud, store.cloudState.authenticated else {
-          throw CloudError(status: 503, message: "整理服务尚未连接，确认后的逐字稿与原始录音已保存在本机。")
-        }
-        let service = StudioService(api: api)
-        let remote = try await service.prepareVoice(note: note, fileURL: store.attachmentURL(path))
-        let submitted = try await service.analyze(note: remote, action: "improve", transcript: confirmed)
-        let result = try await service.waitForJob(submitted)
-        try Task.checkCancellation()
-        guard generation == recordingGeneration, epoch == store.cloudState.epoch, currentNote?.id == note.id, transcript == confirmed else { return }
-        guard result.status == "succeeded", !result.polished.isEmpty else {
-          throw CloudError(status: 409, message: "服务没有返回可采用的整理版，请继续核对逐字稿；原稿仍保留。")
-        }
-        remoteNote = remote
-        resultJob = result
-        organized = result.polished
-        organizedAccepted = false
-        phase = "complete"
-      } catch is CancellationError {
-        if generation == recordingGeneration { phase = "needs_confirmation" }
-        return
-      }
-      catch {
-        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
-        studioError = error.localizedDescription
-        phase = "needs_confirmation"
-      }
-    }
-  }
-  private func keepOrganized() {
-    guard studioTask == nil else { return }
-    let epoch = store.cloudState.epoch
-    studioTask = Task { @MainActor in
-      defer { studioTask = nil }
-      do {
-        if !organizedAccepted {
-          guard let api = store.cloud, let remoteNote, let resultJob else {
-            throw CloudError(status: 409, message: "整理结果尚未确认，请重新查询。")
-          }
-          try await StudioService(api: api).accept(note: remoteNote, job: resultJob)
-        }
-        guard epoch == store.cloudState.epoch else { return }
-        organizedAccepted = true
-        if await saveCurrent() { store.showToast("整理版已保存在本机") }
+        if generation == recordingGeneration { phase = organized.isEmpty ? "idle" : "complete" }
       } catch {
-        if epoch == store.cloudState.epoch { studioError = error.localizedDescription }
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+        studioError = error.localizedDescription
+        phase = organized.isEmpty ? "idle" : "complete"
+      }
+    }
+  }
+  private func restoreGeneratedNote() {
+    guard studioTask == nil, let api = store.cloud, store.cloudState.authenticated,
+      let note = currentNote, let path = note.audioPath else { return }
+    phase = "restoring"
+    let generation = recordingGeneration, epoch = store.cloudState.epoch
+    studioTask = Task { @MainActor in
+      defer { studioTask = nil }
+      do {
+        let service = StudioService(api: api)
+        guard let result = try await service.restoreVoice(note: note, fileURL: store.attachmentURL(path),
+          onProgress: { next in
+            guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+            phase = next
+          }) else { phase = "idle"; return }
+        try Task.checkCancellation()
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch,
+          currentNote?.id == note.id else { return }
+        try await service.accept(note: result.remoteNote, job: result.job)
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+        organized = result.job.polished
+        phase = "complete"
+        _ = await saveCurrent()
+      } catch is CancellationError {
+        if generation == recordingGeneration { phase = organized.isEmpty ? "idle" : "complete" }
+      } catch {
+        guard generation == recordingGeneration, epoch == store.cloudState.epoch else { return }
+        studioError = error.localizedDescription
+        phase = organized.isEmpty ? "idle" : "complete"
       }
     }
   }

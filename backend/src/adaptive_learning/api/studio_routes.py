@@ -75,7 +75,7 @@ def studio_router(
             ).fetchone()
         return {
             **value,
-            "edition": {"job_id": row["job_id"], **json.loads(row["result"])} if row else None,
+            "edition": {"job_id": row["job_id"], **studio.public_note_result(json.loads(row["result"]))} if row else None,
         }
 
     @router.put("/studio/notes/{key}/audio")
@@ -128,21 +128,25 @@ def studio_router(
         if value["revision"] != data.revision:
             raise HTTPException(409, "笔记已有新版本，请重新打开")
         voice = value.get("input_mode", "ink") == "voice"
+        if data.action == "voice_note" and not voice:
+            raise HTTPException(422, "语音笔记生成仅支持已保存的录音")
         if voice and not value.get("audio_ready"):
             raise HTTPException(422, "请先录下一点内容，再请 AI 帮你整理")
         if not voice and not value["strokes"]:
             raise HTTPException(422, "先写下一点内容，再请 AI 帮你看看")
         if data.action == "improve" and (len(data.transcript) < 2 or "[待确认]" in data.transcript):
             raise HTTPException(422, "请先核对并补充识别文字，再检查理解")
-        capability = "voice_notes" if voice else "notes_ai"
-        if not studio.capabilities()[capability]:
+        capabilities = studio.capabilities()
+        ready = (capabilities["voice_notes"] if voice and data.action == "voice_note" else
+                 capabilities.get("voice_notes_legacy", capabilities["voice_notes"]) if voice else capabilities["notes_ai"])
+        if not ready:
             raise HTTPException(
                 503, f"笔记 AI 暂未就绪，你的{'录音' if voice else '手写内容'}已保存"
             )
         return studio.submit(
             owner,
             {
-                **data.model_dump(),
+                **data.model_dump(exclude={"transcript"} if data.action == "voice_note" else set()),
                 "book_id": value["book_id"],
                 "chapter_title": value["chapter_title"],
                 "note_id": key,
@@ -157,7 +161,7 @@ def studio_router(
         row = studio.job(owner, data.job_id)
         spec = json.loads(row["data"])
         if (
-            row["kind"] not in {"improve", "complete"}
+            row["kind"] not in {"improve", "complete", "voice_note"}
             or row["status"] != "succeeded"
             or spec.get("note_id") != key
         ):

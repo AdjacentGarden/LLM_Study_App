@@ -5,7 +5,7 @@ final class BookCourseUITests: XCTestCase {
   override func setUpWithError() throws { continueAfterFailure = false }
   private func launch(
     _ route: String, sheet: String? = nil, session: String = UUID().uuidString,
-    chapter: String = "c2s1", visual: Bool = false
+    chapter: String = "c2s1", visual: Bool = false, extraArgs: [String] = []
   ) -> XCUIApplication {
     let app = XCUIApplication()
     app.launchArguments = [
@@ -13,6 +13,7 @@ final class BookCourseUITests: XCTestCase {
     ]
     if visual { app.launchArguments += ["--fixture-reduce-motion", "--visual-baseline"] }
     if let sheet { app.launchArguments += ["--sheet", sheet] }
+    app.launchArguments += extraArgs
     app.launch()
     XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
     return app
@@ -668,7 +669,7 @@ final class BookCourseUITests: XCTestCase {
     page.coordinate(withNormalizedOffset: CGVector(dx: 0.30, dy: 0.40)).press(
       forDuration: 0.1,
       thenDragTo: page.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.45)))
-    let organize = app.buttons["识别并整理"].firstMatch
+    let organize = app.buttons["上传笔迹并识别"].firstMatch
     XCTAssertTrue(organize.waitForExistence(timeout: 10))
     keepScreenshot("popup-native-pencilkit-stroke", app: app)
     organize.tap()
@@ -714,6 +715,64 @@ final class BookCourseUITests: XCTestCase {
       predicate: NSPredicate(format: "exists == false"), object: record)
     XCTAssertEqual(XCTWaiter.wait(for: [voiceClosed], timeout: 10), .completed)
     keepScreenshot("popup-voice-close-keeps-parent", app: app)
+  }
+
+  func testLegacyVoiceTranscriptOnlyNeverAppearsAndOffersOneStepNoteGeneration() throws {
+    try checkLegacyVoicePresentation("raw_only")
+  }
+
+  func testLegacyOrganizedVoiceNoteShowsOnlyFinalNoteAndRestoresPlaybackAfterRelaunch() throws {
+    try checkLegacyVoicePresentation("organized")
+  }
+
+  private func checkLegacyVoicePresentation(_ scenario: String) throws {
+    XCUIDevice.shared.orientation = .portrait
+    let session = UUID().uuidString
+    let rawMarker = "LEGACY_VOICE_RAW_PRIVATE_20261027"
+    let finalMarker = "整理后的语音笔记：遗传物质复制一次，细胞连续分裂两次。"
+    let app = launch("notes", session: session,
+      extraArgs: ["--fixture-voice-note", scenario])
+
+    func assertNoRawTranscript() {
+      XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", rawMarker)).firstMatch.exists)
+      XCTAssertFalse(app.textViews.matching(NSPredicate(format: "value CONTAINS %@", rawMarker)).firstMatch.exists)
+      XCTAssertFalse(app.textViews["voice.transcript"].exists)
+      for label in ["请确认逐字稿", "确认并继续整理", "只保存逐字稿", "修改逐字稿", "保留整理版"] {
+        XCTAssertFalse(app.staticTexts[label].exists)
+        XCTAssertFalse(app.buttons[label].exists)
+      }
+    }
+
+    for pass in 0..<2 {
+      XCTAssertTrue(app.staticTexts["兼容测试：旧语音笔记"].firstMatch.waitForExistence(timeout: 20))
+      assertNoRawTranscript()
+      if scenario == "organized" {
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", finalMarker)).firstMatch.exists)
+      }
+      let open = app.buttons["打开语音笔记"].firstMatch
+      try reveal(open, in: app)
+      open.tap()
+      let replay = app.buttons["播放录音"].firstMatch
+      XCTAssertTrue(replay.waitForExistence(timeout: 15))
+      assertNoRawTranscript()
+      if scenario == "organized" {
+        XCTAssertTrue(app.descendants(matching: .any)["voice.organized"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", finalMarker)).firstMatch.exists)
+      } else {
+        XCTAssertTrue(app.buttons["voice.generate"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["voice.organized"].firstMatch.exists)
+      }
+      keepScreenshot("legacy-voice-\(scenario)-\(pass)", app: app)
+      app.buttons["navigation.back"].firstMatch.tap()
+      XCTAssertTrue(app.buttons["打开语音笔记"].firstMatch.waitForExistence(timeout: 15))
+      assertNoRawTranscript()
+      if pass == 0 {
+        app.terminate()
+        app.launchArguments = ["--fixture", "--fixture-session", session, "--route", "notes", "--chapter", "c2s1"]
+        app.launch()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
+      }
+    }
   }
 
   func testSourceTextAutosaveSurvivesTermination() throws {

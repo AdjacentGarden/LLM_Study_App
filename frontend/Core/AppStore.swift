@@ -336,6 +336,38 @@ import SwiftUI
           selectedLessonID = lessons.first(where: { $0.chapter_id == "c2s1" })?.id
           selectedQuote = "减数分裂过程中，染色体只复制一次，而细胞分裂两次。"
         }
+        #if DEBUG
+        // Legacy display fixtures are confined to the isolated --fixture store.
+        // Silence is a decodable attachment, never a microphone/ASR success claim.
+        if let i = arguments.firstIndex(of: "--fixture-voice-note"), arguments.indices.contains(i + 1),
+          ["raw_only", "organized"].contains(arguments[i + 1]) {
+          let scenario = arguments[i + 1]
+          let id = "fixture-legacy-voice-" + scenario
+          if !notes.contains(where: { $0.id == id }) {
+            let audio = NotesAudioController()
+            audio.makeSample()
+            guard let original = audio.audioURL else {
+              throw ContentError.storage("语音显示测试附件未能创建")
+            }
+            defer {
+              audio.shutdown()
+              try? FileManager.default.removeItem(at: original)
+            }
+            let attachment = try await repository.saveAttachment(Data(contentsOf: original), extension: "wav")
+            let note = StudyNote(
+              id: id, kind: .voice, title: "兼容测试：旧语音笔记", body: "",
+              anchor: NoteAnchor(courseID: selectedCourseID, bookID: selectedBookID ?? "book_biology_2",
+                chapterID: "c2s1", page: 11, printedPage: 16),
+              audioPath: attachment, duration: 8,
+              transcript: "LEGACY_VOICE_RAW_PRIVATE_20261027",
+              organizedText: scenario == "organized"
+                ? "整理后的语音笔记：遗传物质复制一次，细胞连续分裂两次。" : nil)
+            try await repository.saveNote(note)
+            notes = try await repository.loadNotes()
+          }
+          if route == .voiceNote { NotesCaptureContext.existingNoteID = id }
+        }
+        #endif
         if route == .communityBook || route == .communityImport {
           selectedCommunityID = "community_genetics"
         }

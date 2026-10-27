@@ -419,8 +419,9 @@ struct LearnerProfileView: View {
                 .rotationEffect(.degrees(-90))
               VStack(spacing: 2) {
                 Text(tasks.isEmpty ? "—" : "\(pendingTasks.count)").font(DS.font(16, weight: .bold))
-                Text(!tasks.isEmpty && pendingTasks.isEmpty ? "已完成" : "项待完成").font(DS.font(14))
-              }
+                Text(!tasks.isEmpty && pendingTasks.isEmpty ? "已完成" : "项待完成")
+                  .font(DS.font(12)).lineLimit(1).minimumScaleFactor(0.9)
+              }.frame(width: 48)
             }.frame(width: 64, height: 64).accessibilityLabel("\(pendingTasks.count) 项待完成")
           }
           if tasks.isEmpty {

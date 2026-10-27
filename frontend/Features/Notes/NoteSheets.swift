@@ -50,7 +50,7 @@ struct NotesTypePicker: View {
       VStack(spacing: 10) {
         option(.text, title: "文字笔记", copy: "点击原文任意位置，输入文字批注")
         option(.ink, title: "手写批注", copy: "打开教材原页，用触控笔圈画")
-        option(.voice, title: "语音笔记", copy: "保存原始录音，连接学习服务后转写整理")
+        option(.voice, title: "语音笔记", copy: "说出想法，直接生成整理笔记，原始录音保留")
       }
       Text("原始内容会一直保留，整理版不会覆盖你的记录。").font(DS.font(13)).foregroundStyle(DS.secondary).padding(
         .top, 30)
@@ -91,6 +91,10 @@ struct NotesTypePicker: View {
     NotesCaptureContext.position = nil
     store.closeSheet()
     if kind == .voice {
+      if let source = store.currentSource {
+        store.sourceTarget = SourcePageTarget(bookID: source.id, title: store.chapterTitle,
+          page: page, printedPage: printedPage, from: .notes)
+      }
       store.go(.voiceNote)
     } else if let source = store.currentSource {
       store.openSource(
@@ -584,7 +588,11 @@ enum NotesAnnotationRecord {
     return result
   }
   static func voicePreview(_ note: StudyNote) -> String {
-    let content = [note.body, note.transcript ?? ""].filter { !$0.isEmpty }.joined(separator: "\n\n")
-    return content.isEmpty ? "录音已保存，尚未生成逐字稿。" : content
+    let content = voiceText(note)
+    return content.isEmpty ? "录音已保存，点击生成笔记。" : content
+  }
+  static func voiceText(_ note: StudyNote) -> String {
+    let organized = note.organizedText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return organized.isEmpty ? note.body : organized
   }
 }

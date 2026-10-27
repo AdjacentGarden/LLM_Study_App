@@ -244,7 +244,7 @@ struct NotesHubView: View {
           }
           Text(preview(note)).font(DS.font(20)).lineSpacing(6).foregroundStyle(DS.secondary)
             .textSelection(.enabled).padding(.top, 35).padding(.bottom, 36)
-          if let organized = note.organizedText {
+          if note.kind != .voice, let organized = note.organizedText {
             VStack(alignment: .leading, spacing: 7) {
               Text("独立整理版").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
               Text(organized).font(DS.font(20)).lineSpacing(5).textSelection(.enabled)

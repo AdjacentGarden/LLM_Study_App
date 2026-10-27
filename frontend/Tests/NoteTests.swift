@@ -245,14 +245,18 @@ final class NoteTests: XCTestCase {
     XCTAssertNil(try JSONDecoder().decode(StudyNote.self, from: JSONSerialization.data(withJSONObject: oldJSON)).conversation)
   }
 
-  func testVoicePreviewIncludesPreservedAnnotationAndConfirmedTranscript() {
+  func testVoicePreviewShowsFinishedNoteAndNeverLegacyTranscript() {
     let note = StudyNote(kind: .voice, title: "语音批注", body: "录音前输入的想法", transcript: "确认后的逐字稿")
-    XCTAssertEqual(NotesAnnotationRecord.voicePreview(note), "录音前输入的想法\n\n确认后的逐字稿")
+    XCTAssertEqual(NotesAnnotationRecord.voicePreview(note), "录音前输入的想法")
     var beforeTranscription = note
-    beforeTranscription.transcript = nil
-    XCTAssertEqual(NotesAnnotationRecord.voicePreview(beforeTranscription), "录音前输入的想法")
     beforeTranscription.body = ""
-    XCTAssertEqual(NotesAnnotationRecord.voicePreview(beforeTranscription), "录音已保存，尚未生成逐字稿。")
+    XCTAssertEqual(NotesAnnotationRecord.voicePreview(beforeTranscription), "录音已保存，点击生成笔记。")
+    XCTAssertEqual(NotesAnnotationRecord.voiceText(beforeTranscription), "")
+    var finished = note
+    finished.organizedText = "吸热反应会吸收热量。"
+    XCTAssertEqual(NotesAnnotationRecord.voicePreview(finished), "吸热反应会吸收热量。")
+    XCTAssertEqual(NotesAnnotationRecord.voiceText(finished), "吸热反应会吸收热量。")
+    XCTAssertEqual(finished.transcript, "确认后的逐字稿")
   }
 
   func testDrawingKeepsRelativeLocationWhenPageWidthChanges() throws {

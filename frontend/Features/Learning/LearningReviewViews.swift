@@ -466,7 +466,8 @@ struct LearningExportView: View {
         }).joined(separator: "\n\n"),
       "复习建议": tasks.map { $0.title + "（" + $0.status + "）" }.joined(separator: "\n"),
       "用户文字笔记": notes.compactMap { note in
-        let body = note.organizedText ?? note.transcript ?? note.body
+        let body = note.kind == .voice ? NotesAnnotationRecord.voiceText(note)
+          : note.organizedText ?? note.transcript ?? note.body
         return body.isEmpty ? nil : note.title + "\n" + body
       }.joined(separator: "\n\n"),
     ]
