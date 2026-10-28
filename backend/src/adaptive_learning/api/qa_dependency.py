@@ -20,7 +20,7 @@ from ..rag.backends import TransformerPairReranker, TransformerQueryEncoder
 from ..rag.grounded_qa import GroundedAnswerGenerator
 from ..rag.index import PersistentRAGIndex, RAGIndexError
 from ..rag.service import TextbookQAService
-from ..rag.upload_index import build_upload_index, ensure_upload_index, published_upload_index
+from ..rag.upload_index import build_upload_index, published_upload_index
 
 
 class QAConfigurationError(RuntimeError):
@@ -230,12 +230,11 @@ def prepare_uploaded_book_index(book_id: str) -> Path:
     revision = (str(pages_path), info.st_mtime_ns, info.st_size, info.st_ino, id(encoder))
     with _upload_index_lock:
         cached = _upload_indexes.get(book_id)
-        if cached is not None and cached[0] == revision and cached[1].is_dir():
+        if (cached is not None and cached[0] == revision
+                and published_upload_index(book.file_path.parent) == cached[1]):
             _upload_indexes.move_to_end(book_id)
             return cached[1]
-    path = ensure_upload_index(
-        pages_path, book.file_path.parent / "rag-index", encoder=encoder, reranker=reranker
-    )
+    path = build_upload_index(book.file_path.parent, encoder)
     # Upload-only deployments have no default index to warm at startup. A real
     # retrieval verifies the query encoder and reranker before preparation can
     # advance; failed warmups remain uncached so the indexing stage can retry.

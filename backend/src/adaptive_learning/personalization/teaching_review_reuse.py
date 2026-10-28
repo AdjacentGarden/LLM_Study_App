@@ -24,9 +24,10 @@ def fingerprint(value: Any) -> str:
 
 
 class VerifiedComponentReuse:
-    """One generation invocation; no disk cache and no cross-course reuse."""
+    """Exact validated proofs, optionally persisted within one course repair run."""
 
-    def __init__(self, *, source_texts: dict[str, str], context: dict[str, Any]):
+    def __init__(self, *, source_texts: dict[str, str], context: dict[str, Any],
+                 persistence: Any = None):
         if not source_texts or not all(
             isinstance(k, str) and isinstance(v, str) for k, v in source_texts.items()
         ):
@@ -47,6 +48,7 @@ class VerifiedComponentReuse:
         self._context_hash = fingerprint({"sources": self._sources, "context": self._context})
         self._proofs: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
+        self._persistence = persistence
 
     def matches_context(self, *, source_texts: dict[str, str], context: dict[str, Any]) -> bool:
         return fingerprint({"sources": source_texts, "context": context}) == self._context_hash
@@ -81,12 +83,16 @@ class VerifiedComponentReuse:
         self._validate_literal_proof(component, proof)
         with self._lock:
             self._proofs[key] = deepcopy(proof)
+        if self._persistence:
+            self._persistence.proof_put(key, proof)
         return True
 
     def get(self, component: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
         key = self.key(component)
         with self._lock:
             proof = deepcopy(self._proofs.get(key))
+        if proof is None and self._persistence:
+            proof = self._persistence.proof_get(key)
         if proof is None:
             return None
         self._validate_literal_proof(component, proof)

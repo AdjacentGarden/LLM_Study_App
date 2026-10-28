@@ -38,6 +38,7 @@ from ..assessment.item_generation import (
     DiagnosticItemGenerator,
     diagnostic_bank_fingerprint,
     diagnostic_bank_key,
+    stable_knowledge_point_id,
 )
 from ..assessment.models import (
     AssessmentResponse,
@@ -45,6 +46,7 @@ from ..assessment.models import (
     EvidenceKind,
     InterviewPhase,
     InterviewSession,
+    MasteryPosterior,
     ResponseType,
     ScoredEvidence,
 )
@@ -92,6 +94,7 @@ from ..personalization.teaching_content import (
     TeachingServiceUnavailableError,
 )
 from ..personalization.teaching_evidence import TeachingEvidence, build_teaching_evidence
+from ..personalization.teaching_repairs import TeachingRepairPending, TeachingRepairStore
 from ..personalization.teaching_scope import (
     TEACHING_SCOPE_VERSION,
     TeachingScopeError,
@@ -254,10 +257,12 @@ diagnostic_audit = PrivateTeachingAudit(settings.data_dir / "private-diagnostic-
              "diagnostic_version": DIAGNOSTIC_BANK_VERSION}, secrets=teaching_audit.secrets)
 item_generator = _create_diagnostic_generator(
     settings, assessment_llm, teaching_review_client, audit_callback=diagnostic_audit)
+teaching_repairs = TeachingRepairStore(settings.data_dir / 'state' / 'course_jobs.sqlite3')
 teaching_generator = TeachingContentGenerator(
     teaching_client, scope_planner=TeachingScopePlanner(teaching_client),
     audit_callback=teaching_audit, review_client=teaching_review_client,
     review_identity=settings.teaching_review_identity,
+    repair_store=teaching_repairs,
 )
 _course_generation_locks = [threading.RLock() for _ in range(64)]
 
@@ -349,6 +354,14 @@ app = FastAPI(
     description="高精度文档重建、主动学习者诊断与个性化章节课程服务",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(TeachingRepairPending)
+async def teaching_repair_pending(_request: Request, error: TeachingRepairPending) -> JSONResponse:
+    return JSONResponse({'detail': str(error)}, status_code=503,
+                        headers={'Retry-After': str(int(error.retry_after))})
+
+
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 app.add_middleware(
     CORSMiddleware,
@@ -716,9 +729,46 @@ def _prepare_index(book_id: str) -> None:
 
 
 def _prepare_structure(book_id: str) -> None:
-    # Recovery after diagnostics failure should reuse the verified structure.
-    if job_repository.get_structure(book_id) is None:
+    existing = job_repository.get_structure(book_id)
+    if existing is None:
         generate_book_structure(book_id, require_chapter_reconstructor())
+        return
+    job = job_repository.get_job(book_id)
+    if job is None:
+        return
+    pages = load_normalized_pages(job.output_dir / "normalized" / "pages.jsonl")
+    reconstructor = require_chapter_reconstructor()
+    detected, _ = reconstructor.detector.detect(pages)
+    if [(c.start_page, c.end_page) for c in detected] == [(c.start_page, c.end_page) for c in existing.chapters]:
+        return
+    repaired = reconstructor.reconcile_book(pages, existing)
+    old_fingerprint = diagnostic_fingerprint(existing)
+    old_bank = assessment_repository.get_bank(diagnostic_bank_key(book_id), expected_fingerprint=old_fingerprint)
+    if old_bank:
+        assessment_repository.save_bank(book_id=f"diagnostic-history:{book_id}:{old_fingerprint}",
+            structure_fingerprint=old_fingerprint, items=old_bank)
+        by_id = {c.chapter_id: c for c in repaired.chapters}
+        previous = {c.chapter_id: c for c in existing.chapters}
+        retained = []
+        for item in old_bank:
+            chapter = by_id.get(item.chapter_id)
+            old = previous.get(item.chapter_id)
+            if chapter is None or old is None or not item.source_pages:
+                continue
+            old_points = {stable_knowledge_point_id(old.chapter_id, label): label for label in old.knowledge_points}
+            labels = [old_points.get(key) for key in item.knowledge_point_ids]
+            if (all(label in chapter.knowledge_points for label in labels)
+                    and all(chapter.start_page <= number <= chapter.end_page for number in item.source_pages)
+                    and all(old.knowledge_point_evidence.get(label) == chapter.knowledge_point_evidence.get(label)
+                            for label in labels)):
+                retained.append(item)
+        if retained:
+            assessment_repository.save_bank(book_id=f"diagnostic-retained:{book_id}",
+                structure_fingerprint=diagnostic_fingerprint(repaired), items=retained)
+    with assessment_repository._connect() as db:
+        published_sessions = {str(row["session_id"]) for row in db.execute("SELECT DISTINCT session_id FROM course_bundles")}
+    native_repository.reconcile_book_structure(book_id, existing, repaired, published_sessions)
+    job_repository.save_structure(book_id, repaired)
 
 
 def _prepare_diagnostics(book_id: str) -> None:
@@ -807,9 +857,23 @@ def preparation_status(book_id: str, request: Request, response: Response) -> di
         from ..assessment.item_repairs import diagnostic_item_progress
         structure = job_repository.get_structure(book_id)
         if structure is not None:
-            value.update(diagnostic_item_progress(item_generator, structure,
-                RepositoryDiagnosticChapterCache(assessment_repository), book_id))
+            retained, remaining = _diagnostic_repair_parts(book_id, structure)
+            progress = diagnostic_item_progress(item_generator, structure.model_copy(update={"chapters": remaining}),
+                RepositoryDiagnosticChapterCache(assessment_repository), book_id)
+            progress["diagnostics_completed"] += len(retained)
+            progress["diagnostics_total"] += len(retained)
+            value.update(progress)
     return value
+
+
+def _diagnostic_repair_parts(book_id: str, structure: BookStructure) -> tuple[list[DiagnosticItem], list[ChapterDraft]]:
+    retained = assessment_repository.get_bank(f"diagnostic-retained:{book_id}",
+        expected_fingerprint=diagnostic_fingerprint(structure)) or []
+    covered = {key for item in retained for key in item.knowledge_point_ids}
+    remaining = ([chapter for chapter in structure.chapters
+                  if not {key for key, _, _ in item_generator._select_points(chapter)} <= covered]
+                 if retained else structure.chapters)
+    return retained, remaining
 
 
 @app.get("/api/books/{book_id}/structure", response_model=BookStructure)
@@ -836,15 +900,22 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     if item_generator is None:
         raise HTTPException(status_code=503, detail="诊断内容暂时不可用，请稍后重试。")
     try:
-        items = item_generator.generate(structure,
-            chapter_cache=RepositoryDiagnosticChapterCache(assessment_repository), cache_scope=book_id)
+        retained, remaining = _diagnostic_repair_parts(book_id, structure)
+        covered = {key for item in retained for key in item.knowledge_point_ids}
+        generated = item_generator.generate(structure.model_copy(update={"chapters": remaining}),
+            chapter_cache=RepositoryDiagnosticChapterCache(assessment_repository), cache_scope=book_id) if remaining else []
+        items = [*retained, *(item for item in generated
+                             if not set(item.knowledge_point_ids) <= covered)]
         assessment_repository.save_bank(
             book_id=diagnostic_bank_key(book_id),
             structure_fingerprint=fingerprint,
             items=items,
         )
     except DiagnosticRepairPending as pending:
-        raise HTTPException(202, pending.details,
+        details = {**pending.details, "message": "正在准备学习诊断。"}
+        details["diagnostics_completed"] += len(retained)
+        details["diagnostics_total"] += len(retained)
+        raise HTTPException(202, details,
                             headers={"Retry-After": str(max(1, int(pending.details["retry_after_seconds"])))}) from pending
     except DiagnosticChapterSubmissionBlocked as error:
         raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请回教材准备页显式重试",
@@ -1044,7 +1115,7 @@ def _course_context(session_id: str, chapter_id: str) -> tuple[InterviewSession,
         evidence = build_teaching_evidence(chapter, pages)
     except (OSError, ValueError) as error:
         logger.warning("teaching source context unavailable", exc_info=error)
-        raise HTTPException(status_code=409, detail="本章原文上下文不完整，暂时不能生成课程") from error
+        raise HTTPException(status_code=409, detail="本章课程暂未准备完成，已保留进度，请稍后继续。") from error
     current_profile_hash = profile_fingerprint(resolved_profile(sys.modules[__name__], session))
     current_source_hash = hashlib.sha256((
         chapter_fingerprint(chapter, evidence.fingerprint) + "|" + TEACHING_CONTENT_VERSION
@@ -1101,7 +1172,7 @@ def _compile_course(session_id: str, chapter_id: str, *, refresh_profile: bool =
             # Never overwrite attempted questions, or publish an incomplete
             # historical draft merely because its content ID matches.
             raise HTTPException(status_code=409, detail="已有课程缺少当前完整审核，请更新课程版本后重试")
-        bundle = teaching_generator.generate(bundle, chapter, evidence)
+        bundle = teaching_generator.generate(bundle, chapter, evidence, run_scope=session_id)
         if not _current_scope_plan(bundle, evidence):
             raise TeachingContentError("课程缺少有效的当前范围规划")
         bundle.teaching_evidence_fingerprint = evidence.fingerprint
@@ -1119,7 +1190,8 @@ def _compile_course(session_id: str, chapter_id: str, *, refresh_profile: bool =
             raise HTTPException(status_code=503, detail="教学服务暂时不可用，课程尚未完成审核，请稍后重试") from error
         raise HTTPException(status_code=503, detail="本章教学内容未通过完整性与原文审核，请稍后重试") from error
     except ValueError as error:
-        raise HTTPException(status_code=409, detail="该章证据不足，暂时不能生成课程") from error
+        logger.warning("course source evidence unavailable", exc_info=error)
+        raise HTTPException(status_code=409, detail="本章课程暂未准备完成，已保留进度，请稍后继续。") from error
     if not inserted:
         concurrent = assessment_repository.get_course_for_session(session_id, bundle.course_id)
         if concurrent is None:
@@ -1184,6 +1256,7 @@ def _check_course_admission() -> None:
 course_job_queue = CourseJobQueue(
     settings.data_dir / 'state' / 'course_jobs.sqlite3', _generate_course_task,
     admission_check=_check_course_admission,
+    repair_store=teaching_repairs,
 )
 
 
@@ -1450,6 +1523,13 @@ def _session_or_404(session_id: str) -> InterviewSession:
     session = assessment_repository.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="未找到诊断会话")
+    context = native_repository.session_context(session_id)
+    if context:
+        structure = BookStructure.model_validate_json(context["structure_json"])
+        session.chapter_options = [{"id": chapter.chapter_id, "label": chapter.title}
+                                   for chapter in structure.chapters]
+        for chapter in structure.chapters:
+            session.profile.chapter_mastery.setdefault(chapter.chapter_id, MasteryPosterior())
     return session
 
 

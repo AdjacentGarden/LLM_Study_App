@@ -43,9 +43,12 @@ from .rubric_alignment import (
     make_rubric_alignment_batch,
     parse_rubric_alignment_response,
 )
-from .teaching_evidence import CANDIDATE_CONTEXT_VERSION, candidate_context_source_ids
+from .teaching_evidence import CANDIDATE_CONTEXT_VERSION, bounded_teaching_sources, candidate_context_source_ids
 from .teaching_fact_wire import compact_fact_payload
-from .teaching_review_reuse import VerifiedComponentReuse
+from .teaching_review_reuse import VerifiedComponentReuse, fingerprint
+from .teaching_repairs import (
+    TeachingRepairPending, TeachingRepairStore, current_repair, invalidate_repair_response,
+)
 from .teaching_scope import (
     TEACHING_SCOPE_VERSION,
     ScopePlanner,
@@ -180,15 +183,15 @@ class _StrictModel(BaseModel):
 class _Card(_StrictModel):
     card_id: str
     front: str = Field(min_length=6, max_length=120)
-    back: str = Field(min_length=12, max_length=360)
+    back: str = Field(min_length=1, max_length=360)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
 class _Practice(_StrictModel):
     item_id: str
     prompt: str = Field(min_length=8, max_length=300)
-    expected_answer: str = Field(min_length=20, max_length=800)
-    rubric: list[str] = Field(min_length=2, max_length=6)
+    expected_answer: str = Field(min_length=1, max_length=800)
+    rubric: list[str] = Field(min_length=1, max_length=6)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
@@ -211,13 +214,13 @@ class _Example(_StrictModel):
     title: str = Field(min_length=2, max_length=80)
     problem: str = Field(min_length=8, max_length=220)
     steps: list[str] = Field(min_length=2, max_length=5)
-    answer: str = Field(min_length=15, max_length=250)
+    answer: str = Field(min_length=1, max_length=250)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
 class _Checkpoint(_StrictModel):
     question: str = Field(min_length=8, max_length=180)
-    expected_answer: str = Field(min_length=12, max_length=500)
+    expected_answer: str = Field(min_length=1, max_length=500)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
@@ -420,8 +423,8 @@ OCR 不可靠时使用证据清楚的文字关系，不猜补字符或数值；�
 explanation 为90-260字自然讲解（70-1200字）：先解释是什么，再说为何/如何成立、条件与易错处；
 不要只改写标签，不要“请阅读/请解释”代替讲解，不得为凑字重复同一句。
 讲解面向学习者直接讲清知识，不以“教材未讨论/不能补充/此处没有证据”等审校说明凑字。
-flashcard 一个中心问题，front 6-120字、back 12-360字，答案先直接回答再保留必要条件。
-practice 为独立应用或辨析题（prompt 8-300字、expected_answer 20-800字），
+flashcard 一个中心问题，front 6-120字、back 1-360字，答案先直接回答再保留必要条件。
+practice 为独立应用或辨析题（prompt 8-300字、expected_answer 1-800字），
 题干不能包含待考查结论或完整答案；可明确标记“假设”的简单情境，但不能编造实验事实。
 每道 practice 按以下顺序构造，初稿与修复都相同：
 先区分题干的背景已知与实际待答问项；情境提到某人、某现象或后续结果，不等于要求解释它的整条成因或传递链。
@@ -430,13 +433,12 @@ practice 为独立应用或辨析题（prompt 8-300字、expected_answer 20-800�
 若原文只陈述某统计特点或现象，未提供原因或足够推导前提，就不能硬问证明其成因；
 改为有原文依据的比较、判定或适用边界任务，并同步重写最小答案和所有评分点。
 审核指出题目按当前证据无法作答时，先重设该问，不能只换说法、重述现象或制造新的原因来补答案。
-第二步，从该最小答案抽取2-6项原子 rubric，每项只检查一个题干明确要求或不可省略的推导目标；
+第二步，从该最小答案抽取1-6项原子 rubric，每项只检查一个题干明确要求或不可省略的推导目标；
 对每一项先定位它回答哪一问，或为何省略就无法得出该问的答案；只对应背景细节或可选扩展的要求不得计分。
 逐项做省略检验：若不写该项仍能完整正确作答，就删除该评分要求；接受同目标的等价例子或推导。
-若不足两个必要目标，先把题干改为明确要求两个有原文证据支持的必要问项，再重做上述步骤，
-不能拆分同义句或把附加术语、研究史、频率修饰词、题干已给条件凑成得分点。
+一个必要目标足够时保留一条评分点，不强行新增问项；不能拆分同义句或把附加术语、研究史、频率修饰词、题干已给条件凑成得分点。
 第三步，expected_answer 先给最小充分答案；确有帮助时再补可选扩展解释，仍须由本题原文支持。
-扩展解释不是必答要求，不能反向填入 rubric；不因参考答案更长而增加评分项，也不为凑2-6条加考。
+扩展解释不是必答要求，不能反向填入 rubric；不因参考答案更长而增加评分项，也不为凑条数加考。
 修复任一 practice 时，必须对整道题的所有 rubric 重新做问项映射和省略检验，不能只改审校已点名的一条。
 若要考查背景中的另一段机制或传递过程，须在题干明确增设该问，并核验本题原文；否则删去独立评分要求，
 有据且有助理解的内容可留作参考答案的补充解释。不可省略的条件、计算和推导仍须保留，不能以“背景”名义删去。
@@ -458,7 +460,7 @@ existing_point_content给出完整本章当前稿，existing_questions列出已�
 lesson各组件必须选用自己的准确来源，不可只扩大阅读目录而不核对各断言。
 worked_examples 2-3个、checkpoints 2-3个；否则 lesson=null。
 例题必须含 problem（独立完整问题）、steps（2-5步，每步明确运用哪个证据并真正推导，
-每步归一化去除标点和空白后至少12个字符，末步结论也不例外）、
+步骤可以是简洁且完整的公式或结论，不为凑字扩写）、
 answer（明确结果与条件）、title、source_ids；“阅读/思考/用自己的话解释”不算解答步骤。
 可从原文明确前提进行逻辑推导和条件判断，推导步骤不必逐字出现在原文；不得新增未经支持的事实前提。
 检查题要整合章节知识或检查易错条件，不能复制 practice/flashcard；每题另给 expected_answer 和 source_ids 供审校。
@@ -724,6 +726,19 @@ scope_matrix每条断言一行{assertion_id,checks}，checks与scope_matrix_cont
 
 GENERATION_PROMPT += "\n" + OUTPUT_POLICY
 REVIEW_PROMPT += "\n" + OUTPUT_POLICY
+
+QUESTION_REVIEW_POLICY = """课程题审核以能否正确学习和作答为准。
+知识、计算、题设一致性、原文事实和引用能否支持结论保持全部原有要求。
+接受同义表达、等价解法、合理省略显然计算和简洁公式；不要求唯一的步骤顺序、术语措辞或讲解风格。
+难度稍低、情境不够新颖、讲解不够丰富、多个题目覆盖同一知识点，属于可选优化，不单独否决。
+只有重复到实际问项与作答目标完全相同、题意不明影响作答、缺必要条件、真实知识或推理错误、
+评分强制未问知识或排斥有效等价解法时才否决。非必要的风格建议不要写入拒绝issues。
+评分项按语义目标理解，列出的某条推导路径是示例时允许其他正确路径；明确强制错误或多余路径仍须修正。
+只有评分表达需要调整时采用rubric_only，不为润色重写已正确的题干和答案。
+generation_strategy为redesign_rejected_question时，可重设被拒题的情境和问法，保留ID、知识目标和事实证据，
+仍只修改repair_contract允许的组件；rubric_only情形只能修改评分点。"""
+GENERATION_PROMPT += "\n" + QUESTION_REVIEW_POLICY
+REVIEW_PROMPT += "\n" + QUESTION_REVIEW_POLICY
 FACT_REVIEW_PROMPT += "\n" + OUTPUT_POLICY
 
 
@@ -737,6 +752,7 @@ class TeachingContentGenerator:
         audit_callback: Callable[[dict[str, Any]], None] | None = None,
         review_client: StructuredClient | None | object = _DEFAULT_REVIEW_CLIENT,
         review_identity: dict[str, str] | None = None,
+        repair_store: TeachingRepairStore | None = None,
     ) -> None:
         if max_attempts < 1 or max_attempts > 5:
             raise ValueError("max_attempts must be between 1 and 5")
@@ -750,19 +766,40 @@ class TeachingContentGenerator:
             scope_planner if scope_planner is not None else TeachingScopePlanner(client)
         )
         self.audit_callback = audit_callback
+        self.repair_store = repair_store
 
     def generate(
-        self, bundle: ChapterLearningBundle, chapter: ChapterDraft, evidence: TeachingEvidence
+        self, bundle: ChapterLearningBundle, chapter: ChapterDraft, evidence: TeachingEvidence,
+        *, run_scope: str | None = None,
     ) -> ChapterLearningBundle:
+        from .teaching_unit_engine import ENGINE_VERSION
+        run = self.repair_store.open(run_scope or bundle.course_id, chapter.chapter_id, {
+            "engine": ENGINE_VERSION,
+            "course_id": bundle.course_id,
+            "source_fingerprint": bundle.source_fingerprint,
+            "evidence_fingerprint": evidence.fingerprint,
+            "profile_fingerprint": bundle.profile_fingerprint,
+            "protocol": fingerprint([GENERATION_PROMPT, REVIEW_PROMPT, FACT_REVIEW_PROMPT,
+                                      RUBRIC_ALIGNMENT_PROMPT, TEACHING_CONTENT_VERSION]),
+            "review_identity": self.review_identity,
+        }) if self.repair_store else None
+        repair_token = current_repair.set(run)
         cache = VerifiedComponentReuse(
             source_texts={key: value.quote for key, value in evidence.sources.items()},
             context=self._reuse_context(chapter, evidence),
+            persistence=run,
         )
         token = _FACT_REUSE.set(cache)
         try:
-            return self._generate_with_audit(bundle, chapter, evidence)
+            try:
+                return self._generate_with_audit(bundle, chapter, evidence)
+            except (TeachingContentError, LLMError) as error:
+                if run:
+                    raise TeachingRepairPending(30) from error
+                raise
         finally:
             _FACT_REUSE.reset(token)
+            current_repair.reset(repair_token)
 
     def _generate_with_audit(
         self, bundle: ChapterLearningBundle, chapter: ChapterDraft, evidence: TeachingEvidence
@@ -818,7 +855,10 @@ class TeachingContentGenerator:
             **call_metadata,
         )
         try:
-            raw = selected_client.structured(**kwargs)
+            run = current_repair.get()
+            raw = run.structured(lambda: selected_client.structured(**kwargs), {
+                "role": call_metadata, "request": kwargs,
+            }) if run else selected_client.structured(**kwargs)
         except Exception as error:
             self._audit(
                 "model_error",
@@ -863,18 +903,18 @@ class TeachingContentGenerator:
             "explanation": {"title": "完整标题", "explanation": "完整讲解（70–1200字）",
                             "source_ids": list(refs)},
             "flashcard": {"card_id": "原card_id", "front": "完整问题（6–120字）",
-                          "back": "完整答案（12–360字）", "source_ids": list(refs)},
+                          "back": "完整答案（1–360字）", "source_ids": list(refs)},
             "practice": {"item_id": "原item_id", "prompt": "完整题干（8–300字）",
-                         "expected_answer": "完整参考答案（20–800字）",
-                         "rubric": ["必要原子评分目标1", "必要原子评分目标2"],
+                         "expected_answer": "完整参考答案（1–800字）",
+                         "rubric": ["本题必要的原子评分目标"],
                          "source_ids": list(refs)},
             "opening": "完整导入（12–300字）", "summary": "完整总结（30–680字）",
             "reading_source_ids": list(refs),
             "example": {"title": "完整例题标题", "problem": "完整问题（8–220字）",
                         "steps": ["完整推导步骤1", "完整推导步骤2"],
-                        "answer": "完整答案（15–250字）", "source_ids": list(refs)},
+                        "answer": "完整答案（1–250字）", "source_ids": list(refs)},
             "checkpoint": {"question": "完整检查问题（8–180字）",
-                           "expected_answer": "完整核验答案（12–500字）", "source_ids": list(refs)},
+                           "expected_answer": "完整核验答案（1–500字）", "source_ids": list(refs)},
         }
 
     @staticmethod
@@ -1092,9 +1132,18 @@ class TeachingContentGenerator:
     def _generate(
         self, bundle: ChapterLearningBundle, chapter: ChapterDraft, evidence: TeachingEvidence
     ) -> ChapterLearningBundle:
+        if current_repair.get() is not None:
+            from .teaching_unit_engine import UnitEngine
+            try:
+                return UnitEngine(self, bundle, chapter, evidence).advance()
+            except TeachingScopeError as error:
+                raise TeachingServiceUnavailableError('课程范围规划正在准备中') from error
         from .teaching_feedback_wire import compact_writer_feedback
 
-        point_batch_size = _configured_point_batch_size()
+        run = current_repair.get()
+        saved = run.load() if run else {}
+        # Independent questions retain their own immutable drafts and proofs.
+        point_batch_size = 1 if run else _configured_point_batch_size()
         if self.client is None:
             raise TeachingServiceUnavailableError("整课教学服务暂时不可用")
         if self.review_client is None:
@@ -1124,7 +1173,10 @@ class TeachingContentGenerator:
                     _AuditedScopeClient(self), max_attempts=planner.max_attempts
                 )
             report_course_stage(CourseStage.PLANNING)
-            plans = validate_scope_plan(planner.plan(inputs, evidence), inputs, evidence)
+            plans = validate_scope_plan(saved.get("plans") or planner.plan(inputs, evidence), inputs, evidence)
+            if run and not saved.get("plans"):
+                saved["plans"] = plans
+                run.save(saved, {}, set(), [], int(saved.get("round", 0)))
             for item in inputs:
                 item["scope_conditions"] = plans[item["point_id"]]
             self._audit("scope_plan", plan=plans)
@@ -1151,11 +1203,95 @@ class TeachingContentGenerator:
         lesson_repairs: set[str] = set()
         requirements = _RepairRequirements()
         content_rejection: dict[str, Any] | None = None
-        for _attempt in range(self.max_attempts):
+        base_round = int(saved.get("round", 0))
+        if "pending_ids" in saved:
+            approved_points = {key: _Point.model_validate(value) for key, value in saved["drafts"].items()}
+            retained_drafts = {key: _Point.model_validate(value) for key, value in saved.get("retained", {}).items()}
+            pending_ids = set(saved["pending_ids"])
+            lesson = _Lesson.model_validate(saved["lesson"]) if saved.get("lesson") else None
+            rejected_points = {key: _Point.model_validate(value) for key, value in saved.get("rejected_points", {}).items()}
+            rejected_lesson = _Lesson.model_validate(saved["rejected_lesson"]) if saved.get("rejected_lesson") else None
+            repair_fields = {key: set(value) for key, value in saved.get("repair_fields", {}).items()}
+            lesson_repairs = set(saved.get("lesson_repairs", []))
+            req = saved.get("requirements", {})
+            requirements = _RepairRequirements(
+                exact_points={key: set(value) for key, value in req.get("exact_points", {}).items()},
+                exact_lesson=set(req.get("exact_lesson", [])), owner_any=set(req.get("owner_any", [])),
+                lesson_categories=set(req.get("lesson_categories", [])), global_any=req.get("global_any", False),
+                rubric_only_points=set(req.get("rubric_only_points", [])),
+                lesson_question_fields=req.get("lesson_question_fields", {}),
+            )
+            feedback = saved.get("feedback", [])
+            factual_feedback = saved.get("factual_feedback", [])
+            teaching_feedback = saved.get("teaching_feedback", [])
+            previous = saved.get("previous")
+            content_rejection = saved.get("content_rejection")
+        elif saved.get("seed_candidate"):
+            # A historical private audit can supply a draft only. All ordinary
+            # structural, factual, rubric and teacher checks still run below.
+            seed = _Generation.model_validate(saved["seed_candidate"])
+            if {point.point_id for point in seed.points} == pending_ids and seed.lesson:
+                approved_points = {point.point_id: point for point in seed.points}
+                lesson = seed.lesson
+                pending_ids.clear()
+                self._audit("historical_draft_restored", approved=False)
+
+        approved_unit_hashes = saved.get("approved_unit_hashes", {})
+
+        def checkpoint(round_number: int, delay: float = 0, *, reviewed: bool = False) -> None:
+            nonlocal approved_unit_hashes
+            if not run:
+                return
+            drafts = {**approved_points, **retained_drafts}
+            units = {}
+            for key, point in drafts.items():
+                for name in ("explanation", "flashcard", "practice"):
+                    units[key + "." + name] = self._point_component(point, name)
+            lesson_draft = lesson or rejected_lesson
+            if lesson_draft:
+                parts = self._lesson_components(lesson_draft)
+                units.update({"lesson." + name: {"fields": self._lesson_component_fields(lesson_draft, name),
+                                                "source_ids": parts[name]["source_ids"]}
+                              for name in ("opening", "summary",
+                                  *(f"example_{i + 1}" for i in range(len(lesson_draft.worked_examples))),
+                                  *(f"checkpoint_{i + 1}" for i in range(len(lesson_draft.checkpoints))))})
+            pending_units = {key + "." + name for key in pending_ids
+                             for name in repair_fields.get(key, {"explanation", "flashcard", "practice"})}
+            pending_units.update("lesson." + name for name in lesson_repairs)
+            if 'worked_examples' in lesson_repairs:
+                pending_units.update(key for key in units if key.startswith('lesson.example_'))
+            if 'checkpoints' in lesson_repairs:
+                pending_units.update(key for key in units if key.startswith('lesson.checkpoint_'))
+            if reviewed:
+                approved_unit_hashes = {key: fingerprint(value) for key, value in units.items() if key not in pending_units}
+            run.save({
+                "approved_unit_hashes": approved_unit_hashes,
+                "plans": plans, "round": round_number,
+                "drafts": {key: value.model_dump() for key, value in approved_points.items()},
+                "retained": {key: value.model_dump() for key, value in retained_drafts.items()},
+                "pending_ids": sorted(pending_ids), "lesson": lesson.model_dump() if lesson else None,
+                "rejected_points": {key: value.model_dump() for key, value in rejected_points.items()},
+                "rejected_lesson": rejected_lesson.model_dump() if rejected_lesson else None,
+                "repair_fields": {key: sorted(value) for key, value in repair_fields.items()},
+                "lesson_repairs": sorted(lesson_repairs), "feedback": feedback,
+                "factual_feedback": factual_feedback, "teaching_feedback": teaching_feedback,
+                "previous": previous, "content_rejection": content_rejection,
+                "requirements": {
+                    "exact_points": {key: sorted(value) for key, value in requirements.exact_points.items()},
+                    "exact_lesson": sorted(requirements.exact_lesson), "owner_any": sorted(requirements.owner_any),
+                    "lesson_categories": sorted(requirements.lesson_categories), "global_any": requirements.global_any,
+                    "rubric_only_points": sorted(requirements.rubric_only_points),
+                    "lesson_question_fields": requirements.lesson_question_fields,
+                },
+            }, units, pending_units, feedback, round_number, delay)
+
+        for local_round in range(1 if run else self.max_attempts):
+            _attempt = base_round + local_round
             candidate_ready = False
             active_batch_ids: set[str] | None = None
             active_batch_includes_lesson = False
             validation_phase = "generation"
+            round_completed = False
             try:
                 pending = [item for item in inputs if item["point_id"] in pending_ids]
                 batches = [
@@ -1180,6 +1316,7 @@ class TeachingContentGenerator:
                         }
                         payload = {
                             "repair_contract": repair_contract,
+                            "generation_strategy": "redesign_rejected_question" if _attempt > 0 and _attempt % 3 == 0 else "targeted_repair",
                             "generation_output_shape": repair_contract["output_shape"]
                             if repair_contract else self._initial_output_shape(batch, include_lesson),
                             "point_revision_tasks": [
@@ -1220,9 +1357,7 @@ class TeachingContentGenerator:
                             ],
                             "scaffolds": bundle.decision.scaffolds,
                             "all_knowledge_points": inputs,
-                            "sources": {
-                                key: value.model_dump() for key, value in evidence.sources.items()
-                            },
+                            "sources": bounded_teaching_sources(evidence, [batch if batch else inputs, self._scoped_candidate(previous, active_batch_ids, include_lesson)]),
                             "source_warnings": evidence.warnings,
                     "source_coverage": evidence.source_coverage,
                             "batch_points": batch,
@@ -1305,6 +1440,10 @@ class TeachingContentGenerator:
                             preserved.append(point)
                         generated.points = preserved
                         self._validate_points(generated.points, batch, evidence)
+                        for point in generated.points:
+                            rejected = rejected_points.get(point.point_id)
+                            if rejected is not None:
+                                self._validate_point_repair(point, rejected, requirements)
                         if include_lesson != (generated.lesson is not None):
                             raise TeachingContentError("模型遗漏或重复生成全章教学结构")
                         if generated.lesson is not None:
@@ -1334,6 +1473,7 @@ class TeachingContentGenerator:
                         # Stop submitting paid leaves on a service/audit outage.
                         raise
                     except (KeyError, TypeError, ValueError, TeachingContentError) as error:
+                        invalidate_repair_response()
                         return error
 
                 def retain_batch(batch: list[dict[str, Any]], generated: _Generation) -> None:
@@ -1371,6 +1511,7 @@ class TeachingContentGenerator:
                     pending_ids.difference_update(active_batch_ids)
                     if generated.lesson is not None:
                         lesson = generated.lesson
+                    checkpoint(_attempt)
 
                 # Independent point batches share the global leaf pool with
                 # scope planning/reviews. Ordered results preserve source order
@@ -1466,6 +1607,7 @@ class TeachingContentGenerator:
                 # Keep both native feedback shapes for existing batch scopers.
                 feedback = [*factual_feedback, *teaching_feedback]
                 if feedback:
+                    round_completed = True
                     report_course_stage(CourseStage.REFINING)
                     repair_plan = self._build_repair_plan(
                         fact_review, review, points, lesson
@@ -1509,6 +1651,7 @@ class TeachingContentGenerator:
                     if lesson_repairs:
                         rejected_lesson = lesson.model_copy(deep=True)
                         lesson = None
+                    checkpoint(_attempt + 1, min(120, 5 * 2 ** min(_attempt, 5)), reviewed=True)
                     continue
                 result = self._apply(bundle, points, lesson, evidence)
                 result.teaching_review = {
@@ -1522,6 +1665,8 @@ class TeachingContentGenerator:
                 }
                 result.teaching_scope_version = TEACHING_SCOPE_VERSION
                 result.teaching_scope_plan = plans
+                round_completed = True
+                checkpoint(_attempt + 1, reviewed=True)
                 return result
             except TeachingServiceUnavailableError:
                 raise
@@ -1530,6 +1675,7 @@ class TeachingContentGenerator:
                     "整课教学服务暂时不可用，请稍后重试"
                 ) from error
             except (KeyError, TypeError, ValueError, TeachingContentError) as error:
+                round_completed = True
                 feedback = [{"issue": str(error)[:1200]}, {"previous_review_feedback": feedback}]
                 structural_feedback = getattr(error, "review_feedback", None)
                 structural_lesson = (
@@ -1611,6 +1757,10 @@ class TeachingContentGenerator:
                         targets = getattr(error, "review_feedback", None)
                         ids = targets.get("point_ids", []) if isinstance(targets, dict) else []
                         pending_ids.update(ids or {item["point_id"] for item in inputs})
+            finally:
+                checkpoint(_attempt + int(round_completed), min(120, 5 * 2 ** min(_attempt, 5)))
+        if run:
+            raise TeachingRepairPending(min(120, 5 * 2 ** min(base_round, 5)))
         raise TeachingContentError("整课教学未通过完整性与原文一致性审查", feedback)
 
     def _build_fact_jobs(
@@ -1737,7 +1887,7 @@ class TeachingContentGenerator:
                 "scope_conditions": {
                     item["point_id"]: self._factual_scope_hints(item) for item in relevant_inputs
                 },
-                "sources": {key: value.model_dump() for key, value in evidence.sources.items()},
+                "sources": bounded_teaching_sources(evidence, [relevant_inputs, parts, contexts, [p.model_dump() for p in batch]]),
                 "source_warnings": evidence.warnings,
                 "source_coverage": evidence.source_coverage,
                 "support_spans": visible_spans,
@@ -2086,7 +2236,8 @@ class TeachingContentGenerator:
             context_now = self._reuse_context(chapter, evidence, inputs)
             if not cache.matches_context(source_texts=sources_now, context=context_now):
                 _FACT_REUSE.set(
-                    VerifiedComponentReuse(source_texts=sources_now, context=context_now)
+                    VerifiedComponentReuse(source_texts=sources_now, context=context_now,
+                                           persistence=current_repair.get())
                 )
         frozen_points = [point.model_copy(deep=True) for point in points]
         frozen_lesson = lesson.model_copy(deep=True)
@@ -2102,7 +2253,7 @@ class TeachingContentGenerator:
             "knowledge_points": [
                 {"point_id": item["point_id"], "label": item["label"]} for item in inputs
             ],
-            "sources": {key: value.model_dump() for key, value in evidence.sources.items()},
+            "sources": bounded_teaching_sources(evidence, [inputs, candidate]),
             "source_warnings": evidence.warnings,
                 "source_coverage": evidence.source_coverage,
             "previous_review_feedback": teaching_feedback,
@@ -2122,9 +2273,10 @@ class TeachingContentGenerator:
             }
             for point in frozen_points
         ]
+        rubric_batch_size = 1 if current_repair.get() else MAX_RUBRIC_ALIGNMENT_BATCH
         rubric_batches = [
-            make_rubric_alignment_batch(rubric_items[offset : offset + MAX_RUBRIC_ALIGNMENT_BATCH])
-            for offset in range(0, len(rubric_items), MAX_RUBRIC_ALIGNMENT_BATCH)
+            make_rubric_alignment_batch(rubric_items[offset : offset + rubric_batch_size])
+            for offset in range(0, len(rubric_items), rubric_batch_size)
         ]
         jobs: list[tuple[str, Any]] = [
             ("teacher", teacher_payload),
@@ -2135,6 +2287,11 @@ class TeachingContentGenerator:
         def run(job: tuple[str, Any]) -> tuple[str, Any]:
             role, payload = job
             leaf_token = _AUDIT_CONTEXT.set({**(_AUDIT_CONTEXT.get() or {}), "review_stage": role})
+            unit_token = None
+            if role == 'rubric' and current_repair.get() and current_repair.get().identity.get('engine') and len(payload.items) == 1:
+                from .teaching_repairs import current_unit
+                owner = next(point.point_id for point in frozen_points if point.practice.item_id == payload.items[0].item_id)
+                unit_token = current_unit.set(owner + '.practice')
             try:
                 if role == "teacher":
                     result: Any = self._request_teacher_review(payload, expected)
@@ -2145,6 +2302,8 @@ class TeachingContentGenerator:
                     self._audit("rubric_review", review=result.to_dict(), **self.review_identity)
                 return role, result
             finally:
+                if unit_token is not None:
+                    current_unit.reset(unit_token)
                 _AUDIT_CONTEXT.reset(leaf_token)
 
         token = _AUDIT_CONTEXT.set(
@@ -2208,6 +2367,7 @@ class TeachingContentGenerator:
                     "响应不是一个完整合法JSON对象；仅重新审核同一题目批次，返回完整严格JSON，不能截取或补写上一输出。"
                 )
             except (KeyError, TypeError, ValueError) as error:
+                invalidate_repair_response()
                 feedback.append(str(error)[:1200])
         raise _TeachingReviewFormatError(
             "评分要求审核响应未完成，已有进度已保留",
@@ -2750,12 +2910,16 @@ class TeachingContentGenerator:
 
     def _request_teacher_review(self, payload: dict[str, Any], expected_ids: set[str]) -> _Review:
         feedback: list[str] = []
+        system = REVIEW_PROMPT
+        if current_repair.get() and current_repair.get().identity.get('engine'):
+            from .teaching_unit_engine import PEDAGOGICAL_POLICY
+            system += '\n' + PEDAGOGICAL_POLICY
         for _attempt in range(FACT_FORMAT_ATTEMPTS):
             try:
                 review = _Review.model_validate(
                     self._structured(
                         _review=True,
-                        system=REVIEW_PROMPT,
+                        system=system,
                         user=json.dumps(
                             {**payload, "format_feedback": feedback}, ensure_ascii=False
                         ),
@@ -2777,6 +2941,7 @@ class TeachingContentGenerator:
                     "响应不是一个完整合法JSON对象；仅重新审核当前同一候选，返回一个完整严格JSON对象，不能补写或截取上一输出。"
                 )
             except (KeyError, TypeError, ValueError, TeachingContentError) as error:
+                invalidate_repair_response()
                 feedback.append(str(error)[:1200])
         raise _TeachingReviewFormatError(
             "教学审核响应未完成，已有进度已保留",
@@ -2910,6 +3075,7 @@ class TeachingContentGenerator:
                     "上次响应不是一个完整合法JSON对象；只重新审核当前批次的固定ID，返回一个完整JSON对象；不要追加第二个对象或改写教学内容。"
                 )
             except (KeyError, TypeError, ValueError, TeachingContentError) as error:
+                invalidate_repair_response()
                 format_feedback.append(str(error)[:1200])
                 if selected is not None and str(error) in {
                     "范围核验的断言片段必须逐字属于当前组件的真实字段",
@@ -4500,11 +4666,10 @@ class TeachingContentGenerator:
             for step_index, step in enumerate(example.steps):
                 path = f"lesson.worked_examples[{example_index}].steps[{step_index}]"
                 step_length = len(_normalized(step))
-                if step_length < 12:
+                if step_length < 1:
                     raise TeachingContentError(
                         f"{path}：例题推导步骤归一化后只有{step_length}个字符，"
-                        "每一步至少需要12个字符；请写明推理依据、条件或计算过程，"
-                        "结论末步也必须满足，不能只给简短结论。"
+                        "步骤必须有真实推导内容。"
                     )
                 if re.match(
                     r"^(?:(?:第?[一二三四五12345]+步[：:、.． ]*)?)(?:请|先)?(?:阅读|思考|用自己的话|自行)",
@@ -4512,7 +4677,7 @@ class TeachingContentGenerator:
                 ):
                     raise TeachingContentError(
                         f"{path}：例题必须有真正的推导步骤，不能用阅读任务占位；"
-                        "请写明实际推理依据、条件或计算过程，每步归一化后至少12个字符。"
+                        "请写明实际推理依据、条件或计算过程。"
                     )
             rendered = _render_example(example)
             if len(rendered) > 1200:

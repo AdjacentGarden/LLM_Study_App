@@ -1092,7 +1092,7 @@ struct CourseParseReadyView: View {
           metric("下一步", value: "后台解析")
         }.padding(.top, 14)
         if let issue = store.importError {
-          Text(issue).font(DS.font(14)).foregroundStyle(DS.danger)
+          Text(CloudError.learningMessage(issue)).font(DS.font(14)).foregroundStyle(DS.danger)
         }
       } action: {
         BCButton(
@@ -1140,7 +1140,7 @@ struct CourseProcessingView: View {
   private var stages: [String] {
     if onDevice { return ["本机识别原文", "原文已保存，可阅读与检索"] }
     if !importing, store.cloud != nil {
-      return ["识别教材原文", "准备检索索引", "整理教材目录", "生成并审核诊断题", "教材已就绪"]
+      return ["识别教材原文", "整理教材内容", "整理教材目录", "准备学习诊断", "教材已就绪"]
     }
     return importing
       ? ["整理课程资料", "识别章节与重点", "结合学习偏好", "安排学习计划", "准备学习内容"]
@@ -1617,7 +1617,7 @@ struct CourseImportProgressView: View {
                   .font(DS.font(13)).foregroundStyle(DS.secondary)
               }
               let stages = record.onDeviceOnly == true ? ["读取本机资料", "识别教材原文", "本机检索已就绪"]
-                : ["识别教材原文", "准备检索索引", "整理教材目录", "生成并审核诊断题", "教材已就绪"]
+                : ["识别教材原文", "整理教材内容", "整理教材目录", "准备学习诊断", "教材已就绪"]
               let current = book.status == .completed ? stages.count - 1 : record.onDeviceOnly == true ? 1 : book.stage == "diagnostics" ? 3
                 : book.stage == "structuring" ? 2 : book.stage == nil ? 0 : 1
               ForEach(Array(stages.enumerated()), id: \.offset) { index, name in

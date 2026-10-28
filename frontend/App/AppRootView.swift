@@ -128,7 +128,7 @@ struct AppRootView: View {
         }
       }
       .overlay(alignment: .top) {
-        if store.cloudState.isWorking, store.cloudState.authenticated, !store.cloudState.showDiagnosis {
+        if store.cloudState.materialSyncCount > 0, store.cloudState.authenticated, !store.cloudState.showDiagnosis {
           ProgressView("正在同步学习资料…").padding(14).background(DS.surface, in: Capsule()).padding(.top, 8)
         } else if store.cloudState.authenticated, let error = store.cloudState.syncError {
           Button {

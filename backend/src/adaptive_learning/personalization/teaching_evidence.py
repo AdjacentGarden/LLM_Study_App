@@ -36,6 +36,47 @@ class TeachingEvidence:
     source_coverage: dict[str, Any] = field(default_factory=dict)
 
 
+def bounded_teaching_sources(evidence: TeachingEvidence, context: Any = None) -> dict[str, Any]:
+    """Keep the complete evidence registry; bound each model batch independently."""
+    if sum(len(source.quote) for source in evidence.sources.values()) <= MAX_SOURCE_CHARACTERS:
+        return {key: source.model_dump() for key, source in evidence.sources.items()}
+    required: set[str] = set()
+    texts: list[str] = []
+
+    def visit(value: Any) -> None:
+        if isinstance(value, str):
+            if value in evidence.sources:
+                required.add(value)
+            elif len(value) <= 1000:
+                texts.append(value)
+        elif isinstance(value, dict):
+            for item in value.values():
+                visit(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item)
+
+    visit(context)
+    if context is None:
+        required.update(key for ids in evidence.point_sources.values() for key in ids)
+    query = _scope_terms(" ".join(texts))
+    keys = list(evidence.sources)
+    # Relevant source windows come first, followed by an even chapter overview.
+    relevant = sorted(keys, key=lambda key: -len(query & _scope_terms(evidence.sources[key].quote)))
+    overview = [keys[round(i * (len(keys) - 1) / max(1, min(40, len(keys)) - 1))]
+                for i in range(min(40, len(keys)))]
+    selected = {key: evidence.sources[key].model_dump() for key in keys if key in required}
+    characters = sum(len(value["quote"]) for value in selected.values())
+    for key in [*overview, *relevant]:
+        if key in selected:
+            continue
+        source = evidence.sources[key]
+        if characters + len(source.quote) <= MAX_SOURCE_CHARACTERS:
+            selected[key] = source.model_dump()
+            characters += len(source.quote)
+    return selected
+
+
 _SCOPE_MARKERS = re.compile(
     r"通常|一般|往往|部分|有些|某些|只有|只能|未必|不一定|并非|除非|除.{0,6}外|"
     r"但是|然而|终止|结束|前提|条件|至少|至多|不超过|可能|不能"
@@ -217,19 +258,14 @@ def build_teaching_evidence(chapter: ChapterDraft, pages: list[PageExtraction]) 
     source_locations: dict[str, tuple[int, int, int]] = {}
     warnings: list[str] = []
     point_sources: dict[str, list[str]] = {}
-    character_count = 0
 
     def add(page_number: int, text: str, start: int, end: int) -> str:
-        nonlocal character_count
         quote = text[start:end]
         if not quote.strip() or len(quote) > MAX_SPAN_CHARACTERS:
             raise ValueError("invalid OCR evidence span")
         digest = hashlib.sha256(quote.encode()).hexdigest()[:12]
         key = f"src_p{page_number}_{start}_{end}_{digest}"
         if key not in sources:
-            character_count += len(quote)
-            if character_count > MAX_SOURCE_CHARACTERS:
-                raise ValueError("chapter teaching evidence exceeds 50000 characters; split the chapter explicitly")
             sources[key] = SourceCitation(page_number=page_number, quote=quote)
             source_locations[key] = (page_number, start, end)
         return key

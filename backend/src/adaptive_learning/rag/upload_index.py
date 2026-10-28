@@ -135,6 +135,49 @@ def _valid_native_index(target: Path, encoder: Any) -> bool:
         return False
 
 
+def _upload_fingerprint(raw: bytes, encoder: Any) -> str:
+    model_identity = str(getattr(encoder, "model_path", "")).encode("utf-8")
+    return hashlib.sha256(
+        raw + model_identity + str(encoder.dimensions).encode("ascii") + _INDEX_VERSION
+    ).hexdigest()
+
+
+def _reuse_legacy_upload_index(book_directory: Path, raw: bytes, encoder: Any) -> Path | None:
+    """Adopt an existing whole-book index under the canonical publication lock."""
+    version = _upload_fingerprint(raw, encoder)
+    target = book_directory / "rag" / version
+    if target.is_dir() and not target.is_symlink() and _valid_native_index(target, encoder):
+        return target
+    legacy_root = book_directory / "rag-index"
+    if not legacy_root.is_dir():
+        return None
+    with closing(sqlite3.connect(legacy_root / ".build.sqlite3", timeout=3600)) as lock:
+        lock.execute("BEGIN EXCLUSIVE")
+        legacy = legacy_root / version
+        if not legacy.is_dir() or legacy.is_symlink() or not _valid_native_index(legacy, encoder):
+            return None
+        if target.exists() or target.is_symlink():
+            _remove_index_artifact(target)
+        staging = Path(tempfile.mkdtemp(prefix="building-", dir=target.parent))
+        try:
+            for name in ("chunks.json", "embeddings.npy", "index_manifest.json"):
+                shutil.copy2(legacy / name, staging / name)
+            manifest = staging / "index_manifest.json"
+            metadata = json.loads(manifest.read_text(encoding="utf-8"))
+            metadata.update(
+                source_sha256=hashlib.sha256(raw).hexdigest(),
+                embedding_model=str(getattr(encoder, "model_path", "")),
+                chunker_version=_INDEX_VERSION.decode("ascii"),
+            )
+            manifest.write_text(json.dumps(metadata), encoding="utf-8")
+            if not _valid_native_index(staging, encoder):
+                raise RAGIndexError("legacy uploaded-book index cannot be published")
+            staging.rename(target)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+        return target
+
+
 def build_upload_index(book_directory: Path, encoder: Any) -> Path:
     book_directory = _artifact_path(book_directory)
     root = book_directory / "rag"
@@ -143,7 +186,8 @@ def build_upload_index(book_directory: Path, encoder: Any) -> Path:
         lock.execute("BEGIN EXCLUSIVE")
         _clean_abandoned_builds(root)
         source = book_directory / "ocr" / "normalized" / "pages.jsonl"
-        source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+        raw = source.read_bytes()
+        source_hash = hashlib.sha256(raw).hexdigest()
         model = str(getattr(encoder, "model_path", "test"))
         version = hashlib.sha256(f"{source_hash}|{model}|{encoder.dimensions}|native-v2".encode()).hexdigest()
         root = book_directory / "rag"
@@ -153,6 +197,10 @@ def build_upload_index(book_directory: Path, encoder: Any) -> Path:
             target.is_symlink() or not _valid_native_index(target, encoder)
         ):
             _remove_index_artifact(target)
+        if not target.is_dir():
+            reused = _reuse_legacy_upload_index(book_directory, raw, encoder)
+            if reused is not None:
+                target = reused
         if not target.is_dir():
             staging = Path(tempfile.mkdtemp(prefix="building-", dir=root))
             try:
@@ -186,7 +234,7 @@ def build_upload_index(book_directory: Path, encoder: Any) -> Path:
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
         pointer = root / ("current-" + os.urandom(8).hex() + ".tmp")
-        pointer.write_text(json.dumps({"version": version, "source_sha256": source_hash}))
+        pointer.write_text(json.dumps({"version": target.name, "source_sha256": source_hash}))
         os.replace(pointer, root / "current.json")
         return target
 
@@ -263,10 +311,7 @@ def ensure_upload_index(
     pages_path = _artifact_path(pages_path)
     root = _artifact_path(root)
     raw = pages_path.read_bytes()
-    model_identity = str(getattr(encoder, "model_path", "")).encode("utf-8")
-    fingerprint = hashlib.sha256(
-        raw + model_identity + str(encoder.dimensions).encode("ascii") + _INDEX_VERSION
-    ).hexdigest()
+    fingerprint = _upload_fingerprint(raw, encoder)
     root.mkdir(parents=True, exist_ok=True)
     target = root / fingerprint
     # A separate SQLite file provides a cross-process lock on Linux, macOS and

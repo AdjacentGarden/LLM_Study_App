@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError, 
 
 from ..llm.client import LLMError
 from ..llm.teaching_parallel import ordered_review_map
-from .teaching_evidence import TeachingEvidence
+from .teaching_evidence import TeachingEvidence, bounded_teaching_sources
 
 TEACHING_SCOPE_VERSION = "scope-plan-v4"
 SCOPE_BATCH_SIZE = 4
@@ -248,10 +248,7 @@ class TeachingScopePlanner:
         completed: dict[str, list[dict[str, Any]]] = {}
         pending = list(batch)
         payload = {
-            "sources": {
-                key: {"page_number": source.page_number, "quote": source.quote}
-                for key, source in evidence.sources.items()
-            },
+            "sources": bounded_teaching_sources(evidence, batch),
             "source_warnings": list(evidence.warnings),
         }
         feedback: list[tuple[set[str], str]] = []
@@ -403,6 +400,8 @@ class TeachingScopePlanner:
                     )
                 )
             except (ValidationError, ValueError, TypeError, TeachingScopeError) as error:
+                from .teaching_repairs import invalidate_repair_response
+                invalidate_repair_response()
                 feedback.append(
                     (
                         expected,

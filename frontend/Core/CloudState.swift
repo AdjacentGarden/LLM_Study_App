@@ -83,6 +83,7 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var onboardingComplete = false
   var requiresPersonalization = false
   var isWorking = false
+  var materialSyncCount = 0
   var isHydrating = false
   var syncing = false
   var error: String?

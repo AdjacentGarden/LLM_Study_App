@@ -19,6 +19,7 @@ extension AppStore {
       cloudState.authenticated = false
       cloudState.showDiagnosis = false
       cloudState.epoch = UUID()
+      cloudState.materialSyncCount = 0
       processingPolicy.reset()
       cloudState.syncTask?.cancel()
       cloudState.retryTask?.cancel()
@@ -208,6 +209,7 @@ extension AppStore {
     defer { cloudState.isWorking = false }
     await persistTask?.value
     cloudState.epoch = UUID()
+    cloudState.materialSyncCount = 0
     processingPolicy.reset()
     cloudState.retryTask?.cancel()
     cloudState.contentTask?.cancel()
@@ -681,6 +683,12 @@ extension AppStore {
         try await update(job)
       }
       return try await service.waitForCourse(sessionID: interview.session_id, chapterID: chapterID,
+        onConnectionChange: { [weak self] message in
+          try await MainActor.run {
+            guard let self, self.cloudState.epoch == epoch else { throw CancellationError() }
+            self.cloudState.error = message
+          }
+        },
         onUpdate: update)
     }
     cloudState.courseTask = task

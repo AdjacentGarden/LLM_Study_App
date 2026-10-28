@@ -420,6 +420,32 @@ class NativeRepository:
             ).fetchone()
         return dict(row) if row else None
 
+    def reconcile_book_structure(self, book_id: str, before: BookStructure, after: BookStructure,
+                                 published_sessions: set[str]) -> None:
+        """Refresh generated outlines without clearing progress or completed courses."""
+        expected = [(c.chapter_id, c.start_page, c.end_page) for c in before.chapters]
+        encoded = after.model_dump_json()
+
+        def matches(value: str | None) -> bool:
+            if not value:
+                return False
+            structure = BookStructure.model_validate_json(value)
+            return [(c.chapter_id, c.start_page, c.end_page) for c in structure.chapters] == expected
+
+        with self.connect() as db:
+            db.begin_write()
+            resources = db.execute("SELECT id,structure_json FROM native_resources WHERE book_id=?", (book_id,)).fetchall()
+            for resource in resources:
+                if matches(resource["structure_json"]):
+                    db.execute("UPDATE native_resources SET structure_json=?,revision=revision+1 WHERE id=?",
+                               (encoded, resource["id"]))
+                contexts = db.execute("SELECT session_id,structure_json FROM native_session_context WHERE resource_id=?",
+                                      (resource["id"],)).fetchall()
+                for context in contexts:
+                    if context["session_id"] not in published_sessions and matches(context["structure_json"]):
+                        db.execute("UPDATE native_session_context SET structure_json=? WHERE session_id=?",
+                                   (encoded, context["session_id"]))
+
     def progress(self, resource_id: str) -> dict[str, Any]:
         with self.connect() as db:
             row = db.execute(

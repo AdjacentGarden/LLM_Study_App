@@ -27,12 +27,12 @@ struct CloudBookPreparationJob: Codable, Sendable {
   var marker: String { "\(stage)|\(next_step)|\(updated.bitPattern)" }
   var message: String {
     if status == .failed {
-      return error.flatMap { $0.isEmpty ? nil : $0 } ?? "教材准备中断，已保留完成步骤，请重试。"
+      return "课程内容暂未准备完成，已保留进度，可以继续整理。"
     }
     if status == .cancelled { return "教材准备已暂停，已完成的内容会保留。" }
-    if status == .succeeded { return "教材目录、检索和诊断题已准备完成。" }
+    if status == .succeeded { return "教材内容已准备完成。" }
     if stage == "diagnostics" {
-      let detail = serverMessage ?? "正在生成并审核诊断题，未通过的题目会自动优化。"
+      let detail = "正在准备学习诊断。"
       if let completed = diagnostics_completed, let total = diagnostics_total, total > 0 {
         return "诊断题已完成 \(completed)／\(total) 题 · \(detail)"
       }
@@ -40,9 +40,9 @@ struct CloudBookPreparationJob: Codable, Sendable {
     }
     if status == .queued { return "教材准备已排队，可以稍后继续查看。" }
     switch stage {
-    case "indexing": return "正在整理教材检索索引。"
+    case "indexing": return "正在整理教材内容。"
     case "structuring": return "正在整理目录与章节。"
-    case "diagnostics": return "正在生成并审核诊断题，已完成的步骤会保留。"
+    case "diagnostics": return "正在准备学习诊断，已完成的进度会保留。"
     default: return "正在准备教材。"
     }
   }
@@ -218,7 +218,7 @@ actor BookPreparationService {
     guard ready.structure_ready, ready.rag_ready, summary.book_id == bookID,
       summary.item_count > 0, summary.chapter_count > 0,
       summary.choice_count == summary.item_count, summary.explanation_count == 0 else {
-      throw CloudError(status: 409, message: "教材目录、检索或诊断内容尚未全部就绪，请检查服务后继续查询。")
+      throw CloudError(status: 409, message: "课程内容仍在准备中，已保留进度，请稍后继续。")
     }
     var verified = job
     verified.structure_ready = true

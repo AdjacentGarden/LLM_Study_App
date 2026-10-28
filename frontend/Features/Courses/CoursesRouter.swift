@@ -101,7 +101,7 @@ struct CourseProgressMessage: View {
   var body: some View {
     let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
     if !trimmed.isEmpty && !trimmed.hasPrefix("内容处理暂时中断，正在重试") {
-      Text(message)
+      Text(CloudError.learningMessage(message))
     }
   }
 }

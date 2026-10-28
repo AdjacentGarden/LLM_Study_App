@@ -44,7 +44,10 @@ required=false必须有非空counterexample_answer和repair；required=true这�
 每个否决另给repair_scope：仅删除或拆分未问评分要求即可、题干与事实答案无需变化时为rubric_only；
 若题设缺必要前提、问题不可唯一作答、最小答案需改或必须增加问项，为task_revision。不能为缩小编辑范围而隐瞒这些问题。
 该字段只限定作者可编辑字段，不是事实批准；缺省或不确定时使用task_revision。
-不得遗漏、重复、增添题目或rubric，不得改写rubric_text，不输出总accepted或改变其他审核意见。"""
+不得遗漏、重复、增添题目或rubric，不得改写rubric_text，不输出总accepted或改变其他审核意见。
+审核容许简洁答案、常见等价公式及不同正确解题路径；评分点按目标理解，非强制性的路径示例不算额外考查。
+不因文字不够优美、步骤合并、建议性表述或缺少可选扩展而否决；真正排斥正确答案的评分要求仍须否决。
+只需调整评分表达时优先rubric_only，避免重写事实正确且可作答的题干和答案。"""
 
 
 class RubricAlignmentError(ValueError):

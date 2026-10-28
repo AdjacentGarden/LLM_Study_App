@@ -199,6 +199,8 @@ extension AppStore {
   func reloadCloud() async throws {
     guard let cloud else { return }
     let epoch = cloudState.epoch
+    cloudState.materialSyncCount += 1
+    defer { if epoch == cloudState.epoch { cloudState.materialSyncCount -= 1 } }
     let bootstrap: CloudBootstrap = try await cloud.request("/api/native/bootstrap?mode=metadata")
     guard epoch == cloudState.epoch else { throw CancellationError() }
     guard bootstrap.contract_version == 1 else {

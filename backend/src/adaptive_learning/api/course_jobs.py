@@ -18,11 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..database import DATABASE_ERRORS, Connection, connect
 from ..personalization.course_progress import CourseStage, observe_course_progress
+from ..personalization.teaching_repairs import TeachingRepairPending, TeachingRepairStore
 
 logger = logging.getLogger(__name__)
 _WORKER_LOCK_KEY = 2026102301
 
-_EXHAUSTED_COURSE_MESSAGE = '此任务已停止，本版本的尝试次数已用完。任务和学习记录已保留；请先检查服务状态，待可用的新版本就绪后再生成。'
+_EXHAUSTED_COURSE_MESSAGE = '本章课程暂未准备完成，已有内容和学习进度已保留，可先学习其他章节。'
 
 
 class CourseJobInput(BaseModel):
@@ -40,7 +41,7 @@ class CourseAdmissionDeferred(CourseJobFailure):
     """A known local cooldown rejected work before a generation attempt."""
 
     def __init__(self, retry_after_seconds: float) -> None:
-        super().__init__('模型服务正在冷却，本次未启动新的课程生成，请稍后重试。')
+        super().__init__('课程正在准备中，请稍后继续。')
         self.retry_after_seconds = retry_after_seconds
 
 
@@ -51,9 +52,11 @@ class CourseRetryLimit(RuntimeError):
 class CourseJobQueue:
     def __init__(self, path: Path, generate: Callable[[str, str], dict[str, Any]], *,
                  max_attempts: int = 3,
-                 admission_check: Callable[[], None] | None = None) -> None:
+                 admission_check: Callable[[], None] | None = None,
+                 repair_store: TeachingRepairStore | None = None) -> None:
         self.path, self.generate, self.max_attempts = path, generate, max_attempts
         self.admission_check = admission_check
+        self.repair_store = repair_store
         self.stop_event = threading.Event()
         self.wake = threading.Event()
         self.thread: threading.Thread | None = None
@@ -72,6 +75,10 @@ class CourseJobQueue:
                 PRIMARY KEY(session_id, request_id));
             CREATE INDEX IF NOT EXISTS course_jobs_queue ON course_jobs(status,created,job_id);
             ''')
+            if not db.postgres:
+                columns = {row['name'] for row in db.execute('PRAGMA table_info(course_jobs)').fetchall()}
+                if 'retry_at' not in columns:
+                    db.execute('ALTER TABLE course_jobs ADD COLUMN retry_at REAL NOT NULL DEFAULT 0')
 
     @contextmanager
     def connect(self) -> Iterator[Connection]:
@@ -80,7 +87,7 @@ class CourseJobQueue:
 
     def _public(self, row: Any) -> dict[str, Any]:
         retryable = row['status'] == 'failed' and row['attempts'] < self.max_attempts
-        error = row['error']
+        error = '本章课程暂未准备完成，已有内容和学习进度已保留，可以继续生成。' if row['status'] == 'failed' else None
         if row['status'] == 'failed' and not retryable:
             # Disclosure only: preserve the durable failure/cause and attempt limit.
             error = _EXHAUSTED_COURSE_MESSAGE
@@ -92,6 +99,7 @@ class CourseJobQueue:
             'created_at': datetime.fromtimestamp(row['created'], UTC).isoformat(),
             'updated_at': datetime.fromtimestamp(row['updated'], UTC).isoformat(),
             'course': json.loads(row['result']) if row['status'] == 'succeeded' and row['result'] else None,
+            'progress': self.repair_store.progress(row['session_id'], row['chapter_id']) if self.repair_store else None,
         }
 
     def enqueue(self, session_id: str, chapter_id: str, fingerprint: str, *, retry: bool = False,
@@ -140,8 +148,13 @@ class CourseJobQueue:
     def recover(self) -> None:
         # Called only after obtaining the exclusive worker lock, so a live owner
         # cannot be mistaken for a crashed worker in another application process.
+        if self.repair_store:
+            self.repair_store.recover()
         with self.connect() as db:
             db.begin_write()
+            if self.repair_store:
+                db.execute("UPDATE course_jobs SET status='queued',stage='refining',updated=? WHERE status='running'", (time.time(),))
+                return
             db.execute("UPDATE course_jobs SET status='queued',stage='queued',updated=? WHERE status='running' AND attempts<?", (time.time(), self.max_attempts))
             db.execute("UPDATE course_jobs SET status='failed',stage='failed',error=?,updated=? WHERE status='running'", ('任务多次中断，已有学习内容已保留，请检查服务状态。', time.time()))
 
@@ -157,8 +170,8 @@ class CourseJobQueue:
         self._check_worker_connection()
         with self.connect() as db:
             db.begin_write(serialize=False)
-            row = db.execute("SELECT * FROM course_jobs WHERE status='queued' ORDER BY created,job_id LIMIT 1"
-                             + (' FOR UPDATE SKIP LOCKED' if db.postgres else '')).fetchone()
+            row = db.execute("SELECT * FROM course_jobs WHERE status='queued' AND retry_at<=? ORDER BY retry_at,created,job_id LIMIT 1"
+                             + (' FOR UPDATE SKIP LOCKED' if db.postgres else ''), (time.time(),)).fetchone()
             if row is None:
                 return False
             if self.admission_check is not None:
@@ -173,6 +186,12 @@ class CourseJobQueue:
             with self._progress_scope(row, int(row['attempts']) + 1):
                 course = self.generate(row['session_id'], row['chapter_id'])
             encoded = json.dumps(course, ensure_ascii=False, allow_nan=False)
+        except TeachingRepairPending as error:
+            self._check_worker_connection()
+            with self.connect() as db:
+                db.execute("""UPDATE course_jobs SET status='queued',stage='refining',error=NULL,
+                    retry_at=?,updated=? WHERE job_id=?""",
+                    (time.time() + error.retry_after, time.time(), row['job_id']))
         except Exception as error:
             # Provider responses and private audit text must not enter task status.
             message = str(error)[:300] if isinstance(error, CourseJobFailure) else '课程暂未生成或未通过审核，任务已保存，可以重试。'

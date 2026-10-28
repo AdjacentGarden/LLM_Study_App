@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import statistics
 import uuid
@@ -26,6 +27,8 @@ from .models import (
     TextBlock,
 )
 from .quality import evaluate_text_quality, quality_band
+
+logger = logging.getLogger(__name__)
 
 _CHINESE_CHAPTER = re.compile(
     r"^\s*(第\s*([一二三四五六七八九十百千万零〇两0-9]+)\s*[章篇部])\s*"
@@ -94,6 +97,15 @@ class ChapterSummaryDraft(BaseModel):
 class BookSummaryDraft(BaseModel):
     summary: str = Field(min_length=1, max_length=680)
     chapter_ids: list[str] = Field(min_length=1)
+
+
+class ChapterOpeningDraft(BaseModel):
+    start_page: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=100)
+
+
+class ChapterOutlineDraft(BaseModel):
+    chapters: list[ChapterOpeningDraft] = Field(min_length=1)
 
 
 def _normalized(text: str) -> str:
@@ -218,8 +230,8 @@ def _infer_text_line_headings(pages: list[PageExtraction], toc_pages: set[int]) 
                 pieces.sort()
                 title = " ".join(value for _, _, value, _ in pieces)
                 sources.extend(key for _, _, _, key in pieces)
-            if not title and not scope:
-                continue
+            # A bare ordinal is still useful evidence that the chapter exists.
+            title = title.strip(" .·…")
             refs = []
             if block.bbox:
                 for other in page.blocks:
@@ -333,6 +345,45 @@ def _infer_text_line_headings(pages: list[PageExtraction], toc_pages: set[int]) 
     return result
 
 
+def _display_chapter_candidates(pages: list[PageExtraction], toc_pages: set[int]) -> list[ChapterCandidate]:
+    """Recognize enlarged body openers independently of damaged TOC titles."""
+    result: list[ChapterCandidate] = []
+    for page in pages:
+        if page.page_number in toc_pages:
+            continue
+        heights = [b.bbox[3] - b.bbox[1] for b in page.blocks
+                   if b.bbox and len(b.text.strip()) >= 12 and 180 < b.bbox[1] < 930]
+        if not heights:
+            continue
+        body_height = statistics.median(heights)
+        for index, block in enumerate(page.blocks):
+            parsed = _heading(block.text)
+            if parsed is None or parsed[0] != "chapter" or not block.bbox:
+                continue
+            if block.bbox[1] > 260 or block.bbox[3] - block.bbox[1] < 1.6 * body_height:
+                continue
+            kind, ordinal, title = parsed
+            ids = [block.block_id]
+            previous = block
+            if re.fullmatch(r"第\s*\S+\s*章|(?:chapter|unit)\s*\S+", title, re.I):
+                for following in page.blocks[index + 1:index + 4]:
+                    if (not following.bbox or len(following.text.strip()) > 80
+                            or _heading(following.text)
+                            or re.match(r"\d+[.．]|第.+节", following.text)
+                            or following.bbox[1] > 330
+                            or abs(following.bbox[0] - block.bbox[0]) > 120
+                            or not -5 <= following.bbox[1] - previous.bbox[3] <= 80
+                            or following.bbox[3] - following.bbox[1] < 1.25 * body_height):
+                        break
+                    title += " " + _normalized(following.text)
+                    ids.append(following.block_id)
+                    previous = following
+            result.append(ChapterCandidate(kind, ordinal, title, page.page_number,
+                block.block_id, .96 if len(ids) > 1 else .85, False,
+                {"method": "body_display_geometry", "body_block_ids": ids}))
+    return result
+
+
 class ChapterBoundaryDetector:
     """Generic chapter-level detector: rules propose boundaries; invariants accept them."""
 
@@ -398,13 +449,15 @@ class ChapterBoundaryDetector:
                     )
                 )
         candidates.extend(_infer_text_line_headings(pages, toc_pages))
+        candidates.extend(_display_chapter_candidates(pages, toc_pages))
         return candidates
 
-    def detect(self, pages: list[PageExtraction]) -> tuple[list[ChapterDraft], bool]:
+    def detect(self, pages: list[PageExtraction], *,
+               candidates: list[ChapterCandidate] | None = None) -> tuple[list[ChapterDraft], bool]:
         if not pages:
             raise ValueError("pages must not be empty")
         by_ordinal: dict[tuple[str, str], list[ChapterCandidate]] = {}
-        for candidate in self.candidates(pages):
+        for candidate in self.candidates(pages) if candidates is None else candidates:
             key = (candidate.kind, candidate.ordinal)
             by_ordinal.setdefault(key, []).append(candidate)
         selected: list[ChapterCandidate] = []
@@ -496,7 +549,7 @@ class ChapterReconstructor:
         self.detector = ChapterBoundaryDetector()
 
     def reconstruct_book(self, pages: list[PageExtraction], fallback_title: str) -> BookStructure:
-        chapters, used_fallback = self.detector.detect(pages)
+        chapters, used_fallback = self._outline(pages)
         chapters = [chapter.model_copy(update={"source_coverage": coverage_context(
             pages, start=chapter.start_page, end=chapter.end_page)}) for chapter in chapters
             if any(page.raw_text.strip() and not page_is_skipped(page) for page in pages
@@ -516,6 +569,103 @@ class ChapterReconstructor:
             used_fallback_chapter=used_fallback,
             source_coverage=coverage_context(pages),
         )
+
+    def _outline(self, pages: list[PageExtraction]) -> tuple[list[ChapterDraft], bool]:
+        candidates = self.detector.candidates(pages)
+        chapters, fallback = self.detector.detect(pages, candidates=candidates)
+        toc_ordinals = {c.ordinal for c in candidates if c.toc_page and c.kind == "chapter"}
+        body_ordinals = {h[1] for c in chapters if (h := _heading(c.title))}
+        damaged = any(c.toc_page and not re.sub(r"[.·…\s]", "", re.sub(
+            r"^第\s*\S+\s*章", "", c.title)) for c in candidates)
+        if self.client is None or not (fallback or damaged or toc_ordinals - body_ordinals):
+            return chapters, fallback
+        # The model repairs names and associations, selecting actual body pages.
+        # A provider interruption retains independently supported body openers.
+        pool: dict[int, ChapterCandidate] = {}
+        for candidate in candidates:
+            if candidate.toc_page or candidate.score < .6:
+                continue
+            old = pool.get(candidate.page_number)
+            if old is None or candidate.score > old.score:
+                pool[candidate.page_number] = candidate
+        if not pool:
+            return chapters, fallback
+        required = {c.start_page for c in chapters} if not fallback else set()
+        page_map = {p.page_number: p for p in pages}
+        payload: dict[str, Any] = {
+            "toc": [{"page": p.page_number, "text": p.raw_text[:6000]}
+                    for p in pages if p.page_number in _toc_pages(pages)],
+            "openers": [{"start_page": number, "title": c.title,
+                         "text": page_map[number].raw_text[:1400]}
+                        for number, c in sorted(pool.items())],
+            "required_start_pages": sorted(required),
+        }
+        for attempt in range(self.validation_retries + 1):
+            try:
+                raw = self.client.structured(system=(
+                    "整理教材章节目录。目录OCR可能只有章号或缺少章名，正文章号和标题可能分行。"
+                    "结合目录、正文开篇和小节编号补全名称，保留每个真实章节。"
+                    "起点必须选自openers，必须包含required_start_pages，不得创造页码；"
+                    "名称可按正文总结，保留原章号。只返回JSON："
+                    '{"chapters":[{"start_page":1,"title":"第一章 名称"}]}'),
+                    user=json.dumps(payload, ensure_ascii=False), temperature=0, max_tokens=2200)
+                draft = ChapterOutlineDraft.model_validate(raw)
+                starts = [c.start_page for c in draft.chapters]
+                if len(starts) != len(set(starts)) or not set(starts) <= set(pool) or not required <= set(starts):
+                    raise ChapteringValidationError("outline must retain known actual body openers")
+                markers = []
+                for opening in draft.chapters:
+                    base = pool[opening.start_page]
+                    heading = _heading(opening.title)
+                    if heading is None or heading[1] != base.ordinal:
+                        raise ChapteringValidationError("outline must preserve the observed chapter ordinal")
+                    markers.append(ChapterCandidate(base.kind, base.ordinal, opening.title,
+                        base.page_number, base.block_id, 1, False,
+                        {**base.boundary_evidence, "method": "model_reconciled_body_openers"}))
+                return self.detector.detect(pages, candidates=markers)
+            except (ValueError, LLMError) as error:
+                logger.info("chapter outline repair retained body evidence", extra={"error_type": type(error).__name__})
+                if isinstance(error, LLMError):
+                    break
+                payload["feedback"] = str(error)[:700]
+        return chapters, fallback
+
+    def reconcile_book(self, pages: list[PageExtraction], existing: BookStructure) -> BookStructure:
+        """Repair boundaries while preserving unchanged source-backed chapters."""
+        chapters, fallback = self._outline(pages)
+        old_by_start = {c.start_page: c for c in existing.chapters}
+        repaired = []
+        changed = False
+        for chapter in chapters:
+            old = old_by_start.get(chapter.start_page)
+            if old is not None:
+                chapter = chapter.model_copy(update={"chapter_id": old.chapter_id, "title": old.title})
+            coverage = coverage_context(pages, start=chapter.start_page, end=chapter.end_page)
+            chapter = chapter.model_copy(update={"source_coverage": coverage})
+            reusable = old is not None and all(
+                chapter.start_page <= quote.page_number <= chapter.end_page
+                for quote in [*old.evidence, *(q for refs in old.knowledge_point_evidence.values() for q in refs)])
+            if reusable:
+                chapter = old.model_copy(update={"order": chapter.order, "end_page": chapter.end_page,
+                    "source_block_ids": chapter.source_block_ids, "source_coverage": coverage,
+                    "boundary_evidence": chapter.boundary_evidence})
+            elif self.client is not None:
+                chapter = self._summarize(chapter, pages)
+                if old is not None and all(
+                    chapter.start_page <= quote.page_number <= chapter.end_page
+                    for refs in old.knowledge_point_evidence.values() for quote in refs
+                ):
+                    # A summary may span the removed chapter while its existing
+                    # diagnostic points still have valid, unchanged evidence.
+                    chapter = chapter.model_copy(update={"knowledge_points": old.knowledge_points,
+                        "knowledge_point_evidence": old.knowledge_point_evidence})
+            changed = changed or old is None or old.end_page != chapter.end_page or old.order != chapter.order
+            repaired.append(chapter)
+        if not changed and len(repaired) == len(existing.chapters):
+            return existing
+        summary = self._summarize_book(repaired) if self.client is not None else existing.summary
+        return existing.model_copy(update={"chapters": repaired, "summary": summary,
+            "used_fallback_chapter": fallback, "source_coverage": coverage_context(pages)})
 
     def reconstruct(
         self, pages: list[PageExtraction], fallback_title: str
