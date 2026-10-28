@@ -16,6 +16,7 @@ struct CoursesRouterView: View {
       case .courseDetail: CourseDetailView()
       case .upload: CourseUploadView()
       case .parseReady: CourseParseReadyView()
+      case .courseProgress: CourseImportProgressView()
       case .processing, .courseImportProcessing:
         CourseProcessingView(importing: route == .courseImportProcessing)
       case .chapterConfirm: CourseChapterConfirmationView()
@@ -232,11 +233,13 @@ struct CourseDiagnosisQuestion: Identifiable {
 
 extension AppStore {
   func courseFeatureStartDraft(catalogID: String? = nil) {
+    captureCourseImportDraft()
     draft.name = ""
     draft.resourceIDs = []
     draft.diagnosis = [:]
     draft.step = 0
     draft.editingCourseID = nil
+    draft.importCourseID = nil
     draft.catalogBookID = catalogID
     draft.parseCompleted = false
     importedFileURL = nil

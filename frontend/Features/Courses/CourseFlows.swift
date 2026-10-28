@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct LearnerOnboardingView: View {
   let resettingPreferences: Bool
   @Environment(AppStore.self) private var store
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var step: Int
   @State private var name = ""
   @State private var goal: String?
@@ -16,6 +17,8 @@ struct LearnerOnboardingView: View {
   @State private var restoredScope: String?
   @State private var completed = false
   @State private var saving = false
+  @State private var advancing = false
+  @State private var advanceTask: Task<Void, Never>?
   @FocusState private var nameFocused: Bool
 
   init(resettingPreferences: Bool = false) {
@@ -27,129 +30,138 @@ struct LearnerOnboardingView: View {
     "我们怎么称呼你？", "你希望通过学习收获什么？", "你每天可以投入多少学习时间？",
     "学习时，你最想改善什么？", "你更喜欢怎样的学习引导？", "你希望怎样安排学习节奏？",
   ]
-  private let icons = [
-    "Sparkles", "BookOpen", "Clock3", "BrainCircuit", "Lightbulb", "CalendarCheck2",
-  ]
-  private let tones = ["yellow", "blue", "peach", "mint", "yellow", "violet"]
   private var firstStep: Int { resettingPreferences ? 1 : 0 }
   private var lastStep: Int { LearnerOnboardingDraft.stepCount - 1 }
   var body: some View {
     GeometryReader { geometry in
+      let width = min(400, max(240, geometry.size.width - 74))
+      let scale = width / 328
+      let verticalScale = min(1.18, max(0.8,
+        (geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom) / 874))
       ScrollView {
         VStack(spacing: 0) {
-          if resettingPreferences {
-            HStack {
-              Text("重新设置学习偏好").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
-              Spacer()
-              Button("取消") {
-                nameFocused = false
-                store.back()
-              }.font(DS.font(16)).frame(minWidth: 44, minHeight: 44).buttonStyle(.plain)
-                .disabled(saving).accessibilityIdentifier("preferences.cancel")
-            }.padding(.bottom, 8)
-          }
-          Text(titles[step]).font(
-            DS.font(min(34, max(22, geometry.size.width * 0.056)) * 0.8, weight: .bold)
-          ).multilineTextAlignment(.center).frame(height: 44, alignment: .top).padding(.bottom, 12)
           flowTop(
             step: step - firstStep, total: LearnerOnboardingDraft.stepCount - firstStep,
             hideBack: step == firstStep
           ) {
-            guard step > firstStep, !saving else { return }
+            guard step > firstStep, !saving, !advancing else { return }
+            nameFocused = false
             error = nil
-            withAnimation { step -= 1 }
-          }.disabled(saving)
-          Spacer(minLength: 30)
-          VStack(spacing: 28) {
-            StickerIcon(icons[step], tone: tones[step], size: 48)
+            withAnimation(reduceMotion ? nil : DS.localAnimation) { step -= 1 }
+          }
+          .overlay(alignment: .trailing) {
+            if resettingPreferences {
+              Button("取消") {
+                nameFocused = false
+                store.back()
+              }
+              .font(DS.font(14)).foregroundStyle(DS.primary)
+              .frame(minWidth: 44, minHeight: 44).buttonStyle(.plain)
+              .accessibilityIdentifier("preferences.cancel")
+            }
+          }
+          .disabled(saving || advancing)
+          .padding(.top, max(12, 78 * verticalScale - geometry.safeAreaInsets.top))
+
+          Text(titles[step])
+            .font(DS.font(24)).foregroundStyle(.black)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+            .accessibilityAddTraits(.isHeader).accessibilityIdentifier("onboarding.question")
+            .padding(.top, 70 * verticalScale)
+
+          Group {
             if step == 0 {
-              VStack(alignment: .leading, spacing: 8) {
-                Text("你的称呼").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary).frame(
-                  height: 28, alignment: .top)
-                TextField("输入你的姓名或昵称", text: $name).font(DS.font(20)).multilineTextAlignment(
-                  .center
-                ).textContentType(.nickname).padding(16).frame(minHeight: 58).background(
-                  DS.surface, in: RoundedRectangle(cornerRadius: 16)
-                ).overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border)).focused(
-                  $nameFocused
-                ).accessibilityIdentifier("onboarding.name").submitLabel(.next).onSubmit { next() }
+              VStack(spacing: 20) {
+                TextField("输入你的姓名或昵称", text: $name)
+                  .font(DS.font(20)).multilineTextAlignment(.center)
+                  .textContentType(.nickname).padding(16).frame(minHeight: 58)
+                  .background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
+                  .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border))
+                  .focused($nameFocused).accessibilityIdentifier("onboarding.name")
+                  .submitLabel(.next).onSubmit { next() }
                   .onChange(of: name) { _, value in
                     if value.count > 30 { name = String(value.prefix(30)) }
                     error = nil
                   }
-              }
+              }.frame(maxWidth: .infinity, minHeight: 282 * scale, alignment: .top)
             } else if step == 2 {
-              LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(CourseOptions.times, id: \.0) { value, label in
-                  Button {
-                    dailyTime = value
-                  } label: {
-                    Text(label).font(DS.font(20, weight: .bold)).multilineTextAlignment(.center)
-                      .frame(maxWidth: .infinity).frame(height: 50)
-                      .foregroundStyle(dailyTime == value ? DS.primaryPressed : DS.text)
-                      .background(dailyTime == value ? DS.primarySoft : DS.surface)
-                      .clipShape(RoundedRectangle(cornerRadius: 14))
-                      .overlay(
-                        RoundedRectangle(cornerRadius: 14).stroke(
-                          dailyTime == value ? DS.primary : DS.border,
-                          lineWidth: dailyTime == value ? 2 : 1))
-                  }.buttonStyle(.plain).accessibilityIdentifier("onboarding.time.\(value)")
-                    .accessibilityAddTraits(
-                      dailyTime == value ? .isSelected : [])
+              LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(Array(CourseOptions.times.enumerated()), id: \.element.0) { index, option in
+                  OnboardingChoiceCard(label: option.1, selected: dailyTime == option.0,
+                    scale: scale) {
+                    OnboardingClockIcon(index: index).frame(width: 56, height: 56)
+                  } action: {
+                    guard !advancing, !saving else { return }
+                    dailyTime = option.0
+                    advanceAfterSelection()
+                  }
+                  .accessibilityIdentifier("onboarding.time.\(option.0)")
                 }
               }.accessibilityLabel("每日学习时间")
             } else {
-              VStack(spacing: 12) {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                  ForEach(choices, id: \.0) { value, label, icon in
-                    CourseChoice(label: label, selected: isSelected(value), icon: icon, tall: true)
-                    {
-                      choose(value)
-                    }.accessibilityIdentifier("onboarding.choice.\(step).\(value)")
+              LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(choices, id: \.0) { value, label, icon in
+                  OnboardingChoiceCard(label: label, selected: isSelected(value), scale: scale) {
+                    StickerIcon(icon, size: 56)
+                  } action: {
+                    guard !advancing, !saving else { return }
+                    choose(value)
+                    advanceAfterSelection()
                   }
-                }.accessibilityLabel(titles[step])
-                if step == 3 || step == 4 {
-                  Text("最多选择两项").font(DS.font(14)).foregroundStyle(DS.secondary)
+                  .accessibilityIdentifier("onboarding.choice.\(step).\(value)")
                 }
-              }
-            }
-          }.disabled(saving)
-          Spacer(minLength: 32)
-          VStack(spacing: 12) {
-            if let error {
-              Text(error).font(DS.font(14)).foregroundStyle(DS.danger).accessibilityAddTraits(
-                .updatesFrequently)
-            }
-            CourseFlowPrimaryButton(title: primaryButtonTitle)
-            {
-              next()
-            }.clipShape(
-              Capsule()
-            ).disabled(saving).accessibilityIdentifier("onboarding.next")
-            if step > 0 {
-              Button("跳过") {
-                switch step {
-                case 1: goal = nil
-                case 2: dailyTime = nil
-                case 3: learningBarriers = []
-                case 4: guidanceStyles = []
-                case 5: planningSupport = nil
-                default: break
-                }
-                next()
-              }.font(DS.font(20)).foregroundStyle(DS.secondary).frame(maxWidth: .infinity)
-                .frame(height: 44).buttonStyle(.plain).disabled(saving)
-                .accessibilityIdentifier("onboarding.skip")
+              }.accessibilityLabel(titles[step])
             }
           }
-        }.frame(maxWidth: 560).frame(
-          minHeight: max(440, geometry.size.height - (store.isPad ? 60 : 40))
-        ).padding(
-          .horizontal, 20
-        ).padding(.top, store.isPad ? 42 : 4).padding(.bottom, 20).frame(maxWidth: .infinity)
-      }.scrollDismissesKeyboard(.interactively)
+          .disabled(saving || advancing)
+          .padding(.top, 58 * verticalScale)
+
+          if let error {
+            Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+              .accessibilityAddTraits(.updatesFrequently)
+              .accessibilityIdentifier("onboarding.error").padding(.top, 16)
+          }
+          if saving {
+            ProgressView("正在保存…").font(DS.font(14)).padding(.top, 24)
+              .accessibilityIdentifier("onboarding.saving")
+          } else if step == 0 {
+            CourseFlowPrimaryButton(title: "下一页") { next() }
+              .clipShape(Capsule()).accessibilityIdentifier("onboarding.next")
+              .padding(.top, 86 * verticalScale)
+          } else {
+            Button {
+              guard !advancing else { return }
+              switch step {
+              case 1: goal = nil
+              case 2: dailyTime = nil
+              case 3: learningBarriers = []
+              case 4: guidanceStyles = []
+              case 5: planningSupport = nil
+              default: break
+              }
+              next()
+            } label: {
+              Text("跳过").font(DS.font(18)).foregroundStyle(DS.secondary)
+                .frame(width: 217, height: 34)
+                .overlay(Capsule().stroke(DS.secondary, lineWidth: 1))
+                .frame(height: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(BCPressStyle()).disabled(advancing)
+            .accessibilityIdentifier("onboarding.skip")
+            .padding(.top, 81 * verticalScale)
+          }
+          Spacer(minLength: 36)
+        }
+        .frame(width: width)
+        .frame(minHeight: geometry.size.height, alignment: .top)
+        .frame(maxWidth: .infinity)
+      }.scrollDismissesKeyboard(.interactively).scrollIndicators(.hidden)
     }
+    .background(DS.background.ignoresSafeArea())
     .onAppear { restoreDraftIfReady() }
+    .onDisappear { advanceTask?.cancel() }
     .onChange(of: store.isLoading) { _, _ in restoreDraftIfReady() }
     .onChange(of: store.cloudState.isHydrating) { _, _ in restoreDraftIfReady() }
     .onChange(of: store.cloudState.cacheKey) { _, _ in restoreDraftIfReady() }
@@ -161,10 +173,18 @@ struct LearnerOnboardingView: View {
     .onChange(of: guidanceStyles) { _, _ in persistDraft() }
     .onChange(of: planningSupport) { _, _ in persistDraft() }
   }
-  private var primaryButtonTitle: String {
-    if saving { return "正在保存…" }
-    if step == lastStep { return resettingPreferences ? "完成并保存" : "开始专属学习之旅" }
-    return resettingPreferences ? "下一题" : "下一页"
+
+  private func advanceAfterSelection() {
+    guard !advancing, !saving else { return }
+    error = nil
+    advancing = true
+    persistDraft()
+    advanceTask = Task { @MainActor in
+      do { try await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 200)) }
+      catch { advancing = false; return }
+      advancing = false
+      next()
+    }
   }
   private func restoreDraftIfReady() {
     guard !store.isLoading, !store.cloudState.isHydrating else { return }
@@ -195,20 +215,21 @@ struct LearnerOnboardingView: View {
         let requested = Int(arguments[index + 1])
       {
         step = min(lastStep, max(0, requested))
-        learningBarriers = ["understanding", "memory"]
-        guidanceStyles = ["examples", "stepByStep"]
+        learningBarriers = ["understanding"]
+        guidanceStyles = ["examples"]
         planningSupport = "collaborative"
       }
       return
     }
     let draft = LearnerOnboardingDraft.load(
-      scope: store.cloudState.cacheKey, preferences: store.preferences)
+      scope: store.cloudState.cacheKey,
+      preferences: store.cloudState.requiresPersonalization ? nil : store.preferences)
     step = draft.step
     name = draft.name
     goal = draft.goal
     dailyTime = draft.dailyTime
-    learningBarriers = draft.learningBarriers
-    guidanceStyles = draft.guidanceStyles
+    learningBarriers = Array(draft.learningBarriers.prefix(1))
+    guidanceStyles = Array(draft.guidanceStyles.prefix(1))
     planningSupport = draft.planningSupport
   }
   private var choices: [(String, String, String)] {
@@ -230,19 +251,10 @@ struct LearnerOnboardingView: View {
   private func choose(_ value: String) {
     error = nil
     switch step {
-    case 3: toggle(value, in: &learningBarriers)
-    case 4: toggle(value, in: &guidanceStyles)
+    case 3: learningBarriers = [value]
+    case 4: guidanceStyles = [value]
     case 5: planningSupport = value
     default: goal = value
-    }
-  }
-  private func toggle(_ value: String, in selection: inout [String]) {
-    if let index = selection.firstIndex(of: value) {
-      selection.remove(at: index)
-    } else if selection.count < 2 {
-      selection.append(value)
-    } else {
-      error = "最多选择两项，可先取消一项"
     }
   }
   private func persistDraft() {
@@ -269,7 +281,7 @@ struct LearnerOnboardingView: View {
     nameFocused = false
     error = nil
     if step < lastStep {
-      withAnimation { step += 1 }
+      withAnimation(reduceMotion ? nil : DS.localAnimation) { step += 1 }
     } else {
       if store.cloud != nil {
         saving = true
@@ -313,6 +325,83 @@ struct LearnerOnboardingView: View {
   private func finishPreferencesReset() {
     store.back()
     store.showToast("学习偏好已重新设置")
+  }
+}
+
+/// The four-card questionnaire composition from Figma 262:526.
+private struct OnboardingChoiceCard<Icon: View>: View {
+  let label: String
+  let selected: Bool
+  let scale: CGFloat
+  @ViewBuilder let icon: () -> Icon
+  let action: () -> Void
+  var body: some View {
+    Button(action: action) {
+      VStack(spacing: 20) {
+        icon()
+        Text(label).font(DS.font(14, weight: .bold))
+          .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+          .frame(minHeight: 20)
+      }
+      .padding(.horizontal, 8).padding(.top, 24).padding(.bottom, 12)
+      .frame(maxWidth: .infinity, minHeight: 136 * scale)
+      .foregroundStyle(selected ? DS.primaryPressed : DS.text)
+      .background(selected ? DS.primarySoft : DS.surface,
+        in: RoundedRectangle(cornerRadius: 16))
+      .overlay(RoundedRectangle(cornerRadius: 16)
+        .stroke(selected ? DS.primary : DS.border, lineWidth: selected ? 2 : 1))
+      .contentShape(RoundedRectangle(cornerRadius: 16))
+    }
+    .buttonStyle(BCPressStyle())
+    .accessibilityLabel(label).accessibilityHint("选择后自动进入下一题")
+    .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+}
+
+/// Native vector clock artwork: 00:15, 00:45, 01:30, and 02:30.
+/// The four colors match the existing violet, yellow, mint, and pink stickers.
+private struct OnboardingClockIcon: View {
+  let index: Int
+  private let colors: [UInt] = [0xddd0ff, 0xffe883, 0xb7efd8, 0xffc9d8]
+  private let minutes: [Double] = [15, 45, 90, 150]
+  var body: some View {
+    Canvas { context, size in
+      let side = min(size.width, size.height)
+      let center = CGPoint(x: size.width / 2, y: size.height / 2)
+      let radius = side * 0.45
+      let rim = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius,
+        width: radius * 2, height: radius * 2))
+      context.fill(rim.offsetBy(dx: 1.5, dy: 2), with: .color(Color(hex: 0x252436)))
+      context.fill(rim, with: .color(Color(hex: colors[index])))
+      context.stroke(rim, with: .color(Color(hex: 0x252436)), lineWidth: 1.7)
+      let faceRadius = radius * 0.79
+      context.fill(Path(ellipseIn: CGRect(x: center.x - faceRadius, y: center.y - faceRadius,
+        width: faceRadius * 2, height: faceRadius * 2)), with: .color(.white.opacity(0.88)))
+      func point(angle: Double, length: CGFloat) -> CGPoint {
+        CGPoint(x: center.x + sin(angle) * length, y: center.y - cos(angle) * length)
+      }
+      for tick in 0..<12 {
+        let angle = Double(tick) * .pi / 6
+        var mark = Path()
+        mark.move(to: point(angle: angle, length: radius * 0.65))
+        mark.addLine(to: point(angle: angle, length: radius * 0.71))
+        context.stroke(mark, with: .color(DS.secondary.opacity(0.65)),
+          style: StrokeStyle(lineWidth: tick % 3 == 0 ? 1.5 : 0.8, lineCap: .round))
+      }
+      for (angle, length, thickness) in [
+        (minutes[index] / 60 * 2 * .pi, radius * 0.57, 2.0),
+        (minutes[index] / 720 * 2 * .pi, radius * 0.38, 2.8),
+      ] {
+        var hand = Path()
+        hand.move(to: center)
+        hand.addLine(to: point(angle: angle, length: length))
+        context.stroke(hand, with: .color(Color(hex: 0x252436)),
+          style: StrokeStyle(lineWidth: thickness, lineCap: .round))
+      }
+      context.fill(Path(ellipseIn: CGRect(x: center.x - 2, y: center.y - 2,
+        width: 4, height: 4)), with: .color(DS.primaryPressed))
+    }
+    .rotationEffect(.degrees(-3)).accessibilityHidden(true)
   }
 }
 
@@ -1035,6 +1124,9 @@ struct CourseProcessingView: View {
   private var activeStage: Int {
     if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return importing ? -1 : 0 }
     if onDevice { return store.importJob?.status == .completed ? 1 : 0 }
+    if !importing, store.importState.courses.first(where: { $0.id == store.importState.legacyCourseID })?.onDeviceOnly == true {
+      return store.importJob?.status == .completed ? 2 : 1
+    }
     if !importing, store.cloud != nil {
       if store.importJob?.status == .completed { return 4 }
       switch store.importJob?.preparationStage {
@@ -1448,5 +1540,100 @@ private struct CourseFlowPrimaryButton: View {
         .foregroundStyle(enabled ? .white : DS.secondary)
         .background(enabled ? DS.primary : DS.border, in: Capsule())
     }.buttonStyle(BCPressStyle())
+  }
+}
+
+struct CourseImportProgressView: View {
+  @Environment(AppStore.self) private var store
+  private var record: CourseImportRecord? {
+    store.importState.courses.first { $0.id == store.importState.viewedCourseID }
+  }
+  var body: some View {
+    CourseFeaturePage(width: 720) {
+      if let record {
+        HStack(spacing: 16) {
+          CourseCoverImage(path: store.sources.first { record.draft.resourceIDs.contains($0.id) }?.summary.cover_url)
+            .frame(width: 72, height: 100).clipped().clipShape(RoundedRectangle(cornerRadius: 8))
+          VStack(alignment: .leading, spacing: 8) {
+            Text(store.courses.first { $0.id == record.id }?.name ?? record.draft.name)
+              .font(DS.font(22, weight: .bold))
+            Text(record.job.status == .completed ? (record.onDeviceOnly == true ? "本机原文已就绪" : "教材已就绪") : record.message)
+              .font(DS.font(15)).foregroundStyle(record.error == nil ? DS.secondary : DS.danger)
+              .accessibilityIdentifier("course.progress.message")
+            Text("\(record.books.count) 份资料 · 离开页面后继续后台处理")
+              .font(DS.font(13)).foregroundStyle(DS.secondary)
+          }
+        }
+        ForEach(record.books) { book in
+          BCCard {
+            VStack(alignment: .leading, spacing: 12) {
+              Text(store.sources.first { $0.id == book.id }?.summary.filename ?? "教材资料")
+                .font(DS.font(16, weight: .bold))
+              HStack {
+                if book.status == .completed { Image(systemName: "checkmark.circle.fill").foregroundStyle(DS.mint) }
+                else if book.status == .running { ProgressView() }
+                Text(book.message).font(DS.font(14)).foregroundStyle(DS.secondary)
+              }
+              if let source = store.sources.first(where: { $0.id == book.id }), store.sourceFileURL(book.id) != nil {
+                BCButton("查看原文件", style: .text) {
+                  store.openSource(SourcePageTarget(bookID: book.id, title: source.summary.title,
+                    page: 1, from: .courseProgress))
+                }
+              }
+              if book.status == .running, book.stage == nil {
+                BCProgress(value: book.progress)
+                Text("原文识别 \(Int(min(1, max(0, book.progress)) * 100))%")
+                  .font(DS.font(13)).foregroundStyle(DS.secondary)
+              }
+              let stages = record.onDeviceOnly == true ? ["读取本机资料", "识别教材原文", "本机检索已就绪"]
+                : ["识别教材原文", "准备检索索引", "整理教材目录", "生成并审核诊断题", "教材已就绪"]
+              let current = book.status == .completed ? stages.count - 1 : record.onDeviceOnly == true ? 1 : book.stage == "diagnostics" ? 3
+                : book.stage == "structuring" ? 2 : book.stage == nil ? 0 : 1
+              ForEach(Array(stages.enumerated()), id: \.offset) { index, name in
+                HStack(spacing: 8) {
+                  let stopped = index == current && [.failed, .cancelled, .interrupted].contains(book.status)
+                  Image(systemName: book.status == .completed || index < current ? "checkmark.circle.fill"
+                    : stopped ? (book.status == .failed ? "exclamationmark.circle.fill" : "pause.circle")
+                    : index == current ? "circle.inset.filled" : "circle")
+                    .foregroundStyle(index < current || book.status == .completed ? DS.mint
+                      : stopped ? (book.status == .failed ? DS.danger : DS.secondary) : DS.primary)
+                  Text(name).font(DS.font(14))
+                }.opacity(index > current ? 0.45 : 1)
+              }
+            }
+          }
+        }
+        if record.job.status == .completed {
+          BCButton(record.onDeviceOnly == true ? "查看课程" : "继续创建课程") {
+            if record.onDeviceOnly == true, let course = store.courses.first(where: { $0.id == record.id }) { store.openCourse(course) }
+            else { store.continueCourseImport(record.id) }
+          }
+            .accessibilityIdentifier("course.progress.continue")
+        } else if store.importState.tasks[record.id] == nil && (!record.started
+          || ![.running, .queued].contains(record.job.status)
+          || record.job.status == .queued && record.job.preparationStage == nil) {
+          BCButton(record.job.status == .cancelled ? "继续解析" : record.started ? "继续解析／查询原任务" : "开始解析") {
+            Task { await store.startCourseImport(record.id, retryPreparation: record.job.status == .cancelled) }
+          }.accessibilityIdentifier("course.progress.start")
+          if record.job.preparationFailed == true && record.job.status != .cancelled {
+            BCButton("继续教材准备", style: .secondary) {
+              Task { await store.startCourseImport(record.id, retryPreparation: true) }
+            }.accessibilityIdentifier("course.progress.retry")
+          }
+        }
+        if record.started && [.running, .queued, .interrupted].contains(record.job.status) {
+          BCButton("暂停解析", style: .text) { Task { await store.pauseCourseImport(record.id) } }
+            .accessibilityIdentifier("course.progress.pause")
+        }
+        BCButton("返回我的课程", style: .secondary) { store.go(.home) }
+          .accessibilityIdentifier("course.progress.background")
+      } else {
+        EmptyStateView(title: "暂无解析任务", message: "资料和解析结果可以在我的课程中查看。")
+        BCButton("返回我的课程") { store.go(.home) }
+      }
+    }
+    .task(id: store.importState.viewedCourseID) {
+      if let id = store.importState.viewedCourseID { await store.observeCourseImport(id, once: true) }
+    }
   }
 }

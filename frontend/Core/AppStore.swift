@@ -157,7 +157,7 @@ import SwiftUI
   @ObservationIgnored let repository: LocalBookCourseRepository
   @ObservationIgnored var filePaths: [String: String] = [:]
   @ObservationIgnored var persistTask: Task<Void, Never>?
-  @ObservationIgnored private var processTask: Task<Void, Never>?
+  @ObservationIgnored var processTask: Task<Void, Never>?
   @ObservationIgnored private var processGeneration = UUID()
   @ObservationIgnored private var toastTask: Task<Void, Never>?
   @ObservationIgnored private var creditReservations: [String: Int] = [:]
@@ -253,6 +253,7 @@ import SwiftUI
       }
       if let snapshot = try await repository.loadSnapshot() {
         importJob = snapshot.importJob
+        importState.courses = snapshot.courseImports ?? []
         chapterDrafts = snapshot.chapterDrafts ?? [:]
         preferences = snapshot.preferences
         draft = snapshot.draft
@@ -281,13 +282,16 @@ import SwiftUI
       applyCredits(ledger)
       try await repository.seedDemoNotesIfNeeded()
       notes = try await repository.loadNotes()
+      if importState.courses.isEmpty, importJob != nil { _ = registerCourseImport() }
+      for i in importState.courses.indices where importState.courses[i].job.status == .running {
+        importState.courses[i].job.status = .interrupted
+      }
       route = preferences?.hasCompletedOnboarding == true ? .home : .onboarding
       if importJob?.status == .running {
         importJob?.status = .interrupted
         importJob?.message = "上次整理中断，原文件已保留，请继续整理"
         importError = importJob?.message
         processingMessage = importJob?.message ?? "整理中断"
-        if preferences?.hasCompletedOnboarding == true { route = .parseReady }
       }
       if repository.includesFixtureContent { seedMistakeIfNeeded() }
       let arguments = ProcessInfo.processInfo.arguments
@@ -643,6 +647,17 @@ import SwiftUI
         bookID: citation.bookID, title: citation.chapterTitle, page: citation.page,
         printedPage: citation.printedPage, sourceText: citation.quote, from: route))
   }
+  /// An unfinished import is available on demand; it never overrides the startup route.
+  var resumableCourseRoute: Route? {
+    guard !draft.resourceIDs.isEmpty else { return nil }
+    if let job = importJob, [.running, .interrupted, .failed].contains(job.status) {
+      return .parseReady
+    }
+    if draft.catalogBookID != nil { return .courseSetup }
+    if cloud != nil && cloudState.creationWorkspaceID != nil { return .chapterConfirm }
+    return draft.parseCompleted ? .courseSetup : .parseReady
+  }
+
   func completeOnboarding(
     name: String, goal: String?, dailyTime: String?, learningBarriers: [String] = [],
     guidanceStyles: [String] = [], planningSupport: String? = nil
@@ -661,6 +676,7 @@ import SwiftUI
       return
     }
     preferences = nil
+    LearnerOnboardingDraft.clear()
     sheet = nil
     path = []
     persist()
@@ -678,7 +694,7 @@ import SwiftUI
       return
     }
     let validIDs = Array(NSOrderedSet(array: resourceIDs)) as? [String] ?? resourceIDs
-    if let edit = draft.editingCourseID, let i = courses.firstIndex(where: { $0.id == edit }) {
+    if let edit = draft.editingCourseID ?? draft.importCourseID, let i = courses.firstIndex(where: { $0.id == edit }) {
       courses[i].name = name
       courses[i].resourceIDs = validIDs
       courses[i].diagnosis = diagnosis
@@ -693,6 +709,7 @@ import SwiftUI
       selectedCourseID = course.id
     }
     if let id = validIDs.first { selectSource(id) }
+    finishCourseImportSetup()
     draft = CourseDraft()
     persist()
   }
@@ -702,6 +719,21 @@ import SwiftUI
       return
     }
     guard let removed = courses.first(where: { $0.id == id }) else { return }
+    if let record = courseImport(for: id), record.needsPreparation, record.job.status != .cancelled, cloud != nil {
+      let epoch = cloudState.epoch
+      Task {
+        await pauseCourseImport(record.id)
+        guard epoch == self.cloudState.epoch,
+          self.importState.courses.first(where: { $0.id == record.id })?.job.status == .cancelled else { return }
+        self.removeCourse(id)
+      }
+      return
+    }
+    if let record = courseImport(for: id) {
+      importState.tasks[record.id]?.cancel()
+      importState.tasks[record.id] = nil
+      importState.courses.removeAll { $0.id == record.id }
+    }
     dismissedSourceIDs.formUnion(removed.resourceIDs)
     courses.removeAll { $0.id == id }
     if selectedCourseID == id {
@@ -826,6 +858,8 @@ import SwiftUI
       importedFileURL = repository.attachmentURL(result.relativePath)
       try await repository.saveFilePaths(filePaths)
       try await repository.saveSources(sources)
+      if let targetCourseID { draft.importCourseID = targetCourseID }
+      _ = registerCourseImport()
       persist()
     } catch {
       guard !Task.isCancelled else { return }
@@ -834,84 +868,18 @@ import SwiftUI
     }
   }
   func processImport(retryPreparation: Bool = false) async {
-    if cloud != nil {
-      if let processTask { await processTask.value; return }
-      let generation = UUID()
-      processGeneration = generation
-      let task = Task { @MainActor in await processCloudImport(retryPreparation: retryPreparation) }
-      processTask = task
-      if route == .parseReady { go(.processing) }
-      await task.value
-      if processGeneration == generation { processTask = nil }
-      return
-    }
-    if ContentBundle.fixtureMode,
-      !draft.resourceIDs.contains(where: { $0.hasPrefix("book_local_") })
-    {
-      return
-    }
-    if let processTask {
-      await processTask.value
-      return
-    }
-    let generation = UUID()
-    processGeneration = generation
-    let task = Task { @MainActor in
-      processingProgress = 0
-      importError = nil
-      let ids = draft.resourceIDs
-      let selectedGeneration = selectionGeneration
-      importJob = ImportJob(bookIDs: ids, status: .running)
-      persist()
-      await flush()
-      for (n, id) in ids.enumerated() {
-        guard !Task.isCancelled else { return }
-        guard let file = sourceFileURL(id), let index = sources.firstIndex(where: { $0.id == id }),
-          !["ready", "source_ready"].contains(sources[index].summary.status)
-        else { continue }
-        processingMessage = "正在读取 \(sources[index].summary.filename ?? "资料")"
-        do {
-          let filename = sources[index].summary.filename ?? file.lastPathComponent
-          let source: SourceContent
-          if AppleDocumentOCR.supportedExtensions.contains(file.pathExtension.lowercased()) {
-            source = try await AppleDocumentOCR.extract(url: file, bookID: id, filename: filename)
-          } else {
-            source = try await LocalFileImporter.extract(url: file, bookID: id, filename: filename)
-          }
-          try Task.checkCancellation()
-          if let i = sources.firstIndex(where: { $0.id == id }) { sources[i] = source }
-          processingProgress = Double(n + 1) / Double(max(ids.count, 1))
-          importJob?.progress = processingProgress
-          importJob?.message = processingMessage
-          try await repository.saveSources(sources)
-          persist()
-        } catch {
-          if Task.isCancelled { return }
-          importError = error.localizedDescription
-          processingMessage = "整理中断，原文件已保留"
-          importJob?.status = .failed
-          importJob?.message = processingMessage
-          persist()
-          showToast(error.localizedDescription)
-          return
-        }
-      }
-      processingProgress = 1
-      processingMessage = "资料整理完成"
-      importJob?.status = .completed
-      importJob?.progress = 1
-      importJob?.message = processingMessage
-      if draft.resourceIDs == ids { draft.parseCompleted = true }
-      persist()
-      if route == .processing, selectionGeneration == selectedGeneration { go(.courseSetup) }
-    }
-    processTask = task
-    await task.value
-    if processGeneration == generation { processTask = nil }
+    if cloud == nil, ContentBundle.fixtureMode,
+      !draft.resourceIDs.contains(where: { $0.hasPrefix("book_local_") }) { return }
+    guard let id = registerCourseImport() else { return }
+    importState.legacyCourseID = id
+    if route == .parseReady { go(.processing) }
+    await startCourseImport(id, retryPreparation: retryPreparation)
   }
   func cancelImport() {
-    if let cloud, activeImportRoute == .existing {
-      let books = (importJob?.bookIDs ?? []).filter { !$0.hasPrefix("book_local_") }
+    if let id = importState.legacyCourseID {
+      Task { await pauseCourseImport(id) }
+    } else if let cloud {
+      let books = importJob?.bookIDs ?? []
       Task {
         for bookID in books {
           do {
@@ -920,6 +888,9 @@ import SwiftUI
           } catch { self.handleCloudError(error) }
         }
       }
+    }
+    if let id = importState.legacyCourseID {
+      updateCourseImport(id) { $0.job.status = .cancelled; $0.error = "整理已取消，原文件已保留" }
     }
     processTask?.cancel()
     processTask = nil
@@ -1214,8 +1185,9 @@ import SwiftUI
     chatLoading = false
   }
   func snapshot() -> AppSnapshot {
-    AppSnapshot(
-      importJob: importJob, chapterDrafts: chapterDrafts, preferences: preferences, draft: draft,
+    captureCourseImportDraft()
+    return AppSnapshot(
+      courseImports: importState.courses, importJob: importJob, chapterDrafts: chapterDrafts, preferences: preferences, draft: draft,
       courses: courses,
       selectedCourseID: selectedCourseID, selectedBookID: selectedBookID, locations: locations,
       mastery: mastered, credits: credits, creditReservations: creditReservations,

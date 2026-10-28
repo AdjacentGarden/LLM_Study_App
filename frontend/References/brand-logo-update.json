@@ -1,0 +1,38 @@
+{
+  "source": "User-provided logo, 2026-10-26",
+  "original_filename": "codex-clipboard-07d00d2e-1097-495f-9b02-0b8fd15f5387.png",
+  "files": [
+    {
+      "path": "Resources/Content/assets/brand/app-logo.png",
+      "bytes": 886096,
+      "sha256": "937240eb006e21e4cca399e4203471bd44961f6fbee2fc2ddab5c60e01e0e52a"
+    },
+    {
+      "path": "Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "bytes": 742943,
+      "sha256": "00e5498cc888a6b6f61bfefcf755ffc00b70ec916387c24bdc2f064c11ef1f1b"
+    },
+    {
+      "path": "Resources/Assets.xcassets/Splash.imageset/splash-logo.png",
+      "bytes": 886096,
+      "sha256": "937240eb006e21e4cca399e4203471bd44961f6fbee2fc2ddab5c60e01e0e52a"
+    },
+    {
+      "path": "Resources/LaunchScreen.storyboard",
+      "bytes": 3922,
+      "sha256": "484330137ad2875cf2063906e0e9d6733ac593f722112797c3e606f4e06bfd5e"
+    },
+    {
+      "path": "Resources/Assets.xcassets/SplashCorners.imageset/splash-corners.svg",
+      "bytes": 344,
+      "sha256": "06995891e86d7efe98b248065bd69f3197635ccab18b98f34bfff07b3c9338aa"
+    },
+    {
+      "path": "Resources/Content/assets/brand/app-icon.png",
+      "bytes": 742943,
+      "sha256": "00e5498cc888a6b6f61bfefcf755ffc00b70ec916387c24bdc2f064c11ef1f1b"
+    }
+  ],
+  "startup": "System launch screen and app loading overlay share the new 144pt logo and white background. Initial overlay remains visible for at least 1.2 seconds while bootstrap proceeds concurrently.",
+  "login_animation": "Only the white form panel springs upward from below the viewport (0.62s response, 0.86 damping) after the illustration appears. Reduced Motion displays it immediately."
+}

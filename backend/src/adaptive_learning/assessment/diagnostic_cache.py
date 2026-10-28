@@ -19,6 +19,19 @@ class DiagnosticChapterSubmissionBlocked(DiagnosticChapterCacheError):
     """A prior submission has no confirmed reusable result; do not submit again."""
 
 
+class DiagnosticRepairPending(RuntimeError):
+    """A completed pass needs another scheduled pass, with no retry limit."""
+
+    def __init__(self, *, completed: int, total: int, retry_after: float,
+                 waiting_for_service: bool = False) -> None:
+        super().__init__("diagnostic items are being repaired")
+        self.details = {
+            "message": ("等待模型服务恢复，恢复后自动继续" if waiting_for_service else "正在根据审核意见优化题目"),
+            "diagnostics_completed": completed, "diagnostics_total": total,
+            "retry_after_seconds": max(1, retry_after),
+        }
+
+
 def chapter_identity(identity: dict[str, Any]) -> tuple[str, str]:
     fields = {"scope", "chapter_id", "source_fingerprint", "protocol_fingerprint",
               "review_fingerprint", "point_ids"}
@@ -65,3 +78,13 @@ class RepositoryDiagnosticChapterCache:
 
     def fail(self, identity: dict[str, Any], token: str, outcome: str) -> None:
         self.repository.fail_diagnostic_chapter(identity, token, outcome)
+
+    def repair_state(self, identity: dict[str, Any]) -> dict[str, Any]:
+        return self.repository.diagnostic_item_repair(identity)
+
+    def lookup(self, identity: dict[str, Any]) -> list[DiagnosticItem] | None:
+        return self.repository.diagnostic_approval(identity)
+
+    def defer(self, identity: dict[str, Any], token: str, state: dict[str, Any],
+              outcome: str = "rejected") -> None:
+        self.repository.defer_diagnostic_item(identity, token, state, outcome)

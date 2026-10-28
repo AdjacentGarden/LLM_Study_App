@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CloudAccountView: View {
   @Environment(AppStore.self) private var store
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var email = ""
   @State private var code = ""
   @State private var nickname = ""
@@ -15,140 +16,290 @@ struct CloudAccountView: View {
   @State private var busy = false
   @State private var error: String?
   @State private var server = ""
+  @State private var showingSettings = false
+  @State private var panelPresented = false
+  @State private var settingsError: String?
   @FocusState private var focused: Bool
+
+  private var hasCurrentChallenge: Bool {
+    challenge != nil && email == challengeEmail
+      && challengePurpose == (registering ? "register" : "login")
+  }
+  private var canVerify: Bool {
+    !busy && hasCurrentChallenge && code.count == 6
+      && (!registering || !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+  }
+
   var body: some View {
-    ScrollView {
-      VStack(spacing: 24) {
-        StickerIcon("Sparkles", tone: "yellow", size: 64).padding(.top, 44)
-        Text("开始你的云径学习").font(DS.font(28, weight: .bold))
-        Text(store.cloudState.localLogin ? "正在使用本地默认账号，无需邮箱验证。" : "登录后，在 iPhone 和 iPad 继续学习。")
-          .font(DS.font(16)).foregroundStyle(DS.secondary)
+    GeometryReader { geometry in
+      let width = min(geometry.size.width, 480)
+      let scale = width / 402
+      let heroHeight = max(190, 332 * scale - geometry.safeAreaInsets.top)
+      ScrollView {
+        VStack(spacing: 0) {
+          hero(width: width, scale: scale, topInset: geometry.safeAreaInsets.top)
+            .frame(height: heroHeight, alignment: .top)
+          accountForm(scale: scale)
+            .frame(minHeight: max(542 * scale,
+              geometry.size.height - heroHeight + geometry.safeAreaInsets.bottom))
+            .background {
+              UnevenRoundedRectangle(topLeadingRadius: 58 * scale, topTrailingRadius: 58 * scale)
+                .fill(DS.surface)
+                .shadow(color: Color(hex: 0xb4b4b4).opacity(0.24), radius: 6, x: 2, y: -2)
+            }
+            .offset(y: panelPresented ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
+            .allowsHitTesting(panelPresented)
+            .accessibilityHidden(!panelPresented)
+        }
+        .frame(width: width)
+        .frame(maxWidth: .infinity)
+      }
+      .scrollIndicators(.hidden)
+      .scrollClipDisabled()
+      .scrollDismissesKeyboard(.interactively)
+      .background {
+        LinearGradient(
+          stops: [.init(color: Color(hex: 0xdccafa), location: 0),
+            .init(color: Color(hex: 0xfcfaff), location: 0.23),
+            .init(color: Color(hex: 0xdccafa), location: 0.65)],
+          startPoint: .top, endPoint: .bottom
+        ).ignoresSafeArea()
+      }
+    }
+    .onAppear { server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer }
+    .task {
+      if reduceMotion {
+        panelPresented = true
+      } else {
+        // Reveal the illustration first, then spring the entire white panel upward.
+        do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
+        withAnimation(.spring(response: 0.62, dampingFraction: 0.86)) {
+          panelPresented = true
+        }
+      }
+    }
+    .sheet(isPresented: $showingSettings) { serviceSettings }
+    .toolbar {
+      ToolbarItemGroup(placement: .keyboard) {
+        Spacer()
+        Button("完成") { focused = false }.accessibilityIdentifier("cloud.keyboardDone")
+      }
+    }
+  }
+
+  private func hero(width: CGFloat, scale: CGFloat, topInset: CGFloat) -> some View {
+    ZStack(alignment: .top) {
+      // Figma's export is clipped to the design viewport (402 × 478).
+      AssetImage("/assets/brand/login/hero-decoration.png")
+        .frame(width: width, height: 478 * scale)
+        .offset(y: -topInset)
+      AssetImage("/assets/brand/login/cloud-hero.png")
+        .frame(width: width, height: 276 * scale)
+        .opacity(0.8)
+        .offset(x: -scale, y: 93 * scale - topInset)
+      LinearGradient(
+        stops: [.init(color: Color(hex: 0xcfd9f3).opacity(0.07), location: 0),
+          .init(color: Color(hex: 0xd6d1f7).opacity(0.71), location: 0.1342),
+          .init(color: Color(hex: 0xdccafa), location: 0.671)],
+        startPoint: .top, endPoint: .bottom
+      )
+      .frame(width: width, height: 568 * scale)
+      .offset(y: 306 * scale - topInset)
+      HStack {
+        Spacer().frame(width: 44)
+        Text(registering ? "注册" : "登录")
+          .font(DS.font(24, weight: .bold)).foregroundStyle(DS.primary)
+          .accessibilityAddTraits(.isHeader)
+          .frame(maxWidth: .infinity)
+        Button {
+          focused = false
+          server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer
+          settingsError = nil
+          showingSettings = true
+        } label: {
+          BCGlyph("Settings", color: DS.primary)
+            .frame(width: 16, height: 16)
+            .frame(width: 31, height: 31)
+            .background(Color(hex: 0xf7f3ff), in: RoundedRectangle(cornerRadius: 8))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(BCPressStyle())
+        .accessibilityLabel("设置")
+        .accessibilityIdentifier("cloud.settings")
+        .disabled(busy)
+      }
+      .padding(.horizontal, 12 * scale)
+      .padding(.top, max(0, 63 * scale - topInset))
+    }
+    .frame(width: width, alignment: .top)
+  }
+
+  private func accountForm(scale: CGFloat) -> some View {
+    VStack(spacing: 0) {
+      VStack(alignment: .leading, spacing: 17) {
         if store.cloudState.localLogin {
-          if let message = error ?? store.cloudState.error {
-            Text(message).font(DS.font(14)).foregroundStyle(DS.danger)
-          }
+          Text("正在使用本地默认账号，无需邮箱验证。")
+            .font(DS.font(16)).foregroundStyle(DS.secondary)
           BCButton("连接本地服务并进入 App") {
             store.isLoading = true
             Task { await store.bootCloud() }
           }.accessibilityIdentifier("cloud.localRetry")
         } else {
-          HStack(spacing: 12) {
-            modeButton("登录", register: false)
-            modeButton("注册", register: true)
-          }
-          VStack(alignment: .leading, spacing: 16) {
-            TextField("邮箱地址", text: $email).textInputAutocapitalization(.never)
+          TextField("邮箱账号", text: $email)
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
+            .keyboardType(.emailAddress).textContentType(.emailAddress)
+            .focused($focused)
+            .accessibilityLabel("邮箱地址").accessibilityIdentifier("cloud.email")
+            .padding(.horizontal, 21).frame(minHeight: 47)
+            .background(Color(.systemGray6), in: Capsule())
+          HStack(spacing: 4) {
+            TextField("邮箱验证码", text: $code)
+              .keyboardType(.numberPad).textContentType(.oneTimeCode)
               .focused($focused)
-              .keyboardType(.emailAddress).textContentType(.emailAddress)
-              .accessibilityIdentifier("cloud.email").padding(16).background(
-                DS.surface, in: RoundedRectangle(cornerRadius: 16)
-              )
-              .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border))
-            if registering {
-              BCTextField("你的称呼", text: $nickname).accessibilityIdentifier("cloud.nickname")
-                .focused($focused)
-              Picker("学习阶段", selection: $stage) {
-                Text("初中").tag("middle")
-                Text("高中").tag("high")
-                Text("大学").tag("university")
-                Text("工作").tag("working")
-                Text("其他").tag("other")
+              .accessibilityLabel("六位验证码").accessibilityIdentifier("cloud.code")
+              .onChange(of: code) { _, value in
+                code = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
               }
-              Picker("学习目标", selection: $goal) {
-                Text("准备考试").tag("exam")
-                Text("工作应用").tag("work")
-                Text("兴趣学习").tag("interest")
-              }
-            }
             TimelineView(.periodic(from: .now, by: 1)) { context in
               let remaining = max(0, Int(ceil(resendDate.timeIntervalSince(context.date))))
-              BCButton(remaining > 0 ? "\(remaining) 秒后可重新发送" : "获取邮箱验证码", style: .secondary) {
+              Button {
                 Task { await sendCode() }
-              }.disabled(busy || email.isEmpty || remaining > 0).accessibilityIdentifier(
-                "cloud.sendCode")
-            }
-            if let challenge, email == challengeEmail,
-              challengePurpose == (registering ? "register" : "login")
-            {
-              Text(challenge.message).font(DS.font(14)).foregroundStyle(DS.secondary)
-              if let demo = challenge.demo_code {
-                Text("测试账号验证码：\(demo)").font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary)
-                  .accessibilityIdentifier("cloud.demoCode")
+              } label: {
+                Text(remaining > 0 ? "\(remaining) 秒" : busy ? "发送中…" : "获取验证码")
+                  .font(DS.font(12, weight: .semibold)).foregroundStyle(DS.primary)
+                  .fixedSize().frame(minHeight: 44)
               }
-              TextField("六位验证码", text: $code).keyboardType(.numberPad).textContentType(.oneTimeCode)
-                .focused($focused)
-                .padding(16).background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border))
-                .accessibilityIdentifier("cloud.code")
-              BCButton(busy ? "正在登录…" : registering ? "创建账号并开始" : "登录并继续学习") {
-                Task { await verifyCode() }
-              }.disabled(
-                busy || code.count != 6
-                  || (registering
-                    && nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-              )
-              .accessibilityIdentifier("cloud.verify")
+              .buttonStyle(BCPressStyle())
+              .disabled(busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || remaining > 0)
+              .opacity(busy || remaining > 0 ? 0.55 : 1)
+              .accessibilityIdentifier("cloud.sendCode")
             }
-            if let message = error ?? store.cloudState.error {
-              Text(message).font(DS.font(14)).foregroundStyle(DS.danger).accessibilityIdentifier(
-                "cloud.error")
+          }
+          .padding(.horizontal, 21).frame(minHeight: 47)
+          .background(Color(.systemGray6), in: Capsule())
+          if registering {
+            BCTextField("你的称呼", text: $nickname)
+              .accessibilityIdentifier("cloud.nickname").focused($focused)
+            Picker("学习阶段", selection: $stage) {
+              Text("初中").tag("middle")
+              Text("高中").tag("high")
+              Text("大学").tag("university")
+              Text("工作").tag("working")
+              Text("其他").tag("other")
+            }
+            Picker("学习目标", selection: $goal) {
+              Text("准备考试").tag("exam")
+              Text("工作应用").tag("work")
+              Text("兴趣学习").tag("interest")
+            }
+          }
+          if let challenge, hasCurrentChallenge {
+            Text(challenge.message).font(DS.font(13)).foregroundStyle(DS.secondary)
+            if let demo = challenge.demo_code {
+              Text("测试账号验证码：\(demo)")
+                .font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary)
+                .accessibilityIdentifier("cloud.demoCode")
             }
           }
         }
-        DisclosureGroup("学习服务地址") {
-          VStack(spacing: 12) {
-            TextField(CloudAPI.defaultServer, text: $server).textInputAutocapitalization(.never)
-              .keyboardType(.URL).font(DS.font(14)).padding(12).background(
-                DS.surface, in: RoundedRectangle(cornerRadius: 12)
-              )
-              .accessibilityIdentifier("cloud.server")
-            BCButton("连接此服务", style: .secondary) {
-              guard let url = CloudAPI.validatedURL(server) else {
-                error = "请输入有效的 HTTP 或 HTTPS 服务地址"
-                return
-              }
-              UserDefaults.standard.set(url.absoluteString, forKey: "cloudpath.server")
-              store.cloudState.courseTask?.cancel()
-              store.cloudState.courseTask = nil
-              store.cloudState.courseJob = nil
-              store.cloud = CloudAPI(baseURL: url)
-              store.cloudState.epoch = UUID()
-              store.cloudState.account = nil
-              challenge = nil
-              code = ""
-              error = nil
-              resendDate = .distantPast
-              store.isLoading = true
-              Task { await store.boot() }
-            }.disabled(busy)
-            Text("同一局域网使用 Windows 学习服务地址；通过 VPN 可填写 http://100.86.143.88:8100。")
-              .font(DS.font(12)).foregroundStyle(DS.secondary)
-          }.padding(.top, 12)
-        }.font(DS.font(14)).foregroundStyle(DS.secondary)
-        Spacer(minLength: 24)
-      }.frame(maxWidth: 480).padding(.horizontal, 24).frame(maxWidth: .infinity)
-    }.scrollDismissesKeyboard(.interactively)
-      .background(DS.background.ignoresSafeArea())
-      .onAppear { server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer }
-      .toolbar {
-        ToolbarItemGroup(placement: .keyboard) {
-          Spacer()
-          Button("完成") { focused = false }.accessibilityIdentifier("cloud.keyboardDone")
+        if let message = error ?? store.cloudState.error {
+          Text(message).font(DS.font(14)).foregroundStyle(DS.danger)
+            .accessibilityIdentifier("cloud.error")
         }
       }
+      .font(DS.font(20)).tint(DS.primary)
+      .frame(maxWidth: .infinity, minHeight: 256 * scale, alignment: .topLeading)
+      .padding(.horizontal, 50 * scale)
+      if !store.cloudState.localLogin {
+        HStack(spacing: 27 * scale) {
+          Button {
+            Task { await verifyCode() }
+          } label: {
+            Text(busy ? "请稍候…" : registering ? "注册" : "登录")
+              .font(DS.font(24)).foregroundStyle(DS.primary)
+              .frame(maxWidth: .infinity, minHeight: 47)
+              .background(DS.primarySoft, in: Capsule())
+          }
+          .buttonStyle(BCPressStyle()).disabled(!canVerify)
+          .accessibilityIdentifier("cloud.verify")
+          Button {
+            registering.toggle()
+            challenge = nil
+            code = ""
+            error = nil
+            store.cloudState.error = nil
+          } label: {
+            Text(registering ? "登录" : "注册")
+              .font(DS.font(24)).foregroundStyle(DS.secondary)
+              .frame(maxWidth: .infinity, minHeight: 47)
+              .background(Color(hex: 0xeef1f5), in: Capsule())
+          }
+          .buttonStyle(BCPressStyle()).disabled(busy)
+          .accessibilityLabel(registering ? "切换到登录" : "切换到注册")
+          .accessibilityIdentifier(registering ? "cloud.loginMode" : "cloud.registerMode")
+        }.padding(.horizontal, 33 * scale)
+      }
+      Spacer(minLength: 80)
+    }
+    .padding(.top, 100 * scale)
   }
-  private func modeButton(_ title: String, register: Bool) -> some View {
-    Button {
-      registering = register
-      challenge = nil
-      code = ""
-      error = nil
-    } label: {
-      Text(title).font(DS.font(18, weight: .bold)).frame(maxWidth: .infinity).padding(14)
-        .background(registering == register ? DS.primarySoft : DS.surface, in: Capsule())
-        .foregroundStyle(registering == register ? DS.primary : DS.secondary)
-    }.buttonStyle(.plain).disabled(busy).accessibilityIdentifier(
-      register ? "cloud.registerMode" : "cloud.loginMode")
+
+  private var serviceSettings: some View {
+    NavigationStack {
+      Form {
+        Section {
+          TextField(CloudAPI.defaultServer, text: $server)
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
+            .keyboardType(.URL).textContentType(.URL)
+            .accessibilityLabel("学习服务地址").accessibilityIdentifier("cloud.server")
+          if let settingsError {
+            Text(settingsError).foregroundStyle(DS.danger)
+              .accessibilityIdentifier("cloud.serverError")
+          }
+          Button("连接此服务", action: connectService)
+            .foregroundStyle(DS.primary)
+            .accessibilityIdentifier("cloud.connectServer")
+        } header: {
+          Text("学习服务地址")
+        } footer: {
+          Text("同一局域网使用 Windows 学习服务地址；通过 VPN 可填写 http://100.86.143.88:8100。")
+        }
+      }
+      .navigationTitle("设置").navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .principal) {
+          Text("设置").font(DS.font(18, weight: .bold)).accessibilityAddTraits(.isHeader)
+        }
+        ToolbarItem(placement: .confirmationAction) {
+          Button("完成") { showingSettings = false }
+            .accessibilityIdentifier("cloud.settingsDone")
+        }
+      }
+    }
+    .tint(DS.primary)
+  }
+
+  private func connectService() {
+    guard let url = CloudAPI.validatedURL(server) else {
+      settingsError = "请输入有效的 HTTP 或 HTTPS 服务地址"
+      return
+    }
+    UserDefaults.standard.set(url.absoluteString, forKey: "cloudpath.server")
+    store.cloudState.courseTask?.cancel()
+    store.cloudState.courseTask = nil
+    store.cloudState.courseJob = nil
+    store.cloud = CloudAPI(baseURL: url)
+    store.cloudState.epoch = UUID()
+    store.cloudState.account = nil
+    challenge = nil
+    code = ""
+    error = nil
+    settingsError = nil
+    resendDate = .distantPast
+    showingSettings = false
+    store.isLoading = true
+    Task { await store.boot() }
   }
   private func sendCode() async {
     focused = false
@@ -171,7 +322,7 @@ struct CloudAccountView: View {
   }
   private func verifyCode() async {
     focused = false
-    guard let cloud = store.cloud, let challenge else { return }
+    guard canVerify, let cloud = store.cloud, let challenge else { return }
     busy = true
     error = nil
     store.cloudState.error = nil
@@ -186,8 +337,9 @@ struct CloudAccountView: View {
           "interests": .array([]), "goal": .string(goal),
         ])
       }
-      let _: CloudAccountState = try await cloud.request(
+      let account: CloudAccountState = try await cloud.request(
         "/api/auth/verify", method: "POST", body: body)
+      try await store.prepareCloudLogin(account)
       store.isLoading = true
       await store.boot()
     } catch { self.error = error.localizedDescription }

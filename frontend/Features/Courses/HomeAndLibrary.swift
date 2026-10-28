@@ -30,6 +30,23 @@ struct CourseHomeView: View {
       Text("Hi，\(store.preferences?.displayName ?? "同学")").font(DS.font(27.2, weight: .bold)).frame(
         maxWidth: .infinity, alignment: .leading
       ).frame(height: 44, alignment: .top)
+      if let resumeRoute = store.resumableCourseRoute,
+        !store.importState.courses.contains(where: { Set($0.draft.resourceIDs) == Set(store.draft.resourceIDs) }) {
+        BCCard {
+          HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+              Text("有未完成的课程创建").font(DS.font(16, weight: .bold))
+              Text("资料和进度已保留，可随时继续。")
+                .font(DS.font(13)).foregroundStyle(DS.secondary)
+            }
+            Spacer(minLength: 0)
+            Button("继续整理") { store.go(resumeRoute) }
+              .font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary)
+              .frame(minHeight: 44).buttonStyle(.plain)
+              .accessibilityIdentifier("home.resumeImport")
+          }
+        }
+      }
       VStack(alignment: .leading, spacing: 0) {
         CourseSectionHeading(
           title: "我的课程", detail: store.courses.isEmpty ? "从原书开始学习" : "共 \(store.courses.count) 门",
@@ -94,7 +111,7 @@ struct CourseHomeView: View {
           Spacer(minLength: 12)
           if let selected {
             HStack(alignment: .lastTextBaseline, spacing: 8) {
-              Text(selected.name).font(DS.font(16, weight: .bold)).lineLimit(3)
+              Text(store.courseImport(for: selected.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? selected.name).font(DS.font(16, weight: .bold)).lineLimit(3)
                 .multilineTextAlignment(.trailing)
               Text(
                 "\((homeCourses.firstIndex { $0.id == selected.id } ?? 0) + 1) / \(homeCourses.count)"
@@ -119,8 +136,10 @@ struct CourseHomeView: View {
             DS.font(20.8, weight: .bold))
         }.frame(height: 72, alignment: .top)
         HStack(spacing: 8) {
-          homeAction("继续学习", icon: "Play", primary: true) {
-            if let lesson = nextLesson { store.openLesson(lesson) } else { store.go(.study) }
+          homeAction(store.courseImport(for: selected.id)?.needsPreparation == true ? "查看解析进度"
+            : store.courseImport(for: selected.id)?.setupCompleted == false ? "继续创建课程" : "继续学习", icon: "Play", primary: true) {
+            if let record = store.courseImport(for: selected.id), record.needsPreparation || record.setupCompleted != true { store.openCourse(selected) }
+            else if let lesson = nextLesson { store.openLesson(lesson) } else { store.go(.study) }
           }
           homeAction("回到原书", icon: "BookOpenText", primary: false) {
             guard let source = store.currentSource else { return }
@@ -313,7 +332,9 @@ private struct HomeCourseShelf: View {
           ForEach(courses) { course in
             Button {
               interactedWithShelf = true
-              if selectedCourseID == course.id {
+              if let record = store.courseImport(for: course.id), record.needsPreparation || record.setupCompleted != true {
+                store.openCourse(course)
+              } else if selectedCourseID == course.id {
                 store.selectCourse(course.id)
                 store.go(.study)
               } else {
@@ -326,6 +347,9 @@ private struct HomeCourseShelf: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .blur(radius: selectedCourseID == course.id ? 0 : 1.5)
                 .shadow(color: DS.text.opacity(0.13), radius: 4, x: 0, y: 5)
+                .overlay(alignment: .topTrailing) {
+                  CourseImportBadge(record: store.courseImport(for: course.id)).padding(5)
+                }
                 .scaleEffect(selectedCourseID == course.id ? 1.16 : 0.9)
                 .padding(.vertical, short ? 16 : 24)
             }
@@ -416,23 +440,25 @@ struct CourseLibraryView: View {
         }.count
         VStack(alignment: .leading, spacing: 16) {
           Button {
-            store.selectCourse(course.id)
-            store.go(.study)
+            store.openCourse(course)
           } label: {
             HStack(spacing: 16) {
               CourseCoverImage(path: store.courseFeatureCover(course)).frame(
                 width: 64, height: 86
               ).clipped().clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(alignment: .topTrailing) {
+                  CourseImportBadge(record: store.courseImport(for: course.id)).padding(2)
+                }
               VStack(alignment: .leading, spacing: 6) {
                 Text(course.name).font(DS.font(16, weight: .bold))
-                Text(directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习")
+                Text(store.courseImport(for: course.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? (directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习"))
                   .font(DS.font(14)).foregroundStyle(DS.secondary)
                 Text(source?.summary.title ?? "添加资料后开始学习").font(DS.font(14)).foregroundStyle(
                   DS.secondary)
               }.frame(maxWidth: .infinity, alignment: .leading)
             }.frame(height: 86)
           }.buttonStyle(.plain)
-          if !directory {
+          if !directory, store.courseImport(for: course.id)?.needsPreparation != true {
             VStack(alignment: .leading, spacing: 6) {
               BCProgress(value: store.courseFeatureProgress(course))
               Text("课程完成 \(Int((store.courseFeatureProgress(course) * 100).rounded()))%").font(
@@ -795,6 +821,31 @@ private struct CoursePreferredChips: View {
       Text($0).font(DS.font(20)).foregroundStyle(DS.primaryPressed).padding(.horizontal, 8).padding(
         .vertical, 5
       ).background(DS.primarySoft, in: Capsule())
+    }
+  }
+}
+
+struct CourseImportBadge: View {
+  let record: CourseImportRecord?
+  var body: some View {
+    if let record, record.needsPreparation {
+      ZStack {
+        Circle().fill(DS.surface).shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+        if record.job.status == .failed || record.job.status == .cancelled {
+          Image(systemName: "exclamationmark").font(.system(size: 15, weight: .bold)).foregroundStyle(DS.danger)
+        } else if let progress = record.ringProgress {
+          Circle().stroke(DS.primary.opacity(0.16), lineWidth: 3).padding(4)
+          Circle().trim(from: 0, to: progress).stroke(DS.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            .rotationEffect(.degrees(-90)).padding(4)
+        } else if record.job.status == .running {
+          ProgressView().controlSize(.small).tint(DS.primary)
+        } else {
+          Image(systemName: record.started ? "pause.fill" : "clock").font(.system(size: 13)).foregroundStyle(DS.primary)
+        }
+      }.frame(width: 30, height: 30)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(record.message)
+        .accessibilityIdentifier("course.progress.badge.\(record.id)")
     }
   }
 }

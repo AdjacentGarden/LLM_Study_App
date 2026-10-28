@@ -190,6 +190,7 @@ def test_api_wires_grounded_diagnostic_rewrite_to_generator(
             "assert item_generator is not None; "
             f"assert item_generator.allow_grounded_answer_rewrite is {expected}; "
             "assert item_generator.verify_items; "
+            "assert item_generator.validation_retries is None; "
             "assert item_generator.review_client is teaching_review_client; "
             "assert item_generator.review_client is not assessment_llm; "
             "assert item_generator.audit_callback is diagnostic_audit; "

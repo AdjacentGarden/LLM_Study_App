@@ -25,7 +25,7 @@ def test_authoritative_schema_and_import_inventory_are_complete():
 
 
 def test_merged_queues_and_durable_note_aliases_have_explicit_import_contract():
-    assert SCHEMA_VERSION == 7
+    assert SCHEMA_VERSION == 8
     assert TABLES['course_jobs.sqlite3'] == ('course_jobs', 'course_job_requests')
     assert TABLES['preparation.sqlite3'] == ('preparation',)
     assert 'studio_note_request_aliases' in TABLES['community.sqlite3']

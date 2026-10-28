@@ -1,6 +1,67 @@
 import XCTest
 
 final class CloudAccountUITests: XCTestCase {
+  private var nativeTestBaseURL: String {
+    ProcessInfo.processInfo.environment["BOOKCOURSE_NATIVE_TEST_BASE_URL"]
+      ?? "http://127.0.0.1:18101"
+  }
+  @MainActor func testLoginDesignAndServiceSettings() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.timeoutIntervalForRequest = 1
+    configuration.connectionProxyDictionary = [:]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let url = URL(string: nativeTestBaseURL)!.appendingPathComponent("api/native-test/health")
+    guard let (data, _) = try? await session.data(from: url),
+      let health = try? JSONDecoder().decode([String: Bool].self, from: data),
+      health["fixture_adapters"] == true, health["local_default"] == false
+    else { throw XCTSkip("Use scripts/test-cloud.sh with email authentication enabled") }
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = nativeTestBaseURL
+    app.launchArguments = ["--cloud-test-session", UUID().uuidString]
+    app.launch()
+    let email = app.textFields["cloud.email"]
+    XCTAssertTrue(email.waitForExistence(timeout: 20))
+    XCTAssertTrue(app.textFields["cloud.code"].exists)
+    XCTAssertTrue(app.buttons["cloud.settings"].isHittable)
+    XCTAssertFalse(app.textFields["cloud.server"].exists)
+    XCTAssertFalse(app.buttons["cloud.verify"].isEnabled)
+    let login = XCTAttachment(screenshot: app.screenshot())
+    login.name = "Figma login with original cloud artwork"
+    login.lifetime = .keepAlways
+    add(login)
+
+    tap(app.buttons["cloud.settings"], app: app)
+    let server = app.textFields["cloud.server"]
+    XCTAssertTrue(server.waitForExistence(timeout: 5))
+    XCTAssertEqual(server.value as? String, nativeTestBaseURL)
+    server.tap()
+    server.press(forDuration: 1.2)
+    if app.menuItems["Select All"].exists { app.menuItems["Select All"].tap() }
+    else if app.menuItems["全选"].exists { app.menuItems["全选"].tap() }
+    else {
+      server.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue,
+        count: (server.value as? String ?? "").count))
+    }
+    server.typeText("invalid-address")
+    app.buttons["cloud.connectServer"].tap()
+    XCTAssertTrue(app.staticTexts["cloud.serverError"].waitForExistence(timeout: 5))
+    XCTAssertTrue(server.exists)
+    app.buttons["cloud.settingsDone"].tap()
+    XCTAssertTrue(email.waitForExistence(timeout: 5))
+    tap(app.buttons["cloud.settings"], app: app)
+    XCTAssertEqual(server.value as? String, nativeTestBaseURL,
+      "Closing without connecting must discard the invalid address")
+    let settings = XCTAttachment(screenshot: app.screenshot())
+    settings.name = "Learning service address in top-right settings"
+    settings.lifetime = .keepAlways
+    add(settings)
+    app.buttons["cloud.connectServer"].tap()
+    XCTAssertTrue(email.waitForExistence(timeout: 20))
+    XCTAssertFalse(server.exists)
+  }
+
   @MainActor func testConfiguredRemoteDemoAccountImportsCourseAndRestoresSession() async throws {
     guard let value = ProcessInfo.processInfo.environment["BOOKCOURSE_REMOTE_API_BASE_URL"],
       let email = ProcessInfo.processInfo.environment["BOOKCOURSE_REMOTE_DEMO_EMAIL"]
@@ -108,7 +169,7 @@ final class CloudAccountUITests: XCTestCase {
     XCTAssertTrue(app.textFields["cloud.email"].waitForExistence(timeout: 75))
     XCTAssertFalse(app.buttons["cloud.localRetry"].exists)
     XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "无法连接学习服务")).firstMatch.exists)
-    tap(app.buttons["开发服务地址"], app: app)
+    tap(app.buttons["cloud.settings"], app: app)
     XCTAssertEqual(app.textFields["cloud.server"].value as? String, value)
     tap(app.buttons["连接此服务"], app: app)
     XCTAssertTrue(app.textFields["cloud.email"].waitForExistence(timeout: 75))
@@ -118,7 +179,7 @@ final class CloudAccountUITests: XCTestCase {
     XCTAssertTrue(app.textFields["cloud.email"].waitForExistence(timeout: 75))
     XCTAssertFalse(app.buttons["cloud.localRetry"].exists)
     XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "无法连接学习服务")).firstMatch.exists)
-    tap(app.buttons["开发服务地址"], app: app)
+    tap(app.buttons["cloud.settings"], app: app)
     XCTAssertEqual(app.textFields["cloud.server"].value as? String, value)
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = "Real HTTPS backend retained after relaunch"
@@ -132,13 +193,13 @@ final class CloudAccountUITests: XCTestCase {
     configuration.timeoutIntervalForRequest = 1
     configuration.connectionProxyDictionary = [:]
     let session = URLSession(configuration: configuration)
-    let url = URL(string: "http://127.0.0.1:18101/api/native-test/health")!
+    let url = URL(string: nativeTestBaseURL)!.appendingPathComponent("api/native-test/health")
     guard let (data, _) = try? await session.data(from: url),
       let health = try? JSONDecoder().decode([String: Bool].self, from: data),
       health["fixture_adapters"] == true, health["local_default"] == true
     else { throw XCTSkip("Run scripts/test-cloud.sh with NATIVE_E2E_LOCAL_LOGIN=1") }
     let app = XCUIApplication()
-    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = "http://127.0.0.1:18101"
+    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = nativeTestBaseURL
     app.launchArguments = ["--cloud-test-session", UUID().uuidString]
     app.launch()
     completePersonalization(app)
@@ -182,7 +243,7 @@ final class CloudAccountUITests: XCTestCase {
     configuration.timeoutIntervalForRequest = 1
     configuration.connectionProxyDictionary = [:]
     let session = URLSession(configuration: configuration)
-    let url = URL(string: "http://127.0.0.1:18101/api/native-test/health")!
+    let url = URL(string: nativeTestBaseURL)!.appendingPathComponent("api/native-test/health")
     guard let (data, _) = try? await session.data(from: url),
       let health = try? JSONDecoder().decode([String: Bool].self, from: data),
       health["fixture_adapters"] == true
@@ -190,7 +251,7 @@ final class CloudAccountUITests: XCTestCase {
       throw XCTSkip("Use scripts/test-cloud.sh to run the isolated native account UI test")
     }
     let app = XCUIApplication()
-    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = "http://127.0.0.1:18101"
+    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = nativeTestBaseURL
     app.launchArguments = ["--cloud-test-session", UUID().uuidString]
     app.launch()
     let email = app.textFields["cloud.email"]
@@ -201,6 +262,7 @@ final class CloudAccountUITests: XCTestCase {
     let nickname = app.textFields["cloud.nickname"]
     nickname.tap()
     nickname.typeText("Native UI Learner")
+    let resendAllowedAfter = Date().addingTimeInterval(61)
     tap(app.buttons["cloud.sendCode"], app: app)
     let demo = app.staticTexts["cloud.demoCode"]
     XCTAssertTrue(demo.waitForExistence(timeout: 15))
@@ -220,7 +282,6 @@ final class CloudAccountUITests: XCTestCase {
     for choice in ["onboarding.choice.1.interest", "onboarding.time.under30",
       "onboarding.choice.3.focus", "onboarding.choice.4.principles", "onboarding.choice.5.selfDirected"] {
       tap(app.buttons[choice], app: app)
-      tap(app.buttons["onboarding.next"], app: app)
     }
     XCTAssertTrue(app.buttons["profile.resetPreferences"].waitForExistence(timeout: 20))
     let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -239,33 +300,61 @@ final class CloudAccountUITests: XCTestCase {
     tap(app.buttons["settings.logout"], app: app)
     tap(app.buttons["确认退出"], app: app)
     XCTAssertTrue(email.waitForExistence(timeout: 15))
+    // Explicit logout must request new answers on the next login, even after relaunch.
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(email.waitForExistence(timeout: 20))
+    email.tap()
+    email.typeText("xiaolin@zhiwo.test")
+    // Respect the real account endpoint's 60-second resend limit.
+    try await Task.sleep(for: .seconds(max(0, resendAllowedAfter.timeIntervalSinceNow)))
+    tap(app.buttons["cloud.sendCode"], app: app)
+    let loginDemo = app.staticTexts["cloud.demoCode"]
+    XCTAssertTrue(loginDemo.waitForExistence(timeout: 15))
+    let loginCode = String(loginDemo.label.filter(\.isNumber).suffix(6))
+    XCTAssertEqual(loginCode.count, 6)
+    tap(app.textFields["cloud.code"], app: app)
+    app.textFields["cloud.code"].typeText(loginCode)
+    tap(app.buttons["cloud.verify"], app: app)
+    XCTAssertTrue(email.waitForNonExistence(timeout: 20))
+    XCTAssertTrue(app.textFields["onboarding.name"].waitForExistence(timeout: 20))
+    XCTAssertTrue(app.textFields["onboarding.name"].isHittable)
+    XCTAssertNotEqual(app.textFields["onboarding.name"].value as? String, "Native Learner")
+    let freshQuestions = XCTAttachment(screenshot: app.screenshot())
+    freshQuestions.name = "Fresh personalization after explicit logout and sign-in"
+    freshQuestions.lifetime = .keepAlways
+    add(freshQuestions)
+    completePersonalization(app)
+    XCTAssertTrue(profile.waitForExistence(timeout: 20))
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(profile.waitForExistence(timeout: 20))
+    XCTAssertFalse(app.textFields["onboarding.name"].exists)
   }
 
   @MainActor private func completePersonalization(_ app: XCUIApplication) {
+    // The underlying questionnaire also exists behind the login/loading overlays.
+    // Wait for those overlays to leave before requesting keyboard focus.
+    XCTAssertTrue(app.textFields["cloud.email"].waitForNonExistence(timeout: 20))
+    XCTAssertTrue(app.images["app.loading"].waitForNonExistence(timeout: 20))
     let name = app.textFields["onboarding.name"]
     XCTAssertTrue(name.waitForExistence(timeout: 20))
     name.tap()
     name.typeText("Native Learner\n")
     tap(app.buttons["备考提升成绩"], app: app)
-    tap(app.buttons["onboarding.next"], app: app)
     tap(app.buttons["30分钟-60分钟"], app: app)
-    tap(app.buttons["onboarding.next"], app: app)
     tap(app.buttons["更深入理解"], app: app)
-    tap(app.buttons["更牢固记忆"], app: app)
-    tap(app.buttons["onboarding.next"], app: app)
-    // The draft and selected answers must survive termination before server submission.
+    // Auto-advance persists the destination step before the app is terminated.
+    XCTAssertTrue(app.buttons["onboarding.choice.4.examples"].waitForExistence(timeout: 20))
     app.terminate()
     app.launch()
     XCTAssertTrue(app.buttons["onboarding.choice.4.examples"].waitForExistence(timeout: 20))
     tap(app.buttons["上一步"], app: app)
     XCTAssertTrue(app.buttons["onboarding.choice.3.understanding"].isSelected)
-    XCTAssertTrue(app.buttons["onboarding.choice.3.memory"].isSelected)
-    tap(app.buttons["onboarding.next"], app: app)
+    XCTAssertFalse(app.buttons["onboarding.choice.3.memory"].isSelected)
+    tap(app.buttons["更牢固记忆"], app: app)
     tap(app.buttons["结合示例"], app: app)
-    tap(app.buttons["循序展开"], app: app)
-    tap(app.buttons["onboarding.next"], app: app)
     tap(app.buttons["共同规划"], app: app)
-    tap(app.buttons["onboarding.next"], app: app)
   }
 
   @MainActor private func tap(_ element: XCUIElement, app: XCUIApplication) {

@@ -1,0 +1,49 @@
+{
+  "source": "https://www.figma.com/design/6TL0BV3jL2GqdYLTNzv9Nn/fusai?node-id=224-583",
+  "frame": "224:583",
+  "reference_size": [
+    402,
+    874
+  ],
+  "assets": [
+    {
+      "path": "Resources/Content/assets/brand/login/cloud-hero.png",
+      "node_id": "268:571",
+      "pixel_or_vector_size": [
+        804,
+        552
+      ],
+      "usage": "IP illustration, 402 × 276 at (-1, 93), opacity 0.8.",
+      "bytes": 414850,
+      "sha256": "c1f39464b96a36cb5f526d1217d993657150a541d88bcf922ba946a37b8dc10d"
+    },
+    {
+      "path": "Resources/Content/assets/brand/login/hero-decoration.png",
+      "node_id": "257:518",
+      "pixel_or_vector_size": [
+        402,
+        478
+      ],
+      "usage": "Figma PNG export of decorative background only, clipped by Figma to the 402 × 478 viewport; aligned at screen origin.",
+      "bytes": 79538,
+      "sha256": "8faee9990da6358342c5b1129fb1673a7467c1d99d59e866355f2ef3fc161cbc"
+    },
+    {
+      "path": "Resources/Content/assets/brand/login/hero-decoration.svg",
+      "node_id": "257:518",
+      "pixel_or_vector_size": [
+        592.46,
+        565.829
+      ],
+      "usage": "Original vector export retained as source; PNG export used for native rendering of gradients and filters.",
+      "bytes": 1328,
+      "sha256": "eb82cc88e312c1f6b5864f3eed5e2027fd407f0e60ee97693a0c1d18499717f3"
+    }
+  ],
+  "adaptations": [
+    "Native iOS status bar replaces the two status bar bitmap layers.",
+    "Email and one-time code keep the existing backend authentication contract.",
+    "Service address is presented in a native settings sheet from the top-right button.",
+    "Per user request, settings reuses BCGlyph(\"Settings\") and the existing icons/lucide-Settings.svg, at 16 × 16 inside the 31 × 31 tile."
+  ]
+}

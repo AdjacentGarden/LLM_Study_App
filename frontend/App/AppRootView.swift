@@ -9,6 +9,7 @@ struct AppRootView: View {
   @State private var lessonAssistantTop: CGFloat?
   @State private var lessonAssistantLeft = false
   @State private var nativeTabContentBottom: CGFloat?
+  @State private var showingStartup = true
   var body: some View {
     GeometryReader { geometry in
       let pad =
@@ -52,7 +53,7 @@ struct AppRootView: View {
       .overlay {
         if !store.isLoading,
           ![
-            Route.onboarding, .preferenceSetup, .courseSetup, .upload, .parseReady, .processing,
+            Route.onboarding, .preferenceSetup, .courseSetup, .upload, .parseReady, .processing, .courseProgress,
             .courseImportProcessing, .chapterConfirm, .courseReady, .courseImportReady,
             .communityImport, .voiceNote, .source, .notes, .profile, .settings,
             .communityBook,
@@ -104,16 +105,6 @@ struct AppRootView: View {
         }
       }
       .overlay {
-        if store.isLoading {
-          Image("Splash").resizable().scaledToFit().frame(width: 144, height: 144)
-            .clipShape(RoundedRectangle(cornerRadius: 32, style: .circular))
-            .accessibilityLabel("正在加载学习空间")
-            .accessibilityIdentifier("app.loading")
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(hex: 0xfefdfa).ignoresSafeArea())
-        }
-      }
-      .overlay {
         if let error = store.bootError {
           VStack(spacing: 16) {
             EmptyStateView(
@@ -132,7 +123,7 @@ struct AppRootView: View {
         FixtureOrientation.apply()
       }
       .overlay {
-        if store.cloud != nil, !store.cloudState.authenticated, !store.isLoading {
+        if store.cloud != nil, !store.cloudState.authenticated, !store.isLoading, !showingStartup {
           CloudAccountView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
       }
@@ -149,6 +140,16 @@ struct AppRootView: View {
             .accessibilityIdentifier("cloud.retrySync")
         }
       }
+      .overlay {
+        if showingStartup || store.isLoading {
+          Image("Splash").resizable().scaledToFit().frame(width: 144, height: 144)
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .circular))
+            .accessibilityLabel("正在加载学习空间")
+            .accessibilityIdentifier("app.loading")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.white.ignoresSafeArea())
+        }
+      }
       .onChange(of: pad) { _, value in store.isPad = value }
       .overlay {
         let prompt = store.processingPolicy.prompt
@@ -162,6 +163,13 @@ struct AppRootView: View {
     .background(pageBackground.ignoresSafeArea()).font(DS.font()).foregroundStyle(DS.text).tint(
       DS.primary
     )
+    .task {
+      // Keep the logo visible even when the cached/bootstrap response is immediate.
+      // This overlaps service startup instead of postponing network work.
+      do { try await Task.sleep(for: .milliseconds(1200)) } catch { return }
+      showingStartup = false
+    }
+    .task(id: store.activeCourseImportKey) { await store.observeCourseImports() }
     .onChange(of: scenePhase) { _, phase in
       if phase != .active { store.persist() } else { store.startCloudSync() }
       if phase == .background { store.processingPolicy.cancelPending() }
@@ -174,7 +182,7 @@ struct AppRootView: View {
   private var pageBackground: Color {
     switch store.route {
     case .assignment: Color(hex: 0xd9d2ff)
-    case .source, .lesson, .processing, .courseImportProcessing, .chapterConfirm, .mistakes: .white
+    case .source, .lesson, .processing, .courseProgress, .courseImportProcessing, .chapterConfirm, .mistakes: .white
     case .parseReady, .communityBook: Color(hex: 0xddd6fe)
     case .upload: Color(hex: 0xdccafa)
     default: DS.background

@@ -73,6 +73,7 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var pendingSelection: CloudBootstrap.Selection?
   var onboardingComplete: Bool? = nil
   var pendingReviews: [CloudPendingReview]? = nil
+  var requiresPersonalization: Bool? = nil
 }
 
 @MainActor @Observable final class CloudState {
@@ -80,6 +81,7 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var authenticated = false
   var localLogin = false
   var onboardingComplete = false
+  var requiresPersonalization = false
   var isWorking = false
   var isHydrating = false
   var syncing = false

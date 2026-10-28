@@ -191,9 +191,11 @@ final class CoreTests: XCTestCase {
     try await repository.saveSnapshot(snapshot)
     let store = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: folder))
     await store.boot()
-    XCTAssertEqual(store.route, .parseReady)
+    XCTAssertEqual(store.route, .home)
+    XCTAssertEqual(store.resumableCourseRoute, .parseReady)
     XCTAssertEqual(store.importJob?.status, .interrupted)
     XCTAssertEqual(try Data(contentsOf: file), original)
+    store.go(try XCTUnwrap(store.resumableCourseRoute))
     await store.processImport()
     await store.flush()
     XCTAssertTrue(store.draft.parseCompleted)
@@ -359,4 +361,93 @@ final class CoreTests: XCTestCase {
     XCTAssertFalse(notes.contains { $0.id == "ink-demo-needs-confirmation" })
   }
 
+}
+
+extension CoreTests {
+  @MainActor func testImportedCourseKeepsItsTaskAfterStartingAnotherDraft() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let repo = try LocalBookCourseRepository(directory: root.appendingPathComponent("state"))
+    let store = AppStore(repository: repo)
+    for name in ["first", "second"] {
+      let file = root.appendingPathComponent(name + ".txt")
+      try Data("Course source \(name)".utf8).write(to: file)
+      await store.importFile(file)
+    }
+    XCTAssertEqual(store.courses.count, 1, "One import batch belongs to one shelf course")
+    let first = try XCTUnwrap(store.importState.courses.first)
+    XCTAssertEqual(first.books.count, 2)
+    XCTAssertEqual(store.courses[0].resourceIDs.count, 2)
+    store.updateCourseImport(first.id) { $0.started = true; $0.job.status = .running; $0.job.progress = 0.4 }
+    store.courseFeatureStartDraft()
+    XCTAssertNil(store.draft.importCourseID)
+    let other = root.appendingPathComponent("other.txt")
+    try Data("A different course".utf8).write(to: other)
+    await store.importFile(other)
+    XCTAssertEqual(store.courses.count, 2)
+    XCTAssertEqual(store.importState.courses.count, 2)
+    let newDraft = store.draft
+    store.openCourse(try XCTUnwrap(store.courses.first { $0.id == first.id }))
+    XCTAssertEqual(store.route, .courseProgress)
+    XCTAssertEqual(store.importState.viewedCourseID, first.id)
+    XCTAssertEqual(store.draft, newDraft, "Viewing another task cannot overwrite the new creation draft")
+    XCTAssertEqual(store.courseImport(for: first.id)?.ringProgress, 0.4)
+    await store.flush()
+    let saved = try await repo.loadSnapshot()
+    XCTAssertEqual(saved?.courseImports?.count, 2)
+    XCTAssertEqual(saved?.courseImports?.first?.books.count, 2)
+    let restarted = AppStore(repository: repo)
+    await restarted.boot()
+    XCTAssertEqual(restarted.courses.count, 2)
+    XCTAssertEqual(restarted.courseImport(for: first.id)?.job.status, .interrupted)
+    XCTAssertEqual(restarted.courseImport(for: first.id)?.books.count, 2)
+    restarted.openCourse(try XCTUnwrap(restarted.courses.first { $0.id == first.id }))
+    XCTAssertEqual(restarted.importState.viewedCourseID, first.id)
+    await restarted.flush()
+  }
+
+  @MainActor func testCompletingImportedCourseReusesItsShelfIdentity() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let repo = try LocalBookCourseRepository(directory: root.appendingPathComponent("state"))
+    let store = AppStore(repository: repo)
+    let file = root.appendingPathComponent("course.txt")
+    try Data("Original course material".utf8).write(to: file)
+    await store.importFile(file)
+    let id = try XCTUnwrap(store.draft.importCourseID)
+    let bookIDs = store.draft.resourceIDs
+    await store.processImport()
+    XCTAssertEqual(store.courseImport(for: id)?.job.status, .completed)
+    XCTAssertNil(store.courseImport(for: id)?.ringProgress)
+    store.openCourse(try XCTUnwrap(store.courses.first))
+    XCTAssertEqual(store.route, .courseProgress, "The existing setup remains available after parsing")
+    store.continueCourseImport(id)
+    XCTAssertEqual(store.route, .courseSetup)
+    XCTAssertNil(store.draft.editingCourseID, "A new import must retain the new-course questionnaire flow")
+    store.createCourse(name: "Finished course", resourceIDs: bookIDs)
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(store.courses.first?.id, id)
+    XCTAssertEqual(store.courseImport(for: id)?.setupCompleted, true)
+    store.openCourse(try XCTUnwrap(store.courses.first))
+    XCTAssertEqual(store.route, .study)
+    await store.flush()
+  }
+
+  @MainActor func testCoursePreparationDoesNotInventWholeBookPercentage() async throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo)
+    store.draft = CourseDraft(name: "Pending", resourceIDs: ["book_local_pending"])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.updateCourseImport(id) { $0.job.status = .running; $0.job.progress = 0.7 }
+    XCTAssertEqual(store.courseImport(for: id)?.ringProgress, 0.7)
+    store.updateCourseImport(id) { $0.job.preparationStage = "diagnostics" }
+    XCTAssertNil(store.courseImport(for: id)?.ringProgress, "Preparation has stages rather than a reliable total percentage")
+    store.rebindCourseImports(localID: "book_local_pending", bookID: "server-book")
+    XCTAssertEqual(store.courseImport(for: id)?.books.first?.id, "server-book")
+    XCTAssertEqual(store.courseImport(for: id)?.draft.resourceIDs, ["server-book"])
+    let encoded = try JSONEncoder().encode(store.snapshot())
+    let decoded = try JSONDecoder().decode(AppSnapshot.self, from: encoded)
+    XCTAssertEqual(decoded.courseImports?.first?.job.preparationStage, "diagnostics")
+    await store.flush()
+  }
 }

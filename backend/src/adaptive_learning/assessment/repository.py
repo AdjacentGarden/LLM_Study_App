@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 import uuid
 from collections.abc import Iterator
@@ -118,6 +119,11 @@ class SQLiteAssessmentRepository:
                     epoch INTEGER NOT NULL,
                     created_at REAL NOT NULL,
                     PRIMARY KEY(scope,marker)
+                );
+                CREATE TABLE IF NOT EXISTS diagnostic_item_repairs (
+                    cache_key TEXT PRIMARY KEY REFERENCES diagnostic_chapter_cache(cache_key),
+                    state_json TEXT NOT NULL,
+                    updated_at REAL NOT NULL
                 );
                 """
             )
@@ -249,6 +255,52 @@ class SQLiteAssessmentRepository:
             )
             if updated.rowcount != 1 or submitted.rowcount != 1:
                 raise DiagnosticChapterCacheError("stale chapter submission token")
+
+    def diagnostic_item_repair(self, identity: dict[str, Any]) -> dict[str, Any]:
+        key, _ = chapter_identity(identity)
+        with self._connect() as connection:
+            row = connection.execute("SELECT state_json FROM diagnostic_item_repairs WHERE cache_key=?", (key,)).fetchone()
+        return json.loads(row[0]) if row else {}
+
+    def diagnostic_approval(self, identity: dict[str, Any]) -> list[DiagnosticItem] | None:
+        key, payload = chapter_identity(identity)
+        with self._connect() as connection:
+            row = connection.execute("SELECT * FROM diagnostic_chapter_cache WHERE cache_key=? AND state='approved'", (key,)).fetchone()
+        if row is None:
+            return None
+        encoded = str(row["items_json"])
+        if row["identity_json"] != payload or hashlib.sha256(encoded.encode()).hexdigest() != row["items_sha256"]:
+            raise DiagnosticChapterCacheError("saved approval identity/content mismatch")
+        items = _ITEMS.validate_json(encoded)
+        validate_chapter_items(identity, items)
+        return items
+
+    def defer_diagnostic_item(self, identity: dict[str, Any], token: str,
+                              state: dict[str, Any], outcome: str = "rejected") -> None:
+        """Checkpoint feedback and release this exact submission atomically."""
+        if outcome not in {"rejected", "not_admitted"}:
+            raise ValueError("only known completed/unsent work can be retried automatically")
+        key, payload = chapter_identity(identity)
+        encoded = json.dumps(state, ensure_ascii=False, allow_nan=False)
+        timestamp = time.time()
+        with self._connect() as connection:
+            connection.begin_write()
+            updated = connection.execute(
+                "UPDATE diagnostic_chapter_cache SET state=?,updated_at=? "
+                "WHERE cache_key=? AND identity_json=? AND claim_token=? AND state='running'",
+                (outcome, timestamp, key, payload, token),
+            )
+            submitted = connection.execute(
+                "UPDATE diagnostic_chapter_submissions SET state=?,updated_at=? "
+                "WHERE token=? AND cache_key=? AND state='running'", (outcome, timestamp, token, key),
+            )
+            if updated.rowcount != 1 or submitted.rowcount != 1:
+                raise DiagnosticChapterCacheError("stale diagnostic repair token")
+            connection.execute(
+                "INSERT INTO diagnostic_item_repairs(cache_key,state_json,updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(cache_key) DO UPDATE SET state_json=excluded.state_json,updated_at=excluded.updated_at",
+                (key, encoded, timestamp),
+            )
 
     def save_bank(
         self,

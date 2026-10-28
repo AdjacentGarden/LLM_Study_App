@@ -1,0 +1,112 @@
+{
+  "source": "https://www.figma.com/design/6TL0BV3jL2GqdYLTNzv9Nn/fusai?node-id=262-526",
+  "frame": "262:526",
+  "reference_size": [
+    402,
+    874
+  ],
+  "composition": "Top back button and live step counter, left-aligned 24pt question, two-column grid of four 136pt cards, outlined skip button.",
+  "reused_icons": [
+    {
+      "name": "LibraryBig",
+      "path": "Resources/Content/icons/sticker-LibraryBig.svg",
+      "bytes": 643,
+      "sha256": "877d8234ae12c49d16aff7cae0ccc08fc1e28aab9b0b650350fb8cd179ea2cd6"
+    },
+    {
+      "name": "Target",
+      "path": "Resources/Content/icons/sticker-Target.svg",
+      "bytes": 579,
+      "sha256": "2ec6a09849b984bd7b4a5f6cf1f744fbaf19144d55a9cf9e27c02b436bb5b396"
+    },
+    {
+      "name": "TrendingUp",
+      "path": "Resources/Content/icons/sticker-TrendingUp.svg",
+      "bytes": 646,
+      "sha256": "a0034458709d2fee15786c734122a548e908d2f6298a3c46603e3e5b99b0c892"
+    },
+    {
+      "name": "Heart",
+      "path": "Resources/Content/icons/sticker-Heart.svg",
+      "bytes": 605,
+      "sha256": "4508a2aecad945acb19ab33715c4a43bdb7c0279e37ff89035de713774939399"
+    },
+    {
+      "name": "Sparkles",
+      "path": "Resources/Content/icons/sticker-Sparkles.svg",
+      "bytes": 557,
+      "sha256": "71709336f86707e19e139c29568d550fe5e9460931cdde05a13bc03df5c1109b"
+    },
+    {
+      "name": "Lightbulb",
+      "path": "Resources/Content/icons/sticker-Lightbulb.svg",
+      "bytes": 595,
+      "sha256": "ff42bee02711d0434782ee8a0d0bb86bc6e96490149c51979ac291758772f039"
+    },
+    {
+      "name": "BrainCircuit",
+      "path": "Resources/Content/icons/sticker-BrainCircuit.svg",
+      "bytes": 640,
+      "sha256": "161c05ed367d759b0c32d26f4b904ab6a8bda1f14f3f1c6eea602a5511b32bbe"
+    },
+    {
+      "name": "ListChecks",
+      "path": "Resources/Content/icons/sticker-ListChecks.svg",
+      "bytes": 659,
+      "sha256": "3a6562382ea2952128108f3c5c38749ffd346d743260ced11475ec3d0024f82c"
+    },
+    {
+      "name": "BookOpenText",
+      "path": "Resources/Content/icons/sticker-BookOpenText.svg",
+      "bytes": 802,
+      "sha256": "b38b0268c08770468becdcc1d1f96a0383073d366cbc9bfcfcc5419a30db413e"
+    },
+    {
+      "name": "Layers3",
+      "path": "Resources/Content/icons/sticker-Layers3.svg",
+      "bytes": 679,
+      "sha256": "7f41f6171a1527cc79d8e105ee429decf5054c2c26fb9ea443ea8c935589f422"
+    },
+    {
+      "name": "BookOpen",
+      "path": "Resources/Content/icons/sticker-BookOpen.svg",
+      "bytes": 610,
+      "sha256": "68caa2aa175ef3a66e09c756c1671d7d865c367c87115ae4d86b49a5d65feab6"
+    },
+    {
+      "name": "CalendarCheck2",
+      "path": "Resources/Content/icons/sticker-CalendarCheck2.svg",
+      "bytes": 650,
+      "sha256": "b59f3c95aa28787853bfe19ac28bb3beac34b22c4fcb87128dfdf00a5f6b8b77"
+    }
+  ],
+  "reference_images": "Figma image 6 is a flattened screenshot of the existing native sticker cards; exact source SVG stickers are reused in interactive cards. Back, counter and skip screenshot crops are rendered as live controls. Native iOS status bar is retained.",
+  "clock_icons": {
+    "implementation": "OnboardingClockIcon: native SwiftUI Canvas vector artwork",
+    "colors": [
+      "#ddd0ff",
+      "#ffe883",
+      "#b7efd8",
+      "#ffc9d8"
+    ],
+    "times": [
+      "00:15",
+      "00:45",
+      "01:30",
+      "02:30"
+    ],
+    "options": [
+      "under30",
+      "30to60",
+      "1to2h",
+      "over2h"
+    ]
+  },
+  "behavior": "Choice questions are single-select and advance automatically after 200ms of selection feedback (immediate with Reduced Motion). Name retains explicit continue. Back, skip, scoped draft recovery, final save/retry and preference reset remain supported.",
+  "removed_controls": [
+    "Choice-question next button",
+    "Maximum-two-selection helper",
+    "Decorative question sticker above the grid",
+    "Preference-reset heading duplicated above the question"
+  ]
+}

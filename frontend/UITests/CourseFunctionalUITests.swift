@@ -60,37 +60,42 @@ final class CourseFunctionalUITests: XCTestCase {
     }
   }
 
-  func testOnboardingCompletesSixStepsWithSelectionLimitAndBackNavigation() {
+  func testOnboardingAutoAdvancesWithSingleChoicesAndBackNavigation() {
     let app = launch("onboarding")
     tap(app.buttons["onboarding.next"], in: app)
-    tap(
-      app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "备考提升成绩")).firstMatch, in: app
-    )
-    tap(app.buttons["onboarding.next"], in: app)
-    tap(app.buttons["30分钟以内"], in: app)
-    tap(app.buttons["onboarding.next"], in: app)
-    tap(app.buttons["onboarding.choice.3.understanding"], in: app)
-    tap(app.buttons["onboarding.choice.3.memory"], in: app)
-    tap(app.buttons["onboarding.choice.3.focus"], in: app)
-    XCTAssertTrue(app.staticTexts["最多选择两项，可先取消一项"].exists)
-    XCTAssertFalse(app.buttons["onboarding.choice.3.focus"].isSelected)
+    XCTAssertFalse(app.buttons["onboarding.next"].exists)
+    let goals = XCTAttachment(screenshot: app.screenshot())
+    goals.name = "Figma onboarding four-card goals"
+    goals.lifetime = .keepAlways
+    add(goals)
+    tap(app.buttons["onboarding.choice.1.exam"], in: app)
+    XCTAssertTrue(app.buttons["onboarding.time.under30"].waitForExistence(timeout: 5))
+    let times = XCTAttachment(screenshot: app.screenshot())
+    times.name = "Four colored clocks for daily learning time"
+    times.lifetime = .keepAlways
+    add(times)
+    tap(app.buttons["onboarding.time.under30"], in: app)
+    XCTAssertTrue(app.buttons["onboarding.choice.3.understanding"].waitForExistence(timeout: 5))
     tap(app.buttons["上一步"], in: app)
     XCTAssertTrue(app.buttons["onboarding.time.under30"].isSelected)
-    tap(app.buttons["onboarding.next"], in: app)
+    tap(app.buttons["onboarding.time.30to60"], in: app)
+    tap(app.buttons["onboarding.choice.3.understanding"], in: app)
+    XCTAssertTrue(app.buttons["onboarding.choice.4.examples"].waitForExistence(timeout: 5))
+    tap(app.buttons["上一步"], in: app)
     XCTAssertTrue(app.buttons["onboarding.choice.3.understanding"].isSelected)
-    XCTAssertTrue(app.buttons["onboarding.choice.3.memory"].isSelected)
-    tap(app.buttons["onboarding.next"], in: app)
+    tap(app.buttons["onboarding.choice.3.memory"], in: app)
     tap(app.buttons["onboarding.choice.4.examples"], in: app)
-    tap(app.buttons["onboarding.choice.4.stepByStep"], in: app)
-    tap(app.buttons["onboarding.next"], in: app)
-    tap(app.buttons["onboarding.choice.5.collaborative"], in: app)
+    XCTAssertTrue(app.buttons["onboarding.choice.5.collaborative"].waitForExistence(timeout: 5))
     tap(app.buttons["上一步"], in: app)
     XCTAssertTrue(app.buttons["onboarding.choice.4.examples"].isSelected)
-    tap(app.buttons["onboarding.next"], in: app)
-    XCTAssertTrue(app.buttons["onboarding.choice.5.collaborative"].isSelected)
-    tap(app.buttons["onboarding.next"], in: app)
-    XCTAssertTrue(
-      app.staticTexts["Hi，小明同学"].firstMatch.waitForExistence(timeout: 10))
+    tap(app.buttons["onboarding.choice.4.principles"], in: app)
+    tap(app.buttons["onboarding.choice.5.collaborative"], in: app)
+    XCTAssertTrue(app.staticTexts["Hi，小明同学"].firstMatch.waitForExistence(timeout: 10))
+    tap(app.buttons["tab-profile"], in: app)
+    tap(app.buttons["profile.settings"], in: app)
+    XCTAssertTrue(app.staticTexts["更牢固记忆"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["讲透原理"].exists)
+    XCTAssertFalse(app.staticTexts["更深入理解、更牢固记忆"].exists)
   }
 
   func testOnboardingCanSkipEveryOptionalQuestion() {

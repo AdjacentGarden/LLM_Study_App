@@ -94,10 +94,16 @@
       "sha256": "e9d19ad209b87c5d06a4eb73e7770d7c38db32e48b7a39ba0c0f8d5549bd0f72"
     },
     {
-      "source": "public/assets/brand/app-logo.png",
+      "source": "user-upload:codex-clipboard-07d00d2e-1097-495f-9b02-0b8fd15f5387.png",
       "path": "Resources/Content/assets/brand/app-logo.png",
-      "bytes": 258654,
-      "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+      "bytes": 886096,
+      "sha256": "937240eb006e21e4cca399e4203471bd44961f6fbee2fc2ddab5c60e01e0e52a",
+      "original_source": {
+        "source": "public/assets/brand/app-logo.png",
+        "bytes": 258654,
+        "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+      },
+      "derivation": "User-provided 1024px brand logo copied without visual changes."
     },
     {
       "source": "public/assets/brand/cloud-mascot-ai-chat-airborne-ui.webp",
@@ -1426,22 +1432,28 @@
       "sha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c"
     },
     {
-      "source": "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png",
+      "source": "user-upload:codex-clipboard-07d00d2e-1097-495f-9b02-0b8fd15f5387.png",
       "path": "Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
-      "bytes": 775982,
-      "sha256": "8423899d2b2f4d2a969325eacce9a785a65a81f75c9adaa81657acc95fc80775"
+      "bytes": 742943,
+      "sha256": "00e5498cc888a6b6f61bfefcf755ffc00b70ec916387c24bdc2f064c11ef1f1b",
+      "original_source": {
+        "source": "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png",
+        "bytes": 775982,
+        "sha256": "8423899d2b2f4d2a969325eacce9a785a65a81f75c9adaa81657acc95fc80775"
+      },
+      "derivation": "User-provided 1024px brand logo; app icon composited over white without alpha."
     },
     {
       "source": "Resources/LaunchScreen.storyboard",
       "path": "Resources/LaunchScreen.storyboard",
-      "bytes": 3953,
-      "sha256": "794b3b77f77970458958bd12dc8bf9c0842b06aa5e104288be72a077a4347526",
+      "bytes": 3922,
+      "sha256": "484330137ad2875cf2063906e0e9d6733ac593f722112797c3e606f4e06bfd5e",
       "original_source": {
         "source": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
         "bytes": 2892,
         "sha256": "782492c6403f56a76c64cfad72bc2031b7453e7196a79c9fa8f2fa602dbddb4c"
       },
-      "derivation": "32pt circular corner overlay matching the SwiftUI startup image clip; original blue Splash artwork unchanged."
+      "derivation": "White launch background and rounded corners match the SwiftUI startup overlay."
     },
     {
       "source": "ios/App/App/Assets.xcassets/Splash.imageset/Contents.json",
@@ -1450,10 +1462,16 @@
       "sha256": "f42f617e1c5b8baebdf27fb6f5538dd17ccbe822c334df5a753af0b14dc77dce"
     },
     {
-      "source": "ios/App/App/Assets.xcassets/Splash.imageset/splash-logo.png",
+      "source": "user-upload:codex-clipboard-07d00d2e-1097-495f-9b02-0b8fd15f5387.png",
       "path": "Resources/Assets.xcassets/Splash.imageset/splash-logo.png",
-      "bytes": 258654,
-      "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+      "bytes": 886096,
+      "sha256": "937240eb006e21e4cca399e4203471bd44961f6fbee2fc2ddab5c60e01e0e52a",
+      "original_source": {
+        "source": "ios/App/App/Assets.xcassets/Splash.imageset/splash-logo.png",
+        "bytes": 258654,
+        "sha256": "1913a1b19d2c7fac6f369cd9456b858869bf2e229e772ff1f2523586c9f99475"
+      },
+      "derivation": "User-provided 1024px brand logo copied without visual changes."
     }
   ],
   "known_missing_source_assets": [

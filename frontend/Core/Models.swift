@@ -316,6 +316,7 @@ struct CourseDraft: Codable, Hashable, Sendable {
   var diagnosis: [String: [String]] = [:]
   var step = 0
   var editingCourseID: String?
+  var importCourseID: String? = nil
   var catalogBookID: String?
   var parseCompleted = false
 }
@@ -480,7 +481,7 @@ struct MistakeRecord: Codable, Identifiable, Hashable, Sendable {
   var id: String { mistake_id }
 }
 enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
-  case home, onboarding, preferenceSetup, courseSetup, courseDetail, upload, parseReady, processing,
+  case home, onboarding, preferenceSetup, courseSetup, courseDetail, upload, parseReady, processing, courseProgress,
     courseImportProcessing, chapterConfirm, courseReady, courseImportReady, library, community,
     communityBook, communityImport, study, plan, flashcards, lesson, assignment, diagnosis,
     mistakes, notes, voiceNote, source, export, profile, settings
@@ -494,6 +495,7 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
     case .courseDetail: "课程"
     case .upload: "创建课程"
     case .parseReady, .processing: "解析教材"
+    case .courseProgress: "解析进度"
     case .courseImportProcessing: "正在解析资料"
     case .chapterConfirm: "确认目录"
     case .courseReady: "生成成功"
@@ -531,6 +533,7 @@ enum SheetRoute: String, Codable, Identifiable, CaseIterable, Sendable {
   var id: String { rawValue }
 }
 struct AppSnapshot: Codable, Sendable {
+  var courseImports: [CourseImportRecord]? = nil
   var importJob: ImportJob?
   var chapterDrafts: [String: [Chapter]]?
   var version = 1
@@ -565,4 +568,30 @@ struct ImportJob: Codable, Sendable, Identifiable {
   var preparationBookID: String? = nil
   var preparationFailed: Bool? = nil
   var preparationStage: String? = nil
+}
+
+struct CourseImportBook: Codable, Sendable, Identifiable {
+  var id: String
+  var status: GenerationTaskStatus = .queued
+  var progress: Double = 0
+  var stage: String? = nil
+  var message = "等待解析"
+}
+
+/// Account-scoped course work survives replacement of the creation questionnaire.
+struct CourseImportRecord: Codable, Sendable, Identifiable {
+  var id: String
+  var draft: CourseDraft
+  var books: [CourseImportBook]
+  var job: ImportJob
+  var error: String? = nil
+  var started = false
+  var setupCompleted: Bool? = nil
+  var onDeviceOnly: Bool? = nil
+  var message: String { error ?? job.message }
+  var needsPreparation: Bool { job.status != .completed }
+  var ringProgress: Double? {
+    guard job.status == .running, job.preparationStage == nil else { return nil }
+    return min(1, max(0, job.progress))
+  }
 }

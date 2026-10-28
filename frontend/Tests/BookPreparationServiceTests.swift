@@ -385,4 +385,62 @@ final class BookPreparationServiceTests: XCTestCase, @unchecked Sendable {
     } catch let error as CloudError { XCTAssertEqual(error.status, 408) }
     XCTAssertTrue(requests.all.allSatisfy { $0.method == "GET" })
   }
+  func testAutomaticDiagnosticRepairsKeepPollingWithoutResubmittingAndShowCounts() async throws {
+    let requests = BookPreparationRequests()
+    let (api, session, host, repository) = try fixture { request in
+      requests.append(request)
+      switch request.url!.path {
+      case self.prepare:
+        XCTAssertEqual(request.httpMethod, "GET")
+        if requests.count("GET", self.prepare) > 35 { return (200, try self.job("succeeded")) }
+        return (200, try self.json(["book_id": "book", "status": "queued", "stage": "diagnostics",
+          "updated": 1, "next_step": 2, "diagnostics_completed": 7, "diagnostics_total": 9,
+          "message": "正在根据审核意见优化题目"]))
+      case self.readiness: return (200, try self.ready())
+      case self.diagnostics: return (200, try self.bank())
+      default: throw URLError(.unsupportedURL)
+      }
+    }
+    defer { BookPreparationProtocol.install(host, nil); session.invalidateAndCancel() }
+    let result = try await BookPreparationService(api: api, repository: repository, accountKey: "owner")
+      .waitForBook(bookID: "book", pollInterval: .milliseconds(1)) { job in
+        if job.status == .queued {
+          XCTAssertTrue(job.message.contains("7／9"))
+          XCTAssertTrue(job.message.contains("优化"))
+          XCTAssertTrue(job.isPending)
+        }
+      }
+    XCTAssertEqual(result.status, .succeeded)
+    XCTAssertTrue(requests.all.allSatisfy { $0.method == "GET" })
+    XCTAssertEqual(requests.count("GET", prepare), 36)
+  }
+
+  func testCancelledPreparationResumesOnlyAfterExplicitAction() async throws {
+    let requests = BookPreparationRequests()
+    let (api, session, host, repository) = try fixture { request in
+      requests.append(request)
+      switch request.url!.path {
+      case self.prepare:
+        if request.httpMethod == "POST" {
+          XCTAssertTrue(request.url!.query?.hasPrefix("retry=true&retry_request_id=") == true)
+          return (200, try self.job("queued"))
+        }
+        return (200, try self.job(requests.count("POST", self.prepare) == 0 ? "cancelled" : "succeeded"))
+      case self.readiness: return (200, try self.ready())
+      case self.diagnostics: return (200, try self.bank())
+      default: throw URLError(.unsupportedURL)
+      }
+    }
+    defer { BookPreparationProtocol.install(host, nil); session.invalidateAndCancel() }
+    let service = BookPreparationService(api: api, repository: repository, accountKey: "owner")
+    do {
+      _ = try await service.waitForBook(bookID: "book") { _ in }
+      XCTFail("Paused preparation must not resume from observation")
+    } catch is CancellationError {}
+    XCTAssertEqual(requests.count("POST", prepare), 0)
+    let result = try await service.waitForBook(bookID: "book", retry: true, pollInterval: .milliseconds(1)) { _ in }
+    XCTAssertEqual(result.status, .succeeded)
+    XCTAssertEqual(requests.count("POST", prepare), 1)
+  }
+
 }

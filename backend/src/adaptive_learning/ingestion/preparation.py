@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 import threading
@@ -14,6 +15,12 @@ from typing import Any
 from ..database import DATABASE_ERRORS, Connection, connect, database_url
 
 logger = logging.getLogger(__name__)
+
+
+class PreparationDeferred(RuntimeError):
+    def __init__(self, details: dict[str, Any]) -> None:
+        super().__init__("preparation will continue automatically")
+        self.details = details
 
 
 @contextmanager
@@ -74,7 +81,7 @@ class PreparationQueue:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             if db.postgres:
-                return  # PostgreSQL DDL belongs to explicit migration 006.
+                return  # PostgreSQL DDL belongs to explicit migrations 006/008.
             db.begin_write()
             db.execute(
                 "CREATE TABLE IF NOT EXISTS preparation (book_id TEXT PRIMARY KEY, "
@@ -85,6 +92,10 @@ class PreparationQueue:
             columns = {row[1] for row in db.execute("PRAGMA table_info(preparation)")}
             if "next_step" not in columns:
                 db.execute("ALTER TABLE preparation ADD COLUMN next_step INTEGER NOT NULL DEFAULT 0")
+            if "retry_at" not in columns:
+                db.execute("ALTER TABLE preparation ADD COLUMN retry_at REAL NOT NULL DEFAULT 0")
+            if "details" not in columns:
+                db.execute("ALTER TABLE preparation ADD COLUMN details TEXT NOT NULL DEFAULT '{}'")
 
     @contextmanager
     def connect(self) -> Iterator[Connection]:
@@ -94,7 +105,11 @@ class PreparationQueue:
     def get(self, book_id: str) -> dict[str, Any] | None:
         with self.connect() as db:
             row = db.execute("SELECT * FROM preparation WHERE book_id=?", (book_id,)).fetchone()
-        return dict(row) if row else None
+        if row is None:
+            return None
+        result = dict(row)
+        result.update(json.loads(result.pop("details")))
+        return result
 
     def enqueue(
         self, book_id: str, *, retry: bool = False, refresh: bool = False
@@ -108,19 +123,29 @@ class PreparationQueue:
             )
             if retry:
                 db.execute(
-                    "UPDATE preparation SET status='queued',error='',updated=? "
-                    "WHERE book_id=? AND status='failed'",
+                    "UPDATE preparation SET status='queued',error='',retry_at=0,updated=? "
+                    "WHERE book_id=? AND status IN ('failed','cancelled')",
                     (time.time(), book_id),
                 )
             if refresh:
                 db.execute(
                     "UPDATE preparation SET status='queued',stage='queued',next_step=0,"
-                    "error='',updated=? WHERE book_id=? AND status='succeeded'",
+                    "error='',retry_at=0,details='{}',updated=? WHERE book_id=? AND status='succeeded'",
                     (time.time(), book_id),
                 )
         result = self.get(book_id)
         assert result is not None
         return result
+
+    def cancel(self, book_id: str, *, create: bool = False) -> dict[str, Any] | None:
+        with self.connect() as db:
+            db.begin_write()
+            if create:
+                db.execute("INSERT INTO preparation(book_id,status,stage,updated) VALUES (?,'cancelled','queued',?) "
+                           "ON CONFLICT(book_id) DO NOTHING", (book_id, time.time()))
+            db.execute("UPDATE preparation SET status='cancelled',updated=? "
+                       "WHERE book_id=? AND status IN ('queued','running','failed')", (time.time(), book_id))
+        return self.get(book_id)
 
     def update(self, book_id: str, status: str, stage: str, error: str = "") -> None:
         """Keep the deployed compatibility API without discarding stage checkpoints."""
@@ -176,9 +201,9 @@ class PreparationQueue:
         self._check_owner()
         with self.connect() as db:
             db.execute(
-                "UPDATE preparation SET status=?,stage=?,next_step=?,error=?,updated=? "
-                "WHERE book_id=?",
-                (status, stage, next_step, error, time.time(), book_id),
+                "UPDATE preparation SET status=?,stage=?,next_step=?,error=?,retry_at=0,details=CASE WHEN ?='diagnostics' THEN details ELSE '{}' END,updated=? "
+                "WHERE book_id=? AND status<>'cancelled'",
+                (status, stage, next_step, error, stage, time.time(), book_id),
             )
 
     def process_one(self) -> bool:
@@ -198,8 +223,8 @@ class PreparationQueue:
         with self.connect() as db:
             db.begin_write(serialize=False)
             row = db.execute(
-                "SELECT book_id,next_step FROM preparation WHERE status='queued' "
-                "ORDER BY updated LIMIT 1"
+                "SELECT book_id,next_step FROM preparation WHERE status='queued' AND retry_at<=? "
+                "ORDER BY updated LIMIT 1", (time.time(),)
             ).fetchone()
             if row is None:
                 return False
@@ -211,7 +236,7 @@ class PreparationQueue:
         stage = self.steps[min(next_step, len(self.steps) - 1)][0]
         try:
             for index in range(next_step, len(self.steps)):
-                if self.stop_event.is_set():
+                if self.stop_event.is_set() or (self.get(book_id) or {}).get("status") == "cancelled":
                     return True
                 stage, action = self.steps[index]
                 self._update(book_id, "running", stage, index)
@@ -219,6 +244,15 @@ class PreparationQueue:
                 next_step = index + 1
                 self._update(book_id, "running", stage, next_step)
             self._update(book_id, "succeeded", "ready", len(self.steps))
+        except PreparationDeferred as pending:
+            self._check_owner()
+            with self.connect() as db:
+                db.execute(
+                    "UPDATE preparation SET status='queued',stage=?,next_step=?,error='',retry_at=?,details=?,updated=? "
+                    "WHERE book_id=? AND status<>'cancelled'",
+                    (stage, next_step, time.time() + max(1, pending.details.get("retry_after_seconds", 5)),
+                     json.dumps(pending.details, ensure_ascii=False), time.time(), book_id),
+                )
         except DATABASE_ERRORS:
             raise
         except Exception as error:

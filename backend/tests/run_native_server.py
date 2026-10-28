@@ -77,4 +77,4 @@ def pdf():
     return Response(textbook_pdf(), media_type="application/pdf")
 
 
-uvicorn.run(app, host="127.0.0.1", port=18101, log_level="warning")
+uvicorn.run(app, host="127.0.0.1", port=int(os.getenv("NATIVE_E2E_PORT", "18101")), log_level="warning")

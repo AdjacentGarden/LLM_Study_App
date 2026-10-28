@@ -32,9 +32,15 @@ extension AppStore {
         draft = cached.snapshot.draft
         chapterDrafts = cached.snapshot.chapterDrafts ?? [:]
         importJob = cached.snapshot.importJob
+        importState.courses = cached.snapshot.courseImports ?? []
+        for i in importState.courses.indices where importState.courses[i].job.status == .running {
+          importState.courses[i].job.status = .interrupted
+        }
         preferences = cached.snapshot.preferences
+        cloudState.requiresPersonalization = cached.requiresPersonalization ?? false
         cloudState.onboardingComplete =
-          cached.onboardingComplete == true && preferences?.hasCompletedOnboarding == true
+          !cloudState.requiresPersonalization && cached.onboardingComplete == true
+          && preferences?.hasCompletedOnboarding == true
         cloudState.workspaces = cached.workspaces
         sources = cached.sources
         selectedCourseID = cached.snapshot.selectedCourseID
@@ -53,6 +59,7 @@ extension AppStore {
         restoreCloudMastery()
         mistakes = cached.snapshot.mistakes
     rebuildCloudCourses()
+    if importState.courses.isEmpty, importJob != nil { _ = registerCourseImport() }
   }
 
   func scheduleCloudRetry() {
@@ -134,6 +141,7 @@ extension AppStore {
       let key = cloudCacheKey(account)
       if cloudState.cacheKey != key {
         cloudState.onboardingComplete = false
+        cloudState.requiresPersonalization = false
         sources = []
         courses = []
         notes = []
@@ -146,6 +154,7 @@ extension AppStore {
         chapterDrafts = [:]
         draft = CourseDraft()
         importJob = nil
+        clearCourseImports()
         selectedCourseID = nil
         selectedBookID = nil
         selectedChapterID = nil
@@ -172,21 +181,10 @@ extension AppStore {
       if let id = selectedCourseID { selectCourse(id) }
       if !offlineBoot { await reloadCloudLearningRecords() }
       route = cloudState.onboardingComplete ? .home : .onboarding
-      if cloudState.onboardingComplete, !draft.resourceIDs.isEmpty {
-        if draft.catalogBookID != nil {
-          route = .courseSetup
-        } else {
-          route =
-            cloudState.creationWorkspaceID != nil
-            ? .chapterConfirm : draft.parseCompleted ? .courseSetup : .parseReady
-        }
-      }
-      if cloudState.onboardingComplete, let job = importJob,
-        job.status == .running || job.status == .interrupted || job.status == .failed
-      {
+      // Preserve unfinished work for explicit resumption from Home, not as a launch destination.
+      if importJob?.status == .running {
         importJob?.status = .interrupted
         processingMessage = "资料处理可继续，原文件已保留"
-        route = .parseReady
       }
     } catch {
       handleCloudError(error)
@@ -217,7 +215,8 @@ extension AppStore {
     }
     cloudState.workspaces = workspaces
     preferences = bootstrap.learner_preferences
-    cloudState.onboardingComplete = bootstrap.learner_preferences?.hasCompletedOnboarding == true
+    cloudState.onboardingComplete = !cloudState.requiresPersonalization
+      && bootstrap.learner_preferences?.hasCompletedOnboarding == true
     community = try BuiltinCourseCatalog.merging(bootstrap.catalog ?? [])
     cloudState.confirmedSelection = bootstrap.selection
     rebuildCloudCourses()

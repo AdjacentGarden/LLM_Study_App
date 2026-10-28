@@ -118,6 +118,42 @@ def ready_ocr(jobs: SQLiteOCRJobRepository, tmp_path: Path) -> None:
     ))
 
 
+def test_review_rejections_stay_pending_and_owner_can_pause_then_resume_only_unapproved_items(tmp_path, monkeypatch):
+    import time
+
+    from test_diagnostic_generation import structure
+    from test_diagnostic_item_repairs import Reviewer, Writer, generator
+
+    jobs, queue, token = setup(tmp_path, monkeypatch)
+    ready_ocr(jobs, tmp_path)
+    jobs.save_structure("private_book", structure())
+    writer, reviewer = Writer(), Reviewer(rejects=1)
+    monkeypatch.setattr(api_module, "item_generator", generator(writer, reviewer))
+    queue.steps = (*queue.steps[:2], ("diagnostics", api_module._prepare_diagnostics))
+    clock = [time.time()]
+    monkeypatch.setattr(time, "time", lambda: clock[0])
+    with TestClient(api_module.app) as client, TestClient(api_module.app) as anonymous:
+        client.cookies.set("zhiwo_visitor", token)
+        assert client.post("/api/books/private_book/prepare").status_code == 200
+        assert queue.process_one()
+        status = client.get("/api/books/private_book/prepare").json()
+        assert status["status"] == "queued" and status["stage"] == "diagnostics"
+        assert status["next_step"] == 2 and not status["error"]
+        assert (status["diagnostics_completed"], status["diagnostics_total"]) == (1, 2)
+        assert "优化" in status["message"]
+        for _ in range(3):
+            assert client.get("/api/books/private_book/prepare").status_code == 200
+        assert len(writer.calls) == 2
+        assert anonymous.post("/api/books/private_book/prepare/cancel").status_code == 403
+        assert client.post("/api/books/private_book/prepare/cancel").json()["status"] == "cancelled"
+        assert not queue.process_one()
+        assert client.post("/api/books/private_book/prepare?retry=true").json()["status"] == "queued"
+        clock[0] += 200
+        assert queue.process_one()
+        assert client.get("/api/books/private_book/prepare").json()["status"] == "succeeded"
+        assert len(writer.calls) == 3  # The already approved second item was reused.
+
+
 def test_prepare_requires_upload_owner_valid_session_same_origin_and_ready_ocr(tmp_path, monkeypatch):
     jobs, queue, token = setup(tmp_path, monkeypatch)
     with TestClient(api_module.app) as owner, TestClient(api_module.app) as attacker:

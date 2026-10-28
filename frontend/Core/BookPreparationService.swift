@@ -2,13 +2,21 @@ import CryptoKit
 import Foundation
 
 struct CloudBookPreparationJob: Codable, Sendable {
-  enum Status: String, Codable, Sendable { case queued, running, succeeded, failed }
+  enum Status: String, Codable, Sendable { case queued, running, succeeded, failed, cancelled }
   var book_id: String
   var status: Status
   var stage: String
   var error: String?
   var updated: Double
   var next_step: Int
+  var serverMessage: String? = nil
+  var diagnostics_completed: Int? = nil
+  var diagnostics_total: Int? = nil
+  enum CodingKeys: String, CodingKey {
+    case book_id, status, stage, error, updated, next_step
+    case structure_ready, rag_ready, diagnostics_ready, diagnostics_completed, diagnostics_total
+    case serverMessage = "message"
+  }
   // Enriched only from successful read-only readiness/diagnostic responses.
   var structure_ready: Bool? = nil
   var rag_ready: Bool? = nil
@@ -21,7 +29,15 @@ struct CloudBookPreparationJob: Codable, Sendable {
     if status == .failed {
       return error.flatMap { $0.isEmpty ? nil : $0 } ?? "教材准备中断，已保留完成步骤，请重试。"
     }
+    if status == .cancelled { return "教材准备已暂停，已完成的内容会保留。" }
     if status == .succeeded { return "教材目录、检索和诊断题已准备完成。" }
+    if stage == "diagnostics" {
+      let detail = serverMessage ?? "正在生成并审核诊断题，未通过的题目会自动优化。"
+      if let completed = diagnostics_completed, let total = diagnostics_total, total > 0 {
+        return "诊断题已完成 \(completed)／\(total) 题 · \(detail)"
+      }
+      return detail
+    }
     if status == .queued { return "教材准备已排队，可以稍后继续查看。" }
     switch stage {
     case "indexing": return "正在整理教材检索索引。"
@@ -82,6 +98,18 @@ actor BookPreparationService {
     try Task.checkCancellation()
     let job: CloudBookPreparationJob = try await api.request(try path(bookID) + "/prepare")
     try validate(job, bookID: bookID)
+    return job
+  }
+
+  /// Strictly read-only recovery for a course card; never creates or refreshes a job.
+  func observe(bookID: String) async throws -> CloudBookPreparationJob {
+    let job = try await get(bookID: bookID)
+    if job.status == .succeeded {
+      guard let verified = try await verifiedSuccess(job, bookID: bookID) else {
+        throw CloudError(status: 409, message: "教材准备尚未全部就绪，请继续查询原任务。")
+      }
+      return verified
+    }
     return job
   }
 
@@ -200,26 +228,29 @@ actor BookPreparationService {
   }
 
   func waitForBook(bookID: String, retry: Bool = false, pollInterval: Duration = .seconds(2),
-    observationTimeout: Duration = .seconds(900),
+    observationTimeout: Duration? = nil,
     onUpdate: @Sendable (CloudBookPreparationJob) async throws -> Void) async throws -> CloudBookPreparationJob {
     _ = try path(bookID)
     let clock = ContinuousClock()
-    let deadline = clock.now.advanced(by: observationTimeout)
+    let deadline = observationTimeout.map { clock.now.advanced(by: $0) }
     var job: CloudBookPreparationJob
     do { job = try await get(bookID: bookID) }
     catch let missing as CloudError where missing.status == 404 {
       job = try await postOnce(bookID: bookID, command: .create(explicitRecovery: retry))
     }
-    if retry && job.status == .failed {
+    if retry && (job.status == .failed || job.status == .cancelled) {
       job = try await postOnce(bookID: bookID, command: .retry(job.marker))
     }
     var refreshed = false
     while true {
       try Task.checkCancellation()
-      guard clock.now < deadline else {
+      guard deadline.map({ clock.now < $0 }) ?? true else {
         throw CloudError(status: 408, message: "教材仍在后台处理，已保留进度，请稍后继续查看。", transportFailure: true)
       }
       switch job.status {
+      case .cancelled:
+        try await onUpdate(job)
+        throw CancellationError()
       case .failed:
         try await onUpdate(job)
         throw CloudError(status: 409, message: job.message)
@@ -240,11 +271,16 @@ actor BookPreparationService {
       case .queued, .running:
         try await onUpdate(job)
       }
-      guard clock.now < deadline else {
+      guard deadline.map({ clock.now < $0 }) ?? true else {
         throw CloudError(status: 408, message: "教材仍在后台处理，已保留进度，请稍后继续查看。", transportFailure: true)
       }
       try await Task.sleep(for: pollInterval)
-      job = try await get(bookID: bookID)
+      do { job = try await get(bookID: bookID) }
+      catch let error as CloudError where error.transportFailure {
+        job.serverMessage = "连接暂时中断，正在重新查询后台任务。"
+        try await onUpdate(job)
+        try await Task.sleep(for: .seconds(10))
+      }
     }
   }
 }

@@ -101,7 +101,7 @@ def test_import_preserves_private_approvals_unknown_submissions_and_recovery_per
     repo.claim_diagnostic_chapter(pending)
     monkeypatch.setenv('DATABASE_URL', pg)
     result = import_sqlite(data_dir=data, backup_dir=tmp_path / 'backup', url=pg, writes_stopped=True)
-    assert result['verified'] and result['schema_version'] == 7
+    assert result['verified'] and result['schema_version'] == 8
     assert result['tables']['diagnostic_chapter_cache']['rows'] == 2
     assert result['tables']['diagnostic_chapter_submissions']['rows'] == 3
     assert result['tables']['diagnostic_recovery_epochs']['rows'] == 1
@@ -257,7 +257,7 @@ def test_import_keeps_course_aliases_note_aliases_and_preparation_stage(pg, tmp_
     monkeypatch.setenv('DATABASE_URL', pg)
     report = import_sqlite(data_dir=source, backup_dir=tmp_path / 'backup', url=pg,
                            writes_stopped=True)
-    assert report['verified'] and report['schema_version'] == 7
+    assert report['verified'] and report['schema_version'] == 8
     assert report['tables']['course_jobs']['rows'] == 1
     assert report['tables']['course_job_requests']['rows'] == 1
     assert report['tables']['studio_note_request_aliases']['rows'] == 1

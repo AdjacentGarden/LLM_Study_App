@@ -27,7 +27,7 @@
                                 <rect key="frame" x="115.5" y="261.5" width="144" height="144"/>
                             </imageView>
                         </subviews>
-                        <color key="backgroundColor" red="0.9960784314" green="0.9921568627" blue="0.9803921569" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="launch-logo-corners" firstAttribute="leading" secondItem="launch-logo" secondAttribute="leading" id="corners-leading"/>
                             <constraint firstItem="launch-logo-corners" firstAttribute="trailing" secondItem="launch-logo" secondAttribute="trailing" id="corners-trailing"/>
@@ -44,7 +44,7 @@
         </scene>
     </scenes>
     <resources>
-        <image name="Splash" width="512" height="512"/>
+        <image name="Splash" width="1024" height="1024"/>
         <image name="SplashCorners" width="144" height="144"/>
     </resources>
 </document>

@@ -145,6 +145,14 @@ _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证�
 """ + "\n" + _QUESTION_CONTRACT + "\n" + _APPLICATION_CONTRACT + "\n" + _APPLICATION_PLAN_CONTRACT
 
 
+_TARGETED_REPAIR_INSTRUCTIONS = """10. 本次只生成knowledge_points列出的待处理题目，不得返回其他题目或已通过题目。
+根据repair_feedback与required_repairs修正实际错误。可以保留正确词句，不强制替换完整旧选项；是否修好由再次独立审核判断。
+反馈不是事实来源，不能引入evidence以外的学科事实。generation_strategy为redesign时，重新设计同知识点的题干、选项或应用情境，仍须满足原认知目标及唯一正确答案。"""
+_RELAXED_REVIEW_INSTRUCTIONS = """\n审核优先级补充：只把影响答案正确性、唯一性、原文支持、作答理解或指定认知目标的实际缺陷列为拒绝理由。
+允许忠实于原文含义的改写、合理的选项长度差异、低负担的简单情境。轻微措辞、风格和难度偏好仅属建议，不阻止通过，也不列入issues或required_edits。
+修改要求定位实际错误，不要求所有旧选项或正确词句全部重写。无依据事实、多解和明显泄题仍须拒绝。"""
+
+
 class _SourceScenarioPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     mode: Literal["source_scenario"]
@@ -401,6 +409,7 @@ class DiagnosticGenerationError(ValueError):
         super().__init__(message)
         self.feedback = feedback
         self.required_repairs = required_repairs
+        self.repair_context: dict[str, Any] = {}
 
 
 def stable_knowledge_point_id(chapter_id: str, text: str) -> str:
@@ -519,13 +528,13 @@ class DiagnosticItemGenerator:
         audit_callback: Callable[[dict[str, object]], None] | None = None,
         review_identity: dict[str, str] | None = None,
         points_per_chapter: int = 3,
-        validation_retries: int = 2,
+        validation_retries: int | None = 2,
         verify_items: bool = True,
         allow_grounded_answer_rewrite: bool = False,
     ) -> None:
         if not 1 <= points_per_chapter <= 6:
             raise ValueError("points_per_chapter must be between 1 and 6")
-        if validation_retries < 0:
+        if validation_retries is not None and validation_retries < 0:
             raise ValueError("validation_retries must not be negative")
         if verify_items and (review_client is None or review_client is client):
             raise ValueError("diagnostic generation requires a separate independent review client")
@@ -567,6 +576,11 @@ class DiagnosticItemGenerator:
     ) -> list[DiagnosticItem]:
         if chapter_cache is not None and (not self.verify_items or not cache_scope.strip()):
             raise ValueError("private chapter approvals require independent review and a book scope")
+        if self.validation_retries is None:
+            from .item_repairs import advance_diagnostic_items
+            if chapter_cache is None:
+                raise ValueError("continuous generation requires durable per-item checkpoints")
+            return advance_diagnostic_items(self, structure, chapter_cache, cache_scope)
         context: dict[str, object] = {"invocation_id": uuid.uuid4().hex,
             "source_fingerprint": structure_fingerprint(structure),
             "diagnostic_version": DIAGNOSTIC_BANK_VERSION}
@@ -777,9 +791,11 @@ class DiagnosticItemGenerator:
         chapter: ChapterDraft,
         points: list[tuple[str, str, list[SourceQuote]]],
         *, audit_context: dict[str, object] | None = None,
+        point_offset: int = 0, repair_context: dict[str, Any] | None = None,
+        targeted: bool = False,
     ) -> list[DiagnosticItem]:
         if not self.verify_items and any(
-            _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
+            _COGNITIVE_TARGETS[(index + point_offset) % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
             for index in range(len(points))
         ):
             raise DiagnosticGenerationError("structured applications require independent semantic review")
@@ -812,8 +828,8 @@ class DiagnosticItemGenerator:
                     "knowledge_point_id": point_id,
                     "label": label,
                     "preferred_type": "choice",
-                    "cognitive_target": dict(_COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]),
-                    "response_shape": "private_application_plan" if index % 3 == 2 else "ordinary_choice",
+                    "cognitive_target": dict(_COGNITIVE_TARGETS[(index + point_offset) % len(_COGNITIVE_TARGETS)]),
+                    "response_shape": "private_application_plan" if (index + point_offset) % 3 == 2 else "ordinary_choice",
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
                 }
                 for index, (point_id, label, quotes) in enumerate(points)
@@ -826,15 +842,20 @@ class DiagnosticItemGenerator:
         approved_keys: dict[str, str] = {}
         required_repairs: dict[str, _ItemRepairTarget] = {}
         system = _item_system(self.allow_grounded_answer_rewrite)
+        if targeted:
+            old = system[system.index("10. 若输入包含"):system.index("只返回 JSON：")]
+            system = system.replace(old, _TARGETED_REPAIR_INSTRUCTIONS + "\n")
+            payload.update({key: value for key, value in (repair_context or {}).items() if not key.startswith("_")})
         chapter_context = {**(audit_context or {}), "chapter_id": chapter.chapter_id}
         self._audit(chapter_context, "chapter_started", source=payload)
-        for attempt in range(self.validation_retries + 1):
+        for attempt in range(1 if targeted else (self.validation_retries or 0) + 1):
             candidate: list[dict[str, object]] | None = None
             review_keys: dict[str, str] = {}
             attempt_context = {**chapter_context, "attempt": attempt + 1}
             try:
                 self._audit(attempt_context, "generation_request", system=system, request=payload)
-                raw = self.client.structured(
+                pending_candidate = (repair_context or {}).get("_pending_candidate") if targeted else None
+                raw = {"items": pending_candidate} if pending_candidate is not None else self.client.structured(
                     system=system,
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
@@ -852,7 +873,7 @@ class DiagnosticItemGenerator:
                 failures: list[dict[str, object]] = []
                 for index, entry in enumerate(draft.items):
                     try:
-                        is_application = _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
+                        is_application = _COGNITIVE_TARGETS[(index + point_offset) % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
                         if is_application:
                             entry, task = self._render_application(entry, payload)
                             application_tasks[expected_ids[index]] = task
@@ -885,7 +906,8 @@ class DiagnosticItemGenerator:
                                   "repair": "restore preserve_accepted_items exactly; repair rejected items only"},
                     )
                 self._audit(attempt_context, "candidate", items=candidate)
-                _check_required_repairs(candidate, required_repairs)
+                if not targeted:
+                    _check_required_repairs(candidate, required_repairs)
                 if self.verify_items:
                     review_keys = {item.knowledge_point_ids[0]: self._approval_key(
                                        payload, item, application_tasks.get(item.knowledge_point_ids[0]))
@@ -906,9 +928,16 @@ class DiagnosticItemGenerator:
                         preserved.pop(key, None)
                     if pending:
                         self._review_items(payload, pending, pending_ids,
-                                           audit_context=attempt_context, application_tasks=application_tasks)
+                                           audit_context=attempt_context, application_tasks=application_tasks, relaxed=targeted)
                 self._audit(attempt_context, "chapter_accepted", items=candidate)
                 return items
+            except LLMError as error:
+                if targeted:
+                    recovery = dict(repair_context or {})
+                    if candidate is not None:
+                        recovery["_pending_candidate"] = candidate
+                    cast(Any, error).repair_context = recovery
+                raise
             except (ValidationError, DiagnosticGenerationError) as error:
                 last_error = error
                 if isinstance(error, DiagnosticGenerationError) and error.required_repairs is not None:
@@ -921,7 +950,22 @@ class DiagnosticItemGenerator:
                             target.prompt, tuple(dict.fromkeys((*old_options, *target.option_texts))))
                 self._audit(attempt_context, "attempt_failed", error_type=type(error).__name__,
                             feedback=getattr(error, "feedback", None))
-                if attempt >= self.validation_retries:
+                if targeted:
+                    feedback = error.feedback if isinstance(error, DiagnosticGenerationError) and error.feedback else {
+                        "stage": "validation", "issues": error.errors(include_input=False, include_url=False, include_context=False)
+                        if isinstance(error, ValidationError) else [str(error)]}
+                    context = dict(repair_context or {})
+                    context.pop("_pending_candidate", None)
+                    context["repair_feedback"] = feedback
+                    if candidate is not None:
+                        context["previous_candidate"] = {"items": candidate}
+                    if isinstance(error, DiagnosticGenerationError) and error.required_repairs is not None:
+                        context["required_repairs"] = [target.writer_payload(key)
+                            for key, target in error.required_repairs.items()]
+                    pending_error = DiagnosticGenerationError("diagnostic item needs revision", feedback=dict(feedback))
+                    pending_error.repair_context = context
+                    raise pending_error from error
+                if attempt >= (self.validation_retries or 0):
                     break
                 feedback = (error.feedback if isinstance(error, DiagnosticGenerationError)
                             and error.feedback else {"stage": "validation", "issues":
@@ -993,6 +1037,7 @@ class DiagnosticItemGenerator:
         expected_ids: list[str],
         *, audit_context: dict[str, object] | None = None,
         application_tasks: dict[str, dict[str, object]] | None = None,
+        relaxed: bool = False,
     ) -> None:
         review_items = self._balance_options(items, seed=f"review:{source_payload['chapter_id']}")
         targets = {
@@ -1028,10 +1073,11 @@ class DiagnosticItemGenerator:
             ],
         }
         assert self.review_client is not None
-        self._audit(audit_context, "review_request", system=_ITEM_REVIEW_SYSTEM,
+        review_system = _ITEM_REVIEW_SYSTEM + (_RELAXED_REVIEW_INSTRUCTIONS if relaxed else "")
+        self._audit(audit_context, "review_request", system=review_system,
                     request=review_payload, review_identity=self.review_identity)
         raw = self.review_client.structured(
-            system=_ITEM_REVIEW_SYSTEM,
+            system=review_system,
             user=json.dumps(review_payload, ensure_ascii=False),
             temperature=0,
             max_tokens=1400,

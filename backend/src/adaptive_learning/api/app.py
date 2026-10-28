@@ -27,6 +27,7 @@ from ..accounts import COOKIE, Accounts
 from ..assessment.diagnostic_cache import (
     DiagnosticChapterCacheError,
     DiagnosticChapterSubmissionBlocked,
+    DiagnosticRepairPending,
     RepositoryDiagnosticChapterCache,
 )
 from ..assessment.engine import AdaptiveAssessmentEngine, score_choice
@@ -62,7 +63,7 @@ from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRun
 from ..ingestion.models import BookStructure, ChapterDraft
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
-from ..ingestion.preparation import PreparationQueue
+from ..ingestion.preparation import PreparationDeferred, PreparationQueue
 from ..learning_design import NativeLearningDesign, resolved_profile
 from ..learning_preferences import resolve_learning_design
 from ..llm.book_parallel import ordered_book_map
@@ -220,6 +221,7 @@ def _create_diagnostic_generator(configuration, writer, reviewer, audit_callback
         return DiagnosticItemGenerator(
             writer, review_client=reviewer, audit_callback=audit_callback,
             review_identity=configuration.teaching_review_identity,
+            validation_retries=None,
             allow_grounded_answer_rewrite=configuration.diagnostic_allow_grounded_answer_rewrite,
         )
     except ValueError:
@@ -720,7 +722,17 @@ def _prepare_structure(book_id: str) -> None:
 
 
 def _prepare_diagnostics(book_id: str) -> None:
-    generate_diagnostic_bank(book_id)
+    from ..assessment.item_repairs import stop_requested
+    token = stop_requested.set(lambda: preparation_queue.stop_event.is_set()
+                               or (preparation_queue.get(book_id) or {}).get("status") == "cancelled")
+    try:
+        generate_diagnostic_bank(book_id)
+    except HTTPException as error:
+        if error.status_code == 202 and isinstance(error.detail, dict):
+            raise PreparationDeferred(error.detail) from error
+        raise
+    finally:
+        stop_requested.reset(token)
 
 
 preparation_queue = PreparationQueue(settings.data_dir / "state" / "preparation.sqlite3", [
@@ -759,7 +771,7 @@ def prepare_book(book_id: str, request: Request, response: Response, retry: bool
         diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure)
     ) if structure is not None else None
     ready = bank is not None and bool(bank) and all(item.response_type == ResponseType.SINGLE_CHOICE for item in bank)
-    if retry and existing and existing["status"] == "failed":
+    if retry and existing and existing["status"] in {"failed", "cancelled"}:
         # The user's explicit recovery action is the only source of a new
         # permission to supersede a prior uncertain model submission.
         if retry_request_id is not None and not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id):
@@ -773,6 +785,17 @@ def prepare_book(book_id: str, request: Request, response: Response, retry: bool
     )
 
 
+@app.post("/api/books/{book_id}/prepare/cancel")
+def cancel_book_preparation(book_id: str, request: Request, response: Response) -> dict:
+    _require_upload_owner(book_id, request)
+    response.headers["Cache-Control"] = "private, no-store"
+    job = job_repository.get_job(book_id)
+    value = preparation_queue.cancel(book_id, create=bool(job and job.status == "ocr_ready"))
+    if value is None:
+        raise HTTPException(404, "尚未开始整理教材")
+    return value
+
+
 @app.get("/api/books/{book_id}/prepare")
 def preparation_status(book_id: str, request: Request, response: Response) -> dict:
     _require_upload_owner(book_id, request)
@@ -780,6 +803,12 @@ def preparation_status(book_id: str, request: Request, response: Response) -> di
     value = preparation_queue.get(book_id)
     if value is None:
         raise HTTPException(404, "尚未开始整理教材")
+    if value["stage"] == "diagnostics" and isinstance(item_generator, DiagnosticItemGenerator) and item_generator.validation_retries is None:
+        from ..assessment.item_repairs import diagnostic_item_progress
+        structure = job_repository.get_structure(book_id)
+        if structure is not None:
+            value.update(diagnostic_item_progress(item_generator, structure,
+                RepositoryDiagnosticChapterCache(assessment_repository), book_id))
     return value
 
 
@@ -814,6 +843,9 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
             structure_fingerprint=fingerprint,
             items=items,
         )
+    except DiagnosticRepairPending as pending:
+        raise HTTPException(202, pending.details,
+                            headers={"Retry-After": str(max(1, int(pending.details["retry_after_seconds"])))}) from pending
     except DiagnosticChapterSubmissionBlocked as error:
         raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请回教材准备页显式重试",
                             headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error

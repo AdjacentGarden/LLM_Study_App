@@ -353,7 +353,8 @@ final class CloudTests: XCTestCase {
 
   @MainActor func testNativeLoginUploadCourseQARestoresProgressFromServer() async throws {
     // Explicit loopback harness replaces external OCR/model adapters, never the app/API/storage.
-    let base = URL(string: "http://127.0.0.1:18101")!
+    let base = URL(string: ProcessInfo.processInfo.environment["BOOKCOURSE_NATIVE_TEST_BASE_URL"]
+      ?? "http://127.0.0.1:18101")!
     let probeConfig = URLSessionConfiguration.ephemeral
     probeConfig.timeoutIntervalForRequest = 10
     probeConfig.connectionProxyDictionary = [:]
@@ -676,6 +677,132 @@ extension CloudTests {
     let store = AppStore(repository: repo, cloud: api)
     try await repo.saveCloudState(state, key: store.cloudCacheKey(account, origin: origin))
     return state
+  }
+
+  @MainActor func testColdLaunchKeepsUnfinishedCreationOnHomeUntilExplicitResume() async throws {
+    for scenario in ["upload", "parsed", "catalog", "workspace", "running", "interrupted", "failed"] {
+      let repo = try LocalBookCourseRepository(directory:
+        FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+      let url = URL(string: "https://startup-\(UUID().uuidString).example")!
+      let account = cachedAccount()
+      CloudAPI.seedLegacyIdentityForTesting(url: url, account: account)
+      let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+      var cache = try await seedOfflineCache(repo, api: api, account: account)
+      cache.snapshot.draft = CourseDraft(name: "保留的创建草稿", resourceIDs: ["book"],
+        parseCompleted: scenario == "parsed")
+      if scenario == "catalog" { cache.snapshot.draft.catalogBookID = "catalog-book" }
+      if scenario == "workspace" { cache.creationWorkspaceID = "creating-workspace" }
+      if ["running", "interrupted", "failed"].contains(scenario) {
+        cache.snapshot.importJob = ImportJob(bookIDs: ["book"],
+          status: scenario == "running" ? .running : scenario == "failed" ? .failed : .interrupted)
+      }
+      let store = AppStore(repository: repo, cloud: api)
+      try await repo.saveCloudState(cache, key: store.cloudCacheKey(account))
+      OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+      await store.boot()
+      XCTAssertEqual(store.route, .home, scenario)
+      XCTAssertEqual(store.draft.resourceIDs, ["book"], scenario)
+      XCTAssertEqual(store.notes.first?.id, "private-note", scenario)
+      let destination: Route = scenario == "workspace" ? .chapterConfirm
+        : ["parsed", "catalog"].contains(scenario) ? .courseSetup : .parseReady
+      XCTAssertEqual(store.resumableCourseRoute, destination, scenario)
+      if scenario == "failed" { XCTAssertEqual(store.importJob?.status, .failed) }
+      if scenario == "running" { XCTAssertEqual(store.importJob?.status, .interrupted) }
+      store.go(try XCTUnwrap(store.resumableCourseRoute))
+      XCTAssertEqual(store.route, destination)
+      store.cloudState.retryTask?.cancel()
+      await store.flush()
+      await api.clearCredentials()
+    }
+  }
+
+  @MainActor func testManualLoginResetsLegacyCompletedProfileWithoutLosingCachedWork() async throws {
+    let repo = try LocalBookCourseRepository(directory:
+      FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let url = URL(string: "https://manual-login-\(UUID().uuidString).example")!
+    let account = cachedAccount()
+    let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+    let cache = try await seedOfflineCache(repo, api: api, account: account)
+    let store = AppStore(repository: repo, cloud: api)
+    let key = store.cloudCacheKey(account)
+    LearnerOnboardingDraft(step: 4, name: "旧答案").save(scope: key)
+    try await store.prepareCloudLogin(account)
+    let updated = try await repo.loadCloudState(key)
+    XCTAssertEqual(updated?.requiresPersonalization, true)
+    XCTAssertEqual(updated?.onboardingComplete, false)
+    XCTAssertEqual(updated?.workspaces.first?.id, cache.workspaces.first?.id)
+    XCTAssertEqual(updated?.notes?.first?.id, "private-note")
+    XCTAssertEqual(updated?.snapshot.preferences, cache.snapshot.preferences,
+      "Prior server answers remain intact until the user submits new ones")
+    XCTAssertEqual(LearnerOnboardingDraft.load(scope: key).step, 0)
+    store.restoreCloudCache(try XCTUnwrap(updated))
+    XCTAssertFalse(store.cloudState.onboardingComplete)
+    LearnerOnboardingDraft.clear(scope: key)
+  }
+
+  @MainActor func testLogoutRequiresFreshPersonalizationDespiteServerAnswersAndRestarts() async throws {
+    let repo = try LocalBookCourseRepository(directory:
+      FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let url = URL(string: "https://relogin-\(UUID().uuidString).example")!
+    let account = cachedAccount()
+    CloudAPI.seedLegacyIdentityForTesting(url: url, account: account)
+    let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+    let cache = try await seedOfflineCache(repo, api: api, account: account)
+    let bootstrap = CloudBootstrap(workspaces: cache.workspaces, selection: nil,
+      contract_version: 1, library: [], learner_preferences: cache.snapshot.preferences, catalog: [])
+    let newAnswers = LearnerPreferences(displayName: "重新选择", primaryGoal: "exam", dailyTime: "under30")
+    OfflineCloudProtocol.respond { request in
+      switch request.url!.path {
+      case "/api/auth/me": return (200, try JSONEncoder().encode(account))
+      case "/api/native/bootstrap": return (200, try JSONEncoder().encode(bootstrap))
+      case "/api/native/learner-preferences": return (200, try JSONEncoder().encode(newAnswers))
+      default: return (200, Data("{\"ok\":true}".utf8))
+      }
+    }
+    let store = AppStore(repository: repo, cloud: api)
+    await store.boot()
+    await store.flush()
+    XCTAssertEqual(store.route, .home)
+    let key = store.cloudCacheKey(account)
+    LearnerOnboardingDraft(step: 4, name: "旧草稿", goal: "interest").save(scope: key)
+    await store.logoutCloud()
+    XCTAssertFalse(store.cloudState.authenticated)
+    XCTAssertFalse(store.cloudState.onboardingComplete)
+    let signedOut = try await repo.loadCloudState(key)
+    XCTAssertEqual(signedOut?.requiresPersonalization, true)
+    XCTAssertEqual(signedOut?.notes?.first?.id, "private-note")
+    XCTAssertEqual(LearnerOnboardingDraft.load(scope: key).step, 0)
+
+    // A new client represents signing in again after closing the app.
+    let signedInAPI = CloudAPI(baseURL: url, session: isolatedCloudSession())
+    let signedIn = AppStore(repository: repo, cloud: signedInAPI)
+    await signedIn.boot()
+    await signedIn.flush()
+    XCTAssertTrue(signedIn.cloudState.authenticated)
+    XCTAssertEqual(signedIn.route, .onboarding)
+    XCTAssertTrue(signedIn.cloudState.requiresPersonalization)
+    XCTAssertFalse(signedIn.cloudState.onboardingComplete)
+    XCTAssertEqual(signedIn.notes.first?.id, "private-note")
+    try await signedIn.reloadCloud()
+    XCTAssertFalse(signedIn.cloudState.onboardingComplete,
+      "The server's previous completed profile cannot bypass the fresh questionnaire")
+    signedIn.saveCloudCacheOnly()
+    await signedIn.flush()
+    let restarted = AppStore(repository: repo, cloud: signedInAPI)
+    await restarted.boot()
+    XCTAssertEqual(restarted.route, .onboarding)
+    try await restarted.saveCloudPreferences(name: "重新选择", goal: "exam", dailyTime: "under30")
+    await restarted.flush()
+    XCTAssertFalse(restarted.cloudState.requiresPersonalization)
+    let completedCache = try await repo.loadCloudState(key)
+    XCTAssertEqual(completedCache?.requiresPersonalization, false)
+    let normalLaunch = AppStore(repository: repo, cloud: signedInAPI)
+    await normalLaunch.boot()
+    XCTAssertEqual(normalLaunch.route, .home,
+      "A normal relaunch preserves completion until the next explicit logout")
+    await normalLaunch.flush()
+    await signedInAPI.clearCredentials()
+    LearnerOnboardingDraft.clear(scope: key)
   }
 
   @MainActor func testUploadBindingDoesNotDuplicateBookAndPreservesLocalAnchors() throws {
@@ -1004,5 +1131,31 @@ extension CloudTests {
     XCTAssertTrue(own.isDisjoint(with: CloudAPI.compatibleOrigins(URL(string: "http://\(host):8101")!)))
     let defaultAPI = CloudAPI(baseURL: standard, session: isolatedCloudSession())
     await defaultAPI.clearCredentials()
+  }
+}
+
+extension CloudTests {
+  @MainActor func testViewingCourseImportProgressOnlyQueriesItsOwnBook() async throws {
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let api = CloudAPI(baseURL: URL(string: "https://progress-\(UUID().uuidString).example")!, session: isolatedCloudSession())
+    let store = AppStore(repository: repo, cloud: api)
+    store.cloudState.authenticated = true
+    store.cloudState.cacheKey = "progress-test"
+    store.draft = CourseDraft(name: "First", resourceIDs: ["progress-book"])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.updateCourseImport(id) { $0.started = true; $0.job.status = .interrupted }
+    store.courseFeatureStartDraft()
+    store.draft.name = "Another draft"
+    let nextDraft = store.draft
+    OfflineCloudProtocol.respond { request in
+      XCTAssertEqual(request.httpMethod, "GET", "Viewing progress must never create, restart or retry a model job")
+      XCTAssertEqual(request.url?.path, "/api/books/progress-book/status")
+      return (200, Data(#"{"book_id":"progress-book","status":"processing","progress":0.42,"current_step":"正在识别原文","retryable":false,"needs_human_review":false}"#.utf8))
+    }
+    await store.observeCourseImport(id, once: true)
+    XCTAssertEqual(store.courseImport(for: id)?.job.status, .running)
+    XCTAssertEqual(store.courseImport(for: id)?.ringProgress, 0.42)
+    XCTAssertEqual(store.draft, nextDraft)
+    await store.flush()
   }
 }
