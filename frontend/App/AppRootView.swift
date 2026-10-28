@@ -210,16 +210,16 @@ struct AppRootView: View {
 
   @ViewBuilder private func screen(route: Route) -> some View {
     switch route {
-    case .study, .plan, .flashcards, .lesson, .assignment, .diagnosis, .mistakes, .export:
+    case .home, .study, .plan, .flashcards, .lesson, .assignment, .diagnosis, .mistakes, .export:
       LearningRouterView(route: route)
     case .notes, .voiceNote, .source: NotesRouterView(route: route)
     default: CoursesRouterView(route: route)
     }
   }
 }
-private let primaryTabs: [Route] = [.home, .study, .community, .profile]
+private let primaryTabs: [Route] = [.study, .community, .profile]
 private func isCurrentTab(_ tab: Route, _ route: Route) -> Bool {
-  tab == route || (tab == .home && route == .courseDetail)
+  tab == route
 }
 
 @available(iOS 26.0, *)
@@ -230,7 +230,7 @@ private struct NativePhoneTabs<Content: View>: View {
 
   private var selection: Binding<Route> {
     Binding(
-      get: { store.route.isTab ? store.route : .home },
+      get: { store.route.isTab ? store.route : .study },
       set: { store.go($0) })
   }
 
@@ -436,8 +436,8 @@ struct PadRail: View {
           }
         }.frame(height: 32)
       }.padding(.bottom, 8)
-      ForEach(Array(primaryTabs.prefix(3))) { tab in tabButton(tab) }
-      if expanded, store.route == .study {
+      ForEach(Array(primaryTabs.prefix(2))) { tab in tabButton(tab) }
+      if expanded, store.route == .study, store.studyCoursePreparation == nil {
         VStack(alignment: .leading, spacing: 8) {
           Text(store.currentTitle).font(DS.font(14, weight: .bold)).foregroundStyle(.white)
             .lineLimit(2).padding(.vertical, 10)

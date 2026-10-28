@@ -89,70 +89,88 @@ struct StudyDirectoryView: View {
     return learningProgress(courseTasks)
   }
   private var positionKey: String {
-    "native.study.location.\(store.selectedCourseID ?? "none").\(store.selectedBookID ?? "none")"
+    "native.study.location.\(store.cloudState.cacheKey ?? "local").\(store.selectedCourseID ?? "none").\(store.selectedBookID ?? "none")"
+  }
+  private var restorationKey: String {
+    positionKey + ":\(store.studyCoursePreparation == nil):"
+      + directory.flatMap { $0.sections.map(\.id) }.joined(separator: "|")
   }
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 8) {
-        // Only this invisible copy participates in the scrolling layout. Its
-        // expanded height keeps the directory and scroll bounds stable while
-        // the visible controls above the scroll view collapse.
-        studyHeader(compact: false)
-          .hidden().allowsHitTesting(false).accessibilityHidden(true)
-        LazyVStack(alignment: .leading, spacing: 8) {
-          if directory.isEmpty {
-            EmptyStateView(
-              title: store.courses.isEmpty ? "开始你的第一门课程" : "课程资料还在准备中",
-              message: store.courses.isEmpty
-                ? "添加教材后，这里会按原书目录整理章节和每个小节的学习入口。"
-                : "你可以查看解析进度，或先选择另一门已经就绪的课程。",
-              asset: store.courses.isEmpty ? "/assets/brand/empty-states/no-courses-v1.png" : nil,
-              icon: store.courses.isEmpty ? nil : "LibraryBig")
-            if let source = store.currentSource, store.sourceFileURL(source.id) != nil {
-              BCButton("阅读原文件", icon: "book") {
-                store.openSource(SourcePageTarget(bookID: source.id, title: source.summary.title, page: 1,
-                  sourceText: source.chunks.map(\.text).joined(separator: "\n\n"), from: .study))
+    ScrollViewReader { proxy in
+      ScrollView {
+        VStack(alignment: .leading, spacing: 8) {
+          // Only this invisible copy participates in the scrolling layout. Its
+          // expanded height keeps the directory and scroll bounds stable while
+          // the visible controls above the scroll view collapse.
+          studyHeader(compact: false)
+            .hidden().allowsHitTesting(false).accessibilityHidden(true)
+          LazyVStack(alignment: .leading, spacing: 8) {
+            if let preparation = store.studyCoursePreparation {
+              StudyCoursePreparationView(preparation: preparation)
+            } else if directory.isEmpty {
+              EmptyStateView(
+                title: store.courses.isEmpty ? "开始你的第一门课程" : "课程资料还在准备中",
+                message: store.courses.isEmpty
+                  ? "添加教材后，这里会按原书目录整理章节和每个小节的学习入口。"
+                  : "你可以查看解析进度，或先选择另一门已经就绪的课程。",
+                asset: store.courses.isEmpty ? "/assets/brand/empty-states/no-courses-v1.png" : nil,
+                icon: store.courses.isEmpty ? nil : "LibraryBig")
+              BCButton(store.courses.isEmpty ? "创建课程" : "全部课程", icon: "plus") {
+                if store.courses.isEmpty { store.courseFeatureStartDraft(); store.go(.upload) }
+                else { store.go(.library) }
               }
-            }
-            BCButton(store.courses.isEmpty ? "创建课程" : "查看课程资料", icon: "plus") {
-              store.go(store.courses.isEmpty ? .upload : .library)
-            }
-          } else {
-            ForEach(Array(directory.enumerated()), id: \.element.id) { index, node in
-              chapterCard(node, index: index)
-                .id(node.id)
+            } else {
+              if store.selectedCourseImport?.needsPreparation == true {
+                StudyCoursePreparationView(preparation: .materials, compact: true)
+              }
+              ForEach(Array(directory.enumerated()), id: \.element.id) { index, node in
+                chapterCard(node, index: index)
+                  .id(node.id)
+              }
             }
           }
         }
-      }
-      .frame(maxWidth: 720)
-      .padding(.horizontal, store.isPad ? 32 : 16)
-      .padding(.bottom, 32)
-      .frame(maxWidth: .infinity)
-      .onGeometryChange(for: Int.self) { geometry in
-        let scrollTop = -geometry.frame(in: .scrollView).minY
-        // Report only threshold crossings, rather than every scrolling frame.
-        return scrollTop > 48 ? 2 : scrollTop > 16 ? 1 : 0
-      } action: { region in
-        let next = region == 2 || (compactPlan && region == 1)
-        guard next != compactPlan else { return }
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { compactPlan = next }
-      }
-    }
-    .accessibilityIdentifier("study.scroll")
-    .overlay(alignment: .top) {
-      // The overlay occupies only the visible controls' height. Chapters can
-      // scroll and receive taps through the space released by the compact plan.
-      studyHeader(compact: compactPlan)
         .frame(maxWidth: 720)
         .padding(.horizontal, store.isPad ? 32 : 16)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .navigationBarSurface()
+        .padding(.bottom, 32)
+        .frame(maxWidth: .infinity)
+        .onGeometryChange(for: Int.self) { geometry in
+          let scrollTop = -geometry.frame(in: .scrollView).minY
+          // Report only threshold crossings, rather than every scrolling frame.
+          return scrollTop > 48 ? 2 : scrollTop > 16 ? 1 : 0
+        } action: { region in
+          let next = region == 2 || (compactPlan && region == 1)
+          guard next != compactPlan else { return }
+          withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { compactPlan = next }
+        }
+      }
+      .accessibilityIdentifier("study.scroll")
+      .overlay(alignment: .top) {
+        // The overlay occupies only the visible controls' height. Chapters can
+        // scroll and receive taps through the space released by the compact plan.
+        studyHeader(compact: compactPlan)
+          .frame(maxWidth: 720)
+          .padding(.horizontal, store.isPad ? 32 : 16)
+          .frame(maxWidth: .infinity, alignment: .top)
+          .navigationBarSurface()
+      }
+      .onChange(of: expandedChapter) { _, _ in savePosition() }
+      .onChange(of: expandedSection) { _, _ in savePosition() }
+      .task(id: restorationKey) {
+        restorePosition()
+        guard store.studyCoursePreparation == nil, let section = expandedSection else { return }
+        // Wait for the expanded LazyVStack children to be laid out before positioning.
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        if let chapter = expandedChapter {
+          proxy.scrollTo(chapter, anchor: .top)
+          try? await Task.sleep(for: .milliseconds(80))
+        }
+        guard !Task.isCancelled else { return }
+        proxy.scrollTo("study.section." + section, anchor: .center)
+      }
     }
-    .onChange(of: expandedChapter) { _, _ in savePosition() }
-    .onChange(of: expandedSection) { _, _ in savePosition() }
-    .task(id: positionKey) { restorePosition() }
   }
 
   private func studyHeader(compact: Bool) -> some View {
@@ -188,17 +206,14 @@ struct StudyDirectoryView: View {
         if !compact {
           Spacer(minLength: 4)
           Button {
-            if store.currentCourse == nil {
-              store.go(.upload)
-            } else {
-              store.openSheet(.addMaterials)
-            }
+            store.courseFeatureStartDraft()
+            store.go(.upload)
           } label: {
-            Label(store.currentCourse == nil ? "创建课程" : "添加资料", systemImage: "plus")
-              .font(DS.font(20, weight: .bold)).foregroundStyle(DS.text)
-              .padding(.horizontal, 12).padding(.vertical, 10).background(DS.surface, in: Capsule())
+            Label("创建课程", systemImage: "plus")
+              .font(DS.font(20, weight: .bold)).foregroundStyle(.white)
+              .padding(.horizontal, 12).padding(.vertical, 10).background(DS.primary, in: Capsule())
               .shadow(color: DS.text.opacity(0.08), radius: 3, y: 2)
-          }.buttonStyle(.plain).transition(.opacity)
+          }.buttonStyle(.plain).transition(.opacity).accessibilityIdentifier("study.course.create")
         }
       }
       if store.isCloudCoursePreview {
@@ -206,7 +221,13 @@ struct StudyDirectoryView: View {
           .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
           .accessibilityIdentifier("study.preview.notice")
       }
-      if directoryOnly {
+      if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
+        Text(label).font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
+          .accessibilityIdentifier("study.course.status")
+      }
+      if store.studyCoursePreparation != nil {
+        EmptyView()
+      } else if directoryOnly {
         Text("教材目录 · 当前尚无生成的教学内容")
           .font(DS.font(14)).foregroundStyle(DS.secondary)
       } else if !directory.isEmpty {
@@ -271,7 +292,6 @@ struct StudyDirectoryView: View {
           if !node.sections.contains(where: { $0.id == expandedSection }) {
             expandedSection = node.sections.first?.id
           }
-          if let expandedSection { store.selectedChapterID = expandedSection }
         }
       } label: {
         HStack(spacing: 13) {
@@ -287,14 +307,8 @@ struct StudyDirectoryView: View {
               Text("\(index + 1)").font(DS.font(15, weight: .bold))
             }
           }.frame(width: 44, height: 44)
-          VStack(alignment: .leading, spacing: 6) {
-            Text(node.chapter.source_title).font(DS.font(16, weight: .bold)).multilineTextAlignment(
-              .leading)
-            Text(
-              "\(node.sections.count) 个小节 · \(learningPageLabel(node.chapter.page_start, end: node.chapter.page_end, printed: node.chapter.printed_page_start, printedEnd: node.chapter.printed_page_end))"
-            )
-            .font(DS.font(14)).foregroundStyle(DS.secondary)
-          }
+          Text(node.chapter.source_title).font(DS.font(16, weight: .bold)).multilineTextAlignment(
+            .leading)
           Spacer(minLength: 0)
           Image(systemName: expanded ? "chevron.down" : "chevron.right").font(
             DS.font(14, weight: .semibold)
@@ -308,6 +322,7 @@ struct StudyDirectoryView: View {
         VStack(spacing: 0) {
           ForEach(node.sections) { chapter in
             sectionRow(chapter)
+              .id("study.section." + chapter.id)
           }
         }.background(alignment: .leading) {
           Rectangle().fill(DS.primary.opacity(0.3)).frame(width: 1).padding(.leading, 8)
@@ -330,10 +345,6 @@ struct StudyDirectoryView: View {
       Button {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
           expandedSection = expanded ? nil : chapter.id
-          if !expanded {
-            store.selectedChapterID = chapter.id
-            store.saveLocation()
-          }
         }
       } label: {
         HStack(spacing: 12) {
@@ -342,29 +353,15 @@ struct StudyDirectoryView: View {
             Circle().stroke(expanded ? DS.primary : DS.primary.opacity(0.2), lineWidth: 2)
             if expanded { Circle().fill(DS.primary).frame(width: 7, height: 7) }
           }.frame(width: 17, height: 17)
-          VStack(alignment: .leading, spacing: 5) {
-            Text(chapter.source_title).font(DS.font(14, weight: .semibold))
-            Text(
-              learningPageLabel(
-                chapter.page_start, end: chapter.page_end, printed: chapter.printed_page_start,
-                printedEnd: chapter.printed_page_end)
-            ).font(DS.font(14)).foregroundStyle(DS.secondary)
-          }
+          Text(chapter.source_title).font(DS.font(14, weight: .semibold))
           Spacer(minLength: 0)
           if complete { Text("已完成").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary) }
           Image(systemName: expanded ? "chevron.down" : "chevron.right").font(DS.font(14))
             .foregroundStyle(DS.secondary)
         }.padding(.vertical, 17).contentShape(Rectangle())
       }.buttonStyle(.plain)
-      if expanded {
-        if directoryOnly {
-          Text(
-            "目录 · \(learningPageLabel(chapter.page_start, end: chapter.page_end, printed: chapter.printed_page_start, printedEnd: chapter.printed_page_end))"
-          )
-          .font(DS.font(14)).foregroundStyle(DS.secondary).padding(.bottom, 16)
-        } else {
-          tools(for: chapter).padding(.leading, 38).padding(.bottom, 16)
-        }
+      if expanded && !directoryOnly {
+        tools(for: chapter).padding(.leading, 38).padding(.bottom, 16)
       }
     }
   }
@@ -372,14 +369,7 @@ struct StudyDirectoryView: View {
   private func tools(for chapter: Chapter) -> some View {
     VStack(alignment: .leading, spacing: 13) {
       HStack {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("选择下一步").font(DS.font(16, weight: .bold))
-          Text(
-            learningPageLabel(
-              chapter.page_start, printed: chapter.printed_page_start,
-              printedEnd: chapter.printed_page_end)
-          ).font(DS.font(14)).foregroundStyle(DS.secondary)
-        }
+        Text("选择下一步").font(DS.font(16, weight: .bold))
         Spacer()
         Button {
           open(.lesson, chapter: chapter)
@@ -391,10 +381,6 @@ struct StudyDirectoryView: View {
           .font(DS.font(16, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 13)
           .padding(.vertical, 11).background(DS.primary, in: Capsule())
         }.buttonStyle(.plain)
-      }
-      if store.currentCourse?.diagnosis["aids"]?.contains("video") == true {
-        Button("查看已有图示与动画 · 视频待提供") { open(.lesson, chapter: chapter) }
-          .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
       }
       LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
         ForEach(learningPreferredTools(store.currentCourse?.diagnosis ?? [:])) { route in
@@ -450,7 +436,7 @@ struct StudyDirectoryView: View {
       .background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
       .clipShape(RoundedRectangle(cornerRadius: 16))
       .shadow(color: DS.text.opacity(0.12), radius: 5, y: 4)
-    }.buttonStyle(.plain)
+    }.buttonStyle(.plain).accessibilityIdentifier("study.section." + chapter.id + "." + route.rawValue)
   }
 
   private func toolPreview(_ route: Route, chapter: Chapter) -> some View {
@@ -526,7 +512,11 @@ struct StudyDirectoryView: View {
 
   private func open(_ route: Route, chapter: Chapter) {
     store.selectedChapterID = chapter.id
-    if route == .lesson, let lesson = store.lessons.first(where: { $0.chapter_id == chapter.id }) {
+    let savedLessonID = store.locations[store.locationKey]?.lessonID
+    let lesson = store.lessons.first { $0.chapter_id == chapter.id && $0.id == savedLessonID }
+      ?? store.lessons.first { $0.chapter_id == chapter.id && $0.lesson_kind != "module_intro" }
+    store.selectedLessonID = lesson?.id
+    if route == .lesson, let lesson {
       store.openLesson(lesson)
     } else {
       store.go(route)
@@ -539,20 +529,12 @@ struct StudyDirectoryView: View {
   }
 
   private func restorePosition() {
-    if !ContentBundle.fixtureMode,
-      let saved = UserDefaults.standard.dictionary(forKey: positionKey) as? [String: String]
-    {
-      expandedChapter = saved["chapter"].flatMap { $0.isEmpty ? nil : $0 }
-      expandedSection = saved["section"].flatMap { $0.isEmpty ? nil : $0 }
-    } else {
-      let selected =
-        directory.first { $0.sections.contains { $0.id == store.selectedChapterID } }
-        ?? directory.first
-      expandedChapter = selected?.id
-      expandedSection =
-        selected?.sections.first(where: { $0.id == store.selectedChapterID })?.id
-        ?? selected?.sections.first?.id
-    }
+    compactPlan = false
+    let chapterID = store.studyResumeChapter?.id
+    let selected = directory.first { $0.sections.contains { $0.id == chapterID } } ?? directory.first
+    expandedChapter = selected?.id
+    expandedSection = selected?.sections.first(where: { $0.id == chapterID })?.id
+      ?? selected?.sections.first?.id
   }
 }
 

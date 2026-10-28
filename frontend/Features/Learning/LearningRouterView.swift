@@ -7,7 +7,7 @@ struct LearningRouterView: View {
   var body: some View {
     Group {
       switch route {
-      case .study: StudyDirectoryView()
+      case .home, .study: StudyDirectoryView()
       case .plan: LearningPlanView()
       case .flashcards: LearningFlashcardsView()
       case .lesson: LessonReaderView()

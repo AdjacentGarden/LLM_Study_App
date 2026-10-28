@@ -78,7 +78,8 @@ struct ReaderOrigin: Sendable {
     if let record = importState.courses.first(where: { $0.id == courseID }) { return record }
     guard let course = courses.first(where: { $0.id == courseID }) else { return nil }
     return importState.courses.first {
-      !$0.draft.resourceIDs.isEmpty && Set($0.draft.resourceIDs).isSubset(of: Set(course.resourceIDs))
+      workspaceID(for: $0) == courseID && !$0.draft.resourceIDs.isEmpty
+        && Set($0.draft.resourceIDs).isSubset(of: Set(course.resourceIDs))
     }
   }
 
@@ -118,9 +119,14 @@ struct ReaderOrigin: Sendable {
       }
     } else {
       let legacy = importJob.flatMap { Set($0.bookIDs) == Set(ids) ? $0 : nil }
-      let job = legacy ?? ImportJob(bookIDs: ids, status: .queued, message: "资料已保存，等待解析")
+      let job = legacy ?? ImportJob(bookIDs: ids,
+        status: draft.parseCompleted ? .completed : .queued,
+        progress: draft.parseCompleted ? 1 : 0,
+        message: draft.parseCompleted ? "资料整理完成" : "资料已保存，等待解析")
       importState.courses.append(CourseImportRecord(id: courseID, draft: draft,
-        books: ids.map { CourseImportBook(id: $0) }, job: job, started: legacy != nil,
+        books: ids.map { CourseImportBook(id: $0,
+          status: job.status == .completed ? .completed : .queued,
+          progress: job.status == .completed ? 1 : 0) }, job: job, started: legacy != nil,
         setupCompleted: !courseID.hasPrefix("local-course:")))
     }
     return courseID
@@ -149,24 +155,19 @@ struct ReaderOrigin: Sendable {
   }
 
   func openCourse(_ course: Course) {
-    if let record = courseImport(for: course.id), record.onDeviceOnly == true, record.job.status == .completed {
-      selectCourse(course.id)
-      go(.courseDetail)
-      return
-    }
-    if let record = courseImport(for: course.id), record.needsPreparation || record.setupCompleted != true {
-      importState.viewedCourseID = record.id
-      go(.courseProgress)
-    } else {
-      selectCourse(course.id)
-      go(.study)
-    }
+    selectCourse(course.id)
+    importState.viewedCourseID = courseImport(for: course.id)?.id
+    closeSheet()
+    go(.study)
   }
 
   func continueCourseImport(_ id: String) {
     guard let record = importState.courses.first(where: { $0.id == id }) else { return }
+    retainPendingCourseDraft()
     draft = record.draft
+    cloudState.creationWorkspaceID = draft.creationWorkspaceID
     draft.parseCompleted = record.job.status == .completed
+    importState.viewedCourseID = id
     if let course = courses.first(where: { $0.id == id }) { selectCourse(course.id) }
     else if let book = record.draft.resourceIDs.first { selectSource(book) }
     go(record.job.status == .completed ? .courseSetup : .courseProgress)
@@ -203,7 +204,7 @@ struct ReaderOrigin: Sendable {
     if epoch == cloudState.epoch, route == .processing, selection == selectionGeneration,
       let finished = importState.courses.first(where: { $0.id == id }), finished.job.status == .completed {
       draft.parseCompleted = true
-      if finished.onDeviceOnly == true { replace(.courseDetail) }
+      if finished.onDeviceOnly == true { replace(.study) }
       else { go(.courseSetup) }
     }
   }

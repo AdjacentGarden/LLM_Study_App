@@ -451,7 +451,7 @@ struct CourseLibraryView: View {
                 }
               VStack(alignment: .leading, spacing: 6) {
                 Text(course.name).font(DS.font(16, weight: .bold))
-                Text(store.courseImport(for: course.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? (directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习"))
+                Text(store.courseCreationLabel(course) ?? (directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习"))
                   .font(DS.font(14)).foregroundStyle(DS.secondary)
                 Text(source?.summary.title ?? "添加资料后开始学习").font(DS.font(14)).foregroundStyle(
                   DS.secondary)
@@ -469,13 +469,14 @@ struct CourseLibraryView: View {
           HStack {
             Button {
               store.selectCourse(course.id)
-              store.go(.courseDetail)
+              store.openSheet(.addMaterials)
             } label: {
               HStack(spacing: 6) {
-                BCGlyph("Settings", color: DS.primary).frame(width: 16, height: 16)
-                Text("课程资料与偏好").font(DS.font(20))
+                BCGlyph("Plus", color: DS.primary).frame(width: 16, height: 16)
+                Text("添加资料").font(DS.font(20))
               }
             }.buttonStyle(.plain).foregroundStyle(DS.primary)
+              .accessibilityIdentifier("library.addMaterials.\(course.id)")
             Spacer()
             Button {
               withAnimation { removingID = removingID == course.id ? nil : course.id }
@@ -661,7 +662,7 @@ struct CourseDetailView: View {
         }
       } else {
         EmptyStateView(title: "暂无课程", message: "创建课程并添加资料后开始学习。")
-        BCButton("返回首页") { store.replace(.home) }
+        BCButton("返回学习页") { store.replace(.study) }
       }
     }.confirmationDialog(
       "从课程移出这份资料？原资料和已有笔记会保留。",

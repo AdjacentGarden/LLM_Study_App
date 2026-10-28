@@ -283,10 +283,11 @@ import SwiftUI
       try await repository.seedDemoNotesIfNeeded()
       notes = try await repository.loadNotes()
       if importState.courses.isEmpty, importJob != nil { _ = registerCourseImport() }
+      retainPendingCourseDraft()
       for i in importState.courses.indices where importState.courses[i].job.status == .running {
         importState.courses[i].job.status = .interrupted
       }
-      route = preferences?.hasCompletedOnboarding == true ? .home : .onboarding
+      route = preferences?.hasCompletedOnboarding == true ? .study : .onboarding
       if importJob?.status == .running {
         importJob?.status = .interrupted
         importJob?.message = "上次整理中断，原文件已保留，请继续整理"
@@ -305,13 +306,14 @@ import SwiftUI
         if let i = arguments.firstIndex(of: "--chapter"), arguments.indices.contains(i + 1) {
           selectedChapterID = arguments[i + 1]
           selectedLessonID = lessons.first(where: { $0.chapter_id == selectedChapterID })?.id
+          locations[locationKey] = StudyLocation(chapterID: selectedChapterID, lessonID: selectedLessonID)
         }
         if let i = arguments.firstIndex(of: "--route"), arguments.indices.contains(i + 1),
           let target = Route(rawValue: arguments[i + 1])
         {
-          route = target
+          route = target == .home ? .study : target
         } else {
-          route = .home
+          route = .study
         }
         if [.courseSetup, .chapterConfirm, .courseReady, .courseImportReady].contains(route) {
           draft = CourseDraft(
@@ -439,14 +441,20 @@ import SwiftUI
         knowledge_points: d["knowledge_points"] as? [String] ?? [], citation_ids: ["chunk_c2s1_13"])
     ]
   }
-  func go(_ next: Route) {
+  func go(_ destination: Route) {
+    let next: Route = destination == .home ? .study : destination
+    if next.isTab, [.upload, .parseReady, .processing, .courseSetup, .chapterConfirm].contains(route) {
+      retainPendingCourseDraft()
+      if next == .study, let id = draft.importCourseID { selectCourse(id) }
+    }
     guard route != next else { return }
     if next.isTab { path = [] } else { path.append(route) }
     route = next
     sheet = nil
     globalAssistantOpen = false
   }
-  func replace(_ next: Route) {
+  func replace(_ destination: Route) {
+    let next: Route = destination == .home ? .study : destination
     route = next
     sheet = nil
     globalAssistantOpen = false
@@ -464,8 +472,12 @@ import SwiftUI
       cancelImport()
       return
     }
+    let leavingCreation = [.upload, .parseReady, .courseSetup, .chapterConfirm].contains(route)
+    if leavingCreation {
+      retainPendingCourseDraft()
+    }
     if route == .source {
-      route = path.popLast() ?? sourceTarget?.from ?? .home
+      route = path.popLast() ?? sourceTarget?.from ?? .study
       if let origin = readerState.origin {
         readerState.origin = nil
         selectedCourseID = origin.courseID
@@ -481,8 +493,11 @@ import SwiftUI
         persist()
       }
     } else {
-      route = path.popLast() ?? .home
+      route = path.popLast() ?? .study
     }
+    if route == .home { route = .study }
+    if leavingCreation, route == .study, let id = draft.importCourseID,
+      courseImport(for: id)?.setupCompleted != true { selectCourse(id) }
   }
   func showToast(_ message: String) {
     toastTask?.cancel()
@@ -535,10 +550,17 @@ import SwiftUI
   }
   func selectCourse(_ courseID: String) {
     guard let course = courses.first(where: { $0.id == courseID }) else { return }
+    captureCourseImportDraft()
     selectedCourseID = courseID
     if cloud != nil { installCloudSources(workspaceID: courseID) }
     if let book = course.activeResourceID ?? course.resourceIDs.first {
-      selectSource(book)
+      if sources.contains(where: { $0.id == book }) { selectSource(book) }
+      else {
+        selectionGeneration += 1
+        selectedBookID = book
+        selectedChapterID = nil
+        selectedLessonID = nil
+      }
     } else {
       selectedBookID = nil
       selectedChapterID = nil
@@ -668,7 +690,7 @@ import SwiftUI
       dailyTime: dailyTime, learningBarriers: learningBarriers,
       guidanceStyles: guidanceStyles, planningSupport: planningSupport)
     persist()
-    replace(.home)
+    replace(.study)
   }
   func logout() {
     if cloud != nil {
@@ -917,7 +939,7 @@ import SwiftUI
     if draft.editingCourseID != nil || !draft.resourceIDs.isEmpty {
       createCourse(name: draft.name, resourceIDs: draft.resourceIDs, diagnosis: draft.diagnosis)
     }
-    go(.courseReady)
+    go(.study)
   }
   func updateChapter(_ chapter: Chapter) {
     guard let book = selectedBookID, var value = chapterDrafts[book] ?? currentSource?.chapters,

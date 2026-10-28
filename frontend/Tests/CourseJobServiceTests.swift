@@ -398,6 +398,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       store.cloudState.diagnosisResourceID = resource.id
       store.cloudState.requestedChapterID = "chapter"
       store.cloudState.showCompletionOnCompile = true
+      store.route = .study
       store.cloudState.interview = CloudInterview(session_id: "session", phase: "complete",
         turn: CloudTurn(turn_id: "done", phase: "complete", message: "已完成诊断", options: [], progress: 1),
         profile: .object([:]))
@@ -407,7 +408,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
         try await store.compileCloudChapter()
         XCTAssertTrue(includePublished)
         XCTAssertEqual(store.selectedLessonID, published.course_id)
-        XCTAssertEqual(store.route, .courseReady)
+        XCTAssertEqual(store.route, .study)
         XCTAssertFalse(store.cloudState.showDiagnosis)
       } catch let error as CloudError {
         XCTAssertFalse(includePublished)

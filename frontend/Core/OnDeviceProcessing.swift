@@ -68,7 +68,7 @@ extension AppStore {
     importJob?.message = processingMessage
     if draft.resourceIDs == ids { draft.parseCompleted = true }
     persist()
-    if route == .processing, selectionGeneration == generation { replace(.courseDetail) }
+    if route == .processing, selectionGeneration == generation { replace(.study) }
   }
 
   func prepareLocalCourseOnWiFi(bookID: String) {
@@ -77,6 +77,7 @@ extension AppStore {
       return
     }
     guard let source = sources.first(where: { $0.id == bookID }) else { return }
+    retainPendingCourseDraft()
     let course = courses.first { $0.resourceIDs.contains(bookID) }
     selectSource(bookID)
     draft = CourseDraft(name: course?.name ?? source.summary.title, resourceIDs: course?.resourceIDs ?? [bookID],

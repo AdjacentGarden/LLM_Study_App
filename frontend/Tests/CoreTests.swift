@@ -191,7 +191,7 @@ final class CoreTests: XCTestCase {
     try await repository.saveSnapshot(snapshot)
     let store = AppStore(repository: try LocalBookCourseRepository(includeFixtures: true, directory: folder))
     await store.boot()
-    XCTAssertEqual(store.route, .home)
+    XCTAssertEqual(store.route, .study)
     XCTAssertEqual(store.resumableCourseRoute, .parseReady)
     XCTAssertEqual(store.importJob?.status, .interrupted)
     XCTAssertEqual(try Data(contentsOf: file), original)
@@ -287,7 +287,7 @@ final class CoreTests: XCTestCase {
     XCTAssertNotNil(UIFont(name: "BookCourseNotoSansSC-Bold", size: 20))
   }
   func testRoutesAndSheetsCoverSourceContracts() {
-    XCTAssertEqual(Route.allCases.count, 29)
+    XCTAssertEqual(Route.allCases.count, 30)
     XCTAssertTrue(Route.allCases.contains(.preferenceSetup))
     XCTAssertEqual(SheetRoute.allCases.count, 7)
   }
@@ -388,7 +388,7 @@ extension CoreTests {
     XCTAssertEqual(store.importState.courses.count, 2)
     let newDraft = store.draft
     store.openCourse(try XCTUnwrap(store.courses.first { $0.id == first.id }))
-    XCTAssertEqual(store.route, .courseProgress)
+    XCTAssertEqual(store.route, .study)
     XCTAssertEqual(store.importState.viewedCourseID, first.id)
     XCTAssertEqual(store.draft, newDraft, "Viewing another task cannot overwrite the new creation draft")
     XCTAssertEqual(store.courseImport(for: first.id)?.ringProgress, 0.4)
@@ -420,7 +420,7 @@ extension CoreTests {
     XCTAssertEqual(store.courseImport(for: id)?.job.status, .completed)
     XCTAssertNil(store.courseImport(for: id)?.ringProgress)
     store.openCourse(try XCTUnwrap(store.courses.first))
-    XCTAssertEqual(store.route, .courseProgress, "The existing setup remains available after parsing")
+    XCTAssertEqual(store.route, .study, "The existing setup remains available after parsing")
     store.continueCourseImport(id)
     XCTAssertEqual(store.route, .courseSetup)
     XCTAssertNil(store.draft.editingCourseID, "A new import must retain the new-course questionnaire flow")

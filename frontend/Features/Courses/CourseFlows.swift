@@ -297,7 +297,7 @@ struct LearnerOnboardingView: View {
               finishPreferencesReset()
             } else {
               LearnerOnboardingDraft.clear(scope: store.cloudState.cacheKey)
-              store.replace(.home)
+              store.replace(.study)
             }
           } catch { self.error = error.localizedDescription }
         }
@@ -585,7 +585,7 @@ struct CourseSetupView: View {
               diagnosis: store.draft.diagnosis)
             store.draft = CourseDraft()
             store.persist()
-            store.replace(.courseDetail)
+            store.replace(.study)
           } catch { self.error = error.localizedDescription }
         }
         return
@@ -593,7 +593,7 @@ struct CourseSetupView: View {
       store.createCourse(
         name: store.draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
         resourceIDs: store.draft.resourceIDs, diagnosis: store.draft.diagnosis)
-      store.replace(.courseDetail)
+      store.replace(.study)
     } else if let catalogID = store.draft.catalogBookID,
       let book = store.community.first(where: { $0.id == catalogID })
     {
@@ -719,7 +719,7 @@ struct CourseUploadView: View {
       }.frame(maxWidth: 760).padding(.horizontal, gutter).padding(.vertical, 12)
         .frame(maxWidth: .infinity)
     } else {
-      let top: CGFloat = compact ? 20 : 48
+      let top: CGFloat = compact ? 20 : (addingToCurrentCourse ? 48 : 128)
       let bottom: CGFloat = compact ? 20 : 40
       let gap: CGFloat = compact ? 16 : 24
       let controlCount =
@@ -839,12 +839,14 @@ struct CourseUploadView: View {
     error = nil
     store.importError = nil
     let targetCourseID = addingToCurrentCourse ? store.currentCourse?.id : nil
+    let originalBookID = store.selectedBookID
     let originalDraft = store.draft
     let epoch = store.cloudState.epoch
     saveTask = Task { @MainActor in
       defer {
         if targetCourseID != nil, Task.isCancelled, epoch == store.cloudState.epoch {
           store.draft = originalDraft
+          if let originalBookID { store.selectSource(originalBookID) }
           store.persist()
         }
         if operationID == requestID {
@@ -903,6 +905,7 @@ struct CourseUploadView: View {
         error = issues.joined(separator: "；")
         if targetCourseID != nil {
           store.draft = originalDraft
+          if let originalBookID { store.selectSource(originalBookID) }
           store.persist()
         }
         return
@@ -916,6 +919,7 @@ struct CourseUploadView: View {
       store.persist()
       if targetCourseID != nil {
         store.draft = originalDraft
+        if let originalBookID { store.selectSource(originalBookID) }
         store.persist()
         store.closeSheet()
         store.showToast("资料已添加，可以继续学习")
@@ -998,7 +1002,7 @@ private struct CourseFileUploadProgressView: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
               let seconds = Int(context.date.timeIntervalSince(transfer.updatedAt))
               let slow = transfer.stage == .uploading && seconds >= 15
-              Text(
+              CourseProgressMessage(message:
                 processing ? processingMessage
                   : slow ? "网络或服务器响应较慢，已 \(seconds) 秒没有新的进展，可取消后重试。"
                   : waiting ? "文件已发送，收到服务器确认后将自动开始解析。"
@@ -1181,7 +1185,7 @@ struct CourseProcessingView: View {
                     active ? Color(hex: 0xDDD6FE) : DS.border))
               }
             }.padding(8).background(Color(hex: 0xF4F7FB), in: RoundedRectangle(cornerRadius: 14))
-            Text(store.importError ?? (importing ? "正在为你整理资料，准备专属学习之旅…" : store.processingMessage))
+            CourseProgressMessage(message: store.importError ?? (importing ? "正在为你整理资料，准备专属学习之旅…" : store.processingMessage))
               .font(DS.font(20)).foregroundStyle(store.importError == nil ? DS.muted : DS.danger)
               .multilineTextAlignment(.center).frame(minHeight: 44).padding(.horizontal, 8)
               .accessibilityAddTraits(.updatesFrequently)
@@ -1207,9 +1211,9 @@ struct CourseProcessingView: View {
                 }
               } else {
                 Button {
-                  store.go(.home)
+                  store.go(.study)
                 } label: {
-                  Text("后台运行，先回首页").font(DS.font(20, weight: .bold)).foregroundStyle(
+                  Text("后台运行，返回学习页").font(DS.font(20, weight: .bold)).foregroundStyle(
                     DS.primaryPressed
                   ).frame(maxWidth: .infinity).frame(height: 56).background(
                     DS.primarySoft, in: Capsule()
@@ -1418,7 +1422,7 @@ struct CourseCompletionView: View {
   }
   private var completionActions: some View {
     VStack(spacing: 12) {
-      BCButton("进入学习") { store.replace(store.currentSource == nil ? .courseDetail : .study) }
+      BCButton("进入学习") { store.replace(.study) }
       BCButton("查看学习计划", style: .secondary) { store.replace(.plan) }
     }.opacity(phase >= 3 || reduceMotion ? 1 : 0).allowsHitTesting(phase >= 3 || reduceMotion)
   }
@@ -1557,10 +1561,10 @@ struct CourseImportProgressView: View {
           VStack(alignment: .leading, spacing: 8) {
             Text(store.courses.first { $0.id == record.id }?.name ?? record.draft.name)
               .font(DS.font(22, weight: .bold))
-            Text(record.job.status == .completed ? (record.onDeviceOnly == true ? "本机原文已就绪" : "教材已就绪") : record.message)
+            CourseProgressMessage(message: record.job.status == .completed ? (record.onDeviceOnly == true ? "本机原文已就绪" : "教材已就绪") : record.message)
               .font(DS.font(15)).foregroundStyle(record.error == nil ? DS.secondary : DS.danger)
               .accessibilityIdentifier("course.progress.message")
-            Text("\(record.books.count) 份资料 · 离开页面后继续后台处理")
+            Text("\(record.books.count) 份资料")
               .font(DS.font(13)).foregroundStyle(DS.secondary)
           }
         }
@@ -1572,7 +1576,7 @@ struct CourseImportProgressView: View {
               HStack {
                 if book.status == .completed { Image(systemName: "checkmark.circle.fill").foregroundStyle(DS.mint) }
                 else if book.status == .running { ProgressView() }
-                Text(book.message).font(DS.font(14)).foregroundStyle(DS.secondary)
+                CourseProgressMessage(message: book.message).font(DS.font(14)).foregroundStyle(DS.secondary)
               }
               if let source = store.sources.first(where: { $0.id == book.id }), store.sourceFileURL(book.id) != nil {
                 BCButton("查看原文件", style: .text) {
@@ -1625,11 +1629,11 @@ struct CourseImportProgressView: View {
           BCButton("暂停解析", style: .text) { Task { await store.pauseCourseImport(record.id) } }
             .accessibilityIdentifier("course.progress.pause")
         }
-        BCButton("返回我的课程", style: .secondary) { store.go(.home) }
+        BCButton("返回学习页", style: .secondary) { store.go(.study) }
           .accessibilityIdentifier("course.progress.background")
       } else {
         EmptyStateView(title: "暂无解析任务", message: "资料和解析结果可以在我的课程中查看。")
-        BCButton("返回我的课程") { store.go(.home) }
+        BCButton("返回学习页") { store.go(.study) }
       }
     }
     .task(id: store.importState.viewedCourseID) {

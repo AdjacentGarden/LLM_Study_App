@@ -487,7 +487,6 @@ struct CloudLearningSetupView: View {
       }.padding(24).frame(maxWidth: 660).frame(maxWidth: .infinity)
     }.background(DS.background.ignoresSafeArea())
       .interactiveDismissDisabled(store.cloudState.isWorking && store.cloudState.courseTask == nil)
-      .onDisappear { store.cloudState.courseTask?.cancel() }
       .onChange(of: turn?.turn_id) { _, _ in
         selected = []
         started = Date()

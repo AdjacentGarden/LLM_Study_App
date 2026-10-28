@@ -60,6 +60,7 @@ extension AppStore {
         mistakes = cached.snapshot.mistakes
     rebuildCloudCourses()
     if importState.courses.isEmpty, importJob != nil { _ = registerCourseImport() }
+    retainPendingCourseDraft()
   }
 
   func scheduleCloudRetry() {
@@ -110,7 +111,7 @@ extension AppStore {
         restoreCloudCache(local)
         preloadedKey = cloudState.cacheKey
         cloudState.isHydrating = false
-        route = cloudState.onboardingComplete ? .home : .onboarding
+        route = cloudState.onboardingComplete ? .study : .onboarding
         isLoading = false
       }
       var account: CloudAccountState
@@ -180,8 +181,8 @@ extension AppStore {
       }
       if let id = selectedCourseID { selectCourse(id) }
       if !offlineBoot { await reloadCloudLearningRecords() }
-      route = cloudState.onboardingComplete ? .home : .onboarding
-      // Preserve unfinished work for explicit resumption from Home, not as a launch destination.
+      route = cloudState.onboardingComplete ? .study : .onboarding
+      // Restore unfinished work inside the selected course on the study page.
       if importJob?.status == .running {
         importJob?.status = .interrupted
         processingMessage = "资料处理可继续，原文件已保留"

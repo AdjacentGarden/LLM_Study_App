@@ -180,7 +180,7 @@ final class CloudTests: XCTestCase {
       cloud: CloudAPI(baseURL: base))
     await restored.boot()
     XCTAssertTrue(restored.cloudState.authenticated, restored.cloudState.error ?? "")
-    XCTAssertEqual(restored.route, .home)
+    XCTAssertEqual(restored.route, .study)
     XCTAssertEqual(restored.preferences?.displayName, "本地个性化学习者")
     XCTAssertEqual(restored.courses.first { $0.id == workspace.id }?.name, "本地恢复验证")
     await restored.flush()
@@ -314,7 +314,7 @@ final class CloudTests: XCTestCase {
     XCTAssertEqual(restored.cloudResource?.flashcard_reviews?[card.id]?.repetitions, 2)
     XCTAssertFalse(restored.isMastered(card.id))
     XCTAssertTrue(restored.isMastered("remote-card"))
-    XCTAssertEqual(restored.route, .home)
+    XCTAssertEqual(restored.route, .study)
     XCTAssertEqual(restored.preferences?.primaryGoal, "exam")
     XCTAssertEqual(restored.preferences?.dailyTime, "30to60")
     XCTAssertEqual(restored.preferences?.learningBarriers, ["understanding", "memory"])
@@ -700,7 +700,7 @@ extension CloudTests {
       try await repo.saveCloudState(cache, key: store.cloudCacheKey(account))
       OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
       await store.boot()
-      XCTAssertEqual(store.route, .home, scenario)
+      XCTAssertEqual(store.route, .study, scenario)
       XCTAssertEqual(store.draft.resourceIDs, ["book"], scenario)
       XCTAssertEqual(store.notes.first?.id, "private-note", scenario)
       let destination: Route = scenario == "workspace" ? .chapterConfirm
@@ -762,7 +762,7 @@ extension CloudTests {
     let store = AppStore(repository: repo, cloud: api)
     await store.boot()
     await store.flush()
-    XCTAssertEqual(store.route, .home)
+    XCTAssertEqual(store.route, .study)
     let key = store.cloudCacheKey(account)
     LearnerOnboardingDraft(step: 4, name: "旧草稿", goal: "interest").save(scope: key)
     await store.logoutCloud()
@@ -798,7 +798,7 @@ extension CloudTests {
     XCTAssertEqual(completedCache?.requiresPersonalization, false)
     let normalLaunch = AppStore(repository: repo, cloud: signedInAPI)
     await normalLaunch.boot()
-    XCTAssertEqual(normalLaunch.route, .home,
+    XCTAssertEqual(normalLaunch.route, .study,
       "A normal relaunch preserves completion until the next explicit logout")
     await normalLaunch.flush()
     await signedInAPI.clearCredentials()
@@ -940,7 +940,7 @@ extension CloudTests {
     await store.boot()
     XCTAssertTrue(store.cloudState.authenticated)
     XCTAssertFalse(store.isLoading)
-    XCTAssertEqual(store.route, .home)
+    XCTAssertEqual(store.route, .study)
     XCTAssertEqual(store.courses.first?.name, "离线课程")
     XCTAssertEqual(store.notes.first?.id, "private-note")
     try await store.saveNote(StudyNote(id: "offline-new", kind: .text, title: "离线新增", body: "离线可写"))

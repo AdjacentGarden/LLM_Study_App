@@ -319,6 +319,7 @@ struct CourseDraft: Codable, Hashable, Sendable {
   var importCourseID: String? = nil
   var catalogBookID: String?
   var parseCompleted = false
+  var creationWorkspaceID: String? = nil
 }
 struct StudyLocation: Codable, Hashable, Sendable {
   var chapterID: String?
@@ -500,7 +501,7 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
     case .chapterConfirm: "确认目录"
     case .courseReady: "生成成功"
     case .courseImportReady: "课程导入完成"
-    case .library: "我的课程"
+    case .library: "全部课程"
     case .community: "社区"
     case .communityBook: "共享课程"
     case .communityImport: "导入成功"
@@ -519,8 +520,8 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
     case .settings: "设置"
     }
   }
-  var showsPrimaryNavigation: Bool { isTab || self == .courseDetail }
-  var isTab: Bool { [.home, .study, .community, .profile].contains(self) }
+  var showsPrimaryNavigation: Bool { isTab }
+  var isTab: Bool { [.study, .community, .profile].contains(self) }
   var hidesHeader: Bool {
     [
       .home, .onboarding, .preferenceSetup, .courseSetup, .community, .study, .profile, .lesson,

@@ -9,7 +9,7 @@ struct CoursesRouterView: View {
   var body: some View {
     Group {
       switch route {
-      case .home: CourseHomeView()
+      case .home: StudyDirectoryView()
       case .onboarding: LearnerOnboardingView()
       case .preferenceSetup: LearnerOnboardingView(resettingPreferences: true)
       case .courseSetup: CourseSetupView()
@@ -91,6 +91,18 @@ struct CourseSectionHeading: View {
       }
       Spacer(minLength: 0)
     }.frame(minHeight: 44)
+  }
+}
+
+/// Keep transient retry copy out of the interface while retaining the task's status.
+struct CourseProgressMessage: View {
+  let message: String
+
+  var body: some View {
+    let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !trimmed.isEmpty && !trimmed.hasPrefix("内容处理暂时中断，正在重试") {
+      Text(message)
+    }
   }
 }
 
@@ -233,7 +245,7 @@ struct CourseDiagnosisQuestion: Identifiable {
 
 extension AppStore {
   func courseFeatureStartDraft(catalogID: String? = nil) {
-    captureCourseImportDraft()
+    retainPendingCourseDraft()
     draft.name = ""
     draft.resourceIDs = []
     draft.diagnosis = [:]
@@ -241,6 +253,8 @@ extension AppStore {
     draft.editingCourseID = nil
     draft.importCourseID = nil
     draft.catalogBookID = catalogID
+    draft.creationWorkspaceID = nil
+    cloudState.creationWorkspaceID = nil
     draft.parseCompleted = false
     importedFileURL = nil
     importError = nil

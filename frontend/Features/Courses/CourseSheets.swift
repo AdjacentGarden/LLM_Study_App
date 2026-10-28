@@ -11,9 +11,7 @@ struct CourseSwitcherView: View {
         VStack(spacing: 0) {
           ForEach(Array(store.courses.enumerated()), id: \.element.id) { index, course in
             Button {
-              store.selectCourse(course.id)
-              store.closeSheet()
-              store.go(.study)
+              store.openCourse(course)
             } label: {
               HStack(spacing: 11) {
                 CourseCoverImage(path: store.courseFeatureCover(course))
@@ -26,12 +24,15 @@ struct CourseSwitcherView: View {
                     .frame(minHeight: 20.8, alignment: .topLeading)
                   Text("\(course.resourceIDs.count) 份资料").font(DS.font(14))
                     .foregroundStyle(DS.secondary).frame(minHeight: 18.9, alignment: .topLeading)
+                  if let status = store.courseCreationLabel(course) {
+                    Text(status).font(DS.font(12, weight: .semibold)).foregroundStyle(DS.primary)
+                  }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 BCGlyph(
                   course.id == store.selectedCourseID ? "Check" : "ChevronRight", color: DS.primary
                 )
                 .frame(width: 19, height: 19).frame(width: 22)
-              }.padding(.horizontal, 12).frame(height: 70)
+              }.padding(.horizontal, 12).frame(minHeight: 82)
                 .background(course.id == store.selectedCourseID ? DS.primarySoft : DS.surface)
                 .overlay(alignment: .bottom) {
                   if index < store.courses.count - 1 {
@@ -43,7 +44,7 @@ struct CourseSwitcherView: View {
               .accessibilityIdentifier("study.course.\(course.id)")
           }
         }
-      }.frame(height: min(390, CGFloat(store.courses.count) * 70))
+      }.frame(height: min(390, CGFloat(store.courses.count) * 82))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
       if store.courses.isEmpty {
@@ -56,7 +57,7 @@ struct CourseSwitcherView: View {
           store.closeSheet()
           store.go(.upload)
         }
-        BCButton("管理全部课程", icon: "LibraryBig", style: .secondary) {
+        BCButton("全部课程", icon: "LibraryBig", style: .secondary) {
           store.closeSheet()
           store.go(.library)
         }

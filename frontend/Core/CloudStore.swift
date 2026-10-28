@@ -74,7 +74,8 @@ extension AppStore {
         updatedAt: Date(timeIntervalSince1970: workspace.updated))
     }
     courses += localCourses.filter { local in
-      !courses.contains { remote in Set(local.resourceIDs).isSubset(of: Set(remote.resourceIDs)) }
+      guard let record = importState.courses.first(where: { $0.id == local.id }) else { return true }
+      return !courses.contains { remote in remote.id == workspaceID(for: record) }
     }
     for record in importState.courses where record.needsPreparation {
       if let index = courses.firstIndex(where: { $0.id == record.id }) {
@@ -152,6 +153,7 @@ extension AppStore {
 
   func importCloudCommunity(_ book: CommunityBook) async throws {
     guard let cloud else { return }
+    let draftImportID = draft.importCourseID
     let workspaceID =
       cloudState.creationWorkspaceID ?? "workspace_"
       + UUID().uuidString.replacingOccurrences(of: "-", with: "")
@@ -166,6 +168,10 @@ extension AppStore {
       ])
     try await reloadCloud()
     selectCourse(workspaceID)
+    if let draftImportID, draftImportID != workspaceID {
+      courses.removeAll { $0.id == draftImportID && $0.id.hasPrefix("local-course:") }
+      importState.courses.removeAll { $0.id == draftImportID }
+    }
     draft = CourseDraft()
     cloudState.creationWorkspaceID = nil
     persistCloud()
@@ -392,10 +398,12 @@ extension AppStore {
       "workspace_" + SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined().prefix(32)
     }
     let workspaceID =
-      draft.editingCourseID.flatMap { $0.hasPrefix("local-course:") ? nil : $0 } ?? importWorkspaceID ?? cloudState.creationWorkspaceID
+      draft.editingCourseID.flatMap { $0.hasPrefix("local-course:") ? nil : $0 } ?? draft.creationWorkspaceID ?? importWorkspaceID ?? cloudState.creationWorkspaceID
       ?? "workspace_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
     // Persist the id before the first write so a timed-out creation can be recovered idempotently.
     if draft.editingCourseID == nil || draft.editingCourseID?.hasPrefix("local-course:") == true { cloudState.creationWorkspaceID = workspaceID }
+    draft.creationWorkspaceID = workspaceID
+    captureCourseImportDraft()
     persistCloud()
     await persistTask?.value
     let workspace: CloudWorkspace = try await cloud.request(
@@ -462,6 +470,7 @@ extension AppStore {
     }
     cloudState.isWorking = false
     cloudState.showCompletionOnCompile = true
+    go(.study)
     requestCloudLearning(chapterID: selectedChapterID ?? chapters.first?.id)
   }
 
@@ -660,8 +669,7 @@ extension AppStore {
     let task = Task<CloudCourse, Error> { @MainActor in
       let update: @Sendable (CloudCourseJob) async throws -> Void = { [weak self] job in
         try await MainActor.run {
-          guard let self, self.cloudState.epoch == epoch,
-            self.selectedCourseID == workspaceID, self.cloudResource?.id == resourceID else {
+          guard let self, self.cloudState.epoch == epoch else {
             throw CancellationError()
           }
           self.cloudState.courseJob = job
@@ -679,23 +687,26 @@ extension AppStore {
     let course = try await withTaskCancellationHandler {
       try await task.value
     } onCancel: { task.cancel() }
-    guard cloudState.epoch == epoch, selectedCourseID == workspaceID,
-      cloudResource?.id == resourceID else { throw CancellationError() }
+    guard cloudState.epoch == epoch else { throw CancellationError() }
     try await reloadCloud()
-    guard cloudState.epoch == epoch, selectedCourseID == workspaceID,
-      cloudResource?.id == resourceID else { throw CancellationError() }
+    guard cloudState.epoch == epoch else { throw CancellationError() }
+    // Completion updates the course in the background without taking over another selection.
+    guard selectedCourseID == workspaceID, cloudResource?.id == resourceID else {
+      cloudState.showCompletionOnCompile = false
+      persistCloud()
+      return
+    }
     guard let lesson = lessons.first(where: {
       $0.id == course.course_id && $0.chapter_id == chapterID && $0.status == "ready"
     }) else {
       throw CloudError(status: 409, message: "课程已生成，学习内容暂未同步完整；请重新查询原任务。")
     }
     cloudState.showDiagnosis = false
-    if cloudState.showCompletionOnCompile {
+    if cloudState.showCompletionOnCompile || route != .lesson {
       selectedChapterID = lesson.chapter_id
       selectedLessonID = lesson.id
       saveLocation()
       cloudState.showCompletionOnCompile = false
-      go(.courseReady)
     } else {
       openLesson(lesson)
     }
@@ -703,7 +714,6 @@ extension AppStore {
   }
 
   func pauseCloudCourseGeneration() {
-    cloudState.courseTask?.cancel()
     cloudState.showDiagnosis = false
     cloudState.choosingLearningMode = false
   }
