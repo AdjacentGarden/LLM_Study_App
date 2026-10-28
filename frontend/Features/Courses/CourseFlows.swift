@@ -7,6 +7,7 @@ struct LearnerOnboardingView: View {
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var step: Int
   @State private var name = ""
+  @State private var learningStage: String?
   @State private var goal: String?
   @State private var dailyTime: String?
   @State private var learningBarriers: [String] = []
@@ -85,6 +86,29 @@ struct LearnerOnboardingView: View {
                     if value.count > 30 { name = String(value.prefix(30)) }
                     error = nil
                   }
+                VStack(alignment: .leading, spacing: 12) {
+                  Text("你目前处于哪个学习阶段？（可选）")
+                    .font(DS.font(16)).foregroundStyle(DS.secondary)
+                  LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach([("middle", "初中"), ("high", "高中"), ("university", "大学"),
+                      ("working", "工作"), ("other", "其他")], id: \.0) { value, label in
+                      Button {
+                        nameFocused = false
+                        learningStage = learningStage == value ? nil : value
+                      } label: {
+                        Text(label).font(DS.font(16)).frame(maxWidth: .infinity, minHeight: 44)
+                          .foregroundStyle(learningStage == value ? DS.primary : DS.secondary)
+                          .background(learningStage == value ? DS.primarySoft : DS.surface,
+                            in: RoundedRectangle(cornerRadius: 12))
+                          .overlay(RoundedRectangle(cornerRadius: 12).stroke(
+                            learningStage == value ? DS.primary : DS.border))
+                      }
+                      .buttonStyle(BCPressStyle())
+                      .accessibilityAddTraits(learningStage == value ? .isSelected : [])
+                      .accessibilityIdentifier("onboarding.stage.\(value)")
+                    }
+                  }
+                }
               }.frame(maxWidth: .infinity, minHeight: 282 * scale, alignment: .top)
             } else if step == 2 {
               LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -167,6 +191,7 @@ struct LearnerOnboardingView: View {
     .onChange(of: store.cloudState.cacheKey) { _, _ in restoreDraftIfReady() }
     .onChange(of: step) { _, _ in persistDraft() }
     .onChange(of: name) { _, _ in persistDraft() }
+    .onChange(of: learningStage) { _, _ in persistDraft() }
     .onChange(of: goal) { _, _ in persistDraft() }
     .onChange(of: dailyTime) { _, _ in persistDraft() }
     .onChange(of: learningBarriers) { _, _ in persistDraft() }
@@ -198,6 +223,7 @@ struct LearnerOnboardingView: View {
       // Keep the account name and start the preference questions with no selected answers.
       step = firstStep
       name = store.preferences?.displayName ?? ""
+      learningStage = store.preferences?.learningStage
       goal = nil
       dailyTime = nil
       learningBarriers = []
@@ -226,6 +252,7 @@ struct LearnerOnboardingView: View {
       preferences: store.cloudState.requiresPersonalization ? nil : store.preferences)
     step = draft.step
     name = draft.name
+    learningStage = draft.learningStage
     goal = draft.goal
     dailyTime = draft.dailyTime
     learningBarriers = Array(draft.learningBarriers.prefix(1))
@@ -267,7 +294,7 @@ struct LearnerOnboardingView: View {
     }
     LearnerOnboardingDraft(
       step: step, name: name, goal: goal, dailyTime: dailyTime, learningBarriers: learningBarriers,
-      guidanceStyles: guidanceStyles, planningSupport: planningSupport
+      guidanceStyles: guidanceStyles, planningSupport: planningSupport, learningStage: learningStage
     ).save(
       scope: store.cloudState.cacheKey)
   }
@@ -291,7 +318,7 @@ struct LearnerOnboardingView: View {
             try await store.saveCloudPreferences(
               name: name.trimmingCharacters(in: .whitespacesAndNewlines), goal: goal,
               dailyTime: dailyTime, learningBarriers: learningBarriers,
-              guidanceStyles: guidanceStyles, planningSupport: planningSupport)
+              guidanceStyles: guidanceStyles, planningSupport: planningSupport, learningStage: learningStage)
             completed = true
             if resettingPreferences {
               finishPreferencesReset()
@@ -308,7 +335,7 @@ struct LearnerOnboardingView: View {
         store.preferences = LearnerPreferences(
           displayName: name.trimmingCharacters(in: .whitespacesAndNewlines), primaryGoal: goal,
           dailyTime: dailyTime, learningBarriers: learningBarriers,
-          guidanceStyles: guidanceStyles, planningSupport: planningSupport)
+          guidanceStyles: guidanceStyles, planningSupport: planningSupport, learningStage: learningStage)
         store.persist()
         finishPreferencesReset()
         return
@@ -318,7 +345,7 @@ struct LearnerOnboardingView: View {
         name: name.trimmingCharacters(in: .whitespacesAndNewlines), goal: goal,
         dailyTime: dailyTime,
         learningBarriers: learningBarriers, guidanceStyles: guidanceStyles,
-        planningSupport: planningSupport
+        planningSupport: planningSupport, learningStage: learningStage
       )
     }
   }

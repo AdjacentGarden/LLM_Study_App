@@ -165,6 +165,7 @@ enum CourseRecommendations {
 struct LearnerOnboardingDraft: Codable, Equatable {
   var step = 0
   var name = ""
+  var learningStage: String?
   var goal: String?
   var dailyTime: String?
   var learningBarriers: [String] = []
@@ -175,10 +176,11 @@ struct LearnerOnboardingDraft: Codable, Equatable {
 
   init(
     step: Int = 0, name: String = "", goal: String? = nil, dailyTime: String? = nil,
-    learningBarriers: [String] = [], guidanceStyles: [String] = [], planningSupport: String? = nil
+    learningBarriers: [String] = [], guidanceStyles: [String] = [], planningSupport: String? = nil, learningStage: String? = nil
   ) {
     self.step = step
     self.name = name
+    self.learningStage = learningStage
     self.goal = goal
     self.dailyTime = dailyTime
     self.learningBarriers = learningBarriers
@@ -186,12 +188,13 @@ struct LearnerOnboardingDraft: Codable, Equatable {
     self.planningSupport = planningSupport
   }
   private enum CodingKeys: String, CodingKey {
-    case step, name, goal, dailyTime, learningBarriers, guidanceStyles, planningSupport
+    case step, name, learningStage, goal, dailyTime, learningBarriers, guidanceStyles, planningSupport
   }
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     step = try values.decodeIfPresent(Int.self, forKey: .step) ?? 0
     name = try values.decodeIfPresent(String.self, forKey: .name) ?? ""
+    learningStage = try values.decodeIfPresent(String.self, forKey: .learningStage)
     goal = try values.decodeIfPresent(String.self, forKey: .goal)
     dailyTime = try values.decodeIfPresent(String.self, forKey: .dailyTime)
     learningBarriers = try values.decodeIfPresent([String].self, forKey: .learningBarriers) ?? []
@@ -209,7 +212,7 @@ struct LearnerOnboardingDraft: Codable, Equatable {
         name: preferences?.displayName ?? "", goal: preferences?.primaryGoal,
         dailyTime: preferences?.dailyTime, learningBarriers: preferences?.learningBarriers ?? [],
         guidanceStyles: preferences?.guidanceStyles ?? [],
-        planningSupport: preferences?.planningSupport)
+        planningSupport: preferences?.planningSupport, learningStage: preferences?.learningStage)
     }
     value.step = min(stepCount - 1, max(0, value.step))
     value.name = String(value.name.prefix(30))

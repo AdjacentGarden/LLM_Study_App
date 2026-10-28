@@ -271,6 +271,7 @@ struct Course: Codable, Identifiable, Hashable, Sendable {
 }
 struct LearnerPreferences: Codable, Hashable, Sendable {
   static let currentOnboardingVersion = 2
+  var learningStage: String?
   var displayName: String
   var primaryGoal: String?
   var dailyTime: String?
@@ -283,8 +284,9 @@ struct LearnerPreferences: Codable, Hashable, Sendable {
   init(
     displayName: String, primaryGoal: String?, dailyTime: String?,
     learningBarriers: [String] = [], guidanceStyles: [String] = [],
-    planningSupport: String? = nil, onboardingVersion: Int = currentOnboardingVersion
+    planningSupport: String? = nil, learningStage: String? = nil, onboardingVersion: Int = currentOnboardingVersion
   ) {
+    self.learningStage = learningStage
     self.displayName = displayName
     self.primaryGoal = primaryGoal
     self.dailyTime = dailyTime
@@ -295,11 +297,12 @@ struct LearnerPreferences: Codable, Hashable, Sendable {
   }
 
   private enum CodingKeys: String, CodingKey {
-    case displayName, primaryGoal, dailyTime, learningBarriers, guidanceStyles, planningSupport,
+    case learningStage, displayName, primaryGoal, dailyTime, learningBarriers, guidanceStyles, planningSupport,
       onboardingVersion
   }
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
+    learningStage = try values.decodeIfPresent(String.self, forKey: .learningStage)
     displayName = try values.decode(String.self, forKey: .displayName)
     primaryGoal = try values.decodeIfPresent(String.self, forKey: .primaryGoal)
     dailyTime = try values.decodeIfPresent(String.self, forKey: .dailyTime)

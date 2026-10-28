@@ -131,12 +131,13 @@ extension AppStore {
 
   func saveCloudPreferences(
     name: String, goal: String?, dailyTime: String?, learningBarriers: [String] = [],
-    guidanceStyles: [String] = [], planningSupport: String? = nil
+    guidanceStyles: [String] = [], planningSupport: String? = nil, learningStage: String? = nil
   ) async throws {
     guard let cloud else { return }
     let value: LearnerPreferences = try await cloud.request(
       "/api/native/learner-preferences", method: "PUT",
       body: [
+        "learningStage": learningStage.map(JSONValue.string) ?? .null,
         "displayName": .string(name), "primaryGoal": goal.map(JSONValue.string) ?? .null,
         "dailyTime": dailyTime.map(JSONValue.string) ?? .null,
         "learningBarriers": .array(learningBarriers.map(JSONValue.string)),

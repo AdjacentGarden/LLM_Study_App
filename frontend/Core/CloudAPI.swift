@@ -105,20 +105,27 @@ actor CloudAPI {
     if let session {
       self.session = session
     } else {
-      let config = URLSessionConfiguration.default
-      config.httpCookieStorage = nil
-      config.httpShouldSetCookies = false
-      config.timeoutIntervalForRequest = 180
-      config.timeoutIntervalForResource = 900
-      // Tailnet services must use the device's Tailscale route. A system HTTP
-      // proxy may be unable to resolve or reach these private destinations.
-      if normalized.host?.lowercased().hasSuffix(".ts.net") == true {
-        config.connectionProxyDictionary = [:]
-      }
-      self.session = URLSession(configuration: config)
+      self.session = URLSession(configuration: Self.serviceSessionConfiguration(for: normalized))
     }
     coverCache.countLimit = 64
     coverCache.totalCostLimit = 32 * 1024 * 1024
+  }
+
+  nonisolated static func serviceSessionConfiguration(for url: URL) -> URLSessionConfiguration {
+    let config = URLSessionConfiguration.default
+    config.httpCookieStorage = nil
+    config.httpShouldSetCookies = false
+    config.timeoutIntervalForRequest = 180
+    config.timeoutIntervalForResource = 900
+    let host = url.host?.lowercased() ?? ""
+    let octets = host.split(separator: ".", omittingEmptySubsequences: false)
+    let numbers = octets.compactMap { UInt8($0) }
+    let tailnetAddress = octets.count == 4 && numbers.count == 4
+      && numbers[0] == 100 && (64...127).contains(numbers[1])
+    // Tailnet IPv4 addresses and MagicDNS names must follow the device's VPN
+    // route, including when its system HTTP proxy cannot reach that network.
+    if tailnetAddress || host.hasSuffix(".ts.net") { config.connectionProxyDictionary = [:] }
+    return config
   }
 
   private nonisolated static func credentialKeyForOrigin(_ origin: String) -> String {

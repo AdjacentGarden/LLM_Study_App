@@ -58,6 +58,7 @@ class WorkspaceInput(Strict):
 
 
 class LearnerInput(Strict):
+    learningStage: Literal["middle", "high", "university", "working", "other"] | None = None
     displayName: str = Field(min_length=1, max_length=30)
     primaryGoal: Literal["systematic", "exam", "growth", "interest"] | None = None
     dailyTime: Literal["under30", "30to60", "1to2h", "over2h"] | None = None
@@ -310,6 +311,11 @@ def native_router(services: Any) -> APIRouter:
                 "UPDATE user_profiles SET nickname=?,revision=revision+1 WHERE owner=?",
                 (body.displayName, actor),
             )
+            if "learningStage" in body.model_fields_set:
+                db.execute(
+                    "UPDATE accounts SET stage=? WHERE owner=?",
+                    (body.learningStage or "other", actor),
+                )
         return payload
 
     @router.get("/workspaces/{wid}/learning-design")

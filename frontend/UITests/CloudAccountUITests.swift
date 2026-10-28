@@ -22,11 +22,80 @@ final class CloudAccountUITests: XCTestCase {
     app.launchArguments = ["--cloud-test-session", UUID().uuidString]
     app.launch()
     let email = app.textFields["cloud.email"]
+    // Credentials belong to the service origin and survive separate UI test data directories.
+    let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      !app.images["app.loading"].exists
+        && (email.exists || app.buttons["tab-profile"].exists)
+    }, object: nil)
+    XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 25), .completed)
+    if app.buttons["tab-profile"].exists {
+      tap(app.buttons["tab-profile"], app: app)
+      tap(app.buttons["profile.settings"], app: app)
+      tap(app.buttons["settings.logout"], app: app)
+      tap(app.buttons["确认退出"], app: app)
+    }
     XCTAssertTrue(email.waitForExistence(timeout: 20))
     XCTAssertTrue(app.textFields["cloud.code"].exists)
     XCTAssertTrue(app.buttons["cloud.settings"].isHittable)
     XCTAssertFalse(app.textFields["cloud.server"].exists)
-    XCTAssertFalse(app.buttons["cloud.verify"].isEnabled)
+    XCTAssertTrue(app.buttons["cloud.verify"].isEnabled)
+    tap(app.buttons["cloud.verify"], app: app)
+    XCTAssertTrue(app.staticTexts["cloud.error"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.staticTexts["cloud.error"].label, "请先为当前邮箱获取验证码")
+    tap(app.buttons["cloud.registerMode"], app: app)
+    XCTAssertFalse(app.buttons["cloud.loginMode"].exists)
+    XCTAssertFalse(app.textFields["cloud.nickname"].exists)
+    XCTAssertFalse(app.pickers["学习阶段"].exists)
+    XCTAssertTrue(app.buttons["cloud.backToLogin"].isHittable)
+    let registration = XCTAttachment(screenshot: app.screenshot())
+    registration.name = "Registration panel with back button and full white bottom"
+    registration.lifetime = .keepAlways
+    add(registration)
+    let title = app.staticTexts["cloud.title"]
+    let settingsButton = app.buttons["cloud.settings"]
+    let scroll = app.scrollViews["cloud.scroll"]
+    let titleY = title.frame.minY
+    let settingsY = settingsButton.frame.minY
+    let emailY = email.frame.minY
+    scroll.swipeUp()
+    XCTAssertEqual(title.frame.minY, titleY, accuracy: 1,
+      "The account title stays pinned while the form scrolls up")
+    XCTAssertEqual(settingsButton.frame.minY, settingsY, accuracy: 1)
+    XCTAssertEqual(email.frame.minY, emailY, accuracy: 1,
+      "Releasing an upward drag must restore the original form position")
+    let raised = XCTAttachment(screenshot: app.screenshot())
+    raised.name = "Registration restored after upward drag"
+    raised.lifetime = .keepAlways
+    add(raised)
+    scroll.swipeDown()
+    XCTAssertEqual(title.frame.minY, titleY, accuracy: 1)
+    XCTAssertEqual(settingsButton.frame.minY, settingsY, accuracy: 1)
+    XCTAssertEqual(email.frame.minY, emailY, accuracy: 1,
+      "Releasing a downward drag must restore the original form position")
+    // Repeated drags must never accumulate a permanent offset.
+    scroll.swipeUp()
+    scroll.swipeDown()
+    XCTAssertEqual(email.frame.minY, emailY, accuracy: 1)
+    email.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+    XCTAssertTrue(email.isHittable)
+    tap(app.buttons["cloud.keyboardDone"], app: app)
+    XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+    XCTAssertEqual(email.frame.minY, emailY, accuracy: 1,
+      "Dismissing the keyboard must restore the original form position")
+    XCTAssertTrue(settingsButton.isHittable)
+    let lowered = XCTAttachment(screenshot: app.screenshot())
+    lowered.name = "Registration restored after downward drag and keyboard dismissal"
+    lowered.lifetime = .keepAlways
+    add(lowered)
+    tap(app.buttons["cloud.backToLogin"], app: app)
+    XCTAssertTrue(app.buttons["cloud.registerMode"].exists)
+    XCTAssertFalse(app.buttons["cloud.backToLogin"].exists)
+    let loginEmailY = email.frame.minY
+    scroll.swipeUp()
+    scroll.swipeDown()
+    XCTAssertEqual(email.frame.minY, loginEmailY, accuracy: 1,
+      "Login also returns to its original position after dragging")
     let login = XCTAttachment(screenshot: app.screenshot())
     login.name = "Figma login with original cloud artwork"
     login.lifetime = .keepAlways
@@ -104,11 +173,6 @@ final class CloudAccountUITests: XCTestCase {
     if !demo.registered { tap(app.buttons["cloud.registerMode"], app: app) }
     emailField.tap()
     emailField.typeText(email)
-    if !demo.registered {
-      let nickname = app.textFields["cloud.nickname"]
-      tap(nickname, app: app)
-      nickname.typeText("Remote Test Learner")
-    }
     tap(app.buttons["cloud.sendCode"], app: app)
     let demoCode = app.staticTexts["cloud.demoCode"]
     XCTAssertTrue(demoCode.waitForExistence(timeout: 75))
@@ -259,9 +323,8 @@ final class CloudAccountUITests: XCTestCase {
     app.buttons["cloud.registerMode"].tap()
     email.tap()
     email.typeText("xiaolin@zhiwo.test")
-    let nickname = app.textFields["cloud.nickname"]
-    nickname.tap()
-    nickname.typeText("Native UI Learner")
+    XCTAssertFalse(app.textFields["cloud.nickname"].exists,
+      "Registration must only need email and verification code")
     let resendAllowedAfter = Date().addingTimeInterval(61)
     tap(app.buttons["cloud.sendCode"], app: app)
     let demo = app.staticTexts["cloud.demoCode"]
@@ -339,6 +402,8 @@ final class CloudAccountUITests: XCTestCase {
     XCTAssertTrue(app.images["app.loading"].waitForNonExistence(timeout: 20))
     let name = app.textFields["onboarding.name"]
     XCTAssertTrue(name.waitForExistence(timeout: 20))
+    tap(app.buttons["onboarding.stage.university"], app: app)
+    XCTAssertTrue(app.buttons["onboarding.stage.university"].isSelected)
     name.tap()
     name.typeText("Native Learner\n")
     tap(app.buttons["备考提升成绩"], app: app)

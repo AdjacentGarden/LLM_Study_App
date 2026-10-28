@@ -5,9 +5,6 @@ struct CloudAccountView: View {
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var email = ""
   @State private var code = ""
-  @State private var nickname = ""
-  @State private var stage = "university"
-  @State private var goal = "interest"
   @State private var registering = false
   @State private var challenge: CloudChallenge?
   @State private var challengeEmail = ""
@@ -20,14 +17,12 @@ struct CloudAccountView: View {
   @State private var panelPresented = false
   @State private var settingsError: String?
   @FocusState private var focused: Bool
+  @GestureState(resetTransaction: Transaction(animation: .spring(response: 0.38, dampingFraction: 0.82)))
+  private var dragOffset: CGFloat = 0
 
   private var hasCurrentChallenge: Bool {
-    challenge != nil && email == challengeEmail
+    challenge != nil && email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == challengeEmail
       && challengePurpose == (registering ? "register" : "login")
-  }
-  private var canVerify: Bool {
-    !busy && hasCurrentChallenge && code.count == 6
-      && (!registering || !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
   }
 
   var body: some View {
@@ -35,37 +30,57 @@ struct CloudAccountView: View {
       let width = min(geometry.size.width, 480)
       let scale = width / 402
       let heroHeight = max(190, 332 * scale - geometry.safeAreaInsets.top)
-      ScrollView {
-        VStack(spacing: 0) {
-          hero(width: width, scale: scale, topInset: geometry.safeAreaInsets.top)
-            .frame(height: heroHeight, alignment: .top)
-          accountForm(scale: scale)
-            .frame(minHeight: max(542 * scale,
-              geometry.size.height - heroHeight + geometry.safeAreaInsets.bottom))
-            .background {
-              UnevenRoundedRectangle(topLeadingRadius: 58 * scale, topTrailingRadius: 58 * scale)
-                .fill(DS.surface)
-                .shadow(color: Color(hex: 0xb4b4b4).opacity(0.24), radius: 6, x: 2, y: -2)
+      ZStack(alignment: .top) {
+        ScrollViewReader { proxy in
+          ScrollView {
+            VStack(spacing: 0) {
+              illustration(width: width, scale: scale, topInset: geometry.safeAreaInsets.top)
+                .frame(height: heroHeight + 58 * scale, alignment: .top)
+                .clipped()
+                .padding(.bottom, -58 * scale)
+              accountForm(scale: scale)
+                .frame(minHeight: max(542 * scale,
+                  geometry.size.height - heroHeight + geometry.safeAreaInsets.bottom))
+                .background {
+                  // A continuous white surface has no bottom-edge shadow at the safe area.
+                  UnevenRoundedRectangle(topLeadingRadius: 58 * scale, topTrailingRadius: 58 * scale)
+                    .fill(DS.surface)
+                }
+                .offset(y: panelPresented ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
+                .allowsHitTesting(panelPresented)
+                .accessibilityHidden(!panelPresented)
             }
-            .offset(y: panelPresented ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
-            .allowsHitTesting(panelPresented)
-            .accessibilityHidden(!panelPresented)
+            .frame(width: width)
+            .frame(maxWidth: .infinity)
+            .id("cloud.formTop")
+            .offset(y: reduceMotion ? 0 : dragOffset)
+          }
+          .accessibilityIdentifier("cloud.scroll")
+          .scrollIndicators(.hidden)
+          .scrollDismissesKeyboard(.interactively)
+          // Normal dragging only stretches the presentation; it cannot leave a scroll offset.
+          // Text input may still reveal fields above the keyboard.
+          .scrollDisabled(!focused)
+          .simultaneousGesture(
+            DragGesture(minimumDistance: 12).updating($dragOffset) { value, offset, transaction in
+              guard !focused, panelPresented else { return }
+              transaction.animation = nil
+              let distance = value.translation.height
+              offset = distance * 0.28 / (1 + abs(distance) / 360)
+            })
+          .onChange(of: focused) { _, isFocused in
+            if !isFocused { proxy.scrollTo("cloud.formTop", anchor: .top) }
+          }
         }
-        .frame(width: width)
-        .frame(maxWidth: .infinity)
+
+        accountHeader(scale: scale, topInset: geometry.safeAreaInsets.top)
+          .frame(width: width)
       }
-      .scrollIndicators(.hidden)
-      .scrollClipDisabled()
-      .scrollDismissesKeyboard(.interactively)
-      .background {
-        LinearGradient(
-          stops: [.init(color: Color(hex: 0xdccafa), location: 0),
-            .init(color: Color(hex: 0xfcfaff), location: 0.23),
-            .init(color: Color(hex: 0xdccafa), location: 0.65)],
-          startPoint: .top, endPoint: .bottom
-        ).ignoresSafeArea()
+      .background(alignment: .top) {
+        accountBackground(width: width, scale: scale).ignoresSafeArea()
       }
     }
+    .background(DS.surface.ignoresSafeArea())
     .onAppear { server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer }
     .task {
       if reduceMotion {
@@ -87,52 +102,62 @@ struct CloudAccountView: View {
     }
   }
 
-  private func hero(width: CGFloat, scale: CGFloat, topInset: CGFloat) -> some View {
+  private func accountBackground(width: CGFloat, scale: CGFloat) -> some View {
     ZStack(alignment: .top) {
-      // Figma's export is clipped to the design viewport (402 × 478).
+      DS.surface
+      LinearGradient(
+        stops: [.init(color: Color(hex: 0xdccafa), location: 0),
+          .init(color: Color(hex: 0xfcfaff), location: 0.5),
+          .init(color: DS.surface, location: 1)],
+        startPoint: .top, endPoint: .bottom
+      ).frame(height: 478 * scale)
       AssetImage("/assets/brand/login/hero-decoration.png")
         .frame(width: width, height: 478 * scale)
-        .offset(y: -topInset)
-      AssetImage("/assets/brand/login/cloud-hero.png")
-        .frame(width: width, height: 276 * scale)
-        .opacity(0.8)
-        .offset(x: -scale, y: 93 * scale - topInset)
-      LinearGradient(
-        stops: [.init(color: Color(hex: 0xcfd9f3).opacity(0.07), location: 0),
-          .init(color: Color(hex: 0xd6d1f7).opacity(0.71), location: 0.1342),
-          .init(color: Color(hex: 0xdccafa), location: 0.671)],
-        startPoint: .top, endPoint: .bottom
-      )
-      .frame(width: width, height: 568 * scale)
-      .offset(y: 306 * scale - topInset)
-      HStack {
-        Spacer().frame(width: 44)
-        Text(registering ? "注册" : "登录")
-          .font(DS.font(24, weight: .bold)).foregroundStyle(DS.primary)
-          .accessibilityAddTraits(.isHeader)
-          .frame(maxWidth: .infinity)
-        Button {
-          focused = false
-          server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer
-          settingsError = nil
-          showingSettings = true
-        } label: {
-          BCGlyph("Settings", color: DS.primary)
-            .frame(width: 16, height: 16)
-            .frame(width: 31, height: 31)
-            .background(Color(hex: 0xf7f3ff), in: RoundedRectangle(cornerRadius: 8))
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
+        .mask {
+          LinearGradient(stops: [.init(color: .white, location: 0),
+            .init(color: .white, location: 0.75), .init(color: .clear, location: 1)],
+            startPoint: .top, endPoint: .bottom)
         }
-        .buttonStyle(BCPressStyle())
-        .accessibilityLabel("设置")
-        .accessibilityIdentifier("cloud.settings")
-        .disabled(busy)
-      }
-      .padding(.horizontal, 12 * scale)
-      .padding(.top, max(0, 63 * scale - topInset))
     }
-    .frame(width: width, alignment: .top)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+
+  private func illustration(width: CGFloat, scale: CGFloat, topInset: CGFloat) -> some View {
+    AssetImage("/assets/brand/login/cloud-hero.png")
+      .frame(width: width, height: 276 * scale)
+      .opacity(0.8)
+      .offset(x: -scale, y: 93 * scale - topInset)
+  }
+
+  private func accountHeader(scale: CGFloat, topInset: CGFloat) -> some View {
+    HStack {
+      Spacer().frame(width: 44)
+      Text(registering ? "注册" : "登录")
+        .font(DS.font(24, weight: .bold)).foregroundStyle(DS.primary)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("cloud.title")
+        .frame(maxWidth: .infinity)
+      Button {
+        focused = false
+        server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer
+        settingsError = nil
+        showingSettings = true
+      } label: {
+        BCGlyph("Settings", color: DS.primary)
+          .frame(width: 16, height: 16)
+          .frame(width: 31, height: 31)
+          .background(Color(hex: 0xf7f3ff), in: RoundedRectangle(cornerRadius: 8))
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(BCPressStyle())
+      .accessibilityLabel("设置")
+      .accessibilityIdentifier("cloud.settings")
+      .disabled(busy)
+    }
+    .padding(.horizontal, 12 * scale)
+    .padding(.top, max(16, 63 * scale - topInset))
   }
 
   private func accountForm(scale: CGFloat) -> some View {
@@ -178,22 +203,6 @@ struct CloudAccountView: View {
           }
           .padding(.horizontal, 21).frame(minHeight: 47)
           .background(Color(.systemGray6), in: Capsule())
-          if registering {
-            BCTextField("你的称呼", text: $nickname)
-              .accessibilityIdentifier("cloud.nickname").focused($focused)
-            Picker("学习阶段", selection: $stage) {
-              Text("初中").tag("middle")
-              Text("高中").tag("high")
-              Text("大学").tag("university")
-              Text("工作").tag("working")
-              Text("其他").tag("other")
-            }
-            Picker("学习目标", selection: $goal) {
-              Text("准备考试").tag("exam")
-              Text("工作应用").tag("work")
-              Text("兴趣学习").tag("interest")
-            }
-          }
           if let challenge, hasCurrentChallenge {
             Text(challenge.message).font(DS.font(13)).foregroundStyle(DS.secondary)
             if let demo = challenge.demo_code {
@@ -209,7 +218,7 @@ struct CloudAccountView: View {
         }
       }
       .font(DS.font(20)).tint(DS.primary)
-      .frame(maxWidth: .infinity, minHeight: 256 * scale, alignment: .topLeading)
+      .frame(maxWidth: .infinity, minHeight: registering ? 186 * scale : 256 * scale, alignment: .topLeading)
       .padding(.horizontal, 50 * scale)
       if !store.cloudState.localLogin {
         HStack(spacing: 27 * scale) {
@@ -221,28 +230,45 @@ struct CloudAccountView: View {
               .frame(maxWidth: .infinity, minHeight: 47)
               .background(DS.primarySoft, in: Capsule())
           }
-          .buttonStyle(BCPressStyle()).disabled(!canVerify)
-          .accessibilityIdentifier("cloud.verify")
-          Button {
-            registering.toggle()
-            challenge = nil
-            code = ""
-            error = nil
-            store.cloudState.error = nil
-          } label: {
-            Text(registering ? "登录" : "注册")
-              .font(DS.font(24)).foregroundStyle(DS.secondary)
-              .frame(maxWidth: .infinity, minHeight: 47)
-              .background(Color(hex: 0xeef1f5), in: Capsule())
-          }
           .buttonStyle(BCPressStyle()).disabled(busy)
-          .accessibilityLabel(registering ? "切换到登录" : "切换到注册")
-          .accessibilityIdentifier(registering ? "cloud.loginMode" : "cloud.registerMode")
+          .accessibilityIdentifier("cloud.verify")
+          if !registering {
+            Button { setRegistering(true) } label: {
+              Text("注册")
+                .font(DS.font(24)).foregroundStyle(DS.secondary)
+                .frame(maxWidth: .infinity, minHeight: 47)
+                .background(Color(hex: 0xeef1f5), in: Capsule())
+            }
+            .buttonStyle(BCPressStyle()).disabled(busy)
+            .accessibilityLabel("切换到注册")
+            .accessibilityIdentifier("cloud.registerMode")
+          }
         }.padding(.horizontal, 33 * scale)
       }
       Spacer(minLength: 80)
     }
-    .padding(.top, 100 * scale)
+    .padding(.top, registering ? 90 * scale : 100 * scale)
+    .overlay(alignment: .topLeading) {
+      if registering {
+        Button { setRegistering(false) } label: {
+          Label("返回登录", systemImage: "chevron.left")
+            .font(DS.font(16, weight: .semibold)).foregroundStyle(DS.primary)
+            .frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(BCPressStyle()).disabled(busy)
+        .accessibilityIdentifier("cloud.backToLogin")
+        .padding(.leading, 33 * scale).padding(.top, 18 * scale)
+      }
+    }
+  }
+
+  private func setRegistering(_ value: Bool) {
+    focused = false
+    registering = value
+    challenge = nil
+    code = ""
+    error = nil
+    store.cloudState.error = nil
   }
 
   private var serviceSettings: some View {
@@ -303,7 +329,11 @@ struct CloudAccountView: View {
   }
   private func sendCode() async {
     focused = false
-    guard let cloud = store.cloud else { return }
+    guard !busy else { return }
+    guard let cloud = store.cloud else {
+      error = "请先在设置中连接学习服务"
+      return
+    }
     busy = true
     error = nil
     store.cloudState.error = nil
@@ -314,6 +344,7 @@ struct CloudAccountView: View {
       challenge = try await cloud.request(
         "/api/auth/code", method: "POST",
         body: ["email": .string(normalized), "purpose": .string(purpose)])
+      code = ""
       email = normalized
       challengeEmail = normalized
       challengePurpose = purpose
@@ -322,7 +353,19 @@ struct CloudAccountView: View {
   }
   private func verifyCode() async {
     focused = false
-    guard canVerify, let cloud = store.cloud, let challenge else { return }
+    guard !busy else { return }
+    guard let cloud = store.cloud else {
+      error = "请先在设置中连接学习服务"
+      return
+    }
+    guard let challenge, hasCurrentChallenge else {
+      error = "请先为当前邮箱获取验证码"
+      return
+    }
+    guard code.count == 6 else {
+      error = "请输入六位邮箱验证码"
+      return
+    }
     busy = true
     error = nil
     store.cloudState.error = nil
@@ -333,8 +376,9 @@ struct CloudAccountView: View {
       ]
       if registering {
         body["registration"] = .object([
-          "nickname": .string(nickname), "stage": .string(stage),
-          "interests": .array([]), "goal": .string(goal),
+          // Keep compatibility with existing services; answers are collected after authentication.
+          "nickname": .string("新同学"), "stage": .string("other"),
+          "interests": .array([]), "goal": .string("interest"),
         ])
       }
       let account: CloudAccountState = try await cloud.request(

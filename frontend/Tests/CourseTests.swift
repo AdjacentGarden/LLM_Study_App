@@ -105,7 +105,7 @@ final class CourseTests: XCTestCase {
     let draft = LearnerOnboardingDraft(
       step: 5, name: "学习者", goal: "exam", dailyTime: "30to60",
       learningBarriers: ["understanding", "memory"], guidanceStyles: ["examples", "stepByStep"],
-      planningSupport: "collaborative")
+      planningSupport: "collaborative", learningStage: "university")
     draft.save(defaults: defaults, scope: "account-a")
     let reopened = UserDefaults(suiteName: suite)!
     XCTAssertEqual(LearnerOnboardingDraft.load(defaults: reopened, scope: "account-a"), draft)

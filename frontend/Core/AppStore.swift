@@ -682,13 +682,13 @@ import SwiftUI
 
   func completeOnboarding(
     name: String, goal: String?, dailyTime: String?, learningBarriers: [String] = [],
-    guidanceStyles: [String] = [], planningSupport: String? = nil
+    guidanceStyles: [String] = [], planningSupport: String? = nil, learningStage: String? = nil
   ) {
     guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     preferences = LearnerPreferences(
       displayName: name.trimmingCharacters(in: .whitespacesAndNewlines), primaryGoal: goal,
       dailyTime: dailyTime, learningBarriers: learningBarriers,
-      guidanceStyles: guidanceStyles, planningSupport: planningSupport)
+      guidanceStyles: guidanceStyles, planningSupport: planningSupport, learningStage: learningStage)
     persist()
     replace(.study)
   }

@@ -186,6 +186,21 @@ final class CloudTests: XCTestCase {
     await restored.flush()
   }
 
+  func testTailnetServiceConnectionsBypassSystemProxyWithoutChangingPublicRoutes() throws {
+    for host in ["100.64.0.0", "100.86.143.88", "100.127.255.255", "study.example.ts.net"] {
+      let url = try XCTUnwrap(URL(string: "http://\(host):8100"))
+      let config = CloudAPI.serviceSessionConfiguration(for: url)
+      XCTAssertNotNil(config.connectionProxyDictionary, host)
+      XCTAssertTrue(config.connectionProxyDictionary?.isEmpty == true, host)
+      XCTAssertFalse(config.httpShouldSetCookies)
+      XCTAssertNil(config.httpCookieStorage)
+    }
+    for host in ["100.63.255.255", "100.128.0.0", "study.example.com", "100.86.143.88.example.com"] {
+      let url = try XCTUnwrap(URL(string: "https://\(host)"))
+      XCTAssertNil(CloudAPI.serviceSessionConfiguration(for: url).connectionProxyDictionary, host)
+    }
+  }
+
   func testServiceAddressValidationRejectsEmbeddedCredentialsAndPaths() {
     XCTAssertNotNil(CloudAPI.validatedURL("http://127.0.0.1:8100"))
     XCTAssertNotNil(CloudAPI.validatedURL("https://study.example.com"))

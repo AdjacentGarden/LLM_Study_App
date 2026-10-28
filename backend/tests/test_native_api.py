@@ -111,6 +111,7 @@ def test_learner_questions_completion_is_explicit_persistent_and_private(native)
     assert a.get("/api/native/bootstrap").json()["learner_preferences"] is None
     value = {"displayName": "小新", "primaryGoal": "exam", "dailyTime": "30to60"}
     legacy_defaults = {
+        "learningStage": None,
         "learningBarriers": [],
         "guidanceStyles": [],
         "planningSupport": None,
@@ -147,6 +148,7 @@ def test_learner_questions_completion_is_explicit_persistent_and_private(native)
 def test_six_step_preferences_restore_and_legacy_edits_preserve_new_answers(native):
     a, b, root = native
     value = {
+        "learningStage": "university",
         "displayName": "完整偏好",
         "primaryGoal": "exam",
         "dailyTime": "under30",
@@ -177,9 +179,30 @@ def test_six_step_preferences_restore_and_legacy_edits_preserve_new_answers(nati
     assert a.put("/api/native/learner-preferences", json=value).json() == value
 
 
+def test_personalization_stage_updates_account_without_erasing_it_for_older_clients(native):
+    a, b, _ = native
+    initial = a.get("/api/auth/me").json()["account"]["stage"]
+    response = a.put("/api/native/learner-preferences", json={
+        "displayName": "新同学", "learningStage": "working", "onboardingVersion": 2,
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["learningStage"] == "working"
+    assert a.get("/api/auth/me").json()["account"]["stage"] == "working"
+    assert b.get("/api/auth/me").json()["account"]["stage"] == initial
+    response = a.put("/api/native/learner-preferences", json={"displayName": "更新昵称"})
+    assert response.json()["learningStage"] == "working"
+    assert a.get("/api/auth/me").json()["account"]["stage"] == "working"
+    response = a.put("/api/native/learner-preferences", json={
+        "displayName": "跳过阶段", "learningStage": None,
+    })
+    assert response.json()["learningStage"] is None
+    assert a.get("/api/auth/me").json()["account"]["stage"] == "other"
+
+
 @pytest.mark.parametrize(
     "invalid",
     [
+        {"learningStage": "unknown"},
         {"learningBarriers": ["starting", "focus", "memory"]},
         {"learningBarriers": ["memory", "memory"]},
         {"learningBarriers": ["unknown"]},
