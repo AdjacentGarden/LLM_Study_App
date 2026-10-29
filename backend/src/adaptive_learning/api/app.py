@@ -678,8 +678,8 @@ def answer_book_question(
         logger.warning("grounded QA model call failed", exc_info=error)
         raise HTTPException(status_code=502, detail="回答服务暂时不可用，请稍后重试。") from error
     except GroundedAnswerValidationError as error:
-        logger.warning("grounded QA evidence validation failed", exc_info=error)
-        raise HTTPException(status_code=502, detail="回答未通过教材证据校验") from error
+        logger.warning("QA response contained no readable answer", exc_info=error)
+        raise HTTPException(status_code=502, detail="回答服务未返回有效内容，请稍后重试。") from error
     except RAGIndexError as error:
         logger.error("persistent RAG service failed", exc_info=error)
         raise HTTPException(status_code=503, detail="教材检索服务暂时不可用") from error

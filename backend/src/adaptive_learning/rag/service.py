@@ -50,7 +50,7 @@ class TextbookQAService:
         self,
         *,
         book_id: str,
-        index: PersistentRAGIndex,
+        index: PersistentRAGIndex | None,
         generator: GroundedAnswerGenerator,
         top_pages: int = 5,
         max_evidence: int = 10,
@@ -105,6 +105,8 @@ class TextbookQAService:
 
     def warmup(self) -> None:
         """Load retrieval models before accepting concurrent requests."""
+        if self.index is None:
+            return
         self.index.search("教材核心概念", top_pages=1, max_evidence=1, per_page=1)
         self._ready = True
 
@@ -193,8 +195,16 @@ class TextbookQAService:
                      if turn["role"] == "user" and turn["text"] != question][-2:]
             title = conversation_context.get("chapter", {}).get("title", "")
             query = "\n".join([title, *(text[:500] for text in turns), question]).strip()
-        retrieval, retrieval_mode = self._retrieve(query)
-        self._ready = True
+        try:
+            retrieval, retrieval_mode = self._retrieve(query)
+            self._ready = self.index is not None
+        except (RuntimeError, OSError, ValueError, ImportError):
+            # Access checks precede this service. Missing retrieval must not
+            # prevent an explicitly unverified answer from the text model.
+            logger.warning("textbook retrieval unavailable; answering without citations")
+            retrieval = RetrievalResult(question=query, score=0, pages=(), evidence=())
+            retrieval_mode = "unavailable"
+            self._ready = False
         retrieval_duration_ms = round((time.monotonic() - retrieval_started) * 1000)
         logger.info(
             "textbook retrieval completed",
@@ -255,6 +265,9 @@ class TextbookQAService:
         )
 
     def _retrieve(self, question: str) -> tuple[RetrievalResult, str]:
+        index = self.index
+        if index is None:
+            return RetrievalResult(question=question, score=0, pages=(), evidence=()), "unavailable"
         now = time.monotonic()
         with self._lock:
             for expired in [
@@ -275,7 +288,7 @@ class TextbookQAService:
 
         def run() -> None:
             try:
-                result = self.index.search(
+                result = index.search(
                     question,
                     top_pages=self.top_pages,
                     max_evidence=self.max_evidence,
@@ -306,11 +319,14 @@ class TextbookQAService:
         return result, "hybrid"
 
     def _fast_retrieve(self, question: str) -> RetrievalResult:
-        fast = getattr(self.index, "search_fast", None)
+        index = self.index
+        if index is None:
+            return RetrievalResult(question=question, score=0, pages=(), evidence=())
+        fast = getattr(index, "search_fast", None)
         if fast is None:
             # Test doubles and legacy indexes do not need a fallback because their normal
             # search returns synchronously.  This branch is only reached under contention.
-            return self.index.search(
+            return index.search(
                 question,
                 top_pages=self.top_pages,
                 max_evidence=self.max_evidence,

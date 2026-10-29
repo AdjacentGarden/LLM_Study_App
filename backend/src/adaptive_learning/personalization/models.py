@@ -7,7 +7,21 @@ from pydantic import BaseModel, Field
 
 from ..learning_preferences import LearningDesignConfig
 
-SUMMARY_MAX_CHARS = 1000
+# Generous payload safety bounds; teaching depth follows the source and learner.
+OPENING_MAX_CHARS = 1000
+SUMMARY_MAX_CHARS = 4000
+EXPLANATION_MAX_CHARS = 4000
+FLASHCARD_FRONT_MAX_CHARS = 300
+FLASHCARD_BACK_MAX_CHARS = 1500
+PRACTICE_PROMPT_MAX_CHARS = 1200
+PRACTICE_ANSWER_MAX_CHARS = 3000
+RUBRIC_MAX_ITEMS = 12
+EXAMPLE_PROBLEM_MAX_CHARS = 1200
+EXAMPLE_ANSWER_MAX_CHARS = 2000
+EXAMPLE_MAX_STEPS = 12
+CHECKPOINT_QUESTION_MAX_CHARS = 1000
+CHECKPOINT_ANSWER_MAX_CHARS = 2000
+LESSON_SECTION_MAX_CHARS = 12000
 
 
 class TeachingDepth(StrEnum):
@@ -25,7 +39,7 @@ class SourceCitation(BaseModel):
 class KnowledgePoint(BaseModel):
     point_id: str
     title: str = Field(min_length=1, max_length=180)
-    explanation: str = Field(min_length=1, max_length=1200)
+    explanation: str = Field(min_length=1, max_length=EXPLANATION_MAX_CHARS)
     importance: str
     mastery: float = Field(ge=0, le=1)
     state: str
@@ -34,8 +48,8 @@ class KnowledgePoint(BaseModel):
 
 class Flashcard(BaseModel):
     card_id: str
-    front: str = Field(min_length=1, max_length=120)
-    back: str = Field(min_length=1, max_length=360)
+    front: str = Field(min_length=1, max_length=FLASHCARD_FRONT_MAX_CHARS)
+    back: str = Field(min_length=1, max_length=FLASHCARD_BACK_MAX_CHARS)
     reason_for_user: str = Field(min_length=1, max_length=180)
     point_id: str = ""
     citations: list[SourceCitation] = Field(default_factory=list)
@@ -44,7 +58,7 @@ class Flashcard(BaseModel):
 
 class LessonSection(BaseModel):
     title: str = Field(min_length=1, max_length=180)
-    content: str = Field(min_length=1, max_length=1200)
+    content: str = Field(min_length=1, max_length=LESSON_SECTION_MAX_CHARS)
     purpose: str = Field(min_length=1, max_length=240)
     citations: list[SourceCitation] = Field(default_factory=list)
     kind: str = "explanation"
@@ -66,12 +80,12 @@ class LearningUnit(BaseModel):
 class PracticeItem(BaseModel):
     item_id: str
     point_id: str
-    prompt: str = Field(min_length=1, max_length=300)
+    prompt: str = Field(min_length=1, max_length=PRACTICE_PROMPT_MAX_CHARS)
     response_type: str = "explanation"
     options: list[str] = Field(default_factory=list)
     correct_option_ids: list[str] = Field(default_factory=list)
-    expected_answer: str = Field(min_length=1, max_length=800)
-    rubric: list[str] = Field(default_factory=list, max_length=6)
+    expected_answer: str = Field(min_length=1, max_length=PRACTICE_ANSWER_MAX_CHARS)
+    rubric: list[str] = Field(default_factory=list, max_length=RUBRIC_MAX_ITEMS)
     difficulty: float = Field(ge=-3, le=3)
     estimated_seconds: int = Field(ge=10, le=600)
     citations: list[SourceCitation] = Field(min_length=1)
@@ -123,7 +137,7 @@ class ChapterLearningBundle(BaseModel):
     chapter_id: str
     chapter_title: str
     decision: PersonalizationDecision
-    opening: str = Field(min_length=1, max_length=300)
+    opening: str = Field(min_length=1, max_length=OPENING_MAX_CHARS)
     summary: str = Field(min_length=1, max_length=SUMMARY_MAX_CHARS)
     original_reading: list[LessonSection]
     knowledge_points: list[KnowledgePoint]

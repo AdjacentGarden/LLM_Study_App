@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
+from openai import OpenAI
+
 from adaptive_learning.llm import client as module
 from adaptive_learning.llm.client import (
     LLMConfig,
@@ -21,7 +23,6 @@ from adaptive_learning.llm.model_admission import (
     overload_wait,
     route_key,
 )
-from openai import OpenAI
 
 
 class Clock:
@@ -137,7 +138,7 @@ def test_unknown_after_send_keeps_existing_zero_retry_and_does_not_claim_overloa
     obj.close()
 
 
-def test_unknown_automatic_retry_is_explicitly_a_remaining_baseline_risk(registry, monkeypatch):
+def test_unknown_transport_failure_does_not_replay_or_trigger_route_cooldown(registry, monkeypatch):
     sends = []
     monkeypatch.setattr(module.time, "sleep", lambda delay: None)
 
@@ -148,7 +149,8 @@ def test_unknown_automatic_retry_is_explicitly_a_remaining_baseline_risk(registr
     obj = client(handler, retries=1)
     with pytest.raises(LLMError):
         obj.structured(system="test", user="test")
-    assert len(sends) == 2  # Documented, not silently described as fixed by cooldown.
+    assert len(sends) == 1
+    obj.check_admission()
     obj.close()
 
 

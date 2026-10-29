@@ -71,18 +71,17 @@ def test_review_protocol_is_not_biology_specific(text):
     assert client.calls == 2
 
 
-def test_real_quote_with_contradictory_claim_is_rejected():
+def test_real_quote_does_not_mark_contradictory_claim_as_verified():
     text = "只有当 x 不等于零时，才能在等式两边同时除以 x。"
     client = SequenceFakeClient([draft("任何时候都可以除以 x。", text), verdict(False)])
-    with pytest.raises(GroundedAnswerValidationError, match="semantic review rejected"):
-        GroundedAnswerGenerator(client, use_semantic_review=True, max_validation_retries=0).answer(
-            question="可以总是除以 x 吗？",
-            evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)],
-            retrieval_score=3,
-        )
+    answer = GroundedAnswerGenerator(client, use_semantic_review=True, max_validation_retries=0).answer(
+        question="可以总是除以 x 吗？",
+        evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)], retrieval_score=3)
+    assert answer.status == "general" and answer.claims == [] and not answer.semantic_checked
+    assert answer.answer.startswith("教材引用未核验") and client.calls == 2
 
 
-def test_rejected_claim_is_repaired_then_reviewed_again():
+def test_rejected_claim_is_unverified_without_regenerating_a_received_answer():
     text = "二分查找要求序列有序。"
     client = SequenceFakeClient(
         [draft("二分查找适用于无序序列。", text), verdict(False), draft(text, text), verdict()]
@@ -92,7 +91,8 @@ def test_rejected_claim_is_repaired_then_reviewed_again():
         evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)],
         retrieval_score=3,
     )
-    assert answer.answer == text and client.calls == 4
+    assert answer.answer.endswith("二分查找适用于无序序列。") and client.calls == 2
+    assert answer.status == "general" and answer.claims == [] and not answer.semantic_checked
 
 
 @pytest.mark.parametrize(
@@ -113,15 +113,14 @@ def test_rejected_claim_is_repaired_then_reviewed_again():
         },
     ],
 )
-def test_invalid_or_incomplete_reviewer_output_fails_closed(bad):
+def test_invalid_or_incomplete_reviewer_output_cannot_publish_verified_evidence(bad):
     text = "测试的原文"
     client = SequenceFakeClient([draft(text, text), bad])
-    with pytest.raises(GroundedAnswerValidationError):
-        GroundedAnswerGenerator(client, use_semantic_review=True, max_validation_retries=0).answer(
-            question="测试？",
-            evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)],
-            retrieval_score=2,
-        )
+    answer = GroundedAnswerGenerator(client, use_semantic_review=True, max_validation_retries=0).answer(
+        question="测试？", evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)],
+        retrieval_score=2)
+    assert answer.status == "general" and answer.claims == [] and not answer.semantic_checked
+    assert answer.answer.endswith(text) and client.calls == 2
 
 
 @pytest.mark.parametrize(
@@ -167,9 +166,11 @@ def test_definitions_skip_planning_but_not_semantic_review():
 @pytest.mark.parametrize("claim,quote", [("主张", "   "), ("   ", "真实的原文")])
 def test_whitespace_cannot_bypass_citation_or_claim_validation(claim, quote):
     client = SequenceFakeClient([draft(claim, quote)])
-    with pytest.raises(GroundedAnswerValidationError):
-        GroundedAnswerGenerator(client, max_validation_retries=0).answer(
-            question="测试",
-            evidence=[EvidenceChunk(source_id="E1", page_number=1, text="真实的原文")],
-            retrieval_score=3,
-        )
+    generator = GroundedAnswerGenerator(client, max_validation_retries=0)
+    sources = [EvidenceChunk(source_id="E1", page_number=1, text="真实的原文")]
+    if not claim.strip():
+        with pytest.raises(GroundedAnswerValidationError):
+            generator.answer(question="测试", evidence=sources, retrieval_score=3)
+    else:
+        answer = generator.answer(question="测试", evidence=sources, retrieval_score=3)
+        assert answer.status == "general" and answer.claims == [] and answer.answer.endswith(claim)

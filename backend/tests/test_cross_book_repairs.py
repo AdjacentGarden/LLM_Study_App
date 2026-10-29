@@ -81,13 +81,14 @@ def test_parent_windows_deduplicate_source_overlap():
     assert index._expanded_evidence([0])[0].text == '开始'+common+'结束'
 
 
-def test_low_score_lexical_match_cannot_bypass_semantic_review():
-    client = FakeClient({})
+def test_low_score_lexical_match_uses_unverified_general_answer():
+    client = FakeClient({"answer": "Queens is in New York."})
     gen = GroundedAnswerGenerator(cast(OpenAICompatibleClient, client))
     result = gen.answer(question='Where is Queens?', evidence=[EvidenceChunk(
         source_id='E1', page_number=1, text='Queens is in New York.')],
         retrieval_score=-1, lexical_support=True)
-    assert result.status == 'insufficient' and client.calls == 0
+    assert result.status == 'general' and result.claims == [] and not result.semantic_checked
+    assert result.answer.endswith('Queens is in New York.') and client.calls == 1
 
 
 def test_lexical_match_with_semantic_review_still_requires_exact_citations():

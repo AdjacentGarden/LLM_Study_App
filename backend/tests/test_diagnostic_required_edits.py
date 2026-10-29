@@ -29,7 +29,7 @@ class Reviewer:
         self.reject, self.calls = reject, []
 
     def structured(self, *, user, **kwargs):
-        assert kwargs['max_tokens'] == 1400
+        assert kwargs['max_tokens'] == 4000
         request = json.loads(user)
         self.calls.append(request)
         return {'reviews': [self.reject(row, len(self.calls)) for row in request['items']]}

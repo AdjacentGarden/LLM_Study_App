@@ -499,6 +499,10 @@ def test_global_unlocalized_rejection_is_not_masked_by_other_localized_failure(g
         teacher = teacher.model_copy(
             update={"accepted": False, "issues": ["全章还有未定位的问题。"]}
         )
+    if global_role == 'teacher':
+        with pytest.raises(draft._TeachingReviewFormatError, match='未定位'):
+            generator._combined_repair_plan(fact, teacher, points, lesson)
+        return
     fields, lesson_targets = generator._combined_repair_plan(fact, teacher, points, lesson)
     assert fields == {point.point_id: {"explanation", "flashcard", "practice"} for point in points}
     assert lesson_targets == set(generator._lesson_components(lesson)) | {"reading_source_ids"}
@@ -1067,6 +1071,10 @@ def test_one_reviewers_extra_global_issue_is_not_hidden_by_its_local_failure(rol
         teacher = teacher.model_copy(
             update={"issues": ["另有不能归入当前局部问题的全章教学缺陷。"]}
         )
+    if role == 'teacher':
+        with pytest.raises(draft._TeachingReviewFormatError, match='未定位'):
+            generator._combined_repair_plan(fact, teacher, points, lesson)
+        return
     fields, lesson_targets = generator._combined_repair_plan(fact, teacher, points, lesson)
     assert fields == {point.point_id: {"explanation", "flashcard", "practice"} for point in points}
     assert lesson_targets == set(generator._lesson_components(lesson)) | {"reading_source_ids"}

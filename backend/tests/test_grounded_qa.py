@@ -8,7 +8,6 @@ from adaptive_learning.rag.grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
     GroundedAnswerGenerator,
-    GroundedAnswerValidationError,
     _citation_repair_hints,
 )
 
@@ -102,9 +101,10 @@ def test_missing_self_score_still_requires_literal_and_semantic_evidence():
     assert client.calls == 2
     # An absent self-score never excuses a fabricated quotation.
     draft['claims'][0]['citations'][0]['quote'] = '染色体复制十次'
-    with pytest.raises(GroundedAnswerValidationError):
-        GroundedAnswerGenerator(FakeClient(draft), max_validation_retries=0).answer(
-            question='复制几次？', evidence=_evidence(), retrieval_score=4)
+    unverified = GroundedAnswerGenerator(FakeClient(draft), max_validation_retries=0).answer(
+        question='复制几次？', evidence=_evidence(), retrieval_score=4)
+    assert unverified.status == AnswerStatus.GENERAL and unverified.claims == []
+    assert not unverified.semantic_checked
 
 
 def test_supported_answer_exposes_page_citation_without_internal_source_id() -> None:
@@ -161,7 +161,7 @@ def test_low_retrieval_score_calls_model_for_general_answer() -> None:
     assert client.calls == answer.generation_attempts == 1
 
 
-def test_fabricated_quote_is_rejected() -> None:
+def test_fabricated_quote_is_never_published_as_evidence() -> None:
     client = FakeClient(
         {
             "status": "supported",
@@ -176,15 +176,13 @@ def test_fabricated_quote_is_rejected() -> None:
     )
     generator = GroundedAnswerGenerator(client)  # type: ignore[arg-type]
 
-    with pytest.raises(GroundedAnswerValidationError, match="not present"):
-        generator.answer(
-            question="测试",
-            evidence=_evidence(),
-            retrieval_score=3,
-        )
+    answer = generator.answer(question="测试", evidence=_evidence(), retrieval_score=3)
+    assert answer.status == AnswerStatus.GENERAL and answer.claims == []
+    assert "这是一个没有教材依据的主张。" in answer.answer
+    assert client.calls == 1
 
 
-def test_unknown_source_is_rejected() -> None:
+def test_unknown_source_is_not_exposed_as_evidence() -> None:
     client = FakeClient(
         {
             "status": "supported",
@@ -199,12 +197,9 @@ def test_unknown_source_is_rejected() -> None:
     )
     generator = GroundedAnswerGenerator(client)  # type: ignore[arg-type]
 
-    with pytest.raises(GroundedAnswerValidationError, match="unknown evidence"):
-        generator.answer(
-            question="测试",
-            evidence=_evidence(),
-            retrieval_score=3,
-        )
+    answer = generator.answer(question="测试", evidence=_evidence(), retrieval_score=3)
+    assert answer.status == AnswerStatus.GENERAL and answer.claims == []
+    assert client.calls == 1
 
 
 def test_evidence_planner_is_verified_and_passed_before_answer_generation() -> None:
@@ -250,7 +245,7 @@ def test_evidence_planner_is_verified_and_passed_before_answer_generation() -> N
     assert client.calls == 2
 
 
-def test_invalid_model_citation_is_retried_without_relaxing_verification() -> None:
+def test_invalid_model_citation_keeps_answer_without_retry_or_false_proof() -> None:
     client = SequenceFakeClient(
         [
             {
@@ -288,11 +283,12 @@ def test_invalid_model_citation_is_retried_without_relaxing_verification() -> No
         retrieval_score=4.2,
     )
 
-    assert answer.status == AnswerStatus.SUPPORTED
-    assert client.calls == 2
+    assert answer.status == AnswerStatus.GENERAL and answer.claims == []
+    assert "第一次输出引用错误。" in answer.answer
+    assert client.calls == 1
 
 
-def test_retry_receives_rejected_draft_and_preserves_interleaved_source_text():
+def test_interleaved_source_text_is_not_invented_as_a_verified_quote():
     source = "蓝色按钮每按一次，\n旁注：这是虚构设备。\n计数器增加7。"
     rejected = {"status": "supported", "claims": [{
         "text": "蓝色按钮每按一次，计数器增加7。",
@@ -304,26 +300,18 @@ def test_retry_receives_rejected_draft_and_preserves_interleaved_source_text():
         def structured(self, **kwargs):
             payload = json.loads(kwargs["user"])
             calls.append(payload)
-            if len(calls) == 1:
-                return rejected
-            assert payload["previous_draft_for_correction"] == rejected
+            assert len(calls) == 1
             assert payload["evidence"][0]["text"] == source
-            assert "不得跳过" in payload["validation_feedback"]
-            assert payload["citation_repair_hints"] == [
-                {"source_id": "E1", "original_span": source}
-            ]
-            return {"status": "supported", "claims": [{
-                "text": "蓝色按钮每按一次，计数器增加7。",
-                "citations": [{"source_id": "E1", "quote": source}],
-            }], "confidence": 0.9}
+            return rejected
 
     answer = GroundedAnswerGenerator(RepairClient()).answer(
         question="蓝色按钮的作用是什么？",
         evidence=[EvidenceChunk(source_id="E1", page_number=1, text=source)],
         retrieval_score=1,
     )
-    assert answer.generation_attempts == 2
-    assert answer.claims[0].citations[0].quote == source
+    assert answer.generation_attempts == 1 and len(calls) == 1
+    assert answer.status == AnswerStatus.GENERAL and answer.claims == []
+    assert "蓝色按钮每按一次，计数器增加7。" in answer.answer
 
 
 @pytest.mark.parametrize("raw", [
@@ -368,7 +356,7 @@ def test_answer_output_budget_must_be_within_supported_limits(budget):
         GroundedAnswerGenerator(FakeClient({}), max_output_tokens=budget)
 
 
-def test_mobile_answer_contract_rejects_single_report_length_claim() -> None:
+def test_mobile_length_preference_does_not_discard_answer() -> None:
     client = FakeClient(
         {
             "status": "supported",
@@ -379,12 +367,11 @@ def test_mobile_answer_contract_rejects_single_report_length_claim() -> None:
             "confidence": 0.9,
         }
     )
-    with pytest.raises(GroundedAnswerValidationError):
-        GroundedAnswerGenerator(client, max_validation_retries=0).answer(  # type: ignore[arg-type]
-            question="减数分裂有什么特点？",
-            evidence=_evidence(),
-            retrieval_score=3,
-        )
+    answer = GroundedAnswerGenerator(client, max_validation_retries=0).answer(  # type: ignore[arg-type]
+        question="减数分裂有什么特点？", evidence=_evidence(), retrieval_score=3)
+    assert answer.status == AnswerStatus.GENERAL and answer.claims == []
+    assert answer.answer.endswith("这是一段没有控制长度的回答。" * 40)
+    assert client.calls == 1
 
 
 def test_invalid_optional_planner_item_does_not_block_strict_final_answer() -> None:

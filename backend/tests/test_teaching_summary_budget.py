@@ -24,7 +24,7 @@ def test_observed_697_characters_round_trip_all_summary_schemas_without_truncati
     summary = OBSERVED['content']
     assert len(summary) == OBSERVED['characters'] == 697
     assert hashlib.sha256(summary.encode()).hexdigest() == OBSERVED['sha256']
-    assert SUMMARY_MAX_CHARS == 1000
+    assert SUMMARY_MAX_CHARS == 4000
     assert teaching._Lesson.model_validate({**lesson_candidate(), 'summary': summary}).summary == summary
     bundle, _, _ = course(1)
     assert ChapterLearningBundle.model_validate({**bundle.model_dump(), 'summary': summary}).summary == summary
@@ -35,19 +35,19 @@ def test_observed_697_characters_round_trip_all_summary_schemas_without_truncati
     assert candidate['content'] == summary and 'approval' not in unit['work']
     assert unit['status'] != 'approved'
     assert 'latest_invalid_draft' not in unit['work']
-    assert 'summary须1-1000字' in teaching.GENERATION_PROMPT
-    assert teaching.TeachingContentGenerator._writer_shapes()['summary'] == '完整总结（1–1000字）'
+    assert 'summary须1-4000字' in teaching.GENERATION_PROMPT
+    assert teaching.TeachingContentGenerator._writer_shapes()['summary'] == '完整总结（1–4000字）'
 
 
-def test_1001_characters_still_fail_with_exact_context_and_no_truncation(unit_case):
-    content = '文' * 1001
+def test_over_budget_characters_still_fail_with_exact_context_and_no_truncation(unit_case):
+    content = '文' * (SUMMARY_MAX_CHARS + 1)
     unit = text_unit(unit_case, 'summary')
     candidate = {'content': content, 'source_ids': ['s1']}
     with pytest.raises(_UnitRejected) as caught:
         unit_case.engine._validate_one(unit, candidate)
     assert caught.value.feedback['field'] == '/component/content'
-    assert caught.value.feedback['actual_chars'] == 1001
-    assert caught.value.feedback['max_chars'] == 1000
+    assert caught.value.feedback['actual_chars'] == SUMMARY_MAX_CHARS + 1
+    assert caught.value.feedback['max_chars'] == SUMMARY_MAX_CHARS
     assert candidate['content'] == unit['work']['latest_invalid_draft']['candidate']['content'] == content
     assert 'approval' not in unit['work'] and unit['status'] != 'approved'
     with pytest.raises(ValidationError):
@@ -84,22 +84,21 @@ def test_observed_697_candidate_still_requires_both_independent_reviews(unit_cas
     assert 'approval' not in unit['work'] and unit['status'] != 'approved'
 
 
-def test_only_the_known_presentation_change_retains_the_actual_h_protocol(monkeypatch):
-    assert teaching._teaching_protocol_fingerprint() == LEGACY_H_PROTOCOL
-    new_prompt = teaching.GENERATION_PROMPT
-    monkeypatch.setattr(teaching, 'GENERATION_PROMPT', new_prompt.replace('summary须1-1000字', 'summary须1-680字', 1))
-    assert teaching._teaching_protocol_fingerprint() == LEGACY_H_PROTOCOL
+def test_expanded_source_and_teaching_policy_does_not_claim_the_old_h_protocol():
+    # The published H row stays intact; only a new generation gets this identity.
+    assert teaching._teaching_protocol_fingerprint() != LEGACY_H_PROTOCOL
 
 
 @pytest.mark.parametrize(('field', 'change'), [
     ('GENERATION_PROMPT', lambda text: text + '\n额外的事实条件审核要求。'),
-    ('GENERATION_PROMPT', lambda text: text.replace('opening须1-300字', 'opening须1-301字')),
-    ('GENERATION_PROMPT', lambda text: text + '\n其他组件summary须1-1000字。'),
-    ('GENERATION_PROMPT', lambda text: text.replace('summary须1-1000字', 'summary须1-1001字')),
+    ('GENERATION_PROMPT', lambda text: text.replace('opening须1-1000字', 'opening须1-1001字')),
+    ('GENERATION_PROMPT', lambda text: text + '\n其他组件summary须1-4000字。'),
+    ('GENERATION_PROMPT', lambda text: text.replace('summary须1-4000字', 'summary须1-4001字')),
     ('REVIEW_PROMPT', lambda text: text + '\n不同的独立审核规则。'),
     ('FACT_REVIEW_PROMPT', lambda text: text + '\n不同的事实审核规则。'),
     ('RUBRIC_ALIGNMENT_PROMPT', lambda text: text + '\n不同的评分审核规则。'),
 ])
 def test_other_semantic_reviewer_or_numeric_changes_still_invalidate_protocol(monkeypatch, field, change):
+    before = teaching._teaching_protocol_fingerprint()
     monkeypatch.setattr(teaching, field, change(getattr(teaching, field)))
-    assert teaching._teaching_protocol_fingerprint() != LEGACY_H_PROTOCOL
+    assert teaching._teaching_protocol_fingerprint() != before

@@ -63,9 +63,11 @@ def test_existing_proof_never_licenses_an_unsupported_claim():
             if self.calls==1:
                 return draft(key,text='染色体复制十次。')
             return {'relevant':True,'reviews':[{'claim_index':0,'supported':False,'reason':'原文说只复制一次，答案改成十次'}]}
-    with pytest.raises(GroundedAnswerValidationError,match='semantic review rejected'):
-        GroundedAnswerGenerator(Client(),use_semantic_review=True,max_validation_retries=0).answer(
-            question='复制几次？',evidence=evidence(),retrieval_score=2)
+    client = Client()
+    answer = GroundedAnswerGenerator(client,use_semantic_review=True,max_validation_retries=0).answer(
+        question='复制几次？',evidence=evidence(),retrieval_score=2)
+    assert answer.status == 'general' and answer.claims == [] and not answer.semantic_checked
+    assert answer.answer.endswith('染色体复制十次。') and client.calls == 2
 
 
 @pytest.mark.parametrize("address", ["unknown_span", "wrong_parent", "unknown_source"])
@@ -103,7 +105,6 @@ def test_valid_address_with_rewritten_quote_still_requires_literal_proof():
         def structured(self, **_):
             return draft(key, quote="染色体复制十次")
 
-    with pytest.raises(GroundedAnswerValidationError, match="must not rewrite"):
-        GroundedAnswerGenerator(Client(), max_validation_retries=0).answer(
-            question="复制几次？", evidence=evidence(), retrieval_score=2
-        )
+    answer = GroundedAnswerGenerator(Client(), max_validation_retries=0).answer(
+        question="复制几次？", evidence=evidence(), retrieval_score=2)
+    assert answer.status == 'general' and answer.claims == [] and not answer.semantic_checked

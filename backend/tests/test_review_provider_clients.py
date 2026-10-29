@@ -152,7 +152,7 @@ def test_deepseek_ocr_client_sends_image_json_with_disabled_thinking(configurati
     payload = request["json"]
     assert payload["model"] == "deepseek-flash"
     assert payload["thinking"] == {"type": "disabled"}
-    assert payload["reasoning_effort"] == "low"
+    assert "reasoning_effort" not in payload
     assert payload["messages"][1]["content"][0] == {
         "type": "image_url", "image_url": {"url": "data:image/png;base64,aW1hZ2UtZml4dHVyZQ=="},
     }

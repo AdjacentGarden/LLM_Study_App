@@ -210,13 +210,14 @@ def test_exact_accepted_plan_is_preserved_and_echo_cannot_override_it(cases, cha
     assert len(writer.calls) == 2
 
 
-def test_combined_budget_is_actionable_and_long_natural_options_keep_existing_limit(cases):
+def test_complete_scenario_conditions_and_long_natural_options_are_not_cut(cases):
     entry = deepcopy(cases[SUTTON]['application_item'])
     entry['application_task'].update(situation='情' * 112, decision='问' * 40)
-    with pytest.raises(generation.DiagnosticGenerationError) as error:
-        generation.DiagnosticItemGenerator._render_application(entry, source(cases[SUTTON]))
-    assert error.value.feedback['prompt']['characters'] == 153
-    assert [row['pointer'] for row in error.value.feedback['fields']] == ['/application_task/situation', '/application_task/decision']
+    rendered, _ = generation.DiagnosticItemGenerator._render_application(entry, source(cases[SUTTON]))
+    assert rendered['prompt'] == '情' * 112 + '\n' + '问' * 40
+    entry['application_task'].update(situation='情' * 600, decision='问' * 180)
+    rendered, _ = generation.DiagnosticItemGenerator._render_application(entry, source(cases[SUTTON]))
+    assert len(rendered['prompt']) == 781
     entry['application_task'].update(situation='两对象仅有行为相似的记录', decision='如何对待所得的新推断？')
     entry['application_task']['outcomes'][0] = '受控长选项' * 20
     rendered, task = generation.DiagnosticItemGenerator._render_application(entry, source(cases[SUTTON]))

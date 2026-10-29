@@ -71,7 +71,7 @@ def test_structured_call_retries_truncated_json(monkeypatch: pytest.MonkeyPatch)
         ("https://api.deepseek.com.example.test/v1", "deepseek-flash", False),
     ],
 )
-def test_official_deepseek_json_calls_enable_low_effort_thinking(
+def test_official_deepseek_json_calls_default_to_nonthinking(
     monkeypatch, base_url, model, configure_thinking
 ):
     captured = {}
@@ -87,8 +87,8 @@ def test_official_deepseek_json_calls_enable_low_effort_thinking(
         assert captured["max_tokens"] == 700
         assert captured["response_format"] == {"type": "json_object"}
         if configure_thinking:
-            assert captured["thinking"] == {"type": "enabled"}
-            assert captured["reasoning_effort"] == "low"
+            assert captured["thinking"] == {"type": "disabled"}
+            assert "reasoning_effort" not in captured
         else:
             assert "thinking" not in captured
             assert "reasoning_effort" not in captured
@@ -117,7 +117,32 @@ def test_token_limit_output_is_rejected_without_replaying_or_accepting_partial_j
         client.close()
 
 
-def test_transient_connect_proxy_overload_is_retried_and_failures_are_controlled(monkeypatch):
+@pytest.mark.parametrize("thinking,effort,expected_type,expected_effort", [
+    (False, None, "disabled", None),
+    (False, "high", "disabled", None),
+    (True, None, "enabled", "low"),
+    (True, "high", "enabled", "high"),
+    (True, "max", "enabled", "max"),
+    (None, "high", "enabled", "high"),
+    (None, "none", "disabled", None),
+])
+def test_deepseek_thinking_flag_and_effort_are_consistent(monkeypatch, thinking, effort, expected_type, expected_effort):
+    captured = {}
+    monkeypatch.setattr(httpx.Client, "post", lambda *a, **k: captured.update(k["json"]) or FakeResponse())
+    client = OpenAICompatibleClient(LLMConfig(
+        "https://api.deepseek.com/v1", "test-key", "deepseek-flash",
+        thinking_enabled=thinking, reasoning_effort=effort,
+    ))
+    try:
+        assert client.structured(system="JSON", user="test", max_tokens=700) == {}
+        assert captured["thinking"] == {"type": expected_type}
+        assert captured.get("reasoning_effort") == expected_effort
+        assert captured["max_tokens"] == 700
+    finally:
+        client.close()
+
+
+def test_uncorroborated_proxy_error_is_not_replayed(monkeypatch):
     calls = 0
     def fake_post(*args, **kwargs):
         nonlocal calls
@@ -126,8 +151,9 @@ def test_transient_connect_proxy_overload_is_retried_and_failures_are_controlled
             raise httpx.ProxyError("503 Service Unavailable")
         return FakeResponse(content='{"ok":true}')
     monkeypatch.setattr(httpx.Client, "post", fake_post)
-    assert _client(max_retries=1).structured(system="s",user="u") == {"ok":True}
-    assert calls == 2
+    with pytest.raises(LLMError, match="ProxyError"):
+        _client(max_retries=1).structured(system="s",user="u")
+    assert calls == 1
     def overloaded(*args, **kwargs):
         raise httpx.ProxyError("503 Service Unavailable")
     monkeypatch.setattr(httpx.Client, "post", overloaded)

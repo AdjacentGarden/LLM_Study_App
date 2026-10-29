@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from ..database import DATABASE_ERRORS
 from ..llm.teaching_parallel import ordered_review_map
 from .course_progress import CourseStage, report_course_stage
-from .models import SUMMARY_MAX_CHARS
+from .models import EXPLANATION_MAX_CHARS, OPENING_MAX_CHARS, SUMMARY_MAX_CHARS
 from .teaching_repair_evidence import repair_evidence_pack
 from .teaching_repairs import (
     TeachingRepairPending,
@@ -24,12 +24,14 @@ from .teaching_repairs import (
 from .teaching_review_reuse import VerifiedComponentReuse, fingerprint
 
 ENGINE_VERSION = 'isolated-source-located-units-v2'
+SOURCE_FALLBACK_AFTER_FAILURES = 3
 PEDAGOGICAL_POLICY = '''教学形式采用以下统一口径，事实和引用审核标准保持不变：
 知识点完整标签用于核对整组讲解、闪卡、练习的联合覆盖，不要求每张闪卡或每道练习重复所有子目标。
 讲解讲清核心知识与必要条件；闪卡可以只有一个中心问题，练习只需围绕该知识点的明确问项完整正确作答。
 不得为覆盖标签其他子项而强行增加题干未问的评分目标；必要时由其他教学组件承载这些内容。
 不能因参考答案简洁、没有重复讲解中已教授的其他子项或省略显然的等价式而单独拒绝。
-讲解、导入、总结允许沿用正确的数学公式、概念、结论和合理组织顺序；结构或措辞相近不是独立拒绝理由。
+讲解、导入、总结允许沿用正确的数学公式、概念、结论、完整原文摘录和合理组织顺序；结构或措辞相近不是独立拒绝理由。
+长度、风格、难度和情境丰富度不是单独否决理由；完整正确且有源的内容不必为了形式重新生成。
 重新设计的实质变化检查用于题目问项；非题目正文只按内容正确、条件完整、引用支持及教学目标审核。
 实际使用的每项事实仍须有原文依据，计算与推理必须正确，题设不能矛盾或泄露所问答案。'''
 
@@ -165,7 +167,9 @@ class UnitEngine:
                 if work.get('phase', 'write') == 'write' or not unit['candidate']:
                     must_redesign = (mode == 'redesign' or (work.get('redesign_pending_review') and
                         _question_shape(unit['candidate']) == _question_shape(work.get('rejected_design') or {})))
-                    candidate = self._write_one(unit)
+                    candidate = self._source_fallback(unit)
+                    if candidate is None:
+                        candidate = self._write_one(unit)
                     self._validate_one(unit, candidate)
                     if unit['candidate'] and fingerprint(candidate) == fingerprint(unit['candidate']):
                         raise _UnitRejected({'issue': '本轮返回与被拒组件完全相同，包括引用；必须完成repair_task列出的字段修正。'}, 'unchanged')
@@ -237,6 +241,10 @@ class UnitEngine:
             # Received malformed objects can be replaced. Unknown requests stay
             # fenced; the next pass observes them without another paid POST.
             invalidate_repair_response()
+        # Only known bad content/objects consume this bounded rewrite budget.
+        # Unknown model requests remain fenced by the unchanged submission ledger.
+        if isinstance(error, (_UnitRejected, ValueError)):
+            work['known_failures'] = int(work.get('known_failures', 0)) + 1
         delay = min(120, 5 * 2 ** min(work['failures'] - 1, 5))
         if isinstance(error, TeachingRepairPending):
             delay = max(delay, error.retry_after)
@@ -246,6 +254,45 @@ class UnitEngine:
                       error_type=type(error).__name__, next_mode=work['mode'],
                       repair_failures=work['repair_failures'], retry_after_seconds=delay,
                       feedback=work['feedback'], blocked=blocked)
+
+    def _source_fallback(self, unit: dict[str, Any]) -> dict[str, Any] | None:
+        """Create an unapproved extractive prose draft, never an invented quiz."""
+        work = unit['work']
+        kind = work['kind']
+        if (kind not in ('explanation', 'opening', 'summary') or work.get('source_fallback_attempted')
+                or int(work.get('known_failures', 0)) < SOURCE_FALLBACK_AFTER_FAILURES):
+            return None
+        high = {'explanation': EXPLANATION_MAX_CHARS,
+                'opening': OPENING_MAX_CHARS, 'summary': SUMMARY_MAX_CHARS}[kind]
+        keys = list(dict.fromkeys(key for owner in work['focus_ids']
+                                 for key in self.evidence.point_sources.get(owner, [])))
+        selected: list[str] = []
+        paragraphs: list[str] = []
+        for key in keys:
+            source = self.evidence.sources.get(key)
+            if source is None or source.quote in paragraphs:
+                continue
+            if len('\n\n'.join([*paragraphs, source.quote])) > high:
+                continue
+            selected.append(key)
+            paragraphs.append(source.quote)
+            if kind == 'explanation' and len(selected) == 8:
+                break
+        if not selected:
+            return None
+        candidate: dict[str, Any] = {'source_ids': selected}
+        content = '\n\n'.join(paragraphs)
+        if kind == 'explanation':
+            point = next(point for point in self.bundle.knowledge_points
+                         if point.point_id == work['owner_id'])
+            candidate.update(title=point.title, explanation=content)
+        else:
+            candidate['content'] = content
+        work['source_fallback_attempted'] = True
+        self.g._audit('source_fallback_draft', unit_id=unit['unit_id'],
+                      source_ids=selected, candidate_sha256=fingerprint(candidate), approved=False)
+        # _validate_one and the ordinary independent fact/teacher gates still run.
+        return candidate
 
     def _pack(self, unit: dict[str, Any]) -> dict[str, Any]:
         work = unit['work']
@@ -354,16 +401,16 @@ class UnitEngine:
         prompt = GENERATION_PROMPT + '''\n当前为独立组件任务，优先采用本请求output_shape。
 只返回一个JSON对象，唯一顶层字段component，不能返回points/lesson或其他组件。
 组件为opening/summary时返回content与source_ids。其他组件保留其原ID。
-只按knowledge_goal和本组件sources中的明确原文写作，宁可简洁完整，不增加未引用的知识。
+只按knowledge_goal和本组件sources中的明确原文写作；按需完整讲清概念、条件、适用范围和推导，合适时展开有据例子，不增加未引用的知识，不为缩短篇幅删去必要解释。
 mode=redesign时必须构造新的题设或实际问项，不能照抄旧题、只换数字或措辞；同步重写答案、评分和引用。
 对照prior_failed_designs避免反复使用已经失败的作图结构、情境和问法；必要时切换为辨析、等式应用或条件判断。
-优先设计题意简明、问项少、可直接由现有明确原文支持的小题，不为难度或情境丰富而增加额外前提。
+按教学目标设计可由现有原文完整支持的问题，问项和推导深度按知识需要确定；不得为情境丰富而编造事实前提。
 repair_task.must_redesign_question=true时，即使mode=repair也必须完成上述重设；非题目组件则完整重写讲解或总结。
 mode=repair时落实repair_task的每项缺口；正确题干可以保留，但缺失的本题引用必须实际补齐。
 latest_invalid_draft是最近一次未通过格式校验的实际稿，不是previous_candidate，也没有得到任何审核批准；按其validation精确修正后仍须解决未完成的事实或题意缺口。
 required_task_edits是当前评分审核定位的题设修改要求，不是新的原文证据；修改prompt及关联答案、评分时只能使用sources中确有支持的事实，不能照抄建议中的无源前提。
 引用的来源只能选sources已有ID，先核对其结论和条件；检索命中不代表已经获得事实批准。'''
-        raw = self.g._structured(system=prompt, user=json.dumps(payload, ensure_ascii=False), max_tokens=5000)
+        raw = self.g._structured(system=prompt, user=json.dumps(payload, ensure_ascii=False), max_tokens=12000)
         if not isinstance(raw, dict) or set(raw) != {'component'} or not isinstance(raw['component'], dict):
             raise _UnitRejected({'issue': '仅返回output_shape要求的完整component对象。'}, 'writer_format')
         if rubric_baseline is not None:
@@ -395,7 +442,7 @@ required_task_edits是当前评分审核定位的题设修改要求，不是新�
                 raise ValueError('导入/总结须返回content与source_ids')
             original = deepcopy(candidate)
             candidate['content'] = _clean_content_text(candidate['content'])
-            high = 300 if kind == 'opening' else SUMMARY_MAX_CHARS
+            high = OPENING_MAX_CHARS if kind == 'opening' else SUMMARY_MAX_CHARS
             if not candidate['content'].strip() or len(candidate['content']) > high:
                 validation = {'issue': '导入/总结长度不符合组件要求',
                               'field': '/component/content',
@@ -619,8 +666,8 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
         try:
             report_course_stage(CourseStage.REVIEWING)
             try:
-                self.g._validate_distinct_points(points)
-                self.g._validate_lesson(lesson, points, self.evidence)
+                self.g._validate_distinct_points(points, enforce_variety=False)
+                self.g._validate_lesson(lesson, points, self.evidence, enforce_variety=False)
                 fact, teacher = self.g._review_candidate(points, lesson, self.inputs, self.chapter,
                     self.evidence, [], [], attempt=int(self.state.get('passes', 1)))
                 feedback = [*self.g._fact_feedback(fact, set(self.by_id)),

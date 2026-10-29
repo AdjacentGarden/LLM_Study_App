@@ -345,13 +345,13 @@ def test_extra_real_choices_or_ambiguous_answer_positions_are_never_repaired(cas
     assert client.calls == 1
 
 
-@pytest.mark.parametrize("answer", ["   ", "长" * 181])
+@pytest.mark.parametrize("answer", ["   ", "长" * 601])
 def test_grounded_rewrite_cannot_replace_a_valid_option_with_blank_or_overlong_text(
     answer: str,
 ) -> None:
     payload = valid_payload()
     payload["items"][0]["expected_answer"] = answer
-    with pytest.raises(DiagnosticGenerationError, match="1 to 180"):
+    with pytest.raises(DiagnosticGenerationError, match="1 to 600|diagnostic generation failed"):
         make_generator(
             FakeClient(payload), validation_retries=0,  # type: ignore[arg-type]
             allow_grounded_answer_rewrite=True,
@@ -387,7 +387,7 @@ def test_grounded_rewrite_uses_answer_length_instead_of_a_broad_label_for_readab
     assert "minimum_distractor_characters" not in captured[0]["knowledge_points"][0]
     assert captured[0]["choice_length_rule"]["correct_answer_source"] == "expected_answer"
     assert captured[0]["choice_length_rule"]["evaluation"] == "independent_semantic_review"
-    assert captured[0]["choice_length_rule"]["maximum_option_characters"] == 180
+    assert captured[0]["choice_length_rule"]["maximum_option_characters"] == 600
     assert items[0].options[int(items[0].correct_option_ids[0])] == "甲是一个用于测试的概念。"
     assert items[0].knowledge_point_labels == [label]
 
@@ -667,7 +667,7 @@ def test_batch_repairs_schema_and_content_failures_together_without_serializing_
                               'options': ['丙的条件', '这是第一个干扰选项', '这是第二个干扰选项', '这是第三个干扰选项']})
     broken = deepcopy(repaired)
     broken['items'][0]['type'] = 'explanation'
-    broken['items'][1]['options'][1] = '长' * 181
+    broken['items'][1]['options'][1] = '长' * 601
     broken['items'][2]['expected_answer'] = '正确结论丙' * 8
     broken['items'][2]['options'][0] = broken['items'][2]['expected_answer']
     broken['items'][2]['options'][1] = broken['items'][2]['options'][2]

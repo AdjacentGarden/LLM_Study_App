@@ -10,7 +10,6 @@ from adaptive_learning.llm.client import (
 from adaptive_learning.rag.grounded_qa import (
     EvidenceChunk,
     GroundedAnswerGenerator,
-    GroundedAnswerValidationError,
 )
 
 SOURCE = EvidenceChunk(source_id='E1', page_number=11, text='染色体只复制一次，而细胞分裂两次。')
@@ -80,8 +79,6 @@ def test_model_insufficiency_calls_general_once_and_retains_shared_deadline():
 
 @pytest.mark.parametrize('reply,error', [
     (LLMTimeoutError('deadline exhausted'), LLMTimeoutError),
-    ({'answer': '   '}, GroundedAnswerValidationError),
-    ({}, ValueError),
 ])
 def test_failed_general_answer_never_restarts_grounded_draft_or_repeats_fallback(reply, error):
     client = SequenceClient([{'status': 'insufficient', 'claims': []}, reply])

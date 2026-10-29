@@ -89,6 +89,10 @@ def test_rubric_only_never_masks_other_factual_task_or_unlocated_rejections(stat
         teacher._rubric_alignment['items'][0]['rubric_checks'][0]['repair_scope'] = 'task_revision'
     else:
         teacher._pre_rubric_review = {}
+    if veto == 'unknown_issue':
+        with pytest.raises(teaching._TeachingReviewFormatError, match='未定位'):
+            plan_for(state)
+        return
     assert not plan_for(state).requirements.rubric_only_points
 
 

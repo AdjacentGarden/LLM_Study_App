@@ -62,7 +62,7 @@ def test_nested_context_restores_default_after_exception_without_changing_other_
         name = kwargs["json"]["model"]
         calls[name] += 1
         if calls[name] == 1:
-            raise httpx.ReadError("reply lost")
+            return reply(url, text="[]")
         return reply(url)
     monkeypatch.setattr(httpx.Client, "post", post)
     monkeypatch.setattr("adaptive_learning.llm.client.time.sleep", lambda _: None)
@@ -103,7 +103,7 @@ def test_concurrent_ordinary_calls_do_not_inherit_diagnostic_submission_fence(mo
             count = calls[name]
         if count == 1:
             first_posts.wait(timeout=5)
-            raise httpx.ReadError("reply lost")
+            return reply(url, text="[]")
         return reply(url)
     monkeypatch.setattr(httpx.Client, "post", post)
     monkeypatch.setattr("adaptive_learning.llm.client.time.sleep", lambda _: None)

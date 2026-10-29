@@ -6,6 +6,7 @@ import re
 import threading
 from collections import OrderedDict
 from pathlib import Path
+from typing import cast
 
 from fastapi import HTTPException, Request
 
@@ -35,6 +36,9 @@ _components: tuple[
     TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator
 ] | None = None
 _components_lock = threading.Lock()
+_generator: GroundedAnswerGenerator | None = None
+_generator_lock = threading.Lock()
+_direct_services: OrderedDict[str, TextbookQAService] = OrderedDict()
 _upload_indexes: OrderedDict[str, tuple[tuple[object, ...], Path]] = OrderedDict()
 _upload_index_lock = threading.Lock()
 
@@ -49,7 +53,7 @@ def _book_coverage(data_dir: Path | None, book_id: str) -> dict:
 def upload_components() -> tuple[TransformerQueryEncoder, TransformerPairReranker, GroundedAnswerGenerator]:
     # Preserve the native index API while sharing one model pair without needing
     # a published/default textbook index in upload-only deployments.
-    if _service is not None:
+    if _service is not None and _service.index is not None:
         return _service.index.encoder, _service.index.reranker, _service.generator  # type: ignore[return-value]
     return _shared_components()
 
@@ -80,11 +84,25 @@ def _create_components() -> tuple[
         raise QAConfigurationError("RAG_EMBEDDING_MODEL_PATH is not configured")
     if settings.rag_reranker_model_path is None:
         raise QAConfigurationError("RAG_RERANKER_MODEL_PATH is not configured")
-    if not settings.text_api_key:
-        raise QAConfigurationError("Selected text provider API key is not configured")
-
+    generator = _shared_generator()
     encoder = TransformerQueryEncoder(settings.rag_embedding_model_path, device=settings.rag_device)
     reranker = TransformerPairReranker(settings.rag_reranker_model_path, device=settings.rag_device)
+    return encoder, reranker, generator
+
+
+def _shared_generator() -> GroundedAnswerGenerator:
+    """Text generation remains available without embedding/GPU/index resources."""
+    global _generator
+    with _generator_lock:
+        if _generator is None:
+            _generator = _create_generator()
+        return _generator
+
+
+def _create_generator() -> GroundedAnswerGenerator:
+    settings = get_settings()
+    if not settings.text_api_key:
+        raise QAConfigurationError("Selected text provider API key is not configured")
     client = OpenAICompatibleClient(
         LLMConfig(
             base_url=settings.text_base_url,
@@ -97,7 +115,7 @@ def _create_components() -> tuple[
             reasoning_effort=settings.text_reasoning_effort,
         )
     )
-    generator = GroundedAnswerGenerator(
+    return GroundedAnswerGenerator(
         client,
         refusal_score_threshold=settings.rag_refusal_score_threshold,
         # The answer prompt already receives the complete bounded evidence set.
@@ -108,7 +126,23 @@ def _create_components() -> tuple[
         max_output_tokens=settings.rag_max_output_tokens,
         draft_budget_seconds=settings.rag_generation_timeout_seconds,
     )
-    return encoder, reranker, generator
+
+
+def _direct_service(book_id: str) -> TextbookQAService:
+    settings = get_settings()
+    with _book_service_lock:
+        service = _direct_services.get(book_id)
+        if service is None:
+            service = TextbookQAService(
+                book_id=book_id, index=None, generator=_shared_generator(),
+                generation_budget_seconds=settings.rag_generation_timeout_seconds,
+                wait_seconds=settings.rag_generation_timeout_seconds + 5,
+            )
+            _direct_services[book_id] = service
+        _direct_services.move_to_end(book_id)
+        while len(_direct_services) > 4:
+            _direct_services.popitem(last=False)
+        return service
 
 
 def _create_qa_service() -> TextbookQAService:
@@ -190,7 +224,11 @@ def build_book_qa_service(book_id: str) -> TextbookQAService:
     # caches are book-specific. Bound the number of resident CPU indexes.
     if book_id in settings.published_book_ids and settings.rag_index_dir is not None:
         primary = build_qa_service()
-        encoder, reranker, generator = primary.index.encoder, primary.index.reranker, primary.generator
+        if primary.index is None:
+            raise QAConfigurationError("Published textbook index is unavailable")
+        encoder = cast(TransformerQueryEncoder, primary.index.encoder)
+        reranker = cast(TransformerPairReranker, primary.index.reranker)
+        generator = primary.generator
     else:
         encoder, reranker, generator = _shared_components()
     with _book_service_lock:
@@ -253,6 +291,8 @@ def require_qa_service(
     # Native routes call directly after workspace/resource authorization.
     # FastAPI dependencies always inject Request and enforce legacy shelf ownership.
     settings = get_settings()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
+        raise HTTPException(404, "未找到该教材")
     if (request is not None and book_id != native_catalog.BOOK_ID
             and book_id != settings.rag_book_id and book_id not in settings.published_book_ids):
         repo = CommunityRepository(settings.data_dir / "state" / "community.sqlite3")
@@ -263,5 +303,19 @@ def require_qa_service(
             raise HTTPException(403, "请先将这本教材加入书架")
     try:
         return build_book_qa_service(book_id)
-    except (QAConfigurationError, RAGIndexError, OSError, ValueError) as error:
-        raise HTTPException(status_code=503, detail="教材答疑服务尚未就绪") from error
+    except HTTPException as error:
+        if error.status_code != 409:
+            raise
+    except (QAConfigurationError, RAGIndexError, OSError, ValueError, RuntimeError, ImportError):
+        pass
+    # A missing index is not a missing book. Never use this fallback to bypass
+    # ownership above, or turn an arbitrary/unknown book ID into an answer API.
+    if (book_id != native_catalog.BOOK_ID and book_id != settings.rag_book_id
+            and book_id not in settings.published_book_ids):
+        jobs = SQLiteOCRJobRepository(settings.data_dir / "state" / "ocr_jobs.sqlite3")
+        if jobs.get_book(book_id) is None:
+            raise HTTPException(404, "未找到该教材")
+    try:
+        return _direct_service(book_id)
+    except (QAConfigurationError, ValueError) as error:
+        raise HTTPException(status_code=503, detail="回答服务尚未配置") from error

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+
 from adaptive_learning.llm import client as llm
 from adaptive_learning.llm.model_admission import ModelAdmission
 
@@ -235,14 +236,15 @@ def test_parse_failure_keeps_original_retry_delay(transport):
     assert len(transport.calls) == 2
 
 
-def test_transport_timeout_keeps_original_retry_semantics(transport):
+def test_unknown_transport_timeout_never_replays_a_submission(transport):
     request = httpx.Request("POST", "https://offline.test/v1/model")
     error = (llm.APITimeoutError(request=request) if transport.protocol == "sdk"
              else httpx.ReadTimeout("fake timeout", request=request))
     transport.install([error, transport.success()])
-    assert transport.run() == {"ok": True}
-    assert transport.clock.sleeps == [0.25]
-    assert len(transport.calls) == 2
+    with pytest.raises(llm.LLMTimeoutError):
+        transport.run()
+    assert transport.clock.sleeps == []
+    assert len(transport.calls) == 1
 
 
 def test_previous_hint_does_not_leak_into_next_parse_failure(transport):

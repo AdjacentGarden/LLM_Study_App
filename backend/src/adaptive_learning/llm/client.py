@@ -51,11 +51,11 @@ class LLMOutputLimitError(LLMError):
 
 
 class LLMNotSubmittedError(LLMError):
-    """Every transport attempt failed while connecting, before sending model input."""
+    """Every transport attempt failed before sending model input."""
 
 
 def _connection_not_submitted(error: BaseException) -> bool:
-    """Recognize only HTTPX connection failures, including explicit SDK causes.
+    """Recognize only HTTPX connect/pool failures, including explicit SDK causes.
 
     An SDK connection/timeout label alone does not establish that a POST was
     unsent. Never infer that from messages, and reject contradictory read/write,
@@ -68,7 +68,8 @@ def _connection_not_submitted(error: BaseException) -> bool:
             return False
         wrappers.add(id(cause))
         cause = cause.__cause__
-    if not isinstance(cause, (httpx.ConnectError, httpx.ConnectTimeout)):
+    unsent = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+    if not isinstance(cause, unsent):
         return False
     pending, seen = [error], set()
     while pending:
@@ -79,10 +80,10 @@ def _connection_not_submitted(error: BaseException) -> bool:
         if (
             isinstance(current, (httpx.HTTPStatusError, APIStatusError))
             or isinstance(current, httpx.TransportError)
-            and not isinstance(current, (httpx.ConnectError, httpx.ConnectTimeout))
+            and not isinstance(current, unsent)
             or isinstance(current, (
                 httpcore.ReadError, httpcore.WriteError, httpcore.ReadTimeout,
-                httpcore.WriteTimeout, httpcore.PoolTimeout, httpcore.ProtocolError,
+                httpcore.WriteTimeout, httpcore.ProtocolError,
                 httpcore.ProxyError, httpcore.UnsupportedProtocol,
             ))
             or isinstance(current, LLMTimeoutError)
@@ -146,10 +147,10 @@ _block_ambiguous_retries: ContextVar[bool] = ContextVar("block_ambiguous_model_r
 def no_ambiguous_model_retries() -> Iterator[None]:
     """Let a durable submission owner reconcile an uncertain call before replay.
 
-    This is scoped to the calling task. Explicit retryable HTTP replies retain
-    their existing handling; a lost transport or unusable body cannot initiate
-    another paid submission inside this context. Proven pre-POST connection
-    failures may reconnect within the existing retry and deadline budgets.
+    Uncertain transport outcomes never replay, including outside this context.
+    This task-local fence also blocks replay after a received but unusable body.
+    Explicit retryable HTTP replies retain their existing handling; proven
+    pre-POST connect/pool failures retain the existing retry/deadline budgets.
     """
     token = _block_ambiguous_retries.set(True)
     try:
@@ -387,14 +388,10 @@ class OpenAICompatibleClient:
             ],
         }
         base_url = self.config.base_url.rstrip("/")
-        if (
+        official_deepseek = (
             urlsplit(base_url).hostname == "api.deepseek.com"
             and self.config.model.startswith("deepseek-")
-        ):
-            # Keep reasoning enabled at the requested low effort. Thinking shares
-            # max_tokens with the final JSON, so callers must budget for both.
-            payload["thinking"] = {"type": "enabled"}
-            payload["reasoning_effort"] = "low"
+        )
         endpoint = f"{base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.config.api_key}"}
         anthropic = self.config.model.startswith("claude-")
@@ -447,7 +444,17 @@ class OpenAICompatibleClient:
         if not anthropic and not responses:
             # Keep thinking opt-in; encode the explicit policy using each
             # service's accepted Chat Completions values.
-            if self.config.thinking_enabled is not None:
+            if official_deepseek:
+                # The service defaults to thinking, and reasoning_effort can
+                # enable it even beside thinking=disabled. Make the configured
+                # boolean authoritative and keep ordinary JSON work nonthinking.
+                effort = self.config.reasoning_effort
+                thinking = self.config.thinking_enabled
+                enabled = (thinking if thinking is not None else effort not in {None, "none"})
+                payload["thinking"] = {"type": "enabled" if enabled else "disabled"}
+                if enabled:
+                    payload["reasoning_effort"] = effort if effort not in {None, "none"} else "low"
+            elif self.config.thinking_enabled is not None:
                 enabled_type = (
                     "adaptive" if urlsplit(base_url).hostname in {
                         "api.minimax.cn", "api.minimaxi.com", "api.minimax.io",
@@ -456,7 +463,7 @@ class OpenAICompatibleClient:
                 payload["thinking"] = {
                     "type": enabled_type if self.config.thinking_enabled else "disabled"
                 }
-            if self.config.reasoning_effort is not None:
+            if not official_deepseek and self.config.reasoning_effort is not None:
                 payload["reasoning_effort"] = self.config.reasoning_effort
         last_error: Exception | None = None
         all_not_submitted = True
@@ -586,7 +593,8 @@ class OpenAICompatibleClient:
                 not_submitted = _connection_not_submitted(error)
                 all_not_submitted = all_not_submitted and not_submitted
                 if (
-                    _block_ambiguous_retries.get() and not not_submitted
+                    isinstance(error, (APIConnectionError, httpx.TransportError)) and not not_submitted
+                    or _block_ambiguous_retries.get() and not not_submitted
                     or attempt >= self.config.max_retries
                 ):
                     break

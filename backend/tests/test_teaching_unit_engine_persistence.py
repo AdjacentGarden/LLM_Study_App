@@ -198,8 +198,8 @@ def test_native_final_assembly_requires_complete_review_before_apply_and_publica
     finally:
         repairs.current_repair.reset(token)
     seen = []
-    engine.g._validate_distinct_points = lambda points: None
-    engine.g._validate_lesson = lambda lesson, points, evidence: None
+    engine.g._validate_distinct_points = lambda points, **kwargs: None
+    engine.g._validate_lesson = lambda lesson, points, evidence, **kwargs: None
 
     def review(*args, **kwargs):
         seen.append('final_review')

@@ -11,7 +11,7 @@ import re
 from collections import Counter
 from typing import Any
 
-from .teaching_evidence import TeachingEvidence, _scope_terms
+from .teaching_evidence import MAX_SOURCE_CHARACTERS, TeachingEvidence, _scope_terms
 
 
 def repair_evidence_pack(evidence: TeachingEvidence, *, label: str, candidate: Any,
@@ -28,32 +28,34 @@ def repair_evidence_pack(evidence: TeachingEvidence, *, label: str, candidate: A
     ranked = sorted(keys, key=lambda key: (-sum(
         (2 if term in feedback_terms else 1) * math.log1p(len(keys) / frequency[term])
         for term in query & source_terms[key]), keys.index(key)))
-    limit = min(30 if overview else 18, (18 if overview else 8) + expansion * 2)
+    # This registry is already chapter-bounded. Do not hide a distant condition
+    # merely because eight higher-ranked fragments filled an arbitrary count.
+    limit = len(keys)
+    character_budget = MAX_SOURCE_CHARACTERS
     chosen: list[str] = []
 
     def add(key: str) -> None:
-        if key in evidence.sources and key not in chosen and len(chosen) < limit:
+        if (key in evidence.sources and key not in chosen and len(chosen) < limit
+                and sum(len(evidence.sources[item].quote) for item in chosen)
+                    + len(evidence.sources[key].quote) <= character_budget):
             chosen.append(key)
 
     # Own sources and reviewer-located sources remain visible, with room for
     # independently retrieved definitions instead of filling the pack with anchors.
-    for key in [*sorted(mentioned), *anchors[:3]]:
+    for key in [*sorted(mentioned), *anchors]:
         add(key)
     if overview:
         for i in range(min(10, len(keys))):
             add(keys[round(i * (len(keys) - 1) / max(1, min(10, len(keys)) - 1))])
-    for key in ranked:
-        if len(chosen) >= max(1, limit - 2):
-            break
-        add(key)
-    # Include adjoining passages so a definition's nonzero/exception conditions
-    # are not cut off by a passage boundary.
+    # Protect adjoining conditions before lower-ranked material consumes budget.
     for key in chosen[:]:
         index = keys.index(key)
         for pos in (index - 1, index + 1):
             if 0 <= pos < len(keys) and abs(evidence.sources[keys[pos]].page_number
                                           - evidence.sources[key].page_number) <= 1:
                 add(keys[pos])
+    for key in ranked:
+        add(key)
     return {
         'sources': {key: evidence.sources[key].model_dump() for key in chosen},
         'citation_repair': {
@@ -64,5 +66,9 @@ def repair_evidence_pack(evidence: TeachingEvidence, *, label: str, candidate: A
                            '候选检索不代表事实批准；章节阅读列表不能替代本题引用。',
         },
         'retrieval': {'registry_size': len(keys), 'selected': len(chosen),
-                      'expansion': expansion, 'evidence_fingerprint': evidence.fingerprint},
+                      'expansion': expansion, 'evidence_fingerprint': evidence.fingerprint,
+                      'source_character_budget': character_budget,
+                      'registry_characters': sum(len(source.quote) for source in evidence.sources.values()),
+                      'all_registered_sources_included': len(chosen) == len(keys),
+                      'selection_policy': 'complete-registered-source-v1'},
     }

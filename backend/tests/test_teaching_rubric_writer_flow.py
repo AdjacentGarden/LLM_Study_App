@@ -103,6 +103,6 @@ def test_construction_accepts_one_necessary_criterion_but_rejects_empty_or_overl
     points, _, _, _ = point_models()
     practice = points[0].practice.model_dump()
     assert teaching._Practice.model_validate({**practice, "rubric": [practice["rubric"][0]]}).rubric == [practice["rubric"][0]]
-    for rubric in ([], [*practice["rubric"], *["额外项"] * 5]):
+    for rubric in ([], ["额外项"] * (teaching.RUBRIC_MAX_ITEMS + 1)):
         with pytest.raises(ValidationError):
             teaching._Practice.model_validate({**practice, "rubric": rubric})

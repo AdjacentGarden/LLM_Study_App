@@ -78,7 +78,7 @@ def test_real_transport_reconnects_but_server_receives_only_one_model_post(monke
 
 
 @pytest.mark.parametrize("protocol", ["http", "sdk"])
-@pytest.mark.parametrize("kind", ["ConnectTimeout", "ConnectError"])
+@pytest.mark.parametrize("kind", ["ConnectTimeout", "ConnectError", "PoolTimeout"])
 @pytest.mark.parametrize("retries", [0, 1])
 def test_only_exhausted_proven_connection_attempts_are_typed_not_submitted(monkeypatch, protocol, kind, retries):
     transport = FakeTransport(protocol, monkeypatch).install(
@@ -91,6 +91,48 @@ def test_only_exhausted_proven_connection_attempts_are_typed_not_submitted(monke
         assert len(transport.clock.sleeps) == retries
         if protocol == "sdk":
             assert transport.client._responses_sdk.max_retries == 0
+    finally:
+        transport.client.close()
+
+
+@pytest.mark.parametrize("protocol", ["http", "sdk"])
+@pytest.mark.parametrize("kind", ["ReadTimeout", "WriteTimeout", "ReadError", "WriteError",
+                                   "RemoteProtocolError", "ProxyError", "uncaused_sdk"])
+def test_all_callers_block_unknown_transport_replay(monkeypatch, protocol, kind):
+    transport = FakeTransport(protocol, monkeypatch).install([failure(protocol, kind)], max_retries=3)
+    try:
+        with pytest.raises(llm.LLMError) as caught:
+            transport.client.structured(system="s", user="u")
+        assert not isinstance(caught.value, llm.LLMNotSubmittedError)
+        assert len(transport.calls) == 1 and transport.clock.sleeps == []
+    finally:
+        transport.client.close()
+
+
+@pytest.mark.parametrize("protocol", ["http", "sdk"])
+def test_pool_acquisition_timeout_is_safe_to_retry_before_any_post(monkeypatch, protocol):
+    error = failure(protocol, "PoolTimeout")
+    underlying = error if protocol == "http" else error.__cause__
+    underlying.__cause__ = httpcore.PoolTimeout("controlled pool wait")
+    transport = FakeTransport(protocol, monkeypatch)
+    transport.install([error, transport.success(usage={"input_tokens": 1, "output_tokens": 1})], max_retries=1)
+    try:
+        assert transport.client.structured(system="s", user="u") == {"ok": True}
+        assert len(transport.calls) == 2 and transport.clock.sleeps == [.25]
+        assert transport.client.usage_totals()["responses"] == 1
+    finally:
+        transport.client.close()
+
+
+def test_pool_label_cannot_hide_a_previous_read_failure(monkeypatch):
+    error = failure("http", "PoolTimeout")
+    error.__context__ = httpx.ReadError("previous model response was lost")
+    transport = FakeTransport("http", monkeypatch).install([error], max_retries=3)
+    try:
+        with pytest.raises(llm.LLMError) as caught:
+            transport.client.structured(system="s", user="u")
+        assert not isinstance(caught.value, llm.LLMNotSubmittedError)
+        assert len(transport.calls) == 1
     finally:
         transport.client.close()
 

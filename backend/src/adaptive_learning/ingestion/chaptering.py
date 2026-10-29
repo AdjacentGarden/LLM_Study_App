@@ -50,8 +50,8 @@ _TOC_LABEL = re.compile(r"^\s*(目录|目次|contents?|table\s+of\s+contents)(?:
 _CHAPTER_SUMMARY_SYSTEM = """你是书籍章节摘要器。输入只包含同一章的带页码原文。
 规则：
 1. 只总结输入原文明确表达的内容，不使用外部知识。
-2. summary 面向手机阅读，用 2-4 个短段概括本章主线，每段 1-2 句；总长通常 120-360 字，最长 520 字。段落之间用两个换行符分隔，不写标题、不用 Markdown、不重复章名。
-3. knowledge_points 通常给出 3-12 个本章核心点；短章节可以只有 1-2 个，不要为了数量编造内容。每项 text 应是一条可独立理解的完整陈述，通常 18-90 字；保留必要条件与完整术语，但不要把定义、历史、例子和应用堆在同一项。每项 evidence_ids 为1-6个编号。
+2. summary 只用于目录概览，分段概括本章主线，通常 200-600 字，最多 1600 字；它不是课程正文，也不能替代下方完整知识点目录。段落之间用两个换行符分隔，不写标题、不用 Markdown、不重复章名。
+3. knowledge_points 按原文章节顺序列出所有可独立学习的重要概念、条件、关系、过程和结论，不为固定数量压缩合并或省略后半章内容。数量随实际内容变化，短章节可只有1项，长章节可超过20项，最多64项；不为凑数重复或编造。每项 text 是可独立理解的完整陈述，保留适用范围、必要条件、否定和例外；复杂过程可拆成多个有各自依据的学习点。每项 evidence_ids 为1-6个编号。
 4. 顶层 evidence_ids 选择1-24个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要为了凑引用数量重复或增加无关证据。
 5. 不输出小节层级，不输出 chunk id，不出现连续重复标点、词中异常空格或 OCR 残缺片段。
 6. 只返回 JSON：
@@ -91,8 +91,8 @@ class KnowledgePointDraft(BaseModel):
 
 class ChapterSummaryDraft(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
-    summary: str = Field(min_length=1, max_length=680)
-    knowledge_points: list[KnowledgePointDraft] = Field(min_length=1, max_length=20)
+    summary: str = Field(min_length=1, max_length=2000)
+    knowledge_points: list[KnowledgePointDraft] = Field(min_length=1, max_length=64)
     evidence_ids: list[str] = Field(min_length=1, max_length=24)
 
 
@@ -546,7 +546,7 @@ class ChapterReconstructor:
         self,
         client: OpenAICompatibleClient | None = None,
         *,
-        max_chapter_characters: int = 28_000,
+        max_chapter_characters: int = 64_000,
         validation_retries: int = 1,
     ) -> None:
         if max_chapter_characters < 2000:
@@ -702,7 +702,7 @@ class ChapterReconstructor:
                     system=_CHAPTER_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
-                    max_tokens=2400,
+                    max_tokens=12_000,
                 )
                 draft = ChapterSummaryDraft.model_validate(result)
                 evidence: list[SourceQuote] = []
@@ -725,7 +725,7 @@ class ChapterReconstructor:
                 return chapter.model_copy(
                     update={
                         "summary": draft.summary.strip(),
-                        "knowledge_points": list(point_evidence)[:20],
+                        "knowledge_points": list(point_evidence),
                         "evidence": evidence,
                         "knowledge_point_evidence": point_evidence,
                     }
@@ -880,22 +880,22 @@ class ChapterReconstructor:
             for unit in units:
                 distinct.setdefault(unit.quote, unit)
             units = list(distinct.values())
-            selected: list[SourceQuote] = []
+            # Cover the middle as well as the two ends of a long page. A unit
+            # that does not fit must not discard later, shorter source spans.
+            typical = max(1, int(statistics.median(len(unit.quote) for unit in units))) if units else 1
+            sample_count = min(len(units), max(1, quota // typical))
+            priority = [round(i * (len(units) - 1) / max(1, sample_count - 1))
+                        for i in range(sample_count)]
+            order = list(dict.fromkeys([*priority, *range(len(units))]))
+            chosen: set[int] = set()
             used = 0
-            left, right = 0, len(units) - 1
-            take_left = True
-            while left <= right:
-                index = left if take_left else right
+            for index in order:
                 unit = units[index]
-                if selected and used + len(unit.quote) > quota:
-                    break
-                selected.append(unit)
+                if used + len(unit.quote) > quota:
+                    continue
+                chosen.add(index)
                 used += len(unit.quote)
-                if take_left:
-                    left += 1
-                else:
-                    right -= 1
-                take_left = not take_left
+            selected = [unit for index, unit in enumerate(units) if index in chosen]
             for index, source in enumerate(selected, start=1):
                 evidence_id = f"P{page.page_number}E{index}"
                 payload.append({"id": evidence_id, "page_number": page.page_number, "text": source.quote})

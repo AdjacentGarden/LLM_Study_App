@@ -90,9 +90,9 @@ _APPLICATION_CONTRACT = """source_application只使用私有source_scenario计�
 _APPLICATION_PLAN_CONTRACT = """v16统一source_scenario计划：
 只返回mode=source_scenario、source_refs、situation、decision、outcomes、correct_index；不使用其它mode、basis、records或自由derivation。
 source_refs为本知识点目录中的1–6个精确ref，不抄写或改写原文。程序从不可变目录读取引用，未知、重复或其它知识点ref均拒绝。
-situation是最多112字的具体情境，给出判断所需的全部条件；decision是最多40字的单一正向问题，要求选择尚未给出的结论、对象配置、界定方案或后续行动。
-两部分合成后的完整题干仍最多140字，不能截断条件来压短；预算反馈会回指situation/decision。
-outcomes恰好四个非空且不同的同轴结果或方案，每项最多180字，通常15–90字。correct_index为0–3，仅提出待审核的答案，不是自审结论。
+situation是最多600字的具体情境，给出判断所需的全部条件；decision是最多180字的单一正向问题，要求选择尚未给出的结论、对象配置、界定方案或后续行动。
+两部分合成后的完整题干最多800字，不能截断条件来压短；预算反馈会回指situation/decision。
+outcomes恰好四个非空且不同的同轴结果或方案，每项最多600字，按完整条件自然表述。correct_index为0–3，仅提出待审核的答案，不是自审结论。
 先确定原文支持的关系及全部限定，再给具体对象或方案，让条件实际参与选择；不要把正确结论写进situation，也不要仅把原文项目列出后问是否列齐。
 四项比较同一对象、角色、条件或论证标准；错误项须体现可信的不同误解，不能用跨类名词、荒谬机制、重复换词或三个显眼绝对说法送分。
 只能从原文得到的正向关系或明确的定义边界推出结论；缺少条件仅能说明尚未支持该判断，不能推出其反面、过程一定失败或另一现象一定发生。
@@ -109,7 +109,7 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 6. 题干必须能让用户仅通过选择作答，不得要求说明理由；difficulty 取 -2 到 2，estimated_seconds 取 20 到 90。
 7. 严格遵循每题由证据预先确定的cognitive_target，不要求每三题必有应用；难度必须与实际推理负担一致。情境只能组合evidence已有对象和条件，不能把标签或修改意见当新事实。
 8. 所问判断必须正向，不得要求选择不正确、错误或不属于的一项，因为指定答案是原文核验为真的陈述。题设可以包含有原文支持的不属于、不符合等否定条件；不能把否定前提误判为反向作答。
-9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
+9. 面向手机作答：题干按完整条件自然表述、最多800字；每个选项最多600字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
 10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部结构校验与审查问题，不能每轮只修一道；
 若有 required_repairs，prompt 非空表示必须实质修改该旧题干，option_texts 中每个旧选项都必须从整题四选项中移除并重写，不能仅换位置、空白、大小写、正确项位置或难度。应用项必须修改真实 situation/decision/outcomes，修改程序只读题面回声无效。修改只是再次独审的前提，不是批准；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
 只返回 JSON：以下是非source_application项示例；应用项按application_contract返回task：
@@ -120,9 +120,9 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 # copy the ordinary-item example and consume its first repair on a missing task.
 _APPLICATION_OUTPUT_SHAPES = {
     "source_scenario": {"source_refs": "1-6 exact refs from this point's immutable directory",
-        "situation": "concrete given conditions, at most 112 characters",
-        "decision": "one unanswered positive judgment, at most 40 characters; combined prompt at most 140",
-        "outcomes": ["four distinct parallel outcomes or proposed configurations, each at most 180 characters"],
+        "situation": "concrete given conditions, at most 600 characters",
+        "decision": "one unanswered positive judgment, at most 180 characters; combined prompt at most 800",
+        "outcomes": ["four distinct parallel outcomes or proposed configurations, each at most 600 characters"],
         "correct_index": "integer 0-3; candidate answer, never self-approval"},
 }
 
@@ -148,18 +148,25 @@ _ITEM_REVIEW_SYSTEM = """你是严格的诊断题审校器。输入的原文证�
 _TARGETED_REPAIR_INSTRUCTIONS = """10. 本次只生成knowledge_points列出的待处理题目，不得返回其他题目或已通过题目。
 根据repair_feedback与required_repairs修正实际错误。可以保留正确词句，不强制替换完整旧选项；是否修好由再次独立审核判断。
 反馈不是事实来源，不能引入evidence以外的学科事实。generation_strategy为redesign时，重新设计同知识点的题干、选项或应用情境，仍须满足原认知目标及唯一正确答案。"""
-_RELAXED_REVIEW_INSTRUCTIONS = """\n审核优先级补充：只把影响答案正确性、唯一性、原文支持、作答理解或指定认知目标的实际缺陷列为拒绝理由。
+_RELAXED_REVIEW_INSTRUCTIONS = """\n审核优先级补充（与前文冲突时以本段为准）：只把影响答案正确性、唯一性、原文支持或作答理解的实际缺陷列为拒绝理由。
 允许忠实于原文含义的改写、合理的选项长度差异、低负担的简单情境。轻微措辞、风格和难度偏好仅属建议，不阻止通过，也不列入issues或required_edits。
+认知目标是优先设计方向，不是必须达到的复杂度门槛；有据、唯一、可理解的基础题或简单关系判断，不因应用性不够、推理步数少或情境不够新颖而退回。明确给出条件再判断是否符合原文关系是有效练习。
 修改要求定位实际错误，不要求所有旧选项或正确词句全部重写。无依据事实、多解和明显泄题仍须拒绝。"""
+
+# The same usable-question standard applies to the first review and repairs.
+# Keeping it in the hashed prompts prevents a relaxed verdict from inheriting
+# an approval identity created under a different review contract.
+_ITEM_SYSTEM += _RELAXED_REVIEW_INSTRUCTIONS
+_ITEM_REVIEW_SYSTEM += _RELAXED_REVIEW_INSTRUCTIONS
 
 
 class _SourceScenarioPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     mode: Literal["source_scenario"]
     source_refs: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(min_length=1, max_length=6)
-    situation: str = Field(min_length=2, max_length=112)
-    decision: str = Field(min_length=2, max_length=40)
-    outcomes: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(min_length=4, max_length=4)
+    situation: str = Field(min_length=2, max_length=600)
+    decision: str = Field(min_length=2, max_length=180)
+    outcomes: list[Annotated[str, Field(min_length=1, max_length=600)]] = Field(min_length=4, max_length=4)
     correct_index: Annotated[StrictInt, Field(ge=0, le=3)]
 
     @model_validator(mode="after")
@@ -282,10 +289,10 @@ _APPLICATION_PLAN: TypeAdapter[_ApplicationPlan] = TypeAdapter(cast(Any, Annotat
 class ItemDraft(BaseModel):
     knowledge_point_id: str
     type: str
-    prompt: str = Field(min_length=5, max_length=140)
+    prompt: str = Field(min_length=5, max_length=800)
     options: list[str] = Field(default_factory=list, max_length=4)
     correct_index: int | None = None
-    expected_answer: str = Field(min_length=1, max_length=240)
+    expected_answer: str = Field(min_length=1, max_length=600)
     rubric: list[str] = Field(default_factory=list, max_length=6)
     difficulty: float = Field(ge=-2, le=2)
     estimated_seconds: int = Field(ge=20, le=180)
@@ -311,8 +318,8 @@ class ItemDraft(BaseModel):
 
     @model_validator(mode="after")
     def mobile_readable_options(self) -> ItemDraft:
-        if any(len(option.strip()) > 180 for option in self.options):
-            raise ValueError("choice options must not exceed 180 characters")
+        if any(len(option.strip()) > 600 for option in self.options):
+            raise ValueError("choice options must not exceed 600 characters")
         return self
 
 
@@ -862,7 +869,7 @@ class DiagnosticItemGenerator:
                 "correct_answer_source": "expected_answer" if self.allow_grounded_answer_rewrite else "label",
                 "application_answer_source": "source_scenario.outcomes[correct_index]; independent review required",
                 "minimum_nonempty_characters": 1,
-                "maximum_option_characters": 180,
+                "maximum_option_characters": 600,
                 "evaluation": "independent_semantic_review",
                 "repair": "使用自然同类选项，不补字凑长度；独立审校会核对长度/具体程度是否实际提示了答案。",
             },
@@ -904,7 +911,7 @@ class DiagnosticItemGenerator:
                     system=system,
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
-                    max_tokens=2600,
+                    max_tokens=6000,
                 )
                 self._audit(attempt_context, "generation_response", response=raw)
                 draft = _ItemBatchEnvelope.model_validate(raw)
@@ -1127,14 +1134,14 @@ class DiagnosticItemGenerator:
             ],
         }
         assert self.review_client is not None
-        review_system = _ITEM_REVIEW_SYSTEM + (_RELAXED_REVIEW_INSTRUCTIONS if relaxed else "")
+        review_system = _ITEM_REVIEW_SYSTEM
         self._audit(audit_context, "review_request", system=review_system,
                     request=review_payload, review_identity=self.review_identity)
         raw = self.review_client.structured(
             system=review_system,
             user=json.dumps(review_payload, ensure_ascii=False),
             temperature=0,
-            max_tokens=1400,
+            max_tokens=4000,
         )
         self._audit(audit_context, "review_response", response=raw,
                     review_identity=self.review_identity)
@@ -1230,12 +1237,12 @@ class DiagnosticItemGenerator:
         if not set(plan.source_refs) <= known:
             raise DiagnosticGenerationError("scenario source_refs must select this point's exact immutable references")
         prompt = plan.situation + "\n" + plan.decision
-        if len(prompt) > 140:
+        if len(prompt) > 800:
             raise DiagnosticGenerationError("scenario combined prompt exceeds mobile budget", feedback={
                 "stage": "application_render_budget", "fields": [
                     {"pointer": "/application_task/situation", "value": plan.situation, "characters": len(plan.situation)},
                     {"pointer": "/application_task/decision", "value": plan.decision, "characters": len(plan.decision)}],
-                "prompt": {"rendered_text": prompt, "characters": len(prompt), "limit": 140},
+                "prompt": {"rendered_text": prompt, "characters": len(prompt), "limit": 800},
                 "repair": "Shorten situation/decision without removing source qualifications or supplying the answer.",
             })
         rendered = {"prompt": prompt, "options": list(plan.outcomes), "correct_index": plan.correct_index,
@@ -1528,8 +1535,8 @@ class DiagnosticItemGenerator:
         # Legacy mode pins the answer to the knowledge-point label. Import mode
         # permits a narrower source-grounded answer, but mandates semantic review.
         answer_text = draft.expected_answer.strip() if allow_rewrite else label.strip()
-        if not answer_text or len(answer_text) > 180:
-            raise DiagnosticGenerationError("choice answer must contain 1 to 180 characters")
+        if not answer_text or len(answer_text) > 600:
+            raise DiagnosticGenerationError("choice answer must contain 1 to 600 characters")
         if allow_rewrite:
             if options[draft.correct_index] != answer_text:
                 raise DiagnosticGenerationError(
