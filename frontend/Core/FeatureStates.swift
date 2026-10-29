@@ -60,6 +60,7 @@ struct ReaderOrigin: Sendable {
   var legacyCourseID: String?
   var preparationServices: [String: BookPreparationService] = [:]
   var processingRoutes: [String: ProcessingRoute] = [:]
+  var observedStructureStages: [String: String] = [:]
   var job: ImportJob?
   var processingProgress: Double = 0
   var processingMessage: String = "准备整理资料"
@@ -147,6 +148,7 @@ struct ReaderOrigin: Sendable {
     importState.tasks = [:]
     importState.preparationServices = [:]
     importState.processingRoutes = [:]
+    importState.observedStructureStages = [:]
     processTask?.cancel()
     processTask = nil
     importState.courses = []
@@ -191,6 +193,9 @@ struct ReaderOrigin: Sendable {
     guard let record = importState.courses.first(where: { $0.id == id }),
       record.job.status != .completed else { return }
     let epoch = cloudState.epoch
+    if retryPreparation {
+      for book in record.books { importState.observedStructureStages.removeValue(forKey: book.id) }
+    }
     let selection = selectionGeneration
     let task = Task { @MainActor in
       await self.runCourseImport(id, retryPreparation: retryPreparation, epoch: epoch)
@@ -206,6 +211,35 @@ struct ReaderOrigin: Sendable {
       draft.parseCompleted = true
       if finished.onDeviceOnly == true { replace(.study) }
       else { go(.courseSetup) }
+    }
+  }
+
+  /// Directory availability is independent of diagnostic approval. This adds
+  /// no polling task and never marks a pending lesson or import completed.
+  func retainAvailableCloudStructure(bookID: String, courseID: String,
+    job: CloudBookPreparationJob, epoch: UUID) async {
+    guard let cloud, epoch == cloudState.epoch, !Task.isCancelled else { return }
+    let marker = "\(job.stage)|\(job.next_step)"
+    guard importState.observedStructureStages[bookID] != marker else { return }
+    let structure: CloudStructure
+    do { structure = try await cloud.request("/api/books/\(bookID)/structure") }
+    catch let error as CloudError where error.status == 404 {
+      // One observation per queue stage, including a not-yet-created outline.
+      if epoch == cloudState.epoch { importState.observedStructureStages[bookID] = marker }
+      return
+    } catch { return }
+    guard epoch == cloudState.epoch, !Task.isCancelled, !structure.chapters.isEmpty else { return }
+    let workspaceID = courseImport(for: courseID).map { self.workspaceID(for: $0) } ?? courseID
+    var resource = cloudState.workspaces.first { $0.id == workspaceID }?.resources.first { $0.book_id == bookID }
+      ?? CloudResource(id: "staged:\(bookID)", book_id: bookID, workspace_id: "", revision: 0,
+        filename: sources.first { $0.id == bookID }?.summary.filename ?? "教材.pdf",
+        status: "structured", structure: nil, courses: [], progress: CloudProgress())
+    // Keep explicitly edited resource outlines and already published courses.
+    if resource.structure == nil { resource.structure = structure }
+    if let index = sources.firstIndex(where: { $0.id == bookID }) {
+      sources[index] = CloudMapping.source(resource)
+      importState.observedStructureStages[bookID] = marker
+      persist()
     }
   }
 
@@ -342,6 +376,7 @@ struct ReaderOrigin: Sendable {
                 }
               }
             }
+            await self.retainAvailableCloudStructure(bookID: currentBook, courseID: id, job: job, epoch: epoch)
           }
           let structure: CloudStructure = try await cloud.request("/api/books/\(currentBook)/structure")
           guard epoch == cloudState.epoch else { return }
@@ -451,6 +486,7 @@ struct ReaderOrigin: Sendable {
               let service = preparationService(api: cloud, accountKey: accountKey, bookID: book.id)
               let job = try await service.observe(bookID: book.id)
               guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+              await retainAvailableCloudStructure(bookID: book.id, courseID: id, job: job, epoch: epoch)
               complete = complete && job.status == .succeeded
               if job.status == .succeeded {
                 let structure: CloudStructure = try await cloud.request("/api/books/\(book.id)/structure")

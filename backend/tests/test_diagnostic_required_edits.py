@@ -177,7 +177,7 @@ def test_shared_contract_closes_target_identity_and_condition_check_collisions_w
     assert '目标对象' in common and '作用位置' in common
     assert '未预先列全判断标准' in common and '必要条件' in common
     assert '充分保证' in common and '项目最多' in common and '可信同轴干扰' in common
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v19+evidence-targets-v1+review-format-v1+required-edits-v1+')
 
 
 def test_source_qualifier_is_a_real_edit_but_still_requires_independent_review():

@@ -169,6 +169,9 @@ def test_native_submission_block_is_409_without_attaching_or_changing_a_session(
         api.account_repository.repo.bind_upload(actor, 'book')
         api.native_repository.save_workspace(actor, 'workspace_block', '课程', {})
         resource = api.native_repository.add_resource(actor, 'workspace_block', 'book')
+        value, _ = bank_environment
+        edited = value.model_copy(update={'title': value.title + '（用户确认的目录）'})
+        api.native_repository.save_structure(actor, 'workspace_block', resource['id'], 0, edited)
         response = client.post(f"/api/workspaces/workspace_block/resources/{resource['id']}/session")
         assert response.status_code == 409 and '重试诊断' in response.text
         assert response.headers['X-CloudPath-Error-Code'] == 'diagnostic_submission_uncertain'
@@ -210,6 +213,9 @@ def test_first_native_diagnostic_failure_reports_stable_recovery_code_without_at
         api.account_repository.repo.bind_upload(actor, 'book')
         api.native_repository.save_workspace(actor, 'workspace_failure', '课程', {})
         resource = api.native_repository.add_resource(actor, 'workspace_failure', 'book')
+        value, _ = bank_environment
+        edited = value.model_copy(update={'title': value.title + '（用户确认的目录）'})
+        api.native_repository.save_structure(actor, 'workspace_failure', resource['id'], 0, edited)
         response = client.post(f"/api/workspaces/workspace_failure/resources/{resource['id']}/session")
         assert response.status_code == status and response.headers['X-CloudPath-Error-Code'] == code
         assert '重试诊断' in response.json()['detail']
@@ -246,6 +252,9 @@ def test_native_explicit_retry_nonce_is_replay_safe_across_new_tokens_and_resour
         api.account_repository.repo.bind_upload(actor, 'book')
         api.native_repository.save_workspace(actor, 'workspace_retry', '课程', {})
         resource = api.native_repository.add_resource(actor, 'workspace_retry', 'book')
+        value, _ = bank_environment
+        edited = value.model_copy(update={'title': value.title + '（用户确认的目录）'})
+        api.native_repository.save_structure(actor, 'workspace_retry', resource['id'], 0, edited)
         url = f"/api/workspaces/workspace_retry/resources/{resource['id']}/session"
         assert client.post(url).status_code == 409 and generator.calls == 1
         assert client.post(url).status_code == 409 and generator.calls == 1
@@ -256,7 +265,7 @@ def test_native_explicit_retry_nonce_is_replay_safe_across_new_tokens_and_resour
         assert client.post(first_action).status_code == 409 and generator.calls == 2
         assert client.post(second_action).status_code == 409 and generator.calls == 3
         assert client.post(first_action).status_code == 409 and generator.calls == 3
-        api.native_repository.save_structure(actor, 'workspace_retry', resource['id'], 0, value)
+        api.native_repository.save_structure(actor, 'workspace_retry', resource['id'], 1, edited)
         assert client.post(first_action).status_code == 409 and generator.calls == 3
         assert api.assessment_repository.get_bank(diagnostic_bank_key('book')) is None
 
@@ -277,7 +286,9 @@ def test_native_scoped_bank_refreshes_protocol_but_attached_session_stays_pinned
         assert api.account_repository.repo.bind_upload(actor, 'book')
         api.native_repository.save_workspace(actor, 'workspace_scope', '课程', {})
         resource = api.native_repository.add_resource(actor, 'workspace_scope', 'book')
-        legacy_key = f"native:{resource['id']}:0"
+        value = value.model_copy(update={'title': value.title + '（用户确认的目录）'})
+        api.native_repository.save_structure(actor, 'workspace_scope', resource['id'], 0, value)
+        legacy_key = f"native:{resource['id']}:1"
         api.assessment_repository.save_bank(book_id=legacy_key, structure_fingerprint=structure_fingerprint(value),
                                             items=FixtureBank().generate(value))
         url = f"/api/workspaces/workspace_scope/resources/{resource['id']}/session"

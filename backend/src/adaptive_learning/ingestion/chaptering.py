@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ..llm.book_parallel import ordered_book_map
 from ..llm.client import LLMError, OpenAICompatibleClient
@@ -51,8 +51,8 @@ _CHAPTER_SUMMARY_SYSTEM = """你是书籍章节摘要器。输入只包含同一
 规则：
 1. 只总结输入原文明确表达的内容，不使用外部知识。
 2. summary 面向手机阅读，用 2-4 个短段概括本章主线，每段 1-2 句；总长通常 120-360 字，最长 520 字。段落之间用两个换行符分隔，不写标题、不用 Markdown、不重复章名。
-3. knowledge_points 给出 3-12 个本章核心点。每项 text 应是一条可独立理解的完整陈述，通常 18-90 字，最长 180 字；保留必要条件与完整术语，但不要把定义、历史、例子和应用堆在同一项。每项 evidence_ids 为1-6个编号。
-4. 顶层 evidence_ids 选择2-24个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要超出接口的数量上限。
+3. knowledge_points 通常给出 3-12 个本章核心点；短章节可以只有 1-2 个，不要为了数量编造内容。每项 text 应是一条可独立理解的完整陈述，通常 18-90 字；保留必要条件与完整术语，但不要把定义、历史、例子和应用堆在同一项。每项 evidence_ids 为1-6个编号。
+4. 顶层 evidence_ids 选择1-24个支撑摘要的证据编号；编号必须来自输入 evidence，禁止创造编号。不要为了凑引用数量重复或增加无关证据。
 5. 不输出小节层级，不输出 chunk id，不出现连续重复标点、词中异常空格或 OCR 残缺片段。
 6. 只返回 JSON：
 {"summary":"...","evidence_ids":["P1E1","P1E2"],"knowledge_points":[{"text":"概念一","evidence_ids":["P1E1"]},{"text":"概念二","evidence_ids":["P1E2"]},{"text":"概念三","evidence_ids":["P1E1","P1E2"]}]}
@@ -84,18 +84,21 @@ class ChapterCandidate:
 
 
 class KnowledgePointDraft(BaseModel):
-    text: str = Field(min_length=1, max_length=180)
+    model_config = ConfigDict(str_strip_whitespace=True)
+    text: str = Field(min_length=1, max_length=500)
     evidence_ids: list[str] = Field(min_length=1, max_length=6)
 
 
 class ChapterSummaryDraft(BaseModel):
-    summary: str = Field(min_length=1, max_length=520)
-    knowledge_points: list[KnowledgePointDraft] = Field(min_length=3, max_length=20)
-    evidence_ids: list[str] = Field(min_length=2, max_length=24)
+    model_config = ConfigDict(str_strip_whitespace=True)
+    summary: str = Field(min_length=1, max_length=680)
+    knowledge_points: list[KnowledgePointDraft] = Field(min_length=1, max_length=20)
+    evidence_ids: list[str] = Field(min_length=1, max_length=24)
 
 
 class BookSummaryDraft(BaseModel):
-    summary: str = Field(min_length=1, max_length=680)
+    model_config = ConfigDict(str_strip_whitespace=True)
+    summary: str = Field(min_length=1, max_length=4000)
     chapter_ids: list[str] = Field(min_length=1)
 
 
@@ -607,7 +610,7 @@ class ChapterReconstructor:
                         for number, c in sorted(pool.items())],
             "required_start_pages": sorted(required),
         }
-        for attempt in range(self.validation_retries + 1):
+        for _attempt in range(self.validation_retries + 1):
             try:
                 raw = self.client.structured(system=(
                     "整理教材章节目录。目录OCR可能只有章号或缺少章名，正文章号和标题可能分行。"
@@ -684,6 +687,7 @@ class ChapterReconstructor:
         assert self.client is not None
         chapter_pages = [
             page for page in pages if chapter.start_page <= page.page_number <= chapter.end_page
+            and not page_is_skipped(page)
         ]
         evidence_payload, evidence_source = self._evidence_units(chapter_pages)
         payload: dict[str, object] = {
@@ -728,7 +732,7 @@ class ChapterReconstructor:
                 )
             except (ValidationError, ChapteringValidationError, LLMError) as error:
                 last_error = error
-                if attempt >= self.validation_retries:
+                if isinstance(error, LLMError) or attempt >= self.validation_retries:
                     break
                 payload["validation_feedback"] = (
                     "上一次输出未通过校验。仅修复下面具体问题，所有引用仍必须来自输入。"
@@ -736,9 +740,61 @@ class ChapterReconstructor:
                        if isinstance(error, ValidationError) else str(error))[:1600]
                 )
         assert last_error is not None
-        raise ChapteringValidationError(
-            f"chapter summary failed validation: {type(last_error).__name__}"
-        ) from last_error
+        # A rejected enhancement must not erase independently detected chapter
+        # boundaries. Use complete, literal body excerpts rather than accepting
+        # a malformed model response or inventing replacement teaching facts.
+        excerpts: dict[str, SourceQuote] = {}
+        by_page = {page.page_number: page for page in chapter_pages}
+        for source in evidence_source.values():
+            page = by_page.get(source.page_number)
+            text = source.quote.strip()
+            if (page is None or text not in page.raw_text
+                    or not re.search(r'[A-Za-z\u3400-\u9fff]', text)
+                    or not re.search(r'[。！？!?]|\.(?=\s|$)', text)
+                    or not re.search(r'[。！？!?\.][”’"\')）\]]*$', text)):
+                continue
+            start = page.raw_text.find(text)
+            if page.blocks:
+                starts_in_body = False
+                for block in page.blocks:
+                    if (block.block_type.lower() not in {'text', 'paragraph', 'body'}
+                            or block.metadata.get('text_level') == 1):
+                        continue
+                    block_start = page.raw_text.find(block.text)
+                    if block_start < 0 or not block_start <= start < block_start + len(block.text):
+                        continue
+                    prefix = page.raw_text[block_start:start].rstrip()
+                    if not prefix or re.search(r'[。！？!?\.]$', prefix):
+                        starts_in_body = True
+                        break
+                if not starts_in_body:
+                    continue
+            else:
+                prefix = page.raw_text[:start].rstrip()
+                if prefix and not re.search(r'[。！？!?\.]$', prefix) and not page.raw_text[:start].endswith('\n\n'):
+                    continue
+            excerpts.setdefault(text, source)
+        values = list(excerpts.values())
+        if not values:
+            logger.info('chapter directory retained without invented learning content', extra={
+                'chapter_id': chapter.chapter_id, 'error_type': type(last_error).__name__})
+            return chapter.model_copy(update={
+                'summary': '', 'knowledge_points': [], 'evidence': [], 'knowledge_point_evidence': {},
+            })
+        count = min(6, len(values))
+        selected = [values[round(index * (len(values) - 1) / max(1, count - 1))]
+                    for index in range(count)]
+        logger.info('chapter enhancement retained literal source excerpts', extra={
+            'chapter_id': chapter.chapter_id, 'error_type': type(last_error).__name__})
+        summary = selected[0].quote
+        if len(selected) > 1 and len(summary) + len(selected[1].quote) + 2 <= 680:
+            summary += '\n\n' + selected[1].quote
+        return chapter.model_copy(update={
+            'summary': summary,
+            'knowledge_points': [source.quote for source in selected],
+            'evidence': selected,
+            'knowledge_point_evidence': {source.quote: [source] for source in selected},
+        })
 
     def _summarize_book(self, chapters: list[ChapterDraft]) -> str:
         assert self.client is not None
@@ -754,23 +810,23 @@ class ChapterReconstructor:
             ],
             "required_chapter_ids": [chapter.chapter_id for chapter in usable],
         }
-        last_error: ValueError | None = None
+        last_error: ValueError | LLMError | None = None
         for attempt in range(self.validation_retries + 1):
-            raw = self.client.structured(
-                system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
-                user=json.dumps(payload, ensure_ascii=False),
-                temperature=0,
-                max_tokens=900,
-            )
             try:
+                raw = self.client.structured(
+                    system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
+                    user=json.dumps(payload, ensure_ascii=False),
+                    temperature=0,
+                    max_tokens=900,
+                )
                 draft = BookSummaryDraft.model_validate(raw)
                 returned = set(draft.chapter_ids)
                 if returned != valid_ids or len(draft.chapter_ids) != len(valid_ids):
                     raise ChapteringValidationError("book summary must cover every known chapter exactly")
                 return draft.summary.strip()
-            except (ValidationError, ChapteringValidationError) as error:
+            except (ValidationError, ChapteringValidationError, LLMError) as error:
                 last_error = error
-                if attempt >= self.validation_retries:
+                if isinstance(error, LLMError) or attempt >= self.validation_retries:
                     break
                 if isinstance(error, ValidationError):
                     feedback: Any = error.errors(include_input=False, include_url=False)
@@ -785,13 +841,22 @@ class ChapterReconstructor:
                     + json.dumps(feedback, ensure_ascii=False)[:1600]
                 )
         assert last_error is not None
-        if isinstance(last_error, ValidationError):
-            raise ChapteringValidationError("book summary schema is invalid") from last_error
-        raise ChapteringValidationError(str(last_error)) from last_error
+        # Every real chapter remains in the directory. An optional overview is
+        # recoverable from its existing summaries without approving unknown IDs
+        # or repeating a provider request with an uncertain outcome.
+        summaries = []
+        for chapter in usable:
+            match = re.search(r'[。！？!?]|\.(?=\s|$)', chapter.summary)
+            sentence = chapter.summary[:match.end()] if match else chapter.summary
+            summaries.append(chapter.title + '：' + sentence)
+        logger.info('book enhancement retained chapter summaries', extra={
+            'error_type': type(last_error).__name__})
+        return '\n\n'.join(summaries)
 
     def _evidence_units(
         self, pages: list[PageExtraction]
     ) -> tuple[list[dict[str, object]], dict[str, SourceQuote]]:
+        pages = [page for page in pages if not page_is_skipped(page)]
         if not pages:
             return [], {}
         # Keep an actual global budget, including books incorrectly detected as one chapter.

@@ -581,10 +581,9 @@ extension AppStore {
     cloudState.diagnosisWorkspaceID = resource.workspace_id
     cloudState.diagnosisResourceID = resource.id
     do {
-      let suffix = retryRequestID.map { "?retry=true&retry_request_id=\($0)" } ?? ""
-      let interview: CloudInterview = try await cloud.request(
-        resource.path + (preview ? "/preview-session" : "/session") + suffix, method: "POST")
-      guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
+      let interview = try await awaitCloudSession(resource: resource, preview: preview,
+        retryRequestID: retryRequestID, epoch: epoch)
+      guard epoch == cloudState.epoch, cloudState.showDiagnosis, selectedCourseID == resource.workspace_id,
         cloudResource?.id == resource.id, selectedBookID == resource.book_id else {
         return
       }
@@ -599,6 +598,7 @@ extension AppStore {
       } else {
         cloudState.showDiagnosis = true
       }
+    } catch is CancellationError { return
     } catch {
       guard epoch == cloudState.epoch, selectedCourseID == resource.workspace_id,
         cloudResource?.id == resource.id, selectedBookID == resource.book_id else { return }
@@ -609,6 +609,53 @@ extension AppStore {
       cloudState.diagnosisRetryAvailable = resource.session_id == nil && retryable
       cloudState.diagnosisRetryEpoch = cloudState.diagnosisRetryAvailable ? epoch : nil
       handleCloudError(error)
+    }
+  }
+
+  /// Continue only after an explicit, known pending response. A lost response
+  /// or unknown supplier outcome always leaves this loop for read-only recovery.
+  private func awaitCloudSession(resource: CloudResource, preview: Bool,
+    retryRequestID: String?, epoch: UUID) async throws -> CloudInterview {
+    guard let cloud else { throw CancellationError() }
+    var recoveryID = retryRequestID
+    while true {
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, cloudState.showDiagnosis,
+        selectedCourseID == resource.workspace_id, cloudResource?.id == resource.id,
+        cloudResource?.revision == resource.revision else { throw CancellationError() }
+      let suffix = preview ? "" : "?resource_revision=\(resource.revision)"
+        + (recoveryID.map { "&retry=true&retry_request_id=\($0)" } ?? "")
+      do {
+        return try await cloud.request(
+          resource.path + (preview ? "/preview-session" : "/session") + suffix, method: "POST")
+      } catch let error as CloudError where !error.transportFailure && error.status == 409
+        && ["diagnostic_preparation_pending", "diagnostic_resource_preparation_pending"].contains(error.code ?? "") {
+        recoveryID = nil
+        cloudState.error = error.message
+        let delay = error.retryAfter.flatMap { $0.isFinite ? min(120, max(5, $0)) : nil } ?? 5
+        while true {
+          let clock = ContinuousClock()
+          let deadline = clock.now.advanced(by: .seconds(delay))
+          repeat {
+            // Closing the sheet stops observation promptly even during a long
+            // backoff. It does not cancel or replay a submitted backend job.
+            try await Task.sleep(for: min(.seconds(1), clock.now.duration(to: deadline)))
+            try Task.checkCancellation()
+            guard epoch == cloudState.epoch, cloudState.showDiagnosis,
+              selectedCourseID == resource.workspace_id, cloudResource?.id == resource.id,
+              cloudResource?.revision == resource.revision else { throw CancellationError() }
+          } while clock.now < deadline
+          if error.code == "diagnostic_resource_preparation_pending" { break }
+          // The ordinary book is already queued: GET its existing task until
+          // ready, rather than repeatedly submitting /session or /prepare.
+          let job: CloudBookPreparationJob = try await cloud.request("/api/books/\(resource.book_id)/prepare")
+          if job.status == .failed || job.status == .cancelled {
+            throw CloudError(status: 502, message: job.message, code: "diagnostic_generation_rejected")
+          }
+          if job.status == .succeeded { break }
+        }
+        cloudState.error = nil
+      }
     }
   }
 

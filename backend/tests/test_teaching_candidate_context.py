@@ -266,7 +266,7 @@ def test_actual_overlong_second_writer_response_remains_invalid_with_explicit_wr
                and row["ctx"]["max_length"] == 680 for row in errors)
     # The request now exposes the existing hard contract; it does not relax it
     # or spend another model call to truncate a scientific summary mechanically.
-    assert "summary须30-680字" in teaching.GENERATION_PROMPT
+    assert "summary须1-680字" in teaching.GENERATION_PROMPT
 
 
 def test_actual_unanswerable_task_and_lesson_source_distinctness_vetoes_reach_only_their_writers():

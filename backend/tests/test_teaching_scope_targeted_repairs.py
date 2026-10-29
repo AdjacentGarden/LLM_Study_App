@@ -68,7 +68,7 @@ def test_real_four_condition_failure_gets_exact_pending_raw_and_actionable_link_
     value, evidence = observed()
     original = deepcopy(value)
     raw = value["response"]["points"][0]
-    assert len(raw["conditions"]) == MAX_CONDITIONS_PER_POINT == 4
+    assert len(raw["conditions"]) == 4 < MAX_CONDITIONS_PER_POINT
     assert next(row for row in raw["comparisons"] if row["source_id"] == MISSING)["changes_scope"]
     assert not any(MISSING in condition["source_ids"] for condition in raw["conditions"])
 
@@ -82,7 +82,7 @@ def test_real_four_condition_failure_gets_exact_pending_raw_and_actionable_link_
         assert task["point_id"] == POINT and task["missing_candidate_source_ids"] == [MISSING]
         assert task["candidate_comparisons"] == [next(
             row for row in raw["comparisons"] if row["source_id"] == MISSING)]
-        assert task["condition_index_base"] == 0 and task["maximum_conditions"] == 4
+        assert task["condition_index_base"] == 0 and task["maximum_conditions"] == MAX_CONDITIONS_PER_POINT
         assert task["current_conditions"] == [
             {"condition_index": index, **condition} for index, condition in enumerate(raw["conditions"])]
         assert task["semantic_approval"] is False
@@ -160,7 +160,7 @@ def test_wrong_point_response_cannot_enter_previous_candidate_or_repair_tasks():
     assert len(client.calls) == 3
 
 
-def test_repair_does_not_raise_condition_or_attempt_caps_and_has_explicit_local_scope_rule():
+def test_repair_still_rejects_duplicate_conditions_with_same_attempt_cap_and_local_scope_rule():
     value, evidence = observed()
     raw = value["response"]["points"][0]
 
@@ -174,7 +174,7 @@ def test_repair_does_not_raise_condition_or_attempt_caps_and_has_explicit_local_
     client = Client(respond)
     with pytest.raises(TeachingScopeServiceError, match="有界格式纠错"):
         TeachingScopePlanner(client).plan(value["inputs"], evidence)
-    assert len(client.calls) == 3 and MAX_CONDITIONS_PER_POINT == 4
-    assert TEACHING_SCOPE_VERSION == "scope-plan-v4"
+    assert len(client.calls) == 3 and MAX_CONDITIONS_PER_POINT == 32
+    assert TEACHING_SCOPE_VERSION == "scope-plan-v5"
     assert "子类实例或局部过程的发生前提不自动成为整个类别定义的必要条件" in SCOPE_PLANNING_PROMPT
     assert "scope_effect不得把局部限制扩成全类限制" in SCOPE_PLANNING_PROMPT

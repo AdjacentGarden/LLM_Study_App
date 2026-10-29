@@ -60,16 +60,17 @@ def _service_retry_delay(error: BaseException) -> float | None:
 def _identity(generator: DiagnosticItemGenerator, structure: BookStructure, chapter: ChapterDraft,
               points: list[tuple[str, str, list[SourceQuote]]], index: int, scope: str) -> dict[str, Any]:
     from .item_generation import (
-        _COGNITIVE_TARGETS,
         _RELAXED_REVIEW_INSTRUCTIONS,
         _TARGETED_REPAIR_INSTRUCTIONS,
+        DIAGNOSTIC_TARGET_POLICY,
     )
     identity = generator._chapter_identity(structure, chapter, points, scope)
     identity["point_ids"] = [points[index][0]]
     identity["protocol_fingerprint"] = hashlib.sha256(json.dumps({
         "base": identity["protocol_fingerprint"], "policy": "single-item-continuous-v1",
         "writer": _TARGETED_REPAIR_INSTRUCTIONS,
-        "target": _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)],
+        "target_policy": DIAGNOSTIC_TARGET_POLICY,
+        "target": generator._target_for_point(points[index], index),
     }, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     identity["review_fingerprint"] = hashlib.sha256(
         (identity["review_fingerprint"] + _RELAXED_REVIEW_INSTRUCTIONS).encode()).hexdigest()
@@ -78,7 +79,7 @@ def _identity(generator: DiagnosticItemGenerator, structure: BookStructure, chap
 
 def advance_diagnostic_items(generator: DiagnosticItemGenerator, structure: BookStructure,
                              cache: Any, scope: str) -> list[DiagnosticItem]:
-    from .item_generation import _COGNITIVE_TARGETS, DiagnosticGenerationError, ItemDraft
+    from .item_generation import DiagnosticGenerationError, DiagnosticReviewFormatError, ItemDraft
     if not generator.verify_items or not scope.strip():
         raise ValueError("continuous item generation requires independent review and a book scope")
 
@@ -92,7 +93,7 @@ def advance_diagnostic_items(generator: DiagnosticItemGenerator, structure: Book
         if existing is not None:
             by_id = {point[0]: point for point in points}
             for index, item in enumerate(existing):
-                application = _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
+                application = generator._target_for_point(points[index], index)["id"] == "source_application"
                 expected = generator._validate_item(ItemDraft.model_validate(generator._candidate_item(item)),
                     chapter, by_id, allow_rewrite=generator.allow_grounded_answer_rewrite or application,
                     structured_application=application)
@@ -119,7 +120,7 @@ def advance_diagnostic_items(generator: DiagnosticItemGenerator, structure: Book
                 items = claim["items"]
                 validate_chapter_items(identity, items)
                 item = items[0]
-                application = _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
+                application = generator._target_for_point(points[index], index)["id"] == "source_application"
                 candidate = generator._candidate_item(item)
                 expected = generator._validate_item(ItemDraft.model_validate(candidate), chapter,
                     {point[0]: point}, allow_rewrite=generator.allow_grounded_answer_rewrite or application,
@@ -138,7 +139,8 @@ def advance_diagnostic_items(generator: DiagnosticItemGenerator, structure: Book
             context = dict(state.get("context", {}))
             context["generation_strategy"] = "redesign" if attempt > 1 and (attempt - 1) % 3 == 0 else "repair"
             audit = {"book_id": scope, "chapter_id": chapter.chapter_id,
-                     "knowledge_point_id": point[0], "repair_round": attempt}
+                     "knowledge_point_id": point[0], "repair_round": attempt,
+                     "cognitive_target": generator._target_for_point(point, index)}
             generator._audit(audit, "item_attempt_started")
             try:
                 with no_ambiguous_model_retries():
@@ -148,18 +150,26 @@ def advance_diagnostic_items(generator: DiagnosticItemGenerator, structure: Book
                 approved.extend(items)
                 generator._audit(audit, "item_approval_saved")
             except (DiagnosticGenerationError, LLMRefusalError, LLMOutputLimitError) as error:
-                delay = min(120, 5 * 2 ** min(attempt - 1, 5))
+                format_failure = isinstance(error, DiagnosticReviewFormatError)
+                format_failures = int(state.get("review_format_failures", 0)) + 1 if format_failure else 0
+                semantic_attempt = attempt - 1 if format_failure else attempt
+                delay_count = format_failures if format_failure else attempt
+                delay = min(120, 5 * 2 ** min(delay_count - 1, 5))
                 next_context = getattr(error, "repair_context", {}) or {
                     "repair_feedback": {"stage": "model_response", "repair": "重新设计有原文依据的完整选择题"}}
-                next_context.pop("_pending_candidate", None)
-                cache.defer(identity, token, {"attempt": attempt, "context": next_context,
+                if not format_failure:
+                    next_context.pop("_pending_candidate", None)
+                cache.defer(identity, token, {"attempt": semantic_attempt, "context": next_context,
+                    "review_format_failures": format_failures,
                     "next_retry_at": time.time() + delay, "waiting_for_service": False})
                 delays.append(delay)
-                generator._audit(audit, "item_repair_scheduled", retry_after_seconds=delay)
+                generator._audit(audit, "item_repair_scheduled", retry_after_seconds=delay,
+                    semantic_attempt=semantic_attempt, review_format_failures=format_failures)
             except (LLMCooldownError, LLMNotSubmittedError) as error:
                 delay = max(5, getattr(error, "retry_after_seconds", 30))
                 cache.defer(identity, token, {"attempt": attempt - 1,
                     "context": getattr(error, "repair_context", context),
+                    "review_format_failures": int(state.get("review_format_failures", 0)),
                     "next_retry_at": time.time() + delay, "waiting_for_service": True}, "not_admitted")
                 delays.append(delay)
                 waiting = True
@@ -170,6 +180,7 @@ def advance_diagnostic_items(generator: DiagnosticItemGenerator, structure: Book
                     raise
                 cache.defer(identity, token, {"attempt": attempt - 1,
                     "context": getattr(error, "repair_context", context),
+                    "review_format_failures": int(state.get("review_format_failures", 0)),
                     "next_retry_at": time.time() + delay, "waiting_for_service": True})
                 delays.append(delay)
                 waiting = True

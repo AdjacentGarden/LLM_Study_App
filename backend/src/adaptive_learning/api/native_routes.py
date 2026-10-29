@@ -19,6 +19,7 @@ from ..accounts import COOKIE, TTL
 from ..assessment.diagnostic_cache import (
     DiagnosticChapterCacheError,
     DiagnosticChapterSubmissionBlocked,
+    DiagnosticRepairPending,
     RepositoryDiagnosticChapterCache,
 )
 from ..assessment.item_generation import (
@@ -863,10 +864,14 @@ def native_router(services: Any) -> APIRouter:
 
     @router.post("/workspaces/{wid}/resources/{rid}/session")
     def start_session(wid: str, rid: str, actor: str = Depends(owner), retry: bool = False,
-                      retry_request_id: str | None = None) -> Any:
+                      retry_request_id: str | None = None,
+                      resource_revision: int | None = None) -> Any:
         row = resource(wid, rid, actor)
         if row["session_id"]:
             return services.get_interview(row["session_id"])
+        if resource_revision is not None and resource_revision != row["revision"]:
+            raise HTTPException(409, "教材目录已更新，请重新打开当前课程后继续",
+                                headers={"X-CloudPath-Error-Code": "resource_revision_changed"})
         if retry and (retry_request_id is None or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id)):
             raise HTTPException(422, "请通过明确的重试操作继续诊断")
         structure = effective_structure(row)
@@ -875,7 +880,8 @@ def native_router(services: Any) -> APIRouter:
         fingerprint = services.diagnostic_fingerprint(structure)
         bank_key = diagnostic_bank_key(f"native:{rid}:{row['revision']}")
         original = services.job_repository.get_structure(row["book_id"])
-        if original is not None and structure_fingerprint(original) == structure_fingerprint(structure):
+        canonical_structure = original is not None and structure_fingerprint(original) == structure_fingerprint(structure)
+        if canonical_structure:
             items = services.assessment_repository.get_bank(
                 diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint
             )
@@ -887,13 +893,39 @@ def native_router(services: Any) -> APIRouter:
         if not items:
             if services.item_generator is None:
                 raise HTTPException(503, "诊断服务尚未配置，目录已保存，可稍后继续")
-            if retry and services.assessment_repository.has_pending_diagnostic_submission(row["book_id"]):
+            preparation = services.preparation_queue.get(row["book_id"]) if canonical_structure else None
+            if (retry and (not canonical_structure or preparation and preparation["status"] in {"failed", "cancelled"})
+                    and services.assessment_repository.has_pending_diagnostic_submission(row["book_id"])):
                 services.assessment_repository.grant_diagnostic_recovery(
                     row["book_id"], f"native:{rid}:{retry_request_id}")
+            if canonical_structure:
+                job = services.job_repository.get_job(row["book_id"])
+                if job is None or job.status != "ocr_ready":
+                    raise HTTPException(409, "教材原文仍在准备中，请先完成资料解析")
+                # Ordinary uploaded books share the durable preparation worker.
+                # Opening a course never starts another synchronous model job.
+                preparation = services.preparation_queue.enqueue(row["book_id"], retry=retry,
+                    refresh=bool(preparation and preparation["status"] == "succeeded"))
+                items = services.assessment_repository.get_bank(
+                    diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint)
+                if not items:
+                    if preparation["status"] in {"failed", "cancelled"}:
+                        raise HTTPException(502, "教材目录已保留，学习诊断尚未完成，可显式重试准备",
+                            headers={"X-CloudPath-Error-Code": "diagnostic_generation_rejected"})
+                    raise HTTPException(409, "教材目录已就绪，正在后台准备学习诊断",
+                        headers={"X-CloudPath-Error-Code": "diagnostic_preparation_pending", "Retry-After": "5"})
+        if not items:
+            # Edited directories have their own exact structure/source identity.
+            # A bounded pass retains approved items and schedules known repairs;
+            # it must never borrow an unedited book's bank.
             try:
                 items = services.item_generator.generate(structure,
                     chapter_cache=RepositoryDiagnosticChapterCache(services.assessment_repository),
                     cache_scope=row["book_id"])
+            except DiagnosticRepairPending as pending:
+                raise HTTPException(409, "已保存目录与已完成的诊断题，正在继续准备学习诊断",
+                    headers={"X-CloudPath-Error-Code": "diagnostic_resource_preparation_pending",
+                             "Retry-After": str(max(5, int(pending.details["retry_after_seconds"])))}) from pending
             except DiagnosticChapterSubmissionBlocked as error:
                 raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
                                     headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error

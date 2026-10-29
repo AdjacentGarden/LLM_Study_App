@@ -51,6 +51,13 @@ class _ArchivedReviewProtocol:
             kwargs["review_client"] = _ArchivedReviewClient(kwargs["review_client"])
         super().__init__(*args, **kwargs)
 
+    @staticmethod
+    def _target_for_point(point, index):
+        # Retired wire recordings had fixed roles. Keep that contract explicit
+        # here; production evidence-adapted roles have separate current tests.
+        from adaptive_learning.assessment.item_generation import _COGNITIVE_TARGETS
+        return dict(_COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)])
+
     def _review_items(self, *args, **kwargs):
         try:
             return super()._review_items(*args, **kwargs)

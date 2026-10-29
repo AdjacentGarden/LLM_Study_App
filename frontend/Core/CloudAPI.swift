@@ -8,6 +8,7 @@ struct CloudError: LocalizedError {
   let message: String
   var transportFailure = false
   var code: String? = nil
+  var retryAfter: Double? = nil
   static func learningMessage(_ message: String) -> String {
     let internalDetails = ["章节边界", "待核验", "OCR 页面", "OCR页面", "引用无法核验", "原文超过",
       "原文上下文不完整", "该章证据不足", "检索或诊断内容尚未全部就绪", "原文审核", "完整性与原文审核"]
@@ -436,7 +437,8 @@ actor CloudAPI {
         json?["detail"]?.stringValue
         ?? (response.statusCode == 401 ? "登录已过期，请重新登录" : "服务暂时无法完成请求（\(response.statusCode)）")
       throw CloudError(status: response.statusCode, message: CloudError.learningMessage(message),
-        code: response.value(forHTTPHeaderField: "X-CloudPath-Error-Code"))
+        code: response.value(forHTTPHeaderField: "X-CloudPath-Error-Code"),
+        retryAfter: response.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init))
     }
     return (bytes, response)
   }

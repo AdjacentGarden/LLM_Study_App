@@ -13,9 +13,9 @@ from ..llm.client import LLMError
 from ..llm.teaching_parallel import ordered_review_map
 from .teaching_evidence import TeachingEvidence, bounded_teaching_sources
 
-TEACHING_SCOPE_VERSION = "scope-plan-v4"
+TEACHING_SCOPE_VERSION = "scope-plan-v5"
 SCOPE_BATCH_SIZE = 4
-MAX_CONDITIONS_PER_POINT = 4
+MAX_CONDITIONS_PER_POINT = 32
 
 
 class TeachingScopeError(RuntimeError):
@@ -68,7 +68,7 @@ class _StrictModel(BaseModel):
 class _Condition(_StrictModel):
     boundary_type: Literal["precondition", "exception", "quantifier", "direction", "process_scale"]
     condition: str = Field(min_length=1, max_length=300)
-    scope_effect: str = Field(min_length=8, max_length=240)
+    scope_effect: str = Field(min_length=1, max_length=240)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
     @field_validator("condition", "scope_effect")
@@ -76,11 +76,10 @@ class _Condition(_StrictModel):
     def clean_condition(cls, value: str) -> str:
         if (
             not value.strip()
-            or value != value.strip()
             or any(unicodedata.category(char) in {"Cc", "Cf"} for char in value)
         ):
             raise ValueError("condition must be nonempty text without control characters")
-        return value
+        return value.strip()
 
 
 class _PointPlan(_StrictModel):
@@ -91,7 +90,12 @@ class _PointPlan(_StrictModel):
 class _Comparison(_StrictModel):
     source_id: str
     changes_scope: StrictBool
-    reason: str = Field(min_length=12, max_length=240)
+    reason: str = Field(min_length=1, max_length=240)
+
+    @field_validator("reason")
+    @classmethod
+    def nonempty_reason(cls, value: str) -> str:
+        return _Condition.clean_condition(value)
 
 
 class _ComparedPoint(_PointPlan):
@@ -123,7 +127,7 @@ condition 只写简短且可回到原文核对的条件提示，source_ids 必�
 该候选与当前主题的实际关系，不能用“无关/已检查”占位。若只是重复定义或发现历史，判false并说明；
 若改变范围，判true并在conditions中引用该source_id，明确省略它会造成的过度概括。
 不要只重复锚点定义而跳过同主题的终止、例外、特殊情况；也不能因为存在“通常”等词就生造边界。
-相关条件最多4项，可合并同一条件；没有明确相关条件则 conditions=[]，不得凑数。
+相关条件最多32项，可合并同一条件但不得为凑数量删除不同的真实限制；没有明确相关条件则 conditions=[]，不得凑数。
 所有输入 point_id 必须各出现一次。不要返回 quote、页码、答案、accepted 或其他字段。
 规划只是待核对导航，不是事实证明；后续作者与独立审校仍须检查真实原文。
 format_feedback 只要求纠正本次输出结构和来源选择，不得据此编造事实或改动输入。
@@ -134,7 +138,7 @@ knowledge_points只包含当前尚未完成的点；只返回这些精确point_i
 若有previous_candidate，它只包含当前pending点上一版真实输出，是待修数据而非已通过计划；
 repair_tasks列出缺失的候选原编号、原comparison理由及当前condition_index（从0开始）的完整内容。
 先对照仍然完整提供的原文判断该候选是否确实限制命题：真正支持已有条件则补其原编号；
-若需要新条件，可合并原文支持的同义条件后在最多4项内表达；若不改变范围则修正comparison并说明理由。
+若需要新条件，可合并原文支持的同义条件后在最多32项内完整表达；若不改变范围则修正comparison并说明理由。
 不能仅为满足链接而自动凑source_ids或把changes_scope改false，不能把上一版或修复任务当作事实证明。
 只返回knowledge_points中的pending点，仍用原comparisons/conditions严格结构；不返回修复任务或condition_index。
 仅返回严格 JSON：

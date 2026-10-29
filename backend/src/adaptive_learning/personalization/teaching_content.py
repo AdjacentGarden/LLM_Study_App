@@ -20,7 +20,15 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StrictBool
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    StrictBool,
+    ValidationInfo,
+    field_validator,
+)
 
 from ..ingestion.coverage import OUTPUT_POLICY
 from ..llm.client import LLMError
@@ -43,12 +51,19 @@ from .rubric_alignment import (
     make_rubric_alignment_batch,
     parse_rubric_alignment_response,
 )
-from .teaching_evidence import CANDIDATE_CONTEXT_VERSION, bounded_teaching_sources, candidate_context_source_ids
-from .teaching_fact_wire import compact_fact_payload
-from .teaching_review_reuse import VerifiedComponentReuse, fingerprint
-from .teaching_repairs import (
-    TeachingRepairPending, TeachingRepairStore, current_repair, invalidate_repair_response,
+from .teaching_evidence import (
+    CANDIDATE_CONTEXT_VERSION,
+    bounded_teaching_sources,
+    candidate_context_source_ids,
 )
+from .teaching_fact_wire import compact_fact_payload
+from .teaching_repairs import (
+    TeachingRepairPending,
+    TeachingRepairStore,
+    current_repair,
+    invalidate_repair_response,
+)
+from .teaching_review_reuse import VerifiedComponentReuse, fingerprint
 from .teaching_scope import (
     TEACHING_SCOPE_VERSION,
     ScopePlanner,
@@ -63,7 +78,7 @@ if TYPE_CHECKING:
     from ..ingestion.models import ChapterDraft
     from .teaching_evidence import TeachingEvidence
 
-TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+component-patches-v1+lesson-patch-envelope-v1+lesson-slot-envelope-v1+point-assertion-coverage-v1+field-repairs-v1+page-coverage-v1"
+TEACHING_CONTENT_VERSION = f"whole-course-evidence-review-v20+{TEACHING_SCOPE_VERSION}+native-units-v1+question-roles-v1+atomic-rubrics-v1+precise-citations-v1+practice-task-closure-v1+negative-findings-v1+lesson-task-revision-v1+{CANDIDATE_CONTEXT_VERSION}+writer-envelope-v1+assertion-scope-consistency-v1+writer-source-refs-v1+component-patches-v1+lesson-patch-envelope-v1+lesson-slot-envelope-v1+point-assertion-coverage-v1+field-repairs-v1+page-coverage-v1+practical-teaching-v1"
 POINT_BATCH_SIZE = 6
 # A three-point response must prove nine components and all their boundary
 # checks. Keep that work to one point per request; publication still aggregates
@@ -180,58 +195,78 @@ class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class _Card(_StrictModel):
+def _clean_content_text(text: str) -> str:
+    if not text.strip() or any(unicodedata.category(char) in {"Cc", "Cf"}
+                              and char not in "\n\t" for char in text):
+        raise ValueError("text must be nonempty without control characters")
+    return text.strip()
+
+
+class _ContentModel(_StrictModel):
+    @field_validator("*", mode="before")
+    @classmethod
+    def nonempty_text(cls, value: Any, info: ValidationInfo) -> Any:
+        if info.field_name in {"point_id", "card_id", "item_id", "source_ids", "reading_source_ids"}:
+            return value
+        if isinstance(value, str):
+            return _clean_content_text(value)
+        if isinstance(value, list) and info.field_name in {"steps", "rubric"}:
+            return [_clean_content_text(item) if isinstance(item, str) else item for item in value]
+        return value
+
+
+class _Card(_ContentModel):
     card_id: str
-    front: str = Field(min_length=6, max_length=120)
+    front: str = Field(min_length=1, max_length=120)
     back: str = Field(min_length=1, max_length=360)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
-class _Practice(_StrictModel):
+class _Practice(_ContentModel):
     item_id: str
-    prompt: str = Field(min_length=8, max_length=300)
+    prompt: str = Field(min_length=1, max_length=300)
     expected_answer: str = Field(min_length=1, max_length=800)
     rubric: list[str] = Field(min_length=1, max_length=6)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
-class _ExplanationPatch(_StrictModel):
-    title: str = Field(min_length=2, max_length=80)
-    explanation: str = Field(min_length=70, max_length=1200)
+class _ExplanationPatch(_ContentModel):
+    title: str = Field(min_length=1, max_length=80)
+    explanation: str = Field(min_length=1, max_length=1200)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
-class _Point(_StrictModel):
+class _Point(_ContentModel):
     point_id: str
-    title: str = Field(min_length=2, max_length=80)
-    explanation: str = Field(min_length=70, max_length=1200)
+    title: str = Field(min_length=1, max_length=80)
+    explanation: str = Field(min_length=1, max_length=1200)
     source_ids: list[str] = Field(min_length=1, max_length=8)
     flashcard: _Card
     practice: _Practice
 
 
-class _Example(_StrictModel):
-    title: str = Field(min_length=2, max_length=80)
-    problem: str = Field(min_length=8, max_length=220)
-    steps: list[str] = Field(min_length=2, max_length=5)
+class _Example(_ContentModel):
+    title: str = Field(min_length=1, max_length=80)
+    problem: str = Field(min_length=1, max_length=220)
+    steps: list[str] = Field(min_length=1, max_length=5)
     answer: str = Field(min_length=1, max_length=250)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
-class _Checkpoint(_StrictModel):
-    question: str = Field(min_length=8, max_length=180)
+class _Checkpoint(_ContentModel):
+    question: str = Field(min_length=1, max_length=180)
     expected_answer: str = Field(min_length=1, max_length=500)
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
-class _Lesson(_StrictModel):
-    opening: str = Field(min_length=12, max_length=300)
-    summary: str = Field(min_length=30, max_length=680)
+class _Lesson(_ContentModel):
+    opening: str = Field(min_length=1, max_length=300)
+    summary: str = Field(min_length=1, max_length=680)
     # The editor selects at most 12; deterministic assembly adds every point's
     # context before review so reviewed and displayed reading are identical.
     reading_source_ids: list[str] = Field(min_length=1, max_length=64)
-    worked_examples: list[_Example] = Field(min_length=2, max_length=3)
-    checkpoints: list[_Checkpoint] = Field(min_length=2, max_length=3)
+    worked_examples: list[_Example] = Field(min_length=1, max_length=3)
+    checkpoints: list[_Checkpoint] = Field(min_length=1, max_length=3)
 
 
 class _Generation(_StrictModel):
@@ -420,11 +455,11 @@ OCR 不可靠时使用证据清楚的文字关系，不猜补字符或数值；�
 保留输入本批每个 point_id、card_id、item_id，各恰好一次。每个内容用 source_ids 引用，
 只能用 sources 中已有 ID，不返回页码和原文引语。可以选择比 point_source_ids 更完整的相邻证据。
 每个知识点：title 为简明完整概念名，通常6-24字，不把整个结论当标题。
-explanation 为90-260字自然讲解（70-1200字）：先解释是什么，再说为何/如何成立、条件与易错处；
+explanation 为不超过1200字的非空自然讲解：按实际知识讲清是什么、必要条件与易错处；不设最低字数，简洁但完整即可；
 不要只改写标签，不要“请阅读/请解释”代替讲解，不得为凑字重复同一句。
 讲解面向学习者直接讲清知识，不以“教材未讨论/不能补充/此处没有证据”等审校说明凑字。
-flashcard 一个中心问题，front 6-120字、back 1-360字，答案先直接回答再保留必要条件。
-practice 为独立应用或辨析题（prompt 8-300字、expected_answer 1-800字），
+flashcard 一个中心问题，front 1-120字、back 1-360字，答案先直接回答再保留必要条件。
+practice 为独立应用或辨析题（prompt 1-300字、expected_answer 1-800字），
 题干不能包含待考查结论或完整答案；可明确标记“假设”的简单情境，但不能编造实验事实。
 每道 practice 按以下顺序构造，初稿与修复都相同：
 先区分题干的背景已知与实际待答问项；情境提到某人、某现象或后续结果，不等于要求解释它的整条成因或传递链。
@@ -449,7 +484,7 @@ rubric 不写“回答正确/表达清晰”等空话，不逐字重复整份答
 output_contract给出本批精确point_ids；不能增删或从all_knowledge_points另选其他点。
 若lesson_only=true，必须points=[]，只修lesson，不能重发任何已完成知识点/闪卡/练习。
 若 include_lesson=true，另生成全章 lesson：opening、summary、reading_source_ids、
-opening须12-300字，summary须30-680字；初稿和修复均遵守，不为压缩长度删去必要条件。
+opening须1-300字，summary须1-680字；初稿和修复均遵守，不为压缩长度删去必要条件。
 opening/summary每个定义、新术语、具体例子和数值必须由reading_source_ids自己的原文支持；
 它不是单纯选读清单。程序补锚点不代表所有新增断言已获支持。总结压缩不能抹掉正文已确认的范围。
 existing_point_content给出完整本章当前稿，existing_questions列出已用闪卡和练习问题；
@@ -458,8 +493,8 @@ existing_point_content给出完整本章当前稿，existing_questions列出已�
 若重复被拒绝，须更换为有原文支持的不同情境或不同作答目标；只换措辞、人名、数字或调换语序，
 而保留同一基本问题和推导目标，不算完成修复。检查新题也不能与其他例题、检查题互相重复。
 lesson各组件必须选用自己的准确来源，不可只扩大阅读目录而不核对各断言。
-worked_examples 2-3个、checkpoints 2-3个；否则 lesson=null。
-例题必须含 problem（独立完整问题）、steps（2-5步，每步明确运用哪个证据并真正推导，
+worked_examples与checkpoints各1-3个，以请求给出的实际槽位为准；少量知识点不强凑三题。
+例题必须含 problem（独立完整问题）、steps（1-5步，每步明确运用哪个证据并真正推导，
 步骤可以是简洁且完整的公式或结论，不为凑字扩写）、
 answer（明确结果与条件）、title、source_ids；“阅读/思考/用自己的话解释”不算解答步骤。
 可从原文明确前提进行逻辑推导和条件判断，推导步骤不必逐字出现在原文；不得新增未经支持的事实前提。
@@ -644,7 +679,7 @@ flashcard 是否单一清晰、答案直接且不遗漏关键条件；practice �
 原文有 OCR 残缺时不得凭常识补字、图表数值、公式记号或遗传符号。
 必须搜索全章相邻来源核查标签可能遗漏的条件/例外（如“部分/所有”“一般/例外”“编码/终止”等），
 候选不能只引用一个残句就扩大定义，也不能要求原文没有的答案。
-检查 lesson 阅读选择是否清晰并足以支撑课程；2-3个例题是否有具体题目、至少2个真实解题步骤及明确结论，
+检查 lesson 阅读选择是否清晰并足以支撑课程；实际提供的1-3个例题是否有具体题目、至少1个完整真实解题步骤及明确结论，
 步骤不可用“阅读/思考/自己解释”占位；检查题应与练习不同且知识和答案有证据。
 例题可以依据原文明确前提进行逻辑推导；推导步骤无须逐字出现在原文。
 应拒绝的是新增无依据的事实前提或不成立的推理，不能仅因原文未逐字写出推导而拒绝。
@@ -674,7 +709,8 @@ def _normalized(text: str) -> str:
 
 def _check_text(text: str) -> None:
     if (
-        text != text.strip()
+        not text.strip()
+        or text != text.strip()
         or "\ufffd" in text
         or any(unicodedata.category(char) in {"Cc", "Cf"} and char not in "\n\t" for char in text)
     ):
@@ -900,20 +936,20 @@ class TeachingContentGenerator:
         """Field-complete placeholders, never candidate facts or approval flags."""
         refs = ["sources中的真实ID"]
         return {
-            "explanation": {"title": "完整标题", "explanation": "完整讲解（70–1200字）",
+            "explanation": {"title": "完整标题", "explanation": "完整讲解（1–1200字）",
                             "source_ids": list(refs)},
-            "flashcard": {"card_id": "原card_id", "front": "完整问题（6–120字）",
+            "flashcard": {"card_id": "原card_id", "front": "完整问题（1–120字）",
                           "back": "完整答案（1–360字）", "source_ids": list(refs)},
-            "practice": {"item_id": "原item_id", "prompt": "完整题干（8–300字）",
+            "practice": {"item_id": "原item_id", "prompt": "完整题干（1–300字）",
                          "expected_answer": "完整参考答案（1–800字）",
                          "rubric": ["本题必要的原子评分目标"],
                          "source_ids": list(refs)},
-            "opening": "完整导入（12–300字）", "summary": "完整总结（30–680字）",
+            "opening": "完整导入（1–300字）", "summary": "完整总结（1–680字）",
             "reading_source_ids": list(refs),
-            "example": {"title": "完整例题标题", "problem": "完整问题（8–220字）",
-                        "steps": ["完整推导步骤1", "完整推导步骤2"],
+            "example": {"title": "完整例题标题", "problem": "完整问题（1–220字）",
+                        "steps": ["完整推导步骤"],
                         "answer": "完整答案（1–250字）", "source_ids": list(refs)},
-            "checkpoint": {"question": "完整检查问题（8–180字）",
+            "checkpoint": {"question": "完整检查问题（1–180字）",
                            "expected_answer": "完整核验答案（1–500字）", "source_ids": list(refs)},
         }
 
@@ -2258,6 +2294,7 @@ class TeachingContentGenerator:
                 "source_coverage": evidence.source_coverage,
             "previous_review_feedback": teaching_feedback,
             "candidate": candidate,
+            "lesson_component_ids": list(self._lesson_components(frozen_lesson)),
         }
         expected = {item["point_id"] for item in inputs}
         fact_jobs = self._build_fact_jobs(
@@ -2929,6 +2966,14 @@ class TeachingContentGenerator:
                 self._review_feedback(
                     review, expected_ids
                 )  # strict envelope/coverage, even on rejection
+                current_lesson = payload.get("candidate", {}).get("lesson")
+                if isinstance(current_lesson, dict):
+                    available = {
+                        *(f"example_{i + 1}" for i in range(len(current_lesson.get("worked_examples", [])))),
+                        *(f"checkpoint_{i + 1}" for i in range(len(current_lesson.get("checkpoints", [])))),
+                    }
+                    if not set(review.lesson.required_question_edits) <= available:
+                        raise TeachingContentError("题设修复义务必须仅指向当前实际提供的例题或检查题")
                 return review
             except _TeachingAuditError:
                 raise
@@ -4588,10 +4633,8 @@ class TeachingContentGenerator:
                 _citations(refs, evidence)
             explanation = _normalized(point.explanation)
             label = _normalized(original["label"])
-            if explanation == label or len(explanation) < max(60, min(100, len(label) + 25)):
-                raise TeachingContentError(f"{point.point_id} 的讲解只是标签复述或缺少展开")
             # Reject a label padded with repeated copies or only an instruction.
-            if label and len(label) >= 8 and explanation.replace(label, "") == "":
+            if label and len(label) >= 8 and explanation != label and explanation.replace(label, "") == "":
                 raise TeachingContentError("讲解机械重复同一知识点")
             if re.match(r"^(?:请|先)(?:阅读|思考|用自己的话|解释)", point.explanation):
                 raise TeachingContentError("教学讲解不能用学习任务代替")
@@ -4641,6 +4684,11 @@ class TeachingContentGenerator:
 
     @staticmethod
     def _validate_lesson(lesson: _Lesson, points: list[_Point], evidence: TeachingEvidence) -> None:
+        def reject(message: str, components: list[str]) -> None:
+            raise TeachingContentError(message, {"lesson": {"structural_validation": {
+                "lesson_components": components,
+            }}})
+
         _citations(lesson.reading_source_ids, evidence)
         texts = [lesson.opening, lesson.summary]
         existing_questions: dict[str, list[dict[str, str]]] = {}
@@ -4660,34 +4708,37 @@ class TeachingContentGenerator:
                     }
                 )
         for example_index, example in enumerate(lesson.worked_examples):
+            component_ids = [f"example_{example_index + 1}"]
             _citations(example.source_ids, evidence)
             if len({_normalized(step) for step in example.steps}) != len(example.steps):
-                raise TeachingContentError("例题解答机械重复步骤")
+                reject("例题解答机械重复步骤", component_ids)
             for step_index, step in enumerate(example.steps):
                 path = f"lesson.worked_examples[{example_index}].steps[{step_index}]"
                 step_length = len(_normalized(step))
                 if step_length < 1:
-                    raise TeachingContentError(
+                    reject(
                         f"{path}：例题推导步骤归一化后只有{step_length}个字符，"
-                        "步骤必须有真实推导内容。"
+                        "步骤必须有真实推导内容。", component_ids,
                     )
                 if re.match(
                     r"^(?:(?:第?[一二三四五12345]+步[：:、.． ]*)?)(?:请|先)?(?:阅读|思考|用自己的话|自行)",
                     step,
                 ):
-                    raise TeachingContentError(
+                    reject(
                         f"{path}：例题必须有真正的推导步骤，不能用阅读任务占位；"
-                        "请写明实际推理依据、条件或计算过程。"
+                        "请写明实际推理依据、条件或计算过程。", component_ids,
                     )
             rendered = _render_example(example)
             if len(rendered) > 1200:
-                raise TeachingContentError("例题过长，无法完整展示")
+                reject("例题过长，无法完整展示", component_ids)
             if _normalized(example.answer) in _normalized(example.problem):
-                raise TeachingContentError("例题题面已给出完整解答")
+                reject("例题题面已给出完整解答", component_ids)
             texts.extend([example.title, example.problem, *example.steps, example.answer])
         checkpoint_questions = [_normalized(row.question) for row in lesson.checkpoints]
         if len(set(checkpoint_questions)) != len(checkpoint_questions):
-            raise TeachingContentError("章节检查题重复")
+            reject("章节检查题重复", [f"checkpoint_{index + 1}"
+                   for index, question in enumerate(checkpoint_questions)
+                   if checkpoint_questions.count(question) > 1])
         collisions = [
             {
                 "checkpoint_index": index,
@@ -4699,7 +4750,7 @@ class TeachingContentGenerator:
             for index, checkpoint in enumerate(lesson.checkpoints)
             if _normalized(checkpoint.question) in existing_questions
         ]
-        for checkpoint in lesson.checkpoints:
+        for checkpoint_index, checkpoint in enumerate(lesson.checkpoints):
             _citations(checkpoint.source_ids, evidence)
             if _normalized(checkpoint.question) in existing_questions:
                 raise TeachingContentError(
@@ -4722,7 +4773,7 @@ class TeachingContentGenerator:
                     },
                 )
             if _normalized(checkpoint.expected_answer) in _normalized(checkpoint.question):
-                raise TeachingContentError("章节检查题泄露答案")
+                reject("章节检查题泄露答案", [f"checkpoint_{checkpoint_index + 1}"])
             texts.extend([checkpoint.question, checkpoint.expected_answer])
         for text in texts:
             _check_text(text)

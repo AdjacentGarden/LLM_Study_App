@@ -226,6 +226,6 @@ def test_combined_budget_is_actionable_and_long_natural_options_keep_existing_li
 def test_v16_source_protocol_requires_new_exact_approval(cases, monkeypatch):
     value = book(cases[SUTTON])
     current = generation.diagnostic_bank_fingerprint(value)
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v19+evidence-targets-v1+review-format-v1+required-edits-v1+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v15+historical')
     assert generation.diagnostic_bank_fingerprint(value) != current

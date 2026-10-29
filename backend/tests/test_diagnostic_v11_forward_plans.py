@@ -313,7 +313,7 @@ def test_v11_protocol_retains_old_approval_history_but_requires_a_new_source_pro
     previous = deepcopy(cache.claims[-1])
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', current)
     instance.generate(value, chapter_cache=cache, cache_scope='G-history')
-    assert current.startswith('grounded-independent-review-v17+required-edits-v1+')
+    assert current.startswith('grounded-independent-review-v19+evidence-targets-v1+review-format-v1+required-edits-v1+')
     assert previous['source_fingerprint'] == cache.claims[-1]['source_fingerprint']
     assert previous['protocol_fingerprint'] != cache.claims[-1]['protocol_fingerprint']
     assert previous['review_fingerprint'] != cache.claims[-1]['review_fingerprint']

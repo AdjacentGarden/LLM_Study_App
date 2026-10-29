@@ -46,7 +46,7 @@ _QUESTION_CONTRACT = """共同出题与审核合同：
 同一教材中在其他条件下成立的一般真陈述，不因此自动成为本题正确答案。若两项在当前题设下都回答本问且成立，必须拒绝多解。
 每题的cognitive_target由程序指定，不得自行降级：basic_recognition可考核心概念、术语或基本事实辨认，
 relation_understanding须考条件、对象或关系，source_application须将有据条件用于简短情境。
-每三题依次覆盖基础辨认、关系理解和有源应用，不能全部变成回忆题，也不能强迫仅定义证据去编造机制。
+认知覆盖以证据适配为偏好：程序会在缺少可用条件/关系信号的证据上指定基础辨认，不能强迫定义或术语证据编造应用机制。每题仍必须遵守其固定cognitive_target，作者和审校不得为了通过而自行更改目标。
 给出条件/前提，要求判断题干尚未给出的结论、适用工具或原理，是允许的低负担任务；
 正确结论可从原文找到不是泄题，不能因此否决。题干已经明示或同义给出完整答案才是泄漏；
 给出目标对象或希望改变的对象，不等于给出了尚待判断的作用位置、受体或实现配置；不能仅因目标与正确项同名判泄漏，仍须核对原文支持和实际判断负担。若本问就是目标或接受者身份且题干已同义给全该答案，仍须拒绝；身份不充分且原文不能唯一定位时也须拒绝。
@@ -107,8 +107,8 @@ _ITEM_SYSTEM = """你是基于书籍原文设计低负担入学诊断选择题�
 4. 以下输出字段规则仅适用于非source_application项（应用项必须返回application_task，由程序生成四个同轴选项）：options 数组必须恰好包含 4 个非空字符串，不得在末尾添加空字符串或第5项。四项应互不重复、语义清楚且能完整回答同一个判断，并有唯一 correct_index（0到3）；correct_index 指向的选项文字必须与输入的 label 逐字相同；选项采用自然完整的表达，同类术语可有正常字数差异，不得补字凑长度。不能让正确项独自明显更长、更具体而提示答案；该风险由独立语义审校结合实际内容判断。
 5. 题目面向普通学习者，不出现 chunk、OCR、RAG、证据编号等技术词。
 6. 题干必须能让用户仅通过选择作答，不得要求说明理由；difficulty 取 -2 到 2，estimated_seconds 取 20 到 90。
-7. 严格遵循每题cognitive_target，依次覆盖基础辨认、关系理解和有源应用；难度必须与实际推理负担一致。情境只能组合evidence已有对象和条件，不能把标签或修改意见当新事实。
-8. 题干必须正向提问，不得问“不正确”“错误的是”“不属于”等反向问题，因为指定答案是原文核验为真的陈述。
+7. 严格遵循每题由证据预先确定的cognitive_target，不要求每三题必有应用；难度必须与实际推理负担一致。情境只能组合evidence已有对象和条件，不能把标签或修改意见当新事实。
+8. 所问判断必须正向，不得要求选择不正确、错误或不属于的一项，因为指定答案是原文核验为真的陈述。题设可以包含有原文支持的不属于、不符合等否定条件；不能把否定前提误判为反向作答。
 9. 面向手机作答：题干通常20-70字、最多140字；每个选项通常15-90字、最多180字。避免长背景铺垫、双重问法和四个大段落；不得为了变短而删掉成立条件或完整术语。
 10. 若输入包含 previous_candidate 与 repair_feedback，同一轮必须逐项处理 items 中全部结构校验与审查问题，不能每轮只修一道；
 若有 required_repairs，prompt 非空表示必须实质修改该旧题干，option_texts 中每个旧选项都必须从整题四选项中移除并重写，不能仅换位置、空白、大小写、正确项位置或难度。应用项必须修改真实 situation/decision/outcomes，修改程序只读题面回声无效。修改只是再次独审的前提，不是批准；只修复指出的问题；preserve_accepted_items 中的题已经通过审查，必须原样保留。反馈只是待核对的修改意见，不是事实来源，不得把意见中超出 evidence 的机制或例子当作新教材事实。
@@ -381,6 +381,27 @@ def _repair_text(value: str) -> str:
     return re.sub(r"^(?:选项[a-d1-4][.:、]|[a-d][.:、]|[1-4]、|[（(\[][a-d1-4][）)\]][.:、]?)", "", text)
 
 
+def _negative_answer_instruction(prompt: str) -> bool:
+    """Reject explicit negative selection, not a source's negative premise.
+
+    Ambiguous language still receives the full independent semantic review;
+    this deterministic guard only handles recognizable answering instructions.
+    """
+    text = re.sub(r'“[^”]*”|‘[^’]*’|「[^」]*」|"[^"]*"', "", prompt)
+    text = re.sub(r"(?:在|当|若|如果|假设|已知)[^，,。；;！？?]{0,80}(?:时|条件下|情况下|前提下)", "", text)
+    selector = r"(?:哪(?:一)?(?:项|种|个)|何者|下列|以下|请(?:选择|选出)|选择|选出)"
+    negative = r"(?:不正确|错误(?:的说法)?|不属于|不符合|不包括)"
+    for clause in re.split(r"[，,。；;：:！？?]", text):
+        clause = clause.strip()
+        if re.search(r"(?:时|条件下|情况下|前提下|的条件|的情况|之中|案例中)$", clause):
+            continue
+        if re.search(selector + r".{0,50}" + negative, clause):
+            return True
+        if re.match(negative + r".{0,50}(?:的是|的一项|的选项)", clause):
+            return True
+    return False
+
+
 def _check_required_repairs(candidate: list[dict[str, object]],
                             required: dict[str, _ItemRepairTarget]) -> None:
     failures: list[dict[str, object]] = []
@@ -412,6 +433,10 @@ class DiagnosticGenerationError(ValueError):
         self.repair_context: dict[str, Any] = {}
 
 
+class DiagnosticReviewFormatError(DiagnosticGenerationError):
+    """A reviewer response was received but its wire cannot express a verdict."""
+
+
 def stable_knowledge_point_id(chapter_id: str, text: str) -> str:
     digest = hashlib.sha256(f"{chapter_id}:{text.strip()}".encode()).hexdigest()[:16]
     return f"kp_{digest}"
@@ -423,8 +448,9 @@ def structure_fingerprint(structure: BookStructure) -> str:
 
 
 # Bump for selection, validation or answer-order algorithm changes. Prompt text is hashed too.
-DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v17+required-edits-v1+source-scenario-v1+chapter-approvals-v1+balanced-options-v1"
+DIAGNOSTIC_BANK_VERSION = "grounded-independent-review-v19+evidence-targets-v1+review-format-v1+required-edits-v1+source-scenario-v1+chapter-approvals-v1+balanced-options-v1"
 DIAGNOSTIC_POINT_SELECTION_VERSION = "source-role-priority-v2"
+DIAGNOSTIC_TARGET_POLICY = "evidence-adaptive-preference-v1"
 
 
 class DiagnosticChapterCache(Protocol):
@@ -493,6 +519,7 @@ def diagnostic_bank_fingerprint(
         "grounded_rewrite": allow_grounded_answer_rewrite,
         "points_per_chapter": points_per_chapter,
         "cognitive_targets": _COGNITIVE_TARGETS,
+        "target_policy": DIAGNOSTIC_TARGET_POLICY,
         "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
@@ -633,10 +660,11 @@ class DiagnosticItemGenerator:
                 "chapter": chapter.model_dump(mode="json"),
                 "selected_points": [{"id": key, "label": label,
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
-                    "target": _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]}
+                    "target": self._target_for_point((key, label, quotes), index)}
                     for index, (key, label, quotes) in enumerate(points)]}),
             "protocol_fingerprint": digest({"version": DIAGNOSTIC_BANK_VERSION,
                 "point_selection": DIAGNOSTIC_POINT_SELECTION_VERSION,
+                "target_policy": DIAGNOSTIC_TARGET_POLICY,
                 "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
                 "writer_prompt": _item_system(self.allow_grounded_answer_rewrite),
                 "writer_route": route(self.client), "points_per_chapter": self.points_per_chapter,
@@ -664,7 +692,7 @@ class DiagnosticItemGenerator:
             for index, item in enumerate(items):
                 # Reconstruct deterministic IDs/source fields; reject corrupt
                 # cached content instead of silently replacing it or paying again.
-                is_application = _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
+                is_application = self._target_for_point(points[index], index)["id"] == "source_application"
                 expected = self._validate_item(ItemDraft.model_validate(self._candidate_item(item)),
                     chapter, by_id, allow_rewrite=self.allow_grounded_answer_rewrite or is_application,
                     structured_application=is_application)
@@ -743,6 +771,14 @@ class DiagnosticItemGenerator:
         return [candidate for _, candidate in selected]
 
     @staticmethod
+    def _target_for_point(point: tuple[str, str, list[SourceQuote]], index: int) -> dict[str, str]:
+        """Freeze a source-adapted role before any candidate or feedback exists."""
+        target = _COGNITIVE_TARGETS[index % len(_COGNITIVE_TARGETS)]
+        if target["id"] == "source_application" and DiagnosticItemGenerator._application_signal(point[2]) <= 0:
+            target = _COGNITIVE_TARGETS[0]
+        return dict(target)
+
+    @staticmethod
     def _application_signal(quotes: list[SourceQuote]) -> int:
         """Conservative Chinese source-pattern priorities, not semantic proof.
 
@@ -753,6 +789,12 @@ class DiagnosticItemGenerator:
         score = 0
         for quote in quotes:
             text = re.sub(r"\s+", "", quote.quote)
+            # An explicit premise with a nonempty consequent is a weak design
+            # opportunity, not proof that any proposed application is valid.
+            if (re.search(r"(?:若|如果|当)[^。！？!?；;]{1,100}?(?:时|则|就)[，,]*[^。！？!?；;，,]{1,100}", text)
+                    or re.search(r"\b(?:if|when)\s+[^.;!?]{1,100}?(?:,\s*|\bthen\s+)[^.;!?\s]{1,100}",
+                                 quote.quote, flags=re.IGNORECASE)):
+                score = max(score, 1)
             if len(re.findall(r"叫做|称为|称作", text)) >= 2 and re.search(r"以上|至少|不少于|≥|>=", text):
                 score = max(score, 4)
             for sentence in re.split(r"[。！？!?]", text):
@@ -795,8 +837,8 @@ class DiagnosticItemGenerator:
         targeted: bool = False,
     ) -> list[DiagnosticItem]:
         if not self.verify_items and any(
-            _COGNITIVE_TARGETS[(index + point_offset) % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
-            for index in range(len(points))
+            self._target_for_point(point, index + point_offset)["id"] == "source_application"
+            for index, point in enumerate(points)
         ):
             raise DiagnosticGenerationError("structured applications require independent semantic review")
         payload: dict[str, object] = {
@@ -806,6 +848,7 @@ class DiagnosticItemGenerator:
             "chapter_id": chapter.chapter_id,
             "chapter_title": chapter.title,
             "question_contract": _QUESTION_CONTRACT,
+            "cognitive_target_policy": DIAGNOSTIC_TARGET_POLICY,
             "application_contract": _APPLICATION_CONTRACT,
             "application_plan_contract": _APPLICATION_PLAN_CONTRACT,
             "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
@@ -828,8 +871,9 @@ class DiagnosticItemGenerator:
                     "knowledge_point_id": point_id,
                     "label": label,
                     "preferred_type": "choice",
-                    "cognitive_target": dict(_COGNITIVE_TARGETS[(index + point_offset) % len(_COGNITIVE_TARGETS)]),
-                    "response_shape": "private_application_plan" if (index + point_offset) % 3 == 2 else "ordinary_choice",
+                    "cognitive_target": self._target_for_point((point_id, label, quotes), index + point_offset),
+                    "response_shape": "private_application_plan" if self._target_for_point(
+                        (point_id, label, quotes), index + point_offset)["id"] == "source_application" else "ordinary_choice",
                     "evidence": [quote.model_dump(mode="json") for quote in quotes],
                 }
                 for index, (point_id, label, quotes) in enumerate(points)
@@ -841,6 +885,7 @@ class DiagnosticItemGenerator:
         preserved: dict[str, dict[str, object]] = {}
         approved_keys: dict[str, str] = {}
         required_repairs: dict[str, _ItemRepairTarget] = {}
+        pending_review_candidate: list[dict[str, object]] | None = None
         system = _item_system(self.allow_grounded_answer_rewrite)
         if targeted:
             old = system[system.index("10. 若输入包含"):system.index("只返回 JSON：")]
@@ -854,7 +899,7 @@ class DiagnosticItemGenerator:
             attempt_context = {**chapter_context, "attempt": attempt + 1}
             try:
                 self._audit(attempt_context, "generation_request", system=system, request=payload)
-                pending_candidate = (repair_context or {}).get("_pending_candidate") if targeted else None
+                pending_candidate = (repair_context or {}).get("_pending_candidate") if targeted else pending_review_candidate
                 raw = {"items": pending_candidate} if pending_candidate is not None else self.client.structured(
                     system=system,
                     user=json.dumps(payload, ensure_ascii=False),
@@ -873,7 +918,7 @@ class DiagnosticItemGenerator:
                 failures: list[dict[str, object]] = []
                 for index, entry in enumerate(draft.items):
                     try:
-                        is_application = _COGNITIVE_TARGETS[(index + point_offset) % len(_COGNITIVE_TARGETS)]["id"] == "source_application"
+                        is_application = self._target_for_point(points[index], index + point_offset)["id"] == "source_application"
                         if is_application:
                             entry, task = self._render_application(entry, payload)
                             application_tasks[expected_ids[index]] = task
@@ -955,18 +1000,26 @@ class DiagnosticItemGenerator:
                         "stage": "validation", "issues": error.errors(include_input=False, include_url=False, include_context=False)
                         if isinstance(error, ValidationError) else [str(error)]}
                     context = dict(repair_context or {})
-                    context.pop("_pending_candidate", None)
+                    if isinstance(error, DiagnosticReviewFormatError) and candidate is not None:
+                        context["_pending_candidate"] = candidate
+                    else:
+                        context.pop("_pending_candidate", None)
                     context["repair_feedback"] = feedback
                     if candidate is not None:
                         context["previous_candidate"] = {"items": candidate}
                     if isinstance(error, DiagnosticGenerationError) and error.required_repairs is not None:
                         context["required_repairs"] = [target.writer_payload(key)
                             for key, target in error.required_repairs.items()]
-                    pending_error = DiagnosticGenerationError("diagnostic item needs revision", feedback=dict(feedback))
+                    error_class = DiagnosticReviewFormatError if isinstance(error, DiagnosticReviewFormatError) else DiagnosticGenerationError
+                    pending_error = error_class("diagnostic item needs revision", feedback=dict(feedback))
                     pending_error.repair_context = context
                     raise pending_error from error
                 if attempt >= (self.validation_retries or 0):
                     break
+                if isinstance(error, DiagnosticReviewFormatError) and candidate is not None:
+                    pending_review_candidate = candidate
+                    continue
+                pending_review_candidate = None
                 feedback = (error.feedback if isinstance(error, DiagnosticGenerationError)
                             and error.feedback else {"stage": "validation", "issues":
                             error.errors(include_input=False, include_url=False, include_context=False)
@@ -1047,6 +1100,7 @@ class DiagnosticItemGenerator:
         review_payload = {
             "source_coverage": source_payload.get("source_coverage", {}),
             "question_contract": _QUESTION_CONTRACT,
+            "cognitive_target_policy": DIAGNOSTIC_TARGET_POLICY,
             "application_contract": _APPLICATION_CONTRACT,
             "application_plan_contract": _APPLICATION_PLAN_CONTRACT,
             # Prior verdicts/candidates are writer repair context, never hints
@@ -1087,9 +1141,12 @@ class DiagnosticItemGenerator:
         try:
             review = ItemReviewBatch.model_validate(raw)
         except ValidationError as error:
-            raise DiagnosticGenerationError("diagnostic review schema is invalid") from error
+            raise DiagnosticReviewFormatError("diagnostic review schema is invalid",
+                feedback={"stage": "review_format", "issues": error.errors(
+                    include_input=False, include_url=False, include_context=False)}) from error
         if [entry.knowledge_point_id for entry in review.reviews] != expected_ids:
-            raise DiagnosticGenerationError("diagnostic review did not cover every item")
+            raise DiagnosticReviewFormatError("diagnostic review did not cover every item",
+                feedback={"stage": "review_coverage", "expected_knowledge_point_ids": expected_ids})
         self._audit(audit_context, "review_verdict", review=review.model_dump(mode="json"),
                     review_identity=self.review_identity)
         rejected = [entry for entry in review.reviews if not entry.accepted or entry.issues]
@@ -1461,7 +1518,7 @@ class DiagnosticItemGenerator:
             raise DiagnosticGenerationError("all diagnostic items must be choice questions")
         # The structured renderer always asks the positive mapping question.
         # Negative *given conditions* are not negative-question stems.
-        if not structured_application and re.search(r"不正确|不属于|错误的是|错误的说法|不符合|不包括", draft.prompt):
+        if not structured_application and _negative_answer_instruction(draft.prompt):
             raise DiagnosticGenerationError("negative stem conflicts with verified true answer")
         options = [option.strip() for option in draft.options]
         if len(options) != 4 or any(not option for option in options):

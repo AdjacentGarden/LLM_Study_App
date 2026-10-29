@@ -8,7 +8,6 @@ import pytest
 
 from adaptive_learning.ingestion.chaptering import (
     ChapterBoundaryDetector,
-    ChapteringValidationError,
     ChapterReconstructor,
     _split_evidence,
     load_normalized_pages,
@@ -175,12 +174,14 @@ def test_summary_retries_invalid_quote_and_keeps_verbatim_evidence() -> None:
     assert structure.chapters[0].knowledge_point_evidence["核心问题"][0].page_number == 1
 
 
-def test_book_summary_cannot_reference_unknown_chapter() -> None:
+def test_book_summary_cannot_reference_unknown_chapter_but_keeps_real_directory() -> None:
     pages = [page(1, ("text", "第一条原文。", None)), page(2, ("text", "第二条原文。", None))]
     fake = FakeSummaryClient(invalid_book_id=True)
 
-    with pytest.raises(ChapteringValidationError, match="every known chapter"):
-        ChapterReconstructor(cast(OpenAICompatibleClient, fake)).reconstruct_book(pages, "书")
+    structure = ChapterReconstructor(cast(OpenAICompatibleClient, fake)).reconstruct_book(pages, "书")
+    assert len(structure.chapters) == 1
+    assert structure.summary == "全书内容：本章围绕核心问题展开，并说明关键过程。"
+    assert structure.chapters[0].summary == "本章围绕核心问题展开，并说明关键过程。"
 
 
 def test_load_normalized_pages_preserves_heading_metadata(tmp_path: Path) -> None:
@@ -288,7 +289,7 @@ def test_book_summary_retries_with_explicit_coverage_feedback(issue):
     assert "附录" in result and len(client.calls) == 2
 
 
-def test_book_summary_failure_is_bounded_without_silently_adding_missing_ids():
+def test_book_summary_failure_is_bounded_and_uses_existing_chapters_only():
     from adaptive_learning.ingestion.models import ChapterDraft
 
     chapter = ChapterDraft(
@@ -310,8 +311,143 @@ def test_book_summary_failure_is_bounded_without_silently_adding_missing_ids():
             return {"summary": "仅有摘要，但故意不返回所需标识。", "chapter_ids": ["other"]}
 
     client = Client()
-    with pytest.raises(ChapteringValidationError, match="every known chapter"):
-        ChapterReconstructor(
-            cast(OpenAICompatibleClient, client), validation_retries=1
-        )._summarize_book([chapter])
+    result = ChapterReconstructor(
+        cast(OpenAICompatibleClient, client), validation_retries=1
+    )._summarize_book([chapter])
+    assert result == "附录：附录用于检索。"
+    assert "故意" not in result and "other" not in result
     assert client.calls == 2
+
+
+def test_short_chapter_accepts_one_real_point_and_one_reference() -> None:
+    pages = [page(1, ("heading", "第1章 细胞", 1),
+                  ("text", "细胞是生物体结构和功能的基本单位。", None))]
+
+    class Client:
+        chapter_calls = 0
+
+        def structured(self, *, user, system, **kwargs):
+            payload = json.loads(user)
+            if "章节摘要器" in system:
+                self.chapter_calls += 1
+                evidence = next(item for item in payload["evidence"] if "基本单位" in item["text"])
+                return {"summary": "细胞是生物体的基本单位。",
+                        "knowledge_points": [{"text": "细胞是生物体结构和功能的基本单位。",
+                                              "evidence_ids": [evidence["id"]]}],
+                        "evidence_ids": [evidence["id"]]}
+            return {"summary": "全章介绍细胞的基本地位。", "chapter_ids": payload["required_chapter_ids"]}
+
+    client = Client()
+    result = ChapterReconstructor(cast(OpenAICompatibleClient, client)).reconstruct_book(pages, "细胞")
+    assert client.chapter_calls == 1
+    chapter = result.chapters[0]
+    assert chapter.knowledge_points == ["细胞是生物体结构和功能的基本单位。"]
+    assert len(chapter.evidence) == 1
+    assert chapter.knowledge_point_evidence[chapter.knowledge_points[0]][0].quote in pages[0].raw_text
+
+
+def test_failed_chapter_enhancement_keeps_boundaries_and_literal_complete_source() -> None:
+    pages = [page(1, ("heading", "第1章 条件", 1),
+                  ("text", "只有满足条件甲时，结果乙才可能成立。", None)),
+             page(2, ("heading", "第2章 关系", 1),
+                  ("text", "结果丙取决于条件丁，不能由未满足条件推断其反面。", None))]
+
+    class Client:
+        calls = 0
+
+        def structured(self, **kwargs):
+            self.calls += 1
+            return {"summary": "无源的模型结论。", "knowledge_points": [
+                {"text": "结果一定成立。", "evidence_ids": ["UNKNOWN"]}],
+                "evidence_ids": ["UNKNOWN"]}
+
+    client = Client()
+    result = ChapterReconstructor(cast(OpenAICompatibleClient, client)).reconstruct_book(pages, "条件")
+    assert [(c.title, c.start_page, c.end_page) for c in result.chapters] == [
+        ("第1章 条件", 1, 1), ("第2章 关系", 2, 2)]
+    assert client.calls == 6
+    for chapter in result.chapters:
+        original = pages[chapter.start_page - 1].raw_text
+        assert chapter.knowledge_points
+        assert all(point in original and point.endswith("。") for point in chapter.knowledge_points)
+        assert "无源" not in chapter.summary and "一定成立" not in chapter.summary
+        assert all(quote.quote in original for quote in chapter.evidence)
+    assert all(chapter.title in result.summary for chapter in result.chapters)
+
+
+def test_source_excerpt_recovery_excludes_skipped_pages_headers_and_cut_sentences() -> None:
+    pages = [page(1, ("heading", "第1章 标题。", 1),
+                  ("text", "没有结尾的残句", None)),
+             page(2, ("text", "跳过页里的语句不能作为知识点。", None)).model_copy(
+                 update={"processing_status": "skipped"})]
+
+    class Client:
+        calls = 0
+
+        def structured(self, *, user, **kwargs):
+            self.calls += 1
+            assert all(entry["page_number"] != 2 for entry in json.loads(user).get("evidence", []))
+            return {}
+
+    client = Client()
+    result = ChapterReconstructor(cast(OpenAICompatibleClient, client)).reconstruct_book(pages, "不完整")
+    assert result.chapters[0].title == "第1章 标题。"
+    assert result.chapters[0].summary == ''
+    assert result.chapters[0].knowledge_points == []
+    assert result.chapters[0].evidence == []
+    assert result.summary == ''
+    assert client.calls == 2
+
+
+def test_summary_provider_unknown_is_not_replayed_and_can_retain_exact_source() -> None:
+    from adaptive_learning.llm.client import LLMError
+
+    class Client:
+        calls = 0
+
+        def structured(self, **kwargs):
+            self.calls += 1
+            raise LLMError("unknown provider outcome")
+
+    client = Client()
+    source = "只有条件甲成立，才可以讨论结论乙。"
+    result = ChapterReconstructor(cast(OpenAICompatibleClient, client), validation_retries=3).reconstruct_book(
+        [page(1, ("text", source, None))], "条件")
+    assert client.calls == 2  # One chapter request and one optional book overview; no replay.
+    assert result.chapters[0].knowledge_points == [source]
+    assert result.chapters[0].summary == source
+    assert result.summary == "全书内容：" + source
+
+
+def test_recovery_never_turns_the_tail_of_a_cut_long_sentence_into_a_point() -> None:
+    class Client:
+        def structured(self, **kwargs):
+            return {}
+
+    source = "条件甲与结论乙之间的限定关系" * 80 + "在本章给定条件下才成立。"
+    result = ChapterReconstructor(cast(OpenAICompatibleClient, Client())).reconstruct_book(
+        [page(1, ('text', source, None))], '长句')
+    assert result.chapters
+    assert result.chapters[0].knowledge_points == []
+    assert result.chapters[0].summary == ''
+
+
+def test_excerpt_summary_budget_keeps_one_whole_condition_instead_of_cutting_two() -> None:
+    from adaptive_learning.ingestion.models import ChapterDraft
+
+    sources = ['只有' + ('条件甲和条件乙同时成立，' * 28) + '才可讨论结果丙。',
+               '除非' + ('前提丁已经得到完整核实，' * 28) + '否则不能推出结论戊。']
+    assert all(340 < len(value) <= 500 for value in sources)
+    pages = [page(index + 1, ('text', text, None)) for index, text in enumerate(sources)]
+
+    class Client:
+        def structured(self, **kwargs):
+            return {}
+
+    chapter = ChapterDraft(chapter_id='range', order=1, title='条件', start_page=1, end_page=2,
+                           summary='', knowledge_points=[], source_block_ids=[])
+    result = ChapterReconstructor(cast(OpenAICompatibleClient, Client()))._summarize(chapter, pages)
+    assert len(result.summary) <= 680
+    assert result.summary in sources
+    assert result.knowledge_points == sources
+    assert [source.quote for source in result.evidence] == sources

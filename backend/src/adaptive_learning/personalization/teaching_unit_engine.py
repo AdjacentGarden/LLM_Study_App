@@ -76,8 +76,11 @@ class UnitEngine:
                 specs.append({'unit_id': item['point_id'] + '.' + kind,
                               'owner_id': item['point_id'], 'kind': kind,
                               'label': item['label'], 'focus_ids': [item['point_id']]})
-        for kind in ('opening', 'summary', 'example_1', 'example_2', 'example_3',
-                     'checkpoint_1', 'checkpoint_2', 'checkpoint_3'):
+        count = min(3, len(self.inputs))
+        lesson_kinds = ('opening', 'summary',
+                        *(f'example_{i}' for i in range(1, count + 1)),
+                        *(f'checkpoint_{i}' for i in range(1, count + 1)))
+        for kind in lesson_kinds:
             broad = kind in ('opening', 'summary')
             slot = int(kind.rsplit('_', 1)[-1]) - 1 if not broad else 0
             index = min(len(self.inputs) - 1, (slot + (1 if kind.startswith('checkpoint') else 0))
@@ -177,7 +180,7 @@ class UnitEngine:
                 # checked. Resetting the repair cycle here makes a repeated
                 # cross-component veto permanently look like its first repair.
                 work.update(failures=0, feedback=[], phase='accepted',
-                            redesign_pending_review=False)
+                            redesign_pending_review=False, semantic_feedback={})
                 self.run.write_unit(unit, status='approved')
                 self.g._audit('unit_approved', revision=work['revision'],
                               candidate_sha256=fingerprint(unit['candidate']))
@@ -192,13 +195,23 @@ class UnitEngine:
     def _failed(self, unit: dict[str, Any], error: Exception, attempted_mode: str) -> None:
         work = unit['work']
         work['failures'] = int(work.get('failures', 0)) + 1
-        # Initial draft/redesign rejection starts a new two-repair cycle. All
-        # subsequent failures count, including format/service/unchanged output.
-        if attempted_mode == 'repair':
-            work['repair_failures'] = int(work.get('repair_failures', 0)) + 1
-        else:
-            work['repair_failures'] = 0
-        work['mode'] = 'redesign' if work['repair_failures'] >= 2 else 'repair'
+        # Only a located content veto justifies redesigning a question. A bad
+        # review envelope or unavailable provider says nothing about its content.
+        semantic = isinstance(error, _UnitRejected) and error.stage in (
+            'fact', 'teacher', 'rubric', 'whole_course', 'assembly')
+        semantic = semantic or (isinstance(error, _UnitRejected)
+                               and error.stage in ('unchanged', 'redesign_unchanged')
+                               and bool(work.get('semantic_feedback')))
+        if semantic:
+            if attempted_mode == 'repair':
+                work['repair_failures'] = int(work.get('repair_failures', 0)) + 1
+            else:
+                work['repair_failures'] = 0
+            work['mode'] = 'redesign' if work['repair_failures'] >= 2 else 'repair'
+        elif work.get('phase') == 'review' and attempted_mode == 'redesign':
+            # The new design already exists; a missing review response must
+            # resume reviewing it, not enter the redesign writer again.
+            work['mode'] = 'repair'
         if isinstance(error, _UnitRejected):
             if error.stage in ('fact', 'teacher', 'whole_course', 'assembly'):
                 work.pop('rubric_only_lock', None)
@@ -211,7 +224,8 @@ class UnitEngine:
                 work['feedback'] = {'current_failure': error.feedback,
                                     'unresolved_review': work.get('semantic_feedback', {})}
             work['failure_stage'] = error.stage
-            work['phase'] = 'write'
+            if semantic or work.get('phase') != 'review' or error.stage not in ('fact_format', 'teacher_format'):
+                work['phase'] = 'write'
             invalidate_repair_response()
         else:
             work['feedback'] = {'issue': str(error)[:1200],
@@ -334,12 +348,14 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
             _check_text,
             _Checkpoint,
             _citations,
+            _clean_content_text,
             _Example,
             _ExplanationPatch,
             _Practice,
         )
         work = unit['work']
         kind = work['kind']
+        before = fingerprint(candidate)
         rubric_baseline = self._rubric_baseline(unit)
         if rubric_baseline is not None and any(candidate.get(key) != value
                 for key, value in rubric_baseline.items() if key != 'rubric'):
@@ -347,13 +363,16 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
         if kind in ('opening', 'summary'):
             if set(candidate) != {'content', 'source_ids'} or not isinstance(candidate['content'], str):
                 raise ValueError('导入/总结须返回content与source_ids')
-            low, high = (12, 300) if kind == 'opening' else (30, 680)
-            if not low <= len(candidate['content']) <= high:
+            candidate['content'] = _clean_content_text(candidate['content'])
+            high = 300 if kind == 'opening' else 680
+            if not candidate['content'].strip() or len(candidate['content']) > high:
                 raise ValueError('导入/总结长度不符合组件要求')
         else:
             model = {'explanation': _ExplanationPatch, 'flashcard': _Card, 'practice': _Practice,
                      'example': _Example, 'checkpoint': _Checkpoint}[kind.split('_')[0]]
-            model.model_validate(candidate)
+            normalized = model.model_validate(candidate).model_dump()
+            candidate.clear()
+            candidate.update(normalized)
         _citations(candidate['source_ids'], self.evidence)
         if kind == 'practice' and candidate['item_id'] != self.by_id[work['owner_id']]['item_id']:
             raise ValueError('练习ID必须保持不变')
@@ -368,6 +387,9 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
         for key, value in candidate.items():
             if key not in ('source_ids', 'item_id', 'card_id'):
                 check(value)
+        if before != fingerprint(candidate):
+            self.g._audit('unit_content_whitespace_normalized', original_sha256=before,
+                          candidate_sha256=fingerprint(candidate), approved=False)
 
     def _scaffold_point(self, owner: str) -> Any:
         from .teaching_content import _Point
@@ -529,7 +551,12 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
             'teacher': teacher.model_dump(), 'rubric': rubric}
 
     def _assemble(self, rows: list[dict[str, Any]], plans: Any) -> Any:
-        from .teaching_content import TeachingContentError, _Lesson, _Point
+        from .teaching_content import (
+            TeachingContentError,
+            TeachingServiceUnavailableError,
+            _Lesson,
+            _Point,
+        )
         from .teaching_scope import TEACHING_SCOPE_VERSION
         by_unit = {row['unit_id']: row for row in rows}
         points = []
@@ -543,8 +570,10 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
         lesson = _Lesson.model_validate({'opening': opening['content'], 'summary': summary['content'],
             'reading_source_ids': list(dict.fromkeys([*opening['source_ids'], *summary['source_ids'],
                 *(ids[0] for ids in self.evidence.point_sources.values() if ids)])),
-            'worked_examples': [by_unit['lesson.example_' + str(i)]['candidate'] for i in range(1, 4)],
-            'checkpoints': [by_unit['lesson.checkpoint_' + str(i)]['candidate'] for i in range(1, 4)]})
+            'worked_examples': [by_unit[spec['unit_id']]['candidate'] for spec in self._specs()
+                                if spec['kind'].startswith('example_')],
+            'checkpoints': [by_unit[spec['unit_id']]['candidate'] for spec in self._specs()
+                            if spec['kind'].startswith('checkpoint_')]})
         token = current_unit.set('__assembly__')
         try:
             report_course_stage(CourseStage.REVIEWING)
@@ -561,7 +590,8 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
                     lesson_targets = set(plan.allowed_lesson)
                     for group, prefix in (('worked_examples', 'example_'), ('checkpoints', 'checkpoint_')):
                         if group in lesson_targets:
-                            lesson_targets.update(prefix + str(i) for i in range(1, 4))
+                            lesson_targets.update(spec['kind'] for spec in self._specs()
+                                                  if spec['kind'].startswith(prefix))
                     if 'reading_source_ids' in lesson_targets and not lesson_targets & {'opening', 'summary'}:
                         lesson_targets.update({'opening', 'summary'})
                     targets.update('lesson.' + kind for kind in lesson_targets)
@@ -588,18 +618,20 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
                     raise TeachingRepairPending(5)
             except TeachingRepairPending:
                 raise
+            except TeachingServiceUnavailableError as error:
+                # The candidate was not rejected. Preserve every reviewed leaf
+                # and retry only the unavailable/malformed final review.
+                self.g._audit('assembly_review_pending', error_type=type(error).__name__,
+                              approved=False, candidate_changed=False)
+                raise TeachingRepairPending(10) from error
             except TeachingContentError as error:
                 details = error.review_feedback if isinstance(error.review_feedback, dict) else {}
                 lesson_parts = details.get('lesson', {}).get('structural_validation', {}).get('lesson_components', [])
                 targets = {'lesson.' + kind for kind in lesson_parts}
                 for owner in details.get('point_ids', []):
                     targets.update(owner + '.' + kind for kind in ('explanation', 'flashcard', 'practice'))
-                if not targets:
-                    self.state['assembly_failures'] = int(self.state.get('assembly_failures', 0)) + 1
-                    if self.state['assembly_failures'] >= 2:
-                        targets = {key for key, unit in by_unit.items() if _question(unit['candidate'])}
-                        for key in targets:
-                            by_unit[key]['work']['repair_failures'] = max(1, by_unit[key]['work'].get('repair_failures', 0))
+                # Unlocated validator/protocol failures are not evidence that
+                # every question is wrong. Never turn them into a global rewrite.
                 for key in targets & by_unit.keys():
                     self._failed(by_unit[key], _UnitRejected({'issue': str(error), 'detail': details}, 'assembly'), 'repair')
                 self.run.save_state(self.state)

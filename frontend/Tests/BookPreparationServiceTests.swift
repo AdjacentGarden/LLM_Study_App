@@ -103,6 +103,39 @@ final class BookPreparationServiceTests: XCTestCase, @unchecked Sendable {
     return result
   }
 
+  @MainActor func testFailedDiagnosticsStillRetainActualDirectoryWithoutCompletingImport() async throws {
+    let requests = BookPreparationRequests()
+    let structure = CloudStructure(title: "原教材目录", summary: "可核对原文",
+      source_page_count: 3, chapters: [CloudChapter(chapter_id: "chapter-real", order: 1,
+        title: "真实章节", start_page: 1, end_page: 3, summary: "真实摘要",
+        knowledge_points: ["原文知识点"], source_block_ids: ["source-1"])])
+    let body = try JSONEncoder().encode(structure)
+    let (api, session, host, repository) = try fixture { request in
+      requests.append(request)
+      XCTAssertEqual(request.httpMethod, "GET")
+      XCTAssertEqual(request.url?.path, "/api/books/book/structure")
+      return (200, body)
+    }
+    defer { BookPreparationProtocol.install(host, nil); session.invalidateAndCancel() }
+    let store = AppStore(repository: repository, cloud: api)
+    store.sources = [CloudMapping.source(CloudResource(id: "staged:book", book_id: "book",
+      workspace_id: "", revision: 0, filename: "教材.pdf", status: "ocr_ready",
+      courses: [], progress: CloudProgress()))]
+    store.draft = CourseDraft(name: "保留目录", resourceIDs: ["book"])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.updateCourseImport(id) { $0.job.status = .failed }
+    let failed = try JSONDecoder().decode(CloudBookPreparationJob.self, from: job("failed"))
+    await store.retainAvailableCloudStructure(bookID: "book", courseID: id, job: failed,
+      epoch: store.cloudState.epoch)
+    await store.retainAvailableCloudStructure(bookID: "book", courseID: id, job: failed,
+      epoch: store.cloudState.epoch)
+    XCTAssertEqual(requests.all.count, 1, "Use the existing observation loop, not a second structure poller")
+    XCTAssertEqual(store.sources.first?.chapters.map(\.id), ["chapter-real"])
+    XCTAssertEqual(store.sources.first?.lessons.map(\.status), ["pending"])
+    XCTAssertEqual(store.sources.first?.summary.status, "source_ready")
+    XCTAssertEqual(store.courseImport(for: id)?.job.status, .failed)
+  }
+
   func testCreatePersistsIntentBeforePOSTAndVerifiesActualReadiness() async throws {
     let requests = BookPreparationRequests()
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

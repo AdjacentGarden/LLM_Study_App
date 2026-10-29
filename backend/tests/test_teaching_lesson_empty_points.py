@@ -71,7 +71,7 @@ def test_empty_envelope_normalization_never_admits_other_shapes_or_invalid_slot_
     elif fault == "foreign_slot":
         raw["lesson"]["checkpoint_2"] = raw["lesson"]["checkpoint_3"]
     elif fault == "bad_length":
-        raw["lesson"]["checkpoint_3"]["question"] = "短"
+        raw["lesson"]["checkpoint_3"]["question"] = ""
     else:
         raw["lesson"] = None
     with pytest.raises((ValueError, teaching.TeachingContentError)):

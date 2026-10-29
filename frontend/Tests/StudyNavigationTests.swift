@@ -61,8 +61,32 @@ import XCTest
     XCTAssertNil(store.studyCoursePreparation)
     XCTAssertTrue(store.selectedCourseImport?.needsPreparation == true)
     store.updateCourseImport(id) { $0.setupCompleted = false }
-    XCTAssertEqual(store.studyCoursePreparation, .materials,
-      "A new course still needs setup even when its source already has cached lessons")
+    XCTAssertNil(store.studyCoursePreparation,
+      "Unfinished setup must not hide an already available source directory or lesson")
+    await store.flush()
+  }
+
+  func testVerifiedDirectoryRemainsVisibleWhenOnlyDiagnosticsFailed() async throws {
+    let store = try store()
+    let chapter = CloudChapter(chapter_id: "source-chapter", order: 1, title: "真实章节",
+      start_page: 1, end_page: 3, summary: "原文摘要", knowledge_points: ["原文支持的知识点"], source_block_ids: [])
+    let resource = CloudResource(id: "resource", book_id: "book-directory", workspace_id: "workspace",
+      revision: 0, filename: "教材.pdf", status: "structured",
+      structure: CloudStructure(title: "教材", summary: "原文摘要", source_page_count: 3, chapters: [chapter]),
+      courses: [], progress: CloudProgress())
+    store.sources = [CloudMapping.source(resource)]
+    store.draft = CourseDraft(name: "目录已生成", resourceIDs: [resource.book_id])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.selectCourse(id)
+    store.updateCourseImport(id) {
+      $0.job.status = .failed; $0.job.preparationStage = "diagnostics"; $0.job.preparationFailed = true
+    }
+    XCTAssertNil(store.studyCoursePreparation)
+    XCTAssertEqual(store.courseCreationLabel(try XCTUnwrap(store.currentCourse)), "目录已就绪")
+    XCTAssertEqual(store.currentSource?.summary.status, "source_ready")
+    XCTAssertEqual(store.lessons.map(\.status), ["pending"])
+    XCTAssertFalse(store.hasStudyContent)
+    XCTAssertTrue(store.selectedCourseImport?.needsPreparation == true)
     await store.flush()
   }
 

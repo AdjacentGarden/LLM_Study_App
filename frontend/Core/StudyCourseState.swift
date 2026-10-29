@@ -37,7 +37,11 @@ enum StudyCoursePreparation: Equatable {
     // A background import must not hide the lessons already available in this course.
     if let record = selectedCourseImport {
       if record.setupCompleted == true && hasStudyContent { return nil }
-      if record.needsPreparation { return .materials }
+      if record.needsPreparation {
+        // The directory is useful before diagnostic or teaching generation
+        // finishes. Its cards retain the compact preparation notice.
+        return chapters.isEmpty ? .materials : nil
+      }
       if record.setupCompleted != true { return .setup }
       if record.onDeviceOnly == true { return .localGeneration }
     }
@@ -52,6 +56,9 @@ enum StudyCoursePreparation: Equatable {
   func courseCreationLabel(_ course: Course) -> String? {
     if let record = courseImport(for: course.id) {
       if record.needsPreparation {
+        if sources.contains(where: { course.resourceIDs.contains($0.id) && !$0.chapters.isEmpty }) {
+          return "目录已就绪"
+        }
         switch record.job.status {
         case .failed: return "解析失败"
         case .cancelled, .interrupted: return "待继续整理"

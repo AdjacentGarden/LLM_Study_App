@@ -25,6 +25,7 @@ from adaptive_learning.assessment.repository import SQLiteAssessmentRepository
 from adaptive_learning.community import CommunityRepository
 from adaptive_learning.ingestion.jobs import OCRRunResult, SQLiteOCRJobRepository
 from adaptive_learning.ingestion.models import BookStructure, ChapterDraft, SourceQuote
+from adaptive_learning.ingestion.preparation import PreparationQueue
 from adaptive_learning.native import NativeRepository
 from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
 
@@ -183,6 +184,23 @@ def configure(root: Path, patch) -> FastAPI:
         ),
     }.items():
         patch.setattr(api, name, value)
+    class ImmediateFixturePreparation(PreparationQueue):
+        """Exercise the durable queue without waiting for a background thread.
+
+        Only the explicit fixture model adapters above generate test content.
+        Production session routes still never invoke a synchronous writer.
+        """
+        def enqueue(self, book_id, *, retry=False, refresh=False):
+            super().enqueue(book_id, retry=retry, refresh=refresh)
+            self.process_one()
+            return self.get(book_id)
+
+    patch.setattr(api, "preparation_queue", ImmediateFixturePreparation(
+        root / "state" / "preparation.sqlite3", [
+            ("indexing", lambda book_id: None),
+            ("structuring", lambda book_id: None),
+            ("diagnostics", api.generate_diagnostic_bank),
+        ]))
     components = FixtureEncoder(), FixtureReranker(), GroundedAnswerGenerator(FixtureAnswerModel())
     patch.setattr(qa, "get_settings", lambda: settings)
     patch.setattr(qa, "upload_components", lambda: components)

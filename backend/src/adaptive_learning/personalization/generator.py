@@ -99,12 +99,24 @@ class ChapterCourseCompiler:
         seen_quotes: set[tuple[int, str]] = set()
 
         for point_id, label, quotes, posterior in selected:
+            # Compiler output is private, unreviewed scaffolding. Keep the full
+            # source goal in explanation and citations; navigation fields need
+            # not repeat a long source sentence before the real teacher runs.
+            title = _point_title(label)
+            if len(title) > 180:
+                title = f"原文要点 {len(knowledge_points) + 1}"
+            question = _question_for(label, decision.depth)
+            if len(question) > 120:
+                question = f"请结合所附原文说明{title if len(title) <= 40 else '本知识点'}。"
+            practice_prompt = _designed_practice(label, decision.depth, design)
+            if len(practice_prompt) > 300:
+                practice_prompt = "请结合所附原文说明本知识点及必要条件。"
             stable_digest = hashlib.sha256(f"{instance_key}:{point_id}".encode()).hexdigest()[:20]
             citations = [_citation(quote) for quote in quotes]
             knowledge_points.append(
                 KnowledgePoint(
                     point_id=point_id,
-                    title=_point_title(label),
+                    title=title,
                     explanation=label,
                     importance="优先"
                     if posterior.evidence_count == 0 or posterior.mean < 0.55
@@ -118,8 +130,8 @@ class ChapterCourseCompiler:
                 Flashcard(
                     card_id=f"card_{stable_digest}",
                     point_id=point_id,
-                    front=_question_for(label, decision.depth),
-                    back=label,
+                    front=question,
+                    back=label if len(label) <= 360 else "请结合所附原文核对本知识点的含义与适用条件。",
                     reason_for_user=_card_reason(posterior, decision),
                     citations=citations,
                     source=citations[0],
@@ -129,7 +141,7 @@ class ChapterCourseCompiler:
                 PracticeItem(
                     item_id=f"practice_{stable_digest}",
                     point_id=point_id,
-                    prompt=_designed_practice(label, decision.depth, design),
+                    prompt=practice_prompt,
                     expected_answer=label,
                     rubric=_rubric(label),
                     difficulty={
@@ -154,7 +166,7 @@ class ChapterCourseCompiler:
                     LessonSection(
                         title=f"第 {quote.page_number} 页 · 可核验原文",
                         content=quote.quote,
-                        purpose=f"用于理解“{_point_title(label)}”",
+                        purpose=f"用于理解“{title}”",
                         citations=[_citation(quote)],
                     )
                 )
@@ -205,7 +217,7 @@ class ChapterCourseCompiler:
             decision=decision,
             opening=(_opening(profile, decision, len(selected)) +
                      f"本章已按证据整理全部 {len(selected)} 个提炼知识点，建议分 {len(units)} 个学习单元完成。")[:300],
-            summary=chapter.summary,
+            summary=_draft_summary(chapter.summary),
             original_reading=reading,
             knowledge_points=knowledge_points,
             flashcards=flashcards,
@@ -391,6 +403,16 @@ def _point_title(label: str) -> str:
     # A comma/colon can be part of a complete concept, formula, or condition.
     # Layout wraps the full source label; never silently cut meaning for aesthetics.
     return label.strip().rstrip("。") or "本章知识点"
+
+
+def _draft_summary(summary: str) -> str:
+    """Bound private navigation without cutting a source statement in half."""
+    if len(summary) <= 680:
+        return summary
+    sentence = re.search(r"[。！？!?]|\.(?=\s|$)", summary)
+    if sentence and sentence.end() <= 680:
+        return summary[:sentence.end()]
+    return "本章原文已保存，学习内容将在教学审核后生成。"
 
 
 def _question_for(label: str, depth: TeachingDepth) -> str:

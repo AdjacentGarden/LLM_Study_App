@@ -177,7 +177,7 @@ def test_real_change_to_accepted_plan_is_rejected_before_review_reuse(cases):
 
 def test_v15_protocol_does_not_silently_reuse_v14_approval(cases, monkeypatch):
     current = generation.diagnostic_bank_fingerprint(book(cases[TRANSLATION]))
-    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v17+required-edits-v1+')
+    assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v19+evidence-targets-v1+review-format-v1+required-edits-v1+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v14+recorded')
     assert generation.diagnostic_bank_fingerprint(book(cases[TRANSLATION])) != current
     assert set(generation._APPLICATION_OUTPUT_SHAPES) == {'source_scenario'}

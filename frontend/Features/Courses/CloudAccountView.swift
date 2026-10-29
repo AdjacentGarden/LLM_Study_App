@@ -409,8 +409,7 @@ struct CloudLearningSetupView: View {
           Text(store.isCloudCoursePreview ? "准备预览课程" : "准备专属课程")
             .font(DS.font(24, weight: .bold))
           Spacer()
-          Button("稍后继续") { store.pauseCloudCourseGeneration() }.disabled(
-            store.cloudState.isWorking && store.cloudState.courseTask == nil)
+          Button("稍后继续") { store.pauseCloudCourseGeneration() }
         }
         if store.isCloudCoursePreview {
           Text("课程预览 · 未做诊断 · 掌握度未知")

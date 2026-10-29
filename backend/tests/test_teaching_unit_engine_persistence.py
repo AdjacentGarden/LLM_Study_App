@@ -138,7 +138,7 @@ def test_approved_siblings_persist_and_rejected_component_alone_resumes_with_att
         rig.advance()
     _, first_run = rig.open_run()
     before = {row['unit_id']: row for row in first_run.units()}
-    assert len(before) == 11 and sum(row['status'] == 'approved' for row in before.values()) == 10
+    assert len(before) == 7 and sum(row['status'] == 'approved' for row in before.values()) == 6
     assert rig.control.assembly_calls == 0
     assert all(count == 1 for count in rig.control.writes.values())
     assert all(row['attempts'] == 1 for row in before.values())
@@ -164,7 +164,7 @@ def test_unknown_writer_stays_fenced_after_restart_without_repaying_or_blocking_
     store, run = rig.open_run()
     assert run.submission_blocked(target)
     assert rig.control.post_calls[target] == 1
-    assert sum(row['status'] == 'approved' for row in run.units()) == 10
+    assert sum(row['status'] == 'approved' for row in run.units()) == 6
     store.recover()
     rig.clock[0] += 200
     with pytest.raises(repairs.TeachingRepairPending):
@@ -233,7 +233,7 @@ def test_native_final_assembly_requires_complete_review_before_apply_and_publica
         if final_verdict == 'rejected':
             rows = {row['unit_id']: row for row in run.units()}
             assert rows['lesson.summary']['status'] != 'approved'
-            assert sum(row['status'] == 'approved' for row in rows.values()) == 10
+            assert sum(row['status'] == 'approved' for row in rows.values()) == 6
 
 
 @pytest.mark.parametrize('gate', ['fact', 'teacher', 'rubric', 'all_pass'])
