@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 from ..learning_preferences import LearningDesignConfig
 
+SUMMARY_MAX_CHARS = 1000
+
 
 class TeachingDepth(StrEnum):
     FOUNDATION = "foundation"
@@ -122,7 +124,7 @@ class ChapterLearningBundle(BaseModel):
     chapter_title: str
     decision: PersonalizationDecision
     opening: str = Field(min_length=1, max_length=300)
-    summary: str = Field(min_length=1, max_length=680)
+    summary: str = Field(min_length=1, max_length=SUMMARY_MAX_CHARS)
     original_reading: list[LessonSection]
     knowledge_points: list[KnowledgePoint]
     flashcards: list[Flashcard]

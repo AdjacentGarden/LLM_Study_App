@@ -9,6 +9,7 @@ from ..assessment.models import LearnerProfile, MasteryPosterior
 from ..ingestion.models import ChapterDraft, SourceQuote
 from ..learning_preferences import LearningDesignConfig
 from .models import (
+    SUMMARY_MAX_CHARS,
     ChapterLearningBundle,
     Flashcard,
     KnowledgePoint,
@@ -407,10 +408,10 @@ def _point_title(label: str) -> str:
 
 def _draft_summary(summary: str) -> str:
     """Bound private navigation without cutting a source statement in half."""
-    if len(summary) <= 680:
+    if len(summary) <= SUMMARY_MAX_CHARS:
         return summary
     sentence = re.search(r"[。！？!?]|\.(?=\s|$)", summary)
-    if sentence and sentence.end() <= 680:
+    if sentence and sentence.end() <= SUMMARY_MAX_CHARS:
         return summary[:sentence.end()]
     return "本章原文已保存，学习内容将在教学审核后生成。"
 

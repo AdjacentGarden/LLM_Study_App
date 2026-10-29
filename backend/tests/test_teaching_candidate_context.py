@@ -252,21 +252,24 @@ def test_lesson_can_reject_an_unplanned_condition_without_fabricating_matrix_col
         assert len(client.calls) == 1
 
 
-def test_actual_overlong_second_writer_response_remains_invalid_with_explicit_writer_budget():
+def test_actual_713_character_response_fits_relaxed_budget_without_becoming_approved():
     observed = OBSERVED["terminal_task_feedback"]
     summary = observed["attempt2_summary"]
     assert len(summary) == observed["attempt2_summary_length"] == 713
     assert hashlib.sha256(summary.encode()).hexdigest() == observed["attempt2_summary_sha256"]
+    parsed = teaching._Generation.model_validate({"points": [], "lesson": {
+        **lesson_candidate(), "summary": summary,
+    }})
+    assert parsed.lesson.summary == summary
+    assert not hasattr(parsed, "accepted")
     with pytest.raises(ValidationError) as caught:
         teaching._Generation.model_validate({"points": [], "lesson": {
-            **lesson_candidate(), "summary": summary,
+            **lesson_candidate(), "summary": "字" * (teaching.SUMMARY_MAX_CHARS + 1),
         }})
     errors = caught.value.errors()
     assert any(row["loc"] == ("lesson", "summary") and row["type"] == "string_too_long"
-               and row["ctx"]["max_length"] == 680 for row in errors)
-    # The request now exposes the existing hard contract; it does not relax it
-    # or spend another model call to truncate a scientific summary mechanically.
-    assert "summary须1-680字" in teaching.GENERATION_PROMPT
+               and row["ctx"]["max_length"] == teaching.SUMMARY_MAX_CHARS for row in errors)
+    assert f"summary须1-{teaching.SUMMARY_MAX_CHARS}字" in teaching.GENERATION_PROMPT
 
 
 def test_actual_unanswerable_task_and_lesson_source_distinctness_vetoes_reach_only_their_writers():

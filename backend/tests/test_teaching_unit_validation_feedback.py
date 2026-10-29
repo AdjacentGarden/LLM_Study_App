@@ -7,6 +7,7 @@ from test_teaching_unit_engine_rubric_only import alignment, reject_rubric
 from test_teaching_unit_engine_rubric_only import unit_case as unit_case
 
 from adaptive_learning.personalization import teaching_repairs as repairs
+from adaptive_learning.personalization.models import SUMMARY_MAX_CHARS
 from adaptive_learning.personalization.teaching_review_reuse import fingerprint
 from adaptive_learning.personalization.teaching_unit_engine import _UnitRejected
 
@@ -29,7 +30,7 @@ def stored(case, unit):
     return next(row for row in reopened.units() if row['unit_id'] == unit['unit_id'])
 
 
-@pytest.mark.parametrize(('kind', 'maximum'), [('opening', 300), ('summary', 680)])
+@pytest.mark.parametrize(('kind', 'maximum'), [('opening', 300), ('summary', SUMMARY_MAX_CHARS)])
 def test_invalid_actual_draft_and_exact_budget_survive_restart_until_next_writer(unit_case, kind, maximum):
     case = unit_case
     unit = text_unit(case, kind)
@@ -79,7 +80,7 @@ def test_length_repair_still_requires_each_independent_content_gate(unit_case, g
     case = unit_case
     unit = text_unit(case, 'summary')
     case.generator._structured = lambda **kwargs: {
-        'component': {'content': '文' * 681, 'source_ids': ['s1']}}
+        'component': {'content': '文' * (SUMMARY_MAX_CHARS + 1), 'source_ids': ['s1']}}
     case.engine._advance_one(unit)
     unit = stored(case, unit)
 

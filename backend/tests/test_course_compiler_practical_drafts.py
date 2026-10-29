@@ -9,7 +9,7 @@ from adaptive_learning.assessment.item_generation import stable_knowledge_point_
 from adaptive_learning.assessment.models import LearnerProfile
 from adaptive_learning.ingestion.models import SourceQuote
 from adaptive_learning.personalization.generator import ChapterCourseCompiler
-from adaptive_learning.personalization.models import SourceCitation
+from adaptive_learning.personalization.models import SUMMARY_MAX_CHARS, SourceCitation
 from adaptive_learning.personalization.policy import PersonalizationPolicy
 from adaptive_learning.personalization.teaching_content import TeachingContentGenerator
 from adaptive_learning.personalization.teaching_evidence import TeachingEvidence
@@ -20,7 +20,9 @@ SOURCE = '只有观测条件甲保持不变时，才能讨论结论乙是否成�
 assert len(SOURCE) == 500
 
 
-@pytest.mark.parametrize('summary', [SOURCE * 2, '甲' * 1000], ids=['complete-sentences', 'unbroken-legacy-text'])
+@pytest.mark.parametrize('summary', [SOURCE * (SUMMARY_MAX_CHARS // len(SOURCE) + 1),
+                                     '甲' * (SUMMARY_MAX_CHARS + 1)],
+                         ids=['complete-sentences', 'unbroken-legacy-text'])
 def test_long_source_is_kept_whole_for_unit_engine_even_when_navigation_is_short(tmp_path, monkeypatch, summary):
     monkeypatch.delenv('DATABASE_URL', raising=False)
     monkeypatch.delenv('DATABASE_HOST', raising=False)
@@ -37,7 +39,9 @@ def test_long_source_is_kept_whole_for_unit_engine_even_when_navigation_is_short
     assert point.title == '原文要点 1'
     assert len(bundle.flashcards[0].front) <= 120 and len(bundle.flashcards[0].back) <= 360
     assert len(bundle.practice_items[0].prompt) <= 300
-    assert len(bundle.summary) <= 680 and chapter.summary == summary
+    assert len(summary) > SUMMARY_MAX_CHARS
+    assert len(bundle.summary) <= SUMMARY_MAX_CHARS and len(bundle.summary) < len(summary)
+    assert chapter.summary == summary
     assert not bundle.teaching_quality_version and not bundle.teaching_fact_review and not bundle.teaching_review
     evidence = TeachingEvidence(sources={'s1': SourceCitation(page_number=1, quote=SOURCE)},
         point_sources={point.point_id: ['s1']}, warnings=[], fingerprint='whole-500-character-source')

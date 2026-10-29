@@ -42,7 +42,13 @@ from .lesson_review_contract import (
     materialize_scope_matrix,
     validate_assertion_review,
 )
-from .models import ChapterLearningBundle, LessonSection, SourceCitation, reviewed_learning_units
+from .models import (
+    SUMMARY_MAX_CHARS,
+    ChapterLearningBundle,
+    LessonSection,
+    SourceCitation,
+    reviewed_learning_units,
+)
 from .rubric_alignment import (
     MAX_RUBRIC_ALIGNMENT_BATCH,
     RUBRIC_ALIGNMENT_PROMPT,
@@ -261,7 +267,7 @@ class _Checkpoint(_ContentModel):
 
 class _Lesson(_ContentModel):
     opening: str = Field(min_length=1, max_length=300)
-    summary: str = Field(min_length=1, max_length=680)
+    summary: str = Field(min_length=1, max_length=SUMMARY_MAX_CHARS)
     # The editor selects at most 12; deterministic assembly adds every point's
     # context before review so reviewed and displayed reading are identical.
     reading_source_ids: list[str] = Field(min_length=1, max_length=64)
@@ -484,7 +490,7 @@ rubric 不写“回答正确/表达清晰”等空话，不逐字重复整份答
 output_contract给出本批精确point_ids；不能增删或从all_knowledge_points另选其他点。
 若lesson_only=true，必须points=[]，只修lesson，不能重发任何已完成知识点/闪卡/练习。
 若 include_lesson=true，另生成全章 lesson：opening、summary、reading_source_ids、
-opening须1-300字，summary须1-680字；初稿和修复均遵守，不为压缩长度删去必要条件。
+opening须1-300字，summary须1-__SUMMARY_MAX_CHARS__字；初稿和修复均遵守，不为压缩长度删去必要条件。
 opening/summary每个定义、新术语、具体例子和数值必须由reading_source_ids自己的原文支持；
 它不是单纯选读清单。程序补锚点不代表所有新增断言已获支持。总结压缩不能抹掉正文已确认的范围。
 existing_point_content给出完整本章当前稿，existing_questions列出已用闪卡和练习问题；
@@ -532,7 +538,9 @@ point_revision_tasks给出每个待改组件的当前值与拒绝反馈：直接
 被指出缺少适用条件时须在本组件的讲解或答案写清真正必要限定，或删除该泛化断言；
 仅补引用、改称某作者曾列举、改标题或同义改写，不会修复仍缺条件的实际命题。
 practice仅评分要求被拒时，先保持已明确且可作答的题干和最小答案，删除未问扩写评分要求；
-确需增加作答目标才同步改题干与答案，不能因重发整点而复制原样的拒绝组件。"""
+确需增加作答目标才同步改题干与答案，不能因重发整点而复制原样的拒绝组件。""".replace(
+    "__SUMMARY_MAX_CHARS__", str(SUMMARY_MAX_CHARS)
+)
 
 GENERATION_PROMPT += """
 repair_contract.rubric_only_point_ids中的practice只返回{rubric:[完整评分点]}；原题干、参考答案、ID和来源由程序冻结，不能重发或改写。
@@ -778,6 +786,14 @@ REVIEW_PROMPT += "\n" + QUESTION_REVIEW_POLICY
 FACT_REVIEW_PROMPT += "\n" + OUTPUT_POLICY
 
 
+def _teaching_protocol_fingerprint() -> str:
+    # This exact monotonic presentation-limit change does not invalidate already
+    # reviewed components. Every other writer/reviewer instruction still hashes.
+    writer_protocol = GENERATION_PROMPT.replace("summary须1-1000字", "summary须1-680字", 1)
+    return fingerprint([writer_protocol, REVIEW_PROMPT, FACT_REVIEW_PROMPT,
+                        RUBRIC_ALIGNMENT_PROMPT, TEACHING_CONTENT_VERSION])
+
+
 class TeachingContentGenerator:
     def __init__(
         self,
@@ -815,8 +831,7 @@ class TeachingContentGenerator:
             "source_fingerprint": bundle.source_fingerprint,
             "evidence_fingerprint": evidence.fingerprint,
             "profile_fingerprint": bundle.profile_fingerprint,
-            "protocol": fingerprint([GENERATION_PROMPT, REVIEW_PROMPT, FACT_REVIEW_PROMPT,
-                                      RUBRIC_ALIGNMENT_PROMPT, TEACHING_CONTENT_VERSION]),
+            "protocol": _teaching_protocol_fingerprint(),
             "review_identity": self.review_identity,
         }) if self.repair_store else None
         repair_token = current_repair.set(run)
@@ -944,7 +959,7 @@ class TeachingContentGenerator:
                          "expected_answer": "完整参考答案（1–800字）",
                          "rubric": ["本题必要的原子评分目标"],
                          "source_ids": list(refs)},
-            "opening": "完整导入（1–300字）", "summary": "完整总结（1–680字）",
+            "opening": "完整导入（1–300字）", "summary": f"完整总结（1–{SUMMARY_MAX_CHARS}字）",
             "reading_source_ids": list(refs),
             "example": {"title": "完整例题标题", "problem": "完整问题（1–220字）",
                         "steps": ["完整推导步骤"],

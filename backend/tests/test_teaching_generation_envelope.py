@@ -47,7 +47,7 @@ def test_other_envelopes_and_approval_fields_remain_forbidden(extras):
 
 @pytest.mark.parametrize("change", [
     {"points": "not-a-list"}, {"lesson": {"opening": "incomplete"}},
-    {"lesson": {**lesson_candidate(), "summary": "字" * 681}},
+    {"lesson": {**lesson_candidate(), "summary": "字" * (teaching.SUMMARY_MAX_CHARS + 1)}},
 ])
 def test_marker_cannot_repair_invalid_content_or_raise_existing_limits(change):
     events = []

@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from ..database import DATABASE_ERRORS
 from ..llm.teaching_parallel import ordered_review_map
 from .course_progress import CourseStage, report_course_stage
+from .models import SUMMARY_MAX_CHARS
 from .teaching_repair_evidence import repair_evidence_pack
 from .teaching_repairs import (
     TeachingRepairPending,
@@ -395,7 +396,7 @@ required_task_edits是当前评分审核定位的题设修改要求，不是新�
                 raise ValueError('导入/总结须返回content与source_ids')
             original = deepcopy(candidate)
             candidate['content'] = _clean_content_text(candidate['content'])
-            high = 300 if kind == 'opening' else 680
+            high = 300 if kind == 'opening' else SUMMARY_MAX_CHARS
             if not candidate['content'].strip() or len(candidate['content']) > high:
                 validation = {'issue': '导入/总结长度不符合组件要求',
                               'field': '/component/content',
