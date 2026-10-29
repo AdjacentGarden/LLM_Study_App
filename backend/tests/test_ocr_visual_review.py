@@ -14,8 +14,8 @@ from adaptive_learning.ingestion.chaptering import ChapterReconstructor, load_no
 from adaptive_learning.ingestion.models import ChapterDraft, SourceQuote
 from adaptive_learning.ingestion.ocr_job import sha256_file
 from adaptive_learning.ingestion.ocr_review import VERSION, OCRReviewUnavailable, review_pages
-from adaptive_learning.llm.client import LLMError, LLMNotSubmittedError, LLMTimeoutError
 from adaptive_learning.llm import teaching_parallel
+from adaptive_learning.llm.client import LLMError, LLMNotSubmittedError, LLMTimeoutError
 from adaptive_learning.personalization.teaching_evidence import build_teaching_evidence
 from adaptive_learning.rag.grounded_qa import AnswerStatus, EvidenceChunk, GroundedAnswerGenerator
 from adaptive_learning.rag.upload_index import _chunks, upload_chunks
@@ -486,10 +486,12 @@ def test_supported_mode_can_fall_back_after_internal_insufficiency():
     generator = GroundedAnswerGenerator(model)
     result = generator.answer(question="为什么", evidence=[EvidenceChunk(source_id="E1", page_number=1, text="some text")],
                               retrieval_score=1, source_coverage={"skipped_page_ranges": [[2, 2]]})
-    assert result.status == AnswerStatus.GENERAL and result.answer == "直接解释。"
+    assert result.status == AnswerStatus.GENERAL
+    assert result.answer == "教材引用未核验，以下为模型解答。\n\n直接解释。"
 
 
-def test_legacy_books_keep_existing_evidence_checks():
-    model = Model([])
+def test_legacy_books_without_evidence_use_general_answers():
+    model = Model([{"answer": "直接解释相关概念。"}])
     result = GroundedAnswerGenerator(model).answer(question="q", evidence=[], retrieval_score=0)
-    assert result.status == AnswerStatus.INSUFFICIENT and not model.calls
+    assert result.status == AnswerStatus.GENERAL and len(model.calls) == 1
+    assert result.claims == [] and not result.semantic_checked

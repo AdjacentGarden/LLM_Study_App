@@ -34,8 +34,10 @@ class FakeClient:
     def __init__(self) -> None:
         self.calls = 0
 
-    def structured(self, **_: object) -> dict[str, Any]:
+    def structured(self, **kwargs: object) -> dict[str, Any]:
         self.calls += 1
+        if str(kwargs.get('system', '')).startswith('你是学习辅导老师'):
+            return {'answer': '牛顿第二定律描述力、质量和加速度之间的关系。'}
         return {
             "status": "supported",
             "claims": [
@@ -69,7 +71,7 @@ def test_service_connects_retrieval_to_verified_public_answer() -> None:
     assert client.calls == 1
 
 
-def test_service_refuses_low_score_without_model_call() -> None:
+def test_service_returns_general_answer_for_low_score() -> None:
     client = FakeClient()
     service = TextbookQAService(
         book_id="biology-required-2",
@@ -79,9 +81,10 @@ def test_service_refuses_low_score_without_model_call() -> None:
 
     result = service.answer("牛顿第二定律是什么？")
 
-    assert result.status == AnswerStatus.INSUFFICIENT
+    assert result.status == AnswerStatus.GENERAL
     assert result.evidence_pages == []
-    assert client.calls == 0
+    assert result.answer.startswith('教材引用未核验，以下为模型解答。')
+    assert not result.semantic_checked and client.calls == 1
 
 
 def test_unverified_address_answer_keeps_notice_and_empty_citations_in_cache() -> None:

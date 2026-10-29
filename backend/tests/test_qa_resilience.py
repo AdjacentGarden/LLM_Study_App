@@ -1,12 +1,12 @@
-from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-
-from adaptive_learning.rag.service import QABusyError, TextbookQAService
-from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
 from test_qa_service import FakeClient, FakeIndex
+
+from adaptive_learning.rag.grounded_qa import GroundedAnswerGenerator
+from adaptive_learning.rag.service import QABusyError, TextbookQAService
 
 
 def service(**kwargs):
@@ -28,16 +28,18 @@ def test_cache_is_bounded_and_returns_independent_objects():
     assert client.calls == 3
 
 
-def test_cache_expires_and_does_not_cache_refusals():
+def test_cache_expires_and_caches_general_answers():
     qa, client = service(cache_seconds=0.01)
     qa.answer("Q1")
     time.sleep(0.02)
     qa.answer("Q1")
     assert client.calls == 2
+    qa.cache_seconds = 60
     qa.index.score = -1
-    qa.answer("unrelated")
+    assert qa.answer("unrelated").status == "general"
     qa.index.score = 3
-    assert qa.answer("unrelated").status == "supported"
+    cached = qa.answer("unrelated")
+    assert cached.status == "general" and cached.cache_hit and client.calls == 3
 
 
 def test_simultaneous_identical_questions_generate_once():

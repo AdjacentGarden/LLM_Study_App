@@ -72,12 +72,17 @@ def test_grounded_qa_endpoint_returns_public_page_citations(client: TestClient) 
     assert "chunk_id" not in response.text
 
 
-def test_grounded_qa_endpoint_returns_answer_instead_of_502_for_invalid_span() -> None:
+@pytest.mark.parametrize("insufficient", [False, True])
+def test_grounded_qa_endpoint_returns_answer_for_invalid_span_or_insufficient_evidence(insufficient) -> None:
     class InvalidAddressClient:
         calls = 0
 
         def structured(self, **_: object) -> dict:
             self.calls += 1
+            if insufficient:
+                if self.calls == 1:
+                    return {'status': 'insufficient', 'claims': []}
+                return {'answer': '染色体只复制一次，细胞分裂两次。'}
             return {'status': 'supported', 'claims': [{
                 'text': '染色体只复制一次，细胞分裂两次。',
                 'citations': [{'source_id': 'E1', 'span_id': 'missing'}],
@@ -110,7 +115,8 @@ def test_grounded_qa_endpoint_returns_answer_instead_of_502_for_invalid_span() -
     assert payload['status'] == 'general' and payload['claims'] == []
     assert payload['answer'].startswith('教材引用未核验，以下为模型解答。')
     assert '染色体只复制一次，细胞分裂两次。' in payload['answer']
-    assert payload['semantic_checked'] is False and model.calls == 1
+    assert payload['semantic_checked'] is False
+    assert model.calls == (2 if insufficient else 1)
 
 
 def test_grounded_qa_endpoint_rejects_unknown_book(client: TestClient) -> None:

@@ -145,8 +145,8 @@ def test_supported_answer_exposes_page_citation_without_internal_source_id() -> 
     assert client.calls == 1
 
 
-def test_low_retrieval_score_refuses_without_calling_model() -> None:
-    client = FakeClient({})
+def test_low_retrieval_score_calls_model_for_general_answer() -> None:
+    client = FakeClient({"answer": "牛顿第二定律描述力、质量和加速度之间的关系。"})
     generator = GroundedAnswerGenerator(client)  # type: ignore[arg-type]
 
     answer = generator.answer(
@@ -155,9 +155,10 @@ def test_low_retrieval_score_refuses_without_calling_model() -> None:
         retrieval_score=-2.5,
     )
 
-    assert answer.status == AnswerStatus.INSUFFICIENT
+    assert answer.status == AnswerStatus.GENERAL
     assert answer.claims == []
-    assert client.calls == 0
+    assert "牛顿第二定律" in answer.answer
+    assert client.calls == answer.generation_attempts == 1
 
 
 def test_fabricated_quote_is_rejected() -> None:
@@ -348,14 +349,17 @@ def test_answer_output_budget_is_applied_to_both_short_and_detailed_questions(qu
     class BudgetClient:
         def structured(self, **kwargs):
             calls.append(kwargs)
+            if len(calls) == 2:
+                return {"answer": "模型直接解释相关概念。"}
             return {"status": "insufficient", "claims": [], "confidence": 0,
                     "insufficiency_reason": "测试证据不足"}
 
     result = GroundedAnswerGenerator(BudgetClient(), max_output_tokens=budget).answer(
         question=question, evidence=_evidence(), retrieval_score=1,
     )
-    assert result.status == AnswerStatus.INSUFFICIENT
-    assert calls[0]["max_tokens"] == budget
+    assert result.status == AnswerStatus.GENERAL
+    assert len(calls) == result.generation_attempts == 2
+    assert all(call["max_tokens"] == budget for call in calls)
 
 
 @pytest.mark.parametrize("budget", [0, -1, 10001])
