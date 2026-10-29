@@ -84,6 +84,29 @@ def test_service_refuses_low_score_without_model_call() -> None:
     assert client.calls == 0
 
 
+def test_unverified_address_answer_keeps_notice_and_empty_citations_in_cache() -> None:
+    class InvalidAddressClient(FakeClient):
+        def structured(self, **kwargs: object) -> dict[str, Any]:
+            value = super().structured(**kwargs)
+            value['claims'][0]['citations'] = [{'source_id': 'E1', 'span_id': 'missing'}]
+            return value
+
+    client = InvalidAddressClient()
+    service = TextbookQAService(
+        book_id='biology-required-2', index=FakeIndex(3.5),
+        generator=GroundedAnswerGenerator(client, use_semantic_review=True),
+    )  # type: ignore[arg-type]
+    first = service.answer('减数分裂有什么特点？')
+    cached = service.answer('减数分裂有什么特点？')
+
+    for result in (first, cached):
+        assert result.status == AnswerStatus.GENERAL
+        assert result.answer.startswith('教材引用未核验，以下为模型解答。')
+        assert result.claims == [] and result.evidence_pages == []
+        assert not result.semantic_checked and result.confidence == 0
+    assert not first.cache_hit and cached.cache_hit and client.calls == 1
+
+
 def test_personalized_answers_are_not_shared_across_accounts_or_preferences() -> None:
     client = FakeClient()
     service = TextbookQAService(

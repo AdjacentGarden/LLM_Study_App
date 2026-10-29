@@ -11,6 +11,8 @@ from adaptive_learning.api.qa_dependency import require_qa_service
 from adaptive_learning.llm.client import LLMError
 from adaptive_learning.rag.grounded_qa import (
     AnswerStatus,
+    EvidenceChunk,
+    GroundedAnswerGenerator,
     VerifiedCitation,
     VerifiedClaim,
 )
@@ -68,6 +70,47 @@ def test_grounded_qa_endpoint_returns_public_page_citations(client: TestClient) 
     assert payload["evidence_pages"] == [11]
     assert payload["claims"][0]["citations"][0]["page_number"] == 11
     assert "chunk_id" not in response.text
+
+
+def test_grounded_qa_endpoint_returns_answer_instead_of_502_for_invalid_span() -> None:
+    class InvalidAddressClient:
+        calls = 0
+
+        def structured(self, **_: object) -> dict:
+            self.calls += 1
+            return {'status': 'supported', 'claims': [{
+                'text': '染色体只复制一次，细胞分裂两次。',
+                'citations': [{'source_id': 'E1', 'span_id': 'missing'}],
+            }]}
+
+    model = InvalidAddressClient()
+
+    class InvalidAddressService(FakeQAService):
+        def answer(self, question: str) -> TextbookQAResult:
+            result = GroundedAnswerGenerator(model, use_semantic_review=True).answer(
+                question=question, evidence=[EvidenceChunk(
+                    source_id='E1', page_number=11, text='染色体只复制一次，而细胞分裂两次。'
+                )], retrieval_score=3.5,
+            )
+            return TextbookQAResult(
+                book_id=self.book_id, **result.model_dump(), evidence_pages=[],
+                retrieval_duration_ms=0, generation_duration_ms=0,
+            )
+
+    app.dependency_overrides[require_qa_service] = InvalidAddressService
+    try:
+        with TestClient(app) as client:
+            response = client.post('/api/books/biology-required-2/qa',
+                                   json={'question': '减数分裂有什么特点？'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['status'] == 'general' and payload['claims'] == []
+    assert payload['answer'].startswith('教材引用未核验，以下为模型解答。')
+    assert '染色体只复制一次，细胞分裂两次。' in payload['answer']
+    assert payload['semantic_checked'] is False and model.calls == 1
 
 
 def test_grounded_qa_endpoint_rejects_unknown_book(client: TestClient) -> None:

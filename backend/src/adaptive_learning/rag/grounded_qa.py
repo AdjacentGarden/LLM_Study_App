@@ -112,6 +112,10 @@ class GroundedAnswerValidationError(ValueError):
     pass
 
 
+class _CitationAddressError(GroundedAnswerValidationError):
+    """The draft's citation IDs cannot establish textbook provenance."""
+
+
 _SYSTEM = """你是教材证据答疑器，只能依据 evidence 中的文字回答 question。
 必须遵守：
 1. 不得使用常识、记忆或 evidence 之外的知识补写。
@@ -371,6 +375,20 @@ class GroundedAnswerGenerator:
                 verified.stage_duration_ms = timings
                 verified.generation_attempts = attempt + 1
                 return verified
+            except _CitationAddressError:
+                # An invalid citation address should not discard an otherwise
+                # usable answer or trigger another model call. Keep the text,
+                # but never publish its unverified references as textbook proof.
+                return GroundedAnswer(
+                    status=AnswerStatus.GENERAL,
+                    answer="教材引用未核验，以下为模型解答。\n\n"
+                    + "\n".join(claim.text.strip() for claim in draft.claims),
+                    claims=[],
+                    confidence=0,
+                    semantic_checked=False,
+                    stage_duration_ms=timings,
+                    generation_attempts=attempt + 1,
+                )
             except ValueError as error:
                 if attempt >= self.max_validation_retries:
                     raise GroundedAnswerValidationError(str(error)) from error
@@ -540,14 +558,15 @@ class GroundedAnswerGenerator:
             for citation in claim.citations:
                 source = sources.get(citation.source_id)
                 if source is None:
-                    raise GroundedAnswerValidationError(
+                    error_type = _CitationAddressError if citation.span_id is not None else GroundedAnswerValidationError
+                    raise error_type(
                         f"unknown evidence source: {citation.source_id}"
                     )
                 literal = citation.quote
                 if citation.span_id is not None:
                     selected = spans.get(citation.span_id)
                     if selected is None or selected['source_id'] != citation.source_id:
-                        raise GroundedAnswerValidationError('unknown citation span or mismatched source')
+                        raise _CitationAddressError('unknown citation span or mismatched source')
                     if literal is not None and _normalized(literal) != _normalized(selected['quote']):
                         raise GroundedAnswerValidationError('citation must not rewrite the selected span')
                     literal = selected['quote']
