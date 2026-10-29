@@ -145,18 +145,15 @@ def changed_point_components(before, after):
     return changed
 
 
-def test_unknown_global_allows_only_actual_bad_component_to_change_then_full_reaudit():
+def test_unknown_global_review_rechecks_same_candidate_without_masking_fact_rejection():
     generator, client, args, events = case(factual_failure=True)
-    result = generator.generate(*args)
-    before, after = candidates(events)
-    assert changed_point_components(before, after) == {(client.target, "explanation")}
-    assert before["lesson"] == after["lesson"]
-    assert len(client.teacher_requests) == 2
-    assert client.teacher_requests[1]["candidate"] == after
-    assert len(client.teacher_requests[1]["candidate"]["points"]) == 2
-    assert result.teaching_review["accepted"] is True
-    assert result.teaching_fact_review["accepted"] is True
-    assert len([event for event in events if event["event"] == "accepted"]) == 1
+    with pytest.raises(teaching._TeachingReviewFormatError):
+        generator.generate(*args)
+    current, = candidates(events)
+    assert len(client.teacher_requests) == teaching.FACT_FORMAT_ATTEMPTS
+    assert all(row["candidate"] == current for row in client.teacher_requests)
+    assert all(row["previous_candidate"] is None for row in client.generations)
+    assert not any(event["event"] == "accepted" for event in events)
 
 
 def test_unknown_owner_requires_one_change_in_owner_without_rewriting_good_siblings():
@@ -196,40 +193,51 @@ def test_unchanged_candidate_or_required_owner_category_is_bounded_rejection(rej
     with pytest.raises(teaching.TeachingContentError):
         generator.generate(*args)
     assert len(candidates(events)) == 1
-    assert len(client.teacher_requests) == 1
+    assert len(client.teacher_requests) == (teaching.FACT_FORMAT_ATTEMPTS if rejection == "global" else 1)
+    if rejection == "global":
+        assert all(row["candidate"] == candidates(events)[0] for row in client.teacher_requests)
+        assert all(row["previous_candidate"] is None for row in client.generations)
     assert not any(event["event"] == "accepted" for event in events)
     assert len(client.generations) <= 6  # Three bounded rounds; no hidden regeneration loop.
 
 
-def test_global_change_does_not_satisfy_an_independent_exact_practice_requirement():
+def test_unknown_review_with_exact_practice_veto_cannot_trigger_global_writer_repair():
     generator, client, args, events = case(rejection="exact_and_global")
     with pytest.raises(teaching.TeachingContentError):
         generator.generate(*args)
     assert len(candidates(events)) == 1
-    assert len(client.teacher_requests) == 1
-    assert any(row["previous_candidate"] is not None for row in client.generations)
+    assert len(client.teacher_requests) == teaching.FACT_FORMAT_ATTEMPTS
+    assert all(row["candidate"] == candidates(events)[0] for row in client.teacher_requests)
+    assert all(row["previous_candidate"] is None for row in client.generations)
+    responses = [row["response"] for row in events if row["event"] == "model_response"
+                 and "points" in row["response"] and "accepted" in row["response"]]
+    assert responses and all(not next(point for point in row["points"]
+                                      if point["point_id"] == client.target)["practice_ok"]
+                             for row in responses)
     assert not any(event["event"] == "accepted" for event in events)
 
 
-def test_global_guard_waits_for_third_point_batch_instead_of_rejecting_unchanged_prefix():
+def test_unknown_whole_review_rechecks_complete_snapshot_across_three_point_batches():
     generator, client, args, events = case(count=13, target_index=12, factual_failure=True)
-    generator.generate(*args)
-    before, after = candidates(events)
-    assert changed_point_components(before, after) == {(client.target, "explanation")}
-    assert before["lesson"] == after["lesson"]
-    point_repairs = [
+    with pytest.raises(teaching._TeachingReviewFormatError):
+        generator.generate(*args)
+    current, = candidates(events)
+    point_writes = [
         row for row in client.generations
-        if row["previous_candidate"] is not None and row["batch_points"]
+        if row["batch_points"]
     ]
-    assert Counter(len(row["batch_points"]) for row in point_repairs) == {6: 2, 1: 1}
-    single, = [row for row in point_repairs if len(row["batch_points"]) == 1]
+    assert Counter(len(row["batch_points"]) for row in point_writes) == {6: 2, 1: 1}
+    single, = [row for row in point_writes if len(row["batch_points"]) == 1]
     assert single["output_contract"]["point_ids"] == [client.target]
-    assert len(client.teacher_requests) == 2
+    assert all(row["previous_candidate"] is None for row in client.generations)
+    assert len(client.teacher_requests) == teaching.FACT_FORMAT_ATTEMPTS
     assert all(len(row["candidate"]["points"]) == 13 for row in client.teacher_requests)
+    assert all(row["candidate"] == current for row in client.teacher_requests)
+    assert not any(event["event"] == "accepted" for event in events)
 
 
 def test_format_retry_keeps_same_candidate_and_next_rejection_uses_latest_baseline():
-    generator, client, args, events = case(malformed_once=True, repeat_rejection=True)
+    generator, client, args, events = case(rejection="owner", malformed_once=True, repeat_rejection=True)
     with pytest.raises(teaching.TeachingContentError):
         generator.generate(*args)
     before, changed = candidates(events)
@@ -240,17 +248,17 @@ def test_format_retry_keeps_same_candidate_and_next_rejection_uses_latest_baseli
     assert client.teacher_requests[2]["format_feedback"]
     # Round three repeats the latest rejected content. An old/cleared baseline
     # would incorrectly count round two's change a second time and review it.
-    assert len(client.generations) == 6
-    assert FIXED in client.generations[-2]["previous_candidate"]["points"][0]["explanation"]
+    assert len(client.generations) == 4
+    assert FIXED in client.generations[-1]["previous_candidate"]["points"][0]["explanation"]
     assert not any(event["event"] == "accepted" for event in events)
 
 
 def test_exhausted_review_format_error_stops_without_another_writer_round():
-    generator, client, args, events = case(malformed_always=True)
+    generator, client, args, events = case(rejection="owner", malformed_always=True)
     with pytest.raises(teaching.TeachingServiceUnavailableError):
         generator.generate(*args)
     assert len(candidates(events)) == 2
-    assert len(client.generations) == 4
+    assert len(client.generations) == 3
     assert len(client.teacher_requests) == 3  # Initial rejection plus two format attempts.
     roles = Counter(job[0] for job, *_ in client.calls)
     assert roles["teacher"] == 3

@@ -338,8 +338,7 @@ class UnitEngine:
                 'required_task_edits': self._task_edits(unit) if rubric_baseline is None else [],
                 'editable_fields': list(shape),
                 'require_effective_change': bool(unit['candidate']),
-                'must_redesign_question': work['mode'] == 'redesign' or bool(work.get('redesign_pending_review') and
-                    _question_shape(unit['candidate']) == _question_shape(work.get('rejected_design') or {})),
+                'must_redesign_question': work['mode'] == 'redesign' or bool(work.get('redesign_pending_review')),
                 'instruction': ('本次只修正评分要求，唯一返回rubric；题干、参考答案、身份和引用由程序原样保留。'
                     if rubric_baseline is not None else
                     '修复引用时，明确核对并修改本题自身source_ids；阅读目录不算本题引用。'
