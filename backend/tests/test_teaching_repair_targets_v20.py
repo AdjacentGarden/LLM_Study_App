@@ -161,12 +161,16 @@ def test_short_row_foreign_item_card_aliases_veto_owner_without_prefix_collision
     "lesson.checkpoints[00]", "lesson.checkpoints[0]x", "lesson.reading_source_ids_extra",
     "lesson.unknown", "practice：无所属行的短标签",
 ])
-def test_unknown_foreign_or_invalid_slot_top_issue_keeps_global_veto(clean, label):
+def test_unknown_foreign_or_invalid_slot_top_issue_requires_same_candidate_review(clean, label):
     generator, points, lesson, fact, teacher = clean
     assert generator._teacher_issue_targets(label + "：需修。", points, lesson) is None
     teacher.accepted = False
     teacher.issues = [f"practice {points[0].point_id}：明确局部问题。", label + "：需修。"]
-    assert_global(generator, points, lesson, generator._combined_repair_plan(fact, teacher, points, lesson))
+    before = teacher.model_dump()
+    with pytest.raises(teaching._TeachingReviewFormatError):
+        generator._combined_repair_plan(fact, teacher, points, lesson)
+    assert teacher.model_dump() == before
+    assert not teacher.accepted
 
 
 @pytest.mark.parametrize("field,component", [("worked_examples", "example"), ("checkpoints", "checkpoint")])

@@ -2474,7 +2474,7 @@ class TeachingContentGenerator:
         """Route an explicit leading identifier without interpreting prose.
 
         These are exact candidate IDs or explicit component/lesson labels.
-        Unknown/global prose remains a global veto. In particular, ``_1``
+        Unknown/global prose remains unlocated for same-candidate correction. ``_1``
         cannot match ``_10`` or an identifier with an unknown suffix.
         Short component labels are usable only inside their known point row.
         """
@@ -2532,6 +2532,18 @@ class TeachingContentGenerator:
         if text.startswith("lesson."):
             if owner_point_id is not None:
                 return None
+            slot_match = re.match(
+                r"lesson\.(example|checkpoint)_([1-9][0-9]*)(?![A-Za-z0-9_\[\].])",
+                text,
+            )
+            if slot_match:
+                kind, index = slot_match.group(1), int(slot_match.group(2))
+                members = lesson.worked_examples if kind == "example" else lesson.checkpoints
+                if index > len(members):
+                    return None
+                # The leading component owns this issue. Other candidate IDs
+                # in its explanation may identify a comparison, not a target.
+                return ({}, {f"{kind}_{index}"})
             indexed = re.match(
                 r"lesson\.(worked_examples|checkpoints)\[(0|[1-9][0-9]*)\](?![A-Za-z0-9_\[\].])",
                 text,
@@ -2598,6 +2610,25 @@ class TeachingContentGenerator:
                     set(lesson_targets),
                 )
         return None
+
+    @staticmethod
+    def _validate_teacher_issue_locations(
+        review: _Review, points: list[_Point], lesson: _Lesson
+    ) -> None:
+        for issue in review.issues:
+            if TeachingContentGenerator._teacher_issue_targets(issue, points, lesson) is None:
+                raise _TeachingReviewFormatError(
+                    "教学审核的总级问题未定位到当前真实组件；请仅重新审核同一候选，"
+                    "用真实知识点或lesson组件的明确前缀定位，保留全部真实否决理由。"
+                )
+        if not review.accepted and not (
+            review.issues or review.lesson.issues
+            or not all((review.lesson.reading_ok, review.lesson.examples_ok,
+                        review.lesson.checkpoints_ok, review.lesson.evidence_ok))
+            or any(row.issues or not all((row.explanation_ok, row.flashcard_ok,
+                                         row.practice_ok, row.evidence_ok)) for row in review.points)
+        ):
+            raise _TeachingReviewFormatError("教学审核否决未定位任何真实组件；请重新审核同一候选并保留真实否决。")
 
     @staticmethod
     def _validate_point_repair(
@@ -2771,6 +2802,7 @@ class TeachingContentGenerator:
         self, fact: _FactReview, teacher: _Review, points: list[_Point], lesson: _Lesson
     ) -> _RepairPlan:
         """Union localized failures without allowing one reviewer to erase another."""
+        self._validate_teacher_issue_locations(teacher, points, lesson)
         requirements = _RepairRequirements()
         expected = {point.point_id for point in points}
         all_fields = {"explanation", "flashcard", "practice"}
@@ -2989,6 +3021,12 @@ class TeachingContentGenerator:
                     }
                     if not set(review.lesson.required_question_edits) <= available:
                         raise TeachingContentError("题设修复义务必须仅指向当前实际提供的例题或检查题")
+                    current_points = payload.get("candidate", {}).get("points")
+                    if isinstance(current_points, list):
+                        self._validate_teacher_issue_locations(
+                            review, [_Point.model_validate(row) for row in current_points],
+                            _Lesson.model_validate(current_lesson),
+                        )
                 return review
             except _TeachingAuditError:
                 raise

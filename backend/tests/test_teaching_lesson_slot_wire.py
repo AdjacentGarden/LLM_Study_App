@@ -187,7 +187,12 @@ def test_normalized_full_lesson_still_gets_independent_review_and_cannot_publish
     class Reviewer(CandidateClient):
         def teacher(self, payload):
             result = super().teacher(payload)
-            result.update(accepted=False, issues=["整课仍有未定位的真实教学缺陷。"])
+            result.update(accepted=False, issues=[
+                "lesson_opening：仍有真实教学缺陷。",
+                "lesson_summary：仍有真实教学缺陷。",
+                "lesson_examples：仍有真实教学缺陷。",
+                "lesson_checkpoints：仍有真实教学缺陷。",
+            ])
             return result
 
     class Writer:
@@ -200,7 +205,24 @@ def test_normalized_full_lesson_still_gets_independent_review_and_cannot_publish
             if system == teaching.GENERATION_PROMPT and payload["include_lesson"]:
                 lesson = three_slot_lesson()
                 if payload["repair_contract"]:
+                    lesson["opening"] = "先分别核对温度和容器条件，再判断观测结论的适用范围。"
                     lesson["summary"] += "修订时再次核对适用的两个必要条件。"
+                    lesson["worked_examples"][0]["problem"] = (
+                        "只知道容器密闭而不知道温度是否保持不变，能直接使用体积稳定的结论吗？"
+                    )
+                    lesson["worked_examples"][0]["steps"] = [
+                        "先确认容器密闭满足一个前提。",
+                        "再确认温度前提未知，不能把尚未核实的条件当作已满足。",
+                    ]
+                    lesson["worked_examples"][0]["answer"] = (
+                        "不能直接使用；还须核对温度是否保持不变。"
+                    )
+                    lesson["checkpoints"][0]["question"] = (
+                        "温度已经改变时，为何应重新测量而不是沿用先前的体积结论？"
+                    )
+                    lesson["checkpoints"][0]["expected_answer"] = (
+                        "温度不变是原结论的前提，改变温度后不能直接套用原结论。"
+                    )
                 result["lesson"] = lesson  # Authored full-list wire, deliberately not a slot patch.
             return result
 

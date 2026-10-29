@@ -216,7 +216,7 @@ def assert_global_plan(generator, points, lesson, plan):
 
 
 @pytest.mark.parametrize("kind", ["unknown_top", "false_parent_only", "fact_top"])
-def test_unlocated_global_rejection_cannot_be_masked_by_a_local_teacher_issue(routing, kind):
+def test_unlocated_rejection_stays_pending_and_fact_veto_is_not_masked(routing, kind):
     generator, points, lesson, fact, teacher = routing
     teacher.accepted = False
     teacher.issues = [f"{alias_for(points[0], 'practice')} 已定位的练习问题。"]
@@ -227,9 +227,13 @@ def test_unlocated_global_rejection_cannot_be_masked_by_a_local_teacher_issue(ro
     else:
         fact.accepted = False
         fact.issues = ["事实审核还有未定位的全局问题。"]
-    assert_global_plan(
-        generator, points, lesson, generator._combined_repair_plan(fact, teacher, points, lesson)
-    )
+    if kind in {"unknown_top", "false_parent_only"}:
+        with pytest.raises(teaching._TeachingReviewFormatError):
+            generator._combined_repair_plan(fact, teacher, points, lesson)
+    else:
+        assert_global_plan(
+            generator, points, lesson, generator._combined_repair_plan(fact, teacher, points, lesson)
+        )
 
 
 def test_row_evidence_false_with_all_own_component_issues_only_repairs_those_components(routing):
@@ -323,9 +327,9 @@ def test_actual_v17_routing_keeps_rna_approved_and_recorded_unchanged_guard_inta
     assert teacher.model_dump() == {**actual["teacher"], "lesson": {
         **actual["teacher"]["lesson"], "required_question_edits": []}}
     assert fact.model_dump() == actual["fact_review"]
-    # An actual unlocated veto still restores all pending points, including
-    # RNA: the router must not suppress a real global rejection to avoid a guard.
+    # An unlocated veto remains a failed review of the same candidate. It
+    # cannot approve it or authorize rewriting every previously accepted point.
     teacher.issues.append("另有未定位的全局问题，不能只修已知组件。")
-    assert_global_plan(
-        generator, points, lesson, generator._combined_repair_plan(fact, teacher, points, lesson)
-    )
+    with pytest.raises(teaching._TeachingReviewFormatError):
+        generator._combined_repair_plan(fact, teacher, points, lesson)
+    assert teacher.issues[-1] == "另有未定位的全局问题，不能只修已知组件。"

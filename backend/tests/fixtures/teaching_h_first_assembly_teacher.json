@@ -1,0 +1,125 @@
+{
+  "source_commit": "ee52a80c88e8961665e7b21dd40a8075133f51be",
+  "response_updated": 1793244885.4066405,
+  "request_key": "547cf1aac84580bd6d54830f7ac67e94f95d5e5ba65317e84bdfcd4b7de5dc0a",
+  "teacher_review": {
+    "accepted": false,
+    "issues": [
+      "lesson.example_2与practice_db1e93eed84dee57bb14的实际问项相同，均要求回答一个初级卵母细胞形成的卵细胞、极体数目及极体去向；应保留例题ID，改设基于卵细胞形成过程的不同问项。",
+      "lesson.checkpoint_1与practice_db1e93eed84dee57bb14的实际问项相同，仍在考查卵细胞数目和三个极体的去向；应保留检查题ID，改问有原文依据的不同目标。"
+    ],
+    "points": [
+      {
+        "point_id": "kp_7b9c5a6f4d3f4cfe",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_4e8beace986bb3ff",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_e046515243b6fb92",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_b420c429a8a4edfd",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_f9b42e186f0848ff",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_a734f905475784b3",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_5add9c58c78973b5",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_eacfb3b7e0e6646a",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_61a71025a29320ec",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_3f0b21eb7381980e",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_06273cd883896712",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      },
+      {
+        "point_id": "kp_7f9a4a1e1a61f2a4",
+        "explanation_ok": true,
+        "flashcard_ok": true,
+        "practice_ok": true,
+        "evidence_ok": true,
+        "issues": []
+      }
+    ],
+    "lesson": {
+      "reading_ok": true,
+      "examples_ok": false,
+      "checkpoints_ok": false,
+      "evidence_ok": true,
+      "issues": [
+        "lesson.example_2与practice_db1e93eed84dee57bb14重复询问一个初级卵母细胞形成的卵细胞数、极体数及其去向；需更换例题问项，并保留有依据的解题步骤和结论。",
+        "lesson.checkpoint_1与practice_db1e93eed84dee57bb14重复询问卵细胞数目和极体去向；需更换检查题问项。"
+      ],
+      "required_question_edits": [
+        "example_2",
+        "checkpoint_1"
+      ]
+    }
+  },
+  "routing_only": "Stored provider response is not approval; test candidates/proofs are synthetic routing projections."
+}
