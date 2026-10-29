@@ -284,6 +284,32 @@ class UnitEngine:
             raise _UnitRejected({'issue': '评分修复的题干、答案、身份或引用已变化，须重新审核。'}, 'repair_lock')
         return baseline
 
+    def _task_edits(self, unit: dict[str, Any]) -> list[dict[str, str]]:
+        # Only the current typed rubric veto supplies these repair targets.
+        # They are instructions to fix the task, never additional evidence.
+        feedback = unit['work'].get('semantic_feedback', {})
+        if (unit['work']['kind'] != 'practice' or not isinstance(feedback, dict)
+                or feedback.get('accepted') is not False):
+            return []
+        items = feedback.get('items')
+        if not isinstance(items, list):
+            return []
+        edits = []
+        for item in items:
+            if not isinstance(item, dict) or item.get('item_id') != unit['candidate'].get('item_id'):
+                continue
+            checks = item.get('rubric_checks')
+            if not isinstance(checks, list):
+                continue
+            for row in checks:
+                if (not isinstance(row, dict) or row.get('required') is not False
+                        or row.get('repair_scope') != 'task_revision'):
+                    continue
+                issue, repair = row.get('reason'), row.get('repair')
+                if isinstance(issue, str) and issue.strip() and isinstance(repair, str) and repair.strip():
+                    edits.append({'field': '/component/prompt', 'issue': issue, 'repair': repair})
+        return edits
+
     def _write_one(self, unit: dict[str, Any]) -> dict[str, Any]:
         from .teaching_content import GENERATION_PROMPT
         work = unit['work']
@@ -308,6 +334,7 @@ class UnitEngine:
             'scope_conditions': {owner: self.by_id[owner]['scope_conditions'] for owner in work['focus_ids']},
             'repair_task': {
                 'component': unit['unit_id'], 'failure': work.get('feedback', []),
+                'required_task_edits': self._task_edits(unit) if rubric_baseline is None else [],
                 'editable_fields': list(shape),
                 'require_effective_change': bool(unit['candidate']),
                 'must_redesign_question': work['mode'] == 'redesign' or bool(work.get('redesign_pending_review') and
@@ -319,6 +346,7 @@ class UnitEngine:
                 ),
             },
             'previous_candidate': unit['candidate'], 'rejected_design': work.get('rejected_design'),
+            'latest_invalid_draft': work.get('latest_invalid_draft'),
             'prior_failed_designs': [{'candidate': entry.get('candidate'), 'feedback': entry.get('feedback')}
                                      for entry in work.get('history', [])][-6:],
             'output_shape': {'component': shape}, **pack,
@@ -332,6 +360,8 @@ mode=redesign时必须构造新的题设或实际问项，不能照抄旧题、�
 优先设计题意简明、问项少、可直接由现有明确原文支持的小题，不为难度或情境丰富而增加额外前提。
 repair_task.must_redesign_question=true时，即使mode=repair也必须完成上述重设；非题目组件则完整重写讲解或总结。
 mode=repair时落实repair_task的每项缺口；正确题干可以保留，但缺失的本题引用必须实际补齐。
+latest_invalid_draft是最近一次未通过格式校验的实际稿，不是previous_candidate，也没有得到任何审核批准；按其validation精确修正后仍须解决未完成的事实或题意缺口。
+required_task_edits是当前评分审核定位的题设修改要求，不是新的原文证据；修改prompt及关联答案、评分时只能使用sources中确有支持的事实，不能照抄建议中的无源前提。
 引用的来源只能选sources已有ID，先核对其结论和条件；检索命中不代表已经获得事实批准。'''
         raw = self.g._structured(system=prompt, user=json.dumps(payload, ensure_ascii=False), max_tokens=5000)
         if not isinstance(raw, dict) or set(raw) != {'component'} or not isinstance(raw['component'], dict):
@@ -363,10 +393,20 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
         if kind in ('opening', 'summary'):
             if set(candidate) != {'content', 'source_ids'} or not isinstance(candidate['content'], str):
                 raise ValueError('导入/总结须返回content与source_ids')
+            original = deepcopy(candidate)
             candidate['content'] = _clean_content_text(candidate['content'])
             high = 300 if kind == 'opening' else 680
             if not candidate['content'].strip() or len(candidate['content']) > high:
-                raise ValueError('导入/总结长度不符合组件要求')
+                validation = {'issue': '导入/总结长度不符合组件要求',
+                              'field': '/component/content',
+                              'actual_chars': len(candidate['content']), 'min_chars': 1,
+                              'max_chars': high}
+                work['latest_invalid_draft'] = {
+                    'candidate': original, 'candidate_sha256': fingerprint(original),
+                    'attempt_nonce': work['attempt_nonce'], 'approved': False,
+                    'validation': validation,
+                }
+                raise _UnitRejected(validation, 'writer_format')
         else:
             model = {'explanation': _ExplanationPatch, 'flashcard': _Card, 'practice': _Practice,
                      'example': _Example, 'checkpoint': _Checkpoint}[kind.split('_')[0]]
@@ -390,6 +430,7 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
         if before != fingerprint(candidate):
             self.g._audit('unit_content_whitespace_normalized', original_sha256=before,
                           candidate_sha256=fingerprint(candidate), approved=False)
+        work.pop('latest_invalid_draft', None)
 
     def _scaffold_point(self, owner: str) -> Any:
         from .teaching_content import _Point
