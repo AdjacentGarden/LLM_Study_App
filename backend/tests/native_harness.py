@@ -135,7 +135,7 @@ class FixtureTeachingGenerator:
     evidence fingerprints, persisted revisions, and per-workspace design.
     """
 
-    def generate(self, bundle, chapter, evidence):
+    def generate(self, bundle, chapter, evidence, *, run_scope: str | None = None):
         from adaptive_learning.personalization.teaching_content import TEACHING_CONTENT_VERSION
         from adaptive_learning.personalization.teaching_scope import TEACHING_SCOPE_VERSION
 

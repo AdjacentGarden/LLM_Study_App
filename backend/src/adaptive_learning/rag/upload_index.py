@@ -21,7 +21,7 @@ from numpy.typing import NDArray
 from ..ingestion.coverage import page_is_skipped
 from .index import IndexedChunk, PairReranker, PersistentRAGIndex, QueryEncoder, RAGIndexError
 
-_INDEX_VERSION = b"upload-index-v2"
+_INDEX_VERSION = b"upload-index-v3"
 
 
 def _windows_extended_path(absolute: str) -> str:
@@ -71,9 +71,14 @@ def upload_chunks(path: Path) -> list[IndexedChunk]:
             continue
         number = int(page["page_number"])
         # The normalized page text retains markup and exact quotation characters.
-        text = str(page.get("cleaned_text") or page.get("raw_text") or "")
+        text = next((str(value) for value in (page.get("cleaned_text"), page.get("raw_text"))
+                     if value is not None and str(value).strip()), "")
         if not text.strip():
             text = "\n".join(str(b.get("text", "")) for b in page.get("blocks", []))
+        if not text.strip():
+            # Older uploaded-page records used text without extraction fields.
+            # Keep canonical text and blocks authoritative when they exist.
+            text = str(page.get("text") or "")
         for index, parent in enumerate(_split(text, 900), 1):
             key = f"p{number:05d}-c{index:04d}"
             chunks.append(IndexedChunk(key, number, parent, "parent"))

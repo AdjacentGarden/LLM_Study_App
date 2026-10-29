@@ -7,10 +7,10 @@ from contextvars import ContextVar
 from threading import Barrier, Event, Lock
 
 import pytest
+from test_teaching_content import Client, course, lesson_candidate
 
 from adaptive_learning.llm import teaching_parallel
 from adaptive_learning.personalization import teaching_content as teaching
-from test_teaching_content import Client, course, lesson_candidate
 
 
 @pytest.fixture
@@ -117,19 +117,15 @@ def test_parallel_failed_batch_retries_only_itself_and_never_publishes_partial(w
     assert result.teaching_review["accepted"]
 
 
-def test_short_final_example_step_feedback_names_exact_field_and_existing_minimum():
+def test_concise_final_example_step_is_valid_but_empty_reasoning_is_rejected():
     _, _, evidence = course()
     raw = lesson_candidate()
     raw["worked_examples"][1]["steps"][-1] = "所以重新测量。"
     lesson = teaching._Lesson.model_validate(raw)
-    with pytest.raises(teaching.TeachingContentError) as caught:
-        teaching.TeachingContentGenerator._validate_lesson(lesson, [], evidence)
-    message = str(caught.value)
-    assert "lesson.worked_examples[1].steps[1]" in message
-    assert "至少需要12个字符" in message
-    assert "末步" in message
-    lesson.worked_examples[1].steps[-1] = "题设中温度发生改变因此需要重新测量体积。"
     teaching.TeachingContentGenerator._validate_lesson(lesson, [], evidence)
+    lesson.worked_examples[1].steps[-1] = "。 ！"
+    with pytest.raises(teaching.TeachingContentError, match=r"lesson.worked_examples\[1\].steps\[1\].*真实推导"):
+        teaching.TeachingContentGenerator._validate_lesson(lesson, [], evidence)
 
 
 @pytest.mark.parametrize("configured,expected", [(None, 6), ("1", 1), ("2", 2), ("6", 6)])

@@ -78,7 +78,10 @@ def test_user_safe_rejection_does_not_publish_a_result(tmp_path):
     q.process_one()
     row = q.get('s', task['job_id'])
     assert row['status'] == 'failed' and row['course'] is None
-    assert row['error'] == '本章未通过审核'
+    assert row['error'] == '本章课程暂未准备完成，已有内容和学习进度已保留，可以继续生成。'
+    with q.connect() as db:
+        saved = db.execute('SELECT error FROM course_jobs WHERE job_id=?', (task['job_id'],)).fetchone()
+    assert saved['error'] == '本章未通过审核'  # Public copy must not rewrite the durable cause.
 
 
 def test_lost_submission_reuses_request_after_profile_change_and_restart(tmp_path):

@@ -193,7 +193,7 @@ class SiblingClient(CandidateClient):
 
 
 @pytest.mark.parametrize("reject_retained", [False, True])
-def test_valid_sibling_draft_survives_unchanged_peer_but_cannot_bypass_final_review(reject_retained):
+def test_legacy_batch_retry_is_atomic_and_cannot_bypass_final_review(reject_retained):
     bundle, chapter, evidence = course(2)
     ids = [point.point_id for point in bundle.knowledge_points]
     client = SiblingClient(ids, reject_retained=reject_retained)
@@ -209,21 +209,21 @@ def test_valid_sibling_draft_survives_unchanged_peer_but_cannot_bypass_final_rev
         assert result.teaching_review["accepted"]
     batches = [row for row in client.generations if row["batch_points"]]
     assert [[row["point_id"] for row in batch["batch_points"]] for batch in batches] == [
-        ids, ids, [ids[1]]
+        ids, ids, ids
     ]
     retained = [row for row in audit if row["event"] == "point_repair_drafts_retained"]
-    assert len(retained) == 1 and retained[0]["point_ids"] == [ids[0]]
-    assert retained[0]["pending_point_ids"] == [ids[1]]
-    assert retained[0]["approved"] is False
+    # The standalone legacy path retries a rejected batch atomically. Durable
+    # production units preserve siblings independently (engine persistence tests).
+    assert retained == []
     candidates = [row for row in audit if row["event"] == "candidate"]
     assert [row["attempt"] for row in candidates] == [1, 3]
     after = candidates[-1]["candidate"]["points"]
-    assert after[0] == retained[0]["drafts"][0]
+    assert FIXED in after[0]['practice']['expected_answer']
     assert candidates[0]["candidate_sha256"] != candidates[-1]["candidate_sha256"]
     teachers = [row for row in audit if row["event"] == "teacher_review"]
     assert [row["review"]["accepted"] for row in teachers] == [False, not reject_retained]
     # Changed draft content must be sent for independent fact review, not reuse
-    # the first candidate's proof merely because the writer leaf was retained.
+    # the first candidate's proof merely because a batch was generated earlier.
     changed_facts = [data for (role, _, _), data, *_ in client.calls
                      if role == "fact" and any(
                          point["point_id"] == ids[0] and
@@ -245,7 +245,7 @@ def test_bad_source_patch_is_not_retained_as_a_successful_sibling():
     assert len([row for row in audit if row["event"] == "candidate"]) == 1
 
 
-def test_retained_draft_new_semantic_rejection_becomes_new_baseline_and_pending_target():
+def test_legacy_batch_new_semantic_rejection_becomes_new_baseline_and_pending_target():
     class RejectRetainedOnce(SiblingClient):
         def structured(self, *, system, user, **kwargs):
             result = super().structured(system=system, user=user, **kwargs)
@@ -271,7 +271,7 @@ def test_retained_draft_new_semantic_rejection_becomes_new_baseline_and_pending_
     assert result.teaching_review["accepted"]
     batches = [row for row in client.generations if row["batch_points"]]
     assert [[row["point_id"] for row in batch["batch_points"]] for batch in batches] == [
-        ids, ids, [ids[1]], [ids[0]]
+        ids, ids, ids, [ids[0]]
     ]
     candidates = [row for row in audit if row["event"] == "candidate"]
     assert [row["attempt"] for row in candidates] == [1, 3, 4]

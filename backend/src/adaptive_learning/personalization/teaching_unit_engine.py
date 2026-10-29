@@ -14,7 +14,12 @@ from ..database import DATABASE_ERRORS
 from ..llm.teaching_parallel import ordered_review_map
 from .course_progress import CourseStage, report_course_stage
 from .teaching_repair_evidence import repair_evidence_pack
-from .teaching_repairs import TeachingRepairPending, current_repair, current_unit, invalidate_repair_response
+from .teaching_repairs import (
+    TeachingRepairPending,
+    current_repair,
+    current_unit,
+    invalidate_repair_response,
+)
 from .teaching_review_reuse import VerifiedComponentReuse, fingerprint
 
 ENGINE_VERSION = 'isolated-source-located-units-v2'
@@ -56,8 +61,9 @@ class UnitEngine:
     def __init__(self, generator: Any, bundle: Any, chapter: Any, evidence: Any) -> None:
         from .teaching_content import _FACT_REUSE
         self.g, self.bundle, self.chapter, self.evidence = generator, bundle, chapter, evidence
-        self.run = current_repair.get()
-        assert self.run is not None
+        run = current_repair.get()
+        assert run is not None
+        self.run = run
         self.state = self.run.load()
         self.inputs = generator._inputs(bundle, evidence)
         self.by_id = {item['point_id']: item for item in self.inputs}
@@ -83,7 +89,7 @@ class UnitEngine:
         return specs
 
     def advance(self) -> Any:
-        from .teaching_content import _AuditedScopeClient, TeachingScopePlanner, validate_scope_plan
+        from .teaching_content import TeachingScopePlanner, _AuditedScopeClient, validate_scope_plan
         if not self.g.client or not self.g.review_client:
             raise TeachingRepairPending(30)
         if not self.state.get('plans'):
@@ -141,6 +147,7 @@ class UnitEngine:
             unit['attempts'] += 1
             work['attempt_nonce'] = uuid.uuid4().hex
             if mode == 'redesign':
+                work.pop('rubric_only_lock', None)
                 work['history'] = [*work.get('history', []), {
                     'revision': work['revision'], 'candidate': unit['candidate'],
                     'feedback': work.get('feedback', []),
@@ -166,7 +173,10 @@ class UnitEngine:
                     self.g._audit('unit_draft_saved', revision=work['revision'], mode=mode,
                                   candidate_sha256=fingerprint(candidate), approved=False)
                 self._review_one(unit)
-                work.update(failures=0, repair_failures=0, feedback=[], phase='accepted',
+                # Local approval is provisional until the complete course is
+                # checked. Resetting the repair cycle here makes a repeated
+                # cross-component veto permanently look like its first repair.
+                work.update(failures=0, feedback=[], phase='accepted',
                             redesign_pending_review=False)
                 self.run.write_unit(unit, status='approved')
                 self.g._audit('unit_approved', revision=work['revision'],
@@ -190,6 +200,8 @@ class UnitEngine:
             work['repair_failures'] = 0
         work['mode'] = 'redesign' if work['repair_failures'] >= 2 else 'repair'
         if isinstance(error, _UnitRejected):
+            if error.stage in ('fact', 'teacher', 'whole_course', 'assembly'):
+                work.pop('rubric_only_lock', None)
             if error.stage in ('fact', 'teacher', 'rubric', 'whole_course', 'assembly'):
                 work['semantic_feedback'] = deepcopy(error.feedback)
                 work['feedback'] = error.feedback
@@ -231,6 +243,33 @@ class UnitEngine:
                                     expansion=int(work.get('failures', 0)),
                                     overview=work['kind'] in ('opening', 'summary'))
 
+    def _lock_rubric(self, unit: dict[str, Any]) -> None:
+        # This is an edit restriction, never a fact/teacher approval proof.
+        # The materialized result still enters every ordinary review gate.
+        candidate = deepcopy(unit['candidate'])
+        unit['work']['rubric_only_lock'] = {
+            'candidate': candidate, 'candidate_sha256': fingerprint(candidate),
+            'evidence_fingerprint': self.evidence.fingerprint,
+        }
+
+    def _rubric_baseline(self, unit: dict[str, Any]) -> dict[str, Any] | None:
+        from .teaching_content import _Practice
+        work = unit['work']
+        if work['kind'] != 'practice' or work['mode'] != 'repair' or 'rubric_only_lock' not in work:
+            return None
+        lock = work['rubric_only_lock']
+        baseline = lock.get('candidate') if isinstance(lock, dict) else None
+        if (not isinstance(baseline, dict)
+                or lock.get('candidate_sha256') != fingerprint(baseline)
+                or lock.get('evidence_fingerprint') != self.evidence.fingerprint):
+            raise _UnitRejected({'issue': '评分修复基线无效，不能解除已冻结字段。'}, 'repair_lock')
+        _Practice.model_validate(baseline)
+        current_fields = {key: value for key, value in unit['candidate'].items() if key != 'rubric'}
+        frozen_fields = {key: value for key, value in baseline.items() if key != 'rubric'}
+        if current_fields != frozen_fields:
+            raise _UnitRejected({'issue': '评分修复的题干、答案、身份或引用已变化，须重新审核。'}, 'repair_lock')
+        return baseline
+
     def _write_one(self, unit: dict[str, Any]) -> dict[str, Any]:
         from .teaching_content import GENERATION_PROMPT
         work = unit['work']
@@ -243,6 +282,9 @@ class UnitEngine:
             shape['card_id'] = self.by_id[owner]['card_id']
         elif kind == 'practice':
             shape['item_id'] = self.by_id[owner]['item_id']
+        rubric_baseline = self._rubric_baseline(unit)
+        if rubric_baseline is not None:
+            shape = {'rubric': shape['rubric']}
         pack = self._pack(unit)
         payload = {
             'engine': ENGINE_VERSION, 'epoch': self.run.identity['epoch'],
@@ -256,8 +298,11 @@ class UnitEngine:
                 'require_effective_change': bool(unit['candidate']),
                 'must_redesign_question': work['mode'] == 'redesign' or bool(work.get('redesign_pending_review') and
                     _question_shape(unit['candidate']) == _question_shape(work.get('rejected_design') or {})),
-                'instruction': '修复引用时，明确核对并修改本题自身source_ids；阅读目录不算本题引用。'
-                               '重新设计时重构题设或问项，并同步重做答案、评分和引用；解除旧的rubric_only编辑限制。',
+                'instruction': ('本次只修正评分要求，唯一返回rubric；题干、参考答案、身份和引用由程序原样保留。'
+                    if rubric_baseline is not None else
+                    '修复引用时，明确核对并修改本题自身source_ids；阅读目录不算本题引用。'
+                               '重新设计时重构题设或问项，并同步重做答案、评分和引用；解除旧的rubric_only编辑限制。'
+                ),
             },
             'previous_candidate': unit['candidate'], 'rejected_design': work.get('rejected_design'),
             'prior_failed_designs': [{'candidate': entry.get('candidate'), 'feedback': entry.get('feedback')}
@@ -277,13 +322,28 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
         raw = self.g._structured(system=prompt, user=json.dumps(payload, ensure_ascii=False), max_tokens=5000)
         if not isinstance(raw, dict) or set(raw) != {'component'} or not isinstance(raw['component'], dict):
             raise _UnitRejected({'issue': '仅返回output_shape要求的完整component对象。'}, 'writer_format')
+        if rubric_baseline is not None:
+            if set(raw['component']) != {'rubric'}:
+                raise _UnitRejected({'issue': '仅评分修复只能返回rubric，不能修改题干、答案、身份或引用。'}, 'repair_lock')
+            return {**deepcopy(rubric_baseline), 'rubric': raw['component']['rubric']}
         return raw['component']
 
     def _validate_one(self, unit: dict[str, Any], candidate: dict[str, Any]) -> None:
-        from .teaching_content import (_Card, _Checkpoint, _Example, _ExplanationPatch, _Practice,
-                                       _check_text, _citations)
+        from .teaching_content import (
+            _Card,
+            _check_text,
+            _Checkpoint,
+            _citations,
+            _Example,
+            _ExplanationPatch,
+            _Practice,
+        )
         work = unit['work']
         kind = work['kind']
+        rubric_baseline = self._rubric_baseline(unit)
+        if rubric_baseline is not None and any(candidate.get(key) != value
+                for key, value in rubric_baseline.items() if key != 'rubric'):
+            raise _UnitRejected({'issue': '仅评分修复不得改写题干、答案、身份或引用。'}, 'repair_lock')
         if kind in ('opening', 'summary'):
             if set(candidate) != {'content', 'source_ids'} or not isinstance(candidate['content'], str):
                 raise ValueError('导入/总结须返回content与source_ids')
@@ -335,7 +395,7 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
                              'source_ids': ids} for _ in range(3)]})
 
     def _fact_job(self, unit: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        from .teaching_content import _Point, _Lesson
+        from .teaching_content import _Lesson, _Point
         owner, kind = unit['work']['owner_id'], unit['work']['kind']
         if owner:
             data = self._scaffold_point(owner).model_dump()
@@ -417,8 +477,8 @@ mode=repair时落实repair_task的每项缺口；正确题干可以保留，但�
         return proof.model_dump()
 
     def _review_one(self, unit: dict[str, Any]) -> None:
-        from .teaching_content import REVIEW_PROMPT, QUESTION_REVIEW_POLICY
-        from .rubric_alignment import make_rubric_alignment_batch
+        from .rubric_alignment import RubricAlignmentResult, make_rubric_alignment_batch
+        from .teaching_content import QUESTION_REVIEW_POLICY, REVIEW_PROMPT
         fact = self._fact_one(unit)
         pack = self._pack(unit)
         # Always include every current own citation for the independent teacher.
@@ -450,15 +510,26 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
             result = self.g._request_rubric_review(make_rubric_alignment_batch([
                 {'item_id': item['item_id'], 'prompt': item['prompt'], 'rubric': item['rubric']}]))
             if not result.accepted:
+                rejected = [row for verdict in result.items for row in verdict.rubric_checks
+                            if not row.required] if isinstance(result, RubricAlignmentResult) else []
+                if (isinstance(result, RubricAlignmentResult) and len(result.items) == 1
+                        and result.items[0].item_id == item['item_id'] and rejected
+                        and all(row.repair_scope == 'rubric_only' for row in rejected)
+                        and fact.get('source_entailment') is True
+                        and fact.get('scope_exceptions') is True and fact.get('findings') == []):
+                    self._lock_rubric(unit)
+                else:
+                    unit['work'].pop('rubric_only_lock', None)
                 raise _UnitRejected(result.to_dict(), 'rubric')
             rubric = result.to_dict()
+        unit['work'].pop('rubric_only_lock', None)
         unit['work']['approval'] = {'candidate_hash': fingerprint(unit['candidate']),
             'evidence_fingerprint': self.evidence.fingerprint,
             'review_identity': self.g.review_identity, 'fact': fact,
             'teacher': teacher.model_dump(), 'rubric': rubric}
 
     def _assemble(self, rows: list[dict[str, Any]], plans: Any) -> Any:
-        from .teaching_content import _Point, _Lesson, TeachingContentError
+        from .teaching_content import TeachingContentError, _Lesson, _Point
         from .teaching_scope import TEACHING_SCOPE_VERSION
         by_unit = {row['unit_id']: row for row in rows}
         points = []
@@ -510,6 +581,10 @@ must_check_redesign=true时，核对题设或问项确实重新设计，不能�
                                     parent['components'] = {name: proof for name, proof in parent.get('components', {}).items() if name == kind}
                                     parent['issues'] = [issue for issue in parent.get('issues', []) if 'lesson.' + kind in issue]
                         self._failed(unit, _UnitRejected(scoped, 'whole_course'), unit['work']['mode'])
+                        if unit['work']['owner_id'] in plan.requirements.rubric_only_points and unit['work']['kind'] == 'practice':
+                            self._lock_rubric(unit)
+                            self.run.write_unit(unit, status=unit['status'],
+                                                delay=max(0, unit['next_retry_at'] - time.time()))
                     raise TeachingRepairPending(5)
             except TeachingRepairPending:
                 raise

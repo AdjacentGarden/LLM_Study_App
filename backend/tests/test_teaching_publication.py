@@ -34,7 +34,7 @@ class FakeTeachingGenerator:
         self.calls = 0
         self.reject = False
 
-    def generate(self, bundle, chapter, evidence):
+    def generate(self, bundle, chapter, evidence, *, run_scope: str | None = None):
         self.calls += 1
         if self.reject:
             raise TeachingContentError("独立审核拒绝了有问题的课程")

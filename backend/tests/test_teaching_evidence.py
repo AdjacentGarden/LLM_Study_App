@@ -1,4 +1,5 @@
 import pytest
+
 from adaptive_learning.assessment.item_generation import stable_knowledge_point_id
 from adaptive_learning.ingestion.models import (
     ChapterDraft,
@@ -10,6 +11,8 @@ from adaptive_learning.ingestion.models import (
     SourceQuote,
 )
 from adaptive_learning.personalization.teaching_evidence import (
+    MAX_SOURCE_CHARACTERS,
+    bounded_teaching_sources,
     build_teaching_evidence,
     reading_sections,
 )
@@ -68,9 +71,20 @@ def test_fabricated_anchor_and_missing_pages_fail_closed() -> None:
         build_teaching_evidence(chapter("真实", end=2), [page(1, "真实原文。")])
 
 
-def test_context_budget_is_explicit_failure_not_hidden_truncation() -> None:
-    with pytest.raises(ValueError, match="exceeds 50000"):
-        build_teaching_evidence(chapter("原文"), [page(1, "原文" + "甲" * 51_000)])
+def test_large_chapter_keeps_complete_registry_and_bounds_only_model_batch() -> None:
+    raw = "原文。" + "".join(f"连续段落{i:05d}包含可核对的完整条件。" for i in range(3000))
+    evidence = build_teaching_evidence(chapter("原文"), [page(1, raw)])
+    assert sum(len(source.quote) for source in evidence.sources.values()) > MAX_SOURCE_CHARACTERS
+    covered = bytearray(len(raw))
+    for source in evidence.sources.values():
+        start = raw.index(source.quote)
+        covered[start:start + len(source.quote)] = b'\1' * len(source.quote)
+    assert all(covered)  # The bounded wire must not silently truncate the registry.
+    anchors = next(iter(evidence.point_sources.values()))
+    batch = bounded_teaching_sources(evidence, {"source_ids": anchors})
+    assert set(anchors) <= batch.keys() <= evidence.sources.keys()
+    assert sum(len(source['quote']) for source in batch.values()) <= MAX_SOURCE_CHARACTERS
+    assert all(source == evidence.sources[key].model_dump() for key, source in batch.items())
 
 
 def test_legacy_sources_have_explicit_context_warning_and_no_model_quotes() -> None:
@@ -125,7 +139,10 @@ def test_missing_point_anchor_is_reported_and_not_claimed_covered() -> None:
 
 def test_scope_navigation_prioritizes_related_conditions_without_changing_sources() -> None:
     from adaptive_learning.personalization.models import SourceCitation
-    from adaptive_learning.personalization.teaching_evidence import TeachingEvidence, scope_context_source_ids
+    from adaptive_learning.personalization.teaching_evidence import (
+        TeachingEvidence,
+        scope_context_source_ids,
+    )
 
     sources = {
         "anchor": SourceCitation(page_number=1, quote="转换器将输入信号转换成输出信号。"),
@@ -145,7 +162,10 @@ def test_scope_navigation_prioritizes_related_conditions_without_changing_source
 
 def test_scope_navigation_does_not_link_a_distant_unrelated_marker_to_a_definition() -> None:
     from adaptive_learning.personalization.models import SourceCitation
-    from adaptive_learning.personalization.teaching_evidence import TeachingEvidence, scope_context_source_ids
+    from adaptive_learning.personalization.teaching_evidence import (
+        TeachingEvidence,
+        scope_context_source_ids,
+    )
 
     label = "转换器将输入信号转换成输出信号。"
     evidence = TeachingEvidence({

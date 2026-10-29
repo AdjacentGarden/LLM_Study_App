@@ -63,7 +63,7 @@ def test_full_lesson_normalization_rejects_permission_or_schema_ambiguity(fault)
     elif fault == "nested_extra":
         raw["lesson"]["worked_examples"][0]["approved"] = True
     elif fault == "bad_text":
-        raw["lesson"]["worked_examples"][0]["answer"] = "短"
+        raw["lesson"]["worked_examples"][0]["answer"] = ""
     else:
         raw["points"] = [{"point_id": "invented"}]
     with pytest.raises((ValueError, teaching.TeachingContentError)):

@@ -467,7 +467,14 @@ class ChapterBoundaryDetector:
             ]
             if not body_occurrences:
                 continue
-            selected.append(max(body_occurrences, key=lambda item: (item.score, -item.page_number)))
+            chosen = max(body_occurrences, key=lambda item: (item.score, -item.page_number))
+            # Geometry can stop at a sidebar between split title lines. On the
+            # selected opener page, a complete title corroborated by the TOC
+            # takes precedence over that partial geometric title.
+            corroborated = [item for item in body_occurrences
+                            if item.page_number == chosen.page_number
+                            and item.boundary_evidence.get("method") == "exact_toc_title_and_display_heading"]
+            selected.append(max(corroborated, key=lambda item: item.score) if corroborated else chosen)
         if any(item.kind == "chapter" for item in selected):
             selected = [item for item in selected if item.kind != "part"]
         selected.sort(key=lambda item: item.page_number)

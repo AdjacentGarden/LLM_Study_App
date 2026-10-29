@@ -33,20 +33,22 @@ def test_exhausted_get_explains_terminal_without_rewriting_saved_failure(tmp_pat
     public = queue.get('owner-session', job_id)
     assert public['status'] == 'failed' and public['stage'] == 'failed'
     assert public['attempts'] == 3 and public['retryable'] is False
-    assert '已停止' in public['error'] and '尝试次数已用完' in public['error']
+    assert public['error'] == '本章课程暂未准备完成，已有内容和学习进度已保留，可先学习其他章节。'
     assert '请稍后重试' not in public['error'] and public['course'] is None
-    assert '新版本' in public['error']
+    assert '继续生成' not in public['error']
     assert full_row(queue, job_id) == original
     assert len(calls) == 3 and not queue.process_one()
 
 
-def test_retryable_failure_keeps_specific_error_and_explicit_retry(tmp_path):
+def test_retryable_failure_preserves_private_cause_and_requires_explicit_retry(tmp_path):
     queue = CourseJobQueue(tmp_path / 'jobs.sqlite3', lambda *_: (_ for _ in ()).throw(CourseJobFailure('审核暂不可用，请稍后重试')))
     job = queue.enqueue('s', 'c', 'v', request_id='fixed')
     queue.process_one()
     public = queue.get('s', job['job_id'])
     assert public['retryable'] is True
-    assert public['error'] == '审核暂不可用，请稍后重试'
+    assert public['error'] == '本章课程暂未准备完成，已有内容和学习进度已保留，可以继续生成。'
+    assert full_row(queue, job['job_id'])['error'] == '审核暂不可用，请稍后重试'
+    assert public['course'] is None
     assert queue.enqueue('s', 'c', 'v', request_id='fixed')['status'] == 'failed'
     assert not queue.process_one()
     retried = queue.enqueue('s', 'c', 'v', retry=True, request_id='fixed')

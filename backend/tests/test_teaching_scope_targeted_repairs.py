@@ -86,7 +86,10 @@ def test_real_four_condition_failure_gets_exact_pending_raw_and_actionable_link_
         assert task["current_conditions"] == [
             {"condition_index": index, **condition} for index, condition in enumerate(raw["conditions"])]
         assert task["semantic_approval"] is False
-        assert request["sources"] == value["sources"]  # All raw source text remains readable.
+        # SourceCitation now also serializes its default block_id metadata.
+        assert request["sources"] == {key: source.model_dump() for key, source in evidence.sources.items()}
+        assert {key: {field: source[field] for field in ('page_number', 'quote')}
+                for key, source in request['sources'].items()} == value['sources']
         assert request["source_warnings"] == value["source_warnings"]
         assert "origin" not in request
         return {"points": [repair(raw, action)]}
