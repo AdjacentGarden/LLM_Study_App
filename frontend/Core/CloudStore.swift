@@ -30,6 +30,7 @@ extension AppStore {
       cloudState.workspaces = []
       cloudState.account = nil
       cloudState.cacheKey = nil
+      dailyPlanState.reset()
       cloudState.pending = [:]
       cloudState.pendingReviews = []
       cloudState.pendingSelection = nil
@@ -237,6 +238,7 @@ extension AppStore {
       cloudState.requiresPersonalization = false
       cloudState.account = nil
       cloudState.cacheKey = nil
+      dailyPlanState.reset()
       cloudState.pending = [:]
       cloudState.pendingReviews = []
       cloudState.cacheWriteError = nil
@@ -938,6 +940,7 @@ extension AppStore {
       throw CloudError(status: 409, message: "请先生成当前章节课程")
     }
     let epoch = cloudState.epoch
+    let planFocus = activeDailyStudyTask
     var feedback: [CloudPracticeFeedback.Evidence] = []
     for submission in submissions {
       let question = submission.question
@@ -974,6 +977,8 @@ extension AppStore {
         if !mistakes.contains(where: { $0.id == record.id }) { mistakes.append(record) }
       }
     }
+    await finishDailyStudyTask(planFocus, kind: "practice", itemIDs: Set(submissions.map { $0.question.id }))
+    guard epoch == cloudState.epoch else { throw CancellationError() }
     guard let first = submissions.first else { return }
     let correct = feedback.filter { $0.score >= 0.8 }.count
     latestDiagnosis = Diagnosis(
@@ -1036,7 +1041,11 @@ extension AppStore {
       cloudState.pendingReviews.append(
         CloudPendingReview(
           workspaceID: resource.workspace_id, resourceID: resource.id, cardID: card.id,
-          path: path, rating: mastered ? "good" : "again", seconds: min(3600, max(0.1, seconds))))
+          path: path, rating: mastered ? "good" : "again", seconds: min(3600, max(0.1, seconds)),
+          planCompletion: activeDailyStudyTask.flatMap { focus in
+            guard focus.task.kind == "recall", focus.task.card_id == card.id else { return nil }
+            return CloudPlanCompletion(workspaceID: focus.workspaceID, day: focus.day, taskID: focus.task.id)
+          }))
     }
     setMastery(card.id, mastered: mastered)
   }
@@ -1099,7 +1108,8 @@ extension AppStore {
       creationWorkspaceID: cloudState.creationWorkspaceID, notes: notes,
       pendingSelection: cloudState.pendingSelection,
       onboardingComplete: cloudState.onboardingComplete, pendingReviews: cloudState.pendingReviews,
-      requiresPersonalization: cloudState.requiresPersonalization)
+      requiresPersonalization: cloudState.requiresPersonalization,
+      dailyPlans: dailyPlanState.plans, pendingPlanCompletions: dailyPlanState.pending)
     let previous = persistTask
     let epoch = cloudState.epoch
     let saved = Task<Result<Void, Error>, Never> { [repository] in
@@ -1124,6 +1134,7 @@ extension AppStore {
   func startCloudSync() {
     guard cloudState.authenticated, !cloudState.isHydrating, cloudState.syncTask == nil,
       !cloudState.pending.isEmpty || !cloudState.pendingReviews.isEmpty
+        || !dailyPlanState.pending.isEmpty
         || cloudState.pendingSelection != nil,
       let cloud
     else { return }
@@ -1136,6 +1147,7 @@ extension AppStore {
         if epoch == cloudState.epoch, !Task.isCancelled, cloudState.syncError == nil,
           cloudState.cacheWriteError == nil,
           !cloudState.pending.isEmpty || !cloudState.pendingReviews.isEmpty
+            || !dailyPlanState.pending.isEmpty
             || cloudState.pendingSelection != nil
         {
           startCloudSync()
@@ -1212,6 +1224,15 @@ extension AppStore {
           return
         }
       }
+      do { try await syncDailyStudyCompletions(epoch: epoch) }
+      catch {
+        guard epoch == cloudState.epoch else { return }
+        cloudState.syncError = error.localizedDescription
+        if (error as? CloudError)?.status == 401 { handleCloudError(error) }
+        else if (error as? CloudError)?.transportFailure == true { scheduleCloudRetry() }
+        saveCloudCacheOnly()
+        return
+      }
       while let review = cloudState.pendingReviews.first {
         await persistTask?.value
         guard epoch == cloudState.epoch, !Task.isCancelled, cloudState.cacheWriteError == nil else {
@@ -1236,6 +1257,10 @@ extension AppStore {
             if selectedCourseID == review.workspaceID {
               installCloudSources(workspaceID: review.workspaceID)
             }
+          }
+          if let completion = review.planCompletion,
+            !dailyPlanState.pending.contains(where: { $0.workspaceID == completion.workspaceID && $0.taskID == completion.taskID }) {
+            dailyPlanState.pending.append(completion)
           }
           cloudState.pendingReviews.removeAll { $0.eventID == review.eventID }
           cloudState.syncError = nil
@@ -1287,7 +1312,8 @@ extension AppStore {
       creationWorkspaceID: cloudState.creationWorkspaceID, notes: notes,
       pendingSelection: cloudState.pendingSelection,
       onboardingComplete: cloudState.onboardingComplete, pendingReviews: cloudState.pendingReviews,
-      requiresPersonalization: cloudState.requiresPersonalization)
+      requiresPersonalization: cloudState.requiresPersonalization,
+      dailyPlans: dailyPlanState.plans, pendingPlanCompletions: dailyPlanState.pending)
     let previous = persistTask
     let epoch = cloudState.epoch
     persistTask = Task { [repository] in

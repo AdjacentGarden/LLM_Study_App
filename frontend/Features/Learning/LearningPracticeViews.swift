@@ -23,7 +23,9 @@ struct LearningAssignmentView: View {
 
   private var questions: [QuizQuestion] {
     store.quizzes.filter {
-      store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID
+      (store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID)
+        && (store.activeDailyStudyTask?.task.practice_item_id == nil
+          || $0.id == store.activeDailyStudyTask?.task.practice_item_id)
     }
   }
   private var question: QuizQuestion? {

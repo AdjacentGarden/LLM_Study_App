@@ -60,6 +60,7 @@ struct CloudPendingReview: Codable, Sendable {
   var path: String
   var rating: String
   var seconds: Double
+  var planCompletion: CloudPlanCompletion? = nil
 }
 
 struct CloudLocalSnapshot: Codable, Sendable {
@@ -74,6 +75,8 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var onboardingComplete: Bool? = nil
   var pendingReviews: [CloudPendingReview]? = nil
   var requiresPersonalization: Bool? = nil
+  var dailyPlans: [String: CloudStudyPlan]? = nil
+  var pendingPlanCompletions: [CloudPlanCompletion]? = nil
 }
 
 @MainActor @Observable final class CloudState {

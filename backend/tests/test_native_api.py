@@ -21,7 +21,8 @@ def test_native_capabilities_report_client_support_without_claiming_runtime_read
         assert capabilities[name]["native"] is True
         assert capabilities[name]["runtime_status_path"] == "/api/studio/capabilities"
         assert "ready" not in capabilities[name]
-    for name in ("note_cloud_sync", "server_planning", "teaching_units"):
+    assert capabilities["server_planning"] == {"backend": True, "native": True}
+    for name in ("note_cloud_sync", "teaching_units"):
         assert capabilities[name]["native"] is False
 
 

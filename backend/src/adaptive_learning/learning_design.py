@@ -254,7 +254,9 @@ class NativeLearningDesign:
     def plan(self, owner: str, wid: str, day: date) -> dict[str, Any]:
         config = self.config(owner, wid)
         queue = self.queue(owner, wid, day)
-        completed = {t["task_id"] for t in queue if t["status"] == "done"}
+        completed = self.repo.completed_tasks(owner, wid) | {
+            t["task_id"] for t in queue if t["status"] == "done"
+        }
         existing = self.repo.daily_plan(owner, wid, day.isoformat())
         if existing and (
             existing.get("confirmed") or any(t["task_id"] in completed for t in existing["tasks"])

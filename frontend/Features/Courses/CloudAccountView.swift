@@ -411,11 +411,6 @@ struct CloudLearningSetupView: View {
           Spacer()
           Button("稍后继续") { store.pauseCloudCourseGeneration() }
         }
-        if store.isCloudCoursePreview {
-          Text("课程预览 · 未做诊断 · 掌握度未知")
-            .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
-            .accessibilityIdentifier("cloud.preview.notice")
-        }
         if store.cloudState.choosingLearningMode {
           VStack(alignment: .leading, spacing: 16) {
             Text("选择学习方式").font(DS.font(21, weight: .bold))
@@ -425,8 +420,6 @@ struct CloudLearningSetupView: View {
               Task { await store.beginCloudLearning(
                 chapterID: store.cloudState.requestedChapterID, preview: true) }
             }.accessibilityIdentifier("cloud.learning.preview")
-            Text("预览不代做诊断，不记录诊断分数；掌握度保持未知。")
-              .font(DS.font(14)).foregroundStyle(DS.secondary)
             BCButton("先做学习诊断", style: .secondary) {
               Task { await store.beginCloudLearning(chapterID: store.cloudState.requestedChapterID) }
             }.accessibilityIdentifier("cloud.learning.diagnosis")

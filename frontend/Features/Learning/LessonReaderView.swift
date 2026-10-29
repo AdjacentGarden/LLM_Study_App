@@ -398,11 +398,6 @@ struct LessonReaderView: View {
 
   private func introduction(_ lesson: Lesson) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      if store.isCloudCoursePreview {
-        Text("课程预览 · 未做诊断 · 掌握度未知")
-          .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
-          .accessibilityIdentifier("lesson.preview.notice")
-      }
       VStack(alignment: .leading, spacing: 4) {
         Text(lesson.title).font(DS.font(20.8, weight: .bold)).frame(height: 26, alignment: .leading)
         Text(

@@ -216,17 +216,14 @@ struct StudyDirectoryView: View {
           }.buttonStyle(.plain).transition(.opacity).accessibilityIdentifier("study.course.create")
         }
       }
-      if store.isCloudCoursePreview {
-        Text("课程预览 · 未做诊断 · 掌握度未知")
-          .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
-          .accessibilityIdentifier("study.preview.notice")
-      }
       if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
         Text(label).font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
           .accessibilityIdentifier("study.course.status")
       }
       if store.studyCoursePreparation != nil {
         EmptyView()
+      } else if store.usesCloudDailyPlan {
+        DailyStudyPlanSummary(compact: compact)
       } else if directoryOnly {
         Text("教材目录 · 当前尚无生成的教学内容")
           .font(DS.font(14)).foregroundStyle(DS.secondary)
@@ -550,7 +547,9 @@ struct LearningPlanView: View {
   private var dailyTasks: [StudyTask] { tasks.filter { $0.day == min(selectedDay, days) } }
 
   var body: some View {
-    if store.currentSource == nil {
+    if store.usesCloudDailyPlan {
+      DailyStudyPlanView()
+    } else if store.currentSource == nil {
       LearningNoSource(title: "暂无学习计划", message: "完成教材解析、章节确认和课程生成后，就能开始每日学习。", icon: "CalendarDays")
     } else {
       LearningScroll(spacing: 12) {
@@ -579,9 +578,6 @@ struct LearningPlanView: View {
                 DS.font(20.8, weight: .bold))
               Text((store.plan?.daily_minutes ?? 0) > 0 ? "\(days) 天 · 每天 \(store.plan?.daily_minutes ?? 0) 分钟" : "\(days) 天 · 每日时间尚未设定").font(DS.font(20))
                 .foregroundStyle(DS.secondary)
-              Text("按课程资料汇总学习任务，完成状态会保存到对应资料。")
-                .font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(4)
-                .padding(.bottom, store.isPad ? 2 : 4)
               BCProgress(value: learningProgress(tasks))
               Text("已完成 \(tasks.filter { $0.status == "done" }.count) / \(tasks.count) 项")
                 .font(DS.font(20)).foregroundStyle(DS.secondary)

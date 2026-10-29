@@ -62,6 +62,7 @@ import SwiftUI
     set { courseState.dismissedSourceIDs = newValue }
   }
   let learningState = LearningSessionState()
+  let dailyPlanState = DailyStudyPlanState()
   var selectedChapterID: String? {
     get { learningState.selectedChapterID }
     set { learningState.selectedChapterID = newValue }
@@ -993,6 +994,8 @@ import SwiftUI
       }
     }
     saveLocation()
+    let planFocus = activeDailyStudyTask
+    Task { await finishDailyStudyTask(planFocus, kind: "learn") }
     showToast("本课学习已完成")
   }
   func saveLocation(page: Int? = nil) {

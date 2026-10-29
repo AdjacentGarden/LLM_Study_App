@@ -290,7 +290,7 @@ def native_router(services: Any) -> APIRouter:
     def capabilities(actor: str = Depends(owner)) -> dict[str, Any]:
         return {"contract_version": 1, "bootstrap_metadata": True,
                 "teaching_units": {"backend": True, "native": False},
-                "server_planning": {"backend": True, "native": False},
+                "server_planning": {"backend": True, "native": True},
                 "note_cloud_sync": {"backend": True, "native": False},
                 "voice_transcription": {"backend": True, "native": True,
                     "runtime_checked_at": "/api/studio/capabilities", "runtime_status_path": "/api/studio/capabilities"},
@@ -369,7 +369,11 @@ def native_router(services: Any) -> APIRouter:
         wid: str, task_id: str, body: TaskCompletion, actor: str = Depends(owner)
     ) -> dict[str, bool]:
         try:
-            if not any(t["task_id"] == task_id for t in design.queue(actor, wid, body.day)):
+            # A review can leave the live queue after FSRS advances its due date.
+            # The durable plan remains an owned, valid completion target.
+            saved = services.native_repository.daily_plan(actor, wid, body.day.isoformat())
+            candidates = (saved or {}).get("tasks", []) + design.queue(actor, wid, body.day)
+            if not any(t["task_id"] == task_id for t in candidates):
                 raise HTTPException(404, "学习任务不存在")
             inserted = services.native_repository.complete_task(actor, wid, body.event_id, task_id)
             return {"ok": True, "duplicate": not inserted}

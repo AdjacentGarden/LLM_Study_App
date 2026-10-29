@@ -227,6 +227,59 @@ def test_confirmed_plan_completion_and_future_preferences_survive_restart(native
     assert all(t["task_id"] != task for t in tomorrow["tasks"])
 
 
+def test_saved_plan_can_complete_task_after_live_queue_changes(native, monkeypatch):
+    from adaptive_learning.learning_design import NativeLearningDesign
+
+    a, b, _ = native
+    preferences(a)
+    import_catalog(a)
+    base = "/api/workspaces/workspace_catalog_plan/study-plan"
+    day = date.today().isoformat()
+    plan = a.get(base, params={"day": day}).json()
+    task_id = plan["tasks"][0]["task_id"]
+    assert a.post(base + "/confirm", json={
+        "day": day, "plan_id": plan["plan_id"],
+        "task_ids": [t["task_id"] for t in plan["tasks"]], "revision": plan["revision"],
+    }).status_code == 200
+    monkeypatch.setattr(NativeLearningDesign, "queue", lambda *args: [])
+    path = base + f"/tasks/{task_id}/complete"
+    body = {"day": day, "event_id": "review-left-live-queue"}
+    assert a.post(path, json=body).status_code == 200
+    assert a.post(path, json=body).json()["duplicate"] is True
+    assert b.post(path, json=body).status_code == 404
+    assert a.post(base + "/tasks/unknown/complete", json={**body, "event_id": "unknown-task"}).status_code == 404
+    reloaded = a.get(base, params={"day": day}).json()
+    assert reloaded["tasks"][0]["status"] == "done"
+
+
+def test_generated_course_plan_uses_time_budget_and_completion_survives_reload(native):
+    a, _, root = native
+    preferences(a, dailyTime="under30", planningSupport="structured")
+    book = uploaded(a)
+    resource = workspace(a, book)
+    sid = complete_interview(a, resource)
+    generated = a.post(f"/api/interviews/{sid}/courses/chapter_meiosis")
+    assert generated.status_code == 200, generated.text
+    base = "/api/workspaces/workspace_first/study-plan"
+    day = date.today().isoformat()
+    response = a.get(base, params={"day": day})
+    assert response.status_code == 200, response.text
+    plan = response.json()
+    assert plan["budget_minutes"] == 20
+    assert 0 < plan["estimated_minutes"] <= 20
+    assert all(task["resource_id"] == resource["id"] for task in plan["tasks"])
+    assert any(task["kind"] == "learn" for task in plan["tasks"])
+    task = plan["tasks"][0]
+    completed = a.post(base + f"/tasks/{task['task_id']}/complete", json={
+        "day": day, "event_id": "native-generated-task-completed",
+    })
+    assert completed.status_code == 200, completed.text
+    api.native_repository = NativeRepository(root / "state" / "native.sqlite3")
+    reloaded = a.get(base, params={"day": day}).json()
+    assert reloaded["plan_id"] == plan["plan_id"]
+    assert next(t for t in reloaded["tasks"] if t["task_id"] == task["task_id"])["status"] == "done"
+
+
 def test_feedback_requires_repeated_evidence_and_adjustment_can_be_reverted(native):
     a, _, _ = native
     preferences(a, guidanceStyles=["keyPoints"])

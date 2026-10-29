@@ -16,6 +16,9 @@ extension AppStore {
   }
 
   func restoreCloudCache(_ cached: CloudLocalSnapshot) {
+        dailyPlanState.reset()
+        dailyPlanState.plans = cached.dailyPlans ?? [:]
+        dailyPlanState.pending = cached.pendingPlanCompletions ?? []
         filePaths = cached.filePaths
         cloudState.pending = cached.pending
         for (id, var pending) in cloudState.pending where pending.baseMasteredIDs == nil {
@@ -141,6 +144,7 @@ extension AppStore {
       defer { cloudState.isHydrating = false }
       let key = cloudCacheKey(account)
       if cloudState.cacheKey != key {
+        dailyPlanState.reset()
         cloudState.onboardingComplete = false
         cloudState.requiresPersonalization = false
         sources = []

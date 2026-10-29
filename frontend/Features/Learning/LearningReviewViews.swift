@@ -61,7 +61,9 @@ struct LearningFlashcardsView: View {
 
   private var cards: [Flashcard] {
     store.flashcards.filter {
-      store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID
+      (store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID)
+        && (store.activeDailyStudyTask?.task.card_id == nil
+          || $0.id == store.activeDailyStudyTask?.task.card_id)
     }
   }
   private var current: Flashcard? { cards.indices.contains(index) ? cards[index] : cards.first }

@@ -530,7 +530,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
         return (200, try JSONEncoder().encode(self.diagnosisResource()))
       }
       XCTAssertEqual(request.url?.path, "/api/workspaces/workspace/resources/resource/session")
-      if request.url?.query == nil {
+      if request.url?.query == "resource_revision=0" {
         return (409, try JSONSerialization.data(withJSONObject: ["detail": "上次诊断提交结果待确认，请确认后点击重试诊断"]))
       }
       Task { await started.mark() }
@@ -563,9 +563,11 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertEqual(store.cloudState.interview?.session_id, "session")
     XCTAssertFalse(store.canRetryCloudDiagnosis)
     XCTAssertTrue(requests.all.map(\.1).allSatisfy(\.isEmpty))
-    XCTAssertTrue(requests.allURLs.prefix(2).allSatisfy { $0.query == nil })
+    XCTAssertEqual(requests.allURLs[0].query, "resource_revision=0")
+    XCTAssertNil(requests.allURLs[1].query)
     let query = URLComponents(url: requests.allURLs[2], resolvingAgainstBaseURL: false)!.queryItems!
-    XCTAssertEqual(Set(query.map(\.name)), ["retry", "retry_request_id"])
+    XCTAssertEqual(Set(query.map(\.name)), ["resource_revision", "retry", "retry_request_id"])
+    XCTAssertEqual(query.first { $0.name == "resource_revision" }?.value, "0")
     XCTAssertEqual(query.first { $0.name == "retry" }?.value, "true")
     XCTAssertNotNil(UUID(uuidString: query.first { $0.name == "retry_request_id" }?.value ?? ""))
   }
@@ -598,7 +600,8 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertNil(store.cloudState.interview)
     await store.restoreCloudDiagnosis()
     XCTAssertEqual(requests.all.map(\.0), ["POST", "GET", "GET", "GET"])
-    XCTAssertTrue(requests.allURLs.allSatisfy { $0.query == nil })
+    XCTAssertEqual(requests.allURLs[0].query, "resource_revision=0")
+    XCTAssertTrue(requests.allURLs.dropFirst().allSatisfy { $0.query == nil })
     XCTAssertEqual(store.cloudState.interview?.session_id, "session")
     XCTAssertEqual(store.cloudState.interview?.phase, "complete")
     XCTAssertEqual(store.cloudResource?.session_id, "session")
