@@ -257,6 +257,7 @@ import SwiftUI
       if let snapshot = try await repository.loadSnapshot() {
         importJob = snapshot.importJob
         importState.courses = snapshot.courseImports ?? []
+        for i in importState.courses.indices { importState.courses[i].mergeDuplicateBooks() }
         chapterDrafts = snapshot.chapterDrafts ?? [:]
         preferences = snapshot.preferences
         draft = snapshot.draft

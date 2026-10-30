@@ -286,7 +286,17 @@ extension AppStore {
   }
 
   /// The original is durable and visible locally before any server request starts.
-  func retainLocalImport(_ staged: StagedSource, targetCourseID: String? = nil) async throws {
+  func retainLocalImport(_ original: StagedSource, targetCourseID: String? = nil) async throws -> String {
+    var staged = original
+    // The content-derived local ID remains an alias after upload. Resolve it
+    // before replacing its attachment path, including after a cache restore.
+    if let path = filePaths[original.source.id],
+      let existing = sources.first(where: {
+        !$0.id.hasPrefix("book_local_") && filePaths[$0.id] == path
+      }) {
+      staged.source = existing
+    }
+    filePaths[original.source.id] = staged.relativePath
     if !sources.contains(where: { $0.id == staged.source.id }) { sources.append(staged.source) }
     filePaths[staged.source.id] = staged.relativePath
     if !draft.resourceIDs.contains(staged.source.id) { draft.resourceIDs.append(staged.source.id) }
@@ -311,6 +321,7 @@ extension AppStore {
     persistCloud()
     await persistTask?.value
     if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
+    return staged.source.id
   }
 
   func bindUploadedBook(localID: String, uploaded: CloudUpload) {
@@ -336,7 +347,9 @@ extension AppStore {
     if let path = filePaths[localID] { filePaths[uploaded.book_id] = path }
     draft.resourceIDs = Array(NSOrderedSet(array: draft.resourceIDs.map { $0 == localID ? uploaded.book_id : $0 })) as? [String] ?? draft.resourceIDs
     for i in courses.indices {
-      courses[i].resourceIDs = courses[i].resourceIDs.map { $0 == localID ? uploaded.book_id : $0 }
+      courses[i].resourceIDs = Array(NSOrderedSet(array: courses[i].resourceIDs.map {
+        $0 == localID ? uploaded.book_id : $0
+      })) as? [String] ?? courses[i].resourceIDs
       if courses[i].activeResourceID == localID { courses[i].activeResourceID = uploaded.book_id }
     }
     if selectedBookID == localID { selectedBookID = uploaded.book_id }
@@ -368,10 +381,13 @@ extension AppStore {
       let staged = try await LocalFileImporter.stage(url: url, repository: repository)
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
-      try await retainLocalImport(staged, targetCourseID: targetCourseID)
+      let retainedID = try await retainLocalImport(staged, targetCourseID: targetCourseID)
       originalSaved = true
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
+      // An identical original already has a server identity and preparation job.
+      // Reusing it avoids creating another upload and a second progress card.
+      if !retainedID.hasPrefix("book_local_") { return }
       if processingRoute == .onDevice {
         showToast("教材已保存在本机，将使用本机文字识别。")
         return

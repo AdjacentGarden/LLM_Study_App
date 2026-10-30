@@ -592,6 +592,24 @@ struct CourseImportRecord: Codable, Sendable, Identifiable {
   var started = false
   var setupCompleted: Bool? = nil
   var onDeviceOnly: Bool? = nil
+  mutating func mergeDuplicateBooks() {
+    guard Set(books.map(\.id)).count != books.count else { return }
+    var merged: [CourseImportBook] = []
+    for book in books {
+      if let index = merged.firstIndex(where: { $0.id == book.id }) {
+        // A placeholder must never replace the actual preparation progress.
+        if merged[index].status == .queued && book.status != .queued
+          || book.status == .completed && merged[index].status != .completed {
+          merged[index] = book
+        }
+      } else {
+        merged.append(book)
+      }
+    }
+    books = merged
+    draft.resourceIDs = merged.map(\.id)
+    job.bookIDs = merged.map(\.id)
+  }
   var message: String { error ?? job.message }
   var needsPreparation: Bool { job.status != .completed }
   var ringProgress: Double? {

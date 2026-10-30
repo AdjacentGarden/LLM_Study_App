@@ -36,6 +36,7 @@ extension AppStore {
         chapterDrafts = cached.snapshot.chapterDrafts ?? [:]
         importJob = cached.snapshot.importJob
         importState.courses = cached.snapshot.courseImports ?? []
+        for i in importState.courses.indices { importState.courses[i].mergeDuplicateBooks() }
         for i in importState.courses.indices where importState.courses[i].job.status == .running {
           importState.courses[i].job.status = .interrupted
         }

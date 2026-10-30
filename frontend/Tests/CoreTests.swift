@@ -450,4 +450,27 @@ extension CoreTests {
     XCTAssertEqual(decoded.courseImports?.first?.job.preparationStage, "diagnostics")
     await store.flush()
   }
+
+  @MainActor func testUploadRebindingMergesPlaceholderWithoutLosingPreparationProgress() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = AppStore(repository: try LocalBookCourseRepository(directory: root))
+    store.draft = CourseDraft(name: "教材", resourceIDs: ["book_local_pending", "server-book"])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.updateCourseImport(id) {
+      $0.books[1].status = .running
+      $0.books[1].stage = "diagnostics"
+      $0.books[1].message = "诊断题已完成 11／15 题"
+    }
+    store.bindUploadedBook(localID: "book_local_pending",
+      uploaded: CloudUpload(book_id: "server-book", filename: "教材.pdf", status: "uploaded"))
+    let record = try XCTUnwrap(store.courseImport(for: id))
+    XCTAssertEqual(record.books.count, 1)
+    XCTAssertEqual(record.books.first?.stage, "diagnostics")
+    XCTAssertEqual(record.books.first?.message, "诊断题已完成 11／15 题")
+    XCTAssertEqual(record.draft.resourceIDs, ["server-book"])
+    XCTAssertEqual(record.job.bookIDs, ["server-book"])
+    XCTAssertEqual(store.courses.first?.resourceIDs, ["server-book"])
+    await store.flush()
+  }
 }

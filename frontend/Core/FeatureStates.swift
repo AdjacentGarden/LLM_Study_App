@@ -140,6 +140,7 @@ struct ReaderOrigin: Sendable {
       for b in importState.courses[i].books.indices where importState.courses[i].books[b].id == localID {
         importState.courses[i].books[b].id = bookID
       }
+      importState.courses[i].mergeDuplicateBooks()
     }
   }
 

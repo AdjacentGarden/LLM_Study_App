@@ -333,6 +333,67 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     await fixture.api.clearCredentials()
   }
 
+  func testRepeatedPDFImportReusesRunningPreparationAcrossCacheRestore() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    fixture.probe.respond { _ in
+      (200, try JSONEncoder().encode(CloudUpload(book_id: "server-upload",
+        filename: "text.pdf", status: "uploaded")))
+    }
+    let file = try pdf()
+    await fixture.store.importFile(file)
+    let courseID = try XCTUnwrap(fixture.store.draft.importCourseID)
+    fixture.store.updateCourseImport(courseID) {
+      $0.started = true
+      $0.job.status = .running
+      $0.job.preparationStage = "diagnostics"
+      $0.books[0].status = .running
+      $0.books[0].stage = "diagnostics"
+      $0.books[0].message = "诊断题已完成 11／15 题"
+    }
+    await fixture.store.importFile(file)
+    await fixture.store.flush()
+    XCTAssertEqual(fixture.probe.requests.count, 1, "Identical bytes must not create another server book")
+    XCTAssertEqual(fixture.store.courseImport(for: courseID)?.books.count, 1)
+    XCTAssertEqual(fixture.store.courseImport(for: courseID)?.books.first?.stage, "diagnostics")
+
+    let saved = try await fixture.repository.loadCloudState("isolated-routing-owner")
+    let cached = try XCTUnwrap(saved)
+    let restored = AppStore(repository: fixture.repository, cloud: fixture.api,
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
+    restored.cloudState.authenticated = true
+    restored.cloudState.cacheKey = "isolated-routing-owner"
+    restored.restoreCloudCache(cached)
+    let renamed = fixture.directory.appendingPathComponent("renamed.pdf")
+    try Data(contentsOf: file).write(to: renamed)
+    await restored.importFile(renamed)
+    await restored.flush()
+    XCTAssertNil(restored.importError)
+    XCTAssertEqual(fixture.probe.requests.count, 1, "The content alias survives restart and renaming")
+    XCTAssertEqual(restored.draft.resourceIDs, ["server-upload"])
+    XCTAssertEqual(restored.courseImport(for: courseID)?.books.count, 1)
+    XCTAssertEqual(restored.courseImport(for: courseID)?.books.first?.message, "诊断题已完成 11／15 题")
+  }
+
+  func testDifferentPDFContentsWithSameFilenameRemainSeparate() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    fixture.probe.respond { _ in
+      (200, try JSONEncoder().encode(CloudUpload(book_id: UUID().uuidString,
+        filename: "text.pdf", status: "uploaded")))
+    }
+    await fixture.store.importFile(try pdf())
+    let different = fixture.directory.appendingPathComponent("text.pdf")
+    var bytes = try Data(contentsOf: pdf())
+    bytes.append(Data("\n%different edition\n".utf8))
+    try bytes.write(to: different)
+    await fixture.store.importFile(different)
+    await fixture.store.flush()
+    XCTAssertEqual(fixture.probe.requests.count, 2)
+    XCTAssertEqual(fixture.store.draft.resourceIDs.count, 2)
+    XCTAssertEqual(fixture.store.importState.courses.first?.books.count, 2)
+  }
+
   func testPreparingLocalCourseOnWiFiPreservesOtherMaterialsAndWaitsForExplicitStart() async throws {
     let fixture = try NetworkRoutingFixture(network: .cellular)
     defer { fixture.close() }
