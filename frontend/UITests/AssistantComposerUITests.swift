@@ -39,6 +39,9 @@ final class AssistantComposerUITests: XCTestCase {
       XCTAssertEqual(barWidth / app.windows.firstMatch.frame.width, 0.84, accuracy: 0.015)
     }
     XCTAssertEqual(mic.frame.height + 14, 58, accuracy: 1)
+    // The viewport continues below the composer; only content padding reserves its space.
+    // A separate VStack footer used to clip replies above the input bar with a hard edge.
+    XCTAssertGreaterThan(app.scrollViews["guide-conversation"].frame.maxY, mic.frame.maxY)
     screenshot("assistant-glass-empty", app: app)
     let field = input(app)
     XCTAssertEqual(field.placeholderValue, "问教材、问错题、问计划…")
@@ -65,6 +68,8 @@ final class AssistantComposerUITests: XCTestCase {
       .waitForExistence(timeout: 10))
     XCTAssertTrue(app.descendants(matching: .any)["guide-ai-message"].firstMatch
       .waitForExistence(timeout: 20))
+    XCTAssertLessThanOrEqual(app.descendants(matching: .any)["guide-ai-message"].firstMatch.frame.maxY,
+      app.buttons["guide-mic"].frame.minY - 4)
     screenshot("assistant-glass-conversation", app: app)
     app.buttons["global-assistant-close"].tap()
     XCTAssertTrue(app.buttons["tab-study"].isHittable)

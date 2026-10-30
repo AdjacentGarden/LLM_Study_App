@@ -163,6 +163,14 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try db.put("app", "state", encoder.encode(snapshot))
   }
 
+  func loadAssistantHistory(scope: String) throws -> AssistantHistoryArchive? {
+    try db.get("assistant-history", scope).first.map { try decoder.decode(AssistantHistoryArchive.self, from: $0) }
+  }
+
+  func saveAssistantHistory(_ value: AssistantHistoryArchive, scope: String) throws {
+    try db.put("assistant-history", scope, encoder.encode(value))
+  }
+
   private struct CloudDiskState: Codable {
     var state: CloudLocalSnapshot
     var noteIDs: [String]

@@ -19,6 +19,7 @@ extension AppStore {
       cloudState.authenticated = false
       cloudState.showDiagnosis = false
       cloudState.epoch = UUID()
+      assistantHistory.reset()
       cloudState.materialSyncCount = 0
       processingPolicy.reset()
       cloudState.syncTask?.cancel()
@@ -210,6 +211,7 @@ extension AppStore {
     defer { cloudState.isWorking = false }
     await persistTask?.value
     cloudState.epoch = UUID()
+    assistantHistory.reset()
     cloudState.materialSyncCount = 0
     processingPolicy.reset()
     cloudState.retryTask?.cancel()
@@ -867,13 +869,14 @@ extension AppStore {
 
   func answerAssistant(
     question: String, bookID: String, bookIDs: [String], chapterID: String?,
-    sources: [SourceContent], history: [ChatMessage]
+    sources: [SourceContent], history: [ChatMessage], courseID: String? = nil,
+    bindToCurrentSelection: Bool = true
   ) async throws -> AssistantAnswer {
     let epoch = cloudState.epoch
     let routingSelection = selectionGeneration
     let processingRoute = await processingPolicy.route(for: .retrieval)
     try Task.checkCancellation()
-    guard epoch == cloudState.epoch, routingSelection == selectionGeneration,
+    guard epoch == cloudState.epoch, (!bindToCurrentSelection || routingSelection == selectionGeneration),
       processingRoute != .cancelled else { throw CancellationError() }
     if processingRoute == .onDevice {
       return try await answerFromOnDeviceTextbook(question: question, bookID: bookID,
@@ -884,7 +887,7 @@ extension AppStore {
         question: question, bookID: bookID, bookIDs: bookIDs,
         chapterID: chapterID, sources: sources, history: history)
     }
-    let resource = cloudState.workspaces.first(where: { $0.id == selectedCourseID })?
+    let resource = cloudState.workspaces.first(where: { $0.id == (courseID ?? selectedCourseID) })?
       .resources.first(where: { $0.book_id == bookID })
     guard !bookID.isEmpty, resource != nil || bookIDs.allSatisfy({ $0 == bookID }) else {
       throw CloudError(status: 409, message: "请先打开当前课程资料再提问")

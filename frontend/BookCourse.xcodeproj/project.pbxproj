@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		400AC3CE9E93397F9AB68653 /* Core/AssistantHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A86FF1A4BF1E02B232B3FDD /* Core/AssistantHistory.swift */; };
 		018B3D64C028D08CA63177D8 /* DesignSystem/SVGAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5B9F514035E5B87B9469F2 /* DesignSystem/SVGAsset.swift */; };
 		04200CFFD12D083534B07BB1 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9ED39A968A752FA4EE265C55 /* Resources/Assets.xcassets */; };
 		05321BDB61F15B19FB5B1009 /* Features/Learning/LearningRouterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D63FE1976FC7FF8EEC2E9FC8 /* Features/Learning/LearningRouterView.swift */; };
@@ -135,6 +136,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		9A86FF1A4BF1E02B232B3FDD /* Core/AssistantHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AssistantHistory.swift; sourceTree = SOURCE_ROOT; };
 		05FAD26531FAE05D35D94F29 /* BookCourseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BookCourseUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		06E0C3F532576FC9E037CC0C /* Features/Courses/CourseFlows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Courses/CourseFlows.swift; sourceTree = SOURCE_ROOT; };
 		06E8F40BD67ACD7D77606DFA /* Features/Notes/SourceReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Notes/SourceReader.swift; sourceTree = SOURCE_ROOT; };
@@ -361,6 +363,7 @@
 				841FA30766343F501E25D4D7 /* Core/CloudMapping.swift */,
 				077D29007684EC0A5495AC22 /* Core/CloudMedia.swift */,
 				F08924ACE00DC27237533DBD /* Core/CloudState.swift */,
+				9A86FF1A4BF1E02B232B3FDD /* Core/AssistantHistory.swift */,
 				094CDAE862A4FB8F356EF7DA /* Core/CloudStore.swift */,
 				D3B951B2846441DAA3B0422C /* Core/CommunityAssistant.swift */,
 				C43A3B35A4D788C60C092CE4 /* Core/CommunitySharingModel.swift */,
@@ -598,6 +601,7 @@
 				78B5B48117B45D7ED4C0A09B /* Core/CloudMapping.swift in Sources */,
 				4A4CB12C5E7ACDAA10105117 /* Core/CloudMedia.swift in Sources */,
 				19F7E52DFD3399E6FFACDD44 /* Core/CloudState.swift in Sources */,
+				400AC3CE9E93397F9AB68653 /* Core/AssistantHistory.swift in Sources */,
 				7BEC41E87B9E9CE1B929DE22 /* Core/CloudStore.swift in Sources */,
 				10C13D323FAC1B0F2D48C3FA /* Core/CommunityAssistant.swift in Sources */,
 				74FBB300018B922C4515BF3A /* Core/CommunitySharingModel.swift in Sources */,

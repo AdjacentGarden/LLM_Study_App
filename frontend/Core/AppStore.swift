@@ -156,6 +156,7 @@ import SwiftUI
     set { assistantState.chatLoading = newValue }
   }
   @ObservationIgnored let repository: LocalBookCourseRepository
+  let assistantHistory: AssistantHistoryStore
   @ObservationIgnored var filePaths: [String: String] = [:]
   @ObservationIgnored var persistTask: Task<Void, Never>?
   @ObservationIgnored var processTask: Task<Void, Never>?
@@ -174,6 +175,7 @@ import SwiftUI
        processingPolicy: ProcessingNetworkPolicy? = nil,
        appleTextbookSearch: AppleTextbookSearch? = nil) {
     self.repository = repository
+    self.assistantHistory = AssistantHistoryStore(repository: repository)
     self.cloud = cloud
     self.assistant = AssistantService()
     self.processingPolicy = processingPolicy ?? ProcessingNetworkPolicy()
@@ -1235,6 +1237,7 @@ import SwiftUI
     }
   }
   func flush() async {
+    await assistantHistory.flush()
     await persistTask?.value
     if cloud != nil {
       await cloudState.recordsTask?.value

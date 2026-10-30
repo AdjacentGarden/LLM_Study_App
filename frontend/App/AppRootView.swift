@@ -94,6 +94,7 @@ struct AppRootView: View {
         ) {
           if store.globalAssistantOpen {
             GlobalAssistantOverlay()
+              .id(store.assistantHistoryScope ?? "signed-out")
               .transition(reduceMotion ? .identity : .opacity)
           }
         }
