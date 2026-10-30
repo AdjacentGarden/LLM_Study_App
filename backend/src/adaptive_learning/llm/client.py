@@ -640,7 +640,15 @@ class OpenAICompatibleClient:
         fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
         if fenced:
             text = fenced.group(1)
-        value = json.loads(text)
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as error:
+            if not error.msg.startswith("Invalid control character"):
+                raise
+            # Some providers put literal newlines/tabs inside JSON strings.
+            # Decode the same received body without replaying the request;
+            # every other syntax rule and the object contract still apply.
+            value = json.loads(text, strict=False)
         if not isinstance(value, dict):
             raise ValueError("expected JSON object")
         return value

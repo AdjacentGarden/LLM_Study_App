@@ -13,6 +13,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
+from .models import RUBRIC_MAX_ITEMS
+
 MAX_RUBRIC_ALIGNMENT_BATCH = 3
 
 RUBRIC_ALIGNMENT_PROMPT = """你是独立的题目与评分要求审查员，只审当前题目是否公平要求这些得分点。
@@ -62,7 +64,7 @@ class _InputItem(_Strict):
     item_id: str = Field(min_length=1, max_length=200)
     prompt: str = Field(min_length=1, max_length=6000)
     expected_answer: str | None = Field(default=None, max_length=12000)
-    rubric: list[str] = Field(min_length=1, max_length=6)
+    rubric: list[str] = Field(min_length=1, max_length=RUBRIC_MAX_ITEMS)
 
     @field_validator("item_id", "prompt")
     @classmethod
@@ -80,7 +82,7 @@ class _InputItem(_Strict):
 
 
 class _Criterion(_Strict):
-    rubric_index: StrictInt = Field(ge=0, le=5)
+    rubric_index: StrictInt = Field(ge=0, le=RUBRIC_MAX_ITEMS - 1)
     rubric_text: str = Field(min_length=1, max_length=3000)
     required: StrictBool
     reason: str = Field(min_length=1, max_length=1600)
@@ -101,7 +103,7 @@ class _Criterion(_Strict):
 class _ItemVerdict(_Strict):
     item_id: str = Field(min_length=1, max_length=200)
     minimal_sufficient_answer: str = Field(min_length=1, max_length=3000)
-    rubric_checks: list[_Criterion] = Field(min_length=1, max_length=6)
+    rubric_checks: list[_Criterion] = Field(min_length=1, max_length=RUBRIC_MAX_ITEMS)
 
     @field_validator("minimal_sufficient_answer")
     @classmethod

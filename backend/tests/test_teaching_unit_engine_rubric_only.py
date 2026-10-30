@@ -204,6 +204,8 @@ def test_damaged_or_wrong_context_lock_fails_closed_before_writer(unit_case, fau
 
 def test_explicit_redesign_releases_lock_and_still_requires_fresh_review(unit_case):
     reject_rubric(unit_case)
+    # A genuine additional task veto invalidates deletion-only permission.
+    unit_case.engine._failed(unit_case.unit, _UnitRejected({'issue': '题设需要重新设计。'}, 'teacher'), 'repair')
     unit_case.unit['work']['mode'] = 'redesign'
     revised = deepcopy(unit_case.unit['candidate'])
     revised['prompt'] = '如何依据温度变化判断密闭容器中的原测量结论是否还能应用？'
@@ -232,6 +234,8 @@ def test_explicit_redesign_releases_lock_and_still_requires_fresh_review(unit_ca
 
 def test_redesign_cannot_unlock_fields_and_keep_the_same_question(unit_case):
     reject_rubric(unit_case)
+    # A genuine additional task veto invalidates deletion-only permission.
+    unit_case.engine._failed(unit_case.unit, _UnitRejected({'issue': '题设需要重新设计。'}, 'teacher'), 'repair')
     unit_case.unit['work']['mode'] = 'redesign'
     unchanged_question = deepcopy(unit_case.unit['candidate'])
     unchanged_question['expected_answer'] += '只替换答案不能完成重设问项。'

@@ -149,6 +149,9 @@ class UnitEngine:
                 else:
                     self.run.write_unit(unit, status='waiting', delay=120)
                     return
+            pruned = self._rubric_prune_draft(unit)
+            if pruned is not None:
+                work.update(mode='repair', phase='write')
             mode = work['mode']
             unit['attempts'] += 1
             work['attempt_nonce'] = uuid.uuid4().hex
@@ -167,7 +170,7 @@ class UnitEngine:
                 if work.get('phase', 'write') == 'write' or not unit['candidate']:
                     must_redesign = (mode == 'redesign' or (work.get('redesign_pending_review') and
                         _question_shape(unit['candidate']) == _question_shape(work.get('rejected_design') or {})))
-                    candidate = self._source_fallback(unit)
+                    candidate = pruned if pruned is not None else self._source_fallback(unit)
                     if candidate is None:
                         candidate = self._write_one(unit)
                     self._validate_one(unit, candidate)
@@ -241,6 +244,9 @@ class UnitEngine:
             # Received malformed objects can be replaced. Unknown requests stay
             # fenced; the next pass observes them without another paid POST.
             invalidate_repair_response()
+        if (isinstance(error, _UnitRejected) and error.stage == 'rubric'
+                and self._rubric_prune_draft(unit) is not None):
+            work['mode'] = 'repair'
         # Only known bad content/objects consume this bounded rewrite budget.
         # Unknown model requests remain fenced by the unchanged submission ledger.
         if isinstance(error, (_UnitRejected, ValueError)):
@@ -313,6 +319,36 @@ class UnitEngine:
             'candidate': candidate, 'candidate_sha256': fingerprint(candidate),
             'evidence_fingerprint': self.evidence.fingerprint,
         }
+
+    def _rubric_prune_draft(self, unit: dict[str, Any]) -> dict[str, Any] | None:
+        """Only delete typed unasked criteria; this draft still needs all reviews."""
+        from .rubric_alignment import (
+            RubricAlignmentError,
+            make_rubric_alignment_batch,
+            parse_rubric_alignment_response,
+        )
+        work, item = unit['work'], unit['candidate']
+        lock = work.get('rubric_only_lock')
+        if (work.get('kind') != 'practice' or work.get('failure_stage') != 'rubric'
+                or not isinstance(lock, dict) or lock.get('candidate_sha256') != fingerprint(item)
+                or lock.get('candidate') != item
+                or lock.get('evidence_fingerprint') != self.evidence.fingerprint):
+            return None
+        feedback = work.get('semantic_feedback')
+        if not isinstance(feedback, dict) or feedback.get('accepted') is not False:
+            return None
+        try:
+            batch = make_rubric_alignment_batch([
+                {key: item[key] for key in ('item_id', 'prompt', 'rubric')}])
+            result = parse_rubric_alignment_response({'items': feedback['items']}, batch)
+        except (RubricAlignmentError, KeyError, TypeError):
+            return None
+        checks = result.items[0].rubric_checks
+        keep = {row.rubric_index for row in checks if row.required}
+        if (not keep or len(keep) == len(checks)
+                or any(row.repair_scope != 'rubric_only' for row in checks if not row.required)):
+            return None
+        return {**deepcopy(item), 'rubric': [text for index, text in enumerate(item['rubric']) if index in keep]}
 
     def _rubric_baseline(self, unit: dict[str, Any]) -> dict[str, Any] | None:
         from .teaching_content import _Practice
