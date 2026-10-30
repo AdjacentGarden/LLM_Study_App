@@ -31,9 +31,10 @@ REMOTE_PORT = 18082
 HOST_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIIApynbwM96ii/gPkdeHfXt3ZiTbOGCxOOcTkdf9GX6u"
 ALLOWED_HOSTS = frozenset({
     "pucoding.com", "api.deepseek.com", "api.minimaxi.com", "api.minimax.io",
-    # Exact public asset host returned by MiniMax /v1/files/retrieve for the
-    # accepted Hailuo video job; do not allow arbitrary OSS buckets or domains.
+    # Exact public asset hosts returned by MiniMax V1 file metadata and V2
+    # task results; do not allow arbitrary OSS buckets or domains.
     "public-cdn-video-data-algeng.oss-cn-wulanchabu.aliyuncs.com",
+    "algeng-video-infer.oss-cn-shanghai.aliyuncs.com",
 })
 ENTROPY = b"CloudPath LLM relay credentials v1"
 STOP = threading.Event()

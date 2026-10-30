@@ -6,10 +6,10 @@ Windows machine, independently of an operator laptop or logged-in desktop.
 
 The `CloudPathModelRelay` Windows scheduled task runs at startup and reconnects
 to the pinned GPU host. It exposes only GPU-host loopback port 18082 and accepts
-CONNECT to the four provider hostnames and the exact MiniMax video asset CDN
-hostname in the script on TCP 443. The asset hostname was verified from the
-official file metadata response; other OSS buckets and arbitrary hosts remain
-blocked. TLS remains
+CONNECT to the four provider hostnames and two exact MiniMax video asset hosts
+on TCP 443: `public-cdn-video-data-algeng.oss-cn-wulanchabu.aliyuncs.com` (V1)
+and `algeng-video-infer.oss-cn-shanghai.aliyuncs.com` (V2). These hosts come from
+official task/file metadata; other OSS buckets and arbitrary hosts remain blocked. TLS remains
 between the GPU application's client and the provider. Request bodies, headers,
 and credentials are not logged.
 
