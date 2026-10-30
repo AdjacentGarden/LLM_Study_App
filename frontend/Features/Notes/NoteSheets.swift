@@ -147,7 +147,7 @@ struct NotesConceptSheet: View {
             }.foregroundStyle(DS.primary).frame(minHeight: 44)
           }.padding(.bottom, 18)
         }
-        Text("导学笔记").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary).padding(
+        Text("学习笔记").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary).padding(
           .bottom, 12)
         TextEditor(text: $text).font(DS.font(20)).scrollContentBackground(.hidden).padding(8).frame(
           height: 82
@@ -187,7 +187,7 @@ struct NotesConceptSheet: View {
           try? await Task.sleep(for: .milliseconds(1230))
         }
         store.closeSheet()
-        store.showToast("已保存到导学笔记")
+        store.showToast("已保存到学习笔记")
       } catch {
         self.error = error.localizedDescription
         saving = false
@@ -242,7 +242,7 @@ struct NotesTextEditor: View {
             ).font(DS.font(11)).foregroundStyle(
               DS.secondary)
           } else {
-            BCPill(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "导学笔记")
+            BCPill(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记")
             Spacer()
           }
           Button {
@@ -252,7 +252,7 @@ struct NotesTextEditor: View {
           }.foregroundStyle(DS.secondary).accessibilityLabel("关闭")
         }
         if compact {
-          Text(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "导学笔记").font(DS.font(11))
+          Text(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记").font(DS.font(11))
             .foregroundStyle(DS.secondary)
         } else {
           Text(title.isEmpty ? "文字笔记" : title).font(DS.font(20, weight: .bold))
@@ -273,7 +273,7 @@ struct NotesTextEditor: View {
           ).accessibilityIdentifier("notes.body")
         } else {
           BCTextField("笔记标题", text: $title).accessibilityIdentifier("notes.title")
-          Text("导学笔记").font(DS.font(14, weight: .bold))
+          Text("学习笔记").font(DS.font(14, weight: .bold))
           BCTextEditor(text: $bodyText, placeholder: "记录你的理解…").frame(minHeight: 210)
             .accessibilityIdentifier("notes.body")
         }
@@ -429,7 +429,7 @@ struct NotesTextEditor: View {
       }
       withAnimation(reduceMotion ? nil : .spring(duration: 0.35)) { saved = true }
       if !reduceMotion { try? await Task.sleep(for: .milliseconds(1230)) }
-      store.showToast("已保存到导学笔记")
+      store.showToast("已保存到学习笔记")
       finish()
       onSaved?()
       if askingAI {

@@ -311,6 +311,7 @@ struct ProgressiveMaterial: View {
 struct BottomPanelLayer<Content: View>: View {
   let presentationID: String?
   var dimOpacity: Double = 0.46
+  var presentationAnimation: Animation = DS.panelAnimation
   let onDismiss: () -> Void
   @ViewBuilder var content: () -> Content
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
@@ -327,7 +328,7 @@ struct BottomPanelLayer<Content: View>: View {
       content()
     }
     .allowsHitTesting(presentationID != nil)
-    .animation(reduceMotion ? nil : DS.panelAnimation, value: presentationID)
+    .animation(reduceMotion ? nil : presentationAnimation, value: presentationID)
   }
 }
 

@@ -50,6 +50,10 @@ struct AppRootView: View {
         }
       }
       .background(pageBackground)
+      .blur(radius: store.globalAssistantOpen ? 4 : 0)
+      .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: store.globalAssistantOpen)
+      .allowsHitTesting(!store.globalAssistantOpen)
+      .accessibilityHidden(store.globalAssistantOpen)
       .overlay {
         if !store.isLoading,
           ![
@@ -84,12 +88,13 @@ struct AppRootView: View {
       }
       .overlay {
         BottomPanelLayer(
-          presentationID: store.globalAssistantOpen ? "guide" : nil, dimOpacity: 0.40,
+          presentationID: store.globalAssistantOpen ? "guide" : nil, dimOpacity: 0.06,
+          presentationAnimation: .easeInOut(duration: 0.22),
           onDismiss: { store.globalAssistantOpen = false }
         ) {
           if store.globalAssistantOpen {
             GlobalAssistantOverlay()
-              .transition(reduceMotion ? .identity : .move(edge: .bottom))
+              .transition(reduceMotion ? .identity : .opacity)
           }
         }
       }

@@ -376,9 +376,9 @@ struct LearningFlashcardsView: View {
 
 struct LearningExportView: View {
   @Environment(AppStore.self) private var store
-  private let modules = ["本章学习目标", "AI 导学笔记", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户文字笔记"]
+  private let modules = ["本章学习目标", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户文字笔记"]
   @State private var selected: Set<String> = [
-    "本章学习目标", "AI 导学笔记", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户文字笔记",
+    "本章学习目标", "原文引用页码", "重点概念", "小测与错题诊断", "复习建议", "用户文字笔记",
   ]
 
   @State private var exportURL: URL?
@@ -450,14 +450,11 @@ struct LearningExportView: View {
     let chapterID = store.selectedChapterID
     let quizzes = source.quizzes.filter { chapterID == nil || $0.chapter_id == chapterID }
     let tasks = source.plan.tasks.filter { chapterID == nil || $0.chapter_id == chapterID }
-    let notes = store.notes.filter {
-      $0.anchor?.bookID == source.id && (chapterID == nil || $0.anchor?.chapterID == chapterID)
-        && ($0.anchor?.courseID == nil || $0.anchor?.courseID == store.selectedCourseID)
-    }
+    let notes = NotesChapterScope.notes(store.notes, courseID: store.selectedCourseID,
+      bookID: source.id, chapterID: chapterID, chapters: source.chapters)
     let citations = lesson?.blocks.flatMap(\.citations) ?? []
     let values: [String: String] = [
       "本章学习目标": lesson?.objectives.joined(separator: "\n") ?? "",
-      "AI 导学笔记": lesson?.blocks.filter(\.ai_generated).map { $0.title + "\n" + $0.content }.joined(separator: "\n\n") ?? "",
       "原文引用页码": citations.map {
         "PDF 第 \($0.page_start)–\($0.page_end) 页" + ($0.quote.map { "：" + $0 } ?? "")
       }.joined(separator: "\n"),

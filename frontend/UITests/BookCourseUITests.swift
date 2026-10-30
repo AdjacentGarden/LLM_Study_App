@@ -482,7 +482,7 @@ final class BookCourseUITests: XCTestCase {
     keepScreenshot("liquid-glass-assistant-keyboard", app: app)
     close.tap()
     bar.buttons["tab-study"].tap()
-    XCTAssertTrue(app.staticTexts["学习计划"].firstMatch.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["study.course.switch"].waitForExistence(timeout: 10))
     XCTAssertTrue(bar.buttons["tab-study"].isHittable)
   }
   func testAllRoutesAndGlobalSheetsLaunch() throws {
@@ -919,7 +919,7 @@ final class BookCourseUITests: XCTestCase {
     keepScreenshot("plan-calendar-seven-columns-last-day", app: app)
   }
 
-  func testAnnotationConversationAndGuideActionsRemainAvailable() throws {
+  func testAnnotationConversationAndNotesActionsRemainAvailable() throws {
     let session = UUID().uuidString
     let body = "Annotation conversation " + String(session.prefix(8))
     let app = launch("source", session: session)
@@ -955,26 +955,23 @@ final class BookCourseUITests: XCTestCase {
 
     let reopened = launch("notes", session: session)
     XCTAssertTrue(reopened.staticTexts[body].firstMatch.waitForExistence(timeout: 15))
-    reopened.buttons["notes.guide"].firstMatch.tap()
-    let detail = reopened.staticTexts["notes.guideDetail"].firstMatch
-    XCTAssertTrue(detail.waitForExistence(timeout: 10))
-    let firstTitle = detail.label
-    let second = reopened.buttons["notes.guideItem.1"].firstMatch
-    try reveal(second, in: reopened)
-    second.tap()
-    XCTAssertNotEqual(detail.label, firstTitle)
+    XCTAssertFalse(reopened.buttons["notes.guide"].exists)
+    XCTAssertFalse(reopened.staticTexts["AI 导学"].exists)
+    XCTAssertFalse(reopened.buttons["notes.flashcards"].exists)
+    keepScreenshot("notes-only-with-saved-annotation", app: reopened)
+    let handwriting = reopened.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "手写")).firstMatch
+    XCTAssertTrue(handwriting.exists)
+    handwriting.tap()
+    let originalInk = reopened.buttons["回到教材批注"].firstMatch
+    XCTAssertTrue(originalInk.waitForExistence(timeout: 5))
+    keepScreenshot("chapter-handwriting-note-is-visible", app: reopened)
     let export = reopened.buttons["notes.export"].firstMatch
     try reveal(export, in: reopened)
     export.tap()
     XCTAssertTrue(reopened.buttons["生成 PDF"].firstMatch.waitForExistence(timeout: 10))
     reopened.terminate()
 
-    let flashcards = launch("notes", session: session)
-    flashcards.buttons["notes.guide"].firstMatch.tap()
-    let flashcardEntry = flashcards.buttons["notes.flashcards"].firstMatch
-    try reveal(flashcardEntry, in: flashcards)
-    flashcardEntry.tap()
-    XCTAssertTrue(flashcards.buttons["flashcard-face"].firstMatch.waitForExistence(timeout: 10))
+
   }
 
   func testOfflineAssistantGreeting() throws {

@@ -111,6 +111,10 @@
 		874058E13B09BAD874D41F15 /* Core/CloudStudyPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0904EC5547E06B70AFAF58 /* Core/CloudStudyPlan.swift */; };
 		5F460E26FDF2A303AEC226DA /* Features/Learning/DailyStudyPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25125E9F9FCF9DB173FB50A /* Features/Learning/DailyStudyPlanView.swift */; };
 		0F1D77651796D239ABF531E7 /* Tests/CloudStudyPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A9113A121CEB46DAB756AF /* Tests/CloudStudyPlanTests.swift */; };
+		631892FD2BA3EAF1C9020E10 /* App/AssistantComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADCBF394C1709FBEE3842725 /* App/AssistantComposer.swift */; };
+		5A19A5DAE19C2D00A0417EA8 /* Core/AssistantVoiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68A9E8CB9EDB35043A76A241 /* Core/AssistantVoiceInput.swift */; };
+		F917E9BC072EBCEFD4E0262D /* Tests/AssistantVoiceInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A978080496076EDABA257E93 /* Tests/AssistantVoiceInputTests.swift */; };
+		363841BA8CAD5DFF0D38FA44 /* UITests/AssistantComposerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E39D2E29299C57AA9A3FE227 /* UITests/AssistantComposerUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -236,6 +240,10 @@
 		DD0904EC5547E06B70AFAF58 /* Core/CloudStudyPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Core/CloudStudyPlan.swift"; sourceTree = SOURCE_ROOT; };
 		C25125E9F9FCF9DB173FB50A /* Features/Learning/DailyStudyPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Features/Learning/DailyStudyPlanView.swift"; sourceTree = SOURCE_ROOT; };
 		B4A9113A121CEB46DAB756AF /* Tests/CloudStudyPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Tests/CloudStudyPlanTests.swift"; sourceTree = SOURCE_ROOT; };
+		ADCBF394C1709FBEE3842725 /* App/AssistantComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/AssistantComposer.swift; sourceTree = SOURCE_ROOT; };
+		68A9E8CB9EDB35043A76A241 /* Core/AssistantVoiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AssistantVoiceInput.swift; sourceTree = SOURCE_ROOT; };
+		A978080496076EDABA257E93 /* Tests/AssistantVoiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/AssistantVoiceInputTests.swift; sourceTree = SOURCE_ROOT; };
+		E39D2E29299C57AA9A3FE227 /* UITests/AssistantComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITests/AssistantComposerUITests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -272,6 +280,7 @@
 				3C94092A56ACEDB8A1194C59 /* Tests/AppStoreNetworkRoutingTests.swift */,
 				3AD6670FF26ABE6F8BAD2D7C /* Tests/AppleDocumentOCRTests.swift */,
 				5D01F3EC8AF5DA36999A5A68 /* Tests/AppleSpeechTextServiceTests.swift */,
+				A978080496076EDABA257E93 /* Tests/AssistantVoiceInputTests.swift */,
 				545724EFE5983F5450ED4541 /* Tests/AppleSpeechTranscriberTests.swift */,
 				98017A05DC70F33736381D25 /* Tests/AppleTextbookSearchTests.swift */,
 				E7FA5907D812A6AD9E12C00D /* Tests/BookCoverTests.swift */,
@@ -302,6 +311,7 @@
 		A3F05DFF20FBFFC4E8D17D6C /* BookCourseUITests */ = {
 			isa = PBXGroup;
 			children = (
+				E39D2E29299C57AA9A3FE227 /* UITests/AssistantComposerUITests.swift */,
 				CF844E0F4DA105A8D2152881 /* UITests/BookCourseUITests.swift */,
 				5DD222C982ACF48749F91CB2 /* UITests/CloudAccountUITests.swift */,
 				E43CCFE2835F51B7C8160111 /* UITests/CourseFunctionalUITests.swift */,
@@ -339,6 +349,7 @@
 				DD0904EC5547E06B70AFAF58 /* Core/CloudStudyPlan.swift */,
 				F6E0D68DFD237C39363415C2 /* Core/AppStore.swift */,
 				8FB9668300AD94E9C37CF722 /* Core/AppleDocumentOCR.swift */,
+				68A9E8CB9EDB35043A76A241 /* Core/AssistantVoiceInput.swift */,
 				B654A5A18FED6E5C525808FF /* Core/AppleSpeechTranscriber.swift */,
 				8040B61E2579CF93AFC3E4D4 /* Core/AppleTextbookSearch.swift */,
 				8AE5F4A3B831AF5C07BD3F65 /* Core/AssistantService.swift */,
@@ -385,6 +396,7 @@
 				B0B9BB1B111997D059083CFF /* App/AppRootView.swift */,
 				3B6C5B91E2BA9698CD4A19DA /* App/BookCourseApp.swift */,
 				7112E53154B452929D9CBAA8 /* App/FixtureOrientation.swift */,
+				ADCBF394C1709FBEE3842725 /* App/AssistantComposer.swift */,
 				DBF3B83EC01FA01252EBC9C6 /* App/GlobalAssistantOverlay.swift */,
 			);
 			name = App;
@@ -570,9 +582,11 @@
 				8A4066425845D2E77B94E82F /* App/AppRootView.swift in Sources */,
 				F8AB5A15E9B4B17D9B42BEA8 /* App/BookCourseApp.swift in Sources */,
 				A63098F6AB4A141EDE1271A1 /* App/FixtureOrientation.swift in Sources */,
+				631892FD2BA3EAF1C9020E10 /* App/AssistantComposer.swift in Sources */,
 				898047B89AD4F921332E5E6C /* App/GlobalAssistantOverlay.swift in Sources */,
 				8FD7E5639422E944E75EFA39 /* Core/AppStore.swift in Sources */,
 				057D0538161DDE24C0D0071D /* Core/AppleDocumentOCR.swift in Sources */,
+				5A19A5DAE19C2D00A0417EA8 /* Core/AssistantVoiceInput.swift in Sources */,
 				2AE31B8D53CC82ED62D1FBC5 /* Core/AppleSpeechTranscriber.swift in Sources */,
 				A751636505F168ABAEC26442 /* Core/AppleTextbookSearch.swift in Sources */,
 				C941DC03982F9F2BF9AE2D1A /* Core/AssistantService.swift in Sources */,
@@ -633,6 +647,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				363841BA8CAD5DFF0D38FA44 /* UITests/AssistantComposerUITests.swift in Sources */,
 				D9ED5A9C7974D7225174EC98 /* UITests/BookCourseUITests.swift in Sources */,
 				AD6C6B9AD35A608D1BF2BD93 /* UITests/CloudAccountUITests.swift in Sources */,
 				B1A0F4812FDE5076382FD54F /* UITests/CourseFunctionalUITests.swift in Sources */,
@@ -652,6 +667,7 @@
 				8D7A735D85818DF34DA50A04 /* Tests/AppStoreNetworkRoutingTests.swift in Sources */,
 				15A764CB5E49A05AFDD0FBCD /* Tests/AppleDocumentOCRTests.swift in Sources */,
 				B76F8F8443F0E9D89DEF55AA /* Tests/AppleSpeechTextServiceTests.swift in Sources */,
+				F917E9BC072EBCEFD4E0262D /* Tests/AssistantVoiceInputTests.swift in Sources */,
 				A95261671C0F89305684D72B /* Tests/AppleSpeechTranscriberTests.swift in Sources */,
 				BA26730F0B40CB37EA07B173 /* Tests/AppleTextbookSearchTests.swift in Sources */,
 				4EB81B370344FFAA5F338FF7 /* Tests/BookCoverTests.swift in Sources */,

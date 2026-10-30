@@ -5,6 +5,48 @@ import XCTest
 @testable import BookCourse
 
 final class NoteTests: XCTestCase {
+  func testChapterNotesKeepAllMediaKindsButExcludeOtherCoursesBooksAndChapters() {
+    func note(_ id: String, kind: NoteKind = .text, course: String = "course",
+      book: String = "book", chapter: String = "chapter") -> StudyNote {
+      StudyNote(id: id, kind: kind, title: id,
+        anchor: NoteAnchor(courseID: course, bookID: book, chapterID: chapter, page: 2),
+        drawingPath: kind == .ink ? "saved.drawing" : nil)
+    }
+    let notes = [note("text"), note("ink", kind: .ink), note("voice", kind: .voice),
+      note("other-course", course: "another"), note("other-book", book: "another"),
+      note("other-chapter", chapter: "another"), StudyNote(id: "free", kind: .text, title: "自由笔记")]
+    let visible = NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
+      chapterID: "chapter", chapters: [])
+    XCTAssertEqual(visible.map(\.id), ["text", "ink", "voice"])
+    XCTAssertEqual(visible.first { $0.kind == .ink }?.drawingPath, "saved.drawing")
+    XCTAssertNil(visible.first { $0.kind == .ink }?.organizedText,
+      "Raw handwriting remains visible before recognition or organization")
+  }
+
+  func testChapterNotesIncludeSubsectionsAndLegacyPageAnnotationsWithoutShowingUnscopedNotes() {
+    func chapter(_ id: String, parent: String? = nil, start: Int, end: Int) -> Chapter {
+      Chapter(chapter_id: id, level: parent == nil ? 1 : 2, source_title: id, ai_title: id,
+        page_start: start, page_end: end, confidence: 100, status: "ready", source: "server", parent_id: parent)
+    }
+    let chapters = [chapter("root", start: 1, end: 5), chapter("section", parent: "root", start: 2, end: 3)]
+    let notes = [
+      StudyNote(id: "root", kind: .text, title: "章笔记", anchor: NoteAnchor(bookID: "book", chapterID: "root", page: 2)),
+      StudyNote(id: "section", kind: .voice, title: "小节笔记", anchor: NoteAnchor(bookID: "book", chapterID: "section", page: 2)),
+      StudyNote(id: "legacy", kind: .ink, title: "旧手写", anchor: NoteAnchor(bookID: "book", page: 2)),
+      StudyNote(id: "retired", kind: .ink, title: "旧章节编号", anchor: NoteAnchor(bookID: "book", chapterID: "old-section-id", page: 2)),
+      StudyNote(id: "outside", kind: .ink, title: "其他页", anchor: NoteAnchor(bookID: "book", page: 6)),
+      StudyNote(id: "free", kind: .text, title: "自由笔记"),
+    ]
+    XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
+      chapterID: "root", chapters: chapters).map(\.id), ["root", "section", "legacy", "retired"])
+    XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
+      chapterID: "section", chapters: chapters).map(\.id), ["section", "legacy", "retired"])
+    XCTAssertTrue(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
+      chapterID: nil, chapters: chapters).isEmpty)
+    XCTAssertTrue(NotesChapterScope.notes(notes, courseID: "course", bookID: nil,
+      chapterID: "root", chapters: chapters).isEmpty)
+  }
+
   func testNoteMediaAndCourseIdentitySurviveRepositoryReopen() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

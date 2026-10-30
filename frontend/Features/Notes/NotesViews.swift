@@ -41,47 +41,65 @@ extension NoteKind {
   }
 }
 
+enum NotesChapterScope {
+  static func notes(_ notes: [StudyNote], courseID: String?, bookID: String?,
+    chapterID: String?, chapters: [Chapter]) -> [StudyNote] {
+    guard let bookID, let chapterID else { return [] }
+    var chapterIDs: Set<String> = [chapterID]
+    var changed = true
+    while changed {
+      let before = chapterIDs.count
+      for chapter in chapters where chapter.parent_id.map(chapterIDs.contains) == true {
+        chapterIDs.insert(chapter.id)
+      }
+      changed = chapterIDs.count != before
+    }
+    let chapter = chapters.first { $0.id == chapterID }
+    return notes.filter { note in
+      guard let anchor = note.anchor, anchor.bookID == bookID,
+        anchor.courseID == nil || anchor.courseID == courseID else { return false }
+      if let savedChapterID = anchor.chapterID {
+        if chapterIDs.contains(savedChapterID) { return true }
+        if chapters.contains(where: { $0.id == savedChapterID }) { return false }
+      }
+      // Older page annotations may have a missing or retired chapter ID; their original PDF page
+      // can still place them within the selected chapter without changing storage.
+      guard let chapter, chapter.page_start > 0 else { return false }
+      return (chapter.page_start...max(chapter.page_start, chapter.page_end)).contains(anchor.page)
+    }
+  }
+}
+
 struct NotesHubView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
-  @State private var guide = false
   @State private var filter: NoteKind?
   @State private var selectedID: String?
-  @State private var selectedGuideID: String?
   @State private var editor: StudyNote?
   @State private var editorCloseRequest = 0
   @State private var deleting: StudyNote?
   @State private var hubWidth: CGFloat = 834
+  private var hasChapter: Bool { store.selectedBookID != nil && store.selectedChapterID != nil }
+  private var chapterNotes: [StudyNote] {
+    NotesChapterScope.notes(store.notes, courseID: store.selectedCourseID,
+      bookID: store.selectedBookID, chapterID: store.selectedChapterID, chapters: store.chapters)
+  }
   private var filtered: [StudyNote] {
-    store.notes.filter { note in
-      let allowed =
-        store.currentCourse.map { course in
-          guard let anchor = note.anchor else { return true }
-          return anchor.courseID.map { $0 == course.id }
-            ?? course.resourceIDs.contains(anchor.bookID)
-        } ?? true
-      return allowed && (filter == nil || note.kind == filter)
-    }.sorted { $0.updatedAt > $1.updatedAt }
+    chapterNotes.filter { filter == nil || $0.kind == filter }
+      .sorted { $0.updatedAt > $1.updatedAt }
   }
   private var selected: StudyNote? { filtered.first { $0.id == selectedID } ?? filtered.first }
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
-        if store.isPad {
-          HStack(spacing: 12) {
-            tabs.frame(width: 230)
-            newButton
-          }
-        } else {
-          VStack(spacing: 12) {
-            tabs
-            newButton
-          }
+        if hasChapter {
+          Text(store.chapterTitle).font(DS.font(19.2, weight: .bold)).foregroundStyle(DS.secondary)
+            .accessibilityIdentifier("notes.chapter.title")
         }
-        if !guide { filters }
-        if guide {
-          guideContent
-        } else if filtered.isEmpty {
+        if !chapterNotes.isEmpty {
+          filters
+        }
+        if filtered.isEmpty {
           empty
         } else {
           if store.isPad {
@@ -130,31 +148,10 @@ struct NotesHubView: View {
       Text("删除后无法恢复原始记录与整理版。")
     }
   }
-  private var tabs: some View {
-    HStack(spacing: 4) {
-      ForEach([false, true], id: \.self) { value in
-        Button {
-          withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { guide = value }
-        } label: {
-          Text(value ? "AI 导学" : "我的笔记").font(DS.font(20, weight: .bold))
-            .foregroundStyle(guide == value ? .white : DS.secondary)
-            .fixedSize(horizontal: true, vertical: false).padding(.horizontal, 18)
-            .frame(maxWidth: .infinity, minHeight: 44).background(
-              guide == value ? DS.primary : .clear, in: RoundedRectangle(cornerRadius: 10))
-        }.buttonStyle(.plain).accessibilityIdentifier(value ? "notes.guide" : "notes.mine")
-      }
-    }.padding(5).background(.white.opacity(0.76), in: RoundedRectangle(cornerRadius: 14))
-      .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
-  }
-  private var newButton: some View {
-    NotesPrimaryAction(title: "新建笔记", symbol: "plus") { store.openSheet(.noteType) }
-  }
   @ViewBuilder private var noteActions: some View {
-    NotesPrimaryAction(title: "查看课程闪卡", symbol: "book") { store.go(.flashcards) }
-      .accessibilityIdentifier("notes.flashcards")
     NotesPrimaryAction(title: "导出 PDF", symbol: "doc.badge.arrow.up", secondary: true) {
       store.go(.export)
-    }.accessibilityIdentifier("notes.export")
+    }.disabled(!hasChapter).accessibilityIdentifier("notes.export")
     if store.currentSource == nil {
       NotesPrimaryAction(title: "上传教材", symbol: "Upload", secondary: true) { store.go(.upload) }
     }
@@ -175,25 +172,28 @@ struct NotesHubView: View {
     } label: {
       HStack(spacing: 7) {
         Text(value?.notesLabel ?? "全部")
-        Text("\(store.notes.filter { value == nil || $0.kind == value }.count)")
-          .font(DS.font(20, weight: .bold)).padding(.horizontal, 6).padding(.vertical, 2)
+        Text("\(chapterNotes.filter { value == nil || $0.kind == value }.count)")
+          .font(DS.font(16, weight: .bold)).padding(.horizontal, 6).padding(.vertical, 2)
           .background(DS.primary.opacity(0.1), in: Capsule())
-      }.font(DS.font(20, weight: .bold)).foregroundStyle(
+      }.font(DS.font(16, weight: .bold)).foregroundStyle(
         filter == value ? DS.primary : DS.secondary
       )
       .padding(.horizontal, 13).frame(minHeight: 44)
-      .background(filter == value ? DS.primarySoft : .white, in: RoundedRectangle(cornerRadius: 10))
-      .overlay(RoundedRectangle(cornerRadius: 10).stroke(filter == value ? DS.primary : DS.border))
+      .background(filter == value ? DS.primarySoft : .clear, in: RoundedRectangle(cornerRadius: 10))
+      .overlay(RoundedRectangle(cornerRadius: 10).stroke(filter == value ? DS.primary : .clear))
     }.buttonStyle(.plain)
   }
   private var empty: some View {
     BCCard {
       VStack(spacing: 12) {
         AssetImage("/assets/brand/empty-states/no-notes-v1.png").frame(width: 180, height: 140)
-        Text("把课堂想法留在教材旁").font(DS.font(20, weight: .bold))
-        Text("你可以输入文字、直接批注教材原页，或录下语音后整理。")
+        Text(hasChapter ? "本章节还没有\(chapterNotes.isEmpty ? "" : filter?.notesLabel ?? "")笔记" : "请先选择学习章节")
+          .font(DS.font(20, weight: .bold))
+        Text(hasChapter ? "你可以输入文字、直接批注教材原页，或录下语音后整理。" : "在学习页选择章节后，可查看和记录对应的笔记。")
           .font(DS.font(14)).foregroundStyle(DS.muted).multilineTextAlignment(.center)
-        BCButton("新建第一条笔记", icon: "Plus") { store.openSheet(.noteType) }
+        BCButton(hasChapter ? "去记笔记" : "选择章节", icon: hasChapter ? "Plus" : "BookOpen") {
+          if hasChapter { store.openSheet(.noteType) } else { store.go(.study) }
+        }
       }.frame(maxWidth: .infinity).padding(.vertical, 24)
     }
   }
@@ -267,74 +267,6 @@ struct NotesHubView: View {
           Button("删除笔记", role: .destructive) { deleting = note }
         }
       }.id(note.id)
-    }
-  }
-  private struct GuideItem: Identifiable {
-    let id: String
-    let title: String
-    let body: String
-    let label: String
-  }
-  private var guideItems: [GuideItem] {
-    guard let source = store.currentSource else { return [] }
-    return source.chunks.prefix(4).map {
-      GuideItem(id: "chunk:" + $0.id, title: "RAG 片段：第 \($0.page_start)-\($0.page_end) 页",
-                body: String($0.text.prefix(240)), label: "教材摘录")
-    } + source.assets.prefix(2).map {
-      GuideItem(id: "asset:" + $0.id,
-                title: "课程插图：\($0.source_type == "extracted" ? "源文件抽取" : "AI 生成")",
-                body: $0.caption, label: "课程插图")
-    }
-  }
-  private var selectedGuide: GuideItem? {
-    guideItems.first { $0.id == selectedGuideID } ?? guideItems.first
-  }
-  @ViewBuilder private var guideContent: some View {
-    if store.isPad {
-      HStack(alignment: .top, spacing: 22) {
-        guideDetail.frame(width: max(250, (hubWidth - 86) * 0.36))
-        guideList.frame(maxWidth: .infinity)
-      }
-    } else {
-      guideDetail
-      guideList
-    }
-  }
-  private var guideDetail: some View {
-    BCCard {
-      if let item = selectedGuide {
-        VStack(alignment: .leading, spacing: 14) {
-          NotesBadge(title: item.label)
-          Text(item.title).font(DS.font(20, weight: .bold)).accessibilityIdentifier("notes.guideDetail")
-          Text(item.body).accessibilityIdentifier("notes.guideBody").font(DS.font(20)).lineSpacing(8).foregroundStyle(DS.secondary)
-        }.frame(maxWidth: .infinity, alignment: .leading)
-      } else {
-        VStack(spacing: 10) {
-          NotesGlyph(name: "Sparkles", size: 30).foregroundStyle(DS.primary)
-          Text("暂无 AI 导学内容").font(DS.font(20, weight: .bold))
-        }.frame(maxWidth: .infinity, minHeight: 260)
-      }
-    }
-  }
-  private var guideList: some View {
-    LazyVStack(spacing: 8) {
-      if guideItems.isEmpty {
-        BCCard { Text("当前教材还没有可展示的 AI 导学内容。").font(DS.font(20)).foregroundStyle(DS.muted) }
-      }
-      ForEach(Array(guideItems.enumerated()), id: \.element.id) { index, item in
-        Button {
-          withAnimation(reduceMotion ? nil : DS.localAnimation) { selectedGuideID = item.id }
-        } label: {
-          HStack(alignment: .top, spacing: 12) {
-            NotesGlyph(name: "Sparkles", size: 18).foregroundStyle(DS.primary)
-            VStack(alignment: .leading, spacing: 5) {
-              Text(item.title).font(DS.font(16, weight: .bold)).foregroundStyle(DS.text)
-              Text(item.body).font(DS.font(20)).lineSpacing(6).foregroundStyle(DS.secondary).lineLimit(3)
-            }.frame(maxWidth: .infinity, alignment: .leading)
-          }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(selectedGuide?.id == item.id ? DS.primarySoft : .white)
-        }.buttonStyle(.plain).accessibilityIdentifier("notes.guideItem.\(index)")
-      }
     }
   }
   private func preview(_ note: StudyNote) -> String {
