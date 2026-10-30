@@ -528,7 +528,7 @@ def test_two_chapters_keep_deadline_and_audit_context_separate():
     def chapter(index):
         client = CandidateClient()
         events = []
-        with model_time_budget(15 + index):
+        with model_time_budget(30 + index):
             deadline = _deadline.get()
             generate(client, audit=events.append)
         return client, events, deadline

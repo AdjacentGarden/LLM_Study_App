@@ -31,7 +31,7 @@ from pydantic import (
 )
 
 from ..ingestion.coverage import OUTPUT_POLICY
-from ..llm.client import LLMError
+from ..llm.client import LLMError, remaining_model_time
 from ..llm.teaching_parallel import ordered_review_map
 from .course_progress import CourseStage, report_course_stage
 from .lesson_review_contract import (
@@ -81,6 +81,7 @@ from .teaching_repairs import (
     TeachingRepairStore,
     current_repair,
     invalidate_repair_response,
+    last_submission,
 )
 from .teaching_review_reuse import VerifiedComponentReuse, fingerprint
 from .teaching_scope import (
@@ -906,6 +907,15 @@ class TeachingContentGenerator:
             raise _TeachingAuditError("教学审核记录暂时不可用，已有进度已保留") from error
 
     def _structured(self, *, _review: bool = False, **kwargs: Any) -> dict[str, Any]:
+        remaining = remaining_model_time()
+        if remaining is not None and remaining < 15:
+            # No submission belongs to this deferred call. A later failure
+            # handler must not invalidate an earlier successful response.
+            last_submission.set(None)
+            self._audit('model_submission_deferred', remaining_seconds=remaining,
+                        minimum_seconds=15, model_role='review' if _review else 'generation',
+                        paid_submission=False, reason='insufficient_remaining_time')
+            raise TeachingRepairPending(5)
         selected_client = self.review_client if _review else self.client
         if selected_client is None:
             raise TeachingServiceUnavailableError("独立教学审核服务尚未配置，课程尚未完成审核")
