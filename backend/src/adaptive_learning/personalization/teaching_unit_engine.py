@@ -273,16 +273,38 @@ class UnitEngine:
                       feedback=work['feedback'], blocked=blocked)
 
     def _source_fallback(self, unit: dict[str, Any]) -> dict[str, Any] | None:
-        """Create an unapproved extractive prose draft, never an invented quiz."""
+        """Create an unapproved extract or an explicitly source-named recall."""
         work = unit['work']
         kind = work['kind']
-        if (kind not in ('explanation', 'opening', 'summary') or work.get('source_fallback_attempted')
+        if (kind not in ('explanation', 'opening', 'summary', 'practice')
+                or work.get('source_fallback_attempted') or work.get('lost_review_requires_new_question')
                 or int(work.get('known_failures', 0)) < SOURCE_FALLBACK_AFTER_FAILURES):
+            return None
+        keys = list(dict.fromkeys(key for owner in work['focus_ids']
+                                 for key in self.evidence.point_sources.get(owner, [])))
+        if kind == 'practice':
+            # Use the complete goal, not a partial OCR clause stripped of its
+            # conditions. Naming must independently occur in this point's source.
+            naming = re.compile(r'(?:称为|称作|叫做)([\u4e00-\u9fff]{2,16})(?=[（(，,。；;：:！？?!\s]|$)')
+            for goal_match in naming.finditer(work['label']):
+                term = goal_match.group(1)
+                if work['label'].count(term) != 1:
+                    continue
+                for key in keys:
+                    source = self.evidence.sources.get(key)
+                    if source is None or not any(match.group(1) == term for match in naming.finditer(source.quote)):
+                        continue
+                    start, end = goal_match.span(1)
+                    candidate = {'item_id': self.by_id[work['owner_id']]['item_id'],
+                        'prompt': '知识点术语回顾：' + work['label'][:start] + '____' + work['label'][end:],
+                        'expected_answer': term, 'rubric': ['填入术语“' + term + '”。'], 'source_ids': [key]}
+                    work['source_fallback_attempted'] = True
+                    self.g._audit('source_fallback_draft', unit_id=unit['unit_id'], source_ids=[key],
+                                  candidate_sha256=fingerprint(candidate), approved=False)
+                    return candidate  # Still passes all schema/fact/teacher/rubric/final gates.
             return None
         high = {'explanation': EXPLANATION_MAX_CHARS,
                 'opening': OPENING_MAX_CHARS, 'summary': SUMMARY_MAX_CHARS}[kind]
-        keys = list(dict.fromkeys(key for owner in work['focus_ids']
-                                 for key in self.evidence.point_sources.get(owner, [])))
         selected: list[str] = []
         paragraphs: list[str] = []
         for key in keys:
