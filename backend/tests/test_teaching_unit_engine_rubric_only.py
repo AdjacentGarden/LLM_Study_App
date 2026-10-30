@@ -216,7 +216,7 @@ def test_explicit_redesign_releases_lock_and_still_requires_fresh_review(unit_ca
         payloads.append(payload)
         if 'mode' in payload:
             return {'component': revised}
-        assert payload['must_check_redesign'] is True
+        assert payload['must_check_redesign'] is False
         return {'accepted': True, 'redesign_ok': True, 'issues': []}
 
     def rubric(batch):
@@ -232,11 +232,13 @@ def test_explicit_redesign_releases_lock_and_still_requires_fresh_review(unit_ca
     assert 'rubric_only_lock' not in unit_case.unit['work']
 
 
-def test_redesign_cannot_unlock_fields_and_keep_the_same_question(unit_case):
+def test_lost_review_redesign_cannot_unlock_fields_and_keep_the_same_question(unit_case):
     reject_rubric(unit_case)
     # A genuine additional task veto invalidates deletion-only permission.
     unit_case.engine._failed(unit_case.unit, _UnitRejected({'issue': '题设需要重新设计。'}, 'teacher'), 'repair')
     unit_case.unit['work']['mode'] = 'redesign'
+    unit_case.unit['work']['lost_review_requires_new_question'] = True
+    unit_case.unit['work']['rejected_design'] = deepcopy(unit_case.unit['candidate'])
     unchanged_question = deepcopy(unit_case.unit['candidate'])
     unchanged_question['expected_answer'] += '只替换答案不能完成重设问项。'
     unit_case.generator._structured = lambda **kwargs: {'component': unchanged_question}

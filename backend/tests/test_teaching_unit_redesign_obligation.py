@@ -1,4 +1,4 @@
-"""A changed surface form cannot clear a still-unapproved redesign obligation."""
+"""Lost-review recovery retains its dedicated, still-unapproved obligation."""
 from __future__ import annotations
 
 import json
@@ -20,6 +20,7 @@ def case():
                 'kind': 'example_1', 'owner_id': None, 'focus_ids': [],
                 'label': recorded['knowledge_goal'], 'mode': recorded['mode'], 'revision': 7,
                 'attempt_nonce': 'controlled-offline', 'redesign_pending_review': True,
+                'lost_review_requires_new_question': True,
                 'rejected_design': deepcopy(recorded['rejected_design']),
                 'feedback': deepcopy(recorded['feedback']), 'phase': 'review',
             }}
@@ -78,13 +79,15 @@ def test_native_accepted_review_clears_obligation_before_later_repair(case):
     assert case.calls[-1][1]['repair_task']['must_redesign_question'] is False
 
 
-def test_explicit_redesign_mode_always_requires_new_question(case):
-    case.unit['work'].update(mode='redesign', redesign_pending_review=False)
+def test_ordinary_redesign_mode_does_not_require_new_question(case):
+    case.unit['work'].update(mode='redesign', redesign_pending_review=False,
+                            lost_review_requires_new_question=False)
     case.engine._write_one(case.unit)
-    assert case.calls[-1][1]['repair_task']['must_redesign_question'] is True
+    assert case.calls[-1][1]['repair_task']['must_redesign_question'] is False
 
 
 def test_ordinary_repair_without_pending_obligation_does_not_require_redesign(case):
     case.unit['work'].pop('redesign_pending_review')
+    case.unit['work']['lost_review_requires_new_question'] = False
     case.engine._write_one(case.unit)
     assert case.calls[-1][1]['repair_task']['must_redesign_question'] is False

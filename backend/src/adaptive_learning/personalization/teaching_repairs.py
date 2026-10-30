@@ -250,6 +250,12 @@ class TeachingRepairRun:
                 WHERE run_key=? AND unit_id=? AND status='unknown'""", (self.key, unit_id))
         return True
 
+    def has_retired_review(self, unit_id: str) -> bool:
+        """Identify a legacy pending redesign backed by a retired request."""
+        with connect(self.store.path) as db:
+            return db.execute("""SELECT 1 FROM teaching_course_submissions WHERE run_key=?
+                AND unit_id=? AND status='retired_revision' LIMIT 1""", (self.key, unit_id)).fetchone() is not None
+
     def write_unit(self, unit: dict[str, Any], *, status: str, candidate: Any = None,
                    delay: float = 0) -> None:
         draft = unit['candidate'] if candidate is None else candidate

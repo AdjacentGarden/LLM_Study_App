@@ -32,7 +32,8 @@ PEDAGOGICAL_POLICY = '''教学形式采用以下统一口径，事实和引用�
 不能因参考答案简洁、没有重复讲解中已教授的其他子项或省略显然的等价式而单独拒绝。
 讲解、导入、总结允许沿用正确的数学公式、概念、结论、完整原文摘录和合理组织顺序；结构或措辞相近不是独立拒绝理由。
 长度、风格、难度和情境丰富度不是单独否决理由；完整正确且有源的内容不必为了形式重新生成。
-重新设计的实质变化检查用于题目问项；非题目正文只按内容正确、条件完整、引用支持及教学目标审核。
+只有未知审核请求退休后的新题恢复要求实质不同问项；普通修复允许保留有效问项并修正事实、条件、答案、评分和引用。
+概念识别、概括题可以提供相关线索；与未发布旧稿相似或部分答案已在材料中出现不是单独否决理由，但整题纯抄且没有实际学习目标仍须拒绝。
 实际使用的每项事实仍须有原文依据，计算与推理必须正确，题设不能矛盾或泄露所问答案。'''
 
 
@@ -136,11 +137,20 @@ class UnitEngine:
         audit_token = _AUDIT_CONTEXT.set({**(_AUDIT_CONTEXT.get() or {}), 'unit_id': unit['unit_id']})
         try:
             work = unit['work']
+            if 'lost_review_requires_new_question' not in work:
+                # Legacy generic redesign flags did not record their origin.
+                # A retired paid request retains its strict obligation; an
+                # ordinary known rejection must not inherit that constraint.
+                work['lost_review_requires_new_question'] = bool(
+                    work.get('redesign_pending_review') and self.run.has_retired_review(unit['unit_id']))
+            work['redesign_pending_review'] = work['lost_review_requires_new_question']
             if self.run.submission_blocked(unit['unit_id']):
                 work['recovery_checks'] = int(work.get('recovery_checks', 0)) + 1
                 if (work.get('phase') == 'review' and unit['candidate'] and
                         work['recovery_checks'] >= 2 and self.run.retire_lost_review(unit['unit_id'])):
                     work.update(mode='redesign', phase='write',
+                                lost_review_requires_new_question=True,
+                                rejected_design=deepcopy(unit['candidate']),
                                 semantic_feedback={},
                                 feedback={'issue': '旧版本审核请求已在本地结束，但响应不可恢复；旧请求永久禁止重放。'
                                                    '废弃旧版本，完整重新设计不同的题设或问项，并重做答案、评分及引用。'})
@@ -163,13 +173,13 @@ class UnitEngine:
                 }][-6:]
                 work['revision'] += 1
                 work['phase'] = 'write'
-                work['rejected_design'] = deepcopy(unit['candidate'])
-                work['redesign_pending_review'] = True
+                if not work['lost_review_requires_new_question']:
+                    work['rejected_design'] = deepcopy(unit['candidate'])
+                work['redesign_pending_review'] = work['lost_review_requires_new_question']
             self.run.write_unit(unit, status='running')
             try:
                 if work.get('phase', 'write') == 'write' or not unit['candidate']:
-                    must_redesign = (mode == 'redesign' or (work.get('redesign_pending_review') and
-                        _question_shape(unit['candidate']) == _question_shape(work.get('rejected_design') or {})))
+                    must_redesign = work['lost_review_requires_new_question']
                     candidate = pruned if pruned is not None else self._source_fallback(unit)
                     if candidate is None:
                         candidate = self._write_one(unit)
@@ -188,7 +198,8 @@ class UnitEngine:
                 # checked. Resetting the repair cycle here makes a repeated
                 # cross-component veto permanently look like its first repair.
                 work.update(failures=0, feedback=[], phase='accepted',
-                            redesign_pending_review=False, semantic_feedback={})
+                            redesign_pending_review=False, lost_review_requires_new_question=False,
+                            semantic_feedback={})
                 self.run.write_unit(unit, status='approved')
                 self.g._audit('unit_approved', revision=work['revision'],
                               candidate_sha256=fingerprint(unit['candidate']))
@@ -421,11 +432,11 @@ class UnitEngine:
                 'required_task_edits': self._task_edits(unit) if rubric_baseline is None else [],
                 'editable_fields': list(shape),
                 'require_effective_change': bool(unit['candidate']),
-                'must_redesign_question': work['mode'] == 'redesign' or bool(work.get('redesign_pending_review')),
+                'must_redesign_question': bool(work.get('lost_review_requires_new_question')),
                 'instruction': ('本次只修正评分要求，唯一返回rubric；题干、参考答案、身份和引用由程序原样保留。'
                     if rubric_baseline is not None else
                     '修复引用时，明确核对并修改本题自身source_ids；阅读目录不算本题引用。'
-                               '重新设计时重构题设或问项，并同步重做答案、评分和引用；解除旧的rubric_only编辑限制。'
+                               '按定位问题修正题设、答案、评分和引用，可保留有效问项；解除旧的rubric_only编辑限制。'
                 ),
             },
             'previous_candidate': unit['candidate'], 'rejected_design': work.get('rejected_design'),
@@ -438,12 +449,12 @@ class UnitEngine:
 只返回一个JSON对象，唯一顶层字段component，不能返回points/lesson或其他组件。
 组件为opening/summary时返回content与source_ids。其他组件保留其原ID。
 只按knowledge_goal和本组件sources中的明确原文写作；按需完整讲清概念、条件、适用范围和推导，合适时展开有据例子，不增加未引用的知识，不为缩短篇幅删去必要解释。
-mode=redesign时必须构造新的题设或实际问项，不能照抄旧题、只换数字或措辞；同步重写答案、评分和引用。
-对照prior_failed_designs避免反复使用已经失败的作图结构、情境和问法；必要时切换为辨析、等式应用或条件判断。
+mode=redesign是完整重写建议，不是语义新颖性要求；普通明确拒绝后的修复可保留有效问项，只修正实际错误及相应答案、评分和引用。
+对照prior_failed_designs解决已经定位的问题，不必为了区别未发布旧稿而改变教学目标。
 按教学目标设计可由现有原文完整支持的问题，问项和推导深度按知识需要确定；不得为情境丰富而编造事实前提。
 原文的符号、上下标、公式或对应关系残缺不清时，不得凭常识补全，也不得将无法核定的内容作为题设结论、答案或评分要求。
 同一结论已因证据不足被退回时，必须放弃该结论和依赖它的原题设，改写为清晰原句直接支持的基础概念辨析题；不为复杂性继续尝试损坏的公式或仅换符号、称呼。
-repair_task.must_redesign_question=true时，即使mode=repair也必须完成上述重设；非题目组件则完整重写讲解或总结。
+repair_task.must_redesign_question=true只用于未知审核请求退休后的恢复：必须构造实质不同的新题设或实际问项，不能仅换数字、措辞或顺序，旧请求永久禁止重放；非题目组件则完整重写讲解或总结。
 mode=repair时落实repair_task的每项缺口；正确题干可以保留，但缺失的本题引用必须实际补齐。
 latest_invalid_draft是最近一次未通过格式校验的实际稿，不是previous_candidate，也没有得到任何审核批准；按其validation精确修正后仍须解决未完成的事实或题意缺口。
 required_task_edits是当前评分审核定位的题设修改要求，不是新的原文证据；修改prompt及关联答案、评分时只能使用sources中确有支持的事实，不能照抄建议中的无源前提。
@@ -634,13 +645,13 @@ required_task_edits是当前评分审核定位的题设修改要求，不是新�
             pack['sources'][key] = self.evidence.sources[key].model_dump()
         payload = {'unit_id': unit['unit_id'], 'kind': unit['work']['kind'],
                    'knowledge_goal': unit['work']['label'], 'candidate': unit['candidate'],
-                   'must_check_redesign': bool(_question(unit['candidate'])) and unit['work'].get('redesign_pending_review', False),
+                   'must_check_redesign': bool(_question(unit['candidate'])) and bool(unit['work'].get('lost_review_requires_new_question')),
                    'rejected_design': unit['work'].get('rejected_design'), **pack}
         prompt = REVIEW_PROMPT.split('仅返回严格 JSON')[0] + '\n' + QUESTION_REVIEW_POLICY + '\n' + PEDAGOGICAL_POLICY + '''\n本次只审核unit_id指定的一个独立组件。
 不得因为其他组件尚未提供而否决；知识、计算、题设一致性、引用支持和必要条件标准不变。
 不要返回整课points/lesson结构，只返回{"accepted":true,"redesign_ok":true,"issues":[]}。
-must_check_redesign=true时，核对题设或问项确实重新设计，不能仅换措辞、数字或顺序；否则redesign_ok=false。
-非题目组件不以结构或措辞相似为由拒绝；must_check_redesign=false时redesign_ok=true。
+must_check_redesign=true仅用于未知审核请求退休后的恢复，核对题设或问项确实重新设计，不能仅换措辞、数字或顺序；否则redesign_ok=false。
+must_check_redesign=false时redesign_ok=true，不因保留已修正问项、题干提供相关线索或与未发布旧稿相似而否决；仍拒绝真实无法作答、整题纯抄而无实际学习目标、事实或答案错误。
 拒绝必须具体定位本组件真实字段的问题，列出可依原文完成的修改方向；可选风格建议不列入issues。
 接受时issues必须为空，拒绝或redesign_ok=false时issues必须非空。'''
         raw = self.g._structured(_review=True, system=prompt,
