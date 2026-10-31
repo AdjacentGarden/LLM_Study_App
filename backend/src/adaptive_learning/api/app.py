@@ -640,6 +640,8 @@ def answer_book_question(
         if account_preferences:
             config = resolve_learning_design(account_preferences)
     context: dict[str, Any] = {"history": [turn.model_dump() for turn in request.history]}
+    if request.reading_context is not None:
+        context["reading_context"] = request.reading_context.model_dump()
     if request.chapter_id:
         from .. import native_catalog
 
@@ -656,7 +658,7 @@ def answer_book_question(
         context["chapter"] = {"id": chapter.chapter_id, "title": chapter.title,
                               "start_page": chapter.start_page, "end_page": chapter.end_page}
     try:
-        extra = {"conversation_context": context} if request.history or request.chapter_id else {}
+        extra = {"conversation_context": context} if request.history or request.chapter_id or request.reading_context else {}
         if config is not None or cache_scope or extra:
             return qa_service.answer(request.question, teaching_context=config.qa_preferences() if config else None, cache_scope=cache_scope, **extra)
         return qa_service.answer(request.question)

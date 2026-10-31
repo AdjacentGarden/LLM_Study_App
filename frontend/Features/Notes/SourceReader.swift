@@ -757,7 +757,7 @@ struct NotesSourceReaderView: View {
         }
         let service = StudioService(api: api)
         let remote = try await service.prepareInk(note: note, drawingData: original)
-        let submitted = try await service.analyze(note: remote, action: "recognize")
+        let submitted = try await service.analyze(note: remote, action: "recognize", retryFailed: true)
         let result = try await service.waitForJob(submitted)
         try Task.checkCancellation()
         guard generation == loadGeneration, epoch == store.cloudState.epoch,
@@ -814,7 +814,7 @@ struct NotesSourceReaderView: View {
         }
         let service = StudioService(api: api)
         let remote = try await service.prepareInk(note: note, drawingData: original)
-        let submitted = try await service.analyze(note: remote, action: "improve", transcript: confirmed)
+        let submitted = try await service.analyze(note: remote, action: "improve", transcript: confirmed, retryFailed: true)
         let result = try await service.waitForJob(submitted)
         try Task.checkCancellation()
         guard generation == loadGeneration, epoch == store.cloudState.epoch,
@@ -1184,6 +1184,10 @@ struct NotesRegionAIView: View {
   private func ask(_ raw: String) {
     let input = raw.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !input.isEmpty, !loading else { return }
+    guard input.unicodeScalars.count <= 2000 else {
+      issue = "问题最多 2000 字，请缩短问题后再提问；批注和页内文字会单独提供。"
+      return
+    }
     loading = true
     issue = nil
     failedQuestion = nil
@@ -1200,15 +1204,17 @@ struct NotesRegionAIView: View {
         if question.trimmingCharacters(in: .whitespacesAndNewlines) == input { question = "" }
         messages.append(ChatMessage(role: "user", text: input))
         await persistConversation()
-        let context = note.map { "文字批注：\($0.body)\n" } ?? ""
-        let contextualQuestion = "\(input)\n\(context)（PDF 第 \(page) 页；当前页文字上下文：\(String(pageText.prefix(1200)))）"
+        let readingContext = CloudReadingContext(pdfPage: page, pageText: pageText,
+          noteText: note?.body ?? "")
         let result: AssistantAnswer
         if bookID.hasPrefix("book_local_") || store.cloud == nil {
+          let contextualQuestion = readingContext.localQuestion(input)
           result = try await store.assistant.ask(question: contextualQuestion, bookID: bookID,
             bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
         } else {
-          result = try await store.answerAssistant(question: contextualQuestion, bookID: bookID,
-            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
+          result = try await store.answerAssistant(question: input, bookID: bookID,
+            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history,
+            readingContext: readingContext)
         }
         try Task.checkCancellation()
         guard store.selectedCourseID == courseID, store.selectedBookID == selectedBookID,

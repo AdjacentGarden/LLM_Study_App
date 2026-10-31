@@ -12,7 +12,15 @@ from fastapi.responses import FileResponse
 from pydantic import Field
 
 from ..studio import get_studio
-from ..studio_models import MediaInput, NoteAction, NoteInput, SpeechTextInput, Strict
+from ..studio_models import (
+    MediaInput,
+    NoteAction,
+    NoteGroupArchive,
+    NoteInput,
+    NoteLogicalGroup,
+    SpeechTextInput,
+    Strict,
+)
 
 
 class Accept(Strict):
@@ -46,23 +54,38 @@ def studio_router(
         return studio.submit(owner, data.model_dump(), data.kind)
 
     @router.get("/studio/notes")
-    def notes(book_id: str, owner: str = Depends(visitor)) -> dict[str, Any]:
+    def notes(book_id: str, offset: int = Query(0, ge=0, le=2000),
+              limit: int = Query(200, ge=1, le=200), owner: str = Depends(visitor)) -> dict[str, Any]:
         owned_book(owner, book_id)
         with studio.repo.connect() as db:
             rows = db.execute(
-                "SELECT * FROM studio_notes WHERE owner=? AND book_id=? ORDER BY updated DESC LIMIT 200",
-                (owner, book_id),
+                "SELECT n.*,g.logical_note_id FROM studio_notes n LEFT JOIN studio_note_logical_inputs g ON g.note_id=n.id "
+                "WHERE n.owner=? AND n.book_id=? ORDER BY n.updated DESC,n.id LIMIT ? OFFSET ?",
+                (owner, book_id, limit + 1, offset),
             ).fetchall()
         return {
             "items": [
-                {k: v for k, v in studio.public_note(r).items() if k != "strokes"} for r in rows
-            ]
+                {**{k: v for k, v in studio.public_note(r).items() if k != "strokes"},
+                 "logical_note_id": r["logical_note_id"]} for r in rows[:limit]
+            ],
+            "next_offset": offset + limit if len(rows) > limit else None,
         }
 
     @router.post("/studio/notes")
     def save(data: NoteInput, owner: str = Depends(visitor)) -> dict[str, Any]:
         owned_book(owner, data.book_id)
         return studio.save_note(owner, data)
+
+    @router.put("/studio/notes/{key}/logical-group")
+    def bind_group(key: str, data: NoteLogicalGroup, owner: str = Depends(visitor)) -> dict[str, Any]:
+        value = studio.note(owner, key)
+        owned_book(owner, value["book_id"])
+        return studio.bind_note_group(owner, key, data)
+
+    @router.put("/studio/note-groups/{logical_note_id}/archive")
+    def archive_group(logical_note_id: str, data: NoteGroupArchive, owner: str = Depends(visitor)) -> dict[str, Any]:
+        owned_book(owner, data.book_id)
+        return studio.archive_note_group(owner, data.book_id, logical_note_id)
 
     @router.get("/studio/notes/{key}")
     def note(key: str, owner: str = Depends(visitor)) -> dict[str, Any]:

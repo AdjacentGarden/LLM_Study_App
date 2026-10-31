@@ -56,6 +56,15 @@ class QuestionTurn(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
 
+class ReadingContext(BaseModel):
+    """Client reading hints; never a replacement for server textbook evidence."""
+    model_config = ConfigDict(extra="forbid")
+    pdf_page: int = Field(ge=1, le=100000)
+    page_text: str = Field(default="", max_length=1200)
+    note_text: str = Field(default="", max_length=4000)
+    note_truncated: bool = False
+
+
 class BookQuestionRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     question: str = Field(min_length=1, max_length=2000)
@@ -64,6 +73,7 @@ class BookQuestionRequest(BaseModel):
     chapter_id: str | None = Field(default=None, min_length=1, max_length=150)
     history: list[QuestionTurn] = Field(default_factory=list, max_length=8)
     book_ids: list[str] = Field(default_factory=list, max_length=8)
+    reading_context: ReadingContext | None = None
 
 
 class ProfileAnswerRequest(BaseModel):

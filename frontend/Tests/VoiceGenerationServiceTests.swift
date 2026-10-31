@@ -117,6 +117,11 @@ private final class VoiceGenerationFixture: @unchecked Sendable {
       uploaded += 1; remoteReady = true; remoteRevision += 1
       return try json(remote(request.url!.deletingLastPathComponent().lastPathComponent))
     }
+    if path.hasSuffix("/logical-group") {
+      XCTAssertEqual(request.httpMethod, "PUT")
+      XCTAssertNotNil(try body(request)["logical_note_id"] as? String)
+      return try json(remote(request.url!.deletingLastPathComponent().lastPathComponent))
+    }
     if path.hasPrefix("/api/studio/notes/") {
       return remoteExists ? try json(remote(request.url!.lastPathComponent))
         : try json(["detail": "笔记不存在"], status: 404)

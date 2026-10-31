@@ -1,6 +1,30 @@
 import CryptoKit
 import Foundation
 
+/// Reader text is a bounded hint, separate from the user's question and verified evidence.
+struct CloudReadingContext: Sendable {
+  let pdfPage: Int
+  let pageText: String
+  let noteText: String
+  let noteTruncated: Bool
+
+  init(pdfPage: Int, pageText: String, noteText: String = "") {
+    self.pdfPage = max(1, pdfPage)
+    self.pageText = String(String.UnicodeScalarView(pageText.unicodeScalars.prefix(1200)))
+    self.noteText = String(String.UnicodeScalarView(noteText.unicodeScalars.prefix(4000)))
+    self.noteTruncated = noteText.unicodeScalars.count > 4000
+  }
+
+  var json: JSONValue {
+    .object(["pdf_page": .number(Double(pdfPage)), "page_text": .string(pageText),
+      "note_text": .string(noteText), "note_truncated": .bool(noteTruncated)])
+  }
+
+  func localQuestion(_ question: String) -> String {
+    "\(question)\n文字批注：\(noteText)\n（PDF 第 \(pdfPage) 页；当前页文字上下文：\(pageText)）"
+  }
+}
+
 extension AppStore {
   var cloudResource: CloudResource? {
     cloudState.workspaces.first { $0.id == selectedCourseID }?.resources.first {
@@ -886,7 +910,7 @@ extension AppStore {
   func answerAssistant(
     question: String, bookID: String, bookIDs: [String], chapterID: String?,
     sources: [SourceContent], history: [ChatMessage], courseID: String? = nil,
-    bindToCurrentSelection: Bool = true
+    bindToCurrentSelection: Bool = true, readingContext: CloudReadingContext? = nil
   ) async throws -> AssistantAnswer {
     let epoch = cloudState.epoch
     let routingSelection = selectionGeneration
@@ -894,25 +918,36 @@ extension AppStore {
     try Task.checkCancellation()
     guard epoch == cloudState.epoch, (!bindToCurrentSelection || routingSelection == selectionGeneration),
       processingRoute != .cancelled else { throw CancellationError() }
+    let localQuestion = readingContext?.localQuestion(question) ?? question
     if processingRoute == .onDevice {
-      return try await answerFromOnDeviceTextbook(question: question, bookID: bookID,
+      return try await answerFromOnDeviceTextbook(question: localQuestion, bookID: bookID,
         bookIDs: bookIDs, sources: sources)
     }
     guard let cloud, !bookID.hasPrefix("book_local_") else {
       return try await assistant.ask(
-        question: question, bookID: bookID, bookIDs: bookIDs,
+        question: localQuestion, bookID: bookID, bookIDs: bookIDs,
         chapterID: chapterID, sources: sources, history: history)
     }
-    let resource = cloudState.workspaces.first(where: { $0.id == (courseID ?? selectedCourseID) })?
-      .resources.first(where: { $0.book_id == bookID })
+    let workspace = cloudState.workspaces.first(where: { $0.id == (courseID ?? selectedCourseID) })
+    let resource = workspace?.resources.first(where: { $0.book_id == bookID })
     guard !bookID.isEmpty, resource != nil || bookIDs.allSatisfy({ $0 == bookID }) else {
       throw CloudError(status: 409, message: "请先打开当前课程资料再提问")
     }
+    // Pending imports remain visible and recoverable locally, but are not yet
+    // owned server resources. Never include them in an online course QA scope.
+    var scopedBookIDs = [bookID]
+    if let workspace, resource != nil {
+      let owned = Set(workspace.resources.map(\.book_id))
+      for id in bookIDs where owned.contains(id) && !id.hasPrefix("book_local_")
+        && !scopedBookIDs.contains(id) {
+        scopedBookIDs.append(id)
+      }
+    }
     var turns = history
     if turns.last?.role == "user", turns.last?.text == question { turns.removeLast() }
-    let body: [String: JSONValue] = [
+    var body: [String: JSONValue] = [
       "question": .string(question),
-      "book_ids": .array(bookIDs.map(JSONValue.string)),
+      "book_ids": .array(scopedBookIDs.map(JSONValue.string)),
       "chapter_id": chapterID.map(JSONValue.string) ?? .null,
       "history": .array(
         turns.filter { ["user", "assistant"].contains($0.role) }
@@ -922,6 +957,7 @@ extension AppStore {
             ])
           }),
     ]
+    if let readingContext { body["reading_context"] = readingContext.json }
     // Keep single-book questions available for library books not yet in a course.
     let path = resource.map { $0.path + "/qa" } ?? "/api/books/\(bookID)/qa"
     let result: CloudQA = try await cloud.request(path, method: "POST", body: body)

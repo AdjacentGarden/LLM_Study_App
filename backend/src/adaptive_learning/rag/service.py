@@ -194,7 +194,12 @@ class TextbookQAService:
             turns = [turn["text"] for turn in conversation_context.get("history", [])
                      if turn["role"] == "user" and turn["text"] != question][-2:]
             title = conversation_context.get("chapter", {}).get("title", "")
-            query = "\n".join([title, *(text[:500] for text in turns), question]).strip()
+            reading = conversation_context.get("reading_context") or {}
+            # Put the real question first: a long client note must not displace
+            # it from the encoder's bounded token window. These are query hints,
+            # not new evidence chunks or verified source quotations.
+            hints = [reading.get("note_text", "")[:400], reading.get("page_text", "")[:400]]
+            query = "\n".join([question, title[:200], *hints, *(text[:200] for text in turns)]).strip()
         try:
             retrieval, retrieval_mode = self._retrieve(query)
             self._ready = self.index is not None

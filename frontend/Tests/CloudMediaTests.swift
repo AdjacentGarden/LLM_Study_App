@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import Foundation
 import XCTest
 
@@ -385,6 +386,125 @@ private final class MediaProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(model.receipt?.state, "uncertain")
     XCTAssertFalse(model.canSubmit)
     await model.submit()
+    XCTAssertEqual(posts, 0)
+  }
+
+  func testHistoryPreviewDoesNotBindAnotherExcerptAndReturningAllowsCurrentGeneration() async throws {
+    let context = try context(), api = api(), root = storage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    var previous = job(context, status: "succeeded")
+    previous["excerpt"] = "另一选段的原文"
+    previous["chapter_title"] = "另一章节"
+    let currentID = String(repeating: "c", count: 32)
+    var posts = 0, sentExcerpt: String?
+    MediaProtocol.handler = { request in
+      let path = request.url!.path
+      if path.hasSuffix("capabilities") { return try self.json(self.capabilities) }
+      if request.httpMethod == "POST" {
+        posts += 1
+        sentExcerpt = try self.body(request)["excerpt"]?.stringValue
+        return try self.json(self.job(context, status: "queued", id: currentID))
+      }
+      if path.hasSuffix("/jobs") { return try self.json(["items": [previous]]) }
+      if path.hasSuffix("/asset") { return (200, ["Content-Type": "video/mp4"], self.videoBytes) }
+      return try self.json(previous)
+    }
+    let model = CloudMediaModel(api: api, request: context, storageRoot: root)
+    await model.load()
+    XCTAssertTrue(model.canSubmit)
+    let historical = try JSONDecoder().decode(StudioJob.self, from: JSONSerialization.data(withJSONObject: previous))
+    model.select(historical)
+    await model.follow()
+    XCTAssertTrue(model.isPreviewingHistory)
+    XCTAssertEqual(model.displayedJob?.excerpt, "另一选段的原文")
+    XCTAssertNotNil(model.displayedVideoURL)
+    XCTAssertNil(model.videoURL)
+    XCTAssertNil(model.receipt)
+    await model.submit()
+    XCTAssertEqual(posts, 0, "A history preview must never submit or bind a current-context request")
+    model.returnToCurrent()
+    XCTAssertNil(model.displayedVideoURL)
+    XCTAssertTrue(model.canSubmit)
+    let reopened = CloudMediaModel(api: api, request: context, storageRoot: root)
+    await reopened.load()
+    XCTAssertNil(reopened.receipt)
+    XCTAssertFalse(reopened.isPreviewingHistory)
+    XCTAssertTrue(reopened.canSubmit)
+    await reopened.submit()
+    XCTAssertEqual(posts, 1)
+    XCTAssertEqual(sentExcerpt, context.excerpt)
+    XCTAssertEqual(reopened.receipt?.jobID, currentID)
+    let restored = CloudMediaModel(api: api, request: context, storageRoot: root)
+    await restored.load()
+    XCTAssertEqual(restored.receipt?.jobID, currentID, "The current-context receipt remains durable")
+    XCTAssertEqual(posts, 1)
+  }
+
+  func testOldMismatchedHistoryReceiptBecomesPreviewWithoutBlockingCurrentExcerpt() async throws {
+    let context = try context(), api = api(), root = storage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    var previous = job(context, status: "succeeded")
+    previous["excerpt"] = "历史版本错误绑定的其他选段"
+    let key = SHA256.hash(data: try JSONEncoder().encode([
+      api.baseURL.absoluteString, "media-test-account", context.id
+    ])).map { String(format: "%02x", $0) }.joined()
+    let receipts = root.appendingPathComponent("receipts", isDirectory: true)
+    try FileManager.default.createDirectory(at: receipts, withIntermediateDirectories: true)
+    let url = receipts.appendingPathComponent(key + ".json")
+    try JSONEncoder().encode(LessonMediaReceipt(requestID: "media_old_history_request", jobID: jobID,
+      state: "succeeded", submissionUncertain: false)).write(to: url)
+    var posts = 0
+    MediaProtocol.handler = { request in
+      if request.httpMethod == "POST" { posts += 1; throw URLError(.badServerResponse) }
+      if request.url!.path.hasSuffix("capabilities") { return try self.json(self.capabilities) }
+      return try self.json(["items": [previous]])
+    }
+    let model = CloudMediaModel(api: api, request: context, storageRoot: root)
+    await model.load()
+    XCTAssertNil(model.error)
+    XCTAssertTrue(model.isPreviewingHistory)
+    XCTAssertNil(model.receipt)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    model.returnToCurrent()
+    XCTAssertTrue(model.canSubmit)
+    let reopened = CloudMediaModel(api: api, request: context, storageRoot: root)
+    await reopened.load()
+    XCTAssertTrue(reopened.canSubmit)
+    XCTAssertNil(reopened.receipt)
+    XCTAssertEqual(posts, 0)
+  }
+
+  func testOldMismatchedReceiptBeyondCappedHistoryIsVerifiedByExactJobRead() async throws {
+    let context = try context(), api = api(), root = storage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    var previous = job(context, status: "succeeded")
+    previous["excerpt"] = "已不在本书最近任务列表中的其他选段"
+    let key = SHA256.hash(data: try JSONEncoder().encode([
+      api.baseURL.absoluteString, "media-test-account", context.id
+    ])).map { String(format: "%02x", $0) }.joined()
+    let receipts = root.appendingPathComponent("receipts", isDirectory: true)
+    try FileManager.default.createDirectory(at: receipts, withIntermediateDirectories: true)
+    let url = receipts.appendingPathComponent(key + ".json")
+    try JSONEncoder().encode(LessonMediaReceipt(requestID: "media_capped_history_request", jobID: jobID,
+      state: "succeeded", submissionUncertain: false)).write(to: url)
+    var exactReads = 0, posts = 0
+    MediaProtocol.handler = { request in
+      if request.httpMethod == "POST" { posts += 1; throw URLError(.badServerResponse) }
+      if request.url!.path.hasSuffix("capabilities") { return try self.json(self.capabilities) }
+      if request.url!.path.hasSuffix("/jobs") { return try self.json(["items": []]) }
+      XCTAssertEqual(request.url!.path, "/api/studio/jobs/\(self.jobID)")
+      exactReads += 1
+      return try self.json(previous)
+    }
+    let model = CloudMediaModel(api: api, request: context, storageRoot: root)
+    await model.load()
+    XCTAssertNil(model.error)
+    XCTAssertEqual(exactReads, 1)
+    XCTAssertTrue(model.isPreviewingHistory)
+    XCTAssertNil(model.receipt)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    model.returnToCurrent()
+    XCTAssertTrue(model.canSubmit)
     XCTAssertEqual(posts, 0)
   }
 

@@ -1140,9 +1140,11 @@ import SwiftUI
     await reloadNotes()
   }
   func deleteNote(_ id: String) async {
-    if cloud != nil {
+    if let cloud {
+      let deleted = notes.first { $0.id == id }
       notes.removeAll { $0.id == id }
       persistCloud()
+      if let deleted { await StudioService(api: cloud).deleteLogicalNote(note: deleted) }
       return
     }
     do {

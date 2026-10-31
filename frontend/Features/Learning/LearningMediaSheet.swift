@@ -22,17 +22,27 @@ struct LearningMediaSheet: View {
         VStack(alignment: .leading, spacing: 20) {
           Label(model.kind == .image ? "生成辅助图" : "看懂这张图", systemImage: "play.circle")
             .font(DS.font(23, weight: .bold)).foregroundStyle(DS.primary)
-          Text(model.context.chapterTitle).font(DS.font(18, weight: .bold))
-          Text(model.context.excerpt).font(DS.font(16)).foregroundStyle(DS.secondary)
+          if model.isPreviewingHistory {
+            HStack {
+              Text("正在查看历史任务").font(DS.font(14)).foregroundStyle(DS.secondary)
+              Spacer()
+              BCButton("返回当前选段", style: .text) { model.returnToCurrent() }
+                .accessibilityIdentifier("lesson.media.returnToCurrent")
+            }
+          }
+          Text(model.isPreviewingHistory ? (model.historyPreview?.chapter_title ?? "历史任务") : model.context.chapterTitle)
+            .font(DS.font(18, weight: .bold))
+          Text(model.isPreviewingHistory ? (model.historyPreview?.excerpt ?? "") : model.context.excerpt)
+            .font(DS.font(16)).foregroundStyle(DS.secondary)
             .lineLimit(8)
           if model.loading || model.submitting {
             ProgressView(model.submitting ? "正在提交生成任务" : "正在连接媒体服务").accessibilityIdentifier("lesson.media.loading")
-          } else if let job = model.job {
+          } else if let job = model.displayedJob {
             result(job)
           }
-          if model.job == nil {
-            if let url = model.videoURL { GeneratedLearningVideo(url: url) }
-            if let data = model.imageData, let image = UIImage(data: data) {
+          if model.displayedJob == nil {
+            if let url = model.displayedVideoURL { GeneratedLearningVideo(url: url) }
+            if let data = model.displayedImageData, let image = UIImage(data: data) {
               Image(uiImage: image).resizable().scaledToFit().accessibilityIdentifier("lesson.media.image")
             }
           }
@@ -42,11 +52,11 @@ struct LearningMediaSheet: View {
             BCButton("核对并刷新原任务", style: .secondary) { perform { await model.refresh() } }
           }
           if let error = model.error {
-            if error != model.job?.error {
+            if error != model.displayedJob?.error {
               Text(error).font(DS.font(16)).foregroundStyle(DS.danger)
                 .accessibilityIdentifier("lesson.media.error")
             }
-            BCButton(model.job == nil ? "重新连接" : "刷新状态", style: .secondary) {
+            BCButton(model.displayedJob == nil ? "重新连接" : "刷新状态", style: .secondary) {
               perform { await model.refresh() }
             }.accessibilityIdentifier("lesson.media.refresh")
           }
@@ -156,10 +166,10 @@ struct LearningMediaSheet: View {
           .font(DS.font(15)).foregroundStyle(DS.secondary)
         BCButton("刷新状态", style: .secondary) { perform { await model.refresh() } }
       }
-      if let data = model.imageData, let image = UIImage(data: data) {
+      if let data = model.displayedImageData, let image = UIImage(data: data) {
         Image(uiImage: image).resizable().scaledToFit().accessibilityIdentifier("lesson.media.image")
       }
-      if let url = model.videoURL { GeneratedLearningVideo(url: url) }
+      if let url = model.displayedVideoURL { GeneratedLearningVideo(url: url) }
       if job.status == "succeeded" {
         if let title = job.result["title"]?.stringValue {
           Text(title).font(DS.font(18, weight: .bold))

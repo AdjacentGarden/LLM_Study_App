@@ -45,7 +45,7 @@ struct StudioJob: Codable, Sendable {
   var chapter_title: String?
 
   var isFinished: Bool {
-    ["succeeded", "needs_confirmation", "failed", "cancelled", "uncertain"].contains(status)
+    ["succeeded", "needs_confirmation", "failed", "cancelled", "rejected", "uncertain"].contains(status)
   }
   var transcript: String { result["transcript"]?.stringValue ?? "" }
   var polished: String { result["polished"]?.stringValue ?? "" }
@@ -53,6 +53,13 @@ struct StudioJob: Codable, Sendable {
 
 /// Uses the same authenticated backend as courses. Originals stay in the local note repository.
 actor StudioService {
+  private static let referenceLock = NSLock()
+  private struct LogicalReference: Codable, Equatable {
+    var accountID: String
+    var scope: String
+    var logicalID: String
+    var bookID: String
+  }
   let api: CloudAPI
   init(api: CloudAPI) { self.api = api }
 
@@ -79,12 +86,96 @@ actor StudioService {
     catch let error as CloudError where error.status == 404 { return nil }
   }
 
-  private func anchorBody(_ note: StudyNote, remoteID: String, revision: Int) throws -> [String: JSONValue] {
+  private func logicalNoteID(_ note: StudyNote, scope: String) -> String {
+    remoteNoteID(localID: note.id, scope: scope)
+  }
+
+  private func knownInputKey(_ note: StudyNote, scope: String) -> String {
+    // Logical identity survives title/anchor edits. Legacy input links remain book-scoped.
+    "native.studio.note.inputs." + digest(logicalNoteID(note, scope: scope) + "|" + (note.anchor?.bookID ?? ""))
+  }
+
+  private func referenceKey(_ note: StudyNote) -> String {
+    "native.studio.note.references." + digest(api.baseURL.absoluteString + "|" + note.id + "|" + (note.anchor?.bookID ?? ""))
+  }
+
+  private func archiveKey(scope: String) -> String {
+    "native.studio.note.archives." + digest(api.baseURL.absoluteString + "|" + scope)
+  }
+
+  private func references(for key: String) -> [LogicalReference] {
+    guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
+    return (try? JSONDecoder().decode([LogicalReference].self, from: data)) ?? []
+  }
+
+  private func storeReferences(_ references: [LogicalReference], for key: String) {
+    UserDefaults.standard.set(try? JSONEncoder().encode(references), forKey: key)
+  }
+
+  private func updateReferences(for key: String, _ update: ([LogicalReference]) -> [LogicalReference]) {
+    Self.referenceLock.withLock { storeReferences(update(references(for: key)), for: key) }
+  }
+
+  private func rememberInput(_ remote: StudioNote, note: StudyNote, scope: String) async {
+    let key = knownInputKey(note, scope: scope)
+    let previous = UserDefaults.standard.stringArray(forKey: key) ?? []
+    UserDefaults.standard.set(Array(([remote.id] + previous.filter { $0 != remote.id }).prefix(200)), forKey: key)
+    guard let accountID = await api.verifiedAccount()?.user_id else { return }
+    let reference = LogicalReference(accountID: accountID, scope: scope,
+      logicalID: logicalNoteID(note, scope: scope), bookID: remote.book_id)
+    let referenceKey = referenceKey(note)
+    updateReferences(for: referenceKey) { [reference] + $0.filter { $0 != reference } }
+  }
+
+  /// Local deletion succeeds independently; failed metadata cleanup remains in its original account's outbox.
+  func deleteLogicalNote(note: StudyNote) async {
+    guard let accountID = await api.verifiedAccount()?.user_id else { return }
+    for reference in references(for: referenceKey(note)) where reference.accountID == accountID {
+      let key = archiveKey(scope: reference.scope)
+      updateReferences(for: key) { [reference] + $0.filter { $0 != reference } }
+    }
+    do {
+      let capability = try await capabilities()
+      try await flushArchives(scope: capability.draft_scope)
+    } catch { /* The next preparation for this account and server retries the metadata request. */ }
+  }
+
+  private func flushArchives(scope: String) async throws {
+    guard let accountID = await api.verifiedAccount()?.user_id else { return }
+    let key = archiveKey(scope: scope)
+    for reference in references(for: key) where reference.scope == scope && reference.accountID == accountID {
+      do {
+        let _: [String: JSONValue] = try await api.request(
+          "/api/studio/note-groups/\(reference.logicalID)/archive", method: "PUT",
+          body: ["book_id": .string(reference.bookID)])
+      } catch let error as CloudError where error.status == 404 {
+        // No owned group remains to consume quota; retrying cannot change that.
+      }
+      updateReferences(for: key) { $0.filter { $0 != reference } }
+    }
+  }
+
+  private func bindExistingInput(_ remote: StudioNote, note: StudyNote, scope: String) async throws -> StudioNote {
+    let known = UserDefaults.standard.stringArray(forKey: knownInputKey(note, scope: scope)) ?? []
+    let bound: StudioNote = try await api.request("/api/studio/notes/\(remote.id)/logical-group", method: "PUT", body: [
+      "logical_note_id": .string(logicalNoteID(note, scope: scope)),
+      "legacy_note_ids": .array(known.filter { $0 != remote.id }.prefix(199).map(JSONValue.string)),
+    ])
+    guard bound.id == remote.id, bound.book_id == remote.book_id, bound.book_id == note.anchor?.bookID,
+      bound.revision == remote.revision else {
+      throw CloudError(status: 409, message: "笔记关联信息已变化，请重新打开；原始笔记仍保留。")
+    }
+    await rememberInput(bound, note: note, scope: scope)
+    return bound
+  }
+
+  private func anchorBody(_ note: StudyNote, remoteID: String, revision: Int, scope: String) throws -> [String: JSONValue] {
     guard let anchor = note.anchor, !anchor.bookID.isEmpty else {
       throw CloudError(status: 409, message: "请先将笔记关联到已上传的教材；原始笔记已保存在本机。")
     }
     return [
       "id": .string(remoteID), "revision": .number(Double(revision)),
+      "logical_note_id": .string(logicalNoteID(note, scope: scope)),
       "book_id": .string(anchor.bookID), "chapter_id": .string(anchor.chapterID ?? ""),
       "chapter_title": .string(String(note.title.prefix(250))),
       "excerpt": .string(String((anchor.quote ?? "").prefix(3000))),
@@ -96,14 +187,19 @@ actor StudioService {
 
   func prepareVoice(note: StudyNote, fileURL: URL) async throws -> StudioNote {
     let capability = try await capabilities()
+    try await flushArchives(scope: capability.draft_scope)
     guard capability.voice_notes else {
       throw CloudError(status: 503, message: "语音转写服务尚未就绪，原始录音已保存在本机，可稍后重试。")
     }
     let id = remoteNoteID(localID: anchoredIdentity(note), scope: capability.draft_scope)
     var remote: StudioNote
-    if let existing = try await existingNote(id: id) { remote = existing }
+    if let existing = try await existingNote(id: id) {
+      remote = try await bindExistingInput(existing, note: note, scope: capability.draft_scope)
+    }
     else {
-      remote = try await api.request("/api/studio/notes", method: "POST", body: anchorBody(note, remoteID: id, revision: 0))
+      remote = try await api.request("/api/studio/notes", method: "POST",
+        body: anchorBody(note, remoteID: id, revision: 0, scope: capability.draft_scope))
+      await rememberInput(remote, note: note, scope: capability.draft_scope)
     }
     let values = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
     guard values.isRegularFile == true, let size = values.fileSize, size >= 32, size <= 20 * 1024 * 1024 else {
@@ -120,6 +216,7 @@ actor StudioService {
 
   func prepareInk(note: StudyNote, drawingData: Data) async throws -> StudioNote {
     let capability = try await capabilities()
+    try await flushArchives(scope: capability.draft_scope)
     guard capability.notes_ai else {
       throw CloudError(status: 503, message: "手写识别与整理服务尚未就绪，原始笔迹已保存在本机，可稍后重试。")
     }
@@ -127,36 +224,45 @@ actor StudioService {
     // The immutable input digest keeps edits independent, and lets a lost response recover safely.
     let inputHash = SHA256.hash(data: drawingData).map { String(format: "%02x", $0) }.joined()
     let id = remoteNoteID(localID: anchoredIdentity(note) + "|" + inputHash, scope: capability.draft_scope)
-    if let existing = try await existingNote(id: id) { return existing }
-    var body = try anchorBody(note, remoteID: id, revision: 0)
+    if let existing = try await existingNote(id: id) {
+      return try await bindExistingInput(existing, note: note, scope: capability.draft_scope)
+    }
+    var body = try anchorBody(note, remoteID: id, revision: 0, scope: capability.draft_scope)
     body["strokes"] = .array(strokes)
-    return try await api.request("/api/studio/notes", method: "POST", body: body)
+    let remote: StudioNote = try await api.request("/api/studio/notes", method: "POST", body: body)
+    await rememberInput(remote, note: note, scope: capability.draft_scope)
+    return remote
   }
 
-  func analyze(note: StudioNote, action: String, transcript: String = "", requestID: String? = nil) async throws -> StudioJob {
+  func analyze(note: StudioNote, action: String, transcript: String = "", requestID: String? = nil,
+    retryFailed: Bool = false) async throws -> StudioJob {
     guard ["recognize", "improve", "voice_note"].contains(action) else {
       throw CloudError(status: 422, message: "不支持的笔记操作")
     }
     guard transcript.count <= 12000 else { throw CloudError(status: 422, message: "笔记文字过长，请分段整理；原稿仍保留。") }
-    let requestID = requestID ?? ("native_" + digest(api.baseURL.absoluteString + "|" + note.id + "|\(note.revision)|" + action + "|" + transcript))
-    guard (8...100).contains(requestID.utf8.count), requestID.utf8.allSatisfy({
+    let originalRequestID = requestID ?? ("native_" + digest(api.baseURL.absoluteString + "|" + note.id + "|\(note.revision)|" + action + "|" + transcript))
+    let latestKey = "native.studio.note.latest." + digest(originalRequestID)
+    var attempt = requestID == nil
+      ? UserDefaults.standard.string(forKey: latestKey) ?? originalRequestID : originalRequestID
+    guard (8...100).contains(attempt.utf8.count), attempt.utf8.allSatisfy({
       (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 || $0 == 95
     }) else { throw CloudError(status: 422, message: "笔记生成请求标识无效。") }
-    let receipt = "native.studio.note." + digest(requestID)
-    if let id = UserDefaults.standard.string(forKey: receipt + ".job") { return try await job(id: id) }
-    if UserDefaults.standard.bool(forKey: receipt + ".submitted") {
-      guard let recovered = try await job(requestID: requestID, bookID: note.book_id) else {
-        throw CloudError(status: 409, message: "上次请求的接收状态尚未确认，原稿已保留；请稍后重新查询，不会重复发起生成。")
+    if let existing = try await storedAnalysis(note: note, action: action, requestID: attempt) {
+      guard requestID == nil, retryFailed, ["failed", "cancelled", "rejected"].contains(existing.status) else {
+        return existing
       }
-      UserDefaults.standard.set(recovered.id, forKey: receipt + ".job")
-      return recovered
+      // Only an explicit retry of a confirmed terminal failure gets a new attempt.
+      // Persist that link first so reopening follows it even if the POST reply is lost.
+      attempt = "native_note_" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+      UserDefaults.standard.set(attempt, forKey: latestKey)
     }
+    let receipt = "native.studio.note." + digest(attempt)
     // Persist intent before the paid command. A lost response only enables lookup, never a new POST.
     UserDefaults.standard.set(true, forKey: receipt + ".submitted")
     do {
       let submitted: StudioJob = try await api.request(
         "/api/studio/notes/\(note.id)/analyze", method: "POST",
-        body: ["request_id": .string(requestID), "revision": .number(Double(note.revision)),
+        body: ["request_id": .string(attempt), "revision": .number(Double(note.revision)),
           "action": .string(action), "transcript": .string(transcript), "consent": .bool(true)])
       UserDefaults.standard.set(submitted.id, forKey: receipt + ".job")
       return submitted
@@ -164,6 +270,25 @@ actor StudioService {
       UserDefaults.standard.removeObject(forKey: receipt + ".submitted")
       throw error
     }
+  }
+
+  private func storedAnalysis(note: StudioNote, action: String, requestID: String) async throws -> StudioJob? {
+    let receipt = "native.studio.note." + digest(requestID)
+    let existing: StudioJob
+    if let id = UserDefaults.standard.string(forKey: receipt + ".job") {
+      existing = try await job(id: id)
+    } else {
+      guard UserDefaults.standard.bool(forKey: receipt + ".submitted") else { return nil }
+      guard let recovered = try await job(requestID: requestID, bookID: note.book_id) else {
+        throw CloudError(status: 409, message: "上次请求的接收状态尚未确认，原稿已保留；请稍后重新查询，不会重复发起生成。")
+      }
+      UserDefaults.standard.set(recovered.id, forKey: receipt + ".job")
+      existing = recovered
+    }
+    guard existing.book_id == note.book_id, existing.kind == action else {
+      throw CloudError(status: 422, message: "返回任务与当前笔记操作不一致，已停止提交。")
+    }
+    return existing
   }
 
   private func voiceRequestKey(_ note: StudioNote) -> String {
@@ -246,14 +371,19 @@ actor StudioService {
     try Task.checkCancellation()
     let text = try speechText(transcript, source: source, language: language)
     let capability = try await capabilities()
+    try await flushArchives(scope: capability.draft_scope)
     guard capability.voice_text_notes == true else {
       throw CloudError(status: 503, message: "文字整理服务尚未就绪，本机录音和识别文字仍保留；不会改为上传录音。")
     }
     let id = speechRemoteID(note, scope: capability.draft_scope)
     var remote: StudioNote
-    if let existing = try await existingNote(id: id) { remote = existing }
+    if let existing = try await existingNote(id: id) {
+      remote = try await bindExistingInput(existing, note: note, scope: capability.draft_scope)
+    }
     else {
-      remote = try await api.request("/api/studio/notes", method: "POST", body: anchorBody(note, remoteID: id, revision: 0))
+      remote = try await api.request("/api/studio/notes", method: "POST",
+        body: anchorBody(note, remoteID: id, revision: 0, scope: capability.draft_scope))
+      await rememberInput(remote, note: note, scope: capability.draft_scope)
     }
     let hash = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     if remote.speech_ready != true || remote.speech_sha256 != hash {
@@ -344,7 +474,7 @@ actor StudioService {
       current = try await job(id: current.id)
       if let onProgress { await onProgress(progressPhase(current)) }
     }
-    if ["failed", "cancelled", "uncertain"].contains(current.status) {
+    if ["failed", "cancelled", "rejected", "uncertain"].contains(current.status) {
       throw CloudError(status: 409, message: current.error ?? "服务未完成处理，原稿仍保留；请稍后查看原任务。")
     }
     return current

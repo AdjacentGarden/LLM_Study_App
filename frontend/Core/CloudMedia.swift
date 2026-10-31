@@ -86,6 +86,10 @@ extension CloudAPI {
   var capabilities: StudioCapabilities?
   var jobs: [StudioJob] = []
   var job: StudioJob?
+  private(set) var historyPreview: StudioJob?
+  private var historyReceipt: LessonMediaReceipt?
+  private var historyImageData: Data?
+  private var historyVideoURL: URL?
   private(set) var receipt: LessonMediaReceipt?
   var loading = false
   var submitting = false
@@ -103,6 +107,11 @@ extension CloudAPI {
   private let receiptRoot: URL
   private let cacheRoot: URL
 
+  var isPreviewingHistory: Bool { historyPreview != nil }
+  var displayedJob: StudioJob? { historyPreview ?? job }
+  var displayedImageData: Data? { isPreviewingHistory ? historyImageData : imageData }
+  var displayedVideoURL: URL? { isPreviewingHistory ? historyVideoURL : videoURL }
+
   init(api: CloudAPI?, request: LessonMediaRequest, storageRoot: URL? = nil) {
     self.api = api
     context = request
@@ -119,7 +128,7 @@ extension CloudAPI {
     jobs.filter { $0.book_id == context.bookID && $0.kind == context.kind }
   }
   var canSubmit: Bool {
-    accountID != nil && !invalidated && !loading && !submitting
+    accountID != nil && !invalidated && !loading && !submitting && !isPreviewingHistory
       && capabilities?.available(kind) == true && context.excerpt.count >= 4
       && (receipt == nil || receipt?.permitsNewGeneration == true)
   }
@@ -161,12 +170,32 @@ extension CloudAPI {
       try await requireIdentity()
       jobs = try await service.mediaJobs(bookID: context.bookID)
       try await requireIdentity()
-      if receipt == nil, let previous = history.first(where: {
-        ($0.excerpt == context.excerpt && $0.chapter_title == context.chapterTitle)
-          || (context.legacyExcerpt != nil && $0.excerpt == context.legacyExcerpt
-            && $0.chapter_title == context.legacyChapterTitle)
-      }) {
-        try selectJob(previous)
+      // Older clients saved a selected history task under the current context.
+      // Recover only a confirmed terminal mismatch; unresolved writes stay bound.
+      if let receipt, !receipt.submissionUncertain,
+        ["succeeded", "failed", "cancelled", "rejected"].contains(receipt.state),
+        let jobID = receipt.jobID {
+        let previous: StudioJob
+        if let listed = history.first(where: { $0.id == jobID }) { previous = listed }
+        else {
+          // Book history is capped. The durable job ID still supports an exact read.
+          previous = try await service.job(id: jobID)
+          try await requireIdentity()
+        }
+        var verified = receipt
+        try verified.accept(previous, bookID: context.bookID, kind: context.kind)
+        if ["succeeded", "failed", "cancelled", "rejected"].contains(previous.status),
+          let excerpt = previous.excerpt, !excerpt.isEmpty, previous.chapter_title != nil,
+          !matchesCurrentContext(previous) {
+          if let receiptURL { try FileManager.default.removeItem(at: receiptURL) }
+          self.receipt = nil
+          cacheURL = nil
+          clearAsset()
+          try previewHistory(previous)
+        }
+      }
+      if receipt == nil, let previous = history.first(where: { matchesCurrentContext($0) }) {
+        try restoreContextJob(previous)
       }
       refreshID += 1
       if receipt == nil, capabilities?.available(kind) != true {
@@ -175,8 +204,21 @@ extension CloudAPI {
     } catch is CancellationError { } catch { await handleFailure(error) }
   }
 
+  private func matchesCurrentContext(_ value: StudioJob) -> Bool {
+    func matches(_ excerpt: String, _ title: String) -> Bool {
+      (value.excerpt == excerpt && value.chapter_title == title)
+        || (value.excerpt == String(excerpt.prefix(3000)).trimmingCharacters(in: .whitespacesAndNewlines)
+          && value.chapter_title == String(title.prefix(250)).trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    if matches(context.excerpt, context.chapterTitle) { return true }
+    if let excerpt = context.legacyExcerpt, let title = context.legacyChapterTitle {
+      return matches(excerpt, title)
+    }
+    return false
+  }
+
   func select(_ value: StudioJob) {
-    guard !loading, !submitting, !invalidated else { return }
+    guard !loading, !submitting, !invalidated, accountID != nil else { return }
     // An unresolved POST remains bound to its original request, even when browsing history.
     guard receipt?.submissionUncertain != true,
       !(["queued", "planning", "submitting", "polling", "reviewing", "uncertain"].contains(receipt?.state ?? "")
@@ -184,10 +226,37 @@ extension CloudAPI {
       error = "当前任务尚未完成，请先刷新核对原任务。"
       return
     }
-    do { try selectJob(value) } catch { self.error = error.localizedDescription }
+    if value.id == receipt?.jobID { returnToCurrent(); return }
+    do { try previewHistory(value) } catch { self.error = error.localizedDescription }
   }
 
-  private func selectJob(_ value: StudioJob) throws {
+  func returnToCurrent() {
+    historyPreview = nil
+    historyReceipt = nil
+    historyImageData = nil
+    historyVideoURL = nil
+    error = nil
+    refreshID += 1
+  }
+
+  private func previewHistory(_ value: StudioJob) throws {
+    var next = LessonMediaReceipt(requestID: "history_" + value.id,
+      state: "queued", submissionUncertain: false)
+    try next.accept(value, bookID: context.bookID, kind: context.kind)
+    historyPreview = value
+    historyReceipt = next
+    historyImageData = nil
+    historyVideoURL = nil
+    if value.status == "succeeded", let url = historyCacheURL(value),
+      FileManager.default.fileExists(atPath: url.path) {
+      let bytes = try Data(contentsOf: url, options: .mappedIfSafe)
+      if kind == .image { historyImageData = bytes } else { historyVideoURL = url }
+    }
+    error = nil
+    refreshID += 1
+  }
+
+  private func restoreContextJob(_ value: StudioJob) throws {
     var next = LessonMediaReceipt(requestID: "media_" + UUID().uuidString.replacingOccurrences(of: "-", with: ""),
       state: "queued", submissionUncertain: false)
     try next.accept(value, bookID: context.bookID, kind: context.kind)
@@ -241,6 +310,10 @@ extension CloudAPI {
   }
 
   func follow(pollInterval: Duration = .seconds(2)) async {
+    if isPreviewingHistory {
+      await followHistory(pollInterval: pollInterval)
+      return
+    }
     guard let api, receipt != nil, !loading, !submitting, !invalidated else { return }
     let generation = refreshID
     do {
@@ -275,6 +348,51 @@ extension CloudAPI {
       }
       error = "任务仍在服务器处理中，可以关闭页面，稍后刷新原任务。"
     } catch is CancellationError { } catch { await handleFailure(error) }
+  }
+
+  private func followHistory(pollInterval: Duration) async {
+    guard let api, let selected = historyPreview, !loading, !submitting, !invalidated else { return }
+    let generation = refreshID
+    do {
+      let service = StudioService(api: api)
+      for _ in 0..<300 {
+        try await requireIdentity()
+        guard generation == refreshID else { return }
+        let latest = try await service.job(id: selected.id)
+        try await requireIdentity()
+        guard generation == refreshID, var next = historyReceipt else { return }
+        try next.accept(latest, bookID: context.bookID, kind: context.kind)
+        historyReceipt = next
+        historyPreview = latest
+        if latest.status == "succeeded" {
+          guard historyImageData == nil, historyVideoURL == nil, let url = historyCacheURL(latest) else { return }
+          downloading = true
+          defer { downloading = false }
+          let bytes = try await api.downloadMedia(latest)
+          try await requireIdentity()
+          if kind == .image, UIImage(data: bytes) == nil {
+            throw ContentError.invalid("服务器返回的图片无法读取，请刷新原任务后重试下载。")
+          }
+          guard generation == refreshID else { return }
+          try bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+          if kind == .image { historyImageData = bytes } else { historyVideoURL = url }
+          return
+        }
+        if !latest.isRunning {
+          error = latest.error.flatMap { $0.isEmpty ? nil : $0 } ?? "服务器未能确认生成完成，请核对原任务。"
+          return
+        }
+        try await Task.sleep(for: pollInterval)
+      }
+      error = "任务仍在服务器处理中，可以关闭页面，稍后刷新原任务。"
+    } catch is CancellationError { } catch { await handleFailure(error) }
+  }
+
+  private func historyCacheURL(_ value: StudioJob) -> URL? {
+    guard let api, let accountID,
+      let data = try? JSONEncoder().encode([api.baseURL.absoluteString, accountID, value.id]) else { return nil }
+    let key = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    return cacheRoot.appendingPathComponent("history-" + key + (kind == .image ? ".jpg" : ".mp4"))
   }
 
   func refresh() async {
@@ -328,6 +446,8 @@ extension CloudAPI {
     capabilities = nil
     jobs = []
     job = nil
+    historyPreview = nil
+    historyReceipt = nil
     clearAsset()
     error = "服务或账号已变化，请关闭此页面后重新打开。"
   }
@@ -349,5 +469,7 @@ extension CloudAPI {
   func clearAsset() {
     imageData = nil
     videoURL = nil
+    historyImageData = nil
+    historyVideoURL = nil
   }
 }

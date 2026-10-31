@@ -3,6 +3,22 @@ import XCTest
 
 @testable import BookCourse
 
+private func routingRequestBody(_ request: URLRequest) throws -> [String: JSONValue] {
+  var data = request.httpBody ?? Data()
+  if request.httpBody == nil, let stream = request.httpBodyStream {
+    stream.open()
+    defer { stream.close() }
+    var buffer = [UInt8](repeating: 0, count: 4096)
+    while true {
+      let count = stream.read(&buffer, maxLength: buffer.count)
+      guard count >= 0 else { throw URLError(.cannotDecodeRawData) }
+      if count == 0 { break }
+      data.append(contentsOf: buffer.prefix(count))
+    }
+  }
+  return try JSONDecoder().decode([String: JSONValue].self, from: data)
+}
+
 /// Explicit test injection; no NWPathMonitor, mobile-data prompt, or real clock.
 @MainActor func stableWiFiProcessingPolicyForTesting() -> ProcessingNetworkPolicy {
   let policy = ProcessingNetworkPolicy(monitoring: false, automaticallySchedules: false,
@@ -436,6 +452,69 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(answer.citations.first?.bookID, source.id)
     XCTAssertEqual(fixture.probe.requests.count, 1)
     XCTAssertNil(fixture.policy.prompt)
+    await fixture.api.clearCredentials()
+  }
+
+  func testPendingLocalImportCannotContaminateAnOnlineCourseQAScope() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let primary = "server-book", second = "server-second", local = "book_local_pending"
+    let workspace = "workspace-qa"
+    let original = Data("retained local original".utf8)
+    let path = try await fixture.repository.saveAttachment(original, extension: "pdf")
+    fixture.store.filePaths[local] = path
+    fixture.store.selectedCourseID = workspace
+    fixture.store.selectedBookID = primary
+    fixture.store.courses = [Course(id: workspace, name: "在线课程",
+      resourceIDs: [primary, local, second], activeResourceID: primary)]
+    fixture.store.cloudState.workspaces = [CloudWorkspace(id: workspace, name: "在线课程",
+      preferences: [:], created: 0, updated: 0, resources: [primary, second].map {
+        CloudResource(id: "resource-" + $0, book_id: $0, workspace_id: workspace,
+          revision: 0, filename: "教材.pdf", status: "structured", structure: nil,
+          courses: [], progress: CloudProgress())
+      })]
+    fixture.probe.respond { request in
+      XCTAssertEqual(request.url?.path, "/api/workspaces/\(workspace)/resources/resource-\(primary)/qa")
+      let body = try routingRequestBody(request)
+      XCTAssertEqual(body["book_ids"], .array([.string(primary), .string(second)]))
+      return (200, try JSONEncoder().encode(CloudQA(book_id: primary, status: "general",
+        answer: "回答可用", claims: [], confidence: 0)))
+    }
+    let answer = try await fixture.store.answerAssistant(question: "请解释", bookID: primary,
+      bookIDs: [primary, local, "foreign-book", second, second], chapterID: nil,
+      sources: [], history: [])
+    XCTAssertEqual(answer.answer, "回答可用")
+    XCTAssertEqual(fixture.probe.requests.count, 1)
+    XCTAssertEqual(fixture.store.currentCourse?.resourceIDs, [primary, local, second])
+    XCTAssertEqual(fixture.store.filePaths[local], path)
+    XCTAssertEqual(try Data(contentsOf: fixture.repository.attachmentURL(path)), original)
+    await fixture.api.clearCredentials()
+  }
+
+  func testLongReaderHintsUseTheirOwnBoundedFieldsWithoutChangingTheQuestion() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let question = String(repeating: "问", count: 1999)
+    let reading = CloudReadingContext(pdfPage: 3,
+      pageText: String(repeating: "👨‍👩‍👧‍👦", count: 1200), noteText: String(repeating: "注", count: 4001))
+    fixture.probe.respond { request in
+      let body = try routingRequestBody(request)
+      XCTAssertEqual(body["question"], .string(question))
+      guard case .object(let context)? = body["reading_context"] else {
+        XCTFail("Reading hints must not be concatenated into question"); throw URLError(.badServerResponse)
+      }
+      XCTAssertEqual(context["pdf_page"], .number(3))
+      XCTAssertEqual(context["note_text"]?.stringValue?.unicodeScalars.count, 4000)
+      XCTAssertEqual(context["page_text"]?.stringValue?.unicodeScalars.count, 1200)
+      XCTAssertEqual(context["note_truncated"], .bool(true))
+      return (200, try JSONEncoder().encode(CloudQA(book_id: "library-book", status: "general",
+        answer: "独立上下文已收到", claims: [], confidence: 0)))
+    }
+    let result = try await fixture.store.answerAssistant(question: question,
+      bookID: "library-book", bookIDs: ["library-book"], chapterID: nil,
+      sources: [], history: [], readingContext: reading)
+    XCTAssertEqual(result.answer, "独立上下文已收到")
+    XCTAssertEqual(fixture.probe.requests.count, 1)
     await fixture.api.clearCredentials()
   }
 }

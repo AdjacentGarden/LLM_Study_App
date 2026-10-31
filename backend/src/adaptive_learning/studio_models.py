@@ -53,6 +53,7 @@ class Stroke(Strict):
 
 class NoteInput(Anchor):
     id: str = Field(min_length=8, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
+    logical_note_id: str | None = Field(default=None, min_length=8, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
     revision: int = Field(ge=0)
     title: str = Field(min_length=1, max_length=120)
     input_mode: Literal["ink", "voice"] = "ink"
@@ -71,6 +72,25 @@ class NoteInput(Anchor):
         if sum(len(s.points) for s in self.strokes) > 60000:
             raise ValueError("note is full; create another page")
         return self
+
+
+class NoteLogicalGroup(Strict):
+    logical_note_id: str = Field(min_length=8, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
+    legacy_note_ids: list[str] = Field(default_factory=list, max_length=200)
+
+    @model_validator(mode="after")
+    def unique_inputs(self) -> NoteLogicalGroup:
+        if len(set(self.legacy_note_ids)) != len(self.legacy_note_ids) or any(
+            not 8 <= len(key) <= 100
+            or not all(char.isascii() and (char.isalnum() or char in "_-") for char in key)
+            for key in self.legacy_note_ids
+        ):
+            raise ValueError("invalid or duplicate note input id")
+        return self
+
+
+class NoteGroupArchive(Strict):
+    book_id: str = Field(min_length=1, max_length=100)
 
 
 class NoteAction(Strict):

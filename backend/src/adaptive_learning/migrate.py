@@ -21,7 +21,7 @@ from psycopg import sql
 from .database import WRITE_LOCK, database_url
 
 MIGRATIONS = Path(__file__).with_name("migrations")
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 TABLES = {
     "community.sqlite3": (
         "visitors", "user_profiles", "assets", "library_books", "removed_books", "resources",
@@ -29,6 +29,7 @@ TABLES = {
         "email_codes", "email_rate", "social_users", "friendships", "social_blocks", "chat_messages",
         "chat_reads", "social_rate", "studio_notes", "studio_jobs", "studio_note_editions", "reading_doubts",
         "studio_note_request_aliases",
+        "studio_note_logical_inputs",
     ),
     "native.sqlite3": (
         "native_workspaces", "native_resources", "native_session_context", "native_progress",
@@ -68,7 +69,7 @@ def upgrade(connection: Any) -> None:
     versions = [r[0] for r in connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
     if any(v > SCHEMA_VERSION for v in versions):
         raise RuntimeError("Target schema is newer than this tool")
-    for version, filename in ((1, "001_initial.sql"), (2, "002_content_digest.sql"), (3, "003_studio_note_editions.sql"), (4, "004_chat_cursor_bigint.sql"), (5, "005_worker_presence.sql"), (6, "006_course_preparation_note_aliases.sql"), (7, "007_diagnostic_chapter_cache.sql"), (8, "008_diagnostic_item_repairs.sql"), (9, "009_teaching_course_repairs.sql"), (10, "010_isolated_teaching_units.sql")):
+    for version, filename in ((1, "001_initial.sql"), (2, "002_content_digest.sql"), (3, "003_studio_note_editions.sql"), (4, "004_chat_cursor_bigint.sql"), (5, "005_worker_presence.sql"), (6, "006_course_preparation_note_aliases.sql"), (7, "007_diagnostic_chapter_cache.sql"), (8, "008_diagnostic_item_repairs.sql"), (9, "009_teaching_course_repairs.sql"), (10, "010_isolated_teaching_units.sql"), (11, "011_studio_logical_notes.sql")):
         if version not in versions:
             connection.execute((MIGRATIONS / filename).read_text())
             connection.execute("INSERT INTO schema_migrations(version) VALUES (%s)", (version,))

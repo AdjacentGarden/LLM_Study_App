@@ -36,7 +36,7 @@ from pydantic import ValidationError
 from . import studio_note_coverage
 from .community import CommunityRepository
 from .config import get_settings
-from .database import DATABASE_ERRORS
+from .database import DATABASE_ERRORS, Connection
 from .llm.client import (
     LLMConfig,
     LLMError,
@@ -45,7 +45,17 @@ from .llm.client import (
     model_time_budget,
 )
 from .studio_diagram import render_diagram
-from .studio_models import Improvement, MediaReview, NoteInput, Recognition, Review, SpeechTextInput, TeachingPlan, VoiceNoteDraft
+from .studio_models import (
+    Improvement,
+    MediaReview,
+    NoteInput,
+    NoteLogicalGroup,
+    Recognition,
+    Review,
+    SpeechTextInput,
+    TeachingPlan,
+    VoiceNoteDraft,
+)
 from .voice_worker import VoiceWorker
 
 ACTIVE = ("queued", "planning", "submitting", "polling", "reviewing")
@@ -571,6 +581,13 @@ class Studio:
                     revision INTEGER NOT NULL, data TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS studio_notes_owner ON studio_notes(owner,book_id);
+                CREATE TABLE IF NOT EXISTS studio_note_logical_inputs (
+                    note_id TEXT PRIMARY KEY REFERENCES studio_notes(id),
+                    owner TEXT NOT NULL, book_id TEXT NOT NULL,
+                    logical_note_id TEXT NOT NULL, created REAL NOT NULL,
+                    archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1))
+                );
+                CREATE INDEX IF NOT EXISTS studio_note_logical_owner ON studio_note_logical_inputs(owner,book_id,logical_note_id);
                 CREATE TABLE IF NOT EXISTS studio_jobs (
                     id TEXT PRIMARY KEY, owner TEXT NOT NULL, book_id TEXT NOT NULL,
                     request_id TEXT NOT NULL, fingerprint TEXT NOT NULL, kind TEXT NOT NULL,
@@ -663,7 +680,9 @@ class Studio:
             old = db.execute("SELECT * FROM studio_notes WHERE id=?", (data.id,)).fetchone()
             if old and (old["owner"] != owner or old["book_id"] != data.book_id):
                 raise HTTPException(404, "笔记不存在")
-            serialized = data.model_dump()
+            # Grouping is mutable ownership metadata, never part of a model's
+            # immutable input/revision or its lost-response idempotency check.
+            serialized = data.model_dump(exclude={"logical_note_id"})
             if old:
                 existing_audio = json.loads(old["data"])
                 if existing_audio.get("input_mode", "ink") != data.input_mode:
@@ -699,17 +718,26 @@ class Studio:
                 existing = json.loads(old["data"])
                 existing["revision"] = data.revision
                 if existing == serialized:
+                    if data.logical_note_id is not None:
+                        self._bind_note_inputs(db, owner, data.book_id, data.logical_note_id, [data.id])
                     return self.public_note(old)  # retry after lost save response
             if (old["revision"] if old else 0) != data.revision:
                 raise HTTPException(409, "笔记已有新版本，请重新打开后再编辑；当前草稿仍保留")
-            if (
-                not old
-                and db.execute(
-                    "SELECT COUNT(*) FROM studio_notes WHERE owner=?", (owner,)
-                ).fetchone()[0]
-                >= 200
-            ):
-                raise HTTPException(409, "笔记已达 200 页，请先整理")
+            if not old:
+                if db.execute("SELECT COUNT(*) FROM studio_notes WHERE owner=?", (owner,)).fetchone()[0] >= 2000:
+                    raise HTTPException(409, "笔记历史输入已达 2000 份，已保存的笔记和任务仍可使用")
+                group_exists = data.logical_note_id is not None and db.execute(
+                    "SELECT 1 FROM studio_note_logical_inputs WHERE owner=? AND book_id=? AND logical_note_id=? AND archived=0 LIMIT 1",
+                    (owner, data.book_id, data.logical_note_id),
+                ).fetchone() is not None
+                if data.logical_note_id is not None:
+                    if not group_exists and self._logical_note_count(db, owner) >= 200:
+                        raise HTTPException(409, "笔记已达 200 页，同页笔记仍可继续编辑")
+                elif db.execute(
+                    "SELECT COUNT(*) FROM studio_notes n LEFT JOIN studio_note_logical_inputs g ON g.note_id=n.id "
+                    "WHERE n.owner=? AND g.note_id IS NULL", (owner,),
+                ).fetchone()[0] >= 200:
+                    raise HTTPException(409, "旧版笔记输入已达 200 份，请更新客户端后继续编辑")
             serialized["revision"] += 1
             db.execute(
                 "INSERT INTO studio_notes VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,data=excluded.data,updated=excluded.updated",
@@ -723,9 +751,70 @@ class Studio:
                     now,
                 ),
             )
+            if data.logical_note_id is not None:
+                self._bind_note_inputs(db, owner, data.book_id, data.logical_note_id, [data.id])
             return self.public_note(
                 db.execute("SELECT * FROM studio_notes WHERE id=?", (data.id,)).fetchone()
             )
+
+    @staticmethod
+    def _logical_note_count(db: Connection, owner: str) -> int:
+        return int(db.execute(
+            "SELECT COUNT(*) FROM (SELECT DISTINCT book_id,logical_note_id "
+            "FROM studio_note_logical_inputs WHERE owner=? AND archived=0) AS logical_notes", (owner,),
+        ).fetchone()[0])
+
+    @staticmethod
+    def _bind_note_inputs(db: Connection, owner: str, book_id: str, logical_note_id: str, keys: list[str]) -> None:
+        # Validate the entire declaration before writing. Existing associations
+        # cannot be moved, including by another actor or to another book.
+        for key in keys:
+            row = db.execute("SELECT owner,book_id FROM studio_notes WHERE id=?", (key,)).fetchone()
+            if row is None or row["owner"] != owner or row["book_id"] != book_id:
+                raise HTTPException(404, "笔记不存在")
+            group = db.execute("SELECT logical_note_id FROM studio_note_logical_inputs WHERE note_id=?", (key,)).fetchone()
+            if group is not None and group["logical_note_id"] != logical_note_id:
+                raise HTTPException(409, "该历史输入已关联其他笔记，不能重新分组")
+        if db.execute(
+            "SELECT 1 FROM studio_note_logical_inputs WHERE owner=? AND book_id=? AND logical_note_id=? AND archived=0 LIMIT 1",
+            (owner, book_id, logical_note_id),
+        ).fetchone() is None and Studio._logical_note_count(db, owner) >= 200:
+            raise HTTPException(409, "笔记已达 200 页，同页笔记仍可继续编辑")
+        for key in keys:
+            db.execute(
+                "INSERT INTO studio_note_logical_inputs(note_id,owner,book_id,logical_note_id,created) VALUES(?,?,?,?,?) ON CONFLICT(note_id) DO NOTHING",
+                (key, owner, book_id, logical_note_id, time.time()),
+            )
+        db.execute(
+            "UPDATE studio_note_logical_inputs SET archived=0 WHERE owner=? AND book_id=? AND logical_note_id=?",
+            (owner, book_id, logical_note_id),
+        )
+
+    def bind_note_group(self, owner: str, key: str, data: NoteLogicalGroup) -> dict[str, Any]:
+        with self.repo.connect() as db:
+            db.begin_write()
+            row = db.execute("SELECT * FROM studio_notes WHERE id=? AND owner=?", (key, owner)).fetchone()
+            if row is None:
+                raise HTTPException(404, "笔记不存在")
+            keys = list(dict.fromkeys([key, *data.legacy_note_ids]))
+            self._bind_note_inputs(db, owner, row["book_id"], data.logical_note_id, keys)
+        return {**self.public_note(row), "logical_note_id": data.logical_note_id, "linked_inputs": len(keys)}
+
+    def archive_note_group(self, owner: str, book_id: str, logical_note_id: str) -> dict[str, Any]:
+        with self.repo.connect() as db:
+            db.begin_write()
+            if db.execute(
+                "SELECT 1 FROM studio_note_logical_inputs WHERE owner=? AND book_id=? AND logical_note_id=? LIMIT 1",
+                (owner, book_id, logical_note_id),
+            ).fetchone() is None:
+                raise HTTPException(404, "笔记不存在")
+            # Only quota metadata changes. Jobs can still read every referenced
+            # immutable input, including an active or uncertain request's input.
+            db.execute(
+                "UPDATE studio_note_logical_inputs SET archived=1 WHERE owner=? AND book_id=? AND logical_note_id=?",
+                (owner, book_id, logical_note_id),
+            )
+        return {"logical_note_id": logical_note_id, "book_id": book_id, "archived": True}
 
     @staticmethod
     def _audio_signature_valid(data: bytes, mime: str) -> bool:

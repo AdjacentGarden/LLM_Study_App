@@ -100,6 +100,11 @@ private final class SpeechTextFixture: @unchecked Sendable {
       exists = true
       return try json(remote(try XCTUnwrap(body(request)["id"] as? String)))
     }
+    if path.hasSuffix("/logical-group") {
+      XCTAssertEqual(request.httpMethod, "PUT")
+      XCTAssertNotNil(try body(request)["logical_note_id"] as? String)
+      return try json(remote(request.url!.deletingLastPathComponent().lastPathComponent))
+    }
     if path.hasPrefix("/api/studio/notes/") {
       return exists ? try json(remote(request.url!.lastPathComponent))
         : try json(["detail": "不存在"], status: 404)
@@ -137,7 +142,9 @@ private final class SpeechTextFixture: @unchecked Sendable {
     _ = try await service.generateVoiceFromTranscript(note: fixture.note, transcript: fixture.text)
     let before = fixture.requests.count
     _ = try await service.generateVoiceFromTranscript(note: fixture.note, transcript: fixture.text)
-    XCTAssertTrue(fixture.requests.dropFirst(before).allSatisfy { $0.httpMethod == "GET" })
+    XCTAssertTrue(fixture.requests.dropFirst(before).allSatisfy {
+      $0.httpMethod == "GET" || ($0.httpMethod == "PUT" && $0.url!.path.hasSuffix("/logical-group"))
+    })
     XCTAssertEqual(fixture.textPuts, 1)
     XCTAssertEqual(fixture.analysisPosts, 1)
   }

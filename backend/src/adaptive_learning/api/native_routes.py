@@ -477,6 +477,7 @@ def native_router(services: Any) -> APIRouter:
             question = scoped.model_copy(update={
                 "resource_id": selected["id"], "book_ids": [],
                 "chapter_id": body.chapter_id if book_id == row["book_id"] else None,
+                "reading_context": body.reading_context if book_id == row["book_id"] else None,
             })
             result = services.answer_book_question(
                 book_id, question, require_qa_service(book_id), request
