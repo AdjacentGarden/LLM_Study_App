@@ -211,9 +211,9 @@ struct StudyDirectoryView: View {
           } label: {
             Label("创建课程", systemImage: "plus")
               .font(DS.font(.cardTitle)).foregroundStyle(.white)
-              .padding(.horizontal, 12).padding(.vertical, 10).background(DS.primary, in: Capsule())
-              .shadow(color: DS.text.opacity(0.08), radius: 3, y: 2)
-          }.buttonStyle(.plain).transition(.opacity).accessibilityIdentifier("study.course.create")
+              .padding(.horizontal, 12).padding(.vertical, 10).frame(minHeight: 44)
+          }.buttonStyle(StudyToolEntryStyle()).transition(.opacity)
+            .accessibilityIdentifier("study.course.create")
         }
       }
       if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
@@ -327,7 +327,7 @@ struct StudyDirectoryView: View {
   }
 
   private func tools(for chapter: Chapter) -> some View {
-    VStack(alignment: .leading, spacing: 13) {
+    VStack(alignment: .leading, spacing: 14) {
       HStack {
         Text("选择下一步").font(DS.font(.cardTitle))
         Spacer()
@@ -339,15 +339,21 @@ struct StudyDirectoryView: View {
             Image(systemName: "chevron.right")
           }
           .font(DS.font(.cardTitle)).foregroundStyle(.white).padding(.horizontal, 13)
-          .padding(.vertical, 11).background(DS.primary, in: Capsule())
-        }.buttonStyle(.plain)
+          .padding(.vertical, 10).frame(minHeight: 44)
+        }.buttonStyle(StudyToolEntryStyle())
+          .accessibilityIdentifier("study.section." + chapter.id + ".lesson")
       }
-      LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+      .padding(.horizontal, 12).padding(.vertical, 9)
+      .background {
+        StudyToolGlassSurface(tint: .violet, cornerRadius: 20, depth: 3, shadowOpacity: 0.06)
+      }
+      .padding(.top, 4).padding(.trailing, 3)
+      LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 14) {
         ForEach(learningPreferredTools(store.currentCourse?.diagnosis ?? [:])) { route in
           switch route {
           case .assignment:
             tool(
-              "作业诊断", helper: "提交解题过程，定位理解卡点", icon: "ClipboardCheck", tone: "pink", route: route,
+              "作业诊断", helper: "提交解题过程，定位理解卡点", icon: "ClipboardCheck", tone: "mint", route: route,
               chapter: chapter)
           case .flashcards:
             tool(
@@ -355,16 +361,18 @@ struct StudyDirectoryView: View {
               chapter: chapter)
           case .mistakes:
             tool(
-              "错题集", helper: "重做卡点题，追踪是否真正掌握", icon: "BookX", tone: "peach", route: route,
+              "错题集", helper: "重做卡点题，追踪是否真正掌握", icon: "BookX", tone: "pink", route: route,
               chapter: chapter)
           default:
             tool(
-              "学习笔记", helper: "查看文字、手写和语音记录", icon: "NotebookPen", tone: "mint", route: route,
+              "学习笔记", helper: "查看文字、手写和语音记录", icon: "NotebookPen", tone: "violet", route: route,
               chapter: chapter)
           }
         }
       }
-    }.padding(14).background(Color(hex: 0xf3f6fb), in: RoundedRectangle(cornerRadius: 18))
+    }.padding(10).background(Color(hex: 0xf5f5f5), in: RoundedRectangle(cornerRadius: 24))
+      .accessibilityElement(children: .contain)
+      .accessibilityIdentifier("study.section." + chapter.id + ".tools")
   }
 
   private func tool(
@@ -375,7 +383,7 @@ struct StudyDirectoryView: View {
     } label: {
       VStack(spacing: 0) {
         toolPreview(route, chapter: chapter)
-          .aspectRatio(store.isPad ? 1.95 : 1.5, contentMode: .fit)
+          .aspectRatio(130.0 / 117.0, contentMode: .fit)
           .clipped()
         HStack(spacing: store.isPad ? 9 : 4) {
           StickerIcon(
@@ -389,14 +397,13 @@ struct StudyDirectoryView: View {
           Image(systemName: "chevron.right").font(.system(size: store.isPad ? 12 : 8))
             .foregroundStyle(route == .assignment ? Color(hex: 0x1e765d) : DS.primary)
         }.padding(store.isPad ? 12 : 6).frame(
-          maxWidth: .infinity, minHeight: store.isPad ? 94 : 84, alignment: .leading
+          maxWidth: .infinity, minHeight: store.isPad ? 94 : 66, alignment: .leading
         )
-        .background(DS.surface)
+        .background { Rectangle().fill(Color.white) }
       }
-      .background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
-      .clipShape(RoundedRectangle(cornerRadius: 16))
-      .shadow(color: DS.text.opacity(0.12), radius: 5, y: 4)
-    }.buttonStyle(.plain).accessibilityIdentifier("study.section." + chapter.id + "." + route.rawValue)
+      .foregroundStyle(DS.text)
+    }.buttonStyle(StudyToolCardStyle(tint: StudyToolTint(route: route)))
+      .accessibilityIdentifier("study.section." + chapter.id + "." + route.rawValue)
   }
 
   private func toolPreview(_ route: Route, chapter: Chapter) -> some View {
@@ -404,11 +411,7 @@ struct StudyDirectoryView: View {
       let small = geometry.size.width < 200
       let previewStyle: DS.Typography = small ? .caption : .supporting
       ZStack {
-        (route == .flashcards
-          ? Color(hex: 0xdce5ff)
-          : route == .assignment
-            ? Color(hex: 0xd9f6ec)
-            : route == .mistakes ? Color(hex: 0xf2e9ff) : Color(hex: 0xece1ff))
+        Color.clear
         switch route {
         case .flashcards:
           Text(
@@ -416,14 +419,11 @@ struct StudyDirectoryView: View {
               of: "^第\\s*\\d+\\s*[章节]\\s*", with: "", options: .regularExpression)
           )
           .font(DS.font(previewStyle, weight: .semibold)).multilineTextAlignment(.center).lineLimit(2)
-          .padding(small ? 10 : 22).frame(width: geometry.size.width * 0.78).frame(
-            minHeight: geometry.size.height * 0.46
+          .padding(small ? 5 : 12).frame(width: geometry.size.width * (82.0 / 130.0)).frame(
+            minHeight: geometry.size.height * (30.0 / 117.0)
           )
-          .background(
-            RoundedRectangle(cornerRadius: 10).fill(DS.surface).shadow(
-              color: Color(hex: 0xaabcf0).opacity(0.6), radius: 0, x: 5, y: 6)
-          )
-          .rotationEffect(.degrees(-5)).offset(y: geometry.size.height * 0.18)
+          .background { StudyToolPreviewSurface() }
+          .rotationEffect(.degrees(-16.88)).offset(y: geometry.size.height * 0.058)
         case .assignment:
           VStack(alignment: .leading, spacing: small ? 4 : 8) {
             Text("知识检测").font(DS.font(previewStyle, weight: .semibold)).foregroundStyle(DS.secondary)
@@ -432,8 +432,8 @@ struct StudyDirectoryView: View {
               .padding(small ? 4 : 7).frame(maxWidth: .infinity, alignment: .leading).background(
                 Color(hex: 0xeafaf4), in: RoundedRectangle(cornerRadius: 6))
           }.padding(small ? 7 : 11).frame(width: geometry.size.width * 0.88)
-            .background(DS.surface, in: RoundedRectangle(cornerRadius: 10)).offset(
-              y: geometry.size.height * 0.12)
+            .background { StudyToolPreviewSurface() }.offset(
+              y: geometry.size.height * 0.058)
         case .mistakes:
           VStack(alignment: .leading, spacing: small ? 5 : 9) {
             HStack {
@@ -452,8 +452,8 @@ struct StudyDirectoryView: View {
                 Color(hex: 0xf8f3ff), in: RoundedRectangle(cornerRadius: 5))
             }
           }.padding(small ? 7 : 11).frame(width: geometry.size.width * 0.9).background(
-            DS.surface, in: RoundedRectangle(cornerRadius: 10)
-          ).offset(y: small ? 6 : 18)
+            StudyToolPreviewSurface()
+          ).offset(y: geometry.size.height * 0.058)
         default:
           VStack(alignment: .leading, spacing: small ? 5 : 8) {
             ForEach(0..<3) { i in
@@ -463,8 +463,8 @@ struct StudyDirectoryView: View {
             }
             Text("原始记录 · 整理版").font(DS.font(previewStyle, weight: .semibold)).foregroundStyle(DS.secondary)
           }.padding(small ? 9 : 15).frame(width: geometry.size.width * 0.8).background(
-            DS.surface, in: RoundedRectangle(cornerRadius: 10)
-          ).offset(y: geometry.size.height * 0.15)
+            StudyToolPreviewSurface()
+          ).offset(y: geometry.size.height * 0.058)
         }
       }
     }

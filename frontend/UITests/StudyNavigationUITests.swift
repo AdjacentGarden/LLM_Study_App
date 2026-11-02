@@ -78,6 +78,40 @@ final class StudyNavigationUITests: XCTestCase {
     XCTAssertTrue(tool.waitForExistence(timeout: 10))
   }
 
+  func testChapterGlassToolsKeepAllFiveDestinations() {
+    let entries = [
+      ("flashcards", "知识点闪卡"), ("assignment", "作业练习"),
+      ("mistakes", "错题集"), ("notes", "学习笔记"), ("lesson", ""),
+    ]
+    for (index, entry) in entries.enumerated() {
+      let app = launch("study", chapter: "c2s1")
+      let button = app.buttons["study.section.c2s1." + entry.0]
+      XCTAssertTrue(button.waitForExistence(timeout: 20))
+      if index == 0 {
+        let tools = app.descendants(matching: .any)["study.section.c2s1.tools"].firstMatch
+        let plan = app.descendants(matching: .any)["study.plan.card"].firstMatch
+        let scroll = app.scrollViews["study.scroll"]
+        // Align the local tool panel below the pinned progress before capturing.
+        let delta = tools.frame.minY - plan.frame.maxY - 12
+        if delta > 15 {
+          let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7))
+          start.press(forDuration: 0.05,
+            thenDragTo: start.withOffset(CGVector(dx: 0, dy: -min(delta, 350))),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        evidence("study-section-layered-glass-tools", app: app)
+      }
+      tap(button, app: app)
+      if entry.0 == "lesson" {
+        XCTAssertTrue(app.staticTexts["lesson.page"].firstMatch.waitForExistence(timeout: 15))
+      } else {
+        let title = app.staticTexts["navigation.title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        XCTAssertEqual(title.label, entry.1)
+      }
+    }
+  }
+
   func testUnfinishedCourseReplacesTheDirectoryAndResumesSavedSetup() {
     let app = launch("courseSetup")
     tap(app.buttons["上一步"], app: app)

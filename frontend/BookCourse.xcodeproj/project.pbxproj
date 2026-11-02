@@ -49,6 +49,7 @@
 		52CBD2903E2E0757C40FD197 /* UITests/LearningFunctionalUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C094DC9615F251D0994FF714 /* UITests/LearningFunctionalUITests.swift */; };
 		569DFFC24CF81C1D3CFD1218 /* Features/Learning/StudyDirectoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B7DEE3E2936A08CF6DEB75 /* Features/Learning/StudyDirectoryView.swift */; };
 		4F3B0971ADF9D1FC752B0C3A /* Features/Learning/StudyProgressCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E279DE6376A35D705CDCCA23 /* Features/Learning/StudyProgressCard.swift */; };
+		16097710F6758A8621D355D4 /* Features/Learning/StudyToolGlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04FF2917898CD562CE47013C /* Features/Learning/StudyToolGlassSurface.swift */; };
 		59DFFC1CEA08F19ACAEC3296 /* Features/Courses/DiscoveryProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B26B4F91811543580E4470FB /* Features/Courses/DiscoveryProfile.swift */; };
 		6509029276BDD7D04D35429A /* Tests/LocalNotePersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43899C1C30FB86CC42F711E6 /* Tests/LocalNotePersistenceTests.swift */; };
 		67C1ED52F4BB719507562DDF /* Features/Learning/LearningMistakesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFDEF27E53DABD910D91EC81 /* Features/Learning/LearningMistakesView.swift */; };
@@ -227,6 +228,7 @@
 		C5A5DF5122A0B985556D485D /* Core/TextbookRetriever.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/TextbookRetriever.swift; sourceTree = SOURCE_ROOT; };
 		C6B7DEE3E2936A08CF6DEB75 /* Features/Learning/StudyDirectoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Learning/StudyDirectoryView.swift; sourceTree = SOURCE_ROOT; };
 		E279DE6376A35D705CDCCA23 /* Features/Learning/StudyProgressCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Learning/StudyProgressCard.swift; sourceTree = SOURCE_ROOT; };
+		04FF2917898CD562CE47013C /* Features/Learning/StudyToolGlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Learning/StudyToolGlassSurface.swift; sourceTree = SOURCE_ROOT; };
 		C7915190B5F30A6D6BDBB8CC /* Features/Notes/NoteSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Notes/NoteSheets.swift; sourceTree = SOURCE_ROOT; };
 		C9BED472D905D065768144D7 /* Resources/LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Resources/LaunchScreen.storyboard; sourceTree = SOURCE_ROOT; };
 		CA01FE71AAC760BADCBB73A4 /* Core/CloudBookCover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/CloudBookCover.swift; sourceTree = SOURCE_ROOT; };
@@ -450,6 +452,7 @@
 				3F96678E7070D4B2DDBEBF6C /* Features/Learning/StudyCoursePreparationView.swift */,
 				C6B7DEE3E2936A08CF6DEB75 /* Features/Learning/StudyDirectoryView.swift */,
 				E279DE6376A35D705CDCCA23 /* Features/Learning/StudyProgressCard.swift */,
+				04FF2917898CD562CE47013C /* Features/Learning/StudyToolGlassSurface.swift */,
 				C7915190B5F30A6D6BDBB8CC /* Features/Notes/NoteSheets.swift */,
 				1C429A9E82C6DE0F8619B21A /* Features/Notes/NotesGlyph.swift */,
 				B4C5F93D193C66AAEE2227B6 /* Features/Notes/NotesViews.swift */,
@@ -667,6 +670,7 @@
 				BD371D03A32F20805DABC295 /* Features/Learning/StudyCoursePreparationView.swift in Sources */,
 				569DFFC24CF81C1D3CFD1218 /* Features/Learning/StudyDirectoryView.swift in Sources */,
 				4F3B0971ADF9D1FC752B0C3A /* Features/Learning/StudyProgressCard.swift in Sources */,
+				16097710F6758A8621D355D4 /* Features/Learning/StudyToolGlassSurface.swift in Sources */,
 				F8B7FDB0274CE88A17131E4C /* Features/Notes/NoteSheets.swift in Sources */,
 				B1B59147BE532A324B1C59EE /* Features/Notes/NotesGlyph.swift in Sources */,
 				150F4BCE91BAA57E12AADF7D /* Features/Notes/NotesViews.swift in Sources */,
