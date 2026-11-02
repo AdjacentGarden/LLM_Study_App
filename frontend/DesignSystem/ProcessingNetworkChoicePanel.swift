@@ -13,8 +13,8 @@ struct ProcessingNetworkChoicePanel: View {
             .font(.system(size: 24)).foregroundStyle(DS.primary)
             .frame(width: 48, height: 48).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 16))
           VStack(alignment: .leading, spacing: 6) {
-            Text("当前正在使用流量").font(DS.font(21, weight: .bold))
-            Text("要改用 iPhone 本机处理吗？").font(DS.font(16)).foregroundStyle(DS.secondary)
+            Text("当前正在使用流量").font(DS.font(.sectionTitle))
+            Text("要改用 iPhone 本机处理吗？").font(DS.font(.body)).foregroundStyle(DS.secondary)
           }
         }
         VStack(alignment: .leading, spacing: 12) {
@@ -23,16 +23,16 @@ struct ProcessingNetworkChoicePanel: View {
           detail("text.magnifyingglass", "教材检索", "检索已缓存的教材原文，无需上传问题或教材。")
         }.padding(16).background(DS.background, in: RoundedRectangle(cornerRadius: 16))
         Text("本次选择适用于这三项功能。恢复稳定 Wi-Fi 后自动使用原有流程；短时间反复切网会沿用你的选择。")
-          .font(DS.font(13)).foregroundStyle(DS.secondary).fixedSize(horizontal: false, vertical: true)
+          .font(DS.font(.supporting)).foregroundStyle(DS.secondary).fixedSize(horizontal: false, vertical: true)
         VStack(spacing: 10) {
           BCButton("使用本机处理") { resolve(.onDevice) }
             .accessibilityIdentifier("network.useLocal")
           Button("继续使用原有流程（消耗流量）") { resolve(.existing) }
-            .font(DS.font(15, weight: .semibold)).foregroundStyle(DS.primary)
+            .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .accessibilityIdentifier("network.useExisting")
           Button("暂不处理") { resolve(.cancelled) }
-            .font(DS.font(14)).foregroundStyle(DS.secondary).frame(maxWidth: .infinity, minHeight: 36)
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary).frame(maxWidth: .infinity, minHeight: 36)
             .accessibilityIdentifier("network.cancel")
         }
       }.padding(24).frame(maxWidth: 540).background(DS.surface,
@@ -49,8 +49,8 @@ struct ProcessingNetworkChoicePanel: View {
     HStack(alignment: .top, spacing: 10) {
       Image(systemName: icon).foregroundStyle(DS.primary).frame(width: 22)
       VStack(alignment: .leading, spacing: 3) {
-        Text(title).font(DS.font(15, weight: .semibold))
-        Text(text).font(DS.font(13)).foregroundStyle(DS.secondary).fixedSize(horizontal: false, vertical: true)
+        Text(title).font(DS.font(.supporting, weight: .semibold))
+        Text(text).font(DS.font(.supporting)).foregroundStyle(DS.secondary).fixedSize(horizontal: false, vertical: true)
       }
     }
   }

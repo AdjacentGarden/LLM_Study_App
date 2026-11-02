@@ -2,13 +2,14 @@ import CryptoKit
 import Foundation
 import Observation
 import SwiftUI
+import UIKit
 
 @MainActor @Observable final class AppStore {
   var route: Route = .onboarding
   var path: [Route] = []
   var sheet: SheetRoute?
   var sharingBookID: String?
-  var toast: String?
+  var toast: ToastNotice?
   var isPad = false
   var bootError: String?
   var isLoading = true
@@ -503,13 +504,27 @@ import SwiftUI
     if leavingCreation, route == .study, let id = draft.importCourseID,
       courseImport(for: id)?.setupCompleted != true { selectCourse(id) }
   }
-  func showToast(_ message: String) {
+  func showToast(
+    _ message: String, kind: ToastNotice.Kind = .info, subtitle: String? = nil
+  ) {
     toastTask?.cancel()
-    toast = message
+    toastTask = nil
+    let notice = ToastNotice(title: message, subtitle: subtitle, kind: kind)
+    withAnimation(.easeOut(duration: ToastNotice.Timing.appearance)) { toast = notice }
+    UIAccessibility.post(notification: .announcement, argument: notice.announcement)
+    guard kind != .loading else { return }
     toastTask = Task {
-      try? await Task.sleep(for: .seconds(2))
-      if !Task.isCancelled { toast = nil }
+      do {
+        try await Task.sleep(for: .seconds(ToastNotice.Timing.appearance + ToastNotice.Timing.hold))
+      } catch { return }
+      dismissToast(id: notice.id)
     }
+  }
+  func dismissToast(id: UUID? = nil) {
+    guard let notice = toast, id == nil || id == notice.id else { return }
+    toastTask?.cancel()
+    toastTask = nil
+    withAnimation(.easeIn(duration: ToastNotice.Timing.disappearance)) { toast = nil }
   }
   func openSheet(_ sheet: SheetRoute) {
     if sheet == .note, noteState.contextCitation == nil {
@@ -524,7 +539,7 @@ import SwiftUI
   }
   func selectSource(_ bookID: String) {
     guard sources.contains(where: { $0.id == bookID }) else {
-      showToast("这份资料尚未导入")
+      showToast("这份资料尚未导入", kind: .warning)
       return
     }
     selectionGeneration += 1
@@ -585,7 +600,7 @@ import SwiftUI
   }
   func openSource(_ target: SourcePageTarget, allowDownload: Bool = true) {
     guard let source = sources.first(where: { $0.id == target.bookID }) else {
-      showToast("这份资料尚未导入")
+      showToast("这份资料尚未导入", kind: .warning)
       return
     }
     let localOnly = target.bookID.hasPrefix("book_local_")
@@ -655,11 +670,8 @@ import SwiftUI
     go(.source)
   }
   func openCitation(_ citation: LessonCitation) {
-    guard let bookID = selectedBookID else { showToast("请先选择教材"); return }
-    guard citation.page_start > 0 else {
-      showToast("此内容为 AI 补充，暂无原文页")
-      return
-    }
+    guard let bookID = selectedBookID else { showToast("请先选择教材", kind: .warning); return }
+    guard citation.page_start > 0 else { return }
     openSource(
       SourcePageTarget(
         bookID: bookID,
@@ -813,7 +825,7 @@ import SwiftUI
       return
     }
     guard repository.includesFixtureContent else {
-      showToast("请连接社区服务后导入真实课程")
+      showToast("请连接社区服务后导入真实课程", kind: .warning)
       return
     }
     let mapping = [
@@ -890,7 +902,7 @@ import SwiftUI
     } catch {
       guard !Task.isCancelled else { return }
       importError = error.localizedDescription
-      showToast(error.localizedDescription)
+      showToast(error.localizedDescription, kind: .error)
     }
   }
   func processImport(retryPreparation: Bool = false) async {
@@ -999,7 +1011,7 @@ import SwiftUI
     saveLocation()
     let planFocus = activeDailyStudyTask
     Task { await finishDailyStudyTask(planFocus, kind: "learn") }
-    showToast("本课学习已完成")
+    showToast("本课学习已完成", kind: .success)
   }
   func saveLocation(page: Int? = nil) {
     var location = locations[locationKey] ?? StudyLocation()
@@ -1150,11 +1162,11 @@ import SwiftUI
     do {
       try await repository.deleteNote(id)
       await reloadNotes()
-    } catch { showToast(error.localizedDescription) }
+    } catch { showToast(error.localizedDescription, kind: .error) }
   }
   func reloadNotes() async {
     if cloud != nil { return }
-    do { notes = try await repository.loadNotes() } catch { showToast(error.localizedDescription) }
+    do { notes = try await repository.loadNotes() } catch { showToast(error.localizedDescription, kind: .error) }
   }
   func sourceFileURL(_ bookID: String) -> URL? {
     guard let relative = filePaths[bookID] else { return nil }
@@ -1178,12 +1190,12 @@ import SwiftUI
   }
   func completeCredits(_ id: String) async {
     do { applyCredits(try await repository.finishCredits(id, refund: false)) } catch {
-      showToast(error.localizedDescription)
+      showToast(error.localizedDescription, kind: .error)
     }
   }
   func refundCredits(_ id: String) async {
     do { applyCredits(try await repository.finishCredits(id, refund: true)) } catch {
-      showToast(error.localizedDescription)
+      showToast(error.localizedDescription, kind: .error)
     }
   }
   func ask(_ question: String) async {
@@ -1210,7 +1222,7 @@ import SwiftUI
       chatMessages.append(
         ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
     } catch {
-      showToast(error.localizedDescription)
+      showToast(error.localizedDescription, kind: .error)
     }
     chatLoading = false
   }
@@ -1236,7 +1248,7 @@ import SwiftUI
       do {
         try await repository.saveSnapshot(snapshot)
         try await repository.saveSources(sourceSnapshot)
-      } catch { self.showToast(error.localizedDescription) }
+      } catch { self.showToast(error.localizedDescription, kind: .error) }
     }
   }
   func flush() async {

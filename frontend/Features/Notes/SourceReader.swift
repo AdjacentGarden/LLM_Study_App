@@ -174,7 +174,7 @@ struct NotesSourceReaderView: View {
       tools
       if let error {
         HStack {
-          Text(error).font(DS.font(13)).foregroundStyle(DS.danger)
+          Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
           Spacer()
           Button("重试保存") { Task { _ = await flushInk() } }
         }
@@ -212,10 +212,10 @@ struct NotesSourceReaderView: View {
                 recognizeInk()
               }.frame(maxWidth: 220).padding(12)
             } else if mode == .ai {
-              Text("用笔圈出区域，松手后弹出 AI 对话").font(DS.font(13)).foregroundStyle(DS.primary).padding(10)
+              Text("用笔圈出区域，松手后弹出 AI 对话").font(DS.font(.supporting)).foregroundStyle(DS.primary).padding(10)
                 .background(.white, in: Capsule()).padding(10).allowsHitTesting(false)
             } else if mode == .text {
-              Text("点击原文任意位置，添加文字或语音批注").font(DS.font(13)).foregroundStyle(DS.primary).padding(10)
+              Text("点击原文任意位置，添加文字或语音批注").font(DS.font(.supporting)).foregroundStyle(DS.primary).padding(10)
                 .background(.white, in: Capsule()).padding(10).allowsHitTesting(false)
             }
           }
@@ -310,8 +310,8 @@ struct NotesSourceReaderView: View {
         if showClear {
           NotesPopup(width: 400, height: 210, dim: true, onOutside: { showClear = false }) {
             VStack(alignment: .leading, spacing: 18) {
-              Text("确认清空本页全部批注吗？").font(DS.font(18, weight: .bold))
-              Text("取消将保留当前笔迹；清空后仍可使用撤销恢复。").font(DS.font(14)).foregroundStyle(DS.secondary)
+              Text("确认清空本页全部批注吗？").font(DS.font(.cardTitle))
+              Text("取消将保留当前笔迹；清空后仍可使用撤销恢复。").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               HStack {
                 BCButton("取消", style: .secondary) { showClear = false }
                 BCButton("清空", style: .danger) {
@@ -346,19 +346,19 @@ struct NotesSourceReaderView: View {
       Button {
         showPageControls = true
       } label: {
-        Text(heading).font(DS.font(27.2, weight: .bold)).foregroundStyle(DS.text).lineLimit(1)
+        Text(heading).font(DS.font(.pageTitle)).foregroundStyle(DS.text).lineLimit(1)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
       .buttonStyle(.plain).accessibilityLabel("\(heading)，PDF第\(page)页，点击跳转")
       .accessibilityIdentifier("reader.heading")
       .popover(isPresented: $showPageControls) {
         VStack(spacing: 14) {
-          Text("PDF 第 \(page) 页 / \(maxPage) 页").font(DS.font(14, weight: .bold))
+          Text("PDF 第 \(page) 页 / \(maxPage) 页").font(DS.font(.supporting, weight: .semibold))
           pager
           Button("缩放 \(Int(zoom * 100))%") {
             zoom = zoom >= 2 ? 1 : zoom + 0.25
             magnifyBase = zoom
-          }.font(DS.font(14)).padding(10)
+          }.font(DS.font(.supporting)).padding(10)
         }.padding(20).frame(width: 330).presentationCompactAdaptation(.popover)
       }
       if saving { ProgressView().scaleEffect(0.7).accessibilityLabel("正在保存笔迹") }
@@ -458,8 +458,8 @@ struct NotesSourceReaderView: View {
         Image(uiImage: image).resizable().scaledToFit()
       } else {
         VStack(alignment: .leading, spacing: 18) {
-          Text(pageText.isEmpty ? "原文资源未发布" : heading).font(DS.font(24, weight: .bold))
-          Text(pageText.isEmpty ? "当前教材只有目录或尚未提供该页原文。请返回课程资料查看。" : pageText).font(DS.font(17))
+          Text(pageText.isEmpty ? "原文资源未发布" : heading).font(DS.font(.sectionTitle))
+          Text(pageText.isEmpty ? "当前教材只有目录或尚未提供该页原文。请返回课程资料查看。" : pageText).font(DS.font(.reading))
             .lineSpacing(9).textSelection(.enabled)
         }.padding(24).frame(width: size.width, height: size.height, alignment: .topLeading)
           .background(.white)
@@ -547,18 +547,18 @@ struct NotesSourceReaderView: View {
       Button("跳转") { changePage(Int(pageInput) ?? page) }.accessibilityIdentifier("reader.jump")
       Spacer(minLength: 4)
       Button("下一页") { changePage(page + 1) }.disabled(page >= maxPage)
-    }.font(DS.font(13, weight: .bold)).foregroundStyle(DS.primary).padding(.vertical, 6)
+    }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).padding(.vertical, 6)
   }
   private var inkReview: some View {
     BCCard {
       VStack(alignment: .leading, spacing: 12) {
         BCPill("原始笔迹保存在本机")
-        Text("请确认识别文字").font(DS.font(18, weight: .bold))
-        Text("识别和整理会将这页笔迹发送到学习服务。请核对返回文字，也可手动填写；原始笔迹不会被覆盖。").font(DS.font(12)).foregroundStyle(DS.muted)
+        Text("请确认识别文字").font(DS.font(.cardTitle))
+        Text("识别和整理会将这页笔迹发送到学习服务。请核对返回文字，也可手动填写；原始笔迹不会被覆盖。").font(DS.font(.caption)).foregroundStyle(DS.muted)
         if inkPhase == "recognizing" || inkPhase == "organizing" {
           ProgressView(inkPhase == "recognizing" ? "正在识别真实笔迹…" : "正在整理确认后的文字…")
         }
-        if let inkServiceError { Text(inkServiceError).font(DS.font(12)).foregroundStyle(DS.danger) }
+        if let inkServiceError { Text(inkServiceError).font(DS.font(.caption)).foregroundStyle(DS.danger) }
         BCTextEditor(text: $recognizedText, placeholder: "确认或手动填写笔记文字").frame(minHeight: 120)
           .disabled(inkTask != nil)
         BCButton("只保存确认文字", style: .secondary) { Task { _ = await saveConfirmedInk() } }
@@ -567,8 +567,8 @@ struct NotesSourceReaderView: View {
           .disabled(inkTask != nil || recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         BCButton("重新查询识别", style: .text) { recognizeInk() }.disabled(inkTask != nil)
         if !organizedText.isEmpty {
-          Text(organizedAccepted ? "已保留的独立整理版" : "整理建议 · 待确认").font(DS.font(15, weight: .bold)).foregroundStyle(DS.primary)
-          Text(organizedText).font(DS.font(14)).lineSpacing(5).textSelection(.enabled)
+          Text(organizedAccepted ? "已保留的独立整理版" : "整理建议 · 待确认").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
+          Text(organizedText).font(DS.font(.supporting)).lineSpacing(5).textSelection(.enabled)
           if !organizedAccepted {
             BCButton("保留整理版", style: .secondary) { keepInkOrganized() }.disabled(inkTask != nil)
           }
@@ -580,7 +580,7 @@ struct NotesSourceReaderView: View {
   private var pageNotesList: some View {
     BCCard {
       VStack(alignment: .leading, spacing: 10) {
-        Text("本页已有笔记 · \(pageNotes.count)").font(DS.font(13, weight: .bold))
+        Text("本页已有笔记 · \(pageNotes.count)").font(DS.font(.supporting, weight: .semibold))
         ForEach(pageNotes) { note in
           Button {
             if note.kind == .ink {
@@ -594,7 +594,7 @@ struct NotesSourceReaderView: View {
               Text(note.kind.notesLabel).foregroundStyle(DS.primary)
               Text(note.title).lineLimit(1)
               Spacer()
-            }.font(DS.font(13)).padding(10).background(
+            }.font(DS.font(.supporting)).padding(10).background(
               DS.primarySoft, in: RoundedRectangle(cornerRadius: 10))
           }
         }
@@ -1038,7 +1038,7 @@ struct NotesRegionAIView: View {
           NotesGlyph(name: "Sparkles", size: 16).foregroundStyle(.white)
             .frame(width: 34, height: 34)
             .background(DS.primary, in: RoundedRectangle(cornerRadius: 11))
-          Text(isTextNote ? "批注 AI 对话" : "提问").font(DS.font(15, weight: .bold))
+          Text(isTextNote ? "批注 AI 对话" : "提问").font(DS.font(.supporting, weight: .semibold))
           Spacer(minLength: 0)
           Button(action: onClose) {
             NotesGlyph(name: "X", size: 18).frame(width: 40, height: 40)
@@ -1049,7 +1049,7 @@ struct NotesRegionAIView: View {
         Text(bookID.hasPrefix("book_local_") || store.cloud == nil
           ? "从本机资料查找原文依据，离线结果以引用摘录呈现"
           : "由已连接的学习服务检索教材并回答")
-          .font(DS.font(12)).foregroundStyle(DS.secondary)
+          .font(DS.font(.caption)).foregroundStyle(DS.secondary)
         }
         if !compact && (!inputFocused || viewport.size.height >= 430) {
           reference
@@ -1071,26 +1071,26 @@ struct NotesRegionAIView: View {
                     VStack(alignment: .leading, spacing: 6) {
                       HStack(spacing: 6) {
                         BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 13, height: 13)
-                        Text("教材原文依据").font(DS.font(12, weight: .bold)).foregroundStyle(DS.primary)
+                        Text("教材原文依据").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
                       }
                       ForEach(message.citations) { citation in
                         VStack(alignment: .leading, spacing: 4) {
                           Text("\(citation.chapterTitle) · 教材第 \(citation.printedPage ?? citation.page) 页")
-                            .font(DS.font(12, weight: .bold)).foregroundStyle(DS.secondary)
-                          Text(citation.quote).font(DS.font(12)).lineSpacing(4)
+                            .font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.secondary)
+                          Text(citation.quote).font(DS.font(.caption)).lineSpacing(4)
                             .foregroundStyle(DS.secondary).padding(.leading, 8)
                             .overlay(alignment: .leading) { Rectangle().fill(DS.primary.opacity(0.25)).frame(width: 2) }
                           Button("查看原文") {
                             onClose()
                             store.openCitation(citation)
-                          }.font(DS.font(12, weight: .bold)).foregroundStyle(DS.primary)
+                          }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
                         }
                       }
                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
                       .background(DS.background, in: RoundedRectangle(cornerRadius: 12))
                       .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border))
                   } else if message.role != "user", message.text.contains("可靠") {
-                    Text("当前教材未检索到可靠原文").font(DS.font(12, weight: .bold)).foregroundStyle(DS.muted)
+                    Text("当前教材未检索到可靠原文").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.muted)
                   }
                 }.id(message.id)
               }
@@ -1098,10 +1098,10 @@ struct NotesRegionAIView: View {
                 bubble(isTextNote ? "正在结合批注和教材回答…" : "正在结合圈选内容回答…", user: false)
               }
               if let issue {
-                Text(issue).font(DS.font(12)).foregroundStyle(DS.danger)
+                Text(issue).font(DS.font(.caption)).foregroundStyle(DS.danger)
                 if let failedQuestion {
                   Button("重试提问") { ask(failedQuestion) }
-                    .font(DS.font(13, weight: .bold)).foregroundStyle(DS.primary)
+                    .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
                     .accessibilityIdentifier("reader.regionRetry")
                 }
               }
@@ -1123,14 +1123,14 @@ struct NotesRegionAIView: View {
         VStack(alignment: .leading, spacing: 8) {
           if !compact {
             Text(isTextNote ? "针对这条批注提问" : "针对圈选区域提问")
-              .font(DS.font(14, weight: .bold)).foregroundStyle(DS.secondary)
+              .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
           }
           let layout = compact
             ? AnyLayout(HStackLayout(spacing: 8))
             : AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
           layout {
           TextField(isTextNote ? "例如：我的理解正确吗？" : "例如：这一处的箭头表示什么？", text: $question)
-            .font(DS.font(compact ? 16 : 20)).padding(.horizontal, 12).frame(height: compact ? 44 : 48)
+            .font(DS.font(.body)).padding(.horizontal, 12).frame(height: compact ? 44 : 48)
             .background(.white, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
             .focused($inputFocused).submitLabel(.send).onSubmit { ask(question) }
@@ -1150,8 +1150,8 @@ struct NotesRegionAIView: View {
     if let note {
       ScrollView {
         VStack(alignment: .leading, spacing: 6) {
-          Text(referenceLabel).font(DS.font(12, weight: .bold)).foregroundStyle(DS.primaryPressed)
-          Text(note.body).font(DS.font(13)).lineSpacing(7).foregroundStyle(DS.text)
+          Text(referenceLabel).font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primaryPressed)
+          Text(note.body).font(DS.font(.supporting)).lineSpacing(7).foregroundStyle(DS.text)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 10).padding(.horizontal, 12)
       }.frame(height: 112)
         .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 10))
@@ -1165,13 +1165,13 @@ struct NotesRegionAIView: View {
     }
   }
   private func bubble(_ text: String, user: Bool) -> some View {
-    Text(text).font(DS.font(20)).lineSpacing(8).textSelection(.enabled)
+    Text(text).font(DS.font(.reading)).lineSpacing(8).textSelection(.enabled)
       .padding(12).frame(maxWidth: .infinity, alignment: .leading)
       .background(user ? DS.primarySoft : .white, in: RoundedRectangle(cornerRadius: 18))
       .overlay(RoundedRectangle(cornerRadius: 18).stroke(DS.border))
   }
   private func followup(_ title: String, question: String) -> some View {
-    Button(title) { ask(question) }.font(DS.font(12, weight: .bold)).foregroundStyle(DS.primary)
+    Button(title) { ask(question) }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
       .padding(.horizontal, 12).frame(height: 40)
       .background(.white, in: Capsule()).overlay(Capsule().stroke(DS.border)).disabled(loading)
   }

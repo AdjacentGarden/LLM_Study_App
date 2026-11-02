@@ -56,7 +56,7 @@ struct LearnerOnboardingView: View {
                 nameFocused = false
                 store.back()
               }
-              .font(DS.font(14)).foregroundStyle(DS.primary)
+              .font(DS.font(.supporting)).foregroundStyle(DS.primary)
               .frame(minWidth: 44, minHeight: 44).buttonStyle(.plain)
               .accessibilityIdentifier("preferences.cancel")
             }
@@ -65,7 +65,7 @@ struct LearnerOnboardingView: View {
           .padding(.top, max(12, 78 * verticalScale - geometry.safeAreaInsets.top))
 
           Text(titles[step])
-            .font(DS.font(24)).foregroundStyle(.black)
+            .font(DS.font(.pageTitle)).foregroundStyle(.black)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
@@ -76,7 +76,7 @@ struct LearnerOnboardingView: View {
             if step == 0 {
               VStack(spacing: 20) {
                 TextField("输入你的姓名或昵称", text: $name)
-                  .font(DS.font(20)).multilineTextAlignment(.center)
+                  .font(DS.font(.body)).multilineTextAlignment(.center)
                   .textContentType(.nickname).padding(16).frame(minHeight: 58)
                   .background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
                   .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border))
@@ -88,7 +88,7 @@ struct LearnerOnboardingView: View {
                   }
                 VStack(alignment: .leading, spacing: 12) {
                   Text("你目前处于哪个学习阶段？（可选）")
-                    .font(DS.font(16)).foregroundStyle(DS.secondary)
+                    .font(DS.font(.body)).foregroundStyle(DS.secondary)
                   LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     ForEach([("middle", "初中"), ("high", "高中"), ("university", "大学"),
                       ("working", "工作"), ("other", "其他")], id: \.0) { value, label in
@@ -96,7 +96,7 @@ struct LearnerOnboardingView: View {
                         nameFocused = false
                         learningStage = learningStage == value ? nil : value
                       } label: {
-                        Text(label).font(DS.font(16)).frame(maxWidth: .infinity, minHeight: 44)
+                        Text(label).font(DS.font(.body)).frame(maxWidth: .infinity, minHeight: 44)
                           .foregroundStyle(learningStage == value ? DS.primary : DS.secondary)
                           .background(learningStage == value ? DS.primarySoft : DS.surface,
                             in: RoundedRectangle(cornerRadius: 12))
@@ -143,12 +143,12 @@ struct LearnerOnboardingView: View {
           .padding(.top, 58 * verticalScale)
 
           if let error {
-            Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+            Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
               .accessibilityAddTraits(.updatesFrequently)
               .accessibilityIdentifier("onboarding.error").padding(.top, 16)
           }
           if saving {
-            ProgressView("正在保存…").font(DS.font(14)).padding(.top, 24)
+            ProgressView("正在保存…").font(DS.font(.supporting)).padding(.top, 24)
               .accessibilityIdentifier("onboarding.saving")
           } else if step == 0 {
             CourseFlowPrimaryButton(title: "下一页") { next() }
@@ -167,7 +167,7 @@ struct LearnerOnboardingView: View {
               }
               next()
             } label: {
-              Text("跳过").font(DS.font(18)).foregroundStyle(DS.secondary)
+              Text("跳过").font(DS.font(.body)).foregroundStyle(DS.secondary)
                 .frame(width: 217, height: 34)
                 .overlay(Capsule().stroke(DS.secondary, lineWidth: 1))
                 .frame(height: 44).contentShape(Rectangle())
@@ -351,7 +351,7 @@ struct LearnerOnboardingView: View {
   }
   private func finishPreferencesReset() {
     store.back()
-    store.showToast("学习偏好已重新设置")
+    store.showToast("学习偏好已重新设置", kind: .success)
   }
 }
 
@@ -366,7 +366,7 @@ private struct OnboardingChoiceCard<Icon: View>: View {
     Button(action: action) {
       VStack(spacing: 20) {
         icon()
-        Text(label).font(DS.font(14, weight: .bold))
+        Text(label).font(DS.font(.supporting, weight: .semibold))
           .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
           .frame(minHeight: 20)
       }
@@ -443,8 +443,8 @@ private struct OnboardingClockIcon: View {
       .disabled(hideBack).accessibilityHidden(hideBack)
     Spacer()
     HStack(spacing: 3) {
-      Text("\(step + 1)").font(DS.font(20, weight: .bold))
-      Text("/\(total)").font(DS.font(20)).foregroundStyle(DS.muted)
+      Text("\(step + 1)").font(DS.font(.cardTitle))
+      Text("/\(total)").font(DS.font(.body)).foregroundStyle(DS.muted)
     }.accessibilityLabel("第 \(step + 1) 步，共 \(total) 步")
     Spacer()
     Color.clear.frame(width: 44, height: 44)
@@ -464,8 +464,9 @@ struct CourseSetupView: View {
           Text(
             store.draft.step < 0
               ? "调整课程" : CourseDiagnosisQuestion.all[min(5, store.draft.step)].title
-          ).font(DS.font(min(34, max(22, geometry.size.width * 0.056)) * 0.8, weight: .bold))
-            .multilineTextAlignment(.center).frame(height: 44, alignment: .top)
+          ).font(DS.font(.pageTitle))
+            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: 44, alignment: .top)
           flowTop(step: max(0, store.draft.step), total: 6) { previous() }
           if store.draft.step < 0 {
             basicInformation
@@ -498,13 +499,13 @@ struct CourseSetupView: View {
             Spacer(minLength: 24)
           }
           VStack(spacing: 12) {
-            if let error { Text(error).font(DS.font(14)).foregroundStyle(DS.danger) }
+            if let error { Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
             CourseFlowPrimaryButton(
               title: saving ? "正在准备课程…" : store.draft.step < 5 ? "下一页" : completionTitle
             ) { next() }.clipShape(Capsule()).disabled(saving)
               .accessibilityIdentifier("courseSetup.next")
             if store.draft.editingCourseID != nil {
-              BCButton("返回课程，草稿已保存", style: .text) {
+              BCButton("返回课程", style: .text) {
                 store.persist()
                 store.back()
               }
@@ -547,13 +548,13 @@ struct CourseSetupView: View {
     @Bindable var store = store
     return VStack(alignment: .leading, spacing: 16) {
       StickerIcon("BookOpen", size: 48).frame(maxWidth: .infinity)
-      Text("课程名称").font(DS.font(14, weight: .bold))
+      Text("课程名称").font(DS.font(.supporting, weight: .semibold))
       BCTextField("例如：期末生物复习", text: $store.draft.name)
       CourseSectionHeading(title: "加入书籍资料", detail: "至少一份")
       ForEach(store.sources) { source in
         CourseChoice(
           label: source.summary.title, selected: store.draft.resourceIDs.contains(source.id),
-          icon: "book", labelSize: 16
+          icon: "book", labelStyle: .body
         ) {
           if store.draft.resourceIDs.contains(source.id) {
             store.draft.resourceIDs.removeAll { $0 == source.id }
@@ -767,9 +768,9 @@ struct CourseUploadView: View {
   private func controls(compact: Bool) -> some View {
     VStack(spacing: compact ? 8 : 16) {
       Text(files.isEmpty ? "添加课程资料" : "继续添加")
-        .font(DS.font(16, weight: .bold)).frame(height: 24)
+        .font(DS.font(.cardTitle)).frame(height: 24)
       if let failure {
-        Text(failure).font(DS.font(14)).foregroundStyle(DS.danger)
+        Text(failure).font(DS.font(.supporting)).foregroundStyle(DS.danger)
           .lineLimit(compact ? 1 : 2).frame(maxWidth: .infinity, alignment: .leading)
           .accessibilityIdentifier("upload.error")
       }
@@ -827,8 +828,8 @@ struct CourseUploadView: View {
   private func selectedFile(_ url: URL, at index: Int) -> some View {
     StickerIcon("FileText", size: 40)
       .overlay(alignment: .bottomTrailing) {
-        Text("\(index + 1)").font(DS.font(8, weight: .bold)).foregroundStyle(.white)
-          .frame(minWidth: 12, minHeight: 12)
+        Text("\(index + 1)").font(DS.font(.caption, weight: .semibold)).foregroundStyle(.white)
+          .frame(minWidth: 20, minHeight: 20)
           .background(DS.primary, in: Capsule()).offset(x: 6, y: 6)
           .accessibilityHidden(true)
       }
@@ -949,7 +950,7 @@ struct CourseUploadView: View {
         if let originalBookID { store.selectSource(originalBookID) }
         store.persist()
         store.closeSheet()
-        store.showToast("资料已添加，可以继续学习")
+        store.showToast("资料已添加，可以继续学习", kind: .success)
       } else {
         store.draft.step = max(0, store.draft.step)
         store.processingProgress = 0
@@ -1004,13 +1005,13 @@ private struct CourseFileUploadProgressView: View {
             .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 30))
             .accessibilityHidden(true)
           VStack(spacing: 10) {
-            Text(title).font(DS.font(24, weight: .bold))
+            Text(title).font(DS.font(.sectionTitle))
               .accessibilityIdentifier("upload.progress.title")
             if transfer.fileCount > 1 && !processing {
               Text("第 \(transfer.fileIndex) / \(transfer.fileCount) 份资料")
-                .font(DS.font(14)).foregroundStyle(DS.secondary)
+                .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             }
-            Text(transfer.filename).font(DS.font(16)).foregroundStyle(DS.secondary)
+            Text(transfer.filename).font(DS.font(.body)).foregroundStyle(DS.secondary)
               .multilineTextAlignment(.center).lineLimit(3)
           }
           VStack(spacing: 16) {
@@ -1018,12 +1019,12 @@ private struct CourseFileUploadProgressView: View {
               ProgressView().tint(DS.primary).controlSize(.large)
             } else {
               Text("\(Int((processing ? processingProgress : transfer.progress.fraction) * 100))%")
-                .font(DS.font(40, weight: .bold)).monospacedDigit().foregroundStyle(DS.primary)
+                .font(DS.font(.metric)).monospacedDigit().foregroundStyle(DS.primary)
                 .accessibilityIdentifier("upload.progress.percent")
             }
             BCProgress(value: processing ? processingProgress : transfer.progress.fraction)
             if transfer.stage == .uploading {
-              Text(bytesLabel).font(DS.font(14)).monospacedDigit().foregroundStyle(DS.secondary)
+              Text(bytesLabel).font(DS.font(.supporting)).monospacedDigit().foregroundStyle(DS.secondary)
                 .accessibilityIdentifier("upload.progress.bytes")
             }
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -1035,7 +1036,7 @@ private struct CourseFileUploadProgressView: View {
                   : waiting ? "文件已发送，收到服务器确认后将自动开始解析。"
                   : "请保持网络连接，上传完成后将自动开始解析资料。"
               )
-              .font(DS.font(14)).foregroundStyle(slow ? DS.warning : DS.secondary)
+              .font(DS.font(.supporting)).foregroundStyle(slow ? DS.warning : DS.secondary)
               .multilineTextAlignment(.center).frame(minHeight: 44)
             }
           }.padding(24).background(DS.surface, in: RoundedRectangle(cornerRadius: 20))
@@ -1078,21 +1079,21 @@ struct CourseParseReadyView: View {
       ) {
         HStack(spacing: 6) {
           StickerIcon("CheckCircle2", size: 24)
-          Text(source.id.hasPrefix("book_local_") || store.cloud == nil ? "已保存在本机 · 待解析" : "已上传 · 待解析").font(DS.font(20)).foregroundStyle(DS.primaryPressed)
+          Text(source.id.hasPrefix("book_local_") || store.cloud == nil ? "已保存在本机 · 待解析" : "已上传 · 待解析").font(DS.font(.body)).foregroundStyle(DS.primaryPressed)
         }.frame(maxWidth: .infinity)
-        Text(title).font(DS.font(20.8, weight: .bold)).multilineTextAlignment(.center).frame(
+        Text(title).font(DS.font(.sectionTitle)).multilineTextAlignment(.center).frame(
           maxWidth: 220)
         Text(
           "\(fileKind) · \(fileSize)"
             + (ContentBundle.fixtureMode ? " · 17:41" : "")
-        ).font(DS.font(20)).foregroundStyle(DS.secondary)
+        ).font(DS.font(.body)).foregroundStyle(DS.secondary)
         HStack(spacing: 10) {
           metric("文件类型", value: fileKind)
           metric("文件大小", value: fileSize)
           metric("下一步", value: "后台解析")
         }.padding(.top, 14)
         if let issue = store.importError {
-          Text(CloudError.learningMessage(issue)).font(DS.font(14)).foregroundStyle(DS.danger)
+          Text(CloudError.learningMessage(issue)).font(DS.font(.supporting)).foregroundStyle(DS.danger)
         }
       } action: {
         BCButton(
@@ -1122,8 +1123,8 @@ struct CourseParseReadyView: View {
   }
   private func metric(_ label: String, value: String) -> some View {
     VStack(spacing: 6) {
-      Text(value).font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
-      Text(label).font(DS.font(14)).foregroundStyle(DS.secondary)
+      Text(value).font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
+      Text(label).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
     }.frame(maxWidth: .infinity).frame(height: 82).background(
       DS.surface, in: RoundedRectangle(cornerRadius: 14)
     ).overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
@@ -1196,14 +1197,14 @@ struct CourseProcessingView: View {
                     if done {
                       StickerIcon("CheckCircle2", tone: "mint", size: 30)
                     } else {
-                      Text("\(index + 1)").font(DS.font(20, weight: .bold)).foregroundStyle(
+                      Text("\(index + 1)").font(DS.font(.cardTitle)).foregroundStyle(
                         active ? DS.primaryPressed : DS.muted
                       ).frame(width: 30, height: 30).background(DS.background, in: Circle())
                     }
                   }.frame(width: 30, height: 30)
-                  Text(stage).font(DS.font(16, weight: .bold)).frame(
+                  Text(stage).font(DS.font(.cardTitle)).frame(
                     maxWidth: .infinity, alignment: .leading)
-                  Text(done ? "已完成" : active ? "处理中" : "等待中").font(DS.font(14, weight: .bold))
+                  Text(done ? "已完成" : active ? "处理中" : "等待中").font(DS.font(.supporting, weight: .semibold))
                     .foregroundStyle(done ? DS.mint : active ? DS.primaryPressed : DS.muted)
                 }.padding(.horizontal, 12).frame(height: 48).background(
                   active ? Color(hex: 0xFAF7FF) : DS.surface, in: RoundedRectangle(cornerRadius: 12)
@@ -1213,7 +1214,7 @@ struct CourseProcessingView: View {
               }
             }.padding(8).background(Color(hex: 0xF4F7FB), in: RoundedRectangle(cornerRadius: 14))
             CourseProgressMessage(message: store.importError ?? (importing ? "正在为你整理资料，准备专属学习之旅…" : store.processingMessage))
-              .font(DS.font(20)).foregroundStyle(store.importError == nil ? DS.muted : DS.danger)
+              .font(DS.font(.body)).foregroundStyle(store.importError == nil ? DS.muted : DS.danger)
               .multilineTextAlignment(.center).frame(minHeight: 44).padding(.horizontal, 8)
               .accessibilityAddTraits(.updatesFrequently)
           }.frame(height: 344 + free, alignment: .top)
@@ -1240,7 +1241,7 @@ struct CourseProcessingView: View {
                 Button {
                   store.go(.study)
                 } label: {
-                  Text("后台运行，返回学习页").font(DS.font(20, weight: .bold)).foregroundStyle(
+                  Text("后台运行，返回学习页").font(DS.font(.button)).foregroundStyle(
                     DS.primaryPressed
                   ).frame(maxWidth: .infinity).frame(height: 56).background(
                     DS.primarySoft, in: Capsule()
@@ -1291,18 +1292,18 @@ struct CourseChapterConfirmationView: View {
               ((store.currentSource?.summary.filename ?? store.currentTitle) as NSString)
                 .deletingPathExtension.components(separatedBy: CharacterSet(charactersIn: "（("))
                 .first ?? store.currentTitle
-            ).font(DS.font(20.8, weight: .bold))
+            ).font(DS.font(.sectionTitle))
             Text(
-              "已识别 \(store.chapters.count) 个目录项 · \(store.currentSource?.summary.page_count ?? 0) 页" + (store.chapters.allSatisfy { $0.confidence > 0 } && !store.chapters.isEmpty ? " · 平均置信度 \(Int((store.chapters.map(\.confidence).reduce(0, +) / Double(store.chapters.count)).rounded()))%" : " · 识别置信度未知，请核对原文")
-            ).font(DS.font(14)).foregroundStyle(DS.secondary)
+              "已识别 \(store.chapters.count) 个目录项 · \(store.currentSource?.summary.page_count ?? 0) 页"
+            ).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           }
           Spacer(minLength: 0)
         }
       }
       HStack {
-        Text("本次解析目录").font(DS.font(20.8, weight: .bold))
+        Text("本次解析目录").font(DS.font(.sectionTitle))
         Spacer()
-        Text("\(store.chapters.filter { $0.parent_id == nil }.count) 章").font(DS.font(14))
+        Text("\(store.chapters.filter { $0.parent_id == nil }.count) 章").font(DS.font(.supporting))
           .foregroundStyle(DS.secondary)
       }
       if store.chapters.isEmpty { EmptyStateView(title: "尚未识别到章节", message: "返回检查资料内容后重新解析。") }
@@ -1332,13 +1333,11 @@ struct CourseChapterConfirmationView: View {
               store.openSheet(.editChapter)
             } label: {
               VStack(alignment: .leading, spacing: 6) {
-                Text(chapter.title).font(DS.font(16, weight: .bold))
-                HStack {
-                  Text(
-                    chapter.page_start < 1 || chapter.page_end < chapter.page_start
-                      ? "原文页码待补充" : "PDF \(chapter.page_start)–\(chapter.page_end) 页")
-                  Text(chapter.status)
-                }.font(DS.font(14)).foregroundStyle(DS.secondary)
+                Text(chapter.title).font(DS.font(.cardTitle))
+                if chapter.page_start > 0 && chapter.page_end >= chapter.page_start {
+                  Text("PDF \(chapter.page_start)–\(chapter.page_end) 页")
+                    .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                }
               }.frame(maxWidth: .infinity, alignment: .leading)
             }.buttonStyle(.plain).accessibilityIdentifier("chapter.edit.\(chapter.id)")
             Image(systemName: "pencil").font(.system(size: 15)).foregroundStyle(DS.secondary)
@@ -1347,7 +1346,7 @@ struct CourseChapterConfirmationView: View {
           ).overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
         }
       }
-      if let error { Text(error).font(DS.font(14)).foregroundStyle(DS.danger) }
+      if let error { Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
 
     }.safeAreaInset(edge: .bottom, spacing: 0) {
       VStack(spacing: 6) {
@@ -1566,7 +1565,7 @@ private struct CourseFlowPrimaryButton: View {
   @Environment(\.isEnabled) private var enabled
   var body: some View {
     Button(action: action) {
-      Text(title).font(DS.font(20, weight: .bold)).multilineTextAlignment(.center)
+      Text(title).font(DS.font(.button)).multilineTextAlignment(.center)
         .frame(maxWidth: .infinity).frame(minHeight: 54)
         .foregroundStyle(enabled ? .white : DS.secondary)
         .background(enabled ? DS.primary : DS.border, in: Capsule())
@@ -1587,23 +1586,23 @@ struct CourseImportProgressView: View {
             .frame(width: 72, height: 100).clipped().clipShape(RoundedRectangle(cornerRadius: 8))
           VStack(alignment: .leading, spacing: 8) {
             Text(store.courses.first { $0.id == record.id }?.name ?? record.draft.name)
-              .font(DS.font(22, weight: .bold))
+              .font(DS.font(.sectionTitle))
             CourseProgressMessage(message: record.job.status == .completed ? (record.onDeviceOnly == true ? "本机原文已就绪" : "教材已就绪") : record.message)
-              .font(DS.font(15)).foregroundStyle(record.error == nil ? DS.secondary : DS.danger)
+              .font(DS.font(.supporting)).foregroundStyle(record.error == nil ? DS.secondary : DS.danger)
               .accessibilityIdentifier("course.progress.message")
             Text("\(record.books.count) 份资料")
-              .font(DS.font(13)).foregroundStyle(DS.secondary)
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           }
         }
         ForEach(record.books) { book in
           BCCard {
             VStack(alignment: .leading, spacing: 12) {
               Text(store.sources.first { $0.id == book.id }?.summary.filename ?? "教材资料")
-                .font(DS.font(16, weight: .bold))
+                .font(DS.font(.cardTitle))
               HStack {
                 if book.status == .completed { Image(systemName: "checkmark.circle.fill").foregroundStyle(DS.mint) }
                 else if book.status == .running { ProgressView() }
-                CourseProgressMessage(message: book.message).font(DS.font(14)).foregroundStyle(DS.secondary)
+                CourseProgressMessage(message: book.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               }
               if let source = store.sources.first(where: { $0.id == book.id }), store.sourceFileURL(book.id) != nil {
                 BCButton("查看原文件", style: .text) {
@@ -1614,7 +1613,7 @@ struct CourseImportProgressView: View {
               if book.status == .running, book.stage == nil {
                 BCProgress(value: book.progress)
                 Text("原文识别 \(Int(min(1, max(0, book.progress)) * 100))%")
-                  .font(DS.font(13)).foregroundStyle(DS.secondary)
+                  .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               }
               let stages = record.onDeviceOnly == true ? ["读取本机资料", "识别教材原文", "本机检索已就绪"]
                 : ["识别教材原文", "整理教材内容", "整理教材目录", "准备学习诊断", "教材已就绪"]
@@ -1628,7 +1627,7 @@ struct CourseImportProgressView: View {
                     : index == current ? "circle.inset.filled" : "circle")
                     .foregroundStyle(index < current || book.status == .completed ? DS.mint
                       : stopped ? (book.status == .failed ? DS.danger : DS.secondary) : DS.primary)
-                  Text(name).font(DS.font(14))
+                  Text(name).font(DS.font(.supporting))
                 }.opacity(index > current ? 0.45 : 1)
               }
             }

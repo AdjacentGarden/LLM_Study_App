@@ -344,9 +344,9 @@ struct NotesVoiceNoteView: View {
                 HStack(spacing: 10) {
                   BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 20, height: 20)
                   VStack(alignment: .leading, spacing: 3) {
-                    Text(linkedChapterTitle).font(DS.font(16, weight: .bold))
+                    Text(linkedChapterTitle).font(DS.font(.cardTitle))
                     Text(anchor.map { "教材第 \($0.printedPage ?? $0.page) 页" } ?? "自由语音笔记")
-                      .font(DS.font(12)).foregroundStyle(DS.muted)
+                      .font(DS.font(.caption)).foregroundStyle(DS.muted)
                   }
                 }
                 if let quote = anchor?.quote { NotesQuote(quote: quote, rounded: true) }
@@ -354,7 +354,7 @@ struct NotesVoiceNoteView: View {
             }
           } else {
             HStack {
-              Text("语音批注").font(DS.font(18, weight: .bold))
+              Text("语音批注").font(DS.font(.cardTitle))
               Spacer()
               Button("关闭") { finishAndClose() }
             }.padding(.horizontal, 4)
@@ -444,44 +444,44 @@ struct NotesVoiceNoteView: View {
           center: .center, startRadius: 0, endRadius: 160), in: RoundedRectangle(cornerRadius: 18))
         .accessibilityLabel("实时录音波形")
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: audio.waveform)
-      Text(formatTime(audio.seconds)).font(DS.font(embedded ? 18 : 20, weight: .bold))
+      Text(formatTime(audio.seconds)).font(DS.font(.cardTitle))
         .frame(minHeight: 29).monospacedDigit().foregroundStyle(DS.primary)
-      Text(title).font(DS.font(embedded ? 16 : 20, weight: .bold)).frame(minHeight: 29)
+      Text(title).font(DS.font(.cardTitle)).frame(minHeight: 29)
         .multilineTextAlignment(.center)
       Text(audio.state == .ready
         ? "录音可随时回放，整理后的笔记会自动保存。"
         : "最长 10 分钟。结束并生成笔记后，DeepSeek 会结合教材整理你的想法。")
-        .font(DS.font(embedded ? 13 : 16)).foregroundStyle(DS.muted)
+        .font(DS.font(.supporting)).foregroundStyle(DS.muted)
         .lineSpacing(5).multilineTextAlignment(.center)
       controls
-      if saving { ProgressView("正在保存录音与笔记…").font(DS.font(13)) }
+      if saving { ProgressView("正在保存录音与笔记…").font(DS.font(.supporting)) }
       if let error = saveError ?? audio.error {
-        Text(error).font(DS.font(13)).foregroundStyle(DS.danger)
+        Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
         if saveError != nil {
           BCButton("重试保存", style: .secondary) { Task { _ = await saveCurrent() } }.disabled(saving)
         }
       }
       if audio.state == .ready && organized.isEmpty && !working {
         Text("按当前网络选择语音识别方式；选择本机识别时，只将识别文字交给 DeepSeek 整理，录音不上传。")
-          .font(DS.font(12)).foregroundStyle(DS.muted)
+          .font(DS.font(.caption)).foregroundStyle(DS.muted)
         BCButton(studioError == nil ? "生成笔记" : "重试生成笔记", icon: "Sparkles") {
           generateNote(retryFailed: studioError != nil)
         }.disabled(!saved || saving).accessibilityIdentifier("voice.generate")
       }
-      if let studioError { Text(studioError).font(DS.font(13)).foregroundStyle(DS.danger) }
+      if let studioError { Text(studioError).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
       if studioError != nil, usedOnDeviceRecognition, !working,
         store.processingPolicy.connection == .cellular {
         Button("重新选择处理方式") {
           store.processingPolicy.reconsiderCellularChoice()
           generateNote(retryFailed: true)
-        }.font(DS.font(14, weight: .semibold)).foregroundStyle(DS.primary)
+        }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
           .accessibilityIdentifier("voice.reconsiderProcessing")
       }
       if working {
-        ProgressView(progressTitle).font(DS.font(14)).foregroundStyle(DS.primary)
+        ProgressView(progressTitle).font(DS.font(.supporting)).foregroundStyle(DS.primary)
           .accessibilityIdentifier("voice.generating")
         Text("你可以离开此页，稍后回来继续查看。")
-          .font(DS.font(12)).foregroundStyle(DS.muted)
+          .font(DS.font(.caption)).foregroundStyle(DS.muted)
       }
     }.padding(2).padding(.bottom, embedded ? 0 : 7)
   }
@@ -496,7 +496,7 @@ struct NotesVoiceNoteView: View {
             generateOnFinish = true
             audio.stop()
           }
-          Text("结束并生成笔记").font(DS.font(12)).foregroundStyle(DS.primary)
+          Text("结束并生成笔记").font(DS.font(.caption)).foregroundStyle(DS.primary)
         }
       case .ready:
         roundControl("RotateCcw", title: "重新录制", main: false) { showReset = true }.disabled(working || saving)
@@ -508,10 +508,10 @@ struct NotesVoiceNoteView: View {
               in: 0...max(0.01, audio.playbackDuration)).tint(DS.primary)
               .accessibilityLabel("录音回放位置")
             Text("\(formatTime(audio.playbackPosition)) / \(formatTime(audio.playbackDuration))")
-              .font(DS.font(10)).foregroundStyle(DS.muted)
+              .font(DS.font(.caption)).foregroundStyle(DS.muted)
           }
         }
-      case .requesting: ProgressView("正在请求麦克风权限…").font(DS.font(13)).frame(height: 68)
+      case .requesting: ProgressView("正在请求麦克风权限…").font(DS.font(.supporting)).frame(height: 68)
       case .idle: roundControl("Mic2", title: "开始录音", main: true) { Task { await audio.start() } }
       }
     }.frame(maxWidth: .infinity).frame(minHeight: embedded ? 56 : 68)
@@ -532,11 +532,11 @@ struct NotesVoiceNoteView: View {
       BCCard {
         VStack(alignment: .leading, spacing: 14) {
           BCPill(saving ? "正在保存" : saveError == nil ? "已保存" : "待保存", color: DS.mint)
-          Text("整理后的笔记").font(DS.font(20, weight: .bold))
-          Text(organized).font(DS.font(16)).lineSpacing(7).textSelection(.enabled)
+          Text("整理后的笔记").font(DS.font(.cardTitle))
+          Text(organized).font(DS.font(.reading)).lineSpacing(7).textSelection(.enabled)
             .accessibilityIdentifier("voice.organized")
           Text("原始录音已保留，可随时回放。")
-            .font(DS.font(12)).foregroundStyle(DS.muted)
+            .font(DS.font(.caption)).foregroundStyle(DS.muted)
           if !embedded { BCButton("完成", style: .secondary) { finishAndClose() } }
         }
       }

@@ -38,7 +38,7 @@ struct CourseDiscoveryView: View {
           } label: {
             HStack(spacing: 6) {
               BCGlyph("Upload", color: DS.primary).frame(width: 18, height: 18)
-              Text("分享").font(DS.font(16, weight: .bold))
+              Text("分享").font(DS.font(.button))
             }.frame(width: 86, height: 52)
               .background(DS.primarySoft, in: Capsule())
               .overlay(Capsule().stroke(DS.primary.opacity(0.18)))
@@ -78,10 +78,6 @@ struct CourseDiscoveryView: View {
               categoryHeader(gutter: gutter)
                 .padding(.horizontal, gutter)
                 .background(DS.background)
-                .overlay(alignment: .bottom) {
-                  ProgressiveMaterial(top: true).frame(height: 24).offset(y: 24)
-                    .allowsHitTesting(false)
-                }
                 .padding(.horizontal, -gutter)
             }
           }.padding(.horizontal, gutter).padding(.bottom, 28)
@@ -137,7 +133,7 @@ struct CourseDiscoveryView: View {
   private var searchHeader: some View {
     HStack(spacing: 10) {
       Image(systemName: "magnifyingglass").font(.system(size: 19))
-      TextField("搜索课程", text: $query).font(DS.font(20)).submitLabel(.search)
+      TextField("搜索课程", text: $query).font(DS.font(.body)).submitLabel(.search)
         .focused($searchFocused).onSubmit { searchFocused = false }
         .autocorrectionDisabled().accessibilityIdentifier("community.search")
       if !query.isEmpty {
@@ -181,7 +177,7 @@ struct CourseDiscoveryView: View {
       query = ""
       allCategories = false
     } label: {
-      Text(value).font(DS.font(20, weight: .bold))
+      Text(value).font(DS.font(.cardTitle))
         .foregroundStyle(category == value && query.isEmpty ? DS.primary : DS.secondary)
         .frame(width: 64, height: 44)
 
@@ -215,11 +211,11 @@ private struct CommunityCourseTile: View {
   }
   private var copy: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(book.catalogTitle).font(DS.font(16, weight: .bold)).foregroundStyle(DS.text).lineLimit(2)
-        .frame(maxWidth: .infinity, minHeight: 20.8, alignment: .topLeading)
+      Text(book.catalogTitle).font(DS.font(.cardTitle)).foregroundStyle(DS.text).lineLimit(2)
+        .frame(maxWidth: .infinity, minHeight: 26, alignment: .topLeading)
       HStack(spacing: 4) {
         Spacer(minLength: 0)
-        Text("进入").font(DS.font(14, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 12)
+        Text("进入").font(DS.font(.smallButton)).foregroundStyle(.white).padding(.horizontal, 12)
           .frame(minWidth: 56, minHeight: 36).background(DS.primary, in: Capsule())
       }
     }.padding(12)
@@ -236,14 +232,14 @@ struct CommunityBookDetailView: View {
       CourseCoverToContent(cover: book.cover) {
         VStack(spacing: 8) {
           if !book.owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Text("来源：\(book.owner)").font(DS.font(14)).foregroundStyle(DS.secondary)
+            Text("来源：\(book.owner)").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           }
-          Text(book.title).font(DS.font(20.8, weight: .bold)).multilineTextAlignment(.center).frame(
+          Text(book.title).font(DS.font(.sectionTitle)).multilineTextAlignment(.center).frame(
             maxWidth: 220)
           Text(
             [book.subject, book.grade, book.version, book.volume].compactMap { $0 }.joined(
               separator: " · ")
-          ).font(DS.font(14)).foregroundStyle(DS.secondary)
+          ).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           if !book.chapters.isEmpty || book.flashcardCount > 0 {
             HStack(spacing: 0) {
               if !book.chapters.isEmpty { stat("目录章节", "\(book.chapters.count) 章") }
@@ -251,9 +247,9 @@ struct CommunityBookDetailView: View {
             }.padding(.vertical, 14).frame(maxWidth: .infinity).background(
               DS.background, in: RoundedRectangle(cornerRadius: 12))
           }
-          Text("课程简介").font(DS.font(16, weight: .bold)).frame(
+          Text("课程简介").font(DS.font(.cardTitle)).frame(
             maxWidth: .infinity, alignment: .leading).padding(.vertical, 12)
-          Text(book.description).font(DS.font(20)).lineSpacing(7).frame(
+          Text(book.displayDescription).font(DS.font(.body)).lineSpacing(7).frame(
             maxWidth: .infinity, alignment: .leading)
         }
       } action: {
@@ -271,8 +267,8 @@ struct CommunityBookDetailView: View {
   }
   private func stat(_ title: String, _ value: String) -> some View {
     VStack(spacing: 3) {
-      Text(value).font(DS.font(20, weight: .bold))
-      Text(title).font(DS.font(14)).foregroundStyle(DS.secondary)
+      Text(value).font(DS.font(.cardTitle))
+      Text(title).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
     }.frame(maxWidth: .infinity)
   }
 
@@ -311,7 +307,7 @@ struct LearnerProfileView: View {
     ZStack(alignment: .trailing) {
       HStack(spacing: 0) {
         if compactHeader { Spacer(minLength: 0) }
-        Text("我的").font(DS.font(27.2, weight: .bold))
+        Text("我的").font(DS.font(.pageTitle))
           .foregroundStyle(DS.text)
           .frame(height: DS.navigationRowHeight, alignment: .top)
           .accessibilityAddTraits(.isHeader)
@@ -352,9 +348,9 @@ struct LearnerProfileView: View {
       BCCard {
         VStack(spacing: 12) {
           HStack {
-            Text("PROFILE").font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
+            Text("PROFILE").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
             Spacer()
-            Text(store.preferences == nil ? "待完善" : "已完善").font(DS.font(20, weight: .bold))
+            Text(store.preferences == nil ? "待完善" : "已完善").font(DS.font(.supporting, weight: .medium))
               .foregroundStyle(DS.primaryPressed).padding(.horizontal, 9).padding(.vertical, 5)
               .background(Color(hex: 0xF4EFFF), in: Capsule())
           }
@@ -365,7 +361,7 @@ struct LearnerProfileView: View {
               ProfilePortraitArtwork().frame(height: store.isPad ? 190 : 132).frame(
                 maxWidth: .infinity)
               Label("重新设置", systemImage: "arrow.counterclockwise").font(
-                DS.font(14, weight: .bold)
+                DS.font(.supporting, weight: .semibold)
               ).padding(
                 .horizontal, 9
               ).padding(.vertical, 5).background(.white, in: Capsule()).overlay(
@@ -375,9 +371,9 @@ struct LearnerProfileView: View {
           }.buttonStyle(.plain).accessibilityLabel("重新设置学习偏好")
             .accessibilityIdentifier("profile.resetPreferences")
           VStack(alignment: .leading, spacing: 8) {
-            Text("当前课程").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary)
+            Text("当前课程").font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
             if store.courses.isEmpty {
-              Button("选择课程") { store.go(.library) }.font(DS.font(16)).foregroundStyle(DS.primary)
+              Button("选择课程") { store.go(.library) }.font(DS.font(.body)).foregroundStyle(DS.primary)
             } else {
               Menu {
                 ForEach(store.courses) { course in
@@ -385,7 +381,7 @@ struct LearnerProfileView: View {
                 }
               } label: {
                 HStack {
-                  Text(store.currentCourse?.name ?? "选择课程").font(DS.font(20)).foregroundStyle(
+                  Text(store.currentCourse?.name ?? "选择课程").font(DS.font(.body)).foregroundStyle(
                     DS.text
                   ).lineLimit(1)
                   Spacer()
@@ -405,8 +401,8 @@ struct LearnerProfileView: View {
         VStack(alignment: .leading, spacing: 18) {
           HStack {
             VStack(alignment: .leading, spacing: 4) {
-              Text("TODAY").font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
-              Text("今日计划").font(DS.font(20.8, weight: .bold))
+              Text("TODAY").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
+              Text("今日计划").font(DS.font(.sectionTitle))
             }
             Spacer()
             ZStack {
@@ -418,9 +414,9 @@ struct LearnerProfileView: View {
               ).stroke(DS.primary, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
               VStack(spacing: 2) {
-                Text(tasks.isEmpty ? "—" : "\(pendingTasks.count)").font(DS.font(16, weight: .bold))
+                Text(tasks.isEmpty ? "—" : "\(pendingTasks.count)").font(DS.font(.cardTitle))
                 Text(!tasks.isEmpty && pendingTasks.isEmpty ? "已完成" : "项待完成")
-                  .font(DS.font(12)).lineLimit(1).minimumScaleFactor(0.9)
+                  .font(DS.font(.caption)).lineLimit(1)
               }.frame(width: 48)
             }.frame(width: 64, height: 64).accessibilityLabel("\(pendingTasks.count) 项待完成")
           }
@@ -428,8 +424,8 @@ struct LearnerProfileView: View {
             HStack(spacing: 12) {
               StickerIcon("CalendarCheck2", size: 40)
               VStack(alignment: .leading, spacing: 7) {
-                Text("今天还没有学习计划").font(DS.font(16, weight: .bold))
-                Text("先选择一门课程，再安排今天要完成的内容。").font(DS.font(14)).foregroundStyle(DS.secondary)
+                Text("今天还没有学习计划").font(DS.font(.cardTitle))
+                Text("先选择一门课程，再安排今天要完成的内容。").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               }
             }
           } else {
@@ -442,8 +438,8 @@ struct LearnerProfileView: View {
                     (task.status == "done" || task.status == "completed") ? "Check" : "BookOpen",
                     size: 36)
                   VStack(alignment: .leading, spacing: 6) {
-                    Text(task.title).font(DS.font(16, weight: .bold))
-                    Text("\(task.task_type) · \(task.minutes) 分钟").font(DS.font(14))
+                    Text(task.title).font(DS.font(.cardTitle))
+                    Text("\(task.task_type) · \(task.minutes) 分钟").font(DS.font(.supporting))
                       .foregroundStyle(DS.secondary)
                   }
                   Spacer()
@@ -527,9 +523,9 @@ struct LearnerSettingsView: View {
             width: 50, height: 50
           ).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 15))
           VStack(alignment: .leading, spacing: 4) {
-            Text(store.preferences?.displayName ?? "我的账号").font(DS.font(20.8, weight: .bold)).frame(
+            Text(store.preferences?.displayName ?? "我的账号").font(DS.font(.sectionTitle)).frame(
               height: 26, alignment: .top)
-            Text(store.cloudState.localLogin ? "本地默认账号" : "当前账号").font(DS.font(20)).foregroundStyle(
+            Text(store.cloudState.localLogin ? "本地默认账号" : "当前账号").font(DS.font(.body)).foregroundStyle(
               DS.secondary
             ).frame(
               height: 28, alignment: .top)
@@ -539,7 +535,7 @@ struct LearnerSettingsView: View {
       }
       SettingsSourceCard {
         VStack(alignment: .leading, spacing: 12) {
-          Text("学习偏好").font(DS.font(20.8, weight: .bold)).frame(height: 26, alignment: .top)
+          Text("学习偏好").font(DS.font(.sectionTitle)).frame(minHeight: 32, alignment: .top)
           VStack(spacing: 0) {
             preferenceRow("主要学习目标", value: CourseOptions.goalLabel(store.preferences?.primaryGoal))
             preferenceRow("每日学习时间", value: CourseOptions.timeLabel(store.preferences?.dailyTime))
@@ -562,7 +558,7 @@ struct LearnerSettingsView: View {
         } label: {
           HStack(spacing: 12) {
             BCGlyph("LogOut", color: DS.danger).frame(width: 20, height: 20)
-            Text("退出账号").font(DS.font(20, weight: .bold))
+            Text("退出账号").font(DS.font(.button))
             Spacer()
             BCGlyph("ArrowRight", color: DS.danger).frame(width: 18, height: 18)
           }.padding(.horizontal, 21).frame(maxWidth: .infinity).frame(height: 62).foregroundStyle(
@@ -576,18 +572,18 @@ struct LearnerSettingsView: View {
             ? "退出后，再次打开软件也需要重新完成引导。"
             : store.cloudState.localLogin ? "当前无需邮箱验证，退出后可直接重新进入本地默认账号。" : "退出后需要重新使用邮箱验证码登录。"
         )
-        .font(DS.font(20)).lineSpacing(4).foregroundStyle(DS.secondary)
+        .font(DS.font(.body)).lineSpacing(4).foregroundStyle(DS.secondary)
         .frame(maxWidth: .infinity, minHeight: 28, alignment: .top)
       }.padding(.top, 8)
       SettingsSourceCard {
         VStack(alignment: .leading, spacing: 8) {
-          Text(store.cloud == nil ? "本机学习数据" : "账号学习数据").font(DS.font(20.8, weight: .bold)).frame(
+          Text(store.cloud == nil ? "本机学习数据" : "账号学习数据").font(DS.font(.sectionTitle)).frame(
             height: 26, alignment: .top)
           Text(
             store.cloud == nil
               ? "已保留 \(store.courses.count) 门课程。退出账号后，课程、资料和学习记录仍会保留，完成引导即可继续学习。"
               : "已保存 \(store.courses.count) 门课程。课程与已同步进度保留在账号中；本机笔记暂时只保存在这台设备。待同步进度会在下次登录后继续上传。"
-          ).font(DS.font(20))
+          ).font(DS.font(.body))
             .foregroundStyle(DS.secondary).lineSpacing(4).padding(.vertical, 2)
         }
       }
@@ -599,13 +595,13 @@ struct LearnerSettingsView: View {
             Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 26))
               .foregroundStyle(DS.danger).frame(width: 50, height: 50).background(
                 DS.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: 15))
-            Text("确认退出账号？").font(DS.font(20.8, weight: .bold))
+            Text("确认退出账号？").font(DS.font(.sectionTitle))
             Text(
               store.cloud == nil
                 ? "退出后需要重新完成个性化问题。已有课程、资料和学习记录会保留在本机。"
                 : store.cloudState.localLogin
                   ? "已同步课程和学习进度会保留在本地默认账号中，可直接重新进入。" : "退出后需要重新使用邮箱验证码登录。已同步课程和学习进度会保留在账号中。"
-            ).font(DS.font(20)).foregroundStyle(
+            ).font(DS.font(.body)).foregroundStyle(
               DS.secondary
             ).lineSpacing(6)
             HStack {
@@ -628,8 +624,8 @@ struct LearnerSettingsView: View {
       HStack(alignment: .firstTextBaseline) {
         Text(title).foregroundStyle(DS.secondary)
         Spacer()
-        Text(value).font(DS.font(20, weight: .bold)).multilineTextAlignment(.trailing)
-      }.font(DS.font(20)).frame(minHeight: 28).padding(.vertical, 12)
+        Text(value).font(DS.font(.cardTitle)).multilineTextAlignment(.trailing)
+      }.font(DS.font(.body)).frame(minHeight: 28).padding(.vertical, 12)
     }
   }
 }

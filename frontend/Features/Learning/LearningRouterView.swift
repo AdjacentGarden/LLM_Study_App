@@ -18,7 +18,7 @@ struct LearningRouterView: View {
       default: EmptyView()
       }
     }
-    .font(DS.font(15))
+    .font(DS.font(.body))
     .foregroundStyle(DS.text)
   }
 }
@@ -54,9 +54,9 @@ struct LearningSectionHeading: View {
       if let icon { StickerIcon(icon, size: 38, glyphSize: 19) }
       VStack(alignment: .leading, spacing: 2) {
         if let subtitle {
-          Text(subtitle).font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
+          Text(subtitle).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
         }
-        Text(title).font(DS.font(16, weight: .bold))
+        Text(title).font(DS.font(.sectionTitle))
       }
     }
   }
@@ -70,27 +70,23 @@ struct LearningSourceButton: View {
   var action: () -> Void
 
   var body: some View {
-    Button(action: action) {
-      HStack(spacing: 8) {
-        Image(systemName: "book.closed")
-        Text(
-          page > 0
-            ? learningPageLabel(page, end: end, printed: printed, printedEnd: printedEnd)
-            : "AI 补充 · 待原文核验")
-        Spacer(minLength: 8)
-        if page > 0 {
+    if page > 0 {
+      Button(action: action) {
+        HStack(spacing: 8) {
+          Image(systemName: "book.closed")
+          Text(learningPageLabel(page, end: end, printed: printed, printedEnd: printedEnd))
+          Spacer(minLength: 8)
           Text("查看原文")
           Image(systemName: "arrow.up.right")
         }
+        .font(DS.font(.smallButton))
+        .foregroundStyle(DS.primary)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
       }
-      .font(DS.font(12, weight: .semibold))
-      .foregroundStyle(DS.primary)
-      .padding(.vertical, 14)
-      .padding(.horizontal, 12)
-      .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
+      .buttonStyle(.plain)
     }
-    .buttonStyle(.plain)
-    .disabled(page <= 0)
   }
 }
 

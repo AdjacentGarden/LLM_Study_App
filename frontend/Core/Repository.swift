@@ -345,6 +345,33 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try data.write(to: directory.appendingPathComponent(relative), options: .atomic)
     return relative
   }
+  /// Keep large extracted documents outside the conversation's JSON snapshot.
+  func saveAssistantAttachmentText(_ chunks: [SourceChunk]) throws -> (path: String, characterCount: Int) {
+    let relative = "attachments/\(UUID().uuidString).txt"
+    let destination = directory.appendingPathComponent(relative)
+    let temporary = destination.appendingPathExtension("tmp")
+    guard FileManager.default.createFile(atPath: temporary.path, contents: nil) else {
+      throw ContentError.storage("无法保存附件文字。")
+    }
+    defer { try? FileManager.default.removeItem(at: temporary) }
+    let file = try FileHandle(forWritingTo: temporary)
+    var closed = false
+    defer { if !closed { try? file.close() } }
+    var count = 0
+    for (index, chunk) in chunks.enumerated() {
+      try Task.checkCancellation()
+      if index > 0, chunks[index - 1].page_start != chunk.page_start {
+        try file.write(contentsOf: Data([10, 10])); count += 2
+      }
+      try file.write(contentsOf: Data(chunk.text.utf8))
+      count += chunk.text.count
+    }
+    try file.close()
+    closed = true
+    try Task.checkCancellation()
+    try FileManager.default.moveItem(at: temporary, to: destination)
+    return (relative, count)
+  }
   nonisolated func attachmentURL(_ relative: String) -> URL {
     directory.appendingPathComponent(relative)
   }

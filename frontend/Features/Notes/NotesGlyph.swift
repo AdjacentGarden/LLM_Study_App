@@ -92,7 +92,7 @@ struct NotesSaveCelebration: View {
           ).offset(x: -CGFloat(frame) * 140)
             .frame(width: 140, height: 140, alignment: .leading).clipped()
         }.frame(width: 210, height: 210)
-        Text("摘录笔记保存成功").font(DS.font(15, weight: .bold)).foregroundStyle(DS.primary)
+        Text("摘录笔记保存成功").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
       }.padding(20).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
     }.allowsHitTesting(false).accessibilityLabel("摘录笔记保存成功")
   }
@@ -112,7 +112,7 @@ struct NotesPageHeader: View {
   @Environment(AppStore.self) private var store
   var body: some View {
     ZStack(alignment: .top) {
-      Text(title).font(DS.font(27.2, weight: .bold)).foregroundStyle(DS.text).frame(
+      Text(title).font(DS.font(.pageTitle)).foregroundStyle(DS.text).frame(
         height: DS.navigationRowHeight, alignment: .top)
         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("navigation.title")
       HStack {

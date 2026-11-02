@@ -134,7 +134,7 @@ struct CloudAccountView: View {
     HStack {
       Spacer().frame(width: 44)
       Text(registering ? "注册" : "登录")
-        .font(DS.font(24, weight: .bold)).foregroundStyle(DS.primary)
+        .font(DS.font(.pageTitle)).foregroundStyle(DS.primary)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("cloud.title")
         .frame(maxWidth: .infinity)
@@ -165,7 +165,7 @@ struct CloudAccountView: View {
       VStack(alignment: .leading, spacing: 17) {
         if store.cloudState.localLogin {
           Text("正在使用本地默认账号，无需邮箱验证。")
-            .font(DS.font(16)).foregroundStyle(DS.secondary)
+            .font(DS.font(.body)).foregroundStyle(DS.secondary)
           BCButton("连接本地服务并进入 App") {
             store.isLoading = true
             Task { await store.bootCloud() }
@@ -192,7 +192,7 @@ struct CloudAccountView: View {
                 Task { await sendCode() }
               } label: {
                 Text(remaining > 0 ? "\(remaining) 秒" : busy ? "发送中…" : "获取验证码")
-                  .font(DS.font(12, weight: .semibold)).foregroundStyle(DS.primary)
+                  .font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
                   .fixedSize().frame(minHeight: 44)
               }
               .buttonStyle(BCPressStyle())
@@ -204,20 +204,20 @@ struct CloudAccountView: View {
           .padding(.horizontal, 21).frame(minHeight: 47)
           .background(Color(.systemGray6), in: Capsule())
           if let challenge, hasCurrentChallenge {
-            Text(challenge.message).font(DS.font(13)).foregroundStyle(DS.secondary)
+            Text(challenge.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             if let demo = challenge.demo_code {
               Text("测试账号验证码：\(demo)")
-                .font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary)
+                .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
                 .accessibilityIdentifier("cloud.demoCode")
             }
           }
         }
         if let message = error ?? store.cloudState.error {
-          Text(message).font(DS.font(14)).foregroundStyle(DS.danger)
+          Text(message).font(DS.font(.supporting)).foregroundStyle(DS.danger)
             .accessibilityIdentifier("cloud.error")
         }
       }
-      .font(DS.font(20)).tint(DS.primary)
+      .font(DS.font(.body)).tint(DS.primary)
       .frame(maxWidth: .infinity, minHeight: registering ? 186 * scale : 256 * scale, alignment: .topLeading)
       .padding(.horizontal, 50 * scale)
       if !store.cloudState.localLogin {
@@ -226,7 +226,7 @@ struct CloudAccountView: View {
             Task { await verifyCode() }
           } label: {
             Text(busy ? "请稍候…" : registering ? "注册" : "登录")
-              .font(DS.font(24)).foregroundStyle(DS.primary)
+              .font(DS.font(.button)).foregroundStyle(DS.primary)
               .frame(maxWidth: .infinity, minHeight: 47)
               .background(DS.primarySoft, in: Capsule())
           }
@@ -235,7 +235,7 @@ struct CloudAccountView: View {
           if !registering {
             Button { setRegistering(true) } label: {
               Text("注册")
-                .font(DS.font(24)).foregroundStyle(DS.secondary)
+                .font(DS.font(.button)).foregroundStyle(DS.secondary)
                 .frame(maxWidth: .infinity, minHeight: 47)
                 .background(Color(hex: 0xeef1f5), in: Capsule())
             }
@@ -252,7 +252,7 @@ struct CloudAccountView: View {
       if registering {
         Button { setRegistering(false) } label: {
           Label("返回登录", systemImage: "chevron.left")
-            .font(DS.font(16, weight: .semibold)).foregroundStyle(DS.primary)
+            .font(DS.font(.smallButton)).foregroundStyle(DS.primary)
             .frame(minHeight: 44).contentShape(Rectangle())
         }
         .buttonStyle(BCPressStyle()).disabled(busy)
@@ -295,7 +295,7 @@ struct CloudAccountView: View {
       .navigationTitle("设置").navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .principal) {
-          Text("设置").font(DS.font(18, weight: .bold)).accessibilityAddTraits(.isHeader)
+          Text("设置").font(DS.font(.cardTitle)).accessibilityAddTraits(.isHeader)
         }
         ToolbarItem(placement: .confirmationAction) {
           Button("完成") { showingSettings = false }
@@ -407,15 +407,15 @@ struct CloudLearningSetupView: View {
       VStack(alignment: .leading, spacing: 22) {
         HStack {
           Text(store.isCloudCoursePreview ? "准备预览课程" : "准备专属课程")
-            .font(DS.font(24, weight: .bold))
+            .font(DS.font(.sectionTitle))
           Spacer()
           Button("稍后继续") { store.pauseCloudCourseGeneration() }
         }
         if store.cloudState.choosingLearningMode {
           VStack(alignment: .leading, spacing: 16) {
-            Text("选择学习方式").font(DS.font(21, weight: .bold))
+            Text("选择学习方式").font(DS.font(.sectionTitle))
             Text("先预览本章讲解、闪卡和练习，或先做诊断再生成适合自己的课程。")
-              .font(DS.font(16)).foregroundStyle(DS.secondary)
+              .font(DS.font(.body)).foregroundStyle(DS.secondary)
             BCButton("直接预览课程") {
               Task { await store.beginCloudLearning(
                 chapterID: store.cloudState.requestedChapterID, preview: true) }
@@ -427,11 +427,11 @@ struct CloudLearningSetupView: View {
         } else if let job = store.cloudState.courseJob {
           VStack(alignment: .leading, spacing: 16) {
             if job.isPending { ProgressView() }
-            Text(job.message).font(DS.font(18, weight: .bold)).lineSpacing(5)
+            Text(job.message).font(DS.font(.cardTitle)).lineSpacing(5)
             Text("退出此页不会停止服务器任务；再次打开本章可继续查询原任务。")
-              .font(DS.font(14)).foregroundStyle(DS.secondary)
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             if let error = store.cloudState.error {
-              Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+              Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
             }
             if !store.cloudState.isWorking {
               BCButton("查询原任务状态", style: .secondary) {
@@ -444,9 +444,9 @@ struct CloudLearningSetupView: View {
           }.accessibilityIdentifier("cloud.courseJob")
         } else if let turn {
           if store.cloudState.interview?.isPreview != true { BCProgress(value: turn.progress) }
-          Text(turn.message).font(DS.font(17)).lineSpacing(5)
+          Text(turn.message).font(DS.font(.body)).lineSpacing(5)
           if let question = turn.item?.prompt ?? turn.question {
-            Text(question).font(DS.font(21, weight: .bold)).lineSpacing(4)
+            Text(question).font(DS.font(.sectionTitle)).lineSpacing(4)
           }
           ForEach(options) { option in
             Button {
@@ -464,7 +464,7 @@ struct CloudLearningSetupView: View {
                 Image(systemName: selected.contains(option.id) ? "checkmark.circle.fill" : "circle")
                 Text(option.label).multilineTextAlignment(.leading).frame(
                   maxWidth: .infinity, alignment: .leading)
-              }.font(DS.font(17)).padding(18).foregroundStyle(
+              }.font(DS.font(.body)).padding(18).foregroundStyle(
                 selected.contains(option.id) ? DS.primary : DS.text
               )
               .background(
@@ -479,11 +479,11 @@ struct CloudLearningSetupView: View {
             VStack(alignment: .leading) {
               Text("对这次回答的信心：\(Int(confidence * 100))%")
               Slider(value: $confidence, in: 0...1)
-            }.font(DS.font(14)).foregroundStyle(DS.secondary)
+            }.font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           }
-          if let why = turn.why_asked { Text(why).font(DS.font(14)).foregroundStyle(DS.secondary) }
+          if let why = turn.why_asked { Text(why).font(DS.font(.supporting)).foregroundStyle(DS.secondary) }
           if let error = store.cloudState.error {
-            Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+            Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
           }
           BCButton(
             store.cloudState.isWorking
@@ -501,15 +501,15 @@ struct CloudLearningSetupView: View {
             .accessibilityIdentifier("cloud.diagnosis.next")
         } else {
           if let error = store.cloudState.error {
-            Text("诊断准备尚未完成").font(DS.font(20, weight: .bold))
-            Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+            Text("诊断准备尚未完成").font(DS.font(.cardTitle))
+            Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
             if !store.cloudState.isWorking {
               BCButton("继续查询诊断", style: .secondary) {
                 Task { await store.restoreCloudDiagnosis() }
               }
               if store.canRetryCloudDiagnosis {
                 Text("重试会重新准备未完成的诊断题；已完成的内容会保留。")
-                  .font(DS.font(14)).foregroundStyle(DS.secondary)
+                  .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
                 BCButton("重试诊断") {
                   Task { await store.beginCloudLearning(
                     chapterID: store.cloudState.requestedChapterID, retryDiagnosis: true) }

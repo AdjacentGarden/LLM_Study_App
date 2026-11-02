@@ -49,6 +49,7 @@ private struct LearningCardFaceRotation: AnimatableModifier {
 struct LearningFlashcardsView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  @Environment(\.verticalSizeClass) private var verticalSizeClass
   @State private var index = 0
   @State private var reviewStarted = Date()
   @State private var revealed = false
@@ -74,29 +75,25 @@ struct LearningFlashcardsView: View {
 
   var body: some View {
     if let current {
-      LearningScroll(width: store.isPad ? 680 : 440, inlinePadding: 16) {
-        HStack(alignment: .bottom, spacing: 12) {
-          VStack(alignment: .leading, spacing: 5) {
-            Text("\(cards.count) 张今天复习").font(DS.font(16, weight: .bold))
-            Text("\(cards.count) 张卡片").font(DS.font(14, weight: .semibold)).foregroundStyle(
-              DS.secondary)
-          }
-          Spacer()
-          Text(last ? "最后一张 · 完成后结束本轮" : "点击卡片翻面 · 左滑下一张")
-            .font(DS.font(14)).foregroundStyle(DS.secondary).multilineTextAlignment(.trailing)
-        }.padding(.horizontal, 4).padding(.vertical, 2).background(DS.surface)
+      GeometryReader { viewport in
+        let top = viewport.frame(in: .global).minY
+        // Stop at the usual tab bar top without adding navigation to this detail page.
+        let navigationSpace: CGFloat = store.isPad ? 0 : verticalSizeClass == .compact ? 32 : 49
+        let bottom = viewport.frame(in: .global).maxY - viewport.safeAreaInsets.bottom - navigationSpace
+        let height = max(0, min(viewport.size.height, bottom - top) - 12)
+        let compact = height < 360
         ZStack(alignment: .top) {
           if index + 2 < cards.count {
             RoundedRectangle(cornerRadius: 16).fill(DS.surface)
               .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
-              .padding(.horizontal, 21).offset(y: 26)
+              .padding(.horizontal, 21).padding(.top, 26)
           }
           if index + 1 < cards.count {
             RoundedRectangle(cornerRadius: 16).fill(DS.surface)
               .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
-              .padding(.horizontal, 12).offset(y: 14)
+              .padding(.horizontal, 12).padding(.top, 14)
           }
-          memoryCard(current)
+          memoryCard(current, compact: compact)
             .offset(x: drag)
             .rotationEffect(.degrees(Double(drag) / 28))
             .opacity(isTransitioning ? 0 : 1)
@@ -120,32 +117,9 @@ struct LearningFlashcardsView: View {
                   }
                 })
         }
-        .padding(.horizontal, store.isPad ? 8 : 2).padding(.bottom, 30)
-        if last {
-          BCButton("完成记忆", icon: "checkmark") {
-            store.showToast("已完成本轮闪卡记忆")
-            store.back()
-          }
-          .disabled(isFlipping || isTransitioning)
-          .accessibilityIdentifier("flashcard-finish")
-        }
-        if revealed {
-          HStack(spacing: 12) {
-            ratingButton("还不熟", helper: "稍后再复习", icon: "arrow.counterclockwise", primary: false) {
-              store.reviewFlashcard(
-                current, mastered: false, seconds: Date().timeIntervalSince(reviewStarted))
-              store.showToast("已加入复习队列")
-              if last { store.back() } else { advance() }
-            }
-            ratingButton("记住了", helper: last ? "完成本轮" : "进入下一张", icon: "checkmark", primary: true) {
-              store.reviewFlashcard(
-                current, mastered: true, seconds: Date().timeIntervalSince(reviewStarted))
-              store.showToast("已记录为掌握")
-              if last { store.back() } else { advance() }
-            }
-          }
-          .transition(.opacity.combined(with: .offset(y: 6)))
-        }
+        .frame(maxWidth: compact ? .infinity : store.isPad ? 680 : 440)
+        .frame(width: max(0, viewport.size.width - 32), height: height)
+        .padding(.horizontal, 16).padding(.top, 12)
       }
       .onChange(of: index) { _, _ in reviewStarted = .now }
       .onChange(of: store.selectedCourseID) { _, _ in resetDeck() }
@@ -163,9 +137,9 @@ struct LearningFlashcardsView: View {
         BCCard {
           VStack(alignment: .leading, spacing: 15) {
             BCPill("需要课程", color: DS.orange)
-            Text("本章暂无结构化闪卡").font(DS.font(23, weight: .bold))
+            Text("本章暂无结构化闪卡").font(DS.font(.sectionTitle))
             Text("闪卡会根据课程目标、核心概念和原文证据生成。请先回到章节学习页查看本章课程。")
-              .font(DS.font(14)).foregroundStyle(DS.secondary).lineSpacing(5)
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary).lineSpacing(5)
           }
         }
         BCButton("回到章节", icon: "book") { store.go(.lesson) }
@@ -174,74 +148,71 @@ struct LearningFlashcardsView: View {
     }
   }
 
-  private func memoryCard(_ card: Flashcard) -> some View {
-    VStack(spacing: 0) {
+  private func memoryCard(_ card: Flashcard, compact: Bool) -> some View {
+    let layout = compact ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
+    return layout {
       Button(action: flip) {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: compact ? 10 : 16) {
           HStack {
             Text(card.due == "today" || card.due == nil ? "今天复习" : card.due ?? "今天复习").font(
-              DS.font(20, weight: .bold)
+              DS.font(.caption, weight: .semibold)
             ).foregroundStyle(DS.secondary).padding(.horizontal, 9).padding(.vertical, 6)
               .background(theme.pill, in: Capsule())
             Spacer()
             Text(store.flashcardFamiliarityLabel(card))
-            .font(DS.font(14, weight: .bold)).foregroundStyle(theme.muted)
+            .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(theme.muted)
             .padding(.horizontal, 9).padding(.vertical, 6).background(
               theme.accent.opacity(0.1), in: Capsule())
           }
           GeometryReader { geometry in
             ZStack {
-              cardFace(card, answer: false)
+              cardFaceContent(card, answer: false)
                 .modifier(
                   LearningCardFaceRotation(
                     angle: flipAngle, perspective: geometry.size.width / 1000))
-              cardFace(card, answer: true)
+              cardFaceContent(card, answer: true)
                 .modifier(
                   LearningCardFaceRotation(
                     angle: flipAngle - 180, perspective: geometry.size.width / 1000))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
           }
-          Text(revealed ? "点击返回问题" : "点击查看答案").font(DS.font(14, weight: .semibold)).foregroundStyle(
+          Text(revealed ? "点击返回问题" : "点击查看答案").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(
             theme.muted
           ).frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding(18).frame(maxWidth: .infinity).frame(
-          height: store.isPad ? 800 : 420, alignment: .leading
-        )
+        .padding(compact ? 12 : 18).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .foregroundStyle(theme.ink)
         .background(revealed ? theme.answer : theme.surface)
         .contentShape(Rectangle())
       }.buttonStyle(.plain)
+        .frame(maxHeight: .infinity)
         .disabled(isFlipping || isTransitioning)
         .accessibilityIdentifier("flashcard-face")
         .accessibilityValue(store.isMastered(card.id) ? "mastered" : "unmastered")
         .accessibilityLabel("\(revealed ? "参考答案" : "问题")：\(revealed ? card.back : card.front)")
         .accessibilityHint(revealed ? "点按返回问题，向左轻扫下一张" : "点按查看答案，向左轻扫下一张")
         .accessibilityAction(named: "下一张") { if !last { advance() } }
-      VStack(spacing: 10) {
-        HStack {
-          Text(
-            card.page_start > 0 && card.source_kind != "ai_supplement"
-              ? learningPageLabel(
+      VStack(spacing: compact ? 6 : 10) {
+        if card.page_start > 0 && card.source_kind != "ai_supplement" {
+          HStack {
+            Text(learningPageLabel(
                 card.page_start, end: card.page_end, printed: card.printed_page_start,
-                printedEnd: card.printed_page_end) : "AI 补充 · 待原文核验"
-          )
-          .font(DS.font(14)).foregroundStyle(theme.muted)
-          Spacer()
-          if card.page_start > 0 && card.source_kind != "ai_supplement" {
-            Button("查看原文") { openSource(card) }.font(DS.font(14, weight: .bold)).foregroundStyle(
+                printedEnd: card.printed_page_end))
+              .font(DS.font(.supporting)).foregroundStyle(theme.muted)
+            Spacer()
+            Button("查看原文") { openSource(card) }.font(DS.font(.smallButton)).foregroundStyle(
               theme.accent
             ).buttonStyle(.plain)
           }
         }
         VStack(spacing: 6) {
           HStack {
-            Text("本轮进度").fontWeight(.bold)
+            Text("本轮进度").font(DS.font(.supporting, weight: .semibold))
             Spacer()
-            Text("\(index + 1) / \(cards.count)").fontWeight(.bold)
+            Text("\(index + 1) / \(cards.count)").font(DS.font(.supporting, weight: .semibold))
           }
-          .font(DS.font(14)).foregroundStyle(theme.muted)
+          .font(DS.font(.supporting)).foregroundStyle(theme.muted)
           GeometryReader { geometry in
             ZStack(alignment: .leading) {
               Capsule().fill(theme.surface)
@@ -249,24 +220,65 @@ struct LearningFlashcardsView: View {
                 width: geometry.size.width * Double(index + 1) / Double(max(1, cards.count)))
             }
           }.frame(height: 4)
-        }.accessibilityElement(children: .combine)
-      }.padding(.horizontal, 16).padding(.top, 9).padding(.bottom, 16).background(DS.surface)
+        }.accessibilityElement(children: .combine).accessibilityIdentifier("flashcard-progress")
+        if last {
+          BCButton("完成记忆", icon: "checkmark") {
+            store.showToast("已完成本轮闪卡记忆", kind: .success)
+            store.back()
+          }
+          .disabled(isFlipping || isTransitioning)
+          .accessibilityIdentifier("flashcard-finish")
+        }
+        if revealed {
+          HStack(spacing: 12) {
+            ratingButton("还不熟", helper: "稍后再复习", icon: "arrow.counterclockwise", primary: false, compact: compact) {
+              store.reviewFlashcard(
+                card, mastered: false, seconds: Date().timeIntervalSince(reviewStarted))
+              store.showToast("已加入复习队列", kind: .success)
+              if last { store.back() } else { advance() }
+            }
+            ratingButton("记住了", helper: last ? "完成本轮" : "进入下一张", icon: "checkmark", primary: true, compact: compact) {
+              store.reviewFlashcard(
+                card, mastered: true, seconds: Date().timeIntervalSince(reviewStarted))
+              store.showToast("已记录为掌握", kind: .success)
+              if last { store.back() } else { advance() }
+            }
+          }
+          .transition(.opacity.combined(with: .offset(y: 6)))
+        }
+      }.padding(.horizontal, 16).padding(.top, 9).padding(.bottom, compact ? 8 : 16)
+        .frame(width: compact ? 220 : nil).background(DS.surface)
     }
+    .background(DS.surface)
     .clipShape(RoundedRectangle(cornerRadius: 16))
     .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
   }
 
+  private func cardFaceContent(_ card: Flashcard, answer: Bool) -> some View {
+    ScrollView {
+      cardFace(card, answer: answer)
+    }
+    .defaultScrollAnchor(.center)
+    .scrollBounceBehavior(.basedOnSize)
+    .scrollIndicators(.hidden)
+    .clipped()
+    // The flip button already announces the full question or answer.
+    .accessibilityHidden(true)
+    .id(card.id + (answer ? "-answer" : "-question"))
+  }
+
   private func ratingButton(
-    _ title: String, helper: String, icon: String, primary: Bool, action: @escaping () -> Void
+    _ title: String, helper: String, icon: String, primary: Bool, compact: Bool,
+    action: @escaping () -> Void
   ) -> some View {
     Button(action: action) {
       HStack(spacing: 9) {
-        Image(systemName: icon).font(DS.font(17, weight: .semibold))
+        Image(systemName: icon).font(DS.font(.cardTitle))
         VStack(alignment: .leading, spacing: 3) {
-          Text(title).font(DS.font(14, weight: .bold))
-          Text(helper).font(DS.font(14)).opacity(0.75)
+          Text(title).font(DS.font(.supporting, weight: .semibold))
+          if !compact { Text(helper).font(DS.font(.supporting)).opacity(0.75) }
         }
-      }.frame(maxWidth: .infinity, minHeight: 58)
+      }.frame(maxWidth: .infinity, minHeight: compact ? 44 : 58)
         .foregroundStyle(primary ? Color.white : DS.primary)
         .background(primary ? DS.primary : DS.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay(
@@ -278,13 +290,13 @@ struct LearningFlashcardsView: View {
   private func cardFace(_ card: Flashcard, answer: Bool) -> some View {
     VStack(alignment: .leading, spacing: 15) {
       Text(answer ? "参考答案" : "问题 · \(card.concept)")
-        .font(DS.font(20, weight: .bold)).foregroundStyle(theme.accent)
+        .font(DS.font(.cardTitle)).foregroundStyle(theme.accent)
       Text(answer ? card.back : card.front)
-        .font(DS.font(20.8, weight: .bold)).lineSpacing(4)
+        .font(DS.font(.reading)).lineSpacing(4)
         .frame(maxWidth: .infinity, alignment: .leading)
-      if answer {
-        Text(card.reason.isEmpty ? "基于本节核心概念生成" : card.reason)
-          .font(DS.font(14)).foregroundStyle(theme.muted).lineSpacing(5)
+      if answer, !card.displayReason.isEmpty {
+        Text(card.displayReason)
+          .font(DS.font(.supporting)).foregroundStyle(theme.muted).lineSpacing(5)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -388,9 +400,9 @@ struct LearningExportView: View {
     LearningScroll(width: 1120) {
       BCCard {
         VStack(alignment: .leading, spacing: 20) {
-          Text("导出 PDF 预览").font(DS.font(20.8, weight: .bold))
+          Text("导出 PDF 预览").font(DS.font(.sectionTitle))
           Text("导出当前章节已有的学习内容与文字笔记。尚未生成的模块会跳过，手写和录音原件保留在本机。")
-            .font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(5).padding(.bottom, 25)
+            .font(DS.font(.body)).foregroundStyle(DS.secondary).lineSpacing(5).padding(.bottom, 25)
         }.frame(maxWidth: .infinity, alignment: .leading)
       }.padding(.bottom, 5)
       VStack(spacing: 10) {
@@ -415,7 +427,7 @@ struct LearningExportView: View {
                     .foregroundStyle(.white)
                 }
               }.frame(width: 22, height: 22).frame(width: 24, height: 24)
-              Text(module).font(DS.font(20)).foregroundStyle(DS.secondary)
+              Text(module).font(DS.font(.body)).foregroundStyle(DS.secondary)
               Spacer()
             }.padding(.horizontal, 13).frame(minHeight: 56).contentShape(Rectangle())
               .background(DS.surface, in: RoundedRectangle(cornerRadius: 14))
@@ -441,7 +453,7 @@ struct LearningExportView: View {
       .disabled(selected.isEmpty || store.currentSource == nil)
       if let exportURL {
         ShareLink(item: exportURL) { Label("保存或分享 PDF", systemImage: "square.and.arrow.up") }
-          .font(DS.font(18, weight: .bold)).padding(12)
+          .font(DS.font(.button)).padding(12)
       }
     }
   }

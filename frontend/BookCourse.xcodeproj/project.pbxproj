@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		015090985F1A8D79B2F37A3A /* App/AssistantAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101D13C4886B1B12CA76FE55 /* App/AssistantAttachmentPicker.swift */; };
+		D27FF12208A5CE03F8BF335D /* App/AssistantAttachmentStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 380CB9FE6DC322C0CEA5CCFE /* App/AssistantAttachmentStrip.swift */; };
+		0E45CEDF17C860FF6B13D156 /* Core/AssistantAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6569B0191FDE2D6B47877E /* Core/AssistantAttachment.swift */; };
 		400AC3CE9E93397F9AB68653 /* Core/AssistantHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A86FF1A4BF1E02B232B3FDD /* Core/AssistantHistory.swift */; };
 		018B3D64C028D08CA63177D8 /* DesignSystem/SVGAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5B9F514035E5B87B9469F2 /* DesignSystem/SVGAsset.swift */; };
 		04200CFFD12D083534B07BB1 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9ED39A968A752FA4EE265C55 /* Resources/Assets.xcassets */; };
@@ -116,6 +119,10 @@
 		5A19A5DAE19C2D00A0417EA8 /* Core/AssistantVoiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68A9E8CB9EDB35043A76A241 /* Core/AssistantVoiceInput.swift */; };
 		F917E9BC072EBCEFD4E0262D /* Tests/AssistantVoiceInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A978080496076EDABA257E93 /* Tests/AssistantVoiceInputTests.swift */; };
 		363841BA8CAD5DFF0D38FA44 /* UITests/AssistantComposerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E39D2E29299C57AA9A3FE227 /* UITests/AssistantComposerUITests.swift */; };
+		0EB7E6419FC87503FE683244 = { isa = PBXBuildFile; fileRef = 40917363356DD1DBBC6390B1; };
+		13D5FAFA9637C4DA70367870 = { isa = PBXBuildFile; fileRef = CDE69E4A408722AEAC16721B; };
+		BEF6ECEE47C6E09E0E0A4D12 = { isa = PBXBuildFile; fileRef = E0DF3781D4ED0DC3A3E738AA; };
+		E4AEABFAE677A343833C4D4A = { isa = PBXBuildFile; productRef = 5D592BC5D9DF8EF7FB126303; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -136,6 +143,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		101D13C4886B1B12CA76FE55 /* App/AssistantAttachmentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/AssistantAttachmentPicker.swift; sourceTree = SOURCE_ROOT; };
+		380CB9FE6DC322C0CEA5CCFE /* App/AssistantAttachmentStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/AssistantAttachmentStrip.swift; sourceTree = SOURCE_ROOT; };
+		2C6569B0191FDE2D6B47877E /* Core/AssistantAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AssistantAttachment.swift; sourceTree = SOURCE_ROOT; };
 		9A86FF1A4BF1E02B232B3FDD /* Core/AssistantHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AssistantHistory.swift; sourceTree = SOURCE_ROOT; };
 		05FAD26531FAE05D35D94F29 /* BookCourseUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BookCourseUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		06E0C3F532576FC9E037CC0C /* Features/Courses/CourseFlows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Courses/CourseFlows.swift; sourceTree = SOURCE_ROOT; };
@@ -246,6 +256,9 @@
 		68A9E8CB9EDB35043A76A241 /* Core/AssistantVoiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AssistantVoiceInput.swift; sourceTree = SOURCE_ROOT; };
 		A978080496076EDABA257E93 /* Tests/AssistantVoiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/AssistantVoiceInputTests.swift; sourceTree = SOURCE_ROOT; };
 		E39D2E29299C57AA9A3FE227 /* UITests/AssistantComposerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITests/AssistantComposerUITests.swift; sourceTree = SOURCE_ROOT; };
+		40917363356DD1DBBC6390B1 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Tests/ToastTests.swift"; sourceTree = SOURCE_ROOT; };
+		CDE69E4A408722AEAC16721B = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignSystem/ToastHUD.swift"; sourceTree = SOURCE_ROOT; };
+		E0DF3781D4ED0DC3A3E738AA = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Core/ToastNotice.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -255,6 +268,7 @@
 			files = (
 				E0C8CDEF5AE524D6E2159D54 /* onnxruntime in Frameworks */,
 				18EF78570142F2D5381DA24B /* ZIPFoundation in Frameworks */,
+				E4AEABFAE677A343833C4D4A,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -306,6 +320,7 @@
 				697382C051AE8B233F69D756 /* Tests/StudioServiceTests.swift */,
 				91C561AC5046E6158003CEC7 /* Tests/StudyNavigationTests.swift */,
 				FD9782D1870D759FF21F6260 /* Tests/VoiceGenerationServiceTests.swift */,
+				40917363356DD1DBBC6390B1,
 			);
 			name = BookCourseTests;
 			sourceTree = "<group>";
@@ -364,6 +379,7 @@
 				077D29007684EC0A5495AC22 /* Core/CloudMedia.swift */,
 				F08924ACE00DC27237533DBD /* Core/CloudState.swift */,
 				9A86FF1A4BF1E02B232B3FDD /* Core/AssistantHistory.swift */,
+				2C6569B0191FDE2D6B47877E /* Core/AssistantAttachment.swift */,
 				094CDAE862A4FB8F356EF7DA /* Core/CloudStore.swift */,
 				D3B951B2846441DAA3B0422C /* Core/CommunityAssistant.swift */,
 				C43A3B35A4D788C60C092CE4 /* Core/CommunitySharingModel.swift */,
@@ -379,6 +395,7 @@
 				3D1C9CD29154C61BDCA19CEC /* Core/Repository.swift */,
 				66F505B3ADE14197D2B4F4B7 /* Core/StudyCourseState.swift */,
 				C5A5DF5122A0B985556D485D /* Core/TextbookRetriever.swift */,
+				E0DF3781D4ED0DC3A3E738AA,
 			);
 			name = Core;
 			sourceTree = "<group>";
@@ -389,6 +406,7 @@
 				F0D8D18F58DA613CE929FD46 /* DesignSystem/Components.swift */,
 				CA07253F5B659613C811C265 /* DesignSystem/ProcessingNetworkChoicePanel.swift */,
 				2B5B9F514035E5B87B9469F2 /* DesignSystem/SVGAsset.swift */,
+				CDE69E4A408722AEAC16721B,
 			);
 			name = DesignSystem;
 			sourceTree = "<group>";
@@ -401,6 +419,8 @@
 				7112E53154B452929D9CBAA8 /* App/FixtureOrientation.swift */,
 				ADCBF394C1709FBEE3842725 /* App/AssistantComposer.swift */,
 				DBF3B83EC01FA01252EBC9C6 /* App/GlobalAssistantOverlay.swift */,
+				380CB9FE6DC322C0CEA5CCFE /* App/AssistantAttachmentStrip.swift */,
+				101D13C4886B1B12CA76FE55 /* App/AssistantAttachmentPicker.swift */,
 			);
 			name = App;
 			sourceTree = "<group>";
@@ -486,6 +506,7 @@
 			packageProductDependencies = (
 				37D0F65117CB99378018FFAC /* onnxruntime */,
 				5172F7DFA0453A729683A6A8 /* ZIPFoundation */,
+				5D592BC5D9DF8EF7FB126303,
 			);
 			productName = BookCourse;
 			productReference = 8364BACD79CD62D5888A8BBB /* BookCourse.app */;
@@ -533,6 +554,7 @@
 			packageReferences = (
 				4989528EDD32B7DE0ACDB551 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
 				E9D8B493AA3A1D2F2C54385B /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				5B5570FDDA77A9F89151629E,
 			);
 			productRefGroup = FBDC4F23F93125BBEEAE800C /* Products */;
 			projectDirPath = "";
@@ -602,6 +624,9 @@
 				4A4CB12C5E7ACDAA10105117 /* Core/CloudMedia.swift in Sources */,
 				19F7E52DFD3399E6FFACDD44 /* Core/CloudState.swift in Sources */,
 				400AC3CE9E93397F9AB68653 /* Core/AssistantHistory.swift in Sources */,
+				D27FF12208A5CE03F8BF335D /* App/AssistantAttachmentStrip.swift in Sources */,
+				015090985F1A8D79B2F37A3A /* App/AssistantAttachmentPicker.swift in Sources */,
+				0E45CEDF17C860FF6B13D156 /* Core/AssistantAttachment.swift in Sources */,
 				7BEC41E87B9E9CE1B929DE22 /* Core/CloudStore.swift in Sources */,
 				10C13D323FAC1B0F2D48C3FA /* Core/CommunityAssistant.swift in Sources */,
 				74FBB300018B922C4515BF3A /* Core/CommunitySharingModel.swift in Sources */,
@@ -644,6 +669,8 @@
 				1976FE25ED1EDF16050AE8A6 /* Features/Notes/SourceReader.swift in Sources */,
 				E81D5678F44A183F6EBECD0E /* Features/Notes/StudioService.swift in Sources */,
 				AC2E1A73DBD58723B3AAC863 /* Features/Notes/VoiceNote.swift in Sources */,
+				BEF6ECEE47C6E09E0E0A4D12,
+				13D5FAFA9637C4DA70367870,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -695,6 +722,7 @@
 				0BB2AF91866C83C2BC7E3D98 /* Tests/StudioServiceTests.swift in Sources */,
 				F32B07D05DA405108F2DA5DF /* Tests/StudyNavigationTests.swift in Sources */,
 				75DE63E74D8033537F9B282A /* Tests/VoiceGenerationServiceTests.swift in Sources */,
+				0EB7E6419FC87503FE683244,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -984,6 +1012,7 @@
 				version = 0.9.20;
 			};
 		};
+		5B5570FDDA77A9F89151629E = { isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/elai950/AlertToast"; requirement = { kind = exactVersion; version = "1.3.9"; }; };
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -997,6 +1026,7 @@
 			package = E9D8B493AA3A1D2F2C54385B /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
 		};
+		5D592BC5D9DF8EF7FB126303 = { isa = XCSwiftPackageProductDependency; package = 5B5570FDDA77A9F89151629E; productName = "AlertToast"; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;

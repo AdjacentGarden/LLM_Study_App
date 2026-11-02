@@ -1,3 +1,5 @@
+import AVFoundation
+import PhotosUI
 import SwiftUI
 
 /// A conversation above the current page, with its own voice/text composer.
@@ -14,6 +16,18 @@ struct GlobalAssistantOverlay: View {
   @State private var historyQuery = ""
   @FocusState private var historySearchFocused: Bool
   @State private var loadedScope: String?
+  @State private var showingAttachmentChoices = false
+  @State private var showingPhotos = false
+  @State private var showingFiles = false
+  @State private var cameraRequest: AssistantCameraRequest?
+  @State private var cameraResult: (request: AssistantCameraRequest, result: Result<Data, Error>)?
+  @State private var cameraPermissionTask: Task<Void, Never>?
+  @State private var selectedPhotos: [PhotosPickerItem] = []
+  @State private var addingAttachments = false
+  @State private var attachmentImportStatus = "正在读取附件…"
+  @State private var attachmentError: String?
+  @State private var attachmentImportTask: Task<Void, Never>?
+  @State private var attachmentImportID = UUID()
   private var history: AssistantHistoryStore { store.assistantHistory }
   private var ready: Bool {
     loadedScope != nil && loadedScope == store.assistantHistoryScope && history.isReady(for: loadedScope)
@@ -25,6 +39,7 @@ struct GlobalAssistantOverlay: View {
   private var guideMessages: [ChatMessage] { session?.messages ?? [] }
   private var courseLinks: [String: [String]] { session?.courseLinks ?? [:] }
   private var busy: Bool { ready && history.busy }
+  private var attachments: [AssistantAttachment] { ready ? history.attachments : [] }
   private var storageIssue: String? {
     history.scope == store.assistantHistoryScope ? history.storageError : nil
   }
@@ -38,11 +53,12 @@ struct GlobalAssistantOverlay: View {
     return history.sessions.filter { item in
       let fields = [item.title, item.context.courseTitle, item.context.chapterTitle]
         + item.messages.map(\.text)
+        + item.messages.flatMap { ($0.attachments ?? []).map(\.filename) }
       return terms.allSatisfy { term in fields.contains { matches($0, term: term) } }
     }
   }
 
-  var body: some View {
+  private var assistantPanel: some View {
     GeometryReader { geometry in
       let visibleHeight = max(180,
         voice.isVoiceMode ? geometry.size.height :
@@ -62,7 +78,7 @@ struct GlobalAssistantOverlay: View {
           .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(0.04), value: revealed)
         if let error = session?.error {
           HStack(spacing: 12) {
-            Text(error).font(.footnote).foregroundStyle(DS.danger)
+            Text(error).appFont(.supporting).foregroundStyle(DS.danger)
               .frame(maxWidth: .infinity, alignment: .leading)
             Button("重试") { retry() }.disabled(busy)
           }.padding(12)
@@ -70,7 +86,7 @@ struct GlobalAssistantOverlay: View {
         }
         if let issue = storageIssue {
           HStack {
-            Text(issue).font(.footnote).foregroundStyle(DS.danger)
+            Text(issue).appFont(.supporting).foregroundStyle(DS.danger)
             Spacer()
             Button("重试") {
               Task {
@@ -87,7 +103,12 @@ struct GlobalAssistantOverlay: View {
       .overlay(alignment: .bottom) {
         AssistantComposer(voice: voice, busy: busy || !ready,
           placeholder: sessionContext.discovery ? "想学什么？问问 AI…" : "问教材、问错题、问计划…",
-          prompts: sessionContext.prompts, textHorizontalInset: textInset, send: send)
+          attachments: attachments, addingAttachments: addingAttachments,
+          attachmentImportStatus: attachmentImportStatus,
+          showAttachmentChoices: {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { showingAttachmentChoices = true }
+          },
+          removeAttachment: removeAttachment, textHorizontalInset: textInset, send: send)
           .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
           .background(alignment: .bottom) {
             // The footer stays translucent; messages can scroll behind the glass composer.
@@ -105,17 +126,62 @@ struct GlobalAssistantOverlay: View {
       .padding(.trailing, store.isPad ? 24 : 0)
       .accessibilityElement(children: .contain)
       .accessibilityAddTraits(.isModal)
-      .allowsHitTesting(!showingHistory)
-      .accessibilityHidden(showingHistory)
+      .allowsHitTesting(!showingHistory && !showingAttachmentChoices)
+      .accessibilityHidden(showingHistory || showingAttachmentChoices)
     }
+  }
+
+  var body: some View {
+    assistantPanel
     .ignoresSafeArea(.container, edges: .bottom)
     .ignoresSafeArea(.keyboard, edges: .bottom)
     .onAppear { revealed = true }
     .task(id: loadID) { await loadHistory() }
+    .overlayPreferenceValue(AssistantComposerBoundsKey.self) { anchor in
+      if showingAttachmentChoices, let anchor {
+        attachmentChoices(anchor: anchor)
+          .transition(.opacity)
+      }
+    }
     .overlay { historySidebar }
+    .fullScreenCover(item: $cameraRequest, onDismiss: importCameraPhoto) { request in
+      AssistantCameraPicker(complete: { result in
+        cameraResult = (request, result)
+        cameraRequest = nil
+      }, cancel: { cameraRequest = nil })
+        .ignoresSafeArea()
+    }
+    .photosPicker(isPresented: $showingPhotos, selection: $selectedPhotos,
+      maxSelectionCount: max(1, AssistantAttachment.maximumCount - attachments.count), matching: .images)
+    .fileImporter(isPresented: $showingFiles, allowedContentTypes: AssistantAttachment.allowedTypes,
+      allowsMultipleSelection: true) { result in
+      do {
+        let urls = try result.get()
+        beginAttachmentImport(count: urls.count) { index, progress in
+          try await AssistantAttachmentImporter.file(urls[index], repository: store.repository, onProgress: progress)
+        }
+      } catch {
+        if (error as? CocoaError)?.code != .userCancelled { attachmentError = error.localizedDescription }
+      }
+    }
+    .onChange(of: selectedPhotos) { _, items in
+      guard !items.isEmpty else { return }
+      beginAttachmentImport(count: items.count) { index, progress in
+        guard let data = try await items[index].loadTransferable(type: Data.self) else {
+          throw ContentError.invalid("这张照片未能读取，请重新选择。")
+        }
+        return try await AssistantAttachmentImporter.photo(data, repository: store.repository, onProgress: progress)
+      }
+    }
+    .alert("无法添加附件", isPresented: Binding(get: { attachmentError != nil },
+      set: { if !$0 { attachmentError = nil } })) {
+      Button("好", role: .cancel) { attachmentError = nil }
+    } message: { Text(attachmentError ?? "请重新选择文件。") }
     .onChange(of: voice.draft) { _, _ in saveDraft() }
     .onChange(of: history.archive.selectedID) { _, _ in
       guard ready else { return }
+      showingAttachmentChoices = false
+      cancelAttachmentImport()
       voice.returnToText()
       voice.draft = history.draft
     }
@@ -134,9 +200,97 @@ struct GlobalAssistantOverlay: View {
       }
     }
     .onDisappear {
+      cameraPermissionTask?.cancel()
+      cancelAttachmentImport()
       saveDraft()
       voice.returnToText()
       Task { [history] in await history.flush() }
+    }
+  }
+
+  private func attachmentChoices(anchor: Anchor<CGRect>) -> some View {
+    GeometryReader { geometry in
+      let input = geometry[anchor]
+      let width = min(280, input.width)
+      let availableHeight = max(0, input.minY - 12)
+      ZStack(alignment: .topLeading) {
+        Color.clear.contentShape(Rectangle())
+          .onTapGesture { dismissAttachmentChoices() }
+          .accessibilityLabel("收起附件选项").accessibilityAddTraits(.isButton)
+        VStack(spacing: 0) {
+          Spacer(minLength: 0)
+          // Preserve the compact card; large text or a short landscape window can scroll.
+          ViewThatFits(in: .vertical) {
+            attachmentMenu.fixedSize(horizontal: false, vertical: true)
+            ScrollView { attachmentMenu }.scrollBounceBehavior(.basedOnSize)
+          }
+        }
+        .frame(width: width, height: availableHeight, alignment: .bottom)
+        .offset(x: input.minX)
+      }
+      .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+      .accessibilityAction(.escape) { dismissAttachmentChoices() }
+    }
+  }
+
+  private var attachmentMenu: some View {
+    AssistantAttachmentMenu(chooseCamera: chooseCamera, choosePhotos: {
+      dismissAttachmentChoices()
+      showingPhotos = true
+    }, chooseFiles: {
+      dismissAttachmentChoices()
+      showingFiles = true
+    })
+  }
+
+  private func dismissAttachmentChoices() {
+    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { showingAttachmentChoices = false }
+  }
+
+  private func chooseCamera() {
+    dismissAttachmentChoices()
+    guard ready, !busy, !addingAttachments,
+      attachments.count < AssistantAttachment.maximumCount, let scope = loadedScope else { return }
+    guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+      attachmentError = "当前设备不支持拍照，请在真机上使用相机，或选择已有图片。"
+      return
+    }
+    let request = AssistantCameraRequest(scope: scope, epoch: store.cloudState.epoch,
+      sessionID: history.archive.selectedID)
+    cameraPermissionTask?.cancel()
+    cameraPermissionTask = Task { @MainActor in
+      defer { cameraPermissionTask = nil }
+      let authorized: Bool
+      switch AVCaptureDevice.authorizationStatus(for: .video) {
+      case .authorized: authorized = true
+      case .notDetermined: authorized = await AVCaptureDevice.requestAccess(for: .video)
+      default: authorized = false
+      }
+      guard !Task.isCancelled, ready, !busy, !addingAttachments,
+        attachments.count < AssistantAttachment.maximumCount,
+        request.scope == store.assistantHistoryScope,
+        request.epoch == store.cloudState.epoch, request.sessionID == history.archive.selectedID else { return }
+      guard authorized else {
+        attachmentError = "请在系统设置中允许 CloudPath 使用相机，再重新拍摄。"
+        return
+      }
+      cameraResult = nil
+      cameraRequest = request
+    }
+  }
+
+  private func importCameraPhoto() {
+    guard let capture = cameraResult else { return }
+    cameraResult = nil
+    guard ready, capture.request.scope == store.assistantHistoryScope,
+      capture.request.epoch == store.cloudState.epoch,
+      capture.request.sessionID == history.archive.selectedID else { return }
+    switch capture.result {
+    case .success(let data):
+      beginAttachmentImport(count: 1) { _, progress in
+        try await AssistantAttachmentImporter.photo(data, repository: store.repository, onProgress: progress)
+      }
+    case .failure(let error): attachmentError = error.localizedDescription
     }
   }
 
@@ -146,8 +300,7 @@ struct GlobalAssistantOverlay: View {
         Button("新对话", systemImage: "square.and.pencil") { newSession() }
           .disabled(!ready).accessibilityIdentifier("assistant-new-conversation")
       } label: {
-        Text(title).font(.system(size: 20, weight: .semibold)).foregroundStyle(DS.text)
-          .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+        AssistantAdaptiveTitle(title: title).foregroundStyle(DS.text)
           .padding(.horizontal, 56).frame(maxWidth: .infinity)
           .contentShape(Rectangle()).contentTransition(.opacity)
           .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: title)
@@ -177,7 +330,7 @@ struct GlobalAssistantOverlay: View {
             .modifier(AssistantGlassSurface(radius: 22))
         }.accessibilityLabel("收起 AI 助手").accessibilityIdentifier("global-assistant-close")
       }
-    }.frame(height: 44)
+    }.frame(minHeight: 44)
   }
 
   private var historySidebar: some View {
@@ -218,7 +371,7 @@ struct GlobalAssistantOverlay: View {
   private var historyPanel: some View {
     VStack(spacing: 0) {
       HStack {
-        Text("历史对话").font(.title2.weight(.semibold)).foregroundStyle(DS.text)
+        Text("历史对话").appFont(.sectionTitle, weight: .semibold).foregroundStyle(DS.text)
         Spacer()
         Button(action: toggleHistorySearch) {
           Image(systemName: "magnifyingglass").font(.system(size: 20, weight: .medium))
@@ -251,16 +404,16 @@ struct GlobalAssistantOverlay: View {
                 Image(systemName: item.id == history.archive.selectedID ? "checkmark.circle.fill" : "bubble.left")
                   .foregroundStyle(DS.primary).frame(width: 22).padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
-                  Text(item.title).font(.headline).foregroundStyle(DS.text).lineLimit(1)
-                  Text(historyPreview(item)).font(.subheadline)
+                  Text(item.title).appFont(.cardTitle).foregroundStyle(DS.text).lineLimit(1)
+                  Text(historyPreview(item)).appFont(.supporting)
                     .foregroundStyle(DS.secondary).lineLimit(2)
                   Text(item.context.courseTitle + " · " + item.context.chapterTitle)
-                    .font(.caption).foregroundStyle(DS.muted).lineLimit(1)
+                    .appFont(.caption).foregroundStyle(DS.muted).lineLimit(1)
                   HStack {
                     Text(item.updatedAt, format: .dateTime.month().day().hour().minute())
                     if history.runningIDs.contains(item.id) { Text("正在回答…") }
                     else if item.pendingQuestion != nil { Text("回答未完成") }
-                  }.font(.caption2).foregroundStyle(DS.muted)
+                  }.appFont(.caption).foregroundStyle(DS.muted)
                 }
                 Spacer(minLength: 0)
               }.padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
@@ -282,7 +435,7 @@ struct GlobalAssistantOverlay: View {
     HStack(spacing: 8) {
       Image(systemName: "magnifyingglass").foregroundStyle(DS.secondary)
       TextField("搜索标题或聊天内容", text: $historyQuery)
-        .font(.subheadline).foregroundStyle(DS.text).tint(DS.primary)
+        .appFont(.supporting).foregroundStyle(DS.text).tint(DS.primary)
         .textInputAutocapitalization(.never).autocorrectionDisabled()
         .focused($historySearchFocused).submitLabel(.search)
         .onSubmit { historySearchFocused = false }
@@ -341,7 +494,7 @@ struct GlobalAssistantOverlay: View {
               if busy {
                 HStack(spacing: 8) {
                   ProgressView().tint(DS.primary)
-                  Text("正在准备回答…").font(.subheadline).foregroundStyle(DS.secondary)
+                  Text("正在准备回答…").appFont(.supporting).foregroundStyle(DS.secondary)
                 }.padding(16).modifier(AssistantGlassSurface(radius: 22, clear: true))
               }
             }
@@ -379,10 +532,13 @@ struct GlobalAssistantOverlay: View {
       VStack(alignment: .leading, spacing: 10) {
         if !user {
           Label("AI 导学助手", systemImage: "sparkles")
-            .font(.caption.weight(.semibold)).foregroundStyle(DS.primary)
+            .appFont(.caption, weight: .semibold).foregroundStyle(DS.primary)
+        }
+        if let files = message.attachments, !files.isEmpty {
+          AssistantAttachmentStrip(attachments: files)
         }
         Text(message.text)
-          .font(.custom("BookCourseNotoSansSC-Regular", size: 17, relativeTo: .body))
+          .appFont(.body)
           .foregroundStyle(user ? .white : DS.text)
           .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         if let ids = courseLinks[message.id] {
@@ -394,9 +550,9 @@ struct GlobalAssistantOverlay: View {
             } label: {
               HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                  Text(book.catalogTitle).font(.subheadline.weight(.semibold))
+                  Text(book.catalogTitle).appFont(.supporting, weight: .semibold)
                   Text("\(book.grade) · \(book.subject) · \(book.version)")
-                    .font(.caption).foregroundStyle(DS.secondary)
+                    .appFont(.caption).foregroundStyle(DS.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption)
@@ -408,10 +564,10 @@ struct GlobalAssistantOverlay: View {
         ForEach(message.citations) { citation in
           Button { close(); store.openCitation(citation) } label: {
             VStack(alignment: .leading, spacing: 4) {
-              Text(citation.chapterTitle).font(.subheadline.weight(.semibold))
+              Text(citation.chapterTitle).appFont(.supporting, weight: .semibold)
               Text("查看\(citation.printedPage.map { "教材第 \($0) 页" } ?? "PDF 第 \(citation.page) 页")原文")
-                .font(.caption)
-              Text(citation.quote).font(.caption).lineLimit(3)
+                .appFont(.caption)
+              Text(citation.quote).appFont(.caption).lineLimit(3)
             }.foregroundStyle(DS.primary).frame(maxWidth: .infinity, alignment: .leading)
               .padding(12).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 14))
           }.buttonStyle(.plain)
@@ -426,6 +582,7 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func close() {
+    cancelAttachmentImport()
     saveDraft()
     voice.returnToText()
     store.globalAssistantOpen = false
@@ -445,6 +602,7 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func selectSession(_ id: String) {
+    cancelAttachmentImport()
     saveDraft()
     voice.returnToText()
     history.select(id)
@@ -453,6 +611,7 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func newSession() {
+    cancelAttachmentImport()
     saveDraft()
     voice.returnToText()
     history.startNew(context: store.assistantSessionContext)
@@ -461,8 +620,13 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func send() {
-    let question = voice.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard ready, !question.isEmpty, !busy, voice.phase == .text else { return }
+    var question = voice.draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard ready, !busy, !addingAttachments, voice.phase == .text else { return }
+    if question.isEmpty, let first = attachments.first {
+      question = "请帮我分析附件“\(String(first.filename.prefix(120)))”中的内容。"
+    }
+    guard !question.isEmpty else { return }
+    guard question.count <= 2000 else { attachmentError = "问题最多 2,000 字，请精简后发送。"; return }
     let owner = store.assistantHistoryScope
     let epoch = store.cloudState.epoch
     history.submit(question, context: sessionContext) { [store] context, messages, question in
@@ -472,6 +636,68 @@ struct GlobalAssistantOverlay: View {
     voice.draft = history.draft
   }
 
+  private func beginAttachmentImport(count: Int,
+    load: @escaping @MainActor (Int, @escaping AssistantAttachmentImporter.Progress) async throws -> AssistantAttachment) {
+    guard ready, !addingAttachments, count > 0 else { return }
+    guard count + attachments.count <= AssistantAttachment.maximumCount else {
+      selectedPhotos = []
+      attachmentError = "每条消息最多添加 5 个附件，请减少选择数量。"
+      return
+    }
+    let owner = loadedScope, epoch = store.cloudState.epoch
+    let sessionID = history.archive.selectedID, context = sessionContext
+    let token = UUID()
+    attachmentImportID = token
+    addingAttachments = true
+    attachmentImportTask = Task { @MainActor in
+      defer {
+        if attachmentImportID == token {
+          addingAttachments = false
+          selectedPhotos = []
+          attachmentImportTask = nil
+        }
+      }
+      for index in 0..<count {
+        do {
+          attachmentImportStatus = "正在读取第 \(index + 1) / \(count) 个附件…"
+          let file = try await load(index) { value in
+            Task { @MainActor in
+              guard attachmentImportID == token, !Task.isCancelled else { return }
+              attachmentImportStatus = value
+            }
+          }
+          guard !Task.isCancelled, attachmentImportID == token, ready,
+            owner == store.assistantHistoryScope, epoch == store.cloudState.epoch,
+            sessionID == history.archive.selectedID else {
+            try? FileManager.default.removeItem(at: store.attachmentURL(file.path))
+            if let path = file.thumbnailPath { try? FileManager.default.removeItem(at: store.attachmentURL(path)) }
+            if let path = file.textPath { try? FileManager.default.removeItem(at: store.attachmentURL(path)) }
+            return
+          }
+          history.setAttachments(history.attachments + [file], context: context)
+        } catch is CancellationError { return }
+        catch {
+          guard attachmentImportID == token, !Task.isCancelled else { return }
+          attachmentError = error.localizedDescription
+          return
+        }
+      }
+    }
+  }
+
+  private func cancelAttachmentImport() {
+    attachmentImportTask?.cancel()
+    attachmentImportTask = nil
+    attachmentImportID = UUID()
+    addingAttachments = false
+    selectedPhotos = []
+  }
+
+  private func removeAttachment(_ id: String) {
+    guard ready, !addingAttachments else { return }
+    history.setAttachments(attachments.filter { $0.id != id }, context: sessionContext)
+  }
+
   private func retry() {
     let owner = store.assistantHistoryScope
     let epoch = store.cloudState.epoch
@@ -479,6 +705,30 @@ struct GlobalAssistantOverlay: View {
       guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch else { throw CancellationError() }
       return try await store.answerHistorySession(context: context, history: messages, question: question)
     }
+  }
+}
+
+private struct AssistantCameraRequest: Identifiable {
+  let id = UUID()
+  let scope: String
+  let epoch: UUID
+  let sessionID: String?
+}
+
+/// Pick the largest tier that fits the space between the two header controls.
+/// Intrinsic text width handles Chinese, Latin, numbers and Dynamic Type alike.
+private struct AssistantAdaptiveTitle: View {
+  let title: String
+
+  var body: some View {
+    ViewThatFits(in: .horizontal) {
+      Text(title).appFont(.pageTitle).fixedSize()
+      Text(title).appFont(.sectionTitle).fixedSize()
+      Text(title).appFont(.cardTitle)
+        .lineLimit(1).truncationMode(.tail)
+    }
+    .frame(maxWidth: .infinity)
+    .accessibilityElement(children: .ignore).accessibilityLabel(title)
   }
 }
 

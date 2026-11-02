@@ -132,13 +132,13 @@ private struct LearningPrettyReadingText: UIViewRepresentable {
   }
   private func apply(width: CGFloat, view: LearningReadingTextView, cache: Coordinator) {
     guard cache.text != text || abs(cache.width - width) > 0.1 else { return }
-    let font = UIFont(name: "BookCourseNotoSansSC-Regular", size: 20) ?? .systemFont(ofSize: 20)
+    let font = DS.uiFont(.reading)
     let lines = LearningPrettyLineBreaker.lines(in: text, width: width) {
       (String($0) as NSString).size(withAttributes: [.font: font]).width
     }
     let style = NSMutableParagraphStyle()
-    style.minimumLineHeight = 28
-    style.maximumLineHeight = 28
+    style.minimumLineHeight = DS.readingLineHeight
+    style.maximumLineHeight = DS.readingLineHeight
     style.lineBreakMode = .byClipping
     view.attributedText = NSAttributedString(
       string: lines.joined(separator: "\u{2028}"),
@@ -146,7 +146,7 @@ private struct LearningPrettyReadingText: UIViewRepresentable {
     view.accessibilityLabel = text
     cache.text = text
     cache.width = width
-    cache.height = CGFloat(lines.count) * 28
+    cache.height = CGFloat(lines.count) * DS.readingLineHeight
   }
 }
 
@@ -346,7 +346,7 @@ struct LessonReaderView: View {
 
   private func readerHeader(_ lesson: Lesson) -> some View {
     ZStack(alignment: .top) {
-      Text("章节学习").font(DS.font(27.2, weight: .bold))
+      Text("章节学习").font(DS.font(.pageTitle))
         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("navigation.title")
       HStack {
         Button {
@@ -373,14 +373,14 @@ struct LessonReaderView: View {
       HStack(spacing: 10) {
         Text("第 \(page + 1) / \(pageCount) 页").accessibilityIdentifier("lesson.page")
           .accessibilityValue(String(page + 1)).font(
-            DS.font(20, weight: .bold)
+            DS.font(.cardTitle)
           ).foregroundStyle(
             DS.primary)
-        Text(activeSection?.block.title ?? "本节导读").font(DS.font(16, weight: .bold)).foregroundStyle(
+        Text(activeSection?.block.title ?? "本节导读").font(DS.font(.cardTitle)).foregroundStyle(
           DS.secondary
         ).lineLimit(1)
         Spacer(minLength: 0)
-        Text("左右滑动").font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
+        Text("左右滑动").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
       }.frame(height: 28, alignment: .top)
       GeometryReader { geometry in
         ZStack(alignment: .leading) {
@@ -399,35 +399,28 @@ struct LessonReaderView: View {
   private func introduction(_ lesson: Lesson) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       VStack(alignment: .leading, spacing: 4) {
-        Text(lesson.title).font(DS.font(20.8, weight: .bold)).frame(height: 26, alignment: .leading)
+        Text(lesson.title).font(DS.font(.sectionTitle)).frame(minHeight: 32, alignment: .leading)
         Text(
           "\(store.selectedBookID == "book_biology_2" ? "人教版高中生物必修二遗传与进化" : store.currentSource?.summary.title ?? store.currentTitle) · 原书\(learningPageLabel(lesson.page_start, end: lesson.page_end, printed: chapter?.printed_page_start, printedEnd: chapter?.printed_page_end).replacingOccurrences(of: "教材", with: ""))"
         )
-        .font(DS.font(14)).foregroundStyle(DS.secondary).frame(height: 18.9)
+        .font(DS.font(.supporting)).foregroundStyle(DS.secondary).frame(minHeight: 20)
       }.padding(.bottom, 15).overlay(alignment: .bottom) {
         Rectangle().fill(DS.border).frame(height: 1)
       }
       Button {
         concept = lesson.key_concepts.first ?? lesson.title
       } label: {
-        Text("本节导读").font(DS.font(16, weight: .bold)).frame(height: 20.8, alignment: .leading)
+        Text("本节导读").font(DS.font(.cardTitle)).frame(minHeight: 26, alignment: .leading)
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(lesson.key_concepts.first ?? lesson.title)")
         .accessibilityIdentifier("lesson.concept")
       paragraph(lesson.summary)
-      if let warning = lesson.warnings.first {
-        VStack(alignment: .leading, spacing: 0) {
-          Rectangle().fill(DS.border).frame(height: 1)
-          Text(warning).font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(4)
-            .padding(.vertical, 2).frame(maxWidth: 643.8, alignment: .leading).padding(.top, 18)
-        }.padding(.top, 6)
-      }
       if let overviewImage { figure(overviewImage) }
       if !lesson.objectives.isEmpty {
         VStack(alignment: .leading, spacing: 5) {
           ForEach(lesson.objectives, id: \.self) { objective in
             HStack(alignment: .top, spacing: 15) {
               Circle().fill(DS.primary).frame(width: 5, height: 5).padding(.top, 11)
-              Text(objective).font(DS.font(20)).lineSpacing(4).padding(.vertical, 2)
+              Text(objective).font(DS.font(.reading)).lineSpacing(4).padding(.vertical, 2)
                 .foregroundStyle(DS.secondary)
             }
           }
@@ -445,7 +438,7 @@ struct LessonReaderView: View {
       Button {
         concept = section.block.title
       } label: {
-        Text(section.block.title).font(DS.font(16, weight: .bold)).lineSpacing(3)
+        Text(section.block.title).font(DS.font(.cardTitle)).lineSpacing(3)
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(section.block.title)")
         .accessibilityIdentifier("lesson.concept")
       ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, text in
@@ -490,11 +483,9 @@ struct LessonReaderView: View {
           figureImage(asset)
         }
         HStack(spacing: 12) {
-          Text(
-            asset.source_type == "extracted"
-              ? "教材原图\(asset.page.map { " · 第 \($0) 页" } ?? "")" : "AI 辅助示意"
-          )
-          .font(DS.font(20)).foregroundStyle(DS.secondary)
+          if asset.source_type == "extracted", let page = asset.page, page > 0 {
+            Text("第 \(page) 页").font(DS.font(.body)).foregroundStyle(DS.secondary)
+          }
           Spacer(minLength: 0)
           Button {
             openMedia(kind: "video", asset: asset)
@@ -502,7 +493,7 @@ struct LessonReaderView: View {
             HStack(spacing: 5) {
               Image(systemName: "play.circle").font(.system(size: 14))
               Text("生成讲解短片")
-            }.font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
+            }.font(DS.font(.smallButton)).foregroundStyle(DS.primary)
           }.buttonStyle(.plain).accessibilityIdentifier("lesson.video.open.\(asset.id)")
         }.frame(height: 28).frame(maxWidth: activeSection == nil ? 272 : 272).fixedSize(
           horizontal: false, vertical: true)
@@ -523,7 +514,7 @@ struct LessonReaderView: View {
       Button {
         store.openCitation(citation)
       } label: {
-        Label("查看原文", systemImage: "book").font(DS.font(20, weight: .bold)).foregroundStyle(
+        Label("查看原文", systemImage: "book").font(DS.font(.smallButton)).foregroundStyle(
           DS.primary)
       }.buttonStyle(.plain).frame(minHeight: 44)
         .accessibilityLabel(
@@ -537,7 +528,7 @@ struct LessonReaderView: View {
       Button {
         changePage(by: -1)
       } label: {
-        Label("上一页", systemImage: "chevron.left").font(DS.font(12, weight: .semibold))
+        Label("上一页", systemImage: "chevron.left").font(DS.font(.smallButton))
           .frame(minWidth: 66, minHeight: 44)
       }.disabled(page == 0).opacity(page == 0 ? 0.35 : 1)
       Spacer(minLength: 0)
@@ -546,7 +537,7 @@ struct LessonReaderView: View {
       } label: {
         HStack(spacing: 6) {
           StickerIcon("Sparkles", size: 26)
-          Text("问问 AI").font(DS.font(12, weight: .bold))
+          Text("问问 AI").font(DS.font(.smallButton))
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(DS.primarySoft, in: Capsule())
@@ -557,7 +548,7 @@ struct LessonReaderView: View {
           store.completeLesson()
           store.go(.study)
         } label: {
-          Label("完成本节", systemImage: "checkmark.circle.fill").font(DS.font(12, weight: .bold))
+          Label("完成本节", systemImage: "checkmark.circle.fill").font(DS.font(.smallButton))
             .foregroundStyle(.white).padding(.horizontal, 14).frame(minHeight: 44)
             .background(DS.primary, in: Capsule())
         }
@@ -569,7 +560,7 @@ struct LessonReaderView: View {
             Text("下一页")
             Image(systemName: "chevron.right")
           }
-          .font(DS.font(12, weight: .semibold)).frame(minWidth: 66, minHeight: 44)
+          .font(DS.font(.smallButton)).frame(minWidth: 66, minHeight: 44)
         }
       }
     }
@@ -627,7 +618,7 @@ struct LessonReaderView: View {
       Color.black.opacity(0.25).ignoresSafeArea().onTapGesture { concept = nil }
       VStack(alignment: .leading, spacing: 18) {
         HStack {
-          Text("核心概念").font(DS.font(13, weight: .semibold)).foregroundStyle(DS.secondary)
+          Text("核心概念").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
           Spacer()
           Button {
             concept = nil
@@ -636,9 +627,9 @@ struct LessonReaderView: View {
           }.buttonStyle(.plain).accessibilityLabel("关闭概念").accessibilityIdentifier(
             "lesson.concept.close")
         }
-        Text(title).font(DS.font(23, weight: .bold))
+        Text(title).font(DS.font(.sectionTitle))
         ScrollView {
-          Text(section?.block.content ?? lesson?.summary ?? "").font(DS.font(15)).lineSpacing(7)
+          Text(section?.block.content ?? lesson?.summary ?? "").font(DS.font(.reading)).lineSpacing(7)
             .textSelection(.enabled)
         }.frame(maxHeight: 280)
         if let citation = section?.block.citations.first {

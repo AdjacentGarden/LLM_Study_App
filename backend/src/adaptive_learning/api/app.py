@@ -72,6 +72,7 @@ from ..llm.book_parallel import ordered_book_map
 from ..llm.client import (
     LLMConfig,
     LLMCooldownError,
+    LLMContextLimitError,
     LLMError,
     LLMRefusalError,
     LLMTimeoutError,
@@ -665,6 +666,11 @@ def answer_book_question(
     except QABusyError as error:
         raise HTTPException(
             status_code=503, detail="当前提问较多，请稍后重试", headers={"Retry-After": "5"}
+        ) from error
+    except LLMContextLimitError as error:
+        raise HTTPException(
+            status_code=413,
+            detail="对话内容已超过当前模型的上下文容量，请新建对话或减少本次引用的内容；历史记录和附件已保留。",
         ) from error
     except LLMRefusalError as error:
         raise HTTPException(

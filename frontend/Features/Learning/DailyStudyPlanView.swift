@@ -10,36 +10,36 @@ struct DailyStudyPlanSummary: View {
     VStack(alignment: .leading, spacing: compact ? 0 : 12) {
       if !compact {
         HStack {
-          Text("今日学习计划").font(DS.font(20.8, weight: .bold))
+          Text("今日学习计划").font(DS.font(.sectionTitle))
           Spacer()
           Button { store.go(.plan) } label: {
-            Label("计划详情", systemImage: "chevron.right").font(DS.font(20, weight: .bold))
+            Label("计划详情", systemImage: "chevron.right").font(DS.font(.smallButton))
           }.buttonStyle(.plain).foregroundStyle(DS.primary)
         }
         if let plan = store.dailyStudyPlan(day) {
           Text("每日 \(plan.budget_minutes) 分钟 · 今日安排 \(plan.estimated_minutes) 分钟")
-            .font(DS.font(14)).foregroundStyle(DS.secondary)
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           if let task = plan.tasks.first(where: { !$0.isDone }) {
-            Text(task.title).font(DS.font(16, weight: .bold)).lineLimit(2)
+            Text(task.title).font(DS.font(.cardTitle)).lineLimit(2)
           } else {
             Text(plan.tasks.isEmpty ? "今日暂无安排" : "今日计划已完成")
-              .font(DS.font(16, weight: .bold))
+              .font(DS.font(.cardTitle))
           }
         } else {
           let failed = store.selectedCourseID.map { store.dailyPlanState.errors[DailyStudyPlanState.key($0, day)] != nil } ?? false
           Text(failed ? "今日计划暂不可用" : "正在获取今日计划…")
-            .font(DS.font(14)).foregroundStyle(DS.secondary)
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
       }
       BCProgress(value: store.dailyStudyPlan(day)?.progress ?? 0)
         .accessibilityIdentifier("study.plan.progress")
       if !compact, let plan = store.dailyStudyPlan(day) {
         Text("已完成 \(plan.completedCount) / \(plan.tasks.count) 项")
-          .font(DS.font(16)).foregroundStyle(DS.secondary)
+          .font(DS.font(.body)).foregroundStyle(DS.secondary)
       }
       if !compact, let wid = store.selectedCourseID,
         let error = store.dailyPlanState.errors[DailyStudyPlanState.key(wid, day)] {
-        Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+        Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
       }
     }
     .padding(.horizontal, 16).padding(.vertical, compact ? 10 : 16)
@@ -68,16 +68,16 @@ struct DailyStudyPlanView: View {
     LearningScroll(spacing: 16) {
       BCCard {
         VStack(alignment: .leading, spacing: 12) {
-          Text(store.currentCourse?.name ?? store.currentTitle).font(DS.font(20.8, weight: .bold))
+          Text(store.currentCourse?.name ?? store.currentTitle).font(DS.font(.sectionTitle))
           DatePicker("学习日期", selection: $selectedDate, in: ...Date.now, displayedComponents: .date)
-            .datePickerStyle(.compact).font(DS.font(16))
+            .datePickerStyle(.compact).font(DS.font(.body))
             .accessibilityIdentifier("plan.date")
           if let plan {
             Text("每日 \(plan.budget_minutes) 分钟 · 本日安排 \(plan.estimated_minutes) 分钟")
-              .font(DS.font(16)).foregroundStyle(DS.secondary)
+              .font(DS.font(.body)).foregroundStyle(DS.secondary)
             BCProgress(value: plan.progress)
             Text("已完成 \(plan.completedCount) / \(plan.tasks.count) 项")
-              .font(DS.font(16)).foregroundStyle(DS.secondary)
+              .font(DS.font(.body)).foregroundStyle(DS.secondary)
               .accessibilityIdentifier("plan.completion")
           }
         }
@@ -85,7 +85,7 @@ struct DailyStudyPlanView: View {
       if let error = store.dailyPlanState.errors[key] {
         BCCard {
           VStack(alignment: .leading, spacing: 12) {
-            Text(error).font(DS.font(14)).foregroundStyle(DS.danger)
+            Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
             BCButton("重新同步", style: .secondary) {
               Task {
                 await store.loadDailyStudyPlan(day: day)
@@ -98,7 +98,7 @@ struct DailyStudyPlanView: View {
       if let plan {
         if plan.preferences_changed {
           Text("学习偏好已更新，本日已确认或开始的安排会保留，新偏好用于后续计划。")
-            .font(DS.font(14)).foregroundStyle(DS.secondary)
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         if plan.tasks.isEmpty {
           EmptyStateView(title: "本日暂无学习任务",
@@ -146,11 +146,11 @@ struct DailyStudyPlanView: View {
         HStack {
           BCPill(task.kindLabel, color: DS.primary)
           Spacer()
-          Text("\(task.minutes) 分钟").font(DS.font(14)).foregroundStyle(DS.secondary)
+          Text("\(task.minutes) 分钟").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         Button { store.openDailyStudyTask(task, day: day) } label: {
           HStack(alignment: .top, spacing: 8) {
-            Text(task.title).font(DS.font(16, weight: .bold)).multilineTextAlignment(.leading)
+            Text(task.title).font(DS.font(.cardTitle)).multilineTextAlignment(.leading)
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").foregroundStyle(DS.primary)
           }
@@ -158,16 +158,16 @@ struct DailyStudyPlanView: View {
           .accessibilityIdentifier("plan.open.\(task.id)")
         if let resource = store.cloudState.workspaces.first(where: { $0.id == store.selectedCourseID })?
           .resources.first(where: { $0.id == task.resource_id }) {
-          Text(resource.structure?.title ?? resource.filename).font(DS.font(13)).foregroundStyle(DS.secondary)
+          Text(resource.structure?.title ?? resource.filename).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         if task.isDone {
-          Label("已完成", systemImage: "checkmark.circle.fill").font(DS.font(14)).foregroundStyle(DS.primary)
+          Label("已完成", systemImage: "checkmark.circle.fill").font(DS.font(.supporting)).foregroundStyle(DS.primary)
         } else {
           Button {
             Task { await store.completeDailyStudyTask(task, day: day) }
           } label: {
             Label(pending ? "完成记录待同步 · 重试" : "标记完成", systemImage: pending ? "arrow.clockwise" : "circle")
-              .font(DS.font(14, weight: .semibold)).foregroundStyle(DS.primary)
+              .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
           }.buttonStyle(.plain).disabled(plan.needs_confirmation || store.cloudState.syncing && pending)
             .accessibilityIdentifier("plan.complete.\(task.id)")
         }

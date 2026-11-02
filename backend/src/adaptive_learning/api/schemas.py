@@ -71,7 +71,7 @@ class BookQuestionRequest(BaseModel):
     workspace_id: str | None = Field(default=None, min_length=1, max_length=100)
     resource_id: str | None = Field(default=None, min_length=1, max_length=100)
     chapter_id: str | None = Field(default=None, min_length=1, max_length=150)
-    history: list[QuestionTurn] = Field(default_factory=list, max_length=8)
+    history: list[QuestionTurn] = Field(default_factory=list)
     book_ids: list[str] = Field(default_factory=list, max_length=8)
     reading_context: ReadingContext | None = None
 

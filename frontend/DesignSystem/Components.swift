@@ -16,12 +16,76 @@ enum DS {
   static let warning = Color(hex: 0x985014), danger = Color(hex: 0xb4233c),
     mint = Color(hex: 0x1e765d), orange = Color(hex: 0x985014)
   static let navigationRowHeight: CGFloat = 44
-  // Align controls with the visible cap height of the Noto SC navigation title.
+  // Align controls with the visible cap height of the navigation title.
   static let navigationButtonOffset: CGFloat = -4
-  static func font(_ size: CGFloat = 20, weight: Font.Weight = .regular) -> Font {
-    .custom(
-      weight == .regular || weight == .light
-        ? "BookCourseNotoSansSC-Regular" : "BookCourseNotoSansSC-Bold", fixedSize: size)
+  /// Shared type scale. Feature views select a role rather than an arbitrary point size.
+  enum Typography: CaseIterable {
+    case pageTitle, sectionTitle, cardTitle, reading, body, supporting, caption
+    case button, smallButton, navigation, tabLabel, metric
+
+    var size: CGFloat {
+      switch self {
+      case .pageTitle: 22
+      case .sectionTitle: 18
+      case .cardTitle: 16
+      case .reading: 16
+      case .body, .button: 14
+      case .supporting, .smallButton, .navigation: 12
+      case .caption, .tabLabel: 10
+      case .metric: 22
+      }
+    }
+    var weight: Font.Weight {
+      switch self {
+      case .pageTitle, .metric: .bold
+      case .sectionTitle, .button, .smallButton: .semibold
+      case .navigation: .medium
+      default: .regular
+      }
+    }
+    var relativeTo: Font.TextStyle {
+      switch self {
+      case .pageTitle, .metric: .title
+      case .sectionTitle: .title2
+      case .cardTitle: .headline
+      case .supporting, .smallButton, .navigation: .subheadline
+      case .caption, .tabLabel: .caption
+      default: .body
+      }
+    }
+  }
+  static let readingLineHeight: CGFloat = 24
+  static func font(_ style: Typography = .body, weight: Font.Weight? = nil) -> Font {
+    Font(uiFont(style, weight: weight))
+  }
+  /// Helvetica handles Latin and digits; the explicit cascade selects PingFang for Chinese.
+  static func uiFont(_ style: Typography = .body, weight: Font.Weight? = nil) -> UIFont {
+    resolvedFont(size: style.size, weight: weight ?? style.weight)
+  }
+  fileprivate static func scaledFont(_ style: Typography, size: CGFloat, weight: Font.Weight?) -> Font {
+    Font(resolvedFont(size: size, weight: weight ?? style.weight))
+  }
+  private static func resolvedFont(size: CGFloat, weight: Font.Weight) -> UIFont {
+    let faces = fontFaces(weight)
+    let descriptor = UIFontDescriptor(fontAttributes: [
+      .name: faces.latin,
+      .cascadeList: [UIFontDescriptor(name: faces.chinese, size: size)],
+    ])
+    return UIFont(descriptor: descriptor, size: size)
+  }
+  static func lineHeight(_ style: Typography, weight: Font.Weight? = nil) -> CGFloat {
+    max(uiFont(style, weight: weight).lineHeight,
+      UIFont(name: fontFaces(weight ?? style.weight).chinese, size: style.size)?.lineHeight ?? 0)
+  }
+  private static func fontFaces(_ weight: Font.Weight) -> (latin: String, chinese: String) {
+    switch weight {
+    case .ultraLight: ("Helvetica-Light", "PingFangSC-Ultralight")
+    case .thin: ("Helvetica-Light", "PingFangSC-Thin")
+    case .light: ("Helvetica-Light", "PingFangSC-Light")
+    case .medium: ("Helvetica", "PingFangSC-Medium")
+    case .semibold, .bold, .heavy, .black: ("Helvetica-Bold", "PingFangSC-Semibold")
+    default: ("Helvetica", "PingFangSC-Regular")
+    }
   }
   static let globalAnimation = Animation.timingCurve(0.25, 1, 0.5, 1, duration: 0.35)
   static let localAnimation = Animation.timingCurve(0.65, 0, 0.35, 1, duration: 0.18)
@@ -38,6 +102,30 @@ enum DS {
     }
   }
 }
+
+/// Preserve Dynamic Type for semantic text while sharing the same bilingual font cascade.
+private struct BCAppFont: ViewModifier {
+  @ScaledMetric private var size: CGFloat
+  private let style: DS.Typography
+  private let weight: Font.Weight?
+
+  init(_ style: DS.Typography, weight: Font.Weight?) {
+    _size = ScaledMetric(wrappedValue: style.size, relativeTo: style.relativeTo)
+    self.style = style
+    self.weight = weight
+  }
+
+  func body(content: Content) -> some View {
+    content.font(DS.scaledFont(style, size: size, weight: weight))
+  }
+}
+
+extension View {
+  func appFont(_ style: DS.Typography, weight: Font.Weight? = nil) -> some View {
+    modifier(BCAppFont(style, weight: weight))
+  }
+}
+
 enum BCButtonStyle { case primary, secondary, text, danger }
 struct BCButton: View {
   let title: String
@@ -64,7 +152,7 @@ struct BCButton: View {
               ? DS.muted : style == .primary ? .white : style == .danger ? DS.danger : DS.text
           ).frame(width: 18, height: 18)
         }
-        Text(title).font(DS.font(20, weight: .semibold)).multilineTextAlignment(.center)
+        Text(title).font(DS.font(.button)).multilineTextAlignment(.center)
       }
       .frame(maxWidth: .infinity).frame(minHeight: 54)
       .foregroundStyle(
@@ -115,7 +203,7 @@ struct BCPill: View {
     self.color = color
   }
   var body: some View {
-    Text(title).font(DS.font(12, weight: .semibold)).foregroundStyle(color).padding(.horizontal, 9)
+    Text(title).font(DS.font(.caption, weight: .semibold)).foregroundStyle(color).padding(.horizontal, 9)
       .padding(.vertical, 5).background(color.opacity(0.09), in: Capsule())
   }
 }
@@ -152,10 +240,10 @@ struct BCHeader: View {
   var body: some View {
     ZStack(alignment: .top) {
       VStack(spacing: 2) {
-        Text(title).font(DS.font(27.2, weight: .bold)).foregroundStyle(titleColor).lineLimit(1)
+        Text(title).font(DS.font(.pageTitle)).foregroundStyle(titleColor).lineLimit(1)
           .accessibilityAddTraits(.isHeader).accessibilityIdentifier("navigation.title")
         if let subtitle {
-          Text(subtitle).font(DS.font(14)).foregroundStyle(DS.secondary).lineLimit(1)
+          Text(subtitle).font(DS.font(.supporting)).foregroundStyle(DS.secondary).lineLimit(1)
         }
       }.padding(.horizontal, 44).frame(maxWidth: .infinity)
       HStack {
@@ -169,7 +257,7 @@ struct BCHeader: View {
         Spacer(minLength: 0)
         if let actionTitle, let action {
           Button(action: action) {
-            Text(actionTitle).font(DS.font(14, weight: .semibold)).foregroundStyle(DS.primary)
+            Text(actionTitle).font(DS.font(.smallButton)).foregroundStyle(DS.primary)
               .frame(minHeight: 44)
           }
         }
@@ -259,8 +347,8 @@ struct EmptyStateView: View {
       } else if let icon {
         BCGlyph(icon, color: DS.primary).frame(width: 34, height: 34).accessibilityHidden(true)
       }
-      Text(title).font(DS.font(21, weight: .bold))
-      Text(message).font(DS.font(14)).lineSpacing(6).foregroundStyle(DS.secondary)
+      Text(title).font(DS.font(.sectionTitle))
+      Text(message).font(DS.font(.supporting)).lineSpacing(6).foregroundStyle(DS.secondary)
         .multilineTextAlignment(.center)
     }.padding(28).frame(maxWidth: .infinity)
   }
@@ -273,7 +361,7 @@ struct BCTextField: View {
     self._text = text
   }
   var body: some View {
-    TextField(placeholder, text: $text).font(DS.font(18)).padding(.horizontal, 14).frame(
+    TextField(placeholder, text: $text).font(DS.font(.body)).padding(.horizontal, 14).frame(
       minHeight: 52
     ).background(.white, in: RoundedRectangle(cornerRadius: 14)).overlay(
       RoundedRectangle(cornerRadius: 14).stroke(DS.border, lineWidth: 1)
@@ -286,10 +374,10 @@ struct BCTextEditor: View {
   var body: some View {
     ZStack(alignment: .topLeading) {
       if text.isEmpty {
-        Text(placeholder).font(DS.font(16)).foregroundStyle(DS.muted).padding(13).allowsHitTesting(
+        Text(placeholder).font(DS.font(.body)).foregroundStyle(DS.muted).padding(13).allowsHitTesting(
           false)
       }
-      TextEditor(text: $text).font(DS.font(16)).scrollContentBackground(.hidden).padding(8).tint(
+      TextEditor(text: $text).font(DS.font(.body)).scrollContentBackground(.hidden).padding(8).tint(
         DS.primary
       ).opacity(text.isEmpty ? 0.8 : 1)
     }.frame(minHeight: 120).background(.white, in: RoundedRectangle(cornerRadius: 14)).overlay(
@@ -297,11 +385,10 @@ struct BCTextEditor: View {
   }
 }
 struct ProgressiveMaterial: View {
-  var top = false
   var body: some View {
     Rectangle().fill(.ultraThinMaterial).mask(
       LinearGradient(
-        colors: top ? [.black, .clear] : [.clear, .black], startPoint: .top, endPoint: .bottom)
+        colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
     ).allowsHitTesting(false).accessibilityHidden(true)
   }
 }
@@ -334,27 +421,17 @@ struct BottomPanelLayer<Content: View>: View {
 
 private struct NavigationBarSurface: ViewModifier {
   let color: Color
-  let fadesIntoContent: Bool
 
   func body(content: Content) -> some View {
     content
       .background { color.ignoresSafeArea(.container, edges: .top) }
-      .overlay(alignment: .bottom) {
-        // Extend the transition into the scroll content without taking space
-        // from the layout or intercepting controls beneath the header.
-        if fadesIntoContent {
-          ProgressiveMaterial(top: true).frame(height: 24).offset(y: 24)
-        }
-      }
       .zIndex(1)
   }
 }
 
 extension View {
-  func navigationBarSurface(_ color: Color = DS.background, fadesIntoContent: Bool = true)
-    -> some View
-  {
-    modifier(NavigationBarSurface(color: color, fadesIntoContent: fadesIntoContent))
+  func navigationBarSurface(_ color: Color = DS.background) -> some View {
+    modifier(NavigationBarSurface(color: color))
   }
 }
 

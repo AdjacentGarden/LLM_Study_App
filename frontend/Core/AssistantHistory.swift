@@ -20,6 +20,7 @@ struct AssistantSession: Codable, Identifiable, Sendable {
   var updatedAt = Date()
   var messages: [ChatMessage] = []
   var draft = ""
+  var draftAttachments: [AssistantAttachment]?
   var courseLinks: [String: [String]] = [:]
   var pendingQuestion: String?
   var error: String?
@@ -29,6 +30,7 @@ struct AssistantHistoryArchive: Codable, Sendable {
   var sessions: [AssistantSession] = []
   var selectedID: String?
   var newDraft = ""
+  var newAttachments: [AssistantAttachment]?
   var newContext: AssistantSessionContext?
 }
 
@@ -86,6 +88,7 @@ enum AssistantSessionTitle {
 
   var current: AssistantSession? { archive.sessions.first { $0.id == archive.selectedID } }
   var draft: String { current?.draft ?? archive.newDraft }
+  var attachments: [AssistantAttachment] { current?.draftAttachments ?? (current == nil ? archive.newAttachments : nil) ?? [] }
   var sessions: [AssistantSession] { archive.sessions.sorted { $0.updatedAt > $1.updatedAt } }
   var busy: Bool { archive.selectedID.map(runningIDs.contains) ?? false }
   func isReady(for value: String?) -> Bool { value != nil && scope == value && ready }
@@ -156,6 +159,7 @@ enum AssistantSessionTitle {
     guard ready else { return }
     archive.selectedID = nil
     archive.newDraft = ""
+    archive.newAttachments = nil
     archive.newContext = context
     persist()
   }
@@ -166,20 +170,35 @@ enum AssistantSessionTitle {
     persist()
   }
 
+  func setAttachments(_ value: [AssistantAttachment], context: AssistantSessionContext) {
+    guard ready else { return }
+    if let index = archive.sessions.firstIndex(where: { $0.id == archive.selectedID }) {
+      archive.sessions[index].draftAttachments = value.isEmpty ? nil : value
+    } else {
+      archive.newAttachments = value.isEmpty ? nil : value
+      if archive.newContext == nil { archive.newContext = context }
+    }
+    persist()
+  }
+
   func submit(_ question: String, context: AssistantSessionContext,
     answer: @escaping @MainActor (AssistantSessionContext, [ChatMessage], String) async throws -> AssistantHistoryAnswer) {
     guard ready, !busy, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    let files = attachments
     if current == nil {
       let session = AssistantSession(title: AssistantSessionTitle.make(question),
         context: archive.newContext ?? context)
       archive.sessions.append(session)
       archive.selectedID = session.id
       archive.newDraft = ""
+      archive.newAttachments = nil
       archive.newContext = nil
     }
     guard let index = archive.sessions.firstIndex(where: { $0.id == archive.selectedID }) else { return }
-    archive.sessions[index].messages.append(ChatMessage(role: "user", text: question))
+    archive.sessions[index].messages.append(ChatMessage(role: "user", text: question,
+      attachments: files.isEmpty ? nil : files))
     archive.sessions[index].draft = ""
+    archive.sessions[index].draftAttachments = nil
     archive.sessions[index].pendingQuestion = question
     archive.sessions[index].updatedAt = Date()
     run(id: archive.sessions[index].id, answer: answer)
@@ -205,7 +224,7 @@ enum AssistantSessionTitle {
       await saveTask?.value
       guard token == generation, !Task.isCancelled else { return }
       do {
-        let response = try await answer(session.context, Array(session.messages.suffix(8)), question)
+        let response = try await answer(session.context, session.messages, question)
         try Task.checkCancellation()
         guard token == generation,
           let position = archive.sessions.firstIndex(where: { $0.id == id }) else { return }
@@ -275,14 +294,19 @@ extension AppStore {
     question: String) async throws -> AssistantHistoryAnswer {
     let epoch = cloudState.epoch
     let owner = assistantHistoryScope
+    let hasAttachments = history.contains { !($0.attachments ?? []).isEmpty }
     if context.discovery {
+      if hasAttachments { throw ContentError.invalid("请进入课程后讨论附件内容，课程发现页用于查找课程。") }
       let answer = answerCommunityCourseQuery(question, books: community)
       return AssistantHistoryAnswer(text: answer.text, courseIDs: answer.courseIds)
     }
     do {
+      let turns = try await AssistantAttachmentContext.history(history, question: question, repository: repository)
+      guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
       let response = try await answerAssistant(question: question, bookID: context.bookID,
-        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: sources, history: history,
-        courseID: context.courseID, bindToCurrentSelection: false)
+        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: sources,
+        history: turns,
+        courseID: context.courseID, bindToCurrentSelection: false, requiresOnline: hasAttachments)
       guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
       return AssistantHistoryAnswer(text: response.answer, citations: response.citations)
     } catch {

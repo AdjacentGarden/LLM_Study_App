@@ -35,7 +35,7 @@ extension AppStore {
   func handleCloudError(_ error: Error) {
     guard !(error is CancellationError) else { return }
     cloudState.error = error.localizedDescription
-    showToast(error.localizedDescription)
+    showToast(error.localizedDescription, kind: .error)
     if let error = error as? CloudError, error.status == 401 {
       cloudState.isWorking = false
       cloudState.diagnosisRetryAvailable = false
@@ -413,7 +413,7 @@ extension AppStore {
       // Reusing it avoids creating another upload and a second progress card.
       if !retainedID.hasPrefix("book_local_") { return }
       if processingRoute == .onDevice {
-        showToast("教材已保存在本机，将使用本机文字识别。")
+        showToast("教材已保存在本机", subtitle: "将使用本机文字识别")
         return
       }
       let uploaded = try await cloud.uploadPDF(
@@ -910,7 +910,8 @@ extension AppStore {
   func answerAssistant(
     question: String, bookID: String, bookIDs: [String], chapterID: String?,
     sources: [SourceContent], history: [ChatMessage], courseID: String? = nil,
-    bindToCurrentSelection: Bool = true, readingContext: CloudReadingContext? = nil
+    bindToCurrentSelection: Bool = true, requiresOnline: Bool = false,
+    readingContext: CloudReadingContext? = nil
   ) async throws -> AssistantAnswer {
     let epoch = cloudState.epoch
     let routingSelection = selectionGeneration
@@ -920,10 +921,16 @@ extension AppStore {
       processingRoute != .cancelled else { throw CancellationError() }
     let localQuestion = readingContext?.localQuestion(question) ?? question
     if processingRoute == .onDevice {
+      if requiresOnline {
+        throw ContentError.invalid("附件已保存在本机。请联网后重试附件问答，本机检索目前仅支持教材原文。")
+      }
       return try await answerFromOnDeviceTextbook(question: localQuestion, bookID: bookID,
         bookIDs: bookIDs, sources: sources)
     }
     guard let cloud, !bookID.hasPrefix("book_local_") else {
+      if requiresOnline, DeveloperSecrets.key() == nil {
+        throw ContentError.invalid("附件已保存在本机。请连接学习服务后再进行附件问答。")
+      }
       return try await assistant.ask(
         question: localQuestion, bookID: bookID, bookIDs: bookIDs,
         chapterID: chapterID, sources: sources, history: history)
@@ -951,9 +958,9 @@ extension AppStore {
       "chapter_id": chapterID.map(JSONValue.string) ?? .null,
       "history": .array(
         turns.filter { ["user", "assistant"].contains($0.role) }
-          .suffix(8).map {
+          .map {
             .object([
-              "role": .string($0.role), "text": .string(String($0.text.prefix(4000))),
+              "role": .string($0.role), "text": .string(String($0.text.unicodeScalars.prefix(4000))),
             ])
           }),
     ]
@@ -1090,7 +1097,7 @@ extension AppStore {
       } else if let session = resource.session_id {
         path = "/api/interviews/\(session)/courses/\(card.lesson_id)/flashcards/\(card.id)"
       } else {
-        showToast("请先生成当前章节课程")
+        showToast("请先生成当前章节课程", kind: .warning)
         return
       }
       cloudState.pendingReviews.append(

@@ -81,13 +81,13 @@ struct CourseFeaturePage<Content: View>: View {
 struct CourseSectionHeading: View {
   let title: String
   var detail: String? = nil
-  var detailSize: CGFloat = 14
+  var detailStyle: DS.Typography = .supporting
   var detailWeight: Font.Weight = .regular
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Text(title).font(DS.font(20.8, weight: .bold))
+      Text(title).font(DS.font(.sectionTitle))
       if let detail {
-        Text(detail).font(DS.font(detailSize, weight: detailWeight)).foregroundStyle(DS.secondary)
+        Text(detail).font(DS.font(detailStyle, weight: detailWeight)).foregroundStyle(DS.secondary)
       }
       Spacer(minLength: 0)
     }.frame(minHeight: 44)
@@ -113,7 +113,7 @@ struct CourseChoice: View {
   var tall = false
   var illustrated = false
   var toneIndex = 0
-  var labelSize: CGFloat = 20
+  var labelStyle: DS.Typography = .body
   let action: () -> Void
   var body: some View {
     Button(action: action) {
@@ -121,7 +121,7 @@ struct CourseChoice: View {
         if tall {
           VStack(spacing: 16) {
             if let icon { StickerIcon(icon, size: 64).frame(maxHeight: .infinity) }
-            Text(label).font(DS.font(16, weight: .bold))
+            Text(label).font(DS.font(.cardTitle))
           }.frame(maxWidth: .infinity).frame(minHeight: 122)
         } else {
           HStack(spacing: 12) {
@@ -132,7 +132,7 @@ struct CourseChoice: View {
                 Image(systemName: icon).font(.system(size: 20, weight: .semibold))
               }
             }
-            Text(label).font(DS.font(labelSize, weight: .bold)).frame(
+            Text(label).font(DS.font(labelStyle, weight: .semibold)).frame(
               maxWidth: .infinity, alignment: .leading)
             Image(systemName: "checkmark").opacity(selected ? 1 : 0)
           }.frame(minHeight: illustrated ? 40 : 20)
@@ -327,8 +327,8 @@ struct CourseCoverImage: View {
           if let documentKind {
             VStack(spacing: 12) {
               StickerIcon("FileText", size: 56)
-              Text(documentKind).font(DS.font(20, weight: .bold))
-              Text("AI 课程资料").font(DS.font(14)).foregroundStyle(DS.secondary)
+              Text(documentKind).font(DS.font(.cardTitle))
+              Text("AI 课程资料").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             }
           } else {
             BCGlyph("FileText", color: DS.primary).frame(width: 30, height: 30)

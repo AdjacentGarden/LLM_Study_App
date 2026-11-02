@@ -5,7 +5,7 @@ usage() { cat <<'EOF'
 Usage: scripts/build.sh [--destination 'generic/platform=iOS Simulator'] [--configuration Debug|Release] [--regenerate-project] [-- xcodebuild-options...]
 Builds committed native sources/resources. Does not read the React repository.
 Environment: BOOKCOURSE_DERIVED_DATA, BOOKCOURSE_PACKAGES, BOOKCOURSE_CONFIGURATION.
-First build resolves the two pinned Swift packages and requires internet.
+First build resolves the pinned Swift packages and requires internet.
 EOF
 }
 destination='generic/platform=iOS Simulator'

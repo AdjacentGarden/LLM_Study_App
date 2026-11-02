@@ -56,7 +56,7 @@ extension AppStore {
         importJob?.status = .failed
         importJob?.message = processingMessage
         persist()
-        showToast(error.localizedDescription)
+        showToast(error.localizedDescription, kind: .error)
         return
       }
     }
@@ -73,7 +73,7 @@ extension AppStore {
 
   func prepareLocalCourseOnWiFi(bookID: String) {
     guard processingPolicy.isStableWiFi else {
-      showToast("请连接稳定 Wi-Fi 后，再继续生成课程。当前原文仍可在本机阅读和检索。")
+      showToast("请连接稳定 Wi-Fi 后继续生成课程", kind: .warning, subtitle: "原文仍可在本机阅读和检索")
       return
     }
     guard let source = sources.first(where: { $0.id == bookID }) else { return }

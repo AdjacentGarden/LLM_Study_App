@@ -43,123 +43,131 @@ struct LearningAssignmentView: View {
     if let question {
       GeometryReader { geometry in
         let phone = geometry.size.width < 720
-        ScrollViewReader { proxy in
-          ScrollView {
-            VStack(spacing: phone ? 12 : 16) {
-              VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                  StickerIcon("BookOpenCheck", size: 40, glyphSize: 21)
-                  VStack(alignment: .leading, spacing: 3) {
-                    Text("本节练习").font(DS.font(14, weight: .bold)).foregroundStyle(DS.secondary)
-                    Text(
-                      store.chapters.first { $0.id == store.selectedChapterID }?.source_title
-                        ?? store.chapterTitle
-                    ).font(DS.font(20.8, weight: .bold)).lineSpacing(2)
-                  }
-                  Spacer(minLength: 0)
-                  Text("\(index + 1) / \(questions.count)").font(DS.font(16, weight: .bold))
-                    .foregroundStyle(DS.secondary)
-                }
-                BCProgress(value: Double(index + 1) / Double(max(1, questions.count)))
-              }
-              .padding(.horizontal, 16).padding(.vertical, phone ? 14 : 15.5)
-              .background(DS.surface, in: Capsule())
-              .overlay(Capsule().stroke(DS.border.opacity(0.55), lineWidth: 1))
-              .padding(.horizontal, phone ? 16 : 0)
-              .id("exercise-top")
-
-              VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 9) {
-                  StickerIcon(kindIcon(question), size: 36, glyphSize: 19)
-                  Text("\(kindTitle(question)) · 第 \(index + 1) 题").font(DS.font(14, weight: .bold))
-                    .foregroundStyle(DS.primary)
-                }
-                Text(question.prompt).accessibilityIdentifier("assignment.question").font(
-                  DS.font(20.8, weight: .bold)
-                ).lineSpacing(4)
-                  .fixedSize(horizontal: false, vertical: true).frame(
-                    maxWidth: 385, alignment: .leading)
-                if learningQuestionKind(question) != "short-answer" {
-                  Text(
-                    question.instruction
-                      ?? (learningQuestionKind(question) == "judgment" ? "判断这句话是否正确" : "选择一个最准确的答案")
-                  )
-                  .font(DS.font(14)).foregroundStyle(DS.secondary)
-                  .padding(.top, phone && learningQuestionKind(question) == "judgment" ? 84 : 0)
-                }
-                if learningQuestionKind(question) == "judgment" {
-                  judgmentOptions(question)
-                } else if learningQuestionKind(question) == "choice" {
-                  choiceOptions(question)
-                } else {
-                  shortAnswerField(question)
-                }
-                if let error {
-                  Text(error).font(DS.font(14)).foregroundStyle(DS.danger).accessibilityAddTraits(
-                    .updatesFrequently)
-                }
-                if store.cloud != nil {
-                  VStack(alignment: .leading, spacing: 6) {
-                    Text("回答信心：\(Int(confidence * 100))%").font(DS.font(14)).foregroundStyle(DS.secondary)
-                    Slider(value: $confidence, in: 0...1)
-                  }
-                }
-                Spacer(minLength: 32)
-                HStack {
-                  Spacer()
-                  if question.page_start > 0 && question.source_kind != "ai_supplement" {
-                    Button("查看原文") { openSource(question) }.font(DS.font(14, weight: .bold))
-                      .foregroundStyle(DS.primary).buttonStyle(.plain)
-                  } else {
-                    Text("AI 补充 · 待原文核验").font(DS.font(14, weight: .bold)).foregroundStyle(
-                      DS.primary)
-                  }
-                }.padding(.bottom, 10)
-                Button {
-                  if last { submit() } else { changeQuestion(1) }
-                } label: {
-                  Text(last ? (submitting ? "正在生成诊断……" : "提交并查看诊断") : "提交答案")
-                    .font(DS.font(20, weight: .bold)).frame(maxWidth: .infinity, minHeight: 54)
-                    .foregroundStyle(canContinue ? Color.white : DS.secondary)
-                    .background(canContinue ? DS.primary : Color(hex: 0xedf1f5), in: Capsule())
-                    .overlay(Capsule().stroke(canContinue ? DS.primary : DS.border, lineWidth: 1))
-                }.buttonStyle(.plain).disabled(
-                  submitting || (learningQuestionKind(question) != "short-answer" && !canContinue)
-                )
-                .accessibilityLabel(last ? "提交作业" : "提交\(kindTitle(question))答案并进入下一题")
-                .accessibilityIdentifier("assignment.submit")
-              }
-              .padding(.horizontal, phone ? 26 : 18).padding(.top, phone ? 24 : 18).padding(
-                .bottom, phone ? 26 : 18
-              )
-              .frame(
-                maxWidth: .infinity, minHeight: max(510, geometry.size.height - 126),
-                alignment: .topLeading
-              )
-              .background(
-                DS.surface,
-                in: UnevenRoundedRectangle(
-                  topLeadingRadius: phone ? 48 : 14, bottomLeadingRadius: phone ? 0 : 14,
-                  bottomTrailingRadius: phone ? 0 : 14, topTrailingRadius: phone ? 48 : 14)
-              )
-              .id(question.id)
-            }
-            .frame(maxWidth: phone ? .infinity : 660)
-            .padding(.top, phone ? 12 : 22).frame(maxWidth: .infinity)
-          }
-          .scrollDismissesKeyboard(.interactively)
-          .onChange(of: index) { _, _ in proxy.scrollTo("exercise-top", anchor: .top) }
+        VStack(spacing: phone ? 12 : 16) {
+          chapterHeader
+            .padding(.horizontal, phone ? 16 : 0)
+          questionPanel(question, phone: phone)
         }
-      }.background(Color(hex: 0xd9d2ff))
-        .task(id: "\(store.selectedBookID ?? ""):\(store.selectedChapterID ?? "")") {
-          index = 0
-          answers = [:]
-          shortAnswer = ""
-          error = nil
-          store.selectedQuizIndex = 0
-        }
+        .padding(.top, phone ? 12 : 22)
+        .frame(maxWidth: phone ? .infinity : 660)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+      }
+      .background(Color(hex: 0xd9d2ff))
+      .task(id: "\(store.selectedBookID ?? ""):\(store.selectedChapterID ?? "")") {
+        index = 0
+        answers = [:]
+        shortAnswer = ""
+        error = nil
+        store.selectedQuizIndex = 0
+      }
     } else {
       LearningNoSource(title: "暂无可练习的章节", message: "完成教材解析并进入章节后，就能按判断题、选择题、简答题的顺序检查理解。")
+    }
+  }
+
+  private var chapterHeader: some View {
+    VStack(spacing: 6) {
+      HStack(spacing: 10) {
+        StickerIcon("BookOpenCheck", size: 32, glyphSize: 17)
+        LearningAssignmentTitle(title:
+          store.chapters.first { $0.id == store.selectedChapterID }?.source_title ?? store.chapterTitle)
+        Text("\(index + 1) / \(questions.count)")
+          .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary).fixedSize()
+      }
+      .frame(height: 32)
+      BCProgress(value: Double(index + 1) / Double(max(1, questions.count)))
+    }
+    .padding(.horizontal, 16).padding(.vertical, 8)
+    .frame(height: 60)
+    .background(DS.surface, in: Capsule())
+    .overlay(Capsule().stroke(DS.border.opacity(0.55), lineWidth: 1))
+    .accessibilityIdentifier("assignment.chapter-header")
+  }
+
+  private func questionPanel(_ question: QuizQuestion, phone: Bool) -> some View {
+    let shape = UnevenRoundedRectangle(
+      topLeadingRadius: phone ? 48 : 14, bottomLeadingRadius: phone ? 0 : 14,
+      bottomTrailingRadius: phone ? 0 : 14, topTrailingRadius: phone ? 48 : 14)
+    return GeometryReader { panel in
+      ScrollViewReader { proxy in
+        ScrollView {
+          questionContent(question)
+            .padding(.horizontal, phone ? 26 : 18)
+            .padding(.top, phone ? 24 : 18).padding(.bottom, phone ? 26 : 18)
+            .frame(maxWidth: .infinity, minHeight: panel.size.height, alignment: .topLeading)
+            .id(question.id)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollDismissesKeyboard(.interactively)
+        .accessibilityIdentifier("assignment.question-scroll")
+        .onChange(of: question.id) { _, id in proxy.scrollTo(id, anchor: .top) }
+      }
+    }
+    .clipShape(shape)
+    .background {
+      // Extend only the white backing under the home indicator; keep controls in the safe area.
+      shape.fill(DS.surface).ignoresSafeArea(.container, edges: phone ? .bottom : [])
+    }
+    .accessibilityIdentifier("assignment.question-panel")
+  }
+
+  private func questionContent(_ question: QuizQuestion) -> some View {
+    VStack(alignment: .leading, spacing: 16) {
+      HStack(spacing: 9) {
+        StickerIcon(kindIcon(question), size: 36, glyphSize: 19)
+        Text("\(kindTitle(question)) · 第 \(index + 1) 题").font(DS.font(.supporting, weight: .semibold))
+          .foregroundStyle(DS.primary)
+      }
+      Text(question.prompt).accessibilityIdentifier("assignment.question").font(
+        DS.font(.sectionTitle)
+      ).lineSpacing(4)
+        .fixedSize(horizontal: false, vertical: true).frame(
+          maxWidth: 385, alignment: .leading)
+      if learningQuestionKind(question) != "short-answer" {
+        Text(
+          question.instruction
+            ?? (learningQuestionKind(question) == "judgment" ? "判断这句话是否正确" : "选择一个最准确的答案")
+        )
+        .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+      }
+      if learningQuestionKind(question) == "judgment" {
+        judgmentOptions(question)
+      } else if learningQuestionKind(question) == "choice" {
+        choiceOptions(question)
+      } else {
+        shortAnswerField(question)
+      }
+      if let error {
+        Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger).accessibilityAddTraits(
+          .updatesFrequently)
+      }
+      if store.cloud != nil {
+        VStack(alignment: .leading, spacing: 6) {
+          Text("回答信心：\(Int(confidence * 100))%").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+          Slider(value: $confidence, in: 0...1)
+        }
+      }
+      Spacer(minLength: 32)
+      if question.page_start > 0 && question.source_kind != "ai_supplement" {
+        HStack {
+          Spacer()
+          Button("查看原文") { openSource(question) }.font(DS.font(.smallButton))
+            .foregroundStyle(DS.primary).buttonStyle(.plain)
+        }.padding(.bottom, 10)
+      }
+      Button {
+        if last { submit() } else { changeQuestion(1) }
+      } label: {
+        Text(last ? (submitting ? "正在生成诊断……" : "提交并查看诊断") : "提交答案")
+          .font(DS.font(.button)).frame(maxWidth: .infinity, minHeight: 54)
+          .foregroundStyle(canContinue ? Color.white : DS.secondary)
+          .background(canContinue ? DS.primary : Color(hex: 0xedf1f5), in: Capsule())
+          .overlay(Capsule().stroke(canContinue ? DS.primary : DS.border, lineWidth: 1))
+      }.buttonStyle(.plain).disabled(
+        submitting || (learningQuestionKind(question) != "short-answer" && !canContinue)
+      )
+      .accessibilityLabel(last ? "提交作业" : "提交\(kindTitle(question))答案并进入下一题")
+      .accessibilityIdentifier("assignment.submit")
     }
   }
 
@@ -176,7 +184,7 @@ struct LearningAssignmentView: View {
             )
             .frame(width: 44, height: 44).overlay(
               Circle().stroke(selected ? DS.primary : DS.text, lineWidth: 2))
-            Text(value).font(DS.font(16, weight: .bold))
+            Text(value).font(DS.font(.cardTitle))
           }
           .frame(maxWidth: .infinity, minHeight: 116)
           .foregroundStyle(selected ? DS.primary : DS.text)
@@ -201,13 +209,13 @@ struct LearningAssignmentView: View {
           select(key, question: question)
         } label: {
           HStack(alignment: .center, spacing: 12) {
-            Text(key).font(DS.font(14, weight: .bold)).frame(width: 32, height: 32)
+            Text(key).font(DS.font(.supporting, weight: .semibold)).frame(width: 32, height: 32)
               .background(selected ? DS.primary : DS.background, in: Circle()).foregroundStyle(
                 selected ? .white : DS.secondary)
-            Text(text).font(DS.font(20)).lineSpacing(4).multilineTextAlignment(.leading)
+            Text(text).font(DS.font(.reading)).lineSpacing(4).multilineTextAlignment(.leading)
             Spacer(minLength: 0)
             if selected {
-              Image(systemName: "checkmark").font(DS.font(16, weight: .bold)).foregroundStyle(
+              Image(systemName: "checkmark").font(DS.font(.cardTitle)).foregroundStyle(
                 DS.primary)
             }
           }.padding(15)
@@ -230,17 +238,17 @@ struct LearningAssignmentView: View {
       HStack(alignment: .top, spacing: 9) {
         StickerIcon("Lightbulb", size: 24, glyphSize: 14)
         Text(question.instruction ?? "请结合本节核心概念，用完整的因果关系作答。")
-          .font(DS.font(14)).foregroundStyle(DS.secondary).lineSpacing(4)
+          .font(DS.font(.supporting)).foregroundStyle(DS.secondary).lineSpacing(4)
       }
       HStack {
-        Text("你的答案").font(DS.font(14, weight: .bold))
+        Text("你的答案").font(DS.font(.supporting, weight: .semibold))
         Spacer()
         Button("完成输入") {
           UIApplication.shared.sendAction(
             #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }.font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary).buttonStyle(.plain)
+        }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
           .accessibilityIdentifier("learning.keyboard.done")
-        Text("\(shortAnswer.count) / 300").font(DS.font(11)).foregroundStyle(DS.secondary)
+        Text("\(shortAnswer.count) / 300").font(DS.font(.caption)).foregroundStyle(DS.secondary)
         if !shortAnswer.isEmpty {
           Image(systemName: "checkmark.circle.fill").foregroundStyle(DS.primary).font(
             .system(size: 14))
@@ -350,6 +358,26 @@ struct LearningAssignmentView: View {
   }
 }
 
+
+/// As with the assistant title, actual rendered width selects the largest fitting tier.
+/// Single-line text keeps the chapter header at the same height for every question.
+private struct LearningAssignmentTitle: View {
+  let title: String
+  private var displayTitle: String { title.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+
+  var body: some View {
+    ViewThatFits(in: .horizontal) {
+      Text(displayTitle).font(DS.font(.sectionTitle)).fixedSize()
+      Text(displayTitle).font(DS.font(.cardTitle)).fixedSize()
+      Text(displayTitle).font(DS.font(.body, weight: .semibold)).truncationMode(.tail)
+    }
+    .lineLimit(1)
+    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .ignore).accessibilityLabel(title)
+    .accessibilityIdentifier("assignment.chapter-title")
+  }
+}
+
 struct LearningDiagnosisView: View {
   @Environment(AppStore.self) private var store
 
@@ -383,7 +411,7 @@ struct LearningDiagnosisView: View {
           StickerIcon("CheckCircle2", size: 46, glyphSize: 24)
           VStack(alignment: .leading, spacing: 12) {
             Text(diagnosis.mistake_recorded ? "需要再巩固" : "理解已到位")
-              .font(DS.font(20, weight: .bold)).foregroundStyle(
+              .font(DS.font(.cardTitle)).foregroundStyle(
                 diagnosis.mistake_recorded ? DS.orange : DS.mint
               )
               .padding(.horizontal, 10).padding(.vertical, 7).background(
@@ -395,8 +423,8 @@ struct LearningDiagnosisView: View {
                   diagnosis.mistake_recorded ? DS.orange.opacity(0.2) : DS.mint.opacity(0.2),
                   lineWidth: 1))
             Text(diagnosis.mistake_recorded ? "找到一个关键卡点" : "本题诊断完成").font(
-              DS.font(20.8, weight: .bold))
-            Text(diagnosis.stuck_point).font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(
+              DS.font(.sectionTitle))
+            Text(diagnosis.stuck_point).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(
               5)
           }
         }.padding(2)
@@ -404,23 +432,23 @@ struct LearningDiagnosisView: View {
       VStack(alignment: .leading, spacing: 8) {
         BCProgress(value: 1)
         Text("诊断完成 · 已定位 \(diagnosis.knowledge_points.count) 个相关知识点").font(
-          DS.font(20, weight: .bold)
+          DS.font(.cardTitle)
         ).foregroundStyle(DS.secondary)
       }.padding(.horizontal, 3)
       BCCard {
         VStack(alignment: .leading, spacing: 20) {
           LearningSectionHeading(title: "诊断解析", subtitle: "为什么会卡住", icon: "BookOpenCheck")
-          Text(diagnosis.result).font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(7)
+          Text(diagnosis.result).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(7)
           if let citation = diagnosis.review_citations.first {
             HStack(alignment: .center, spacing: 12) {
               VStack(alignment: .leading, spacing: 4) {
-                Text("教材依据 · 第 \(citation.page) 页").font(DS.font(20, weight: .bold))
+                Text("教材依据 · 第 \(citation.page) 页").font(DS.font(.cardTitle))
                   .foregroundStyle(DS.primary)
-                Text(citation.chapterTitle).font(DS.font(16, weight: .bold)).lineLimit(1)
-                Text(citation.quote).font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(6)
+                Text(citation.chapterTitle).font(DS.font(.cardTitle)).lineLimit(1)
+                Text(citation.quote).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(6)
                   .lineLimit(2)
               }.frame(maxWidth: .infinity, alignment: .leading)
-              Button("查看原文") { store.openCitation(citation) }.font(DS.font(20, weight: .bold))
+              Button("查看原文") { store.openCitation(citation) }.font(DS.font(.smallButton))
                 .foregroundStyle(DS.primary).buttonStyle(.plain).fixedSize()
             }.padding(13).frame(maxWidth: .infinity, alignment: .leading).background(
               Color(hex: 0xf3f6fb), in: RoundedRectangle(cornerRadius: 14)
@@ -429,7 +457,7 @@ struct LearningDiagnosisView: View {
 
           } else {
             Text("这次没有找到可核对的教材页，建议回到章节重新查看上下文。")
-              .font(DS.font(12)).foregroundStyle(DS.secondary).lineSpacing(5)
+              .font(DS.font(.caption)).foregroundStyle(DS.secondary).lineSpacing(5)
           }
         }
       }
@@ -441,15 +469,15 @@ struct LearningDiagnosisView: View {
       BCCard {
         VStack(alignment: .leading, spacing: 20) {
           LearningSectionHeading(title: "带着提示再想一次", subtitle: "建议先做这一步", icon: "Lightbulb")
-          Text(diagnosis.hint).font(DS.font(14)).foregroundStyle(DS.secondary).lineSpacing(4)
+          Text(diagnosis.hint).font(DS.font(.supporting)).foregroundStyle(DS.secondary).lineSpacing(4)
             .padding(14).frame(maxWidth: .infinity, alignment: .leading).background(
               Color(hex: 0xf1e7ff), in: RoundedRectangle(cornerRadius: 14)
             )
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0xc9b8ff), lineWidth: 1))
-          Text("相关知识点").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary)
+          Text("相关知识点").font(DS.font(.cardTitle)).foregroundStyle(DS.secondary)
           LearningFlowLayout {
             ForEach(diagnosis.knowledge_points, id: \.self) { point in
-              Text(point).font(DS.font(20)).foregroundStyle(DS.secondary).padding(.horizontal, 10)
+              Text(point).font(DS.font(.body)).foregroundStyle(DS.secondary).padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(Color(hex: 0xf3f6fb), in: Capsule()).overlay(
                   Capsule().stroke(DS.border, lineWidth: 1))

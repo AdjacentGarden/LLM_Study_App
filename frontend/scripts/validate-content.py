@@ -147,8 +147,8 @@ def validate():
             check(sha(output) == item['output_sha256'], f'Native font hash mismatch: {item["output"]}')
     check((ROOT / 'Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png').is_file(), 'Missing committed native app icon')
     pins = load('BookCourse.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved')['pins']
-    check({item['identity']: item['state']['version'] for item in pins} == {'onnxruntime-swift-package-manager': '1.24.2', 'zipfoundation': '0.9.20'}, 'Swift package pins changed')
-    for name in ['Lucide-ISC-and-Feather-MIT.txt', 'Phosphor-MIT.txt', 'NotoSansSC-OFL-1.1.txt', 'ONNX-Runtime-MIT.txt', 'ONNX-Runtime-Binary-MIT.txt', 'ONNX-Runtime-ThirdPartyNotices.txt', 'ZIPFoundation-MIT.txt', 'BGE-FlagEmbedding-MIT.txt', 'MODEL_AND_UPSTREAM_PROVENANCE.json']:
+    check({item['identity']: item['state']['version'] for item in pins} == {'onnxruntime-swift-package-manager': '1.24.2', 'zipfoundation': '0.9.20', 'alerttoast': '1.3.9'}, 'Swift package pins changed')
+    for name in ['Lucide-ISC-and-Feather-MIT.txt', 'Phosphor-MIT.txt', 'NotoSansSC-OFL-1.1.txt', 'ONNX-Runtime-MIT.txt', 'ONNX-Runtime-Binary-MIT.txt', 'ONNX-Runtime-ThirdPartyNotices.txt', 'ZIPFoundation-MIT.txt', 'AlertToast-MIT.txt', 'BGE-FlagEmbedding-MIT.txt', 'MODEL_AND_UPSTREAM_PROVENANCE.json']:
         notice = ROOT / 'LICENSES' / name
         embedded = ROOT / 'Resources/Content/licenses' / name
         check(notice.is_file() and embedded.is_file() and sha(notice) == sha(embedded), f'Missing or different bundled notice: {name}')

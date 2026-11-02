@@ -5,7 +5,7 @@ struct CourseSwitcherView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       Text("切换后会恢复这门课程上次打开的资料和小节。")
-        .font(DS.font(20)).foregroundStyle(DS.secondary).frame(
+        .font(DS.font(.body)).foregroundStyle(DS.secondary).frame(
           minHeight: 28, alignment: .topLeading)
       ScrollView {
         VStack(spacing: 0) {
@@ -20,12 +20,12 @@ struct CourseSwitcherView: View {
                   )
                   .overlay(RoundedRectangle(cornerRadius: 7).stroke(DS.border))
                 VStack(alignment: .leading, spacing: 4) {
-                  Text(course.name).font(DS.font(16, weight: .bold)).lineLimit(1)
-                    .frame(minHeight: 20.8, alignment: .topLeading)
-                  Text("\(course.resourceIDs.count) 份资料").font(DS.font(14))
+                  Text(course.name).font(DS.font(.cardTitle)).lineLimit(1)
+                    .frame(minHeight: 26, alignment: .topLeading)
+                  Text("\(course.resourceIDs.count) 份资料").font(DS.font(.supporting))
                     .foregroundStyle(DS.secondary).frame(minHeight: 18.9, alignment: .topLeading)
                   if let status = store.courseCreationLabel(course) {
-                    Text(status).font(DS.font(12, weight: .semibold)).foregroundStyle(DS.primary)
+                    Text(status).font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
                   }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 BCGlyph(
@@ -49,7 +49,7 @@ struct CourseSwitcherView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
       if store.courses.isEmpty {
         Text("还没有课程，创建课程并添加资料后即可学习。")
-          .font(DS.font(20)).foregroundStyle(DS.secondary)
+          .font(DS.font(.body)).foregroundStyle(DS.secondary)
       }
       HStack(spacing: 10) {
         BCButton("创建新课程", icon: "Plus") {
@@ -85,32 +85,6 @@ struct EditCourseChapterView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 14) {
         if let chapter {
-          HStack {
-            let goodMatch = chapter.status == "匹配良好"
-            Text(chapter.status).font(DS.font(20, weight: .bold))
-              .foregroundStyle(goodMatch ? DS.mint : DS.orange)
-              .padding(.horizontal, 10).frame(height: 40)
-              .background(goodMatch ? Color(hex: 0xECFDF5) : Color(hex: 0xFFF3E6), in: Capsule())
-              .overlay(Capsule().stroke(goodMatch ? Color(hex: 0xB8EBD8) : Color(hex: 0xF7CBA4)))
-            Spacer()
-            Text(chapter.confidence > 0 ? "\(Int(chapter.confidence))% 综合置信度" : "识别置信度未知，需核对原文").font(DS.font(16, weight: .bold))
-              .foregroundStyle(Color(hex: 0x4D5C77))
-          }.frame(height: 40)
-          VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 10) {
-              Text("识别详情").font(DS.font(16, weight: .bold)).fixedSize()
-              Spacer(minLength: 0)
-              Text("层级 \(chapter.level) · PDF \(chapter.page_start)–\(chapter.page_end) 页")
-                .font(DS.font(20)).foregroundStyle(DS.secondary)
-            }.frame(minHeight: 28)
-            Text("暂无单项识别证据，可继续人工调整名称、页码与所属上级。")
-              .font(DS.font(14)).lineSpacing(2.1).foregroundStyle(DS.secondary)
-              .frame(minHeight: 18.9, alignment: .topLeading).padding(.vertical, 14)
-            Text("识别来源：\(chapter.source.isEmpty ? "未知" : chapter.source)")
-              .font(DS.font(20)).foregroundStyle(DS.secondary).frame(
-                minHeight: 28, alignment: .topLeading)
-          }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
-            DS.background, in: RoundedRectangle(cornerRadius: 14))
           field("原书目录名称", text: $sourceTitle)
           field("课程章节名称", text: $aiTitle)
           HStack(spacing: 12) {
@@ -118,7 +92,7 @@ struct EditCourseChapterView: View {
             field("PDF 结束页", text: $end, numeric: true)
           }
           VStack(alignment: .leading, spacing: 8) {
-            Text("所属上级章节").font(DS.font(20, weight: .bold)).frame(height: 28, alignment: .top)
+            Text("所属上级章节").font(DS.font(.cardTitle)).frame(height: 28, alignment: .top)
             Menu {
               Button("无（作为一级章节）") { parentID = "" }
               ForEach(
@@ -136,7 +110,7 @@ struct EditCourseChapterView: View {
                   store.chapters.first { $0.id == parentID }.map {
                     "\($0.source_title)（\($0.page_start)–\($0.page_end) 页）"
                   } ?? "无（作为一级章节）"
-                ).font(DS.font(20)).lineLimit(2)
+                ).font(DS.font(.body)).lineLimit(2)
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 12))
               }.foregroundStyle(DS.text).frame(maxWidth: .infinity, alignment: .leading).padding(
@@ -148,21 +122,21 @@ struct EditCourseChapterView: View {
           }
 
           if let error {
-            Label(error, systemImage: "exclamationmark.circle").font(DS.font(14)).foregroundStyle(
+            Label(error, systemImage: "exclamationmark.circle").font(DS.font(.supporting)).foregroundStyle(
               DS.danger
             ).accessibilityIdentifier("chapter.validationError")
           }
-          Text("修改先保存在当前确认页，点击“确认生成课程”后再统一写入课程。").font(DS.font(14)).lineSpacing(2.1)
+          Text("修改先保存在当前确认页，点击“确认生成课程”后再统一写入课程。").font(DS.font(.supporting)).lineSpacing(4)
             .foregroundStyle(DS.secondary).padding(.vertical, 14)
           BCButton("保存本章修改", icon: "Save") { save(chapter) }
             .accessibilityIdentifier("chapter.save")
           if confirmingDelete {
             VStack(alignment: .leading, spacing: 12) {
-              Text("确定移除“\(chapter.source_title)”吗？").font(DS.font(16, weight: .bold))
+              Text("确定移除“\(chapter.source_title)”吗？").font(DS.font(.cardTitle))
               let descendants = CourseChapterValidation.descendants(
                 of: chapter.id, in: store.chapters)
               Text(descendants.isEmpty ? "该章节将不会用于生成课程。" : "它下面的 \(descendants.count) 个子章节也会一起移除。")
-                .font(DS.font(14)).foregroundStyle(DS.secondary)
+                .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               HStack {
                 BCButton("取消", style: .secondary) { confirmingDelete = false }
                 BCButton("确认移除", style: .danger) {
@@ -177,7 +151,7 @@ struct EditCourseChapterView: View {
           }
           BCButton("返回目录", style: .text) { store.closeSheet() }
         } else {
-          Text("章节已不存在，请返回目录重新选择。").font(DS.font(14)).foregroundStyle(DS.secondary)
+          Text("章节已不存在，请返回目录重新选择。").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           BCButton("返回目录", style: .secondary) { store.closeSheet() }
         }
       }.padding(.top, 15).padding(.bottom, 12)
@@ -193,8 +167,8 @@ struct EditCourseChapterView: View {
   }
   private func field(_ label: String, text: Binding<String>, numeric: Bool = false) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(label).font(DS.font(20, weight: .bold)).frame(height: 28, alignment: .top)
-      TextField(label, text: text).font(DS.font(20)).padding(.horizontal, 12)
+      Text(label).font(DS.font(.cardTitle)).frame(height: 28, alignment: .top)
+      TextField(label, text: text).font(DS.font(.body)).padding(.horizontal, 12)
         .frame(height: 54).background(.white, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0xD7E3F8)))
         .keyboardType(numeric ? .numberPad : .default)

@@ -31,7 +31,11 @@ struct AssistantComposer: View {
   @Bindable var voice: AssistantVoiceInput
   let busy: Bool
   let placeholder: String
-  let prompts: [String]
+  let attachments: [AssistantAttachment]
+  let addingAttachments: Bool
+  let attachmentImportStatus: String
+  let showAttachmentChoices: () -> Void
+  let removeAttachment: (String) -> Void
   var textHorizontalInset: CGFloat = 0
   let send: () -> Void
   @FocusState private var focused: Bool
@@ -40,11 +44,12 @@ struct AssistantComposer: View {
   @State private var voicePlaceholderHidden = false
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
+  private var hasSubmission: Bool { voice.hasText || !attachments.isEmpty }
 
   var body: some View {
     VStack(spacing: 10) {
       if let error = voice.error {
-        Text(error).font(.footnote).foregroundStyle(DS.danger)
+        Text(error).appFont(.supporting).foregroundStyle(DS.danger)
           .frame(maxWidth: .infinity, alignment: .leading).padding(12)
           .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
           .accessibilityIdentifier("guide-voice-error")
@@ -95,53 +100,70 @@ struct AssistantComposer: View {
   }
 
   private var textComposer: some View {
-    HStack(alignment: .bottom, spacing: 6) {
-      Menu {
-        ForEach(prompts, id: \.self) { prompt in
-          Button(prompt) { voice.draft = prompt; focused = true }
-        }
-      } label: {
-        Image(systemName: "plus").font(.system(size: 24, weight: .medium))
-          .foregroundStyle(DS.primary).frame(width: 44, height: 44)
+    VStack(spacing: 6) {
+      if !attachments.isEmpty {
+        AssistantAttachmentStrip(attachments: attachments, removable: !addingAttachments,
+          remove: removeAttachment)
       }
-      .accessibilityLabel("更多提问方式")
-      .accessibilityIdentifier(voice.isVoiceMode ? "guide-more-hidden" : "guide-more")
-      .disabled(busy || voice.isVoiceMode)
-
-      TextField("", text: $voice.draft,
-        prompt: focused || preparingKeyboard || (voice.isVoiceMode && voicePlaceholderHidden) ? nil :
-          Text(placeholder).foregroundColor(DS.secondary), axis: .vertical)
-        .font(.custom("BookCourseNotoSansSC-Regular", size: 17, relativeTo: .body))
-        .foregroundStyle(DS.text).tint(DS.primary)
-        .lineLimit(1...4).padding(.vertical, 11)
-        .focused($focused).submitLabel(.send)
-        .onSubmit { if voice.hasText && !busy { send() } }
-        .accessibilityLabel("向 AI 提问")
-        .accessibilityIdentifier(voice.isVoiceMode ? "guide-input-hidden" : "guide-input")
-        .disabled(voice.isVoiceMode)
-
-      Button {
-        if voice.hasText { send() }
-        else {
+      if addingAttachments {
+        HStack(spacing: 8) {
+          ProgressView().tint(DS.primary)
+          Text(attachmentImportStatus).appFont(.caption).foregroundStyle(DS.secondary)
+          Spacer()
+        }.padding(.horizontal, 12).padding(.top, 6)
+      }
+      HStack(alignment: .bottom, spacing: 6) {
+        Button {
           keyboardFocusTask?.cancel()
           preparingKeyboard = false
-          voicePlaceholderHidden = focused
           focused = false
-          voice.enterVoice()
+          showAttachmentChoices()
+        } label: {
+          Image(systemName: "plus").font(.system(size: 24, weight: .medium))
+            .foregroundStyle(DS.primary).frame(width: 44, height: 44).contentShape(Circle())
         }
-      } label: {
-        AssistantMicrophoneOrb(size: 44, symbol: voice.hasText ? "arrow.up" : "mic.fill",
-          working: busy, themeFill: true)
+        .buttonStyle(.plain)
+        .accessibilityLabel("添加相机照片、图片或文件")
+        .accessibilityIdentifier(voice.isVoiceMode ? "guide-more-hidden" : "guide-more")
+        .disabled(busy || voice.isVoiceMode || addingAttachments || attachments.count >= AssistantAttachment.maximumCount)
+
+        TextField("", text: $voice.draft,
+          prompt: focused || preparingKeyboard || (voice.isVoiceMode && voicePlaceholderHidden) ? nil :
+            Text(placeholder).foregroundColor(DS.secondary), axis: .vertical)
+          .appFont(.body)
+          .foregroundStyle(DS.text).tint(DS.primary)
+          .lineLimit(1...4).padding(.vertical, 11)
+          .focused($focused).submitLabel(.send)
+          .onSubmit { if hasSubmission && !busy && !addingAttachments { send() } }
+          .accessibilityLabel("向 AI 提问")
+          .accessibilityIdentifier(voice.isVoiceMode ? "guide-input-hidden" : "guide-input")
+          .disabled(voice.isVoiceMode)
+
+        Button {
+          if hasSubmission { send() }
+          else {
+            keyboardFocusTask?.cancel()
+            preparingKeyboard = false
+            voicePlaceholderHidden = focused
+            focused = false
+            voice.enterVoice()
+          }
+        } label: {
+          AssistantMicrophoneOrb(size: 44, symbol: hasSubmission ? "arrow.up" : "mic.fill",
+            working: busy, themeFill: true)
+        }
+        .disabled(busy || voice.isVoiceMode || addingAttachments)
+        .buttonStyle(.plain)
+        .accessibilityLabel(hasSubmission ? "发送给 AI 助手" : "切换到语音输入")
+        .accessibilityIdentifier(voice.isVoiceMode ? "guide-input-action-hidden" :
+          (hasSubmission ? "guide-send" : "guide-mic"))
       }
-      .disabled(busy || voice.isVoiceMode)
-      .buttonStyle(.plain)
-      .accessibilityLabel(voice.hasText ? "发送给 AI 助手" : "切换到语音输入")
-      .accessibilityIdentifier(voice.isVoiceMode ? "guide-input-action-hidden" :
-        (voice.hasText ? "guide-send" : "guide-mic"))
     }
     .padding(7).modifier(AssistantGlassSurface(clear: true))
-    .contentShape(RoundedRectangle(cornerRadius: 28))
-    .onTapGesture { if !voice.isVoiceMode { focused = true } }
+    // The source view keeps a fixed outline through picker presentation/dismissal.
+    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    .anchorPreference(key: AssistantComposerBoundsKey.self, value: .bounds) { $0 }
   }
 }
 
@@ -214,7 +236,7 @@ private struct AssistantVoiceControls: View {
 
   var body: some View {
     VStack(spacing: 4) {
-      Text(status).font(.subheadline.weight(.medium)).foregroundStyle(DS.text)
+      Text(status).appFont(.supporting, weight: .medium).foregroundStyle(DS.text)
         .accessibilityIdentifier("guide-voice-status")
       HStack(spacing: 0) {
         Button(action: onKeyboard) {

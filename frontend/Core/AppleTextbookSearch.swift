@@ -82,7 +82,7 @@ actor AppleTextbookSearch {
       return ($0.chunk.book_id, $0.chunk.page_start, $0.chunk.id) < ($1.chunk.book_id, $1.chunk.page_start, $1.chunk.id)
     }
     return SearchResult(method: mode.rawValue, hits: Array(hits.prefix(max(1, min(20, limit)))),
-      error: hits.isEmpty ? "已缓存的教材原文中没有找到相关内容，请换一个具体知识点；本次未调用大模型。" : nil)
+      error: hits.isEmpty ? "已缓存的教材中没有找到相关内容，请换一个具体知识点。" : nil)
   }
 
   private func vector(_ text: String, tokens: [String]) -> [Double]? {

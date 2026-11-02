@@ -99,17 +99,6 @@ struct AppRootView: View {
           }
         }
       }
-      .overlay(alignment: .top) {
-        if let toast = store.toast {
-          Text(toast).font(DS.font(14, weight: .semibold)).foregroundStyle(DS.text).padding(
-            .horizontal, 18
-          ).padding(.vertical, 12).background(.white, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1)).shadow(
-              color: .black.opacity(0.08), radius: 12, y: 4
-            ).padding(.horizontal, 20).padding(.top, 8).accessibilityAddTraits(.updatesFrequently)
-            .allowsHitTesting(false)
-        }
-      }
       .overlay {
         if let error = store.bootError {
           VStack(spacing: 16) {
@@ -134,14 +123,15 @@ struct AppRootView: View {
         }
       }
       .overlay(alignment: .top) {
-        if store.cloudState.materialSyncCount > 0, store.cloudState.authenticated, !store.cloudState.showDiagnosis {
+        if store.toast == nil, !store.globalAssistantOpen, store.cloudState.materialSyncCount > 0,
+          store.cloudState.authenticated, !store.cloudState.showDiagnosis {
           ProgressView("正在同步学习资料…").padding(14).background(DS.surface, in: Capsule()).padding(.top, 8)
-        } else if store.cloudState.authenticated, let error = store.cloudState.syncError {
+        } else if store.toast == nil, !store.globalAssistantOpen, store.cloudState.authenticated, let error = store.cloudState.syncError {
           Button {
             Task { await store.retryCloudConnection() }
           } label: {
             Label("进度待同步 · 重试", systemImage: "arrow.triangle.2.circlepath")
-              .font(DS.font(13)).padding(12).background(DS.surface, in: Capsule())
+              .font(DS.font(.supporting)).padding(12).background(DS.surface, in: Capsule())
           }.padding(.top, 8).accessibilityLabel("进度待同步：\(error)，轻点重试")
             .accessibilityIdentifier("cloud.retrySync")
         }
@@ -165,6 +155,7 @@ struct AppRootView: View {
           if let prompt { ProcessingNetworkChoicePanel(prompt: prompt).id(prompt.id) }
         }
       }
+      .toastHUD(isEnabled: !showingStartup && !store.isLoading && !store.cloudState.showDiagnosis)
     }
     .background(pageBackground.ignoresSafeArea()).font(DS.font()).foregroundStyle(DS.text).tint(
       DS.primary
@@ -174,6 +165,9 @@ struct AppRootView: View {
       // This overlaps service startup instead of postponing network work.
       do { try await Task.sleep(for: .milliseconds(1200)) } catch { return }
       showingStartup = false
+      #if DEBUG
+        await store.playToastGalleryIfRequested()
+      #endif
     }
     .task(id: store.activeCourseImportKey) { await store.observeCourseImports() }
     .onChange(of: scenePhase) { _, phase in
@@ -182,7 +176,7 @@ struct AppRootView: View {
     }
     .onChange(of: store.cloudState.epoch) { _, _ in store.processingPolicy.reset() }
     .sheet(isPresented: Binding(get: { store.cloudState.showDiagnosis }, set: { store.cloudState.showDiagnosis = $0 })) {
-      CloudLearningSetupView().environment(store)
+      CloudLearningSetupView().environment(store).toastHUD()
     }
   }
   private var pageBackground: Color {
@@ -208,7 +202,7 @@ struct AppRootView: View {
             ? nil : { store.back() },
           titleColor: route == .upload ? .white : DS.text
         ).padding(.top, pad ? topInset : 0).padding(.horizontal, pad ? 16 : 0)
-          .navigationBarSurface(pageBackground, fadesIntoContent: route != .upload)
+          .navigationBarSurface(pageBackground)
       }
       screen(route: route).frame(maxWidth: .infinity, maxHeight: .infinity)
     }.background(pageBackground)
@@ -323,11 +317,9 @@ private final class TabBarConfigurationView: UIView {
         let bar = controller.tabBarController?.tabBar, !bar.isHidden,
         let items = bar.items, items.count == primaryTabs.count
       {
-        // Keep the system material and layout; use the app's bundled CJK font.
-        let regular = UIFont(name: "BookCourseNotoSansSC-Regular", size: 11)
-          ?? .systemFont(ofSize: 11)
-        let selected = UIFont(name: "BookCourseNotoSansSC-Bold", size: 11)
-          ?? .boldSystemFont(ofSize: 11)
+        // Keep the system material and layout; share the app's bilingual typography.
+        let regular = DS.uiFont(.tabLabel)
+        let selected = DS.uiFont(.tabLabel, weight: .semibold)
         if bar.standardAppearance.stackedLayoutAppearance.normal.titleTextAttributes[.font]
           as? UIFont != regular
         {
@@ -398,7 +390,7 @@ struct PhoneBottomBar: View {
                 "icons/nav-\(tab.rawValue)-\(isCurrentTab(tab,store.route) ? "selected-white":"normal").svg"
             ).frame(width: 22, height: 22)
             Text(tab == .community ? "发现" : tab.title).font(
-              DS.font(14, weight: isCurrentTab(tab, store.route) ? .bold : .regular))
+              DS.font(.navigation, weight: isCurrentTab(tab, store.route) ? .semibold : .regular))
           }
           .foregroundStyle(isCurrentTab(tab, store.route) ? .white : DS.muted).frame(
             maxWidth: .infinity
@@ -437,7 +429,7 @@ struct PadRail: View {
           AssetImage("/assets/brand/app-logo.png").frame(width: 32, height: 32).clipShape(
             RoundedRectangle(cornerRadius: 11))
           if expanded {
-            Text("CloudPath").font(DS.font(20, weight: .bold)).foregroundStyle(.white)
+            Text("CloudPath").font(DS.font(.cardTitle)).foregroundStyle(.white)
             Spacer()
           }
         }.frame(height: 32)
@@ -445,17 +437,17 @@ struct PadRail: View {
       ForEach(Array(primaryTabs.prefix(2))) { tab in tabButton(tab) }
       if expanded, store.route == .study, store.studyCoursePreparation == nil {
         VStack(alignment: .leading, spacing: 8) {
-          Text(store.currentTitle).font(DS.font(14, weight: .bold)).foregroundStyle(.white)
+          Text(store.currentTitle).font(DS.font(.supporting, weight: .semibold)).foregroundStyle(.white)
             .lineLimit(2).padding(.vertical, 10)
           ForEach([Route.plan, .flashcards, .assignment, .mistakes, .notes]) { route in
             Button {
               store.go(route)
             } label: {
-              Text(route.title).font(DS.font(14)).foregroundStyle(.white.opacity(0.8)).frame(
+              Text(route.title).font(DS.font(.navigation)).foregroundStyle(.white.opacity(0.8)).frame(
                 maxWidth: .infinity, minHeight: 38, alignment: .leading)
             }.buttonStyle(.plain)
           }
-          Button("切换课程") { store.openSheet(.bookSwitcher) }.font(DS.font(14)).foregroundStyle(
+          Button("切换课程") { store.openSheet(.bookSwitcher) }.font(DS.font(.supporting)).foregroundStyle(
             .white.opacity(0.8))
         }.padding(.horizontal, 8)
       }
@@ -476,7 +468,7 @@ struct PadRail: View {
           tint: isCurrentTab(tab, store.route) ? .white : Color(hex: 0xaaaab0)
         ).frame(width: 25, height: 25)
         if expanded {
-          Text(tab == .community ? "发现" : tab.title).font(DS.font(14, weight: .bold))
+          Text(tab == .community ? "发现" : tab.title).font(DS.font(.navigation, weight: .semibold))
           Spacer()
         }
       }.frame(maxWidth: .infinity, minHeight: 44).foregroundStyle(.white.opacity(0.8)).background(
@@ -527,7 +519,7 @@ struct AppOverlay: View {
               .padding(.bottom, 10)
           }
           HStack {
-            Text(title).font(DS.font(20.8, weight: .bold))
+            Text(title).font(DS.font(.sectionTitle))
             Spacer()
             Button {
               store.closeSheet()
@@ -659,18 +651,18 @@ struct AssistantChatView: View {
     "你好！可以聊聊，也可以问“\(sourceChapterTitle)”。有可靠教材来源时会标出引用位置。"
   }
   private var courseLabelLineHeight: CGFloat {
-    (UIFont(name: "BookCourseNotoSansSC-Bold", size: 20) ?? .boldSystemFont(ofSize: 20)).lineHeight
+    DS.lineHeight(.cardTitle)
   }
   var body: some View {
     ScrollViewReader { proxy in
       GeometryReader { viewport in
         ScrollView {
           VStack(alignment: .leading, spacing: 14) {
-            Text(store.cloud == nil ? "离线检索当前教材原文" : "基于当前教材原文回答").font(DS.font(20)).foregroundStyle(
+            Text(store.cloud == nil ? "离线检索当前教材原文" : "基于当前教材原文回答").font(DS.font(.body)).foregroundStyle(
               DS.secondary
             ).frame(height: 28, alignment: .top)
             if store.currentSource != nil {
-              Text("当前课程：《\(store.currentTitle)》").font(DS.font(20, weight: .bold)).foregroundStyle(
+              Text("当前课程：《\(store.currentTitle)》").font(DS.font(.cardTitle)).foregroundStyle(
                 Color(hex: 0x176caa)
               ).lineLimit(store.isPad ? nil : 1)
                 .lineSpacing(28 - courseLabelLineHeight)
@@ -684,7 +676,7 @@ struct AssistantChatView: View {
             }
             if store.chatMessages.isEmpty {
               assistantLabel
-              Text(greeting).font(DS.font(20)).lineSpacing(4).padding(.vertical, 2).padding(13)
+              Text(greeting).font(DS.font(.body)).lineSpacing(4).padding(.vertical, 2).padding(13)
                 .frame(
                   maxWidth: .infinity, alignment: .leading
                 ).background(.white, in: RoundedRectangle(cornerRadius: 18)).overlay(
@@ -694,7 +686,7 @@ struct AssistantChatView: View {
             ForEach(store.chatMessages) { message in
               VStack(alignment: .leading, spacing: 12) {
                 if message.role != "user" { assistantLabel }
-                Text(message.text).font(DS.font(20)).lineSpacing(4).padding(.vertical, 2)
+                Text(message.text).font(DS.font(.body)).lineSpacing(4).padding(.vertical, 2)
                   .textSelection(.enabled).padding(
                     12
                   ).frame(maxWidth: .infinity, alignment: .leading).background(
@@ -707,12 +699,12 @@ struct AssistantChatView: View {
                     store.openCitation(citation)
                   } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                      Text(citation.chapterTitle).font(DS.font(16, weight: .bold))
+                      Text(citation.chapterTitle).font(DS.font(.cardTitle))
                       Text(
                         citation.printedPage.map { "教材第 \($0) 页 · PDF 第 \(citation.page) 页" }
                           ?? "PDF 第 \(citation.page) 页"
-                      ).font(DS.font(14))
-                      Text(citation.quote).font(DS.font(14)).lineLimit(2)
+                      ).font(DS.font(.supporting))
+                      Text(citation.quote).font(DS.font(.supporting)).lineLimit(2)
                     }.foregroundStyle(DS.primary).padding(12).frame(
                       maxWidth: .infinity, alignment: .leading
                     ).background(
@@ -724,14 +716,14 @@ struct AssistantChatView: View {
             if store.chatLoading {
               HStack {
                 ProgressView().tint(DS.primary)
-                Text("正在查阅资料…").font(DS.font(14)).foregroundStyle(DS.secondary)
+                Text("正在查阅资料…").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               }.id("loading")
             }
             if let inputError {
-              Text(inputError).font(DS.font(14)).foregroundStyle(DS.secondary)
+              Text(inputError).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             }
             if !store.chatMessages.contains(where: { !$0.citations.isEmpty }) {
-              Text("有可靠教材来源时会显示对应页码。").font(DS.font(14)).foregroundStyle(DS.secondary)
+              Text("有可靠教材来源时会显示对应页码。").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
                 .frame(height: 18.9, alignment: .top).padding(.vertical, 14)
             }
             HStack(spacing: 8) {
@@ -741,17 +733,17 @@ struct AssistantChatView: View {
                     prompt == "举一个例子"
                       ? "请结合原文给一个\(sourceChapterTitle)的例子" : "围绕\(sourceChapterTitle)给我出一道题")
                 } label: {
-                  Text(prompt).font(DS.font(20)).padding(.horizontal, 12).frame(height: 44)
+                  Text(prompt).font(DS.font(.body)).padding(.horizontal, 12).frame(height: 44)
                     .background(DS.primarySoft, in: Capsule())
                 }.foregroundStyle(DS.primary).disabled(store.chatLoading)
               }
             }
             VStack(alignment: .leading, spacing: 8) {
-              Text("继续提问").font(DS.font(20, weight: .bold)).frame(height: 28, alignment: .top)
+              Text("继续提问").font(DS.font(.cardTitle)).frame(height: 28, alignment: .top)
               TextField(
                 "", text: $question, prompt: Text("围绕本章继续提问...").foregroundColor(DS.muted),
                 axis: .vertical
-              ).font(DS.font(20)).lineLimit(
+              ).font(DS.font(.body)).lineLimit(
                 1...4
               ).padding(12).frame(minHeight: 54).background(
                 .white, in: RoundedRectangle(cornerRadius: 18)
@@ -804,7 +796,7 @@ struct AssistantChatView: View {
     }
   }
   private var assistantLabel: some View {
-    Text("学习助手").font(DS.font(20, weight: .bold)).foregroundStyle(Color(hex: 0x176caa)).padding(
+    Text("学习助手").font(DS.font(.cardTitle)).foregroundStyle(Color(hex: 0x176caa)).padding(
       .horizontal, 12
     ).frame(height: 40).background(Color(hex: 0xe7f2fb), in: Capsule()).overlay(
       Capsule().stroke(Color(hex: 0xbdddf4), lineWidth: 1))

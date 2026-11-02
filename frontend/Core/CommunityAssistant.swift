@@ -47,7 +47,7 @@ private enum CommunityAssistantRules {
     let recommended = Array(books.filter { $0.recommended == true }.prefix(4))
     let fallback = recommended.isEmpty ? Array(books.prefix(4)) : recommended
     return CommunityAssistantAnswer(
-      courseIds: fallback.map(\.id), text: "我只根据发现页的课程目录回答。你可以输入课程名，也可以告诉我学科、年级或学习目标；先为你列出几门目录中的课程。")
+      courseIds: fallback.map(\.id), text: "你可以输入课程名，也可以告诉我学科、年级或学习目标；先为你列出几门课程。")
   }
 }
 
@@ -69,7 +69,7 @@ func answerCommunityCourseQuery(_ question: String, books: [CommunityBook])
     let metadata = details.isEmpty ? "" : "课程信息：\(details)\(volume)。"
     return CommunityAssistantAnswer(
       courseIds: [book.id],
-      text: "“\(book.catalogTitle)”。\(metadata)\(book.description)"
+      text: "“\(book.catalogTitle)”。\(metadata)\(book.displayDescription)"
     )
   }
   if direct.count > 1 { return Rules.summarize(direct, label: "相关") }
@@ -114,7 +114,7 @@ func answerCommunityCourseQuery(_ question: String, books: [CommunityBook])
     if matches.count == 1, let book = matches.first {
       return CommunityAssistantAnswer(
         courseIds: [book.id],
-        text: "你说的应该是“\(book.catalogTitle)”。\(book.description) 点击下方课程可以查看完整介绍。")
+        text: "你说的应该是“\(book.catalogTitle)”。\(book.displayDescription) 点击下方课程可以查看完整介绍。")
     }
     if matches.count > 1 { return Rules.summarize(matches, label: "相关") }
   }

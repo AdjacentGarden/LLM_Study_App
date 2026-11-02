@@ -208,14 +208,14 @@ extension AppStore {
   func openDailyStudyTask(_ task: CloudStudyPlanTask, day: String) {
     guard let wid = selectedCourseID,
       let resource = cloudState.workspaces.first(where: { $0.id == wid })?.resources.first(where: { $0.id == task.resource_id }),
-      resource.book_id == task.book_id else { showToast("这项任务的课程资料暂不可用，请刷新计划。"); return }
+      resource.book_id == task.book_id else { showToast("这项任务的课程资料暂不可用，请刷新计划。", kind: .warning); return }
     guard sources.contains(where: { $0.id == task.book_id }) else {
-      showToast("这份课程资料尚未加载，请联网刷新后重试。")
+      showToast("这份课程资料尚未加载，请联网刷新后重试。", kind: .warning)
       return
     }
     selectSource(task.book_id)
     guard let lesson = lessons.first(where: { $0.id == task.lesson_id || $0.chapter_id == task.chapter_id }),
-      lesson.status == "ready" else { showToast("课程内容尚未准备好，请稍后刷新。"); return }
+      lesson.status == "ready" else { showToast("课程内容尚未准备好，请稍后刷新。", kind: .warning); return }
     dailyPlanState.focus = CloudPlanFocus(workspaceID: wid, day: day, task: task)
     selectedChapterID = task.chapter_id
     selectedLessonID = lesson.id

@@ -20,6 +20,7 @@ copies = {
     'ONNX-Runtime-MIT.txt': args.packages / 'checkouts/onnxruntime-swift-package-manager/LICENSE',
     'ONNX-Runtime-Binary-MIT.txt': args.packages / 'artifacts/onnxruntime-swift-package-manager/onnxruntime/LICENSE',
     'ZIPFoundation-MIT.txt': args.packages / 'checkouts/ZIPFoundation/LICENSE',
+    'AlertToast-MIT.txt': args.packages / 'checkouts/AlertToast/LICENSE.md',
 }
 for name, original in copies.items():
     target = licenses / name

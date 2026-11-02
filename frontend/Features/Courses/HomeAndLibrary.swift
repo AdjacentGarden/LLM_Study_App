@@ -27,7 +27,7 @@ struct CourseHomeView: View {
   }
   var body: some View {
     CourseFeaturePage(width: 920, topInset: store.isPad ? 42 : 4) {
-      Text("Hi，\(store.preferences?.displayName ?? "同学")").font(DS.font(27.2, weight: .bold)).frame(
+      Text("Hi，\(store.preferences?.displayName ?? "同学")").font(DS.font(.pageTitle)).frame(
         maxWidth: .infinity, alignment: .leading
       ).frame(height: 44, alignment: .top)
       if let resumeRoute = store.resumableCourseRoute,
@@ -35,13 +35,13 @@ struct CourseHomeView: View {
         BCCard {
           HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-              Text("有未完成的课程创建").font(DS.font(16, weight: .bold))
+              Text("有未完成的课程创建").font(DS.font(.cardTitle))
               Text("资料和进度已保留，可随时继续。")
-                .font(DS.font(13)).foregroundStyle(DS.secondary)
+                .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             }
             Spacer(minLength: 0)
             Button("继续整理") { store.go(resumeRoute) }
-              .font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary)
+              .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
               .frame(minHeight: 44).buttonStyle(.plain)
               .accessibilityIdentifier("home.resumeImport")
           }
@@ -50,7 +50,7 @@ struct CourseHomeView: View {
       VStack(alignment: .leading, spacing: 0) {
         CourseSectionHeading(
           title: "我的课程", detail: store.courses.isEmpty ? "从原书开始学习" : "共 \(store.courses.count) 门",
-          detailSize: 20.8, detailWeight: .bold)
+          detailStyle: .supporting)
         if !store.courses.isEmpty { showcase }
       }.padding(.top, -2)
       if store.courses.isEmpty {
@@ -98,12 +98,12 @@ struct CourseHomeView: View {
             HStack(spacing: 3) {
               Text("全部课程")
               Image(systemName: "arrow.right").font(.system(size: 15))
-            }.font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary).frame(minHeight: 44)
+            }.font(DS.font(.cardTitle)).foregroundStyle(DS.primary).frame(minHeight: 44)
           }.buttonStyle(.plain)
           Button(action: create) {
             HStack(spacing: 6) {
               BCGlyph("Upload", color: .white).frame(width: 16, height: 16)
-              Text("创建课程").font(DS.font(20, weight: .bold)).fixedSize(
+              Text("创建课程").font(DS.font(.button)).fixedSize(
                 horizontal: true, vertical: false)
             }.padding(.horizontal, 12).frame(height: 44).foregroundStyle(.white).background(
               DS.primary, in: Capsule())
@@ -111,11 +111,11 @@ struct CourseHomeView: View {
           Spacer(minLength: 12)
           if let selected {
             HStack(alignment: .lastTextBaseline, spacing: 8) {
-              Text(store.courseImport(for: selected.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? selected.name).font(DS.font(16, weight: .bold)).lineLimit(3)
+              Text(store.courseImport(for: selected.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? selected.name).font(DS.font(.cardTitle)).lineLimit(3)
                 .multilineTextAlignment(.trailing)
               Text(
                 "\((homeCourses.firstIndex { $0.id == selected.id } ?? 0) + 1) / \(homeCourses.count)"
-              ).font(DS.font(14, weight: .bold)).foregroundStyle(DS.secondary).fixedSize()
+              ).font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary).fixedSize()
             }
           }
         }.frame(width: controlsWidth, alignment: .trailing).padding(.top, 8).padding(.bottom, 16)
@@ -128,12 +128,12 @@ struct CourseHomeView: View {
         VStack(alignment: .leading, spacing: 4) {
           HStack(spacing: 6) {
             BCGlyph("LibraryBig", color: DS.primary).frame(width: 16, height: 16)
-            Text("这门课程的下一步").font(DS.font(14, weight: .bold))
+            Text("这门课程的下一步").font(DS.font(.supporting, weight: .semibold))
           }.foregroundStyle(DS.primary)
-          Text(store.currentSource?.summary.title ?? selected.name).font(DS.font(14))
+          Text(store.currentSource?.summary.title ?? selected.name).font(DS.font(.supporting))
             .foregroundStyle(DS.secondary)
           Text(nextChapter?.source_title ?? nextLesson?.title ?? selected.name).font(
-            DS.font(20.8, weight: .bold))
+            DS.font(.sectionTitle))
         }.frame(height: 72, alignment: .top)
         HStack(spacing: 8) {
           homeAction(store.courseImport(for: selected.id)?.needsPreparation == true ? "查看解析进度"
@@ -150,9 +150,9 @@ struct CourseHomeView: View {
         }
         Divider().overlay(DS.primary.opacity(0.18))
         HStack {
-          Text("本章工具").font(DS.font(16, weight: .bold))
+          Text("本章工具").font(DS.font(.cardTitle))
           Spacer()
-          Text("围绕当前章节继续练习与复习").font(DS.font(14)).foregroundStyle(DS.secondary).lineLimit(1)
+          Text("围绕当前章节继续练习与复习").font(DS.font(.supporting)).foregroundStyle(DS.secondary).lineLimit(1)
         }.frame(height: 21, alignment: .top)
         ScrollView(.horizontal) {
           HStack(spacing: 8) {
@@ -172,7 +172,7 @@ struct CourseHomeView: View {
     Button(action: action) {
       HStack(spacing: 7) {
         BCGlyph(icon, color: primary ? .white : DS.primary).frame(width: 18, height: 18)
-        Text(title).font(DS.font(20, weight: .bold)).lineLimit(1).minimumScaleFactor(0.8)
+        Text(title).font(DS.font(.button)).lineLimit(1)
         if primary { BCGlyph("ArrowRight", color: .white).frame(width: 16, height: 16) }
       }.frame(maxWidth: .infinity).frame(height: 46)
         .foregroundStyle(primary ? .white : DS.primary)
@@ -183,7 +183,6 @@ struct CourseHomeView: View {
   private func toolCard(_ title: String, subtitle: String, icon: String, route: Route) -> some View
   {
     let width: CGFloat = store.isPad ? 210 : 174
-    let captionSize = min(14, max(9, width * 0.061))
     let coverColor =
       route == .flashcards
       ? Color(hex: 0xDCE6FF)
@@ -201,11 +200,11 @@ struct CourseHomeView: View {
           coverColor
           if route == .assignment {
             VStack(alignment: .leading, spacing: width * 0.03) {
-              Text("知识检测").font(DS.font(captionSize)).foregroundStyle(DS.secondary)
-              Text("这一节的核心概念是？").font(DS.font(captionSize, weight: .bold)).lineLimit(2)
+              Text("知识检测").font(DS.font(.caption)).foregroundStyle(DS.secondary)
+              Text("这一节的核心概念是？").font(DS.font(.caption, weight: .semibold)).lineLimit(2)
               HStack(spacing: 5) {
-                Text("A").font(DS.font(captionSize, weight: .bold)).foregroundStyle(DS.mint)
-                Text("选择你的答案").font(DS.font(captionSize)).foregroundStyle(DS.secondary)
+                Text("A").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.mint)
+                Text("选择你的答案").font(DS.font(.caption)).foregroundStyle(DS.secondary)
               }.padding(5).frame(maxWidth: .infinity, alignment: .leading).background(
                 Color(hex: 0xEFFAF5), in: RoundedRectangle(cornerRadius: 7))
               Spacer(minLength: 0)
@@ -217,7 +216,7 @@ struct CourseHomeView: View {
               .padding(.horizontal, width * 0.043)
           } else if route == .flashcards {
             Text(nextLesson?.title ?? nextChapter?.title ?? store.chapterTitle)
-              .font(DS.font(captionSize, weight: .bold)).lineLimit(2).multilineTextAlignment(
+              .font(DS.font(.caption, weight: .semibold)).lineLimit(2).multilineTextAlignment(
                 .center
               )
               .frame(width: width * 0.7866, height: 92)
@@ -227,17 +226,17 @@ struct CourseHomeView: View {
           } else if route == .mistakes {
             VStack(alignment: .leading, spacing: 7) {
               HStack {
-                Text("今日待复习").font(DS.font(14, weight: .bold))
+                Text("今日待复习").font(DS.font(.supporting, weight: .semibold))
                 Spacer()
-                Text("\(store.mistakes.filter { $0.book_id == store.selectedBookID }.count) 道").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
+                Text("\(store.mistakes.filter { $0.book_id == store.selectedBookID }.count) 道").font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
               }
               ForEach(Array(store.mistakes.filter { $0.book_id == store.selectedBookID }.prefix(2)), id: \.mistake_id) { mistake in
                 HStack(spacing: 5) {
                   Circle().fill(DS.primary).frame(width: 4, height: 4)
                   Text(mistake.question).lineLimit(1)
                   Spacer(minLength: 0)
-                  Text("待复习").fontWeight(.bold).foregroundStyle(DS.primary).fixedSize()
-                }.font(DS.font(min(20, max(9, width * 0.087)))).padding(.horizontal, 5).padding(
+                  Text("待复习").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary).fixedSize()
+                }.font(DS.font(.caption)).padding(.horizontal, 5).padding(
                   .vertical, 4
                 ).background(Color(hex: 0xF9F5FF), in: RoundedRectangle(cornerRadius: 6))
               }
@@ -250,7 +249,7 @@ struct CourseHomeView: View {
                 Capsule().fill(DS.border).frame(
                   width: width * (index == 1 ? 0.55 : 0.68), height: 4)
               }
-              Text("原始记录 · 整理版").font(DS.font(captionSize)).foregroundStyle(DS.secondary)
+              Text("原始记录 · 整理版").font(DS.font(.caption)).foregroundStyle(DS.secondary)
             }.frame(width: width * 0.85, height: 100).background(
               .white, in: RoundedRectangle(cornerRadius: 9)
             ).padding(.bottom, 8)
@@ -259,8 +258,8 @@ struct CourseHomeView: View {
         HStack(spacing: 6) {
           StickerIcon(icon, size: 26, glyphSize: 16.9)
           VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(DS.font(16, weight: .bold)).lineLimit(1)
-            Text(subtitle).font(DS.font(captionSize)).foregroundStyle(DS.secondary).lineLimit(1)
+            Text(title).font(DS.font(.cardTitle)).lineLimit(1)
+            Text(subtitle).font(DS.font(.caption)).foregroundStyle(DS.secondary).lineLimit(1)
           }
           Spacer(minLength: 0)
           BCGlyph("ChevronRight").frame(width: 17, height: 17)
@@ -278,7 +277,7 @@ struct CourseHomeView: View {
     } label: {
       VStack(alignment: .leading, spacing: 9) {
         StickerIcon(icon, size: 40)
-        Text(title).font(DS.font(16, weight: .bold)).lineLimit(2)
+        Text(title).font(DS.font(.cardTitle)).lineLimit(2)
       }.frame(maxWidth: .infinity, minHeight: 76, alignment: .leading).padding(
         .horizontal, store.isPad ? 14 : 10
       ).padding(.vertical, 12)
@@ -409,7 +408,7 @@ struct CourseLibraryView: View {
   var body: some View {
     CourseFeaturePage(useSourceLayoutTop: true) {
       HStack {
-        Text("\(store.courses.count) 门课程").font(DS.font(20)).foregroundStyle(DS.text)
+        Text("\(store.courses.count) 门课程").font(DS.font(.body)).foregroundStyle(DS.text)
         Spacer()
         Button {
           store.courseFeatureStartDraft()
@@ -417,7 +416,7 @@ struct CourseLibraryView: View {
         } label: {
           HStack(spacing: 8) {
             BCGlyph("Plus", color: .white).frame(width: 18, height: 18)
-            Text("创建课程").font(DS.font(20, weight: .bold))
+            Text("创建课程").font(DS.font(.button))
           }.padding(.horizontal, 20).frame(height: 54).foregroundStyle(.white).background(
             DS.primary, in: Capsule())
         }.buttonStyle(.plain)
@@ -450,10 +449,10 @@ struct CourseLibraryView: View {
                   CourseImportBadge(record: store.courseImport(for: course.id)).padding(2)
                 }
               VStack(alignment: .leading, spacing: 6) {
-                Text(course.name).font(DS.font(16, weight: .bold))
+                Text(course.name).font(DS.font(.cardTitle))
                 Text(store.courseCreationLabel(course) ?? (directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习"))
-                  .font(DS.font(14)).foregroundStyle(DS.secondary)
-                Text(source?.summary.title ?? "添加资料后开始学习").font(DS.font(14)).foregroundStyle(
+                  .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                Text(source?.summary.title ?? "添加资料后开始学习").font(DS.font(.supporting)).foregroundStyle(
                   DS.secondary)
               }.frame(maxWidth: .infinity, alignment: .leading)
             }.frame(height: 86)
@@ -462,7 +461,7 @@ struct CourseLibraryView: View {
             VStack(alignment: .leading, spacing: 6) {
               BCProgress(value: store.courseFeatureProgress(course))
               Text("课程完成 \(Int((store.courseFeatureProgress(course) * 100).rounded()))%").font(
-                DS.font(20)
+                DS.font(.body)
               ).foregroundStyle(DS.secondary).frame(height: 28, alignment: .top)
             }.padding(.top, 10).frame(height: 50)
           }
@@ -473,7 +472,7 @@ struct CourseLibraryView: View {
             } label: {
               HStack(spacing: 6) {
                 BCGlyph("Plus", color: DS.primary).frame(width: 16, height: 16)
-                Text("添加资料").font(DS.font(20))
+                Text("添加资料").font(DS.font(.body))
               }
             }.buttonStyle(.plain).foregroundStyle(DS.primary)
               .accessibilityIdentifier("library.addMaterials.\(course.id)")
@@ -487,14 +486,14 @@ struct CourseLibraryView: View {
           }.frame(height: 44)
           if removingID == course.id {
             VStack(alignment: .leading, spacing: 10) {
-              Text("移除这门课程？资料文件和已有笔记会保留。").font(DS.font(20))
+              Text("移除这门课程？资料文件和已有笔记会保留。").font(DS.font(.body))
               HStack {
                 BCButton("确认移除课程", style: .danger) {
                   withAnimation {
                     store.removeCourse(course.id)
                     removingID = nil
                   }
-                  store.showToast("课程已移除，原资料和笔记仍保留")
+                  store.showToast("课程已移除", kind: .success, subtitle: "原资料和笔记仍保留")
                 }
                 BCButton("取消", style: .secondary) { removingID = nil }
               }
@@ -553,7 +552,7 @@ struct CourseDetailView: View {
         VStack(alignment: .leading, spacing: 22) {
           HStack(spacing: 6) {
             BCGlyph("Sparkles", color: DS.primary).frame(width: 16, height: 16)
-            Text("当前课程").font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary).frame(
+            Text("当前课程").font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.primary).frame(
               minHeight: 28, alignment: .top)
           }
           ViewThatFits(in: .horizontal) {
@@ -572,12 +571,12 @@ struct CourseDetailView: View {
         CourseDetailGroup {
           sectionHeading("今日建议", detail: "\(plan.budget) 分钟预算")
           Text(plan.reviewDays.map { "建议每 \($0) 天回看一次重点与错题。" } ?? "按你的自由复习偏好，不安排固定复盘提醒。").font(
-            DS.font(20)
+            DS.font(.body)
           ).foregroundStyle(DS.secondary).frame(minHeight: 28, alignment: .topLeading).padding(
             .top, 9
           ).padding(.bottom, 16)
           if plan.recommendations.isEmpty {
-            Text("当前没有可推荐的待做任务。选择已就绪的教材继续学习，或添加更多资料。").font(DS.font(20)).foregroundStyle(
+            Text("当前没有可推荐的待做任务。选择已就绪的教材继续学习，或添加更多资料。").font(DS.font(.body)).foregroundStyle(
               DS.secondary)
           }
           VStack(spacing: 9) {
@@ -588,21 +587,21 @@ struct CourseDetailView: View {
                 HStack(spacing: 13) {
                   StickerIcon("CalendarDays", size: 42, glyphSize: 19)
                   VStack(alignment: .leading, spacing: 3) {
-                    Text(recommendation.task.title).font(DS.font(16, weight: .bold)).frame(
-                      minHeight: 20.8, alignment: .topLeading)
+                    Text(recommendation.task.title).font(DS.font(.cardTitle)).frame(
+                      minHeight: 26, alignment: .topLeading)
                     Text(
                       "\(store.sources.first { $0.id == recommendation.bookID }?.summary.title ?? "教材") · \(recommendation.task.task_type) · 建议 \(recommendation.minutes) 分钟"
                         + (recommendation.originalMinutes > recommendation.minutes
                           ? "（完整任务预计 \(recommendation.originalMinutes) 分钟）" : "")
-                    ).font(DS.font(14)).foregroundStyle(DS.secondary).frame(
+                    ).font(DS.font(.supporting)).foregroundStyle(DS.secondary).frame(
                       minHeight: 18.9, alignment: .topLeading)
-                    Text(recommendation.reason).font(DS.font(20)).foregroundStyle(DS.primaryPressed)
+                    Text(recommendation.reason).font(DS.font(.body)).foregroundStyle(DS.primaryPressed)
                       .frame(minHeight: 28, alignment: .topLeading)
                     if recommendation.segments.count > 1 {
                       HStack(spacing: 5) {
                         ForEach(Array(recommendation.segments.enumerated()), id: \.offset) {
                           _, minutes in
-                          Text("\(minutes) 分钟").font(DS.font(14)).padding(.horizontal, 8).padding(
+                          Text("\(minutes) 分钟").font(DS.font(.supporting)).padding(.horizontal, 8).padding(
                             .vertical, 5
                           ).background(DS.primarySoft, in: Capsule())
                         }
@@ -625,14 +624,14 @@ struct CourseDetailView: View {
               resourceRow(source, id: id)
             }
             if course.resourceIDs.isEmpty {
-              Text("这门课程暂时没有资料，点击“添加资料”继续。").font(DS.font(20)).foregroundStyle(DS.secondary)
+              Text("这门课程暂时没有资料，点击“添加资料”继续。").font(DS.font(.body)).foregroundStyle(DS.secondary)
             }
           }.padding(.top, 14)
         }
         CourseDetailGroup {
           HStack {
             sectionHeading("学习画像")
-            Button("修改") { edit(course) }.font(DS.font(20, weight: .bold)).foregroundStyle(
+            Button("修改") { edit(course) }.font(DS.font(.smallButton)).foregroundStyle(
               DS.primaryPressed
             ).frame(height: 44)
           }
@@ -643,13 +642,13 @@ struct CourseDetailView: View {
           ) {
             ForEach(CourseDiagnosisQuestion.all) { question in
               VStack(alignment: .leading, spacing: 6) {
-                Text(question.title).font(DS.font(16, weight: .bold)).frame(
-                  minHeight: 20.8, alignment: .topLeading)
+                Text(question.title).font(DS.font(.cardTitle)).frame(
+                  minHeight: 26, alignment: .topLeading)
                 Text(
                   (CourseRecommendations.diagnosis(course)[question.id] ?? []).map { value in
                     question.options.first { $0.0 == value }?.1 ?? value
                   }.joined(separator: "、")
-                ).font(DS.font(20)).foregroundStyle(DS.secondary).frame(
+                ).font(DS.font(.body)).foregroundStyle(DS.secondary).frame(
                   minHeight: 28, alignment: .topLeading)
               }.padding(12).frame(maxWidth: .infinity, alignment: .topLeading).background(
                 DS.background, in: RoundedRectangle(cornerRadius: 12))
@@ -673,7 +672,7 @@ struct CourseDetailView: View {
       Button("确认移出", role: .destructive) {
         if let id = removingResourceID, let courseID = store.currentCourse?.id {
           store.removeSource(id, from: courseID)
-          store.showToast("已从课程移出，原资料仍保留")
+          store.showToast("已从课程移出", kind: .success, subtitle: "原资料仍保留")
         }
         removingResourceID = nil
       }
@@ -703,12 +702,12 @@ struct CourseDetailView: View {
     HStack(spacing: 10) {
       StickerIcon("BookOpen", size: 42, glyphSize: 21)
       VStack(alignment: .leading, spacing: 4) {
-        Text(source?.summary.title ?? "资料暂时不可用").font(DS.font(16, weight: .bold))
+        Text(source?.summary.title ?? "资料暂时不可用").font(DS.font(.cardTitle))
         Text(
           source?.summary.content_mode == "directory"
             ? "教材目录 · 尚未生成教学内容" : source?.summary.status == "ready" ? "可开始学习"
             : source?.summary.status == "source_ready" ? "本机原文已就绪 · 可阅读与检索" : "待整理 · 原文件已保留"
-        ).font(DS.font(14)).foregroundStyle(DS.secondary)
+        ).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
       }.frame(maxWidth: .infinity, alignment: .leading)
     }
   }
@@ -750,9 +749,9 @@ struct CourseDetailView: View {
   }
   private func sectionHeading(_ title: String, detail: String? = nil) -> some View {
     HStack {
-      Text(title).font(DS.font(20.8, weight: .bold))
+      Text(title).font(DS.font(.sectionTitle))
       Spacer()
-      if let detail { Text(detail).font(DS.font(20)).foregroundStyle(DS.secondary) }
+      if let detail { Text(detail).font(DS.font(.body)).foregroundStyle(DS.secondary) }
     }.frame(minHeight: 28)
   }
   private func detailAction(
@@ -762,7 +761,7 @@ struct CourseDetailView: View {
     Button(action: action) {
       HStack(spacing: 7) {
         if !trailing { BCGlyph(icon).frame(width: 16, height: 16) }
-        Text(title).font(DS.font(20, weight: .bold)).fixedSize()
+        Text(title).font(DS.font(.button)).fixedSize()
         if trailing { BCGlyph(icon).frame(width: 16, height: 16) }
       }.frame(maxWidth: fill ? .infinity : nil).padding(.horizontal, 13).frame(height: 46)
         .background(
@@ -819,7 +818,7 @@ private struct CoursePreferredChips: View {
   }
   @ViewBuilder private var chips: some View {
     ForEach(labels, id: \.self) {
-      Text($0).font(DS.font(20)).foregroundStyle(DS.primaryPressed).padding(.horizontal, 8).padding(
+      Text($0).font(DS.font(.body)).foregroundStyle(DS.primaryPressed).padding(.horizontal, 8).padding(
         .vertical, 5
       ).background(DS.primarySoft, in: Capsule())
     }

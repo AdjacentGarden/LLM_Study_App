@@ -43,6 +43,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>CloudPath 使用相机拍摄图片并添加到 AI 对话，供你确认后发送。</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>CloudPath 连接你配置的本地学习服务，用于登录、教材上传与学习进度同步。</string>
 	<key>NSMicrophoneUsageDescription</key>

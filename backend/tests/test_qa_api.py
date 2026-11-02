@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from adaptive_learning.api.app import app
 from adaptive_learning.api.qa_dependency import require_qa_service
-from adaptive_learning.llm.client import LLMError
+from adaptive_learning.llm.client import LLMContextLimitError, LLMError
 from adaptive_learning.rag.grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
@@ -70,6 +70,25 @@ def test_grounded_qa_endpoint_returns_public_page_citations(client: TestClient) 
     assert payload["evidence_pages"] == [11]
     assert payload["claims"][0]["citations"][0]["page_number"] == 11
     assert "chunk_id" not in response.text
+
+
+@pytest.mark.parametrize("turn_count", [9, 40, 200])
+def test_grounded_qa_preserves_history_beyond_eight_turns(client: TestClient, turn_count: int) -> None:
+    captured = {}
+
+    class HistoryAwareQAService(FakeQAService):
+        def answer(self, question: str, **kwargs) -> TextbookQAResult:
+            captured.update(kwargs.get("conversation_context", {}))
+            return super().answer(question)
+
+    app.dependency_overrides[require_qa_service] = HistoryAwareQAService
+    history = [
+        {"role": "user" if index % 2 == 0 else "assistant", "text": f"第 {index + 1} 条历史内容"}
+        for index in range(turn_count)
+    ]
+    response = client.post("/api/books/biology-required-2/qa", json={"question": "请继续解释", "history": history})
+    assert response.status_code == 200
+    assert captured["history"] == history
 
 
 @pytest.mark.parametrize("insufficient", [False, True])
@@ -143,6 +162,18 @@ def test_grounded_qa_endpoint_maps_model_failure_to_bad_gateway() -> None:
     assert response.status_code == 502
     assert response.json()["detail"] == "回答服务暂时不可用，请稍后重试。"
     assert 'provider unavailable' not in response.text
+
+
+def test_grounded_qa_endpoint_explains_model_context_overflow(client: TestClient) -> None:
+    class ContextLimitedService(FakeQAService):
+        def answer(self, question: str, **kwargs) -> TextbookQAResult:
+            raise LLMContextLimitError("private provider details")
+
+    app.dependency_overrides[require_qa_service] = ContextLimitedService
+    response = client.post("/api/books/biology-required-2/qa", json={"question": "请继续解释"})
+    assert response.status_code == 413
+    assert "上下文容量" in response.json()["detail"]
+    assert "private provider details" not in response.text
 
 
 def test_grounded_qa_endpoint_reports_unavailable_dependency() -> None:

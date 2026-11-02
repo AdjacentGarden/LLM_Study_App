@@ -19,12 +19,36 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
     return app
   }
+  func testNoteSaveShowsTopHUDAndDismisses() throws {
+    for reducedMotion in [false, true] {
+      let app = launch(
+        "lesson", sheet: "note",
+        extraArgs: reducedMotion ? ["--fixture-reduce-motion"] : [])
+      let save = app.buttons["notes.save"].firstMatch
+      XCTAssertTrue(save.waitForExistence(timeout: 20))
+      try reveal(save, in: app)
+      save.tap()
+      let hud = app.descendants(matching: .any).matching(identifier: "app.toast").firstMatch
+      XCTAssertTrue(hud.waitForExistence(timeout: 3))
+      XCTAssertEqual(hud.label, "已保存到学习笔记")
+      XCTAssertEqual(hud.value as? String, "success")
+      let window = app.windows.firstMatch.frame
+      XCTAssertEqual(hud.frame.midX, window.midX, accuracy: 2)
+      XCTAssertLessThan(hud.frame.maxY, window.height * 0.25)
+      keepScreenshot(reducedMotion ? "toast-hud-reduced-motion" : "toast-hud-note-saved", app: app)
+      XCTAssertTrue(hud.waitForNonExistence(timeout: 5))
+      app.terminate()
+    }
+  }
+
   func testTabsAndCourseLearningEntry() throws {
     let app = launch("home")
     let study = app.buttons["tab-study"]
     XCTAssertTrue(study.waitForExistence(timeout: 20))
     study.tap()
-    XCTAssertTrue(app.staticTexts["学习计划"].firstMatch.waitForExistence(timeout: 8))
+    // The resumed section can compact the header and hide its plan summary.
+    let courseSelector = app.buttons["study.course.switch"].firstMatch
+    XCTAssertTrue(courseSelector.waitForExistence(timeout: 8), "Study course selector is visible")
     app.buttons["tab-community"].tap()
     XCTAssertTrue(app.textFields["community.search"].waitForExistence(timeout: 8))
     app.buttons["tab-profile"].tap()

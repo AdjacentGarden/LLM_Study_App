@@ -93,7 +93,7 @@ struct NotesHubView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
         if hasChapter {
-          Text(store.chapterTitle).font(DS.font(19.2, weight: .bold)).foregroundStyle(DS.secondary)
+          Text(store.chapterTitle).font(DS.font(.cardTitle)).foregroundStyle(DS.secondary)
             .accessibilityIdentifier("notes.chapter.title")
         }
         if !chapterNotes.isEmpty {
@@ -173,9 +173,9 @@ struct NotesHubView: View {
       HStack(spacing: 7) {
         Text(value?.notesLabel ?? "全部")
         Text("\(chapterNotes.filter { value == nil || $0.kind == value }.count)")
-          .font(DS.font(16, weight: .bold)).padding(.horizontal, 6).padding(.vertical, 2)
+          .font(DS.font(.cardTitle)).padding(.horizontal, 6).padding(.vertical, 2)
           .background(DS.primary.opacity(0.1), in: Capsule())
-      }.font(DS.font(16, weight: .bold)).foregroundStyle(
+      }.font(DS.font(.cardTitle)).foregroundStyle(
         filter == value ? DS.primary : DS.secondary
       )
       .padding(.horizontal, 13).frame(minHeight: 44)
@@ -188,9 +188,9 @@ struct NotesHubView: View {
       VStack(spacing: 12) {
         AssetImage("/assets/brand/empty-states/no-notes-v1.png").frame(width: 180, height: 140)
         Text(hasChapter ? "本章节还没有\(chapterNotes.isEmpty ? "" : filter?.notesLabel ?? "")笔记" : "请先选择学习章节")
-          .font(DS.font(20, weight: .bold))
+          .font(DS.font(.cardTitle))
         Text(hasChapter ? "你可以输入文字、直接批注教材原页，或录下语音后整理。" : "在学习页选择章节后，可查看和记录对应的笔记。")
-          .font(DS.font(14)).foregroundStyle(DS.muted).multilineTextAlignment(.center)
+          .font(DS.font(.supporting)).foregroundStyle(DS.muted).multilineTextAlignment(.center)
         BCButton(hasChapter ? "去记笔记" : "选择章节", icon: hasChapter ? "Plus" : "BookOpen") {
           if hasChapter { store.openSheet(.noteType) } else { store.go(.study) }
         }
@@ -206,14 +206,14 @@ struct NotesHubView: View {
           HStack(alignment: .top, spacing: 12) {
             NotesSticker(kind: note.kind, glyphSize: 18, size: 44)
             VStack(alignment: .leading, spacing: 5) {
-              (Text(note.kind.notesLabel).font(DS.font(13, weight: .bold)).foregroundColor(
+              (Text(note.kind.notesLabel).font(DS.font(.supporting, weight: .semibold)).foregroundColor(
                 DS.primary)
                 + Text(note.anchor.map { " · 第 \($0.printedPage ?? $0.page) 页" } ?? "").font(
-                  DS.font(12)
+                  DS.font(.caption)
                 ).foregroundColor(DS.muted))
-              Text(note.title).font(DS.font(16, weight: .bold)).foregroundStyle(DS.text).lineLimit(
+              Text(note.title).font(DS.font(.cardTitle)).foregroundStyle(DS.text).lineLimit(
                 2)
-              Text(preview(note)).accessibilityIdentifier("notes.originalBody").font(DS.font(20)).foregroundStyle(DS.secondary).lineLimit(2)
+              Text(preview(note)).accessibilityIdentifier("notes.originalBody").font(DS.font(.body)).foregroundStyle(DS.secondary).lineLimit(2)
             }.frame(maxWidth: .infinity, alignment: .leading)
           }.padding(16).background(selected?.id == note.id ? DS.primarySoft : .white)
             .overlay(
@@ -232,22 +232,22 @@ struct NotesHubView: View {
             NotesSticker(kind: note.kind, glyphSize: 18, size: 44)
             VStack(alignment: .leading, spacing: 6) {
               NotesBadge(title: note.kind.notesLabel + "笔记")
-              Text(note.title).font(DS.font(20, weight: .bold)).lineSpacing(5).fixedSize(
+              Text(note.title).font(DS.font(.cardTitle)).lineSpacing(5).fixedSize(
                 horizontal: false, vertical: true)
               Text(
                 note.anchor.map { "第 \($0.printedPage ?? $0.page) 页" } ?? "本地学习笔记"
-              ).font(DS.font(12)).foregroundStyle(DS.muted).frame(minHeight: 18, alignment: .top)
+              ).font(DS.font(.caption)).foregroundStyle(DS.muted).frame(minHeight: 18, alignment: .top)
             }
           }
           if let quote = note.anchor?.quote, !quote.isEmpty {
             NotesQuote(quote: quote).padding(.top, 20)
           }
-          Text(preview(note)).font(DS.font(20)).lineSpacing(6).foregroundStyle(DS.secondary)
+          Text(preview(note)).font(DS.font(.reading)).lineSpacing(6).foregroundStyle(DS.secondary)
             .textSelection(.enabled).padding(.top, 35).padding(.bottom, 36)
           if note.kind != .voice, let organized = note.organizedText {
             VStack(alignment: .leading, spacing: 7) {
-              Text("独立整理版").font(DS.font(16, weight: .bold)).foregroundStyle(DS.primary)
-              Text(organized).font(DS.font(20)).lineSpacing(5).textSelection(.enabled)
+              Text("独立整理版").font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
+              Text(organized).font(DS.font(.reading)).lineSpacing(5).textSelection(.enabled)
             }.padding(13).frame(maxWidth: .infinity, alignment: .leading).background(
               Color(hex: 0xf3f8ff), in: RoundedRectangle(cornerRadius: 14)
             ).padding(.bottom, 16)
@@ -300,12 +300,12 @@ struct NotesHubView: View {
 
 struct NotesQuote: View {
   let quote: String
-  var fontSize: CGFloat = 20
+  var textStyle: DS.Typography = .reading
   var rounded = false
   var body: some View {
     HStack(spacing: 0) {
       Rectangle().fill(DS.primary).frame(width: 3)
-      Text(quote).font(DS.font(fontSize)).lineSpacing(4).foregroundStyle(DS.secondary).padding(12).frame(
+      Text(quote).font(DS.font(textStyle)).lineSpacing(4).foregroundStyle(DS.secondary).padding(12).frame(
         maxWidth: .infinity, alignment: .leading)
     }.fixedSize(horizontal: false, vertical: true).background(DS.primarySoft)
       .clipShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0,
@@ -316,7 +316,7 @@ struct NotesQuote: View {
 struct NotesBadge: View {
   let title: String
   var body: some View {
-    Text(title).font(DS.font(20, weight: .bold)).foregroundStyle(Color(hex: 0x6426cb)).padding(
+    Text(title).font(DS.font(.cardTitle)).foregroundStyle(Color(hex: 0x6426cb)).padding(
       .horizontal, 11
     ).padding(.vertical, 5).frame(minHeight: 40).background(DS.primarySoft, in: Capsule()).overlay(
       Capsule().stroke(DS.primary.opacity(0.16)))
@@ -343,7 +343,7 @@ struct NotesPrimaryAction: View {
           BCGlyph(glyphName(symbol), color: secondary ? DS.text : .white).frame(
             width: 18, height: 18)
         }
-        Text(title).font(DS.font(20, weight: .bold))
+        Text(title).font(DS.font(.button))
       }
       .foregroundStyle(secondary ? DS.text : .white).frame(maxWidth: .infinity).frame(minHeight: 54)
       .background(secondary ? .white : DS.primary, in: Capsule()).overlay(

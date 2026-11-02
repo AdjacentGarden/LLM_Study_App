@@ -1,36 +1,69 @@
+import CoreText
+import SwiftUI
 import UIKit
 import XCTest
 
 @testable import BookCourse
 
 final class LearningTests: XCTestCase {
-  func testPrettyReadingUsesOriginalFontAndMatchesWebKitPhoneAndPadLineBreaks() throws {
-    ContentBundle.registerFonts()
-    let font = try XCTUnwrap(UIFont(name: "BookCourseNotoSansSC-Regular", size: 20))
-    let cases: [(CGFloat, String, [String])] = [
-      (
-        331.84375,
-        "孟德尔以豌豆的一对相对性状为切口，把复杂遗传现象拆成可计数的后代比例：F1 只表现一个亲本性状，F2 又出现另一个性状且接近 3∶1；用成对遗传因子在形成配子时分离的假说，并用测交检验，便能把现象转化为分离定律。",
-        [
-          "孟德尔以豌豆的一对相对性状为", "切口，把复杂遗传现象拆成可计", "数的后代比例：F1 只表现一个亲", "本性状，F2 又出现另一个性状且",
-          "接近 3∶1；用成对遗传因子在形", "成配子时分离的假说，并用测交检", "验，便能把现象转化为分离定律。",
-        ]
-      ),
-      (
-        721.5,
-        "孟德尔以豌豆的一对相对性状为切口，把复杂遗传现象拆成可计数的后代比例：F1 只表现一个亲本性状，F2 又出现另一个性状且接近 3∶1；用成对遗传因子在形成配子时分离的假说，并用测交检验，便能把现象转化为分离定律。",
-        [
-          "孟德尔以豌豆的一对相对性状为切口，把复杂遗传现象拆成可计数的后代比", "例：F1 只表现一个亲本性状，F2 又出现另一个性状且接近 3∶1；用成对遗传",
-          "因子在形成配子时分离的假说，并用测交检验，便能把现象转化为分离定律。",
-        ]
-      ),
+  func testBilingualFontResolvesLatinAndChineseWithMatchingWeights() {
+    let cases: [(Font.Weight, String, String)] = [
+      (.light, "Helvetica-Light", "PingFangSC-Light"),
+      (.regular, "Helvetica", "PingFangSC-Regular"),
+      (.medium, "Helvetica", "PingFangSC-Medium"),
+      (.semibold, "Helvetica-Bold", "PingFangSC-Semibold"),
+      (.bold, "Helvetica-Bold", "PingFangSC-Semibold"),
     ]
-    for (width, text, expected) in cases {
-      let actual = LearningPrettyLineBreaker.lines(in: text, width: width) {
-        (String($0) as NSString).size(withAttributes: [.font: font]).width
+    let text = "CloudPath 123 中文学习，。" as NSString
+    for (weight, latin, chinese) in cases {
+      let font = DS.uiFont(.reading, weight: weight)
+      XCTAssertEqual(font.pointSize, 16)
+      let line = CTLineCreateWithAttributedString(NSAttributedString(
+        string: text as String, attributes: [.font: font]))
+      let runs = CTLineGetGlyphRuns(line) as! [CTRun]
+      var checkedLatin = false
+      var checkedChinese = false
+      for run in runs {
+        let attributes = CTRunGetAttributes(run) as NSDictionary
+        let runFont = attributes[kCTFontAttributeName] as! CTFont
+        let name = CTFontCopyPostScriptName(runFont) as String
+        let range = CTRunGetStringRange(run)
+        let fragment = text.substring(with: NSRange(location: range.location, length: range.length))
+        if fragment.contains(where: { $0.isASCII && !$0.isWhitespace }) {
+          XCTAssertEqual(name, latin, "Latin run: \(fragment)")
+          checkedLatin = true
+        }
+        if fragment.contains(where: { "中文学习，。".contains($0) }) {
+          XCTAssertEqual(name, chinese, "Chinese run: \(fragment)")
+          checkedChinese = true
+        }
       }
-      XCTAssertEqual(actual, expected, "WebKit text-wrap:pretty at \(width)pt")
-      XCTAssertEqual(actual.joined(), text)
+      XCTAssertTrue(checkedLatin)
+      XCTAssertTrue(checkedChinese)
+    }
+  }
+
+  func testBilingualLineHeightIncludesChineseMetrics() throws {
+    let chinese = try XCTUnwrap(UIFont(name: "PingFangSC-Semibold", size: 16))
+    XCTAssertGreaterThanOrEqual(DS.lineHeight(.reading, weight: .semibold), chinese.lineHeight)
+    XCTAssertGreaterThanOrEqual(DS.lineHeight(.reading, weight: .semibold), DS.uiFont(.reading, weight: .semibold).lineHeight)
+  }
+
+  func testPrettyReadingPreservesMixedTextAndFitsPhoneAndPadWidths() {
+    let font = DS.uiFont(.reading)
+    let text = "孟德尔以豌豆的一对相对性状为切口，把复杂遗传现象拆成可计数的后代比例：F1 只表现一个亲本性状，F2 又出现另一个性状且接近 3∶1；用成对遗传因子在形成配子时分离的假说，并用测交检验，便能把现象转化为分离定律。"
+    func advance(_ character: Character) -> CGFloat {
+      (String(character) as NSString).size(withAttributes: [.font: font]).width
+    }
+    for width: CGFloat in [331.84375, 721.5] {
+      let lines = LearningPrettyLineBreaker.lines(in: text, width: width, advance: advance)
+      XCTAssertEqual(lines.joined(), text)
+      XCTAssertGreaterThan(lines.count, 1)
+      for line in lines {
+        XCTAssertLessThanOrEqual(line.reduce(0) { $0 + advance($1) }, width + 0.01)
+        XCTAssertFalse(line.hasSuffix("F"), "Keep Latin tokens together")
+        XCTAssertFalse("，。；：！？、）".contains(line.first!))
+      }
     }
   }
 

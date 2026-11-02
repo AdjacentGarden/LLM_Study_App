@@ -12,7 +12,7 @@ def ref(key,path,type):return obj(key,f'isa = PBXFileReference; lastKnownFileTyp
 def build(key,file):return obj(key,f'isa = PBXBuildFile; fileRef = {file};')
 products=[];groups=[];targetIDs=[]
 packages=[];deps=[]
-for name,url,version in [('onnxruntime','https://github.com/microsoft/onnxruntime-swift-package-manager','1.24.2'),('ZIPFoundation','https://github.com/weichsel/ZIPFoundation','0.9.20')]:
+for name,url,version in [('onnxruntime','https://github.com/microsoft/onnxruntime-swift-package-manager','1.24.2'),('ZIPFoundation','https://github.com/weichsel/ZIPFoundation','0.9.20'),('AlertToast','https://github.com/elai950/AlertToast','1.3.9')]:
  package=obj('package-'+name,f'isa = XCRemoteSwiftPackageReference; repositoryURL = {quote(url)}; requirement = {{ kind = exactVersion; version = {quote(version)}; }};');packages.append(package)
  deps.append(obj('product-'+name,f'isa = XCSwiftPackageProductDependency; package = {package}; productName = {quote(name)};'))
 frameworkFiles=[obj('framework-'+d,f'isa = PBXBuildFile; productRef = {d};') for d in deps]
@@ -76,6 +76,7 @@ plist={'CFBundleDisplayName':'CloudPath','CFBundleExecutable':'$(EXECUTABLE_NAME
 plist['NSMicrophoneUsageDescription']='CloudPath 使用麦克风进行 AI 语音输入、录制语音笔记和教材语音批注，录音保存在本机。'
 plist['NSSpeechRecognitionUsageDescription']='在本机将录音识别为文字，用于 AI 对话输入和语音笔记。AI 语音输入先回填文字，确认后才发送，录音不上传。'
 plist['NSLocalNetworkUsageDescription']='CloudPath 连接你配置的本地学习服务，用于登录、教材上传与学习进度同步。'
+plist['NSCameraUsageDescription']='CloudPath 使用相机拍摄图片并添加到 AI 对话，供你确认后发送。'
 plist['NSAppTransportSecurity']={
  'NSAllowsLocalNetworking':True,
  'NSExceptionDomains':{address:{'NSExceptionAllowsInsecureHTTPLoads':True}

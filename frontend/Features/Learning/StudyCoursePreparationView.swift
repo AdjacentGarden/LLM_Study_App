@@ -40,8 +40,8 @@ struct StudyCoursePreparationView: View {
         HStack(spacing: 12) {
           StickerIcon(preparation == .materials ? "Upload" : "ClipboardCheck", size: 40)
           VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(DS.font(20.8, weight: .bold))
-            CourseProgressMessage(message: message).font(DS.font(14)).foregroundStyle(
+            Text(title).font(DS.font(.sectionTitle))
+            CourseProgressMessage(message: message).font(DS.font(.supporting)).foregroundStyle(
               record?.error != nil || job?.status == .failed ? DS.danger : DS.secondary)
           }
           Spacer(minLength: 0)
@@ -50,7 +50,7 @@ struct StudyCoursePreparationView: View {
         if preparation == .materials, let progress = record?.ringProgress {
           BCProgress(value: progress)
           Text("解析进度 \(Int((progress * 100).rounded()))%")
-            .font(DS.font(14)).foregroundStyle(DS.secondary)
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         if !compact, let record {
           ForEach(record.books) { book in
@@ -60,9 +60,9 @@ struct StudyCoursePreparationView: View {
               VStack(alignment: .leading, spacing: 4) {
                 Text(store.sources.first { $0.id == book.id }?.summary.filename
                   ?? store.sources.first { $0.id == book.id }?.summary.title ?? "课程资料")
-                  .font(DS.font(14, weight: .semibold)).lineLimit(2)
+                  .font(DS.font(.supporting, weight: .semibold)).lineLimit(2)
                 if preparation == .materials {
-                  CourseProgressMessage(message: book.message).font(DS.font(13)).foregroundStyle(DS.secondary)
+                  CourseProgressMessage(message: book.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
                 }
               }
             }

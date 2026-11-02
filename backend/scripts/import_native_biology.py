@@ -34,7 +34,7 @@ entry.update(
         for c in source["chapters"]
         if c["level"] == 1 and c["chapter_id"] != "frontmatter"
     ],
-    description="原项目《生物 必修2 遗传与进化》已有课程，保留15个课时、90张闪卡和45道练习，以及已发布的125页原文图片。部分内容为原项目AI补充，继续保留待原文核验标记。",
+    description="《生物 必修2 遗传与进化》课程，包含15个课时、90张闪卡、45道练习和125页教材原文。",
     tags=["已有课程", "章节导学", "闪卡", "原文阅读"],
     recommended=True,
 )

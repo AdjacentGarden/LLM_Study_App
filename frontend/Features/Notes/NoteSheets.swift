@@ -20,14 +20,14 @@ struct NotesTypePicker: View {
   }
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      Text("将关联到：教材第 \(printedPage) 页").font(DS.font(20)).foregroundStyle(DS.secondary)
+      Text("将关联到：教材第 \(printedPage) 页").font(DS.font(.body)).foregroundStyle(DS.secondary)
         .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
           DS.primarySoft, in: RoundedRectangle(cornerRadius: 12)
         ).overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.primary.opacity(0.25))).padding(
           .bottom, 16)
       if let source = store.currentSource {
         HStack(alignment: .top, spacing: 10) {
-          Text("教材批注页").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary).fixedSize()
+          Text("教材批注页").font(DS.font(.cardTitle)).foregroundStyle(DS.secondary).fixedSize()
             .padding(.top, 2)
           VStack(alignment: .leading, spacing: 4) {
             Menu {
@@ -39,11 +39,11 @@ struct NotesTypePicker: View {
                 Text("教材第 \(printedPage) 页")
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 14))
-              }.font(DS.font(20)).foregroundStyle(DS.text).padding(.horizontal, 8).frame(height: 30)
+              }.font(DS.font(.body)).foregroundStyle(DS.text).padding(.horizontal, 8).frame(height: 30)
                 .background(.white, in: RoundedRectangle(cornerRadius: 5)).overlay(
                   RoundedRectangle(cornerRadius: 5).stroke(DS.border))
             }
-            Text("选择后会在对应教材原页上直接批注").font(DS.font(13)).foregroundStyle(DS.secondary)
+            Text("选择后会在对应教材原页上直接批注").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           }
         }.padding(.bottom, 18)
       }
@@ -52,7 +52,7 @@ struct NotesTypePicker: View {
         option(.ink, title: "手写批注", copy: "打开教材原页，用触控笔圈画")
         option(.voice, title: "语音笔记", copy: "说出想法，直接生成整理笔记，原始录音保留")
       }
-      Text("原始内容会一直保留，整理版不会覆盖你的记录。").font(DS.font(13)).foregroundStyle(DS.secondary).padding(
+      Text("原始内容会一直保留，整理版不会覆盖你的记录。").font(DS.font(.supporting)).foregroundStyle(DS.secondary).padding(
         .top, 30)
     }.padding(.horizontal, store.isPad ? 32 : 16).padding(.bottom, 36)
       .onAppear {
@@ -77,8 +77,8 @@ struct NotesTypePicker: View {
       HStack(spacing: 12) {
         NotesSticker(kind: kind, glyphSize: 23, size: 44)
         VStack(alignment: .leading, spacing: 5) {
-          Text(title).font(DS.font(16, weight: .bold)).foregroundStyle(DS.text)
-          Text(disabled ? "当前页暂无可批注原图" : copy).font(DS.font(13)).foregroundStyle(DS.muted)
+          Text(title).font(DS.font(.cardTitle)).foregroundStyle(DS.text)
+          Text(disabled ? "当前页暂无可批注原图" : copy).font(DS.font(.supporting)).foregroundStyle(DS.muted)
         }.frame(maxWidth: .infinity, alignment: .leading)
       }.padding(12).frame(minHeight: 76).background(.white, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border)).opacity(disabled ? 0.5 : 1)
@@ -129,8 +129,8 @@ struct NotesConceptSheet: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 0) {
         NotesBadge(title: concept).padding(.bottom, 14)
-        Text(concept).font(DS.font(16, weight: .bold)).padding(.bottom, 14)
-        Text(explanation).font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(5).padding(
+        Text(concept).font(DS.font(.cardTitle)).padding(.bottom, 14)
+        Text(explanation).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(5).padding(
           .bottom, 12)
         if let image = store.selectedAsset {
           AssetImage(image.image_url).frame(maxHeight: 180).padding(.bottom, 12)
@@ -143,19 +143,19 @@ struct NotesConceptSheet: View {
             HStack(spacing: 8) {
               BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 17, height: 17)
               Text("教材第 \(citation.printed_page_start ?? citation.page_start) 页").font(
-                DS.font(20, weight: .bold))
+                DS.font(.cardTitle))
             }.foregroundStyle(DS.primary).frame(minHeight: 44)
           }.padding(.bottom, 18)
         }
-        Text("学习笔记").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary).padding(
+        Text("学习笔记").font(DS.font(.cardTitle)).foregroundStyle(DS.secondary).padding(
           .bottom, 12)
-        TextEditor(text: $text).font(DS.font(20)).scrollContentBackground(.hidden).padding(8).frame(
+        TextEditor(text: $text).font(DS.font(.reading)).scrollContentBackground(.hidden).padding(8).frame(
           height: 82
         ).background(.white, in: RoundedRectangle(cornerRadius: 16)).overlay(
           RoundedRectangle(cornerRadius: 16).stroke(DS.border)
         ).padding(.bottom, 14).accessibilityIdentifier("notes.body")
         if let error {
-          Text(error).font(DS.font(13)).foregroundStyle(DS.danger).padding(.bottom, 8)
+          Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger).padding(.bottom, 8)
         }
         NotesPrimaryAction(
           title: saving ? "正在保存…" : error == nil ? "保存到笔记" : "重试保存",
@@ -187,7 +187,7 @@ struct NotesConceptSheet: View {
           try? await Task.sleep(for: .milliseconds(1230))
         }
         store.closeSheet()
-        store.showToast("已保存到学习笔记")
+        store.showToast("已保存到学习笔记", kind: .success)
       } catch {
         self.error = error.localizedDescription
         saving = false
@@ -232,14 +232,14 @@ struct NotesTextEditor: View {
         HStack {
           if compact {
             NotesGlyph(name: "MessageSquareText", size: 17).foregroundStyle(DS.primary)
-            Text("文字批注").font(DS.font(14, weight: .bold))
+            Text("文字批注").font(DS.font(.supporting, weight: .semibold))
             Spacer()
             Text(
               saving || persistence?.isSaving == true
                 ? "保存中…"
                 : persistence?.hasUnsavedContent == false && persistence?.lastSaved != nil
                   ? "已保存" : "自动保存"
-            ).font(DS.font(11)).foregroundStyle(
+            ).font(DS.font(.caption)).foregroundStyle(
               DS.secondary)
           } else {
             BCPill(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记")
@@ -252,33 +252,33 @@ struct NotesTextEditor: View {
           }.foregroundStyle(DS.secondary).accessibilityLabel("关闭")
         }
         if compact {
-          Text(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记").font(DS.font(11))
+          Text(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记").font(DS.font(.caption))
             .foregroundStyle(DS.secondary)
         } else {
-          Text(title.isEmpty ? "文字笔记" : title).font(DS.font(20, weight: .bold))
+          Text(title.isEmpty ? "文字笔记" : title).font(DS.font(.cardTitle))
         }
         if let quote = effectiveAnchor?.quote, !quote.isEmpty {
-          NotesQuote(quote: quote, fontSize: compact ? 12 : 20, rounded: compact)
+          NotesQuote(quote: quote, textStyle: compact ? .caption : .reading, rounded: compact)
             .frame(maxHeight: compact ? 68 : nil).clipped()
         }
         if let asset = store.selectedAsset {
           AssetImage(asset.image_url).frame(maxHeight: 230)
-          Text(asset.caption).font(DS.font(12)).foregroundStyle(DS.muted)
+          Text(asset.caption).font(DS.font(.caption)).foregroundStyle(DS.muted)
         }
         if compact {
-          TextField("笔记标题", text: $title).font(DS.font(13)).padding(.vertical, 4)
+          TextField("笔记标题", text: $title).font(DS.font(.body)).padding(.vertical, 4)
             .accessibilityIdentifier("notes.title")
-          TextEditor(text: $bodyText).font(DS.font(16)).scrollContentBackground(.hidden).frame(
+          TextEditor(text: $bodyText).font(DS.font(.reading)).scrollContentBackground(.hidden).frame(
             minHeight: 112
           ).accessibilityIdentifier("notes.body")
         } else {
           BCTextField("笔记标题", text: $title).accessibilityIdentifier("notes.title")
-          Text("学习笔记").font(DS.font(14, weight: .bold))
+          Text("学习笔记").font(DS.font(.supporting, weight: .semibold))
           BCTextEditor(text: $bodyText, placeholder: "记录你的理解…").frame(minHeight: 210)
             .accessibilityIdentifier("notes.body")
         }
         if let issue = error ?? persistence?.error {
-          Text(issue).font(DS.font(13)).foregroundStyle(DS.danger).accessibilityLabel(
+          Text(issue).font(DS.font(.supporting)).foregroundStyle(DS.danger).accessibilityLabel(
             "笔记保存失败：\(issue)")
         }
         if compact {
@@ -301,11 +301,11 @@ struct NotesTextEditor: View {
               .accessibilityIdentifier("notes.save").disabled(
                 saving || bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
               )
-              .font(DS.font(13, weight: .bold)).padding(.horizontal, 12).frame(height: 44)
+              .font(DS.font(.supporting, weight: .semibold)).padding(.horizontal, 12).frame(height: 44)
               .background(DS.background, in: RoundedRectangle(cornerRadius: 8))
             Button("问 AI") { save(askingAI: true) }.disabled(
               saving || bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ).font(DS.font(13, weight: .bold)).foregroundStyle(DS.primary).padding(.horizontal, 12)
+            ).font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).padding(.horizontal, 12)
               .frame(height: 44).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 8))
           }
         } else {
@@ -322,14 +322,14 @@ struct NotesTextEditor: View {
             HStack(spacing: 6) {
               NotesGlyph(name: "Mic2", size: 17)
               Text(compact ? "开始语音批注" : "添加语音批注")
-            }.font(DS.font(compact ? 13 : 16, weight: .bold)).foregroundStyle(DS.primary).frame(
+            }.font(DS.font(compact ? .smallButton : .button)).foregroundStyle(DS.primary).frame(
               maxWidth: .infinity, minHeight: 44)
           }.buttonStyle(.plain)
         }
         if saved {
           HStack {
             StickerIcon("Check", tone: "mint", size: 36)
-            Text("摘录笔记保存成功").font(DS.font(15, weight: .bold)).foregroundStyle(DS.primary)
+            Text("摘录笔记保存成功").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
           }
           .transition(.scale.combined(with: .opacity))
         }
@@ -429,7 +429,7 @@ struct NotesTextEditor: View {
       }
       withAnimation(reduceMotion ? nil : .spring(duration: 0.35)) { saved = true }
       if !reduceMotion { try? await Task.sleep(for: .milliseconds(1230)) }
-      store.showToast("已保存到学习笔记")
+      store.showToast("已保存到学习笔记", kind: .success)
       finish()
       onSaved?()
       if askingAI {

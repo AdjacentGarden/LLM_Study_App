@@ -51,9 +51,9 @@ import UIKit
         ).preferredColorScheme(.light).task { await store.boot() }
       } else {
         VStack(spacing: 20) {
-          Text("本地存储暂时无法打开").font(.title2)
+          Text("本地存储暂时无法打开").appFont(.sectionTitle)
           Text(startupError ?? "请检查设备存储空间后重新打开应用").multilineTextAlignment(.center)
-        }.padding()
+        }.padding().appFont(.body)
       }
     }
   }

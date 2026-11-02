@@ -69,9 +69,9 @@ struct LearningMistakesView: View {
           BCCard {
             VStack(alignment: .leading, spacing: 16) {
               StickerIcon("Search", size: 38)
-              Text("当前分类暂无错题").font(DS.font(21, weight: .bold))
+              Text("当前分类暂无错题").font(DS.font(.sectionTitle))
               Text(search.isEmpty ? "可以切换分类查看其他错题。" : "没有找到与“\(search)”相关的错题，可以换个关键词。")
-                .font(DS.font(14)).foregroundStyle(DS.secondary)
+                .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               BCButton("查看全部错题", style: .secondary) {
                 search = ""
                 filter = "全部"
@@ -92,10 +92,10 @@ struct LearningMistakesView: View {
       HStack(alignment: .center, spacing: 10) {
         StickerIcon("CalendarClock", size: 42, glyphSize: 22)
         VStack(alignment: .leading, spacing: 4) {
-          Text("今日待复习").font(DS.font(20)).foregroundStyle(DS.secondary)
+          Text("今日待复习").font(DS.font(.body)).foregroundStyle(DS.secondary)
           HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text("\(due)").font(DS.font(16, weight: .bold))
-            Text("道").font(DS.font(14, weight: .bold)).foregroundStyle(DS.secondary)
+            Text("\(due)").font(DS.font(.cardTitle))
+            Text("道").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
           }
         }
         Spacer(minLength: 0)
@@ -121,7 +121,7 @@ struct LearningMistakesView: View {
     Button {
       startReview()
     } label: {
-      Text(due > 0 ? "开始今日复习" : "再复习一轮").font(DS.font(20, weight: .bold))
+      Text(due > 0 ? "开始今日复习" : "再复习一轮").font(DS.font(.button))
         .foregroundStyle(.white).padding(.horizontal, 20).frame(minHeight: 54)
         .background(DS.primary, in: Capsule())
     }.buttonStyle(.plain)
@@ -129,8 +129,8 @@ struct LearningMistakesView: View {
 
   private func metric(_ value: String, _ label: String) -> some View {
     VStack(alignment: .leading, spacing: 2) {
-      Text(value).font(DS.font(16, weight: .bold))
-      Text(label).font(DS.font(14, weight: .semibold)).foregroundStyle(DS.secondary)
+      Text(value).font(DS.font(.cardTitle))
+      Text(label).font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
     }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.vertical, 9)
       .background(Color(hex: 0xf3f6fb))
   }
@@ -152,7 +152,7 @@ struct LearningMistakesView: View {
     HStack(spacing: 10) {
       Image(systemName: "magnifyingglass").foregroundStyle(DS.secondary)
       TextField("搜索题目或知识点", text: $search, prompt: Text("搜索题目或知识点").foregroundStyle(DS.secondary))
-        .font(DS.font(20)).textInputAutocapitalization(.never)
+        .font(DS.font(.body)).textInputAutocapitalization(.never)
       if !search.isEmpty {
         Button {
           search = ""
@@ -172,7 +172,7 @@ struct LearningMistakesView: View {
         Button {
           withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { filter = item }
         } label: {
-          Text(item).font(DS.font(20)).foregroundStyle(filter == item ? DS.primary : DS.text)
+          Text(item).font(DS.font(.body)).foregroundStyle(filter == item ? DS.primary : DS.text)
             .frame(maxWidth: .infinity, minHeight: 38)
             .background(
               filter == item ? DS.primarySoft : Color(hex: 0xf3f6fb),
@@ -190,9 +190,9 @@ struct LearningMistakesView: View {
   private var mistakeList: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Text("错题记录").font(DS.font(20.8, weight: .bold))
+        Text("错题记录").font(DS.font(.sectionTitle))
         Spacer()
-        Text("\(visible.count) 道").font(DS.font(20)).foregroundStyle(DS.secondary)
+        Text("\(visible.count) 道").font(DS.font(.body)).foregroundStyle(DS.secondary)
       }
       ForEach(visible) { mistake in
         let isSelected = selected?.id == mistake.id
@@ -201,16 +201,16 @@ struct LearningMistakesView: View {
         } label: {
           VStack(alignment: .leading, spacing: 13) {
             HStack {
-              Text(subject(mistake)).font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary)
+              Text(subject(mistake)).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
               Spacer()
-              Text(masteryLabel(mastery(mistake))).font(DS.font(20, weight: .bold)).foregroundStyle(
+              Text(masteryLabel(mastery(mistake))).font(DS.font(.caption, weight: .semibold)).foregroundStyle(
                 DS.secondary
               ).padding(.horizontal, 8).padding(.vertical, 4).background(
                 Color(hex: 0xfff7e8), in: Capsule())
             }
-            Text(mistake.question).font(DS.font(16, weight: .bold)).lineSpacing(4)
+            Text(mistake.question).font(DS.font(.cardTitle)).lineSpacing(4)
               .multilineTextAlignment(.leading).lineLimit(3)
-            Text(mistake.knowledge_points.first ?? "待复习").font(DS.font(20, weight: .bold))
+            Text(mistake.knowledge_points.first ?? "待复习").font(DS.font(.caption, weight: .semibold))
               .foregroundStyle(DS.secondary)
               .padding(.horizontal, 6).padding(.vertical, 2).background(
                 Color(hex: 0xf3f6fb), in: Capsule())
@@ -218,7 +218,7 @@ struct LearningMistakesView: View {
               Label("最近记录", systemImage: "clock")
               Spacer()
               Text("错 \(max(1, mistake.error_count ?? 1)) 次")
-            }.font(DS.font(20)).foregroundStyle(DS.secondary)
+            }.font(DS.font(.body)).foregroundStyle(DS.secondary)
           }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .background(isSelected ? DS.primarySoft : DS.surface)
         }.buttonStyle(.plain).accessibilityIdentifier("mistake.select.\(mistake.id)")
@@ -231,17 +231,17 @@ struct LearningMistakesView: View {
     VStack(alignment: .leading, spacing: 0) {
       VStack(alignment: .leading, spacing: 12) {
         HStack {
-          Text(subject(mistake)).font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
+          Text(subject(mistake)).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.primary)
             .padding(.horizontal, 9).padding(.vertical, 6).background(DS.primarySoft, in: Capsule())
           Spacer()
-          Text("错 \(max(1, mistake.error_count ?? 1)) 次").font(DS.font(20, weight: .bold))
+          Text("错 \(max(1, mistake.error_count ?? 1)) 次").font(DS.font(.supporting))
             .foregroundStyle(DS.danger).padding(.horizontal, 8).padding(.vertical, 6).background(
               Color(hex: 0xffeff2), in: Capsule())
         }
-        Text(mistake.question).font(DS.font(20.8, weight: .bold)).lineSpacing(1)
+        Text(mistake.question).font(DS.font(.sectionTitle)).lineSpacing(1)
         LearningFlowLayout {
           ForEach(mistake.knowledge_points, id: \.self) { point in
-            Text(point).font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary).padding(
+            Text(point).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.primary).padding(
               .horizontal, 10
             ).padding(.vertical, 6)
               .background(DS.primarySoft, in: Capsule()).overlay(
@@ -264,12 +264,12 @@ struct LearningMistakesView: View {
             BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 19, height: 19).frame(
               width: 28)
             VStack(alignment: .leading, spacing: 4) {
-              Text("已连接教材原文").font(DS.font(16, weight: .bold))
+              Text("已连接教材原文").font(DS.font(.supporting, weight: .medium))
               Text("\(mistake.citation_ids.count) 条引用来源已记录，可回到章节上下文核对。")
-                .font(DS.font(20)).foregroundStyle(DS.secondary).multilineTextAlignment(.leading)
+                .font(DS.font(.body)).foregroundStyle(DS.secondary).multilineTextAlignment(.leading)
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(DS.font(13)).foregroundStyle(DS.primary).frame(
+            Image(systemName: "chevron.right").font(DS.font(.supporting)).foregroundStyle(DS.primary).frame(
               width: 36, height: 36
             ).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 10))
           }.padding(.vertical, 12).padding(.horizontal, 13)
@@ -291,8 +291,8 @@ struct LearningMistakesView: View {
     HStack(alignment: .top, spacing: 10) {
       StickerIcon(icon, size: 34, glyphSize: 19)
       VStack(alignment: .leading, spacing: 4) {
-        Text(title).font(DS.font(16, weight: .bold))
-        Text(text).font(DS.font(20)).foregroundStyle(DS.secondary).lineSpacing(4).textSelection(
+        Text(title).font(DS.font(.cardTitle))
+        Text(text).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(4).textSelection(
           .enabled)
       }
     }.frame(maxWidth: .infinity, alignment: .leading)
@@ -308,12 +308,12 @@ struct LearningMistakesView: View {
           Image(systemName: "chevron.left").frame(width: 34, height: 44)
         }.buttonStyle(.plain).accessibilityLabel("返回错题记录")
         VStack(alignment: .leading, spacing: 4) {
-          Text("错题复习").font(DS.font(18, weight: .bold))
-          Text("先独立回忆，再对照纠错").font(DS.font(14)).foregroundStyle(DS.secondary)
+          Text("错题复习").font(DS.font(.cardTitle))
+          Text("先独立回忆，再对照纠错").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         Spacer()
         Text("\((visible.firstIndex { $0.id == mistake.id } ?? 0) + 1) / \(visible.count)").font(
-          DS.font(12, weight: .semibold)
+          DS.font(.caption, weight: .semibold)
         ).foregroundStyle(DS.secondary)
       }
       BCProgress(
@@ -324,26 +324,26 @@ struct LearningMistakesView: View {
           HStack {
             BCPill("\(subject(mistake)) · \(mistake.knowledge_points.first ?? "待复习")")
             Spacer()
-            Text("错 \(max(1, mistake.error_count ?? 1)) 次").font(DS.font(14)).foregroundStyle(
+            Text("错 \(max(1, mistake.error_count ?? 1)) 次").font(DS.font(.supporting)).foregroundStyle(
               DS.orange)
           }
-          Text(mistake.question).font(DS.font(20.8, weight: .bold)).lineSpacing(6)
+          Text(mistake.question).font(DS.font(.sectionTitle)).lineSpacing(6)
           HStack {
-            Text("写下你的答案").font(DS.font(14, weight: .bold))
+            Text("写下你的答案").font(DS.font(.supporting, weight: .semibold))
             Spacer()
             Button("完成输入") {
               UIApplication.shared.sendAction(
                 #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }.font(DS.font(14, weight: .bold)).foregroundStyle(DS.primary).buttonStyle(.plain)
+            }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
               .accessibilityIdentifier("learning.keyboard.done")
             Button("填入上次答案") {
               answer = mistake.answer
               error = nil
-            }.font(DS.font(11, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
+            }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
           }
           BCTextEditor(text: $answer, placeholder: "先独立回忆，不急着看解析").frame(minHeight: 180)
             .accessibilityIdentifier("mistake.answer")
-          if let error { Text(error).font(DS.font(14)).foregroundStyle(DS.danger) }
+          if let error { Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
           if !revealed {
             BCButton("提交并对照") {
               guard !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -363,7 +363,7 @@ struct LearningMistakesView: View {
             detailBlock(
               "上次答案", text: mistake.answer.isEmpty ? "未记录" : mistake.answer, icon: "RotateCcw")
             Divider().overlay(DS.border)
-            Text("这次为什么会错？").font(DS.font(17, weight: .bold))
+            Text("这次为什么会错？").font(DS.font(.cardTitle))
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
               ForEach(reasons, id: \.self) { reason in
                 Button {
@@ -373,7 +373,7 @@ struct LearningMistakesView: View {
                     if selectedReason == reason { Image(systemName: "checkmark") }
                     Text(reason)
                   }
-                  .font(DS.font(12, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 42)
+                  .font(DS.font(.caption, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 42)
                   .foregroundStyle(selectedReason == reason ? DS.primary : DS.secondary)
                   .background(
                     selectedReason == reason ? DS.primarySoft : DS.background, in: Capsule()
@@ -388,10 +388,10 @@ struct LearningMistakesView: View {
             detailBlock(
               "核心纠错点", text: mistake.explanation ?? mistake.stuck_point, icon: "BrainCircuit")
             if let reference = mistake.correct_answer {
-              Text("参考答案：\(reference)").font(DS.font(14)).lineSpacing(6)
+              Text("参考答案：\(reference)").font(DS.font(.supporting)).lineSpacing(6)
             }
             BCButton("回到教材原文", icon: "book", style: .text) { openSource(mistake) }
-            Text("现在掌握了吗？").font(DS.font(17, weight: .bold))
+            Text("现在掌握了吗？").font(DS.font(.cardTitle))
             VStack(spacing: 10) {
               masteryButton(
                 "还不会", helper: "保留在今日复习", icon: "arrow.counterclockwise", value: "due",
@@ -412,7 +412,7 @@ struct LearningMistakesView: View {
         BCButton("完成本轮复习", icon: "checkmark") {
           reviewing = false
           resetReview()
-          store.showToast("已保存本轮复习状态")
+          store.showToast("已保存本轮复习状态", kind: .success)
         }.accessibilityIdentifier("mistake.finish")
       }
     }
@@ -427,13 +427,13 @@ struct LearningMistakesView: View {
       markMastery(value, mistake: mistake)
     } label: {
       HStack(spacing: 14) {
-        Image(systemName: icon).font(DS.font(20, weight: .medium))
+        Image(systemName: icon).font(DS.font(.cardTitle, weight: .medium))
         VStack(alignment: .leading, spacing: 4) {
-          Text(title).font(DS.font(14, weight: .bold))
-          Text(helper).font(DS.font(14)).foregroundStyle(DS.secondary)
+          Text(title).font(DS.font(.supporting, weight: .semibold))
+          Text(helper).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         Spacer()
-        if active { Image(systemName: "checkmark").font(DS.font(15, weight: .bold)) }
+        if active { Image(systemName: "checkmark").font(DS.font(.supporting, weight: .semibold)) }
       }.foregroundStyle(color).padding(15)
         .background(
           active ? color.opacity(0.08) : DS.surface, in: RoundedRectangle(cornerRadius: 13)
@@ -507,7 +507,8 @@ struct LearningMistakesView: View {
       store.persist()
     }
     store.showToast(
-      value == "mastered" ? "已移出今日复习" : value == "learning" ? "已记录，稍后再巩固一次" : "已保留在今日复习")
+      value == "mastered" ? "已移出今日复习" : value == "learning" ? "已记录，稍后再巩固一次" : "已保留在今日复习",
+      kind: .success)
   }
   private func openSource(_ mistake: MistakeRecord) {
     if let chunk = store.currentSource?.chunks.first(where: { mistake.citation_ids.contains($0.id) }

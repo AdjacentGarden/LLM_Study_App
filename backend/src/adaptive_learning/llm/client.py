@@ -50,6 +50,24 @@ class LLMOutputLimitError(LLMError):
     """The provider exhausted the output budget before completing the response."""
 
 
+class LLMContextLimitError(LLMError):
+    """The provider explicitly rejected input that exceeds its context window."""
+
+
+def _context_limit_error(body: object) -> bool:
+    error = body.get("error", body) if isinstance(body, dict) else body
+    if not isinstance(error, dict):
+        return False
+    code = str(error.get("code", "")).lower()
+    if code in {"context_length_exceeded", "context_window_exceeded", "input_too_long", "max_input_tokens_exceeded"}:
+        return True
+    message = str(error.get("message", "")).lower()
+    return any(marker in message for marker in (
+        "maximum context length", "context length exceeded", "exceeds the context window",
+        "too many input tokens", "input tokens exceed", "prompt is too long",
+    ))
+
+
 class LLMNotSubmittedError(LLMError):
     """Every transport attempt failed before sending model input."""
 
@@ -553,6 +571,8 @@ class OpenAICompatibleClient:
                         upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
                 except (ValueError, AttributeError, TypeError):
                     upstream_detail = ""
+                if status in {400, 413, 422} and _context_limit_error(error_body):
+                    raise LLMContextLimitError("model input exceeds context window") from error
                 if status in {400, 403, 422} and self._content_refusal(raw_error):
                     raise LLMRefusalError("provider declined this content") from error
                 retryable = status == 429 or status >= 500
@@ -569,6 +589,8 @@ class OpenAICompatibleClient:
                 message = raw_error.get("message", "") if isinstance(raw_error, dict) else ""
                 if isinstance(message, str):
                     upstream_detail = message.replace(self.config.api_key, "[redacted]")[:240]
+                if status in {400, 413, 422} and _context_limit_error(error.body):
+                    raise LLMContextLimitError("model input exceeds context window") from error
                 if status in {400, 403, 422} and self._content_refusal(raw_error):
                     raise LLMRefusalError("provider declined this content") from error
                 retryable = status == 429 or status >= 500

@@ -6,12 +6,13 @@
 | --- | --- | --- |
 | ONNX Runtime Swift package / native binary | Microsoft `onnxruntime-swift-package-manager` 1.24.2，revision `b7fb7f7dea8a2469e6335d95a61b8f36d0dc83b2` | MIT；保留 package/LICENSE、上游运行时第三方 notices |
 | ZIPFoundation | weichsel/ZIPFoundation 0.9.20，revision `22787ffb59de99e5dc1fbfe80b19c97a904ad48d` | MIT |
+| AlertToast | elai950/AlertToast 1.3.9，revision `b39252eacd159904afd7d718bba0afabb87f2f2f` | MIT；复用顶部 HUD 组件 |
 | Lucide SVG 路径 | 原 `lucide-react` 1.18.0 安装包 | ISC；原 LICENSE 同时列出由 Feather 派生、适用 MIT 的图标与原版权声明 |
 | Phosphor 图标路径 | 原 NavigationIcon / 已保留 notice | MIT，Copyright (c) 2023 Phosphor Icons |
 | Noto Sans SC | 原 public/assets/fonts 的 400/700 WOFF | SIL Open Font License 1.1；只转换容器与修正实例名称，保留轮廓 |
 | BGE small Chinese v1.5 | BAAI/bge-small-zh-v1.5，经 Xenova ONNX 转换；固定 revision `75c43b069aac4d136ba6bc1122f995fedcfd2781` | 原 model-manifest 标注 MIT；BAAI 模型卡标注 MIT；固定 Xenova 转换仓库没有独立 LICENSE 文件，保留模型来源记录与上游 FlagEmbedding MIT 文本 |
 
-ONNX 与 ZIPFoundation 由 SwiftPM 按 `Package.resolved` 下载。React、Vite、Capacitor、Transformers.js 和浏览器 WASM 不打包到原生应用；其中 TypeScript / React / Transformers.js 只用于显式的维护导出或金标生成，不是应用运行依赖。fonttools 也只用于维护转换，应用不包含 Python 运行时。
+ONNX、ZIPFoundation 与 AlertToast 由 SwiftPM 按 `Package.resolved` 下载。React、Vite、Capacitor、Transformers.js 和浏览器 WASM 不打包到原生应用；其中 TypeScript / React / Transformers.js 只用于显式的维护导出或金标生成，不是应用运行依赖。fonttools 也只用于维护转换，应用不包含 Python 运行时。
 
 模型源：[固定 Xenova revision](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)、[BAAI 模型卡](https://huggingface.co/BAAI/bge-small-zh-v1.5)、[FlagEmbedding 许可](https://github.com/FlagOpen/FlagEmbedding/blob/master/LICENSE)。这些记录说明权重与转换来源，并不把教材语料的版权变为 MIT。
 

@@ -6,7 +6,7 @@
 
 在线课程的学习页与学习计划页使用后端每日排程：按本机日期、每日时间预算和已生成课程安排学习、练习与到期复习；共同规划模式先确认当天安排。任务可进入对应内容并标记完成，练习提交与指定闪卡复习成功后也会回写任务完成状态。计划与待同步完成记录按账号保存，断网重试复用同一事件编号；已确认或已经开始的当天计划保留，偏好变更用于后续计划。离线 fixtures 仍使用自带的历史计划。
 
-本目录是 `LLM_Study_App` 的主原生 iPhone / iPad 前端，最低 iOS 17；统一启动入口见 [根 README](../README.md)，迁移来源及验收见 [迁移说明](../docs/SWIFTUI_MIGRATION.md)。采用 SwiftUI、PDFKit、PencilKit、AVFAudio 和本地 SQLite；教材检索使用原生 ONNX Runtime。现有页面、动效、字体与资源沿用迁入版本，参考截图在 `References/VisualBaselines/`。应用运行和日常构建不需要原 SwiftUI 仓库、Node.js、Vite 或 WebView。
+本目录是 `LLM_Study_App` 的主原生 iPhone / iPad 前端，最低 iOS 17；统一启动入口见 [根 README](../README.md)，迁移来源及验收见 [迁移说明](../docs/SWIFTUI_MIGRATION.md)。采用 SwiftUI、PDFKit、PencilKit、AVFAudio 和本地 SQLite；教材检索使用原生 ONNX Runtime。现有页面、动效与资源沿用迁入版本，界面中文使用苹方、英文和数字使用 Helvetica，参考截图在 `References/VisualBaselines/`。应用运行和日常构建不需要原 SwiftUI 仓库、Node.js、Vite 或 WebView。
 
 按最新要求，本次以**功能流程与动效完整可用**作为验收标准，不再进行与原网页一比一或逐像素还原。已有视觉参考只用于追溯；实际功能验证与平台限制见 [验证记录](docs/VALIDATION.md)。
 
@@ -26,7 +26,11 @@ python3 scripts/validate-content.py
 ./scripts/run-simulator.sh --device SIMULATOR_UDID --no-build
 ```
 
-也可以直接用 Xcode 打开 `BookCourse.xcodeproj`，选择 `BookCourse` scheme 运行。首次构建需要联网下载锁定的 ONNX Runtime **1.24.2** 与 ZIPFoundation **0.9.20**；源码、资源、模型均已提交。真机运行需要在 Xcode 配置自己的签名团队，仓库不提供开发者证书。
+也可以直接用 Xcode 打开 `BookCourse.xcodeproj`，选择 `BookCourse` scheme 运行。首次构建需要联网下载锁定的 ONNX Runtime **1.24.2**、ZIPFoundation **0.9.20** 与 AlertToast **1.3.9**；源码、资源、模型均已提交。真机运行需要在 Xcode 配置自己的签名团队，仓库不提供开发者证书。
+
+日常提示统一使用顶部 HUD：沿用 AlertToast 的胶囊布局，iOS 26 及以上直接使用原生 `glassEffect(.regular, in: Capsule())`，不叠加旧模糊背景、手工描边或阴影；iOS 17–25 使用 AlertToast 原有的系统毛玻璃。成功、信息、警告、错误按图标区分，可带副标题。出现 240ms、完整停留 3 秒、消失 200ms；连续触发只保留最新消息并重新计时。加载提示保留至任务结束；现有上传、解析和同步进度继续使用各自的进度界面。HUD 不拦截点击，支持 VoiceOver 播报和减少动态效果，展示时避开顶部同步状态。
+
+Debug 录屏可用 `--fixture --route lesson --chapter c2s1 --fixture-session toast-gallery --fixture-toast-gallery`，依次展示六种真实 HUD；该入口仅使用隔离的演示数据，Release 不包含它。各场景的录屏定位时间写入该演示会话目录的 `toast-gallery-events.json`。
 
 `build.sh` 默认构建 Debug Simulator。通过 `--configuration Release` 切换配置，通过 `--destination 'generic/platform=iOS'` 构建真机目标；额外 Xcode 参数放在 `--` 后。如新增 Swift 源文件，运行 `python3 scripts/generate-project.py`，或 `./scripts/build.sh --regenerate-project`，更新可复现工程文件。工程生成器只读取本仓库。
 
@@ -68,6 +72,7 @@ xcrun simctl io SIMULATOR_UDID screenshot output/lesson.png
 - [数据来源、刷新步骤、文件支持与可复现校验](docs/DATA_AND_REPRODUCIBILITY.md)
 - [原生 BGE / BM25 检索、tokenizer 与 50 条评测](docs/NATIVE_RAG.md)
 - [历史视觉参考及范围调整](docs/VISUAL_PARITY.md)
+- [当前字体、字号、字重与行距](docs/TYPOGRAPHY.md)
 - [功能与动效操作清单](docs/FUNCTIONAL_ACCEPTANCE.md)
 - [功能覆盖与验证证据](docs/VALIDATION.md)
 - [真实能力、演示能力与已知资源缺失](docs/FEATURE_BOUNDARIES.md)

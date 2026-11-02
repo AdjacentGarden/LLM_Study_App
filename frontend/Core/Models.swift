@@ -79,7 +79,7 @@ struct Chapter: Codable, Identifiable, Hashable, Sendable {
   var title: String { ai_title.isEmpty ? source_title : ai_title }
   var pageLabel: String {
     page_start == 0
-      ? "AI 补充 · 待原文核验" : "第 \(printed_page_start ?? page_start)–\(printed_page_end ?? page_end) 页"
+      ? "" : "第 \(printed_page_start ?? page_start)–\(printed_page_end ?? page_end) 页"
   }
 }
 struct SourceChunk: Codable, Identifiable, Hashable, Sendable {
@@ -179,6 +179,7 @@ struct Flashcard: Codable, Identifiable, Hashable, Sendable {
   var source_kind: String?
   var source_quote: String?
   var id: String { card_id }
+  var displayReason: String { LearningDisplayCopy.content(reason) }
 }
 struct QuizQuestion: Codable, Identifiable, Hashable, Sendable {
   var question_id: String
@@ -252,6 +253,20 @@ struct CommunityBook: Codable, Identifiable, Hashable, Sendable {
   var tags: [String]
   var description: String
   var chapters: [String]
+
+  var displayDescription: String { LearningDisplayCopy.content(description) }
+}
+
+/// Keep retired editorial notes in stored source metadata, outside product copy.
+private enum LearningDisplayCopy {
+  static func content(_ text: String) -> String {
+    let editorialNotes = ["原文核验", "补充草稿", "原文复核", "结合教材核对",
+      "AI辅助示意", "AI补充课程生成", "基于本节核心概念生成"]
+    return text.components(separatedBy: "。").filter { sentence in
+      let normalized = sentence.filter { !$0.isWhitespace }
+      return !editorialNotes.contains(where: normalized.contains)
+    }.joined(separator: "。").trimmingCharacters(in: .whitespacesAndNewlines)
+  }
 }
 struct ShelfBook: Codable, Identifiable, Hashable, Sendable {
   var bookId: String
@@ -452,6 +467,7 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
   var role: String
   var text: String
   var citations: [Citation] = []
+  var attachments: [AssistantAttachment]?
 }
 struct Diagnosis: Codable, Hashable, Sendable {
   var assignment_id: String

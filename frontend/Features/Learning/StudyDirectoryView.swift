@@ -188,18 +188,18 @@ struct StudyDirectoryView: View {
             }
             VStack(alignment: .leading, spacing: 3) {
               if !compact {
-                Text("当前课程").font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
+                Text("当前课程").font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
                   .transition(.opacity)
               }
               Text(store.currentCourse?.name ?? store.currentTitle)
-                .font(DS.font(compact ? 22 : 16, weight: .bold))
+                .font(DS.font(compact ? .sectionTitle : .cardTitle, weight: .semibold))
                 .lineLimit(compact ? nil : 1)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("study.course.title")
             }
             .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
-            Image(systemName: "chevron.down").font(DS.font(16, weight: .semibold))
+            Image(systemName: "chevron.down").font(DS.font(.cardTitle))
           }
           .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
         }.buttonStyle(.plain).accessibilityIdentifier("study.course.switch")
@@ -210,14 +210,14 @@ struct StudyDirectoryView: View {
             store.go(.upload)
           } label: {
             Label("创建课程", systemImage: "plus")
-              .font(DS.font(20, weight: .bold)).foregroundStyle(.white)
+              .font(DS.font(.cardTitle)).foregroundStyle(.white)
               .padding(.horizontal, 12).padding(.vertical, 10).background(DS.primary, in: Capsule())
               .shadow(color: DS.text.opacity(0.08), radius: 3, y: 2)
           }.buttonStyle(.plain).transition(.opacity).accessibilityIdentifier("study.course.create")
         }
       }
       if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
-        Text(label).font(DS.font(14, weight: .medium)).foregroundStyle(DS.secondary)
+        Text(label).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
           .accessibilityIdentifier("study.course.status")
       }
       if store.studyCoursePreparation != nil {
@@ -226,13 +226,13 @@ struct StudyDirectoryView: View {
         DailyStudyPlanSummary(compact: compact)
       } else if directoryOnly {
         Text("教材目录 · 当前尚无生成的教学内容")
-          .font(DS.font(14)).foregroundStyle(DS.secondary)
+          .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
       } else if !directory.isEmpty {
         VStack(alignment: .leading, spacing: compact ? 0 : 4) {
           if !compact {
             VStack(alignment: .leading, spacing: 4) {
               HStack {
-                Text(courseTasks.isEmpty ? "阅读进度" : "学习计划").font(DS.font(20.8, weight: .bold))
+                Text(courseTasks.isEmpty ? "阅读进度" : "学习计划").font(DS.font(.sectionTitle))
                 Spacer()
                 Button {
                   store.go(.plan)
@@ -241,16 +241,16 @@ struct StudyDirectoryView: View {
                     Text("计划详情")
                     Image(systemName: "chevron.right")
                   }
-                  .font(DS.font(20, weight: .bold)).foregroundStyle(DS.primary)
+                  .font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
                 }.buttonStyle(.plain)
               }
               HStack(spacing: 12) {
                 StickerIcon("Check", size: 30, glyphSize: 16)
                 VStack(alignment: .leading, spacing: 4) {
                   Text((currentTask?.minutes ?? store.plan?.daily_minutes ?? 0) > 0 ? "今日建议 · \(currentTask?.minutes ?? store.plan?.daily_minutes ?? 0) 分钟" : "尚无每日学习安排")
-                    .font(DS.font(14)).foregroundStyle(DS.secondary)
+                    .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
                   Text(currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始")
-                    .font(DS.font(16, weight: .bold)).lineLimit(2)
+                    .font(DS.font(.cardTitle)).lineLimit(2)
                 }
               }.padding(.top, 12)
             }
@@ -260,7 +260,7 @@ struct StudyDirectoryView: View {
             .accessibilityIdentifier("study.plan.progress")
           if !compact {
             Text("\(courseTasks.isEmpty ? "本书已读" : "计划完成") \(Int((studyProgress * 100).rounded()))%")
-              .font(DS.font(20)).foregroundStyle(DS.secondary)
+              .font(DS.font(.body)).foregroundStyle(DS.secondary)
               .transition(.opacity)
           }
         }
@@ -301,14 +301,14 @@ struct StudyDirectoryView: View {
               Image(systemName: "checkmark").font(.system(size: 19, weight: .bold)).foregroundStyle(
                 DS.primary)
             } else {
-              Text("\(index + 1)").font(DS.font(15, weight: .bold))
+              Text("\(index + 1)").font(DS.font(.supporting, weight: .semibold))
             }
           }.frame(width: 44, height: 44)
-          Text(node.chapter.source_title).font(DS.font(16, weight: .bold)).multilineTextAlignment(
+          Text(node.chapter.source_title).font(DS.font(.cardTitle)).multilineTextAlignment(
             .leading)
           Spacer(minLength: 0)
           Image(systemName: expanded ? "chevron.down" : "chevron.right").font(
-            DS.font(14, weight: .semibold)
+            DS.font(.supporting, weight: .semibold)
           ).foregroundStyle(DS.secondary)
         }.padding(18).contentShape(Rectangle())
       }.buttonStyle(.plain).accessibilityIdentifier("study.chapter." + node.id)
@@ -350,10 +350,10 @@ struct StudyDirectoryView: View {
             Circle().stroke(expanded ? DS.primary : DS.primary.opacity(0.2), lineWidth: 2)
             if expanded { Circle().fill(DS.primary).frame(width: 7, height: 7) }
           }.frame(width: 17, height: 17)
-          Text(chapter.source_title).font(DS.font(14, weight: .semibold))
+          Text(chapter.source_title).font(DS.font(.supporting, weight: .semibold))
           Spacer(minLength: 0)
-          if complete { Text("已完成").font(DS.font(20, weight: .bold)).foregroundStyle(DS.secondary) }
-          Image(systemName: expanded ? "chevron.down" : "chevron.right").font(DS.font(14))
+          if complete { Text("已完成").font(DS.font(.caption)).foregroundStyle(DS.secondary) }
+          Image(systemName: expanded ? "chevron.down" : "chevron.right").font(DS.font(.supporting))
             .foregroundStyle(DS.secondary)
         }.padding(.vertical, 17).contentShape(Rectangle())
       }.buttonStyle(.plain)
@@ -366,7 +366,7 @@ struct StudyDirectoryView: View {
   private func tools(for chapter: Chapter) -> some View {
     VStack(alignment: .leading, spacing: 13) {
       HStack {
-        Text("选择下一步").font(DS.font(16, weight: .bold))
+        Text("选择下一步").font(DS.font(.cardTitle))
         Spacer()
         Button {
           open(.lesson, chapter: chapter)
@@ -375,7 +375,7 @@ struct StudyDirectoryView: View {
             Text("进入学习")
             Image(systemName: "chevron.right")
           }
-          .font(DS.font(16, weight: .bold)).foregroundStyle(.white).padding(.horizontal, 13)
+          .font(DS.font(.cardTitle)).foregroundStyle(.white).padding(.horizontal, 13)
           .padding(.vertical, 11).background(DS.primary, in: Capsule())
         }.buttonStyle(.plain)
       }
@@ -418,15 +418,15 @@ struct StudyDirectoryView: View {
           StickerIcon(
             icon, tone: tone, size: store.isPad ? 28 : 17, glyphSize: store.isPad ? 17 : 10)
           VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(DS.font(store.isPad ? 16 : 14, weight: .bold)).lineLimit(1)
-            Text(helper).font(DS.font(store.isPad ? 14 : 9)).foregroundStyle(DS.secondary)
+            Text(title).font(DS.font(.cardTitle)).lineLimit(1)
+            Text(helper).font(DS.font(.caption)).foregroundStyle(DS.secondary)
               .lineLimit(2)
           }
           Spacer(minLength: 0)
           Image(systemName: "chevron.right").font(.system(size: store.isPad ? 12 : 8))
             .foregroundStyle(route == .assignment ? Color(hex: 0x1e765d) : DS.primary)
         }.padding(store.isPad ? 12 : 6).frame(
-          maxWidth: .infinity, minHeight: store.isPad ? 94 : 62, alignment: .leading
+          maxWidth: .infinity, minHeight: store.isPad ? 94 : 84, alignment: .leading
         )
         .background(DS.surface)
       }
@@ -439,7 +439,7 @@ struct StudyDirectoryView: View {
   private func toolPreview(_ route: Route, chapter: Chapter) -> some View {
     GeometryReader { geometry in
       let small = geometry.size.width < 200
-      let unit: CGFloat = small ? 9 : 14
+      let previewStyle: DS.Typography = small ? .caption : .supporting
       ZStack {
         (route == .flashcards
           ? Color(hex: 0xdce5ff)
@@ -452,7 +452,7 @@ struct StudyDirectoryView: View {
             chapter.source_title.replacingOccurrences(
               of: "^第\\s*\\d+\\s*[章节]\\s*", with: "", options: .regularExpression)
           )
-          .font(DS.font(unit, weight: .bold)).multilineTextAlignment(.center).lineLimit(2)
+          .font(DS.font(previewStyle, weight: .semibold)).multilineTextAlignment(.center).lineLimit(2)
           .padding(small ? 10 : 22).frame(width: geometry.size.width * 0.78).frame(
             minHeight: geometry.size.height * 0.46
           )
@@ -463,9 +463,9 @@ struct StudyDirectoryView: View {
           .rotationEffect(.degrees(-5)).offset(y: geometry.size.height * 0.18)
         case .assignment:
           VStack(alignment: .leading, spacing: small ? 4 : 8) {
-            Text("知识检测").font(DS.font(unit, weight: .bold)).foregroundStyle(DS.secondary)
-            Text(store.quizzes.first { $0.chapter_id == chapter.id }?.prompt ?? "本节尚无小测").font(DS.font(unit, weight: .bold)).lineLimit(1)
-            Text(store.quizzes.first { $0.chapter_id == chapter.id }?.choices.first ?? "完成教学内容生成后练习").font(DS.font(unit)).foregroundStyle(DS.secondary)
+            Text("知识检测").font(DS.font(previewStyle, weight: .semibold)).foregroundStyle(DS.secondary)
+            Text(store.quizzes.first { $0.chapter_id == chapter.id }?.prompt ?? "本节尚无小测").font(DS.font(previewStyle, weight: .semibold)).lineLimit(1)
+            Text(store.quizzes.first { $0.chapter_id == chapter.id }?.choices.first ?? "完成教学内容生成后练习").font(DS.font(previewStyle)).foregroundStyle(DS.secondary)
               .padding(small ? 4 : 7).frame(maxWidth: .infinity, alignment: .leading).background(
                 Color(hex: 0xeafaf4), in: RoundedRectangle(cornerRadius: 6))
           }.padding(small ? 7 : 11).frame(width: geometry.size.width * 0.88)
@@ -477,15 +477,15 @@ struct StudyDirectoryView: View {
               Text("本书错题").foregroundStyle(DS.secondary)
               Spacer()
               Text("\(store.mistakes.filter { $0.book_id == store.selectedBookID && ($0.course_id == nil || $0.course_id == store.selectedCourseID) }.count) 道").foregroundStyle(DS.primary)
-            }.font(DS.font(unit, weight: .bold))
+            }.font(DS.font(previewStyle, weight: .semibold))
             ForEach(store.mistakes.filter { $0.book_id == store.selectedBookID && ($0.course_id == nil || $0.course_id == store.selectedCourseID) }.prefix(2)) { mistake in
               HStack(spacing: 2) {
                 Text("• ").foregroundStyle(DS.primary)
                 Text(mistake.question).foregroundStyle(DS.secondary)
                 Spacer(minLength: 0)
-                Text("待复习").foregroundStyle(DS.primary).fontWeight(.bold)
+                Text("待复习").foregroundStyle(DS.primary).font(DS.font(small ? .caption : .supporting, weight: .semibold))
               }
-              .font(DS.font(small ? 9 : 20)).padding(small ? 3 : 5).background(
+              .font(DS.font(small ? .caption : .supporting)).padding(small ? 3 : 5).background(
                 Color(hex: 0xf8f3ff), in: RoundedRectangle(cornerRadius: 5))
             }
           }.padding(small ? 7 : 11).frame(width: geometry.size.width * 0.9).background(
@@ -498,7 +498,7 @@ struct StudyDirectoryView: View {
                 width: geometry.size.width * (i == 0 ? 0.62 : i == 1 ? 0.48 : 0.58),
                 height: small ? 3 : 5)
             }
-            Text("原始记录 · 整理版").font(DS.font(unit, weight: .bold)).foregroundStyle(DS.secondary)
+            Text("原始记录 · 整理版").font(DS.font(previewStyle, weight: .semibold)).foregroundStyle(DS.secondary)
           }.padding(small ? 9 : 15).frame(width: geometry.size.width * 0.8).background(
             DS.surface, in: RoundedRectangle(cornerRadius: 10)
           ).offset(y: geometry.size.height * 0.15)
@@ -575,12 +575,12 @@ struct LearningPlanView: View {
               .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 7) {
               Text(store.currentCourse?.name ?? store.currentTitle).font(
-                DS.font(20.8, weight: .bold))
-              Text((store.plan?.daily_minutes ?? 0) > 0 ? "\(days) 天 · 每天 \(store.plan?.daily_minutes ?? 0) 分钟" : "\(days) 天 · 每日时间尚未设定").font(DS.font(20))
+                DS.font(.sectionTitle))
+              Text((store.plan?.daily_minutes ?? 0) > 0 ? "\(days) 天 · 每天 \(store.plan?.daily_minutes ?? 0) 分钟" : "\(days) 天 · 每日时间尚未设定").font(DS.font(.body))
                 .foregroundStyle(DS.secondary)
               BCProgress(value: learningProgress(tasks))
               Text("已完成 \(tasks.filter { $0.status == "done" }.count) / \(tasks.count) 项")
-                .font(DS.font(20)).foregroundStyle(DS.secondary)
+                .font(DS.font(.body)).foregroundStyle(DS.secondary)
             }
           }
         }
@@ -591,36 +591,36 @@ struct LearningPlanView: View {
           .overlay(RoundedRectangle(cornerRadius: 20).stroke(DS.border, lineWidth: 1))
           .padding(.bottom, store.isPad ? 4.68 : 0)
 
-        Text("学习任务 · 第 \(selectedDay) 天").font(DS.font(20.8, weight: .bold))
+        Text("学习任务 · 第 \(selectedDay) 天").font(DS.font(.sectionTitle))
         if dailyTasks.isEmpty {
           BCCard {
             VStack(alignment: .leading, spacing: 12) {
               BCPill("暂无任务", color: DS.orange)
-              Text("这一天暂时没有学习任务").font(DS.font(16, weight: .bold))
+              Text("这一天暂时没有学习任务").font(DS.font(.cardTitle))
               Text("选择其他日期，或回到目录按自己的节奏学习。")
-                .font(DS.font(13)).foregroundStyle(DS.secondary)
+                .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             }
           }
         }
         ForEach(dailyTasks) { task in
           Button {
             store.updateTask(task.task_id, status: "done")
-            store.showToast("学习任务已完成")
+            store.showToast("学习任务已完成", kind: .success)
           } label: {
             HStack(alignment: .center, spacing: 12) {
               HStack(spacing: 3) {
-                Text("D\(task.day)").font(DS.font(20, weight: .bold))
+                Text("D\(task.day)").font(DS.font(.caption, weight: .semibold))
                 if task.status == "done" {
                   Image(systemName: "checkmark").font(.system(size: 12, weight: .medium))
                 }
               }.foregroundStyle(DS.primary).frame(width: 70)
               VStack(alignment: .leading, spacing: 5) {
-                Text(task.title).font(DS.font(16, weight: .bold)).multilineTextAlignment(.leading)
-                  .frame(height: 20.8, alignment: .leading).padding(.top, 7)
+                Text(task.title).font(DS.font(.cardTitle)).multilineTextAlignment(.leading)
+                  .frame(minHeight: 26, alignment: .leading).padding(.top, 7)
                 Text(
                   "\(sourceName(for: task)) · \(task.task_type) · \(task.minutes) 分钟 · \(learningTaskStatus(task.status))"
                 )
-                .font(DS.font(20)).foregroundStyle(DS.secondary).multilineTextAlignment(.leading)
+                .font(DS.font(.body)).foregroundStyle(DS.secondary).multilineTextAlignment(.leading)
                 .lineSpacing(4).padding(.vertical, 2)
               }
               Spacer(minLength: 0)
@@ -680,7 +680,7 @@ struct LearningPlanView: View {
   }
 
   private func calendarLine(_ title: String) -> some View {
-    Text(title).font(DS.font(20, weight: .bold)).fixedSize(horizontal: true, vertical: true).frame(
+    Text(title).font(DS.font(.cardTitle)).fixedSize(horizontal: true, vertical: true).frame(
       height: 28)
   }
 
