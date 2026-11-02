@@ -14,7 +14,7 @@ from typing import Any, cast
 from pydantic import BaseModel, Field
 
 from ..llm.client import LLMError, model_time_budget
-from .answer_policy import AnswerRoute, AnswerType
+from .answer_policy import AnswerRoute, AnswerType, TopicRelation
 from .grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
@@ -46,6 +46,7 @@ class TextbookQAResult(BaseModel):
     generation_attempts: int = 0
     answer_type: AnswerType | None = None
     retrieval_requested: bool = True
+    topic_relation: TopicRelation | None = None
 
 
 class TextbookQAService:
@@ -208,6 +209,7 @@ class TextbookQAService:
                         stage_duration_ms={"routing": routing_duration_ms},
                         generation_attempts=attempts, answer_type=route.answer_type,
                         retrieval_requested=False,
+                        topic_relation=route.topic_relation,
                     )
                 result = self._answer_with_retrieval(
                     question, route=route, teaching_context=teaching_context,
@@ -217,6 +219,7 @@ class TextbookQAService:
                 result.generation_duration_ms += routing_duration_ms
                 result.generation_attempts += attempts
                 result.answer_type = route.answer_type
+                result.topic_relation = route.topic_relation
                 return result
         except LLMError as error:
             timings = getattr(error, "qa_timings", {"retrieval": 0, "generation": 0})

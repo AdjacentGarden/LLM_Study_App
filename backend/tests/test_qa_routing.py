@@ -149,3 +149,48 @@ def test_unverified_pre_retrieval_answer_cannot_override_grounded_generation():
     result = service.answer("本书怎么说")
     assert result.status == "supported" and "不可直接展示" not in result.answer
     assert events == ["route", "retrieve", "answer"]
+
+
+@pytest.mark.parametrize("relation", ["current_chapter", "current_book", "uncertain"])
+def test_related_knowledge_searches_before_answer_even_when_model_can_answer_directly(relation):
+    decision = {**route(retrieval=False, answer="不应直接展示的通用回答"), "topic_relation": relation}
+    service, client, events = setup([decision, grounded()])
+    context = {"textbook": {"title": "生物学", "outline": [{"title": "减数分裂"}]},
+               "chapter": {"title": "减数分裂", "knowledge_points": ["染色体复制次数"]}}
+    result = service.answer("解释一下减数分裂", conversation_context=context)
+    assert events == ["route", "retrieve", "answer"]
+    assert result.status == "supported" and result.claims and result.evidence_pages == [11]
+    assert result.retrieval_requested and result.topic_relation == relation
+    assert "不应直接展示" not in result.answer
+    assert json.loads(client.calls[0]["user"])["conversation_context"] == context
+
+
+def test_clearly_unrelated_concept_keeps_direct_answer_in_a_course():
+    decision = {**route(retrieval=False, answer="生命起源仍在研究中。"), "topic_relation": "outside"}
+    service, _, events = setup([decision])
+    result = service.answer("生命的起源是什么", conversation_context={
+        "textbook": {"title": "数学"}, "chapter": {"title": "平面向量"},
+    })
+    assert events == ["route"] and not result.retrieval_requested
+    assert result.answer == "生命起源仍在研究中。" and result.topic_relation == "outside"
+
+
+def test_related_question_uses_general_knowledge_only_after_unsuccessful_retrieval():
+    decision = {**route(), "topic_relation": "current_chapter"}
+    service, _, events = setup([decision, {"answer": "向量具有大小和方向。"}], score=-1)
+    result = service.answer("解释一下向量", conversation_context={"chapter": {"title": "平面向量"}})
+    assert events == ["route", "retrieve", "answer"]
+    assert result.status == "general" and result.claims == []
+    assert result.answer == "向量具有大小和方向。" and result.retrieval_requested
+
+
+def test_textbook_summary_cannot_be_used_as_a_verified_quote():
+    decision = {**route(), "topic_relation": "current_book"}
+    invented = grounded()
+    invented["claims"][0]["citations"][0]["quote"] = "仅在目录摘要中出现的说法"
+    service, _, events = setup([decision, invented])
+    result = service.answer("解释本章", conversation_context={
+        "textbook": {"summary": "仅在目录摘要中出现的说法"},
+    })
+    assert events == ["route", "retrieve", "answer"]
+    assert result.status == "general" and result.claims == [] and result.evidence_pages == []

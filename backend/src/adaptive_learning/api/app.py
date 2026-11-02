@@ -105,6 +105,7 @@ from ..personalization.teaching_scope import (
 from ..rag.grounded_qa import GroundedAnswerValidationError
 from ..rag.index import RAGIndexError
 from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
+from ..rag.textbook_context import textbook_context
 from ..worker_presence import WorkerPresence, readiness
 from .account_guard import learning_guard
 from .chapter_dependency import require_chapter_reconstructor
@@ -643,23 +644,35 @@ def answer_book_question(
     context: dict[str, Any] = {"history": [turn.model_dump() for turn in request.history]}
     if request.reading_context is not None:
         context["reading_context"] = request.reading_context.model_dump()
-    if request.chapter_id:
-        from .. import native_catalog
+    from .. import native_catalog
 
-        structure = None
-        if actor and wid and rid:
-            row = native_repository.resource(actor, wid, rid)
-            if row["structure_json"]:
-                structure = BookStructure.model_validate_json(row["structure_json"])
-        structure = structure or (native_catalog.structure() if book_id == native_catalog.BOOK_ID
-                                  else job_repository.get_structure(book_id))
+    structure = None
+    if actor and wid and rid:
+        row = native_repository.resource(actor, wid, rid)
+        if row["structure_json"]:
+            structure = BookStructure.model_validate_json(row["structure_json"])
+    structure = structure or (native_catalog.structure() if book_id == native_catalog.BOOK_ID
+                              else job_repository.get_structure(book_id))
+    if request.chapter_id:
         chapter = next((c for c in structure.chapters if c.chapter_id == request.chapter_id), None) if structure else None
         if chapter is None:
             raise HTTPException(422, "当前章节不属于这份课程资料")
-        context["chapter"] = {"id": chapter.chapter_id, "title": chapter.title,
-                              "start_page": chapter.start_page, "end_page": chapter.end_page}
+    if structure:
+        subject = ""
+        if book_id == native_catalog.BOOK_ID:
+            subject = str(native_catalog.snapshot()["entry"].get("subject") or "")
+        else:
+            asset = account_repository.repo.asset(book_id)
+            if asset:
+                try:
+                    catalog = json.loads(asset["catalog"])
+                    if isinstance(catalog, dict):
+                        subject = str(catalog.get("subject") or "")
+                except (TypeError, ValueError):
+                    logger.warning("textbook subject metadata unavailable")
+        context.update(textbook_context(structure, request.chapter_id, subject=subject))
     try:
-        extra = {"conversation_context": context} if request.history or request.chapter_id or request.reading_context else {}
+        extra = {"conversation_context": context} if request.history or len(context) > 1 else {}
         if config is not None or cache_scope or extra:
             return qa_service.answer(request.question, teaching_context=config.qa_preferences() if config else None, cache_scope=cache_scope, **extra)
         return qa_service.answer(request.question)
