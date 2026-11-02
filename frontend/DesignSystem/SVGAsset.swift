@@ -6,8 +6,13 @@ import SwiftUI
 struct SVGAsset: View {
   let path: String
   var tint: Color? = nil
+  /// Reuse an exported paint on another state of the same artwork.
+  var paintFrom: String? = nil
+  /// Preserve the original silhouette when an artwork fill becomes a material mask.
+  var opaqueMask = false
   var body: some View {
     let document = SVGCache.document(path)
+    let paintDocument = paintFrom.flatMap { SVGCache.document($0) }
     Canvas { context, size in
       guard let document else { return }
       let scale = min(size.width / document.size.width, size.height / document.size.height)
@@ -16,9 +21,14 @@ struct SVGAsset: View {
         y: (size.height - document.size.height * scale) / 2)
       context.scaleBy(x: scale, y: scale)
       for item in document.items {
-        if let fill = item.fill {
+        if let paint = paintDocument?.primaryGradient ?? item.fillReference.flatMap({ document.gradients[$0] }) {
+          let sourceSize = paintDocument?.size ?? document.size
+          context.fill(Path(item.path), with: paint.shading(
+            in: item.path.boundingBoxOfPath, sourceSize: sourceSize, size: document.size,
+            opacity: item.opacity * item.fillOpacity))
+        } else if let fill = item.fill {
           context.fill(
-            Path(item.path), with: .color((tint ?? fill).opacity(item.opacity * item.fillOpacity)))
+            Path(item.path), with: .color(opaqueMask ? .white : (tint ?? fill).opacity(item.opacity * item.fillOpacity)))
         }
         if let stroke = item.stroke, item.width > 0 {
           context.stroke(
@@ -29,6 +39,27 @@ struct SVGAsset: View {
     }.accessibilityHidden(true)
   }
 }
+
+/// Reuses original SVG geometry for clipping and reflected edge highlights.
+struct SVGAssetShape: Shape {
+  let assetPath: String
+
+  func path(in rect: CGRect) -> Path {
+    guard let document = SVGCache.document(assetPath),
+      document.size.width > 0, document.size.height > 0
+    else { return Path() }
+    var result = Path()
+    let transform = CGAffineTransform(
+      a: rect.width / document.size.width, b: 0,
+      c: 0, d: rect.height / document.size.height,
+      tx: rect.minX, ty: rect.minY)
+    for item in document.items where item.fill != nil || item.fillReference != nil {
+      result.addPath(Path(item.path), transform: transform)
+    }
+    return result
+  }
+}
+
 private enum SVGCache {
   static var values: [String: SVGDocument] = [:]
   static func document(_ path: String) -> SVGDocument? {
@@ -45,6 +76,7 @@ private enum SVGCache {
 private final class SVGDocument: NSObject, XMLParserDelegate {
   struct Style {
     var fill: Color? = .black
+    var fillReference: String?
     var stroke: Color?
     var width: CGFloat = 1
     var opacity: Double = 1
@@ -54,6 +86,7 @@ private final class SVGDocument: NSObject, XMLParserDelegate {
   struct Item {
     let path: CGPath
     let fill: Color?
+    let fillReference: String?
     let stroke: Color?
     let width: CGFloat
     let opacity: Double
@@ -62,6 +95,31 @@ private final class SVGDocument: NSObject, XMLParserDelegate {
   }
   var size = CGSize(width: 24, height: 24)
   var items: [Item] = []
+  struct LinearPaint {
+    var start: CGPoint
+    var end: CGPoint
+    var userSpace: Bool
+    var stops: [Gradient.Stop] = []
+
+    func shading(in bounds: CGRect, sourceSize: CGSize, size: CGSize, opacity: Double) -> GraphicsContext.Shading {
+      func point(_ value: CGPoint) -> CGPoint {
+        if userSpace {
+          return CGPoint(x: value.x * size.width / sourceSize.width,
+            y: value.y * size.height / sourceSize.height)
+        }
+        return CGPoint(x: bounds.minX + value.x * bounds.width,
+          y: bounds.minY + value.y * bounds.height)
+      }
+      return .linearGradient(Gradient(stops: stops.map {
+        .init(color: $0.color.opacity(opacity), location: $0.location)
+      }), startPoint: point(start), endPoint: point(end))
+    }
+  }
+  var gradients: [String: LinearPaint] = [:]
+  var activeGradient: String?
+  var primaryGradient: LinearPaint? {
+    items.compactMap { $0.fillReference.flatMap { gradients[$0] } }.first
+  }
   var styles: [Style] = [Style()]
   var transforms: [CGAffineTransform] = [.identity]
   func parser(
@@ -69,7 +127,11 @@ private final class SVGDocument: NSObject, XMLParserDelegate {
     qualifiedName: String?, attributes a: [String: String]
   ) {
     var style = styles.last ?? Style()
-    if let fill = a["fill"] { style.fill = color(fill) }
+    if let fill = a["fill"] {
+      style.fill = color(fill)
+      style.fillReference = fill.hasPrefix("url(#") && fill.hasSuffix(")")
+        ? String(fill.dropFirst(5).dropLast()) : nil
+    }
     if let stroke = a["stroke"] { style.stroke = color(stroke) }
     if let width = a["stroke-width"].flatMap(Double.init) { style.width = width }
     if let opacity = a["opacity"].flatMap(Double.init) { style.opacity *= opacity }
@@ -81,7 +143,25 @@ private final class SVGDocument: NSObject, XMLParserDelegate {
     transforms.append(
       (transforms.last ?? .identity).concatenating(Self.transform(a["transform"] ?? "")))
     func number(_ key: String, _ fallback: CGFloat = 0) -> CGFloat {
-      CGFloat(Double(a[key] ?? "") ?? Double(fallback))
+      if let value = a[key], value.hasSuffix("%"), let percentage = Double(value.dropLast()) {
+        return CGFloat(percentage / 100)
+      }
+      return CGFloat(Double(a[key] ?? "") ?? Double(fallback))
+    }
+    if name == "linearGradient", let id = a["id"] {
+      let transform = Self.transform(a["gradientTransform"] ?? "")
+      gradients[id] = LinearPaint(
+        start: CGPoint(x: number("x1"), y: number("y1")).applying(transform),
+        end: CGPoint(x: number("x2", 1), y: number("y2")).applying(transform),
+        userSpace: a["gradientUnits"] == "userSpaceOnUse")
+      activeGradient = id
+      return
+    }
+    if name == "stop", let id = activeGradient {
+      gradients[id]?.stops.append(.init(
+        color: (color(a["stop-color"] ?? "black") ?? .black)
+          .opacity(Double(a["stop-opacity"] ?? "1") ?? 1), location: number("offset")))
+      return
     }
     if name == "svg", let box = a["viewBox"] {
       let values = box.split(whereSeparator: { $0 == " " || $0 == "," }).compactMap { Double($0) }
@@ -121,12 +201,14 @@ private final class SVGDocument: NSObject, XMLParserDelegate {
     var transform = transforms.last ?? .identity
     items.append(
       Item(
-        path: p.copy(using: &transform) ?? p, fill: style.fill, stroke: style.stroke,
+        path: p.copy(using: &transform) ?? p, fill: style.fill, fillReference: style.fillReference,
+        stroke: style.stroke,
         width: style.width, opacity: style.opacity, fillOpacity: style.fillOpacity, cap: style.cap))
   }
   func parser(
     _ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?
   ) {
+    if name == "linearGradient" { activeGradient = nil }
     if styles.count > 1 { styles.removeLast() }
     if transforms.count > 1 { transforms.removeLast() }
   }

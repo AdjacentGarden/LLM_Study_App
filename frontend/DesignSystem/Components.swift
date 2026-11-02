@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CoreText
 
 extension Color {
   init(hex: UInt) {
@@ -69,13 +70,31 @@ enum DS {
     let faces = fontFaces(weight)
     let descriptor = UIFontDescriptor(fontAttributes: [
       .name: faces.latin,
-      .cascadeList: [UIFontDescriptor(name: faces.chinese, size: size)],
+      .cascadeList: [UIFontDescriptor(name: availableChineseFaces[faces.chinese] ?? faces.chinese, size: size)],
     ])
     return UIFont(descriptor: descriptor, size: size)
   }
+  /// Some simulator runtimes advertise PingFang but return LastResort glyphs.
+  /// Use the bundled face only when the requested system face cannot render CJK.
+  private static let availableChineseFaces: [String: String] = {
+    let names = ["Ultralight", "Thin", "Light", "Regular", "Medium", "Semibold"]
+    return Dictionary(uniqueKeysWithValues: names.map { weight in
+      let name = "PingFangSC-" + weight
+      let characters: [UniChar] = [0x5b66, 0x4e60]
+      var glyphs = [CGGlyph](repeating: 0, count: characters.count)
+      let font = UIFont(name: name, size: 16)
+      let usable = font.map {
+        CTFontGetGlyphsForCharacters($0 as CTFont, characters, &glyphs, characters.count)
+          && glyphs.allSatisfy { $0 != 0 } && glyphs[0] != glyphs[1]
+      } ?? false
+      let fallback = weight == "Semibold" ? "BookCourseNotoSansSC-Bold" : "BookCourseNotoSansSC-Regular"
+      return (name, usable ? name : fallback)
+    })
+  }()
   static func lineHeight(_ style: Typography, weight: Font.Weight? = nil) -> CGFloat {
     max(uiFont(style, weight: weight).lineHeight,
-      UIFont(name: fontFaces(weight ?? style.weight).chinese, size: style.size)?.lineHeight ?? 0)
+      UIFont(name: availableChineseFaces[fontFaces(weight ?? style.weight).chinese]
+        ?? fontFaces(weight ?? style.weight).chinese, size: style.size)?.lineHeight ?? 0)
   }
   private static func fontFaces(_ weight: Font.Weight) -> (latin: String, chinese: String) {
     switch weight {

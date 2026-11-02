@@ -80,9 +80,17 @@ final class LearningFunctionalUITests: XCTestCase {
     let details = app.buttons["计划详情"].firstMatch
     let progress = app.descendants(matching: .any)["study.plan.progress"].firstMatch
     let scroll = app.scrollViews["study.scroll"]
-    XCTAssertTrue(details.waitForExistence(timeout: 20))
+    XCTAssertTrue(scroll.waitForExistence(timeout: 20))
+    // Normal launch restores the last section, which can already compact the card.
+    for _ in 0..<6 {
+      if details.exists && details.isHittable { break }
+      scroll.swipeDown(velocity: .fast)
+    }
+    XCTAssertTrue(details.waitForExistence(timeout: 8))
     XCTAssertTrue(progress.exists)
     let expandedProgressY = progress.frame.minY
+    let card = app.descendants(matching: .any)["study.plan.card"].firstMatch
+    let expandedCardHeight = card.frame.height
     let courseSwitch = app.buttons["study.course.switch"].firstMatch
     let initialCourseFrame = courseSwitch.frame
     let initialProgressValue = progress.value as? String
@@ -91,8 +99,10 @@ final class LearningFunctionalUITests: XCTestCase {
     scroll.swipeUp(velocity: .slow)
     evidence("study-plan-after-scroll", app: app)
     wait("Scrolling should hide the plan details and keep only its pinned progress") {
-      !details.exists && progress.exists && progress.frame.minY < expandedProgressY - 40
+      !details.exists && progress.exists && card.frame.height < expandedCardHeight - 70
     }
+    XCTAssertTrue(app.staticTexts["study.plan.title"].firstMatch.exists)
+    XCTAssertLessThan(abs(progress.frame.minY - expandedProgressY), 20)
     XCTAssertEqual(progress.value as? String, initialProgressValue)
     XCTAssertEqual(courseSwitch.frame.minY, initialCourseFrame.minY, accuracy: 1)
     XCTAssertTrue(courseSwitch.isHittable)
@@ -112,17 +122,26 @@ final class LearningFunctionalUITests: XCTestCase {
   func testStudyPlanThresholdsAndChapterTapsWithReducedMotion() throws {
     let app = launch("study", session: UUID().uuidString, reduceMotion: true)
     let details = app.buttons["计划详情"].firstMatch
-    XCTAssertTrue(details.waitForExistence(timeout: 20))
     let scroll = app.scrollViews["study.scroll"]
+    XCTAssertTrue(scroll.waitForExistence(timeout: 20))
+    for _ in 0..<6 {
+      if details.exists && details.isHittable { break }
+      scroll.swipeDown(velocity: .fast)
+    }
+    XCTAssertTrue(details.waitForExistence(timeout: 8))
     let chapter = app.buttons["study.chapter.c1"]
     // Set up the same directory state on both device sizes before measuring.
     if chapter.value as? String == "已展开" { chapter.tap() }
     let nextChapter = app.buttons["study.chapter.c2"]
     if nextChapter.value as? String != "已展开" { nextChapter.tap() }
+    // Changing expanded chapter content can adjust the restored scroll anchor on iPad.
+    scroll.swipeDown(velocity: .fast)
     let initialChapterTop = chapter.frame.minY
     let expandedPlanBottom = initialChapterTop - 8
     let progress = app.descendants(matching: .any)["study.plan.progress"].firstMatch
     let expandedProgressY = progress.frame.minY
+    let card = app.descendants(matching: .any)["study.plan.card"].firstMatch
+    let expandedCardHeight = card.frame.height
 
     func drag(upBy distance: CGFloat) {
       let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.55))
@@ -131,11 +150,13 @@ final class LearningFunctionalUITests: XCTestCase {
         withVelocity: .slow, thenHoldForDuration: 0.25)
     }
 
-    drag(upBy: 30)
+    // Keep this well below the threshold: iPad gesture recognition can add
+    // travel while it transitions from the touch slop into scrolling.
+    drag(upBy: 10)
     XCTAssertTrue(details.exists, "A small scroll should leave the plan expanded")
     drag(upBy: 90)
     wait("Passing the collapse threshold should compact the plan without motion") {
-      !details.exists && progress.frame.minY < expandedProgressY - 40
+      !details.exists && card.frame.height < expandedCardHeight - 70
     }
     let compactProgressY = progress.frame.minY
     XCTAssertGreaterThan(chapter.frame.midY, progress.frame.maxY + 10)

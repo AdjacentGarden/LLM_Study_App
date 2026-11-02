@@ -174,7 +174,7 @@ struct StudyDirectoryView: View {
   }
 
   private func studyHeader(compact: Bool) -> some View {
-    VStack(alignment: .leading, spacing: compact ? 8 : store.isPad ? 36 : 14) {
+    VStack(alignment: .leading, spacing: compact ? 8 : 14) {
       HStack(spacing: 12) {
         Button {
           store.openSheet(.bookSwitcher)
@@ -228,47 +228,10 @@ struct StudyDirectoryView: View {
         Text("教材目录 · 当前尚无生成的教学内容")
           .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
       } else if !directory.isEmpty {
-        VStack(alignment: .leading, spacing: compact ? 0 : 4) {
-          if !compact {
-            VStack(alignment: .leading, spacing: 4) {
-              HStack {
-                Text(courseTasks.isEmpty ? "阅读进度" : "学习计划").font(DS.font(.sectionTitle))
-                Spacer()
-                Button {
-                  store.go(.plan)
-                } label: {
-                  HStack(spacing: 4) {
-                    Text("计划详情")
-                    Image(systemName: "chevron.right")
-                  }
-                  .font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
-                }.buttonStyle(.plain)
-              }
-              HStack(spacing: 12) {
-                StickerIcon("Check", size: 30, glyphSize: 16)
-                VStack(alignment: .leading, spacing: 4) {
-                  Text((currentTask?.minutes ?? store.plan?.daily_minutes ?? 0) > 0 ? "今日建议 · \(currentTask?.minutes ?? store.plan?.daily_minutes ?? 0) 分钟" : "尚无每日学习安排")
-                    .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-                  Text(currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始")
-                    .font(DS.font(.cardTitle)).lineLimit(2)
-                }
-              }.padding(.top, 12)
-            }
-            .transition(.opacity.combined(with: .move(edge: .top)))
+        StudyProgressCard(compact: compact, progress: studyProgress,
+          taskTitle: currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始") {
+            store.go(.plan)
           }
-          BCProgress(value: studyProgress)
-            .accessibilityIdentifier("study.plan.progress")
-          if !compact {
-            Text("\(courseTasks.isEmpty ? "本书已读" : "计划完成") \(Int((studyProgress * 100).rounded()))%")
-              .font(DS.font(.body)).foregroundStyle(DS.secondary)
-              .transition(.opacity)
-          }
-        }
-        .padding(.horizontal, 16).padding(.vertical, compact ? 10 : 16)
-        .clipped()
-        .background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
-        .shadow(color: DS.text.opacity(compact ? 0.08 : 0), radius: 4, y: 2)
       }
     }
     .padding(.top, store.isPad ? 8 : 12).padding(.bottom, 0)

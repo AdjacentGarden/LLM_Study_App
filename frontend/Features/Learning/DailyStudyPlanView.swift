@@ -7,44 +7,8 @@ struct DailyStudyPlanSummary: View {
   @State private var day = DailyStudyPlanState.day()
 
   var body: some View {
-    VStack(alignment: .leading, spacing: compact ? 0 : 12) {
-      if !compact {
-        HStack {
-          Text("今日学习计划").font(DS.font(.sectionTitle))
-          Spacer()
-          Button { store.go(.plan) } label: {
-            Label("计划详情", systemImage: "chevron.right").font(DS.font(.smallButton))
-          }.buttonStyle(.plain).foregroundStyle(DS.primary)
-        }
-        if let plan = store.dailyStudyPlan(day) {
-          Text("每日 \(plan.budget_minutes) 分钟 · 今日安排 \(plan.estimated_minutes) 分钟")
-            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-          if let task = plan.tasks.first(where: { !$0.isDone }) {
-            Text(task.title).font(DS.font(.cardTitle)).lineLimit(2)
-          } else {
-            Text(plan.tasks.isEmpty ? "今日暂无安排" : "今日计划已完成")
-              .font(DS.font(.cardTitle))
-          }
-        } else {
-          let failed = store.selectedCourseID.map { store.dailyPlanState.errors[DailyStudyPlanState.key($0, day)] != nil } ?? false
-          Text(failed ? "今日计划暂不可用" : "正在获取今日计划…")
-            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-        }
-      }
-      BCProgress(value: store.dailyStudyPlan(day)?.progress ?? 0)
-        .accessibilityIdentifier("study.plan.progress")
-      if !compact, let plan = store.dailyStudyPlan(day) {
-        Text("已完成 \(plan.completedCount) / \(plan.tasks.count) 项")
-          .font(DS.font(.body)).foregroundStyle(DS.secondary)
-      }
-      if !compact, let wid = store.selectedCourseID,
-        let error = store.dailyPlanState.errors[DailyStudyPlanState.key(wid, day)] {
-        Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
-      }
-    }
-    .padding(.horizontal, 16).padding(.vertical, compact ? 10 : 16)
-    .background(DS.surface, in: RoundedRectangle(cornerRadius: 20))
-    .overlay(RoundedRectangle(cornerRadius: 20).stroke(DS.border, lineWidth: 1))
+    StudyProgressCard(compact: compact, progress: store.dailyStudyPlan(day)?.progress ?? 0,
+      taskTitle: taskTitle, issue: planIssue) { store.go(.plan) }
     .task(id: store.dailyStudyPlanLoadKey + day) { await store.loadDailyStudyPlan(day: day) }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active {
@@ -52,6 +16,18 @@ struct DailyStudyPlanSummary: View {
         Task { await store.loadDailyStudyPlan(day: day) }
       }
     }
+  }
+  private var planIssue: String? {
+    guard let wid = store.selectedCourseID else { return nil }
+    return store.dailyPlanState.errors[DailyStudyPlanState.key(wid, day)]
+  }
+
+  private var taskTitle: String {
+    guard let plan = store.dailyStudyPlan(day) else {
+      return planIssue == nil ? "正在获取今日计划…" : "今日计划暂不可用"
+    }
+    return plan.tasks.first(where: { !$0.isDone })?.title
+      ?? (plan.tasks.isEmpty ? "今日暂无安排" : "今日计划已完成")
   }
 }
 

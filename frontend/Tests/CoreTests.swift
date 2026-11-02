@@ -1,4 +1,5 @@
 import CryptoKit
+import CoreText
 import UIKit
 import XCTest
 
@@ -285,6 +286,18 @@ final class CoreTests: XCTestCase {
     ContentBundle.registerFonts()
     XCTAssertNotNil(UIFont(name: "BookCourseNotoSansSC-Regular", size: 20))
     XCTAssertNotNil(UIFont(name: "BookCourseNotoSansSC-Bold", size: 20))
+  }
+  func testTypographyRendersDistinctChineseGlyphs() {
+    ContentBundle.registerFonts()
+    let characters: [UniChar] = [0x5b66, 0x4e60]
+    for style: DS.Typography in [.sectionTitle, .body, .cardTitle] {
+      let font = CTFontCreateForString(DS.uiFont(style) as CTFont, "学习" as CFString,
+        CFRange(location: 0, length: 2))
+      var glyphs = [CGGlyph](repeating: 0, count: 2)
+      XCTAssertTrue(CTFontGetGlyphsForCharacters(font, characters, &glyphs, 2))
+      XCTAssertFalse(glyphs.contains(0))
+      XCTAssertNotEqual(glyphs[0], glyphs[1], "Chinese text must not resolve to identical missing-glyph boxes")
+    }
   }
   func testRoutesAndSheetsCoverSourceContracts() {
     XCTAssertEqual(Route.allCases.count, 30)
