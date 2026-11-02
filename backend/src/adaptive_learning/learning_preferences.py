@@ -121,8 +121,7 @@ class LearningDesignConfig(BaseModel):
         return {
             "goal": GOAL_LABELS[self.primary_goal],
             "guidance_styles": self.guidance_styles,
-            "support_actions": self.support_actions,
-            "presentation_order": self.presentation_order,
+            "learning_barriers": self.learning_barriers,
         }
 
 

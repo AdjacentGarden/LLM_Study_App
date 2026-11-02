@@ -14,6 +14,7 @@ from typing import Any, cast
 from pydantic import BaseModel, Field
 
 from ..llm.client import LLMError, model_time_budget
+from .answer_policy import AnswerRoute, AnswerType
 from .grounded_qa import (
     AnswerStatus,
     EvidenceChunk,
@@ -43,6 +44,8 @@ class TextbookQAResult(BaseModel):
     cache_hit: bool = False
     stage_duration_ms: dict[str, int] = Field(default_factory=dict)
     generation_attempts: int = 0
+    answer_type: AnswerType | None = None
+    retrieval_requested: bool = True
 
 
 class TextbookQAService:
@@ -186,6 +189,47 @@ class TextbookQAService:
         self, question: str, *, teaching_context: dict[str, Any] | None = None,
         conversation_context: dict[str, Any] | None = None,
     ) -> TextbookQAResult:
+        started = time.monotonic()
+        routing_duration_ms: int | None = None
+        try:
+            # Routing and answer generation share one deadline, including repairs.
+            with model_time_budget(self.generation_budget_seconds):
+                route, attempts = self.generator.route(
+                    question, teaching_context=teaching_context,
+                    conversation_context=conversation_context,
+                )
+                routing_duration_ms = round((time.monotonic() - started) * 1000)
+                if not route.needs_retrieval:
+                    return TextbookQAResult(
+                        book_id=self.book_id, status=AnswerStatus.GENERAL,
+                        answer=(route.answer or "").strip(), claims=[], confidence=0,
+                        evidence_pages=[], retrieval_duration_ms=0,
+                        generation_duration_ms=routing_duration_ms,
+                        stage_duration_ms={"routing": routing_duration_ms},
+                        generation_attempts=attempts, answer_type=route.answer_type,
+                        retrieval_requested=False,
+                    )
+                result = self._answer_with_retrieval(
+                    question, route=route, teaching_context=teaching_context,
+                    conversation_context=conversation_context,
+                )
+                result.stage_duration_ms["routing"] = routing_duration_ms
+                result.generation_duration_ms += routing_duration_ms
+                result.generation_attempts += attempts
+                result.answer_type = route.answer_type
+                return result
+        except LLMError as error:
+            timings = getattr(error, "qa_timings", {"retrieval": 0, "generation": 0})
+            timings["generation"] += (routing_duration_ms if routing_duration_ms is not None
+                                      else round((time.monotonic() - started) * 1000))
+            error.qa_timings = timings  # type: ignore[attr-defined]
+            raise
+
+    def _answer_with_retrieval(
+        self, question: str, *, route: AnswerRoute,
+        teaching_context: dict[str, Any] | None = None,
+        conversation_context: dict[str, Any] | None = None,
+    ) -> TextbookQAResult:
         retrieval_started = time.monotonic()
         query = question
         if conversation_context:
@@ -232,6 +276,7 @@ class TextbookQAService:
             with model_time_budget(self.generation_budget_seconds):
                 generated = self.generator.answer(
                     question=question,
+                    route=route,
                     evidence=evidence,
                     retrieval_score=retrieval.score,
                     lexical_support=retrieval.lexical_support,

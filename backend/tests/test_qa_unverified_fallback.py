@@ -35,6 +35,11 @@ class Responses:
 
 SOURCES = [EvidenceChunk(source_id="E1", page_number=3, text="模型用于说明特定条件下的关系。")]
 TEXT = "该模型说明特定条件下的关系。"
+RETRIEVAL_ROUTE = {"answer_type": "concept", "needs_retrieval": True}
+
+
+def direct(text):
+    return {"answer_type": "concept", "needs_retrieval": False, "answer": text}
 
 
 def _draft(**changes):
@@ -46,7 +51,7 @@ def _draft(**changes):
 
 def _assert_general(result, text):
     assert result.status == "general"
-    assert result.answer == "教材引用未核验，以下为模型解答。\n\n" + text
+    assert result.answer == text
     assert result.claims == [] and result.confidence == 0 and not result.semantic_checked
 
 
@@ -137,14 +142,14 @@ def test_runtime_retrieval_failure_uses_same_cache_and_account_scope():
         def search(self, *_args, **_kwargs):
             raise RAGIndexError("unavailable index")
 
-    client = Responses({"answer": TEXT}, {"answer": "其他账号的解答。"})
+    client = Responses(RETRIEVAL_ROUTE, {"answer": TEXT}, RETRIEVAL_ROUTE, {"answer": "其他账号的解答。"})
     service = TextbookQAService(book_id="book", index=BrokenIndex(), generator=GroundedAnswerGenerator(client))
     first = service.answer("问题", cache_scope="alice")
     _assert_general(first, TEXT)
     assert first.evidence_pages == [] and not service.ready
     assert service.answer("问题", cache_scope="alice").cache_hit
     assert not service.answer("问题", cache_scope="bob").cache_hit
-    assert len(client.calls) == 2
+    assert len(client.calls) == 4
 
 
 @pytest.mark.parametrize("unavailable_error", [
@@ -167,7 +172,7 @@ def test_indexless_dependency_requires_known_book_and_preserves_ownership(monkey
     jobs = SQLiteOCRJobRepository(tmp_path / "state/ocr_jobs.sqlite3")
     # Persist a real book record even while OCR/index resources are unavailable.
     jobs.register_book(book_id="owned", original_name="book.pdf", file_path=tmp_path / "book.pdf", source_sha256="a" * 64)
-    client = Responses({"answer": TEXT})
+    client = Responses(direct(TEXT))
     monkeypatch.setattr(qa_dependency, "_generator", GroundedAnswerGenerator(client))
     monkeypatch.setattr(qa_dependency, "_direct_services", OrderedDict())
     def unavailable(_book):
@@ -199,8 +204,8 @@ def test_review_transport_or_refusal_preserves_received_answer_without_retry(err
 
 
 @pytest.mark.parametrize("responses,status", [
-    ([{}, {"answer": TEXT}], 200),
-    ([{"answer": "长正文。" * 1500}], 200),
+    ([{}, direct(TEXT)], 200),
+    ([direct("长正文。" * 1500)], 200),
     ([{}, {}], 502),
     ([LLMRefusalError("refused")], 422),
     ([LLMTimeoutError("unknown response")], 504),
@@ -227,7 +232,7 @@ def test_real_http_general_format_and_provider_error_mapping(responses, status):
         value = response.json()
         assert value["status"] == "general" and value["claims"] == []
         assert value["evidence_pages"] == [] and not value["semantic_checked"]
-        assert value["answer"].startswith("教材引用未核验")
+        assert value["answer"] and "教材引用未核验" not in value["answer"]
     else:
         assert "provider" not in response.text and "ValidationError" not in response.text
 
@@ -245,7 +250,7 @@ def test_real_default_dependency_can_build_text_client_without_gpu_or_index(monk
     monkeypatch.setattr(qa_dependency, "_service", None)
     monkeypatch.setattr(qa_dependency, "_generator", None)
     monkeypatch.setattr(qa_dependency, "_direct_services", OrderedDict())
-    client = Responses({"answer": TEXT})
+    client = Responses(direct(TEXT))
     configs = []
     def text_client(config):
         configs.append(config)

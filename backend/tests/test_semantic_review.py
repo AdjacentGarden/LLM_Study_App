@@ -2,11 +2,11 @@ import pytest
 from test_grounded_qa import SequenceFakeClient
 
 from adaptive_learning.personalization.generator import _point_title
+from adaptive_learning.rag.answer_policy import AnswerRoute
 from adaptive_learning.rag.grounded_qa import (
     EvidenceChunk,
     GroundedAnswerGenerator,
     GroundedAnswerValidationError,
-    is_definition_question,
 )
 
 
@@ -78,7 +78,7 @@ def test_real_quote_does_not_mark_contradictory_claim_as_verified():
         question="可以总是除以 x 吗？",
         evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)], retrieval_score=3)
     assert answer.status == "general" and answer.claims == [] and not answer.semantic_checked
-    assert answer.answer.startswith("教材引用未核验") and client.calls == 2
+    assert answer.answer == "任何时候都可以除以 x。" and client.calls == 2
 
 
 def test_rejected_claim_is_unverified_without_regenerating_a_received_answer():
@@ -135,21 +135,6 @@ def test_concept_titles_preserve_conditions_and_punctuation(label):
     assert _point_title(label) == label
 
 
-@pytest.mark.parametrize(
-    "question,expected",
-    [
-        ("DNA 半保留复制是什么意思？", True),
-        ("什么是条件概率？", True),
-        ("What is a binary search tree?", True),
-        ("比较两个概念的含义", False),
-        ("怎么用实验证明DNA复制方式是什么？", False),
-        ("What is recursion and how does it work?", False),
-    ],
-)
-def test_answer_scope_is_subject_neutral(question, expected):
-    assert is_definition_question(question) is expected
-
-
 def test_definitions_skip_planning_but_not_semantic_review():
     text = "二分查找是每次缩小一半区间的查找方法。"
     client = SequenceFakeClient([draft(text, text), verdict()])
@@ -157,6 +142,7 @@ def test_definitions_skip_planning_but_not_semantic_review():
         client, use_semantic_review=True, use_evidence_planner=True
     ).answer(
         question="什么是二分查找？",
+        route=AnswerRoute(answer_type="concept", needs_retrieval=True),
         evidence=[EvidenceChunk(source_id="E1", page_number=1, text=text)],
         retrieval_score=3,
     )

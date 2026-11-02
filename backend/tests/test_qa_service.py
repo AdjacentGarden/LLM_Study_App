@@ -33,8 +33,12 @@ class FakeIndex:
 class FakeClient:
     def __init__(self) -> None:
         self.calls = 0
+        self.routing_calls = 0
 
     def structured(self, **kwargs: object) -> dict[str, Any]:
+        if str(kwargs.get('system', '')).startswith('你是学习问答路由器'):
+            self.routing_calls += 1
+            return {"answer_type": "concept", "needs_retrieval": True, "detail": "normal"}
         self.calls += 1
         if str(kwargs.get('system', '')).startswith('你是学习辅导老师'):
             return {'answer': '牛顿第二定律描述力、质量和加速度之间的关系。'}
@@ -83,14 +87,16 @@ def test_service_returns_general_answer_for_low_score() -> None:
 
     assert result.status == AnswerStatus.GENERAL
     assert result.evidence_pages == []
-    assert result.answer.startswith('教材引用未核验，以下为模型解答。')
+    assert result.answer == '牛顿第二定律描述力、质量和加速度之间的关系。'
     assert not result.semantic_checked and client.calls == 1
 
 
-def test_unverified_address_answer_keeps_notice_and_empty_citations_in_cache() -> None:
+def test_unverified_address_answer_has_no_notice_or_citations_in_cache() -> None:
     class InvalidAddressClient(FakeClient):
         def structured(self, **kwargs: object) -> dict[str, Any]:
             value = super().structured(**kwargs)
+            if 'claims' not in value:
+                return value
             value['claims'][0]['citations'] = [{'source_id': 'E1', 'span_id': 'missing'}]
             return value
 
@@ -104,7 +110,7 @@ def test_unverified_address_answer_keeps_notice_and_empty_citations_in_cache() -
 
     for result in (first, cached):
         assert result.status == AnswerStatus.GENERAL
-        assert result.answer.startswith('教材引用未核验，以下为模型解答。')
+        assert result.answer == '染色体复制一次，细胞分裂两次。'
         assert result.claims == [] and result.evidence_pages == []
         assert not result.semantic_checked and result.confidence == 0
     assert not first.cache_hit and cached.cache_hit and client.calls == 1
@@ -156,8 +162,8 @@ def test_conversation_context_expands_retrieval_without_becoming_evidence():
     assert first.claims
     assert '同源染色体' in queries[0] and '减数分裂' in queries[0]
     assert 'unverified-assistant-answer' not in queries[0]
-    assert payloads[0]['conversation_context'] == context
-    assert 'unverified-assistant-answer' not in str(payloads[0]['evidence'])
+    assert payloads[1]['conversation_context'] == context
+    assert 'unverified-assistant-answer' not in str(payloads[1]['evidence'])
     assert service.answer('为什么？', conversation_context=context, cache_scope='course-a').cache_hit
     assert not service.answer('为什么？', conversation_context={**context, 'history': []}, cache_scope='course-a').cache_hit
     assert not service.answer('为什么？', conversation_context=context, cache_scope='course-b').cache_hit

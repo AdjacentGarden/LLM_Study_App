@@ -13,7 +13,6 @@ from adaptive_learning.rag.grounded_qa import (
 )
 
 SOURCE = EvidenceChunk(source_id='E1', page_number=11, text='染色体只复制一次，而细胞分裂两次。')
-NOTICE = '教材引用未核验，以下为模型解答。\n\n'
 
 
 class SequenceClient:
@@ -46,7 +45,7 @@ def test_unavailable_evidence_uses_one_general_call_with_followup_context(mode):
         teaching_context=preferences, conversation_context=conversation,
         source_coverage={'skipped_page_ranges': [[11, 11]]} if mode == 'skipped_only' else {},
     )
-    assert result.status == 'general' and result.answer.startswith(NOTICE)
+    assert result.status == 'general' and result.answer == '男女比例差异本身不能充分确定基因所在的位置。'
     assert result.claims == [] and result.confidence == 0 and not result.semantic_checked
     assert len(client.calls) == result.generation_attempts == 1
     assert result.stage_duration_ms['general'] >= 0
@@ -67,7 +66,7 @@ def test_model_insufficiency_calls_general_once_and_retains_shared_deadline():
             client, use_semantic_review=True, max_validation_retries=2,
             draft_budget_seconds=25,
         ).answer(question='为什么不能单凭男女比例确定？', evidence=[SOURCE], retrieval_score=3)
-    assert answer.answer == NOTICE + '还需要结合家系遗传和基因位置等信息判断。'
+    assert answer.answer == '还需要结合家系遗传和基因位置等信息判断。'
     assert answer.status == 'general' and answer.claims == [] and not answer.semantic_checked
     assert answer.generation_attempts == len(client.calls) == 2
     assert answer.stage_duration_ms['review'] == 0 and 'general' in answer.stage_duration_ms

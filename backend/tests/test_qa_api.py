@@ -132,7 +132,7 @@ def test_grounded_qa_endpoint_returns_answer_for_invalid_span_or_insufficient_ev
     assert response.status_code == 200
     payload = response.json()
     assert payload['status'] == 'general' and payload['claims'] == []
-    assert payload['answer'].startswith('教材引用未核验，以下为模型解答。')
+    assert payload['answer'] == '染色体只复制一次，细胞分裂两次。'
     assert '染色体只复制一次，细胞分裂两次。' in payload['answer']
     assert payload['semantic_checked'] is False
     assert model.calls == (2 if insufficient else 1)

@@ -90,7 +90,7 @@ def test_invalid_proof_address_returns_visible_unverified_answer_without_retry(a
     ).answer(question="过程的特点？", evidence=sources, retrieval_score=2)
 
     assert answer.status == "general"
-    assert answer.answer == "教材引用未核验，以下为模型解答。\n\n染色体只复制一次，细胞分裂两次。"
+    assert answer.answer == "染色体只复制一次，细胞分裂两次。"
     assert answer.claims == [] and answer.confidence == 0
     assert not answer.semantic_checked
     assert answer.generation_attempts == client.calls == 1

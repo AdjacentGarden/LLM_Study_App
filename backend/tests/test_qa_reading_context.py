@@ -19,7 +19,7 @@ def _reading(note: str = "批注" * 450) -> dict:
     return {"pdf_page": 3, "page_text": "页" * 1200, "note_text": note, "note_truncated": False}
 
 
-def _capture_services(monkeypatch):
+def _capture_services(monkeypatch, *, retrieval_requested=True):
     calls = []
 
     class Service:
@@ -32,6 +32,7 @@ def _capture_services(monkeypatch):
                 book_id=self.book_id, status=AnswerStatus.GENERAL, answer="未核验的测试答复",
                 claims=[], confidence=0, evidence_pages=[], retrieval_duration_ms=0,
                 generation_duration_ms=0,
+                retrieval_requested=retrieval_requested,
             )
 
     monkeypatch.setattr(native_routes, "require_qa_service", Service)
@@ -50,7 +51,7 @@ def _workspace(client):
 
 def test_short_question_with_long_reading_context_and_permissions(native, monkeypatch):  # noqa: F811
     owner, other, _ = native
-    calls = _capture_services(monkeypatch)
+    calls = _capture_services(monkeypatch, retrieval_requested=False)
     _, path = _workspace(owner)
     reading = _reading("注" * 4000)
     response = owner.post(path + "/qa", json={"question": "请检查我的理解", "reading_context": reading})
@@ -64,9 +65,10 @@ def test_short_question_with_long_reading_context_and_permissions(native, monkey
     assert len(calls) == before, "Reader context must not bypass ownership or admit an unbound book"
 
 
-def test_reading_context_only_belongs_to_primary_book(native, monkeypatch):  # noqa: F811
+@pytest.mark.parametrize("retrieval_requested", [True, False])
+def test_reading_context_only_belongs_to_primary_book(native, monkeypatch, retrieval_requested):  # noqa: F811
     owner, _, _ = native
-    calls = _capture_services(monkeypatch)
+    calls = _capture_services(monkeypatch, retrieval_requested=retrieval_requested)
     workspace, path = _workspace(owner)
     from native_harness import textbook_pdf
 
@@ -77,6 +79,11 @@ def test_reading_context_only_belongs_to_primary_book(native, monkeypatch):  # n
     assert added.status_code == 200, added.text
     response = owner.post(path + "/qa", json={"question": "请比较", "book_ids": [second], "reading_context": _reading()})
     assert response.status_code == 200, response.text
+    if not retrieval_requested:
+        assert [call["book_id"] for call in calls] == [native_catalog.BOOK_ID]
+        assert response.json()["answer"] == "未核验的测试答复"
+        assert not response.json()["retrieval_requested"]
+        return
     assert [call["book_id"] for call in calls] == [native_catalog.BOOK_ID, second]
     assert calls[0]["conversation_context"]["reading_context"] == _reading()
     assert "reading_context" not in calls[1].get("conversation_context", {})
@@ -115,7 +122,7 @@ def test_reading_hints_expand_query_with_question_first_and_are_cache_scoped():
     assert "用户批注线索" in queries[0] and len(queries[0]) < 1000
     assert payloads[0]["question"] == "请检查我的理解"
     assert payloads[0]["conversation_context"] == context
-    assert "用户批注线索" not in json.dumps(payloads[0]["evidence"], ensure_ascii=False)
+    assert "用户批注线索" not in json.dumps(payloads[1]["evidence"], ensure_ascii=False)
     assert service.answer("请检查我的理解", conversation_context=context, cache_scope="owner:workspace").cache_hit
     changed = {**context, "reading_context": _reading("另一条批注")}
     assert not service.answer("请检查我的理解", conversation_context=changed, cache_scope="owner:workspace").cache_hit
@@ -127,6 +134,8 @@ def test_client_reading_text_cannot_supply_a_verified_citation():
         calls = 0
 
         def structured(self, **kwargs):
+            if kwargs['system'].startswith('你是学习问答路由器'):
+                return {"answer_type": "concept", "needs_retrieval": True}
             self.calls += 1
             return {"status": "supported", "claims": [{"text": "批注中的错误说法",
                 "citations": [{"source_id": "E1", "quote": "仅存在于用户批注中的文字"}]}]}

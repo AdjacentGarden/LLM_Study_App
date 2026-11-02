@@ -482,6 +482,11 @@ def native_router(services: Any) -> APIRouter:
             result = services.answer_book_question(
                 book_id, question, require_qa_service(book_id), request
             ).model_dump(mode="json")
+            if result.get("retrieval_requested") is False:
+                # A general answer applies to the question, not once per book.
+                if not results:
+                    return result
+                continue
             for claim in result["claims"]:
                 claim["book_id"] = book_id
             structure = effective_structure(selected)

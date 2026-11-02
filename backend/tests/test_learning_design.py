@@ -344,25 +344,27 @@ def test_qa_uses_course_preferences_and_isolates_account_and_design_cache(native
     answer = a.post(endpoint, json=body)
     assert answer.status_code == 200, answer.text
     assert payloads[-1]["teaching_preferences"]["guidance_styles"] == ["examples", "stepByStep"]
+    assert payloads[0]["preferences"]["guidance_styles"] == ["examples", "stepByStep"]
+    assert "presentation_order" not in payloads[-1]["teaching_preferences"]
     assert a.post(endpoint, json=body).json()["cache_hit"]
-    assert len(payloads) == 1
+    assert len(payloads) == 2
     body.update(workspace_id=second["workspace_id"], resource_id=second["id"])
     assert a.post(endpoint, json=body).status_code == 200
     assert payloads[-1]["teaching_preferences"]["guidance_styles"] == ["principles"]
-    assert len(payloads) == 2
+    assert len(payloads) == 4
     assert b.post(endpoint, json=body).status_code == 403
-    assert len(payloads) == 2
+    assert len(payloads) == 4
     preferences(a, guidanceStyles=["keyPoints"])
     body.update(workspace_id=first["workspace_id"], resource_id=first["id"])
     assert a.post(endpoint, json=body).status_code == 200
     assert payloads[-1]["teaching_preferences"]["guidance_styles"] == ["keyPoints"]
-    assert len(payloads) == 3
+    assert len(payloads) == 6
     # The old book-only API must not accidentally inherit a different course's
     # settings when the same book belongs to multiple workspaces.
     legacy = a.post(endpoint, json={"question": body["question"]})
     assert legacy.status_code == 200
     assert payloads[-1]["teaching_preferences"]["guidance_styles"] == ["keyPoints"]
-    assert len(payloads) == 4
+    assert len(payloads) == 8
 
 
 def test_catalog_recall_completion_is_idempotent_and_not_repeated_next_day(native):

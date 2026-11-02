@@ -487,7 +487,7 @@ def test_supported_mode_can_fall_back_after_internal_insufficiency():
     result = generator.answer(question="为什么", evidence=[EvidenceChunk(source_id="E1", page_number=1, text="some text")],
                               retrieval_score=1, source_coverage={"skipped_page_ranges": [[2, 2]]})
     assert result.status == AnswerStatus.GENERAL
-    assert result.answer == "教材引用未核验，以下为模型解答。\n\n直接解释。"
+    assert result.answer == "直接解释。"
 
 
 def test_legacy_books_without_evidence_use_general_answers():

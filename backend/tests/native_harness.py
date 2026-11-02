@@ -87,6 +87,8 @@ class FixtureReranker:
 
 class FixtureAnswerModel:
     def structured(self, **kwargs):
+        if kwargs["system"].startswith("你是学习问答路由器"):
+            return {"answer_type": "concept", "needs_retrieval": True, "detail": "normal"}
         evidence = json.loads(kwargs["user"])["evidence"][0]
         return {
             "status": "supported",
