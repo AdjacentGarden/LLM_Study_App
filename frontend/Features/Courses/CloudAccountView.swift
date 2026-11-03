@@ -146,9 +146,8 @@ struct CloudAccountView: View {
       } label: {
         BCGlyph("Settings", color: DS.primary)
           .frame(width: 16, height: 16)
-          .frame(width: 31, height: 31)
+          .iconButtonFrame()
           .background(Color(hex: 0xf7f3ff), in: RoundedRectangle(cornerRadius: 8))
-          .frame(width: 44, height: 44)
           .contentShape(Rectangle())
       }
       .buttonStyle(BCPressStyle())
@@ -193,7 +192,7 @@ struct CloudAccountView: View {
               } label: {
                 Text(remaining > 0 ? "\(remaining) 秒" : busy ? "发送中…" : "获取验证码")
                   .font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
-                  .fixedSize().frame(minHeight: 44)
+                  .fixedSize().buttonFrame()
               }
               .buttonStyle(BCPressStyle())
               .disabled(busy || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || remaining > 0)
@@ -227,7 +226,7 @@ struct CloudAccountView: View {
           } label: {
             Text(busy ? "请稍候…" : registering ? "注册" : "登录")
               .font(DS.font(.button)).foregroundStyle(DS.primary)
-              .frame(maxWidth: .infinity, minHeight: 47)
+              .buttonFrame(.primary, fillsWidth: true)
               .background(DS.primarySoft, in: Capsule())
           }
           .buttonStyle(BCPressStyle()).disabled(busy)
@@ -236,7 +235,7 @@ struct CloudAccountView: View {
             Button { setRegistering(true) } label: {
               Text("注册")
                 .font(DS.font(.button)).foregroundStyle(DS.secondary)
-                .frame(maxWidth: .infinity, minHeight: 47)
+                .buttonFrame(fillsWidth: true)
                 .background(Color(hex: 0xeef1f5), in: Capsule())
             }
             .buttonStyle(BCPressStyle()).disabled(busy)
@@ -253,7 +252,7 @@ struct CloudAccountView: View {
         Button { setRegistering(false) } label: {
           Label("返回登录", systemImage: "chevron.left")
             .font(DS.font(.smallButton)).foregroundStyle(DS.primary)
-            .frame(minHeight: 44).contentShape(Rectangle())
+            .buttonFrame()
         }
         .buttonStyle(BCPressStyle()).disabled(busy)
         .accessibilityIdentifier("cloud.backToLogin")
@@ -409,7 +408,7 @@ struct CloudLearningSetupView: View {
           Text(store.isCloudCoursePreview ? "准备预览课程" : "准备专属课程")
             .font(DS.font(.sectionTitle))
           Spacer()
-          Button("稍后继续") { store.pauseCloudCourseGeneration() }
+          Button("稍后继续") { store.pauseCloudCourseGeneration() }.buttonFrame()
         }
         if store.cloudState.choosingLearningMode {
           VStack(alignment: .leading, spacing: 16) {

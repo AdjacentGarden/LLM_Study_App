@@ -117,9 +117,7 @@ struct NotesPageHeader: View {
         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("navigation.title")
       HStack {
         Button(action: back) {
-          Image(systemName: "arrow.left").font(.system(size: 18)).foregroundStyle(DS.text).frame(
-            width: 44, height: 44
-          ).background(.white, in: RoundedRectangle(cornerRadius: 12)).overlay(
+          Image(systemName: "arrow.left").font(.system(size: 18)).foregroundStyle(DS.text).iconButtonFrame().background(.white, in: RoundedRectangle(cornerRadius: 12)).overlay(
             RoundedRectangle(cornerRadius: 12).stroke(DS.border))
         }.accessibilityLabel("返回").accessibilityIdentifier("navigation.back")
         Spacer()

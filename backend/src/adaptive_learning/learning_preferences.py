@@ -13,6 +13,11 @@ LearningGoal = Literal["systematic", "exam", "growth", "interest"]
 LearningBarrier = Literal["starting", "focus", "understanding", "memory"]
 GuidanceStyle = Literal["keyPoints", "principles", "examples", "stepByStep"]
 PlanningSupport = Literal["selfDirected", "collaborative", "structured", "explore"]
+LearningStage = Literal["middle", "high", "university", "working", "other"]
+CourseGoal = Literal["systematic", "exam", "growth", "interest", "gaps"]
+ContentFocus = Literal["keyPoints", "principles", "practice", "exercises", "notes"]
+LearningAid = Literal["chat", "video", "mistakes", "guidedNotes"]
+Consolidation = Literal["alongside", "notes", "periodic", "mistakes", "free"]
 
 GOAL_LABELS = {
     "systematic": "系统掌握知识",
@@ -51,8 +56,14 @@ class LearningDesignOverrides(BaseModel):
 
 class LearningDesignConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    version: int = 1
+    version: int = 2
+    learning_stage: LearningStage | None = None
     primary_goal: LearningGoal = "systematic"
+    course_goals: list[CourseGoal] = Field(default_factory=list, max_length=5)
+    urgency: Literal["urgent", "steady", "relaxed"] = "steady"
+    content_foci: list[ContentFocus] = Field(default_factory=list, max_length=5)
+    learning_aids: list[LearningAid] = Field(default_factory=list, max_length=4)
+    consolidation: list[Consolidation] = Field(default_factory=list, max_length=5)
     minutes_per_day: int = Field(default=45, ge=5, le=360)
     learning_barriers: list[LearningBarrier] = Field(default_factory=list, max_length=2)
     guidance_styles: list[GuidanceStyle] = Field(default_factory=list, max_length=2)
@@ -124,6 +135,16 @@ class LearningDesignConfig(BaseModel):
             "learning_barriers": self.learning_barriers,
         }
 
+    def teaching_preferences(self) -> dict[str, Any]:
+        """Only validated pedagogical choices; no identity or mastery inference."""
+        return {
+            **self.model_dump(exclude={"sources", "course_revision"}),
+            "goal": GOAL_LABELS[self.primary_goal],
+            "segment_minutes": self.segment_minutes,
+            "presentation_order": self.presentation_order,
+            "support_actions": self.support_actions,
+        }
+
 
 def resolve_learning_design(
     account: Mapping[str, Any] | None = None,
@@ -140,6 +161,8 @@ def resolve_learning_design(
         sources[key] = source
 
     account = account or {}
+    if account.get("learningStage") in {"middle", "high", "university", "working", "other"}:
+        assign("learning_stage", account["learningStage"], "account")
     for source, target, allowed in [
         ("primaryGoal", "primary_goal", GOAL_LABELS),
         (
@@ -165,9 +188,20 @@ def resolve_learning_design(
             assign(target, list(dict.fromkeys(selected))[:2], "account")
 
     course = course or {}
-    goals = {**{k: k for k in GOAL_LABELS}, "professional": "growth"}
-    if course.get("goals") and course["goals"][0] in goals:
-        assign("primary_goal", goals[course["goals"][0]], "course")
+    goals = {**{k: k for k in GOAL_LABELS}, "professional": "growth", "gaps": "gaps"}
+    selected_goals = list(dict.fromkeys(goals[v] for v in course.get("goals", []) if v in goals))
+    if selected_goals:
+        assign("course_goals", selected_goals, "course")
+        assign("primary_goal", "systematic" if selected_goals[0] == "gaps" else selected_goals[0], "course")
+    for source, target, allowed in [
+        ("contentFoci", "content_foci", {"keyPoints", "principles", "practice", "exercises", "notes"}),
+        ("aids", "learning_aids", {"chat", "video", "mistakes", "guidedNotes"}),
+        ("reviews", "consolidation", {"alongside", "notes", "periodic", "mistakes", "free"}),
+    ]:
+        if source in course:
+            assign(target, sorted(set(course[source]) & allowed), "course")
+    if course.get("urgency") and course["urgency"][0] in {"urgent", "steady", "relaxed"}:
+        assign("urgency", course["urgency"][0], "course")
     if course.get("timePattern") and course["timePattern"][0] in {"block", "fragmented"}:
         assign("time_pattern", course["timePattern"][0], "course")
     if course.get("reviews"):

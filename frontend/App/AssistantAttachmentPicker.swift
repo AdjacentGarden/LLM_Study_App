@@ -39,14 +39,14 @@ struct AssistantAttachmentMenu: View {
         Image(systemName: symbol)
           .font(.system(size: 21, weight: .medium))
           .foregroundStyle(DS.primary)
-          .frame(width: 44, height: 44)
+          .iconButtonFrame()
           .background(DS.primary.opacity(0.08), in: Circle())
           .accessibilityHidden(true)
         Text(title).appFont(.body, weight: .medium).foregroundStyle(DS.text)
         Spacer(minLength: 0)
       }
-      .padding(.horizontal, 8).padding(.vertical, 6)
-      .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+      .padding(.horizontal, 8)
+      .buttonFrame(fillsWidth: true)
       .contentShape(RoundedRectangle(cornerRadius: 18))
     }
     .buttonStyle(.plain)

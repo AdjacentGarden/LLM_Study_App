@@ -29,10 +29,10 @@ struct ProcessingNetworkChoicePanel: View {
             .accessibilityIdentifier("network.useLocal")
           Button("继续使用原有流程（消耗流量）") { resolve(.existing) }
             .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .buttonFrame(fillsWidth: true)
             .accessibilityIdentifier("network.useExisting")
           Button("暂不处理") { resolve(.cancelled) }
-            .font(DS.font(.supporting)).foregroundStyle(DS.secondary).frame(maxWidth: .infinity, minHeight: 36)
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary).buttonFrame(fillsWidth: true)
             .accessibilityIdentifier("network.cancel")
         }
       }.padding(24).frame(maxWidth: 540).background(DS.surface,

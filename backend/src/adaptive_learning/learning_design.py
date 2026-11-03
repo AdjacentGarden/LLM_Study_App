@@ -20,6 +20,29 @@ from .native import NativeConflict
 from .personalization.review import review_state_for_point
 
 
+def design_for_profile(
+    account: dict[str, Any] | None, course: dict[str, list[str]],
+    stored: dict[str, Any], profile: LearnerProfile | None = None,
+) -> LearningDesignConfig:
+    """Resolve the same effective design for generation and native metadata."""
+    declarations = {}
+    field_names = {"goal": "primary_goal", "minutes_per_day": "minutes_per_day"}
+    if profile:
+        for evidence in profile.evidence:
+            if evidence.kind != EvidenceKind.DECLARED:
+                continue
+            newer_override = (
+                stored["revision"] > evidence.design_revision
+                and stored["overrides"].get(field_names.get(evidence.field, "")) is not None
+            )
+            if not newer_override:
+                declarations[evidence.field] = evidence.value
+    config = resolve_learning_design(
+        account, course, LearningDesignOverrides.model_validate(stored["overrides"]), declarations,
+    )
+    return config.model_copy(update={"course_revision": stored["revision"]})
+
+
 def resolved_profile(services: Any, session: InterviewSession) -> LearnerProfile:
     context = services.native_repository.design_context(session.session_id)
     if context is None:
@@ -45,25 +68,7 @@ class NativeLearningDesign:
     ) -> LearningDesignConfig:
         course = self.repo.workspace(owner, wid)
         stored = self.repo.design_overrides(owner, wid)
-        declarations = {}
-        field_names = {"goal": "primary_goal", "minutes_per_day": "minutes_per_day"}
-        if profile:
-            for evidence in profile.evidence:
-                if evidence.kind != EvidenceKind.DECLARED:
-                    continue
-                newer_override = (
-                    stored["revision"] > evidence.design_revision
-                    and stored["overrides"].get(field_names.get(evidence.field, "")) is not None
-                )
-                if not newer_override:
-                    declarations[evidence.field] = evidence.value
-        config = resolve_learning_design(
-            self.repo.learner_preferences(owner),
-            course["preferences"],
-            LearningDesignOverrides.model_validate(stored["overrides"]),
-            declarations,
-        )
-        return config.model_copy(update={"course_revision": stored["revision"]})
+        return design_for_profile(self.repo.learner_preferences(owner), course["preferences"], stored, profile)
 
     def state(self, owner: str, wid: str) -> dict[str, Any]:
         config = self.config(owner, wid)
@@ -270,7 +275,7 @@ class NativeLearningDesign:
             priority = {
                 "recall": 4,
                 "learn": 2,
-                "practice": 3 if config.primary_goal in {"exam", "growth"} else 1,
+                "practice": 3 if (config.primary_goal in {"exam", "growth"} or "gaps" in config.course_goals or config.urgency == "urgent") else 1,
             }
             while pending and remaining > 0:
                 ready = [

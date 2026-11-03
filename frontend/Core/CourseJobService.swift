@@ -56,15 +56,22 @@ actor CourseJobService {
   let api: CloudAPI
   let repository: LocalBookCourseRepository
   let accountKey: String
+  let designFingerprint: String?
+  let previousPublicationID: String?
 
-  init(api: CloudAPI, repository: LocalBookCourseRepository, accountKey: String) {
+  init(api: CloudAPI, repository: LocalBookCourseRepository, accountKey: String,
+    designFingerprint: String? = nil, previousPublicationID: String? = nil) {
     self.api = api
     self.repository = repository
     self.accountKey = accountKey
+    self.designFingerprint = designFingerprint
+    self.previousPublicationID = previousPublicationID
   }
 
   func receiptKey(sessionID: String, chapterID: String) throws -> String {
-    let values = [api.baseURL.absoluteString, accountKey, sessionID, chapterID]
+    var values = [api.baseURL.absoluteString, accountKey, sessionID, chapterID]
+    if let designFingerprint { values.append(designFingerprint) }
+    if let previousPublicationID { values.append(previousPublicationID) }
     let bytes = try JSONEncoder().encode(values)
     return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
   }
@@ -108,10 +115,12 @@ actor CourseJobService {
     let job: CloudCourseJob
     if let id = receipt.jobID { job = try await api.request(path + "/" + id) }
     else {
-      job = try await api.request(path, method: "POST", body: [
+      var body: [String: JSONValue] = [
         "chapter_id": .string(chapterID), "request_id": .string(receipt.requestID),
         "retry": .bool(retry),
-      ])
+      ]
+      if let designFingerprint { body["design_fingerprint"] = .string(designFingerprint) }
+      job = try await api.request(path, method: "POST", body: body)
     }
     guard job.session_id == sessionID, job.chapter_id == chapterID, !job.job_id.isEmpty,
       receipt.jobID == nil || receipt.jobID == job.job_id else {

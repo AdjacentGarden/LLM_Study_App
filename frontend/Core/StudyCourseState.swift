@@ -54,6 +54,9 @@ enum StudyCoursePreparation: Equatable {
   }
 
   func courseCreationLabel(_ course: Course) -> String? {
+    if let upload = courseUpload(for: course.id) {
+      return upload.isRunning ? "上传中" : upload.isComplete ? "已上传 · 待整理" : "上传未完成"
+    }
     if let record = courseImport(for: course.id) {
       if record.needsPreparation {
         if sources.contains(where: { course.resourceIDs.contains($0.id) && !$0.chapters.isEmpty }) {

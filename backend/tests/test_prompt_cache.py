@@ -88,6 +88,8 @@ def test_grounded_answer_orders_teaching_preferences_before_scope_keys():
 def test_teaching_unit_writer_orders_stable_material_before_repair_context():
     from types import SimpleNamespace
 
+    from test_teaching_content import course
+
     from adaptive_learning.personalization.teaching_unit_engine import UnitEngine
 
     seen: dict = {}
@@ -105,6 +107,7 @@ def test_teaching_unit_writer_orders_stable_material_before_repair_context():
 
     engine = object.__new__(UnitEngine)
     engine.g = Generator()
+    engine.bundle = course(1)[0]
     engine.by_id = {"p1": {"scope_conditions": []}}
     engine.chapter = SimpleNamespace(title="第一章")
     engine.run = SimpleNamespace(identity={"epoch": 1})
@@ -120,7 +123,7 @@ def test_teaching_unit_writer_orders_stable_material_before_repair_context():
     }
     engine._write_one(unit)
     keys = list(seen)
-    for stable in ("output_shape", "engine"):
+    for stable in ("teaching_preferences", "depth", "scaffolds", "emphasis", "output_shape", "engine"):
         for repair in ("previous_candidate", "rejected_design", "latest_invalid_draft",
                        "prior_failed_designs"):
             assert keys.index(stable) < keys.index(repair)

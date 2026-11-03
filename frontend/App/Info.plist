@@ -55,6 +55,7 @@
 	<array>
 		<string>Fonts/BookCourseNotoSansSC-Regular.ttf</string>
 		<string>Fonts/BookCourseNotoSansSC-Bold.ttf</string>
+		<string>Fonts/InterVariable.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
@@ -63,6 +64,8 @@
 	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>UIStatusBarHidden</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

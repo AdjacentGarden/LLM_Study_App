@@ -356,7 +356,7 @@ struct NotesVoiceNoteView: View {
             HStack {
               Text("语音批注").font(DS.font(.cardTitle))
               Spacer()
-              Button("关闭") { finishAndClose() }
+              Button("关闭") { finishAndClose() }.buttonFrame()
             }.padding(.horizontal, 4)
           }
           if store.isPad && !embedded {
@@ -474,7 +474,7 @@ struct NotesVoiceNoteView: View {
         Button("重新选择处理方式") {
           store.processingPolicy.reconsiderCellularChoice()
           generateNote(retryFailed: true)
-        }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
+        }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonFrame()
           .accessibilityIdentifier("voice.reconsiderProcessing")
       }
       if working {
@@ -514,15 +514,14 @@ struct NotesVoiceNoteView: View {
       case .requesting: ProgressView("正在请求麦克风权限…").font(DS.font(.supporting)).frame(height: 68)
       case .idle: roundControl("Mic2", title: "开始录音", main: true) { Task { await audio.start() } }
       }
-    }.frame(maxWidth: .infinity).frame(minHeight: embedded ? 56 : 68)
+    }.frame(maxWidth: .infinity).frame(height: DS.ButtonSize.regular.height + 18)
   }
   private func roundControl(_ icon: String, title: String, main: Bool, stop: Bool = false,
     action: @escaping () -> Void) -> some View {
     Button(action: action) {
-      NotesGlyph(name: icon, size: main ? (embedded ? 24 : 30) : (embedded ? 20 : 24))
+      NotesGlyph(name: icon, size: 22)
         .foregroundStyle(main ? .white : DS.primary)
-        .frame(width: main ? (embedded ? 56 : 68) : (embedded ? 44 : 52),
-          height: main ? (embedded ? 56 : 68) : (embedded ? 44 : 52))
+        .iconButtonFrame()
         .background(main ? (stop ? Color(hex: 0xe04462) : DS.primary) : DS.primarySoft, in: Circle())
         .shadow(color: main ? DS.primary.opacity(0.22) : .clear, radius: 11, y: 6)
     }.buttonStyle(.plain).accessibilityLabel(title)

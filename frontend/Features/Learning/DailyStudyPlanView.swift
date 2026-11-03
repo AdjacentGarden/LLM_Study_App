@@ -129,7 +129,7 @@ struct DailyStudyPlanView: View {
             Text(task.title).font(DS.font(.cardTitle)).multilineTextAlignment(.leading)
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").foregroundStyle(DS.primary)
-          }
+          }.buttonFrame(fillsWidth: true)
         }.buttonStyle(.plain).disabled(plan.needs_confirmation)
           .accessibilityIdentifier("plan.open.\(task.id)")
         if let resource = store.cloudState.workspaces.first(where: { $0.id == store.selectedCourseID })?
@@ -143,7 +143,7 @@ struct DailyStudyPlanView: View {
             Task { await store.completeDailyStudyTask(task, day: day) }
           } label: {
             Label(pending ? "完成记录待同步 · 重试" : "标记完成", systemImage: pending ? "arrow.clockwise" : "circle")
-              .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
+              .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonFrame()
           }.buttonStyle(.plain).disabled(plan.needs_confirmation || store.cloudState.syncing && pending)
             .accessibilityIdentifier("plan.complete.\(task.id)")
         }

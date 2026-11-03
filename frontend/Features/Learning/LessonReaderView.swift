@@ -216,6 +216,13 @@ struct LessonReaderView: View {
     store.lessons.first { $0.chapter_id == store.selectedChapterID } ?? store.activeLesson
   }
   private var chapter: Chapter? { store.chapters.first { $0.id == store.selectedChapterID } }
+  private var cloudCourse: CloudCourse? {
+    store.cloudResource?.courses.first { $0.chapter_id == lesson?.chapter_id }
+  }
+  private var needsPreferenceUpdate: Bool {
+    guard let chapterID = lesson?.chapter_id else { return false }
+    return store.cloudResource?.needsPreferenceUpdate(chapterID: chapterID) == true
+  }
   private var assets: [BookAsset] {
     store.currentSource?.assets.filter { asset in
       asset.chapter_id == lesson?.chapter_id
@@ -254,6 +261,19 @@ struct LessonReaderView: View {
           ScrollViewReader { proxy in
             ScrollView {
               VStack(spacing: 0) {
+                if needsPreferenceUpdate {
+                  VStack(alignment: .leading, spacing: 10) {
+                    Text("学习偏好已更新").font(DS.font(.cardTitle))
+                    Text("本章仍保留原来的学习内容。更新后会按当前课程设置重新整理，学习记录会保留。")
+                      .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                    BCButton("按当前偏好更新本章", icon: "arrow.clockwise") {
+                      store.requestCloudLearning(chapterID: lesson.chapter_id)
+                    }.disabled(store.cloudState.isWorking)
+                      .accessibilityIdentifier("lesson.updatePreferences")
+                  }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
+                    .background(DS.primarySoft)
+                    .accessibilityIdentifier("lesson.preferencesChanged")
+                }
                 pageStatus
                 Group {
                   if let section = activeSection {
@@ -353,7 +373,7 @@ struct LessonReaderView: View {
           store.back()
         } label: {
           BCGlyph("ArrowLeft").frame(width: 18, height: 18)
-            .frame(width: 44, height: 44).background(
+            .iconButtonFrame().background(
               DS.surface, in: RoundedRectangle(cornerRadius: 12)
             )
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border, lineWidth: 1))
@@ -410,10 +430,16 @@ struct LessonReaderView: View {
       Button {
         concept = lesson.key_concepts.first ?? lesson.title
       } label: {
-        Text("本节导读").font(DS.font(.cardTitle)).frame(minHeight: 26, alignment: .leading)
+        Text("本节导读").font(DS.font(.cardTitle)).buttonFrame()
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(lesson.key_concepts.first ?? lesson.title)")
         .accessibilityIdentifier("lesson.concept")
       paragraph(lesson.summary)
+      if let summary = cloudCourse?.personalizationSummary {
+        VStack(alignment: .leading, spacing: 6) {
+          Text("本章学习安排").font(DS.font(.cardTitle))
+          Text(summary).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+        }.accessibilityIdentifier("lesson.personalization")
+      }
       if let overviewImage { figure(overviewImage) }
       if !lesson.objectives.isEmpty {
         VStack(alignment: .leading, spacing: 5) {
@@ -438,7 +464,7 @@ struct LessonReaderView: View {
       Button {
         concept = section.block.title
       } label: {
-        Text(section.block.title).font(DS.font(.cardTitle)).lineSpacing(3)
+        Text(section.block.title).font(DS.font(.cardTitle)).lineSpacing(3).buttonFrame()
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(section.block.title)")
         .accessibilityIdentifier("lesson.concept")
       ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, text in
@@ -493,9 +519,9 @@ struct LessonReaderView: View {
             HStack(spacing: 5) {
               Image(systemName: "play.circle").font(.system(size: 14))
               Text("生成讲解短片")
-            }.font(DS.font(.smallButton)).foregroundStyle(DS.primary)
+            }.font(DS.font(.smallButton)).foregroundStyle(DS.primary).buttonFrame()
           }.buttonStyle(.plain).accessibilityIdentifier("lesson.video.open.\(asset.id)")
-        }.frame(height: 28).frame(maxWidth: activeSection == nil ? 272 : 272).fixedSize(
+        }.frame(height: DS.ButtonSize.regular.height).frame(maxWidth: 272).fixedSize(
           horizontal: false, vertical: true)
       }.frame(maxWidth: .infinity).padding(.vertical, 2)
         .accessibilityElement(children: .contain).accessibilityLabel(asset.caption)
@@ -516,7 +542,7 @@ struct LessonReaderView: View {
       } label: {
         Label("查看原文", systemImage: "book").font(DS.font(.smallButton)).foregroundStyle(
           DS.primary)
-      }.buttonStyle(.plain).frame(minHeight: 44)
+      }.buttonStyle(.plain).buttonFrame()
         .accessibilityLabel(
           "查看原文，\(learningPageLabel(citation.page_start, end: citation.page_end, printed: citation.printed_page_start, printedEnd: citation.printed_page_end))"
         )
@@ -529,7 +555,7 @@ struct LessonReaderView: View {
         changePage(by: -1)
       } label: {
         Label("上一页", systemImage: "chevron.left").font(DS.font(.smallButton))
-          .frame(minWidth: 66, minHeight: 44)
+          .frame(minWidth: 66).buttonFrame()
       }.disabled(page == 0).opacity(page == 0 ? 0.35 : 1)
       Spacer(minLength: 0)
       Button {
@@ -539,7 +565,7 @@ struct LessonReaderView: View {
           StickerIcon("Sparkles", size: 26)
           Text("问问 AI").font(DS.font(.smallButton))
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
         .background(DS.primarySoft, in: Capsule())
       }
       Spacer(minLength: 0)
@@ -548,8 +574,9 @@ struct LessonReaderView: View {
           store.completeLesson()
           store.go(.study)
         } label: {
-          Label("完成本节", systemImage: "checkmark.circle.fill").font(DS.font(.smallButton))
-            .foregroundStyle(.white).padding(.horizontal, 14).frame(minHeight: 44)
+          Label("完成本节", systemImage: "checkmark.circle.fill").font(DS.font(.button))
+            .foregroundStyle(.white).padding(.horizontal, DS.ButtonSize.primary.horizontalPadding)
+            .buttonFrame(.primary)
             .background(DS.primary, in: Capsule())
         }
       } else {
@@ -560,7 +587,7 @@ struct LessonReaderView: View {
             Text("下一页")
             Image(systemName: "chevron.right")
           }
-          .font(DS.font(.smallButton)).frame(minWidth: 66, minHeight: 44)
+          .font(DS.font(.smallButton)).frame(minWidth: 66).buttonFrame()
         }
       }
     }
@@ -623,7 +650,7 @@ struct LessonReaderView: View {
           Button {
             concept = nil
           } label: {
-            Image(systemName: "xmark").frame(width: 34, height: 34)
+            Image(systemName: "xmark").iconButtonFrame()
           }.buttonStyle(.plain).accessibilityLabel("关闭概念").accessibilityIdentifier(
             "lesson.concept.close")
         }

@@ -138,7 +138,10 @@ struct CourseChoice: View {
           }.frame(minHeight: illustrated ? 40 : 20)
         }
       }
-      .padding(14).foregroundStyle(selected ? DS.primaryPressed : DS.text)
+      .padding(.horizontal, 14)
+      .padding(.vertical, tall || illustrated ? 14 : 0)
+      .frame(height: tall || illustrated ? nil : DS.ButtonSize.regular.height)
+      .contentShape(Rectangle()).foregroundStyle(selected ? DS.primaryPressed : DS.text)
       .background(selected ? DS.primarySoft : DS.surface)
       .clipShape(RoundedRectangle(cornerRadius: tall ? 18 : 14))
       .overlay(

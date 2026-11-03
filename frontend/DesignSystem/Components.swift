@@ -19,6 +19,13 @@ enum DS {
   static let navigationRowHeight: CGFloat = 44
   // Align controls with the visible cap height of the navigation title.
   static let navigationButtonOffset: CGFloat = -4
+  /// Button controls share two heights; tappable cards keep their content-driven layout.
+  enum ButtonSize {
+    case primary, regular
+
+    var height: CGFloat { self == .primary ? 54 : 44 }
+    var horizontalPadding: CGFloat { self == .primary ? 14 : 12 }
+  }
   /// Shared type scale. Feature views select a role rather than an arbitrary point size.
   enum Typography: CaseIterable {
     case pageTitle, sectionTitle, cardTitle, reading, body, supporting, caption
@@ -140,6 +147,18 @@ private struct BCAppFont: ViewModifier {
 }
 
 extension View {
+  /// Apply to the label before its background so the visible surface fills the control.
+  func buttonFrame(_ size: DS.ButtonSize = .regular, fillsWidth: Bool = false) -> some View {
+    frame(minWidth: DS.ButtonSize.regular.height, maxWidth: fillsWidth ? .infinity : nil)
+      .frame(height: size.height)
+      .contentShape(Rectangle())
+  }
+
+  func iconButtonFrame() -> some View {
+    frame(width: DS.ButtonSize.regular.height, height: DS.ButtonSize.regular.height)
+      .contentShape(Rectangle())
+  }
+
   func appFont(_ style: DS.Typography, weight: Font.Weight? = nil) -> some View {
     modifier(BCAppFont(style, weight: weight))
   }
@@ -150,15 +169,17 @@ struct BCButton: View {
   let title: String
   var icon: String?
   var style: BCButtonStyle
+  var size: DS.ButtonSize
   let action: () -> Void
   @Environment(\.isEnabled) private var enabled
   init(
-    _ title: String, icon: String? = nil, style: BCButtonStyle = .primary,
+    _ title: String, icon: String? = nil, style: BCButtonStyle = .primary, size: DS.ButtonSize? = nil,
     action: @escaping () -> Void
   ) {
     self.title = title
     self.icon = icon
     self.style = style
+    self.size = size ?? (style == .primary ? .primary : .regular)
     self.action = action
   }
   var body: some View {
@@ -173,14 +194,14 @@ struct BCButton: View {
         }
         Text(title).font(DS.font(.button)).multilineTextAlignment(.center)
       }
-      .frame(maxWidth: .infinity).frame(minHeight: 54)
+      .buttonFrame(size, fillsWidth: true)
       .foregroundStyle(
         !enabled
           ? DS.muted
           : style == .primary
             ? .white : style == .danger ? DS.danger : style == .text ? DS.primary : DS.text
       )
-      .padding(.horizontal, 14)
+      .padding(.horizontal, size.horizontalPadding)
       .background(
         enabled
           ? (style == .primary
@@ -268,7 +289,7 @@ struct BCHeader: View {
       HStack {
         if let back {
           Button(action: back) {
-            BCGlyph("ArrowLeft").frame(width: 18, height: 18).frame(width: 44, height: 44)
+            BCGlyph("ArrowLeft").frame(width: 18, height: 18).iconButtonFrame()
               .background(.white, in: RoundedRectangle(cornerRadius: 12)).overlay(
                 RoundedRectangle(cornerRadius: 12).stroke(DS.border, lineWidth: 1))
           }.accessibilityLabel("返回").accessibilityIdentifier("navigation.back")
@@ -277,7 +298,7 @@ struct BCHeader: View {
         if let actionTitle, let action {
           Button(action: action) {
             Text(actionTitle).font(DS.font(.smallButton)).foregroundStyle(DS.primary)
-              .frame(minHeight: 44)
+              .buttonFrame()
           }
         }
       }.offset(y: DS.navigationButtonOffset)

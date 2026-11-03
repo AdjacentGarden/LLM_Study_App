@@ -44,7 +44,7 @@ struct StudyProgressCard: View {
               Text("计划详情")
               Image(systemName: "chevron.right")
             }.font(DS.font(.body, weight: .medium)).foregroundStyle(DS.primary)
-              .frame(minHeight: 44)
+              .buttonFrame()
           }
           .buttonStyle(.plain).accessibilityLabel("计划详情")
         }.transition(.opacity)
@@ -62,7 +62,7 @@ struct StudyProgressCard: View {
       // Cast one shadow from the finished pane; separate translucent layers
       // would otherwise shadow each other and muddy the lavender transmission.
       .compositingGroup()
-      .shadow(color: Color(white: 0.462).opacity(0.25), radius: 4.45, x: 4, y: 4)
+      .studyProgressShadow()
       .allowsHitTesting(false).accessibilityHidden(true)
     }
     .accessibilityElement(children: .contain)
@@ -111,5 +111,12 @@ struct StudyProgressCard: View {
         .frame(width: 375, height: height)
         .scaleEffect(x: geometry.size.width / 375, y: geometry.size.height / height, anchor: .topLeading)
     }
+  }
+}
+
+// Keep the directory selection and progress pane on the same elevation.
+extension View {
+  func studyProgressShadow(enabled: Bool = true) -> some View {
+    shadow(color: Color(white: 0.462).opacity(enabled ? 0.25 : 0), radius: 4.45, x: 4, y: 4)
   }
 }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from ..assessment.models import (
     AssessmentResponse,
@@ -125,11 +125,21 @@ class InterviewResponse(BaseModel):
     turn: InterviewTurn
     profile: LearnerProfile
 
+    @computed_field
+    @property
+    def design_fingerprint(self) -> str | None:
+        return self.profile.learning_design.fingerprint if self.profile.learning_design else None
+
 
 class DiagnosticAnswerResponse(BaseModel):
     evidence: ScoredEvidence
     next_turn: InterviewTurn
     profile: LearnerProfile
+
+    @computed_field
+    @property
+    def design_fingerprint(self) -> str | None:
+        return self.profile.learning_design.fingerprint if self.profile.learning_design else None
 
 
 class ProfileConfirmationRequest(BaseModel):

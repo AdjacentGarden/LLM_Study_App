@@ -13,6 +13,7 @@ from .assessment.repository import SQLiteAssessmentRepository
 from .community import CommunityRepository
 from .ingestion.covers import cover_url
 from .ingestion.jobs import SQLiteOCRJobRepository
+from .learning_design import design_for_profile
 from .learning_preferences import LearningDesignOverrides, resolve_learning_design
 from .native import NativeRepository
 from .personalization.models import ChapterLearningBundle, PublicChapterLearningBundle
@@ -61,6 +62,7 @@ class BootstrapService:
         bundles: dict[str, dict[str, ChapterLearningBundle]] = {}
         session_states: dict[str, Any] = {}
         session_purposes: dict[str, str] = {}
+        session_profiles = {}
         content_versions: dict[str, list[Any]] = {}
         if sessions:
             placeholders = ",".join("?" for _ in sessions)
@@ -75,7 +77,16 @@ class BootstrapService:
                 for row in db.execute(f"SELECT session_id,session_json FROM interview_sessions WHERE session_id IN ({placeholders})", sessions):
                     session = InterviewSession.model_validate_json(row["session_json"])
                     session_purposes[row["session_id"]] = session.purpose
+                    session_profiles[row["session_id"]] = session.profile
                     session_states[row["session_id"]] = {k: v.model_dump(mode="json") for k, v in session.profile.flashcard_reviews.items()}
+        effective_designs = {}
+        for workspace in workspaces:
+            override = overrides.get(workspace["id"])
+            effective_designs[workspace["id"]] = (
+                json.loads(workspace["preferences"]),
+                {"revision": override["revision"] if override else 0,
+                 "overrides": json.loads(override["payload"]) if override else {}},
+            )
         assembled: dict[str, list[dict[str, Any]]] = {}
         for row in resources:
             book = stored.get(row["book_id"])
@@ -85,6 +96,11 @@ class BootstrapService:
             builtin = row["book_id"] == curated.BOOK_ID
             version = builtin_content_version() if builtin else hashlib.sha256(json.dumps([row["revision"], structures.get(row["book_id"]), content_versions.get(row["session_id"], [])], sort_keys=True).encode()).hexdigest()
             resource = {"id": row["id"], "book_id": row["book_id"], "workspace_id": row["workspace_id"], "revision": row["revision"], "session_id": row["session_id"], "session_purpose": session_purposes.get(row["session_id"]), "filename": book["original_name"] if book else "教材.pdf", "status": "ready" if builtin else book["status"] if book else "missing", "progress": value, "flashcard_reviews": session_states.get(row["session_id"], reviews.get(row["id"], {})), "structure": None if light else structure, "courses": [] if light else courses, "source_content": curated.public_source(row["id"], value) if builtin and not light else None}
+            course_preferences, design_overrides = effective_designs[row["workspace_id"]]
+            resource["learning_design_fingerprint"] = design_for_profile(
+                preferences, course_preferences, design_overrides,
+                session_profiles.get(row["session_id"]),
+            ).fingerprint
             resource["cover_url"] = (cover_url(self.data_dir, row["book_id"])
                                      if self.data_dir is not None else None)
             if not resource["cover_url"] and builtin:

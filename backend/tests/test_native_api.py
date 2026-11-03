@@ -22,8 +22,8 @@ def test_native_capabilities_report_client_support_without_claiming_runtime_read
         assert capabilities[name]["runtime_status_path"] == "/api/studio/capabilities"
         assert "ready" not in capabilities[name]
     assert capabilities["server_planning"] == {"backend": True, "native": True}
-    for name in ("note_cloud_sync", "teaching_units"):
-        assert capabilities[name]["native"] is False
+    assert capabilities["note_cloud_sync"]["native"] is False
+    assert capabilities["teaching_units"] == {"backend": True, "native": True}
 
 
 def test_local_default_login_retains_account_and_uploaded_pdf(tmp_path, monkeypatch):

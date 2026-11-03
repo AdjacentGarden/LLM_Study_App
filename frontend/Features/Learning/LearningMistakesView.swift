@@ -122,7 +122,7 @@ struct LearningMistakesView: View {
       startReview()
     } label: {
       Text(due > 0 ? "开始今日复习" : "再复习一轮").font(DS.font(.button))
-        .foregroundStyle(.white).padding(.horizontal, 20).frame(minHeight: 54)
+        .foregroundStyle(.white).padding(.horizontal, DS.ButtonSize.primary.horizontalPadding).buttonFrame(.primary)
         .background(DS.primary, in: Capsule())
     }.buttonStyle(.plain)
   }
@@ -157,7 +157,7 @@ struct LearningMistakesView: View {
         Button {
           search = ""
         } label: {
-          Image(systemName: "xmark.circle.fill").foregroundStyle(DS.secondary)
+          Image(systemName: "xmark.circle.fill").foregroundStyle(DS.secondary).iconButtonFrame()
         }.accessibilityLabel("清除错题搜索")
       }
     }.padding(.horizontal, 12).padding(.vertical, 10).background(
@@ -173,7 +173,7 @@ struct LearningMistakesView: View {
           withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { filter = item }
         } label: {
           Text(item).font(DS.font(.body)).foregroundStyle(filter == item ? DS.primary : DS.text)
-            .frame(maxWidth: .infinity, minHeight: 38)
+            .buttonFrame(fillsWidth: true)
             .background(
               filter == item ? DS.primarySoft : Color(hex: 0xf3f6fb),
               in: RoundedRectangle(cornerRadius: 12)
@@ -305,7 +305,7 @@ struct LearningMistakesView: View {
           reviewing = false
           resetReview()
         } label: {
-          Image(systemName: "chevron.left").frame(width: 34, height: 44)
+          Image(systemName: "chevron.left").iconButtonFrame()
         }.buttonStyle(.plain).accessibilityLabel("返回错题记录")
         VStack(alignment: .leading, spacing: 4) {
           Text("错题复习").font(DS.font(.cardTitle))
@@ -334,12 +334,12 @@ struct LearningMistakesView: View {
             Button("完成输入") {
               UIApplication.shared.sendAction(
                 #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
+            }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonFrame().buttonStyle(.plain)
               .accessibilityIdentifier("learning.keyboard.done")
             Button("填入上次答案") {
               answer = mistake.answer
               error = nil
-            }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
+            }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary).buttonFrame().buttonStyle(.plain)
           }
           BCTextEditor(text: $answer, placeholder: "先独立回忆，不急着看解析").frame(minHeight: 180)
             .accessibilityIdentifier("mistake.answer")
@@ -373,7 +373,7 @@ struct LearningMistakesView: View {
                     if selectedReason == reason { Image(systemName: "checkmark") }
                     Text(reason)
                   }
-                  .font(DS.font(.caption, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 42)
+                  .font(DS.font(.caption, weight: .semibold)).buttonFrame(fillsWidth: true)
                   .foregroundStyle(selectedReason == reason ? DS.primary : DS.secondary)
                   .background(
                     selectedReason == reason ? DS.primarySoft : DS.background, in: Capsule()

@@ -120,7 +120,7 @@ struct AssistantComposer: View {
           showAttachmentChoices()
         } label: {
           Image(systemName: "plus").font(.system(size: 24, weight: .medium))
-            .foregroundStyle(DS.primary).frame(width: 44, height: 44).contentShape(Circle())
+            .foregroundStyle(DS.primary).iconButtonFrame().contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("添加相机照片、图片或文件")
@@ -149,7 +149,7 @@ struct AssistantComposer: View {
             voice.enterVoice()
           }
         } label: {
-          AssistantMicrophoneOrb(size: 44, symbol: hasSubmission ? "arrow.up" : "mic.fill",
+          AssistantMicrophoneOrb(symbol: hasSubmission ? "arrow.up" : "mic.fill",
             working: busy, themeFill: true)
         }
         .disabled(busy || voice.isVoiceMode || addingAttachments)
@@ -188,23 +188,23 @@ private struct AssistantComposerLayout: Layout {
 }
 
 private struct AssistantMicrophoneOrb: View {
-  let size: CGFloat
+  private let size = DS.ButtonSize.regular.height
   var symbol = "mic.fill"
   var working = false
   var recording = false
   var themeFill = false
   var body: some View {
     Color.clear
-      .frame(width: size, height: size)
+      .iconButtonFrame()
       .background(themeFill ? DS.primary : .clear, in: Circle())
       .modifier(AssistantGlassSurface(radius: size / 2, clear: true,
         tint: DS.primary.opacity(themeFill ? 1 : (recording ? 0.46 : 0.32)), interactive: true))
       .overlay {
         // Keep the white glyph above the tinted glass material.
-        if working { ProgressView().tint(.white).scaleEffect(size > 44 ? 1.25 : 1) }
+        if working { ProgressView().tint(.white) }
         else {
           Image(systemName: symbol)
-            .font(.system(size: size > 44 ? 29 : 21, weight: .medium))
+            .font(.system(size: 21, weight: .medium))
             .symbolRenderingMode(.monochrome)
             .foregroundStyle(.white)
             .contentTransition(.symbolEffect(.replace))
@@ -222,14 +222,14 @@ private struct AssistantVoiceRing: View {
   var body: some View {
     let ring = Double(index)
     let fill: Double = reduceTransparency ? 0.16 : 0.045 + ring * 0.035 + level * 0.05
-    let diameter = CGFloat(128 - index * 14)
+    let diameter = CGFloat(76 - index * 12)
     let scale: Double = reduceMotion ? 1 : 1 + level * (0.28 - ring * 0.065)
     return Circle()
       .fill(DS.primary.opacity(fill))
       .overlay { Circle().strokeBorder(DS.primary.opacity(0.10 + level * 0.14), lineWidth: 0.7) }
       .frame(width: diameter, height: diameter)
       .scaleEffect(scale)
-      .accessibilityHidden(true)
+      .allowsHitTesting(false).accessibilityHidden(true)
   }
 }
 
@@ -261,7 +261,7 @@ private struct AssistantVoiceControls: View {
       HStack(spacing: 0) {
         Button(action: onKeyboard) {
           Image(systemName: "keyboard").font(.system(size: 21))
-            .frame(width: 48, height: 48)
+            .iconButtonFrame()
             .contentShape(RoundedRectangle(cornerRadius: 18))
             .modifier(AssistantGlassSurface(radius: 18))
         }.accessibilityLabel("切回文字输入")
@@ -275,9 +275,9 @@ private struct AssistantVoiceControls: View {
               index: index, level: voice.level, reduceMotion: reduceMotion,
               reduceTransparency: reduceTransparency)
           }
-          AssistantMicrophoneOrb(size: 84, working: working, recording: voice.phase == .recording)
+          AssistantMicrophoneOrb(working: working, recording: voice.phase == .recording)
         }
-        .frame(width: 168, height: 164).contentShape(Circle())
+        .iconButtonFrame().contentShape(Circle())
         .animation(reduceMotion ? nil : .easeOut(duration: 0.11), value: voice.level)
         .gesture(
           DragGesture(minimumDistance: 0)
@@ -303,7 +303,7 @@ private struct AssistantVoiceControls: View {
 
         Button(action: onClose) {
           Image(systemName: "xmark").font(.system(size: 20))
-            .frame(width: 48, height: 48)
+            .iconButtonFrame()
             .contentShape(RoundedRectangle(cornerRadius: 18))
             .modifier(AssistantGlassSurface(radius: 18))
         }.accessibilityLabel("退出语音输入")

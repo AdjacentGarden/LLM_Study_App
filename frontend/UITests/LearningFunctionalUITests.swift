@@ -290,8 +290,10 @@ final class LearningFunctionalUITests: XCTestCase {
       wait("Lesson page \(number) should be reachable") { page.value as? String == String(number) }
     }
     evidence("learning-last-lesson-page", app: app)
-    tap(app.buttons["完成本节"].firstMatch, app: app)
-    XCTAssertTrue(app.staticTexts["学习计划"].firstMatch.waitForExistence(timeout: 10))
+    let complete = app.buttons["完成本节"].firstMatch
+    XCTAssertEqual(complete.frame.height, 54, accuracy: 1)
+    tap(complete, app: app)
+    XCTAssertTrue(app.buttons["study.course.switch"].firstMatch.waitForExistence(timeout: 10))
     app.terminate()
     let reopened = launch("lesson", session: session)
     XCTAssertTrue(reopened.staticTexts["lesson.page"].firstMatch.waitForExistence(timeout: 20))

@@ -14,6 +14,7 @@ import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -1031,7 +1032,7 @@ def start_interview(request: StartInterviewRequest, http_request: Request) -> In
         phase=session.phase,
         purpose=session.purpose,
         turn=session.pending_turn,
-        profile=session.profile,
+        profile=resolved_profile(sys.modules[__name__], session),
     )
 
 
@@ -1054,7 +1055,7 @@ def answer_profile(session_id: str, request: ProfileAnswerRequest) -> InterviewR
         phase=session.phase,
         purpose=session.purpose,
         turn=turn,
-        profile=session.profile,
+        profile=resolved_profile(sys.modules[__name__], session),
     )
 
 
@@ -1068,7 +1069,7 @@ def get_interview(session_id: str) -> InterviewResponse:
         phase=session.phase,
         purpose=session.purpose,
         turn=session.pending_turn,
-        profile=session.profile,
+        profile=resolved_profile(sys.modules[__name__], session),
     )
 
 
@@ -1086,7 +1087,7 @@ def next_diagnostic(session_id: str) -> InterviewResponse:
         phase=session.phase,
         purpose=session.purpose,
         turn=turn,
-        profile=session.profile,
+        profile=resolved_profile(sys.modules[__name__], session),
     )
 
 
@@ -1104,7 +1105,7 @@ def respond(session_id: str, request: DiagnosticResponseRequest) -> DiagnosticAn
     else:
         next_turn = orchestrator.next_diagnostic(session, items)
     _save_session(session)
-    return DiagnosticAnswerResponse(evidence=evidence, next_turn=next_turn, profile=session.profile)
+    return DiagnosticAnswerResponse(evidence=evidence, next_turn=next_turn, profile=resolved_profile(sys.modules[__name__], session))
 
 
 @app.post("/api/interviews/{session_id}/confirm", response_model=InterviewResponse)
@@ -1124,7 +1125,7 @@ def confirm(session_id: str, request: ProfileConfirmationRequest) -> InterviewRe
         phase=session.phase,
         purpose=session.purpose,
         turn=turn,
-        profile=session.profile,
+        profile=resolved_profile(sys.modules[__name__], session),
     )
 
 
@@ -1212,6 +1213,17 @@ def _compile_course(session_id: str, chapter_id: str, *, refresh_profile: bool =
                 and historical.teaching_fact_review.get("accepted") is True
                 and _current_scope_plan(historical, evidence)
             ):
+                if latest is not None and latest.design_fingerprint != historical.design_fingerprint:
+                    # Re-selecting an earlier preference must also become the
+                    # latest native publication. Reuse reviewed prose without
+                    # modifying its immutable history or paying for a rewrite.
+                    restored = historical.model_copy(update={
+                        "course_id": f"{historical.course_id}_v{version}",
+                        "version": version, "created_at": datetime.now(UTC),
+                    }, deep=True)
+                    if not assessment_repository.save_course(session_id, restored):
+                        raise HTTPException(409, "课程版本发生并发冲突，请重试")
+                    return PublicChapterLearningBundle.from_private(restored)
                 return PublicChapterLearningBundle.from_private(historical)
             # Never overwrite attempted questions, or publish an incomplete
             # historical draft merely because its content ID matches.
@@ -1342,7 +1354,17 @@ def _require_course_actor(session_id: str, request: Request) -> None:
 @app.post('/api/interviews/{session_id}/course-jobs')
 def start_course_task(session_id: str, body: CourseJobInput, request: Request) -> JSONResponse:
     _require_course_actor(session_id, request)
-    _, _, _, profile_hash, source_hash = _course_context(session_id, body.chapter_id)
+    session, _, _, profile_hash, source_hash = _course_context(session_id, body.chapter_id)
+    if body.design_fingerprint is not None:
+        effective = resolved_profile(sys.modules[__name__], session).learning_design
+        if effective is None or effective.fingerprint != body.design_fingerprint:
+            raise HTTPException(409, '学习偏好已更新，请刷新本章后再生成课程。')
+        latest = assessment_repository.get_latest_course(session_id, body.chapter_id)
+        if latest is not None and latest.design_fingerprint != effective.fingerprint:
+            # An explicit update must not resolve to a succeeded job from an
+            # earlier A -> B -> A preference cycle. Its durable request ID still
+            # recovers this same job after the new publication becomes latest.
+            profile_hash += '|from=' + latest.course_id
     try:
         job = course_job_queue.enqueue(session_id, body.chapter_id,
             profile_hash + '|' + source_hash, retry=body.retry, request_id=body.request_id)

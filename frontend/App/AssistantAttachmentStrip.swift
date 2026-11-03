@@ -29,14 +29,14 @@ struct AssistantAttachmentStrip: View {
                   }
                 }.frame(width: 110, alignment: .leading)
               }
-              .foregroundStyle(DS.text).padding(8).padding(.trailing, removable ? 16 : 0)
+              .foregroundStyle(DS.text).padding(8).padding(.trailing, removable ? 28 : 0)
               .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 16))
             }.buttonStyle(.plain).accessibilityLabel("查看附件：" + item.filename)
             if removable {
               Button { remove(item.id) } label: {
                 Image(systemName: "xmark.circle.fill").font(.system(size: 18))
                   .symbolRenderingMode(.palette).foregroundStyle(DS.secondary, Color(.systemBackground))
-                  .frame(width: 32, height: 32).contentShape(Rectangle())
+                  .iconButtonFrame()
               }.buttonStyle(.plain).accessibilityLabel("移除附件：" + item.filename)
             }
           }.accessibilityIdentifier("assistant-attachment-\(item.id)")

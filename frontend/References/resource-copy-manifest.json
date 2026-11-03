@@ -1446,14 +1446,14 @@
     {
       "source": "Resources/LaunchScreen.storyboard",
       "path": "Resources/LaunchScreen.storyboard",
-      "bytes": 3922,
-      "sha256": "484330137ad2875cf2063906e0e9d6733ac593f722112797c3e606f4e06bfd5e",
+      "bytes": 3417,
+      "sha256": "b72cd205c805c0e54aab45e0455021d4b9034e0129ef9de33169b1139e5c57e4",
       "original_source": {
         "source": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
         "bytes": 2892,
         "sha256": "782492c6403f56a76c64cfad72bc2031b7453e7196a79c9fa8f2fa602dbddb4c"
       },
-      "derivation": "White launch background and rounded corners match the SwiftUI startup overlay."
+      "derivation": "Figma 493:510 startup composition. 152pt icon; static launch artwork matches the first frame of App/StartupView.swift, rendered by scripts/render-startup.swift."
     },
     {
       "source": "ios/App/App/Assets.xcassets/Splash.imageset/Contents.json",

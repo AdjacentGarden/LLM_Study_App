@@ -42,7 +42,7 @@ struct CourseHomeView: View {
             Spacer(minLength: 0)
             Button("继续整理") { store.go(resumeRoute) }
               .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
-              .frame(minHeight: 44).buttonStyle(.plain)
+              .buttonFrame().buttonStyle(.plain)
               .accessibilityIdentifier("home.resumeImport")
           }
         }
@@ -98,14 +98,14 @@ struct CourseHomeView: View {
             HStack(spacing: 3) {
               Text("全部课程")
               Image(systemName: "arrow.right").font(.system(size: 15))
-            }.font(DS.font(.cardTitle)).foregroundStyle(DS.primary).frame(minHeight: 44)
+            }.font(DS.font(.cardTitle)).foregroundStyle(DS.primary).buttonFrame()
           }.buttonStyle(.plain)
           Button(action: create) {
             HStack(spacing: 6) {
               BCGlyph("Upload", color: .white).frame(width: 16, height: 16)
               Text("创建课程").font(DS.font(.button)).fixedSize(
                 horizontal: true, vertical: false)
-            }.padding(.horizontal, 12).frame(height: 44).foregroundStyle(.white).background(
+            }.padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame().foregroundStyle(.white).background(
               DS.primary, in: Capsule())
           }.buttonStyle(.plain)
           Spacer(minLength: 12)
@@ -174,7 +174,7 @@ struct CourseHomeView: View {
         BCGlyph(icon, color: primary ? .white : DS.primary).frame(width: 18, height: 18)
         Text(title).font(DS.font(.button)).lineLimit(1)
         if primary { BCGlyph("ArrowRight", color: .white).frame(width: 16, height: 16) }
-      }.frame(maxWidth: .infinity).frame(height: 46)
+      }.buttonFrame(primary ? .primary : .regular, fillsWidth: true)
         .foregroundStyle(primary ? .white : DS.primary)
         .background(primary ? DS.primary : DS.surface, in: Capsule())
         .overlay(Capsule().stroke(primary ? DS.primary : Color(hex: 0xC7B6FA), lineWidth: 1))
@@ -417,7 +417,7 @@ struct CourseLibraryView: View {
           HStack(spacing: 8) {
             BCGlyph("Plus", color: .white).frame(width: 18, height: 18)
             Text("创建课程").font(DS.font(.button))
-          }.padding(.horizontal, 20).frame(height: 54).foregroundStyle(.white).background(
+          }.padding(.horizontal, DS.ButtonSize.primary.horizontalPadding).buttonFrame(.primary).foregroundStyle(.white).background(
             DS.primary, in: Capsule())
         }.buttonStyle(.plain)
       }
@@ -474,14 +474,13 @@ struct CourseLibraryView: View {
                 BCGlyph("Plus", color: DS.primary).frame(width: 16, height: 16)
                 Text("添加资料").font(DS.font(.body))
               }
-            }.buttonStyle(.plain).foregroundStyle(DS.primary)
+            }.buttonStyle(.plain).foregroundStyle(DS.primary).buttonFrame()
               .accessibilityIdentifier("library.addMaterials.\(course.id)")
             Spacer()
             Button {
               withAnimation { removingID = removingID == course.id ? nil : course.id }
             } label: {
-              BCGlyph("Trash2", color: DS.primary).frame(width: 16, height: 16).frame(
-                width: 44, height: 44)
+              BCGlyph("Trash2", color: DS.primary).frame(width: 16, height: 16).iconButtonFrame()
             }.buttonStyle(.plain).accessibilityLabel("删除课程 \(course.name)")
           }.frame(height: 44)
           if removingID == course.id {
@@ -633,7 +632,7 @@ struct CourseDetailView: View {
             sectionHeading("学习画像")
             Button("修改") { edit(course) }.font(DS.font(.smallButton)).foregroundStyle(
               DS.primaryPressed
-            ).frame(height: 44)
+            ).buttonFrame()
           }
           LazyVGrid(
             columns: Array(
@@ -742,7 +741,7 @@ struct CourseDetailView: View {
     } label: {
       BCGlyph("X", color: DS.danger).frame(width: 18, height: 18).frame(
         maxWidth: store.isPad ? nil : .infinity
-      ).frame(minWidth: 46, minHeight: 46).background(
+      ).buttonFrame().background(
         DS.surface, in: RoundedRectangle(cornerRadius: 12)
       ).overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border))
     }.buttonStyle(.plain).accessibilityLabel("从课程移出资料")
@@ -763,7 +762,7 @@ struct CourseDetailView: View {
         if !trailing { BCGlyph(icon).frame(width: 16, height: 16) }
         Text(title).font(DS.font(.button)).fixedSize()
         if trailing { BCGlyph(icon).frame(width: 16, height: 16) }
-      }.frame(maxWidth: fill ? .infinity : nil).padding(.horizontal, 13).frame(height: 46)
+      }.frame(maxWidth: fill ? .infinity : nil).padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
         .background(
           DS.surface, in: RoundedRectangle(cornerRadius: 12)
         ).overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border))

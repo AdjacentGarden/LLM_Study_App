@@ -208,7 +208,7 @@ private struct CommunitySharingForm: View {
             .font(.system(size: 22)).foregroundStyle(model.rightsConfirmed ? DS.primary : DS.secondary)
           Text("我确认有权公开分享这份 PDF")
             .font(DS.font(.supporting)).foregroundStyle(DS.text).multilineTextAlignment(.leading)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+        }.frame(maxWidth: .infinity, alignment: .leading).buttonFrame()
       }.buttonStyle(.plain).disabled(model.submitting || model.submissionUncertain)
         .accessibilityValue(model.rightsConfirmed ? "已勾选" : "未勾选")
         .accessibilityIdentifier("community.share.rights")

@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 @main struct BookCourseApp: App {
+  @UIApplicationDelegateAdaptor(CloudPathAppDelegate.self) private var appDelegate
   @State private var store: AppStore?
   private var startupError: String?
   init() {

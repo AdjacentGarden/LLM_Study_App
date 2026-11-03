@@ -31,6 +31,7 @@ class CourseJobInput(BaseModel):
     chapter_id: str = Field(min_length=1, max_length=100)
     retry: bool = False
     request_id: str | None = Field(default=None, min_length=1, max_length=128)
+    design_fingerprint: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
 
 
 class CourseJobFailure(RuntimeError):

@@ -57,7 +57,7 @@ struct LearnerOnboardingView: View {
                 store.back()
               }
               .font(DS.font(.supporting)).foregroundStyle(DS.primary)
-              .frame(minWidth: 44, minHeight: 44).buttonStyle(.plain)
+              .buttonFrame().buttonStyle(.plain)
               .accessibilityIdentifier("preferences.cancel")
             }
           }
@@ -96,7 +96,7 @@ struct LearnerOnboardingView: View {
                         nameFocused = false
                         learningStage = learningStage == value ? nil : value
                       } label: {
-                        Text(label).font(DS.font(.body)).frame(maxWidth: .infinity, minHeight: 44)
+                        Text(label).font(DS.font(.body)).buttonFrame(fillsWidth: true)
                           .foregroundStyle(learningStage == value ? DS.primary : DS.secondary)
                           .background(learningStage == value ? DS.primarySoft : DS.surface,
                             in: RoundedRectangle(cornerRadius: 12))
@@ -168,9 +168,8 @@ struct LearnerOnboardingView: View {
               next()
             } label: {
               Text("跳过").font(DS.font(.body)).foregroundStyle(DS.secondary)
-                .frame(width: 217, height: 34)
+                .frame(width: 217).buttonFrame()
                 .overlay(Capsule().stroke(DS.secondary, lineWidth: 1))
-                .frame(height: 44).contentShape(Rectangle())
             }
             .buttonStyle(BCPressStyle()).disabled(advancing)
             .accessibilityIdentifier("onboarding.skip")
@@ -437,7 +436,7 @@ private struct OnboardingClockIcon: View {
 ) -> some View {
   HStack {
     Button(action: back) {
-      Image(systemName: "arrow.left").frame(width: 44, height: 44).background(
+      Image(systemName: "arrow.left").iconButtonFrame().background(
         DS.surface, in: Circle())
     }.buttonStyle(.plain).accessibilityLabel("上一步").opacity(hideBack ? 0 : 1)
       .disabled(hideBack).accessibilityHidden(hideBack)
@@ -447,7 +446,7 @@ private struct OnboardingClockIcon: View {
       Text("/\(total)").font(DS.font(.body)).foregroundStyle(DS.muted)
     }.accessibilityLabel("第 \(step + 1) 步，共 \(total) 步")
     Spacer()
-    Color.clear.frame(width: 44, height: 44)
+    Color.clear.iconButtonFrame()
   }.frame(minHeight: 52)
 }
 
@@ -651,13 +650,7 @@ struct CourseUploadView: View {
   @State private var panelPresented = false
   @State private var files: [URL] = []
   @State private var pickerOpen = false
-  @State private var busy = false
   @State private var error: String?
-  @State private var saveTask: Task<Void, Never>?
-  @State private var operationID = UUID()
-  @State private var transfer = CourseFileTransfer()
-  @State private var pendingResourceIDs: [String] = []
-  @State private var cancelRequested = false
   static var allowedTypes: [UTType] {
     [
       .pdf, .image, .plainText, .commaSeparatedText, .presentation, .spreadsheet,
@@ -697,10 +690,8 @@ struct CourseUploadView: View {
       }
     }
     .onChange(of: store.cloudState.epoch) { _, _ in
-      if busy { cancelUpload() }
       pickerOpen = false
       files = []
-      pendingResourceIDs = []
       error = nil
     }
     .fileImporter(
@@ -718,17 +709,6 @@ struct CourseUploadView: View {
         if issue.domain != NSCocoaErrorDomain || issue.code != NSUserCancelledError {
           error = issue.localizedDescription
         }
-      }
-    }
-    .fullScreenCover(isPresented: $busy) {
-      CourseFileUploadProgressView(
-        transfer: transfer, processingProgress: store.processingProgress,
-        processingMessage: store.processingMessage, cancelRequested: cancelRequested,
-        cancel: cancelUpload
-      )
-      .interactiveDismissDisabled()
-      .onDisappear {
-        if busy { cancelUpload() }
       }
     }
   }
@@ -774,9 +754,9 @@ struct CourseUploadView: View {
           .lineLimit(compact ? 1 : 2).frame(maxWidth: .infinity, alignment: .leading)
           .accessibilityIdentifier("upload.error")
       }
-      BCButton(files.isEmpty && !pendingResourceIDs.isEmpty ? "重试资料整理" : "保存资料并继续") {
+      BCButton("保存资料并继续") {
         saveFiles()
-      }.disabled((files.isEmpty && pendingResourceIDs.isEmpty) || busy)
+      }.disabled(files.isEmpty)
         .accessibilityIdentifier("upload.save")
       if canContinueSetup {
         BCButton("继续设置课程", style: .secondary) {
@@ -799,7 +779,7 @@ struct CourseUploadView: View {
             ForEach(Array(files.enumerated()), id: \.offset) { index, url in
               selectedFile(url, at: index)
             }
-            addFileButton.frame(width: 56, height: 56)
+            addFileButton.iconButtonFrame()
           }
           .padding(20)
         }.scrollIndicators(.hidden).accessibilityIdentifier("upload.files")
@@ -816,11 +796,11 @@ struct CourseUploadView: View {
       pickerOpen = true
     } label: {
       Image(systemName: "plus")
-        .font(.system(size: files.isEmpty ? 38 : 30, weight: .medium))
+        .font(.system(size: files.isEmpty ? 38 : 24, weight: .medium))
         .foregroundStyle(DS.text)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-    }.buttonStyle(.plain).disabled(busy)
+    }.buttonStyle(.plain)
       .accessibilityLabel(files.isEmpty ? "选择课程资料" : "继续添加资料")
       .accessibilityIdentifier("upload.select")
   }
@@ -841,214 +821,22 @@ struct CourseUploadView: View {
           Image(systemName: "minus").font(.system(size: 10, weight: .bold))
             .foregroundStyle(.white).frame(width: 16, height: 16)
             .background(DS.danger, in: Circle())
-            .frame(width: 44, height: 44).contentShape(Rectangle())
-        }.buttonStyle(.plain).disabled(busy)
+            .iconButtonFrame().contentShape(Rectangle())
+        }.buttonStyle(.plain)
           .offset(x: 12, y: -12)
           .accessibilityLabel("移除 \(url.lastPathComponent)")
           .accessibilityIdentifier("upload.remove.\(index)")
       }
   }
 
-  private func cancelUpload() {
-    guard !cancelRequested else { return }
-    cancelRequested = true
-    saveTask?.cancel()
-    if transfer.stage == .processing { store.cancelImport() }
-  }
-
   private func saveFiles() {
-    guard !busy, !files.isEmpty || !pendingResourceIDs.isEmpty else { return }
-    let requestID = UUID()
-    operationID = requestID
-    let selectedFiles = files
-    transfer = CourseFileTransfer(fileCount: selectedFiles.count)
-    cancelRequested = false
-    busy = true
-    error = nil
-    store.importError = nil
-    let targetCourseID = addingToCurrentCourse ? store.currentCourse?.id : nil
-    let originalBookID = store.selectedBookID
-    let originalDraft = store.draft
-    let epoch = store.cloudState.epoch
-    saveTask = Task { @MainActor in
-      defer {
-        if targetCourseID != nil, Task.isCancelled, epoch == store.cloudState.epoch {
-          store.draft = originalDraft
-          if let originalBookID { store.selectSource(originalBookID) }
-          store.persist()
-        }
-        if operationID == requestID {
-          busy = false
-          cancelRequested = false
-          saveTask = nil
-        }
-      }
-      if targetCourseID != nil {
-        store.draft = CourseDraft()
-        store.draft.resourceIDs = pendingResourceIDs
-      }
-      var issues: [String] = []
-      for (index, url) in selectedFiles.enumerated() {
-        guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
-        transfer = CourseFileTransfer(
-          filename: url.lastPathComponent, fileIndex: index + 1, fileCount: selectedFiles.count)
-        await store.importFile(url, targetCourseID: targetCourseID) { progress in
-          guard epoch == store.cloudState.epoch, operationID == requestID, busy, !cancelRequested,
-            transfer.fileIndex == index + 1, transfer.stage != .processing
-          else { return }
-          transfer.stage = .uploading
-          if progress.sentBytes > transfer.progress.sentBytes { transfer.updatedAt = .now }
-          transfer.progress = CloudUploadProgress(
-            sentBytes: max(transfer.progress.sentBytes, progress.sentBytes),
-            totalBytes: progress.totalBytes)
-        }
-        guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
-        if let issue = store.importError {
-          issues.append("\(url.lastPathComponent)：\(issue)")
-          continue
-        }
-        if let id = store.draft.resourceIDs.last {
-          if !pendingResourceIDs.contains(id) { pendingResourceIDs.append(id) }
-          store.selectSource(id)
-          if let targetCourseID {
-            do { try await store.addSource(id, to: targetCourseID) }
-            catch {
-              guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
-              issues.append("\(url.lastPathComponent)：\(error.localizedDescription)")
-              continue
-            }
-          }
-        }
-        if let index = files.firstIndex(of: url) { files.remove(at: index) }
-      }
-      if issues.isEmpty, targetCourseID != nil {
-        store.processingProgress = 0
-        store.processingMessage = "准备解析资料"
-        transfer.stage = .processing
-        await store.processImport()
-        guard epoch == store.cloudState.epoch, !Task.isCancelled else { return }
-        if let issue = store.importError { issues.append(issue) }
-      }
-      if !issues.isEmpty {
-        error = issues.joined(separator: "；")
-        if targetCourseID != nil {
-          store.draft = originalDraft
-          if let originalBookID { store.selectSource(originalBookID) }
-          store.persist()
-        }
-        return
-      }
-      if store.draft.name.isEmpty {
-        store.draft.name = selectedFiles.first?.deletingPathExtension().lastPathComponent ?? "我的课程"
-      }
+    guard !files.isEmpty else { return }
+    if store.beginCourseUpload(files,
+      targetCourseID: addingToCurrentCourse ? store.currentCourse?.id : nil) != nil {
       files = []
-      pendingResourceIDs = []
-      busy = false
-      store.persist()
-      if targetCourseID != nil {
-        store.draft = originalDraft
-        if let originalBookID { store.selectSource(originalBookID) }
-        store.persist()
-        store.closeSheet()
-        store.showToast("资料已添加，可以继续学习", kind: .success)
-      } else {
-        store.draft.step = max(0, store.draft.step)
-        store.processingProgress = 0
-        store.processingMessage = "准备解析资料"
-        store.persist()
-        store.go(.processing)
-      }
+      error = nil
+      store.importError = nil
     }
-  }
-}
-
-private struct CourseFileTransfer {
-  enum Stage { case preparing, uploading, processing }
-  var filename = ""
-  var fileIndex = 1
-  var fileCount = 1
-  var progress = CloudUploadProgress()
-  var updatedAt = Date.now
-  var stage: Stage = .preparing
-}
-
-private struct CourseFileUploadProgressView: View {
-  let transfer: CourseFileTransfer
-  let processingProgress: Double
-  let processingMessage: String
-  let cancelRequested: Bool
-  let cancel: () -> Void
-
-  private var processing: Bool { transfer.stage == .processing }
-  private var waiting: Bool { transfer.stage == .uploading && transfer.progress.fraction >= 1 }
-  private var title: String {
-    if cancelRequested { return "正在取消…" }
-    if processing { return "正在解析资料" }
-    if transfer.stage == .preparing { return "正在准备文件" }
-    return waiting ? "等待服务器确认" : "文件正在上传"
-  }
-  private var bytesLabel: String {
-    let sent = ByteCountFormatter.string(fromByteCount: transfer.progress.sentBytes, countStyle: .file)
-    let total = ByteCountFormatter.string(fromByteCount: transfer.progress.totalBytes, countStyle: .file)
-    return "已发送 \(sent) / \(total)"
-  }
-
-  var body: some View {
-    VStack(spacing: 0) {
-      BCHeader(processing ? "整理课程资料" : "上传课程资料")
-        .padding(.top, 8).padding(.bottom, 20)
-      ScrollView {
-        VStack(spacing: 24) {
-          Image(systemName: processing ? "doc.text.magnifyingglass" : "icloud.and.arrow.up")
-            .font(.system(size: 42, weight: .medium)).foregroundStyle(DS.primary)
-            .frame(width: 104, height: 104)
-            .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 30))
-            .accessibilityHidden(true)
-          VStack(spacing: 10) {
-            Text(title).font(DS.font(.sectionTitle))
-              .accessibilityIdentifier("upload.progress.title")
-            if transfer.fileCount > 1 && !processing {
-              Text("第 \(transfer.fileIndex) / \(transfer.fileCount) 份资料")
-                .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-            }
-            Text(transfer.filename).font(DS.font(.body)).foregroundStyle(DS.secondary)
-              .multilineTextAlignment(.center).lineLimit(3)
-          }
-          VStack(spacing: 16) {
-            if transfer.stage == .preparing || waiting {
-              ProgressView().tint(DS.primary).controlSize(.large)
-            } else {
-              Text("\(Int((processing ? processingProgress : transfer.progress.fraction) * 100))%")
-                .font(DS.font(.metric)).monospacedDigit().foregroundStyle(DS.primary)
-                .accessibilityIdentifier("upload.progress.percent")
-            }
-            BCProgress(value: processing ? processingProgress : transfer.progress.fraction)
-            if transfer.stage == .uploading {
-              Text(bytesLabel).font(DS.font(.supporting)).monospacedDigit().foregroundStyle(DS.secondary)
-                .accessibilityIdentifier("upload.progress.bytes")
-            }
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-              let seconds = Int(context.date.timeIntervalSince(transfer.updatedAt))
-              let slow = transfer.stage == .uploading && seconds >= 15
-              CourseProgressMessage(message:
-                processing ? processingMessage
-                  : slow ? "网络或服务器响应较慢，已 \(seconds) 秒没有新的进展，可取消后重试。"
-                  : waiting ? "文件已发送，收到服务器确认后将自动开始解析。"
-                  : "请保持网络连接，上传完成后将自动开始解析资料。"
-              )
-              .font(DS.font(.supporting)).foregroundStyle(slow ? DS.warning : DS.secondary)
-              .multilineTextAlignment(.center).frame(minHeight: 44)
-            }
-          }.padding(24).background(DS.surface, in: RoundedRectangle(cornerRadius: 20))
-          BCButton(processing ? "取消整理" : "取消上传", style: .secondary, action: cancel)
-            .disabled(cancelRequested).accessibilityIdentifier("upload.cancel")
-        }
-        .frame(maxWidth: 520).padding(.horizontal, 24).padding(.vertical, 24)
-        .frame(maxWidth: .infinity)
-      }.scrollIndicators(.hidden)
-    }
-    .background(DS.background.ignoresSafeArea()).foregroundStyle(DS.text)
-    .accessibilityIdentifier("upload.progress.screen")
   }
 }
 
@@ -1243,7 +1031,7 @@ struct CourseProcessingView: View {
                 } label: {
                   Text("后台运行，返回学习页").font(DS.font(.button)).foregroundStyle(
                     DS.primaryPressed
-                  ).frame(maxWidth: .infinity).frame(height: 56).background(
+                  ).buttonFrame(fillsWidth: true).background(
                     DS.primarySoft, in: Capsule()
                   ).overlay(Capsule().stroke(Color(hex: 0xDDD6FE)))
                 }.buttonStyle(.plain)
@@ -1323,7 +1111,7 @@ struct CourseChapterConfirmationView: View {
                 }
               } label: {
                 Image(systemName: expanded.contains(chapter.id) ? "chevron.down" : "chevron.right")
-                  .frame(width: 44, height: 44)
+                  .iconButtonFrame()
               }.buttonStyle(.plain)
             } else {
               Color.clear.frame(width: 12)
@@ -1566,7 +1354,7 @@ private struct CourseFlowPrimaryButton: View {
   var body: some View {
     Button(action: action) {
       Text(title).font(DS.font(.button)).multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity).frame(minHeight: 54)
+        .buttonFrame(.primary, fillsWidth: true)
         .foregroundStyle(enabled ? .white : DS.secondary)
         .background(enabled ? DS.primary : DS.border, in: Capsule())
     }.buttonStyle(BCPressStyle())

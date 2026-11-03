@@ -1,0 +1,66 @@
+{
+  "source": "https://www.figma.com/design/6TL0BV3jL2GqdYLTNzv9Nn/fusai?node-id=493-510",
+  "canvas": {
+    "width": 402,
+    "height": 874
+  },
+  "visible_image_nodes": {
+    "497:16": "StartupCloudBase",
+    "497:17": "StartupCloudReaders"
+  },
+  "clipped_image_nodes": [
+    "497:18",
+    "497:19"
+  ],
+  "font_source": "https://github.com/rsms/inter/blob/master/docs/font-files/InterVariable.ttf",
+  "font_license": "Resources/Fonts/Inter-OFL.txt",
+  "render_command": "swiftc App/StartupView.swift scripts/render-startup.swift -o /tmp/render-startup && /tmp/render-startup \"$PWD\"",
+  "files": [
+    {
+      "path": "Resources/Assets.xcassets/StartupCloudBase.imageset/cloud-base.png",
+      "bytes": 181992,
+      "sha256": "7d590f27dad36bb94a91c9624296e84441d6a2b3a35b6409cd66537d595c65d4"
+    },
+    {
+      "path": "Resources/Assets.xcassets/StartupCloudReaders.imageset/cloud-readers.png",
+      "bytes": 703851,
+      "sha256": "9813c2f47fcc4abbebbb96e6d4659fc4d205d86fb0130e98865079508801b8c2"
+    },
+    {
+      "path": "Resources/Assets.xcassets/StartupLockup.imageset/startup-lockup@3x.png",
+      "bytes": 218520,
+      "sha256": "a2bd985eafe185d17f617b35d770a1cbe8f0d1db30c5cdf3a75e86e71b323857"
+    },
+    {
+      "path": "Resources/Fonts/InterVariable.ttf",
+      "bytes": 879708,
+      "sha256": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf"
+    },
+    {
+      "path": "Resources/LaunchScreen.storyboard",
+      "bytes": 3417,
+      "sha256": "b72cd205c805c0e54aab45e0455021d4b9034e0129ef9de33169b1139e5c57e4"
+    }
+  ],
+  "icon": {
+    "size": 152,
+    "top": 314,
+    "corner_radius": 38
+  },
+  "wordmark": {
+    "font_size": 40,
+    "purple": "#7C3AED",
+    "purple_opacity": 0.61,
+    "end_color": "#FFFFFF"
+  },
+  "motion": {
+    "icon_lift_pt": -6,
+    "icon_peak_scale": 1.035,
+    "english_start_ms": 220,
+    "chinese_start_ms": 340,
+    "settled_ms": 950,
+    "exit_ms": 220,
+    "reduced_motion": "Static full lockup, no movement or fade",
+    "system_launch": "Resting icon only, matching the animation first frame"
+  }
+}

@@ -208,7 +208,7 @@ def native_router(services: Any) -> APIRouter:
         value = services.job_repository.get_structure(row["book_id"])
         return value if isinstance(value, BookStructure) else None
 
-    def resource_state(row: dict[str, Any]) -> dict[str, Any]:
+    def resource_state(row: dict[str, Any], actor: str) -> dict[str, Any]:
         structure = effective_structure(row)
         stored = services.job_repository.get_book(row["book_id"])
         bundles = []
@@ -225,6 +225,7 @@ def native_router(services: Any) -> APIRouter:
         progress = services.native_repository.progress(row["id"])
         reviews = services.native_repository.catalog_review_states(row["id"]) if row["book_id"] == curated.BOOK_ID else {}
         session_purpose = None
+        session = None
         if row["session_id"]:
             session = services.assessment_repository.get_session(row["session_id"])
             if session:
@@ -237,6 +238,10 @@ def native_router(services: Any) -> APIRouter:
             "revision": row["revision"],
             "session_id": row["session_id"],
             "session_purpose": session_purpose,
+            "learning_design_fingerprint": design.config(
+                actor,
+                row["workspace_id"], session.profile if session else None,
+            ).fingerprint,
             "filename": stored.original_name if stored else "教材.pdf",
             "cover_url": cover_url(services.settings.data_dir, row["book_id"])
             or (curated.snapshot()["source"]["summary"].get("cover_url")
@@ -265,7 +270,7 @@ def native_router(services: Any) -> APIRouter:
             k: v
             for k, v in {
                 **row,
-                "resources": [resource_state(r) for r in rows],
+                "resources": [resource_state(r, actor) for r in rows],
                 "learning_design": design.state(actor, wid),
             }.items()
             if k != "owner"
@@ -289,7 +294,7 @@ def native_router(services: Any) -> APIRouter:
     @router.get("/native/capabilities")
     def capabilities(actor: str = Depends(owner)) -> dict[str, Any]:
         return {"contract_version": 1, "bootstrap_metadata": True,
-                "teaching_units": {"backend": True, "native": False},
+                "teaching_units": {"backend": True, "native": True},
                 "server_planning": {"backend": True, "native": True},
                 "note_cloud_sync": {"backend": True, "native": False},
                 "voice_transcription": {"backend": True, "native": True,
@@ -690,11 +695,11 @@ def native_router(services: Any) -> APIRouter:
             row = services.native_repository.add_resource(actor, wid, body.book_id)
         except KeyError as error:
             raise HTTPException(404, "课程不存在") from error
-        return resource_state(row)
+        return resource_state(row, actor)
 
     @router.get("/workspaces/{wid}/resources/{rid}")
     def get_resource(wid: str, rid: str, actor: str = Depends(owner)) -> dict[str, Any]:
-        return resource_state(resource(wid, rid, actor))
+        return resource_state(resource(wid, rid, actor), actor)
 
     @router.delete("/workspaces/{wid}/resources/{rid}")
     def remove_resource(wid: str, rid: str, actor: str = Depends(owner)) -> dict[str, bool]:
@@ -839,7 +844,7 @@ def native_router(services: Any) -> APIRouter:
             services.native_repository.save_structure(actor, wid, rid, body.revision, structure)
         except NativeConflict as error:
             raise HTTPException(409, str(error)) from error
-        return resource_state(resource(wid, rid, actor))
+        return resource_state(resource(wid, rid, actor), actor)
 
     @router.post("/workspaces/{wid}/resources/{rid}/preview-session")
     def preview_session(wid: str, rid: str, actor: str = Depends(owner)) -> Any:

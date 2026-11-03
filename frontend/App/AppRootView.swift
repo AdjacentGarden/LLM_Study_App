@@ -10,7 +10,10 @@ struct AppRootView: View {
   @State private var lessonAssistantLeft = false
   @State private var nativeTabContentBottom: CGFloat?
   @State private var showingStartup = true
+  @State private var uploadCoverActive = false
   var body: some View {
+    let uploadPresentation = !showingStartup && !store.isLoading
+      ? store.uploadState.presentedID.map { CourseUploadPresentation(id: $0) } : nil
     GeometryReader { geometry in
       let pad =
         geometry.size.width >= 720
@@ -131,19 +134,20 @@ struct AppRootView: View {
             Task { await store.retryCloudConnection() }
           } label: {
             Label("进度待同步 · 重试", systemImage: "arrow.triangle.2.circlepath")
-              .font(DS.font(.supporting)).padding(12).background(DS.surface, in: Capsule())
+              .font(DS.font(.supporting)).padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame().background(DS.surface, in: Capsule())
           }.padding(.top, 8).accessibilityLabel("进度待同步：\(error)，轻点重试")
             .accessibilityIdentifier("cloud.retrySync")
         }
       }
       .overlay {
         if showingStartup || store.isLoading {
-          Image("Splash").resizable().scaledToFit().frame(width: 144, height: 144)
-            .clipShape(RoundedRectangle(cornerRadius: 32, style: .circular))
-            .accessibilityLabel("正在加载学习空间")
-            .accessibilityIdentifier("app.loading")
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white.ignoresSafeArea())
+          StartupView(isReady: !store.isLoading, reduceMotion: reduceMotion,
+            holdForPreview: startupPreview) {
+              showingStartup = false
+              #if DEBUG
+                Task { await store.playToastGalleryIfRequested() }
+              #endif
+            }
         }
       }
       .onChange(of: pad) { _, value in store.isPad = value }
@@ -155,20 +159,25 @@ struct AppRootView: View {
           if let prompt { ProcessingNetworkChoicePanel(prompt: prompt).id(prompt.id) }
         }
       }
-      .toastHUD(isEnabled: !showingStartup && !store.isLoading && !store.cloudState.showDiagnosis)
+      .toastHUD(isEnabled: !showingStartup && !store.isLoading && !uploadCoverActive && !store.cloudState.showDiagnosis)
     }
     .background(pageBackground.ignoresSafeArea()).font(DS.font()).foregroundStyle(DS.text).tint(
       DS.primary
     )
-    .task {
-      // Keep the logo visible even when the cached/bootstrap response is immediate.
-      // This overlaps service startup instead of postponing network work.
-      do { try await Task.sleep(for: .milliseconds(1200)) } catch { return }
-      showingStartup = false
-      #if DEBUG
-        await store.playToastGalleryIfRequested()
-      #endif
+    .fullScreenCover(item: Binding(
+      get: { uploadPresentation },
+      set: { store.uploadState.presentedID = $0?.id }),
+      onDismiss: { uploadCoverActive = false }) { presentation in
+        CourseFileUploadProgressView(batchID: presentation.id)
+          .environment(store).toastHUD()
+          .interactiveDismissDisabled()
+          .onAppear { uploadCoverActive = true }
     }
+    .courseUploadCompletionAlert(enabled: !showingStartup && !uploadCoverActive && store.sheet == nil)
+    .onChange(of: "\(store.isLoading):\(store.cloudState.authenticated):\(store.cloudState.epoch):\(store.courseUploadScope)", initial: true) { _, _ in
+      store.restoreCourseUploads()
+    }
+    .statusBarHidden(showingStartup || store.isLoading)
     .task(id: store.activeCourseImportKey) { await store.observeCourseImports() }
     .onChange(of: scenePhase) { _, phase in
       if phase != .active { store.persist() } else { store.startCloudSync() }
@@ -182,6 +191,15 @@ struct AppRootView: View {
       CloudLearningSetupView().environment(store).toastHUD()
     }
   }
+  private var startupPreview: Bool {
+    #if DEBUG
+      ContentBundle.fixtureMode
+        && ProcessInfo.processInfo.arguments.contains("--fixture-startup-preview")
+    #else
+      false
+    #endif
+  }
+
   private var pageBackground: Color {
     switch store.route {
     case .assignment: Color(hex: 0xd9d2ff)
@@ -397,7 +415,7 @@ struct PhoneBottomBar: View {
           }
           .foregroundStyle(isCurrentTab(tab, store.route) ? .white : DS.muted).frame(
             maxWidth: .infinity
-          ).frame(height: 56)
+          ).buttonFrame()
           .background {
             if isCurrentTab(tab, store.route) {
               Capsule().fill(DS.primary).matchedGeometryEffect(id: "tab", in: selection)
@@ -407,7 +425,7 @@ struct PhoneBottomBar: View {
         }.buttonStyle(BCPressStyle()).accessibilityIdentifier("tab-" + tab.rawValue)
           .accessibilityAddTraits(isCurrentTab(tab, store.route) ? [.isSelected] : [])
       }
-    }.padding(8).frame(height: 72).background(.white.opacity(0.88), in: Capsule()).overlay(
+    }.padding(8).frame(height: DS.ButtonSize.regular.height + 16).background(.white.opacity(0.88), in: Capsule()).overlay(
       Capsule().stroke(.white.opacity(0.78), lineWidth: 1)
     ).shadow(color: Color(hex: 0x364e7e).opacity(0.14), radius: 16, y: 8)
   }
@@ -426,7 +444,7 @@ struct PadRail: View {
         } label: {
           BCGlyph(expanded ? "PanelLeftClose" : "PanelLeftOpen", color: .white.opacity(0.75)).frame(
             width: 20, height: 20
-          ).frame(maxWidth: .infinity, minHeight: 44, alignment: expanded ? .trailing : .center)
+          ).frame(maxWidth: .infinity, alignment: expanded ? .trailing : .center).buttonFrame()
         }.buttonStyle(.plain).accessibilityLabel(expanded ? "收起侧栏" : "展开侧栏")
         HStack(spacing: 10) {
           AssetImage("/assets/brand/app-logo.png").frame(width: 32, height: 32).clipShape(
@@ -447,11 +465,11 @@ struct PadRail: View {
               store.go(route)
             } label: {
               Text(route.title).font(DS.font(.navigation)).foregroundStyle(.white.opacity(0.8)).frame(
-                maxWidth: .infinity, minHeight: 38, alignment: .leading)
+                maxWidth: .infinity, alignment: .leading).buttonFrame()
             }.buttonStyle(.plain)
           }
           Button("切换课程") { store.openSheet(.bookSwitcher) }.font(DS.font(.supporting)).foregroundStyle(
-            .white.opacity(0.8))
+            .white.opacity(0.8)).buttonFrame()
         }.padding(.horizontal, 8)
       }
       Spacer(minLength: 0)
@@ -474,7 +492,7 @@ struct PadRail: View {
           Text(tab == .community ? "发现" : tab.title).font(DS.font(.navigation, weight: .semibold))
           Spacer()
         }
-      }.frame(maxWidth: .infinity, minHeight: 44).foregroundStyle(.white.opacity(0.8)).background(
+      }.buttonFrame(fillsWidth: true).foregroundStyle(.white.opacity(0.8)).background(
         isCurrentTab(tab, store.route) ? Color(hex: 0x353538) : .clear,
         in: RoundedRectangle(cornerRadius: 14))
     }.buttonStyle(.plain).accessibilityLabel(tab.title).accessibilityIdentifier(
@@ -527,7 +545,7 @@ struct AppOverlay: View {
             Button {
               store.closeSheet()
             } label: {
-              BCGlyph("X").frame(width: 18, height: 18).frame(width: 44, height: 44).background(
+              BCGlyph("X").frame(width: 18, height: 18).iconButtonFrame().background(
                 .white, in: RoundedRectangle(cornerRadius: 12)
               ).overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border, lineWidth: 1))
             }.accessibilityLabel("关闭").accessibilityIdentifier("overlay-close")
@@ -588,8 +606,8 @@ struct FloatingAssistant: View {
   @Binding var left: Bool
   @GestureState private var translation = CGSize.zero
   private var pad: Bool { windowSize.width >= 720 && windowSize.height >= 600 }
-  private var orbWidth: CGFloat { pad ? 68 : 62 }
-  private var orbHeight: CGFloat { pad ? 79 : 72 }
+  private var orbWidth: CGFloat { DS.ButtonSize.regular.height }
+  private var orbHeight: CGFloat { DS.ButtonSize.regular.height }
   private var minTop: CGFloat { lessonEntry ? 122 : (pad ? 24 : safeArea.top) + 12 }
   private var maxTop: CGFloat {
     let bottom = pad ? 0 : safeArea.bottom
@@ -736,7 +754,7 @@ struct AssistantChatView: View {
                     prompt == "举一个例子"
                       ? "请结合原文给一个\(sourceChapterTitle)的例子" : "围绕\(sourceChapterTitle)给我出一道题")
                 } label: {
-                  Text(prompt).font(DS.font(.body)).padding(.horizontal, 12).frame(height: 44)
+                  Text(prompt).font(DS.font(.body)).padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
                     .background(DS.primarySoft, in: Capsule())
                 }.foregroundStyle(DS.primary).disabled(store.chatLoading)
               }

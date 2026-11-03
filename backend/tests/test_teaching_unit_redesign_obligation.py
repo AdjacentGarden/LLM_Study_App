@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_teaching_content import course
 
 from adaptive_learning.personalization.teaching_content import TeachingContentGenerator
 from adaptive_learning.personalization.teaching_unit_engine import UnitEngine, _question_shape
@@ -36,6 +37,7 @@ def case():
     generator = TeachingContentGenerator(None, review_identity={'provider': 'controlled', 'model': 'offline'})
     generator._structured = structured
     engine = UnitEngine.__new__(UnitEngine)
+    engine.bundle = course(1)[0]
     engine.g, engine.by_id = generator, {}
     engine.chapter = SimpleNamespace(title='受控离线回归')
     sources = {source_id: SimpleNamespace(model_dump=lambda: {'quote': '受控原文边界'})

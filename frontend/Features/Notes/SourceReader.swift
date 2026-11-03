@@ -179,7 +179,7 @@ struct NotesSourceReaderView: View {
         HStack {
           Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
           Spacer()
-          Button("重试保存") { Task { _ = await flushInk() } }
+          Button("重试保存") { Task { _ = await flushInk() } }.buttonFrame()
         }
         .padding(12).background(Color(hex: 0xfff0f3))
       }
@@ -353,9 +353,7 @@ struct NotesSourceReaderView: View {
       Button {
         Task { if await flushInk() { store.back() } }
       } label: {
-        Image(systemName: "arrow.left").font(.system(size: 18)).foregroundStyle(DS.text).frame(
-          width: 44, height: 44
-        )
+        Image(systemName: "arrow.left").font(.system(size: 18)).foregroundStyle(DS.text).iconButtonFrame()
         .background(.white, in: RoundedRectangle(cornerRadius: 12)).overlay(
           RoundedRectangle(cornerRadius: 12).stroke(DS.border))
       }.offset(y: DS.navigationButtonOffset)
@@ -364,7 +362,7 @@ struct NotesSourceReaderView: View {
         showPageControls = true
       } label: {
         Text(heading).font(DS.font(.pageTitle)).foregroundStyle(DS.text).lineLimit(1)
-          .frame(maxWidth: .infinity, alignment: .leading)
+          .frame(maxWidth: .infinity, alignment: .leading).buttonFrame()
       }
       .buttonStyle(.plain).accessibilityLabel("\(heading)，PDF第\(page)页，点击跳转")
       .accessibilityIdentifier("reader.heading")
@@ -375,7 +373,7 @@ struct NotesSourceReaderView: View {
           Button("缩放 \(Int(zoom * 100))%") {
             zoom = zoom >= 2 ? 1 : zoom + 0.25
             magnifyBase = zoom
-          }.font(DS.font(.supporting)).padding(10)
+          }.font(DS.font(.supporting)).padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
         }.padding(20).frame(width: 330).presentationCompactAdaptation(.popover)
       }
       if saving { ProgressView().scaleEffect(0.7).accessibilityLabel("正在保存笔迹") }
@@ -416,7 +414,7 @@ struct NotesSourceReaderView: View {
                   Circle().stroke(DS.primary, lineWidth: 2).padding(1).opacity(
                     colorHex == UInt(value) ? 1 : 0)
                 )
-                .frame(width: 44, height: 44)
+                .iconButtonFrame()
             }.accessibilityLabel("笔迹颜色 \(value)")
           }
           ForEach([CGFloat(1.5), 3, 6], id: \.self) { value in
@@ -426,7 +424,7 @@ struct NotesSourceReaderView: View {
             } label: {
               Circle().fill(width == value ? DS.primary : DS.secondary).frame(
                 width: value + 4, height: value + 4
-              ).frame(width: 44, height: 44).background(
+              ).iconButtonFrame().background(
                 width == value ? DS.primarySoft : .clear, in: RoundedRectangle(cornerRadius: 10))
             }.accessibilityLabel("笔迹粗细 \(Int(value))")
           }
@@ -456,7 +454,7 @@ struct NotesSourceReaderView: View {
     Button(action: action) {
       NotesGlyph(name: icon, size: 20).foregroundStyle(
         icon == "Sparkles" || selected ? DS.primary : DS.secondary
-      ).frame(width: 44, height: 44).background(
+      ).iconButtonFrame().background(
         selected ? DS.primarySoft : .clear, in: RoundedRectangle(cornerRadius: 10))
     }
     .buttonStyle(.plain).accessibilityLabel(label).accessibilityAddTraits(
@@ -499,7 +497,7 @@ struct NotesSourceReaderView: View {
           Button {
             editor = note
           } label: {
-            StickerIcon(note.kind.notesIcon, tone: note.kind.notesTone, size: 28).padding(3)
+            StickerIcon(note.kind.notesIcon, tone: note.kind.notesTone, size: 28).iconButtonFrame()
               .background(.white, in: Circle()).shadow(radius: 3)
           }
           .position(x: CGFloat(point.x) * size.width, y: CGFloat(point.y) * size.height)
@@ -555,15 +553,15 @@ struct NotesSourceReaderView: View {
   }
   private var pager: some View {
     HStack(spacing: 10) {
-      Button("上一页") { changePage(page - 1) }.disabled(page <= 1)
+      Button("上一页") { changePage(page - 1) }.buttonFrame().disabled(page <= 1)
       Spacer(minLength: 4)
       TextField("页码", text: $pageInput).keyboardType(.numberPad).multilineTextAlignment(.center)
         .frame(width: 48, height: 40).background(.white, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(DS.border)).accessibilityIdentifier(
           "reader.pageInput")
-      Button("跳转") { changePage(Int(pageInput) ?? page) }.accessibilityIdentifier("reader.jump")
+      Button("跳转") { changePage(Int(pageInput) ?? page) }.buttonFrame().accessibilityIdentifier("reader.jump")
       Spacer(minLength: 4)
-      Button("下一页") { changePage(page + 1) }.disabled(page >= maxPage)
+      Button("下一页") { changePage(page + 1) }.buttonFrame().disabled(page >= maxPage)
     }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).padding(.vertical, 6)
   }
   private var inkReview: some View {
@@ -611,7 +609,7 @@ struct NotesSourceReaderView: View {
               Text(note.kind.notesLabel).foregroundStyle(DS.primary)
               Text(note.title).lineLimit(1)
               Spacer()
-            }.font(DS.font(.supporting)).padding(10).background(
+            }.font(DS.font(.supporting)).padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame().background(
               DS.primarySoft, in: RoundedRectangle(cornerRadius: 10))
           }
         }
@@ -1058,9 +1056,9 @@ struct NotesRegionAIView: View {
           Text(isTextNote ? "批注 AI 对话" : "提问").font(DS.font(.supporting, weight: .semibold))
           Spacer(minLength: 0)
           Button(action: onClose) {
-            NotesGlyph(name: "X", size: 18).frame(width: 40, height: 40)
+            NotesGlyph(name: "X", size: 18).iconButtonFrame()
           }.foregroundStyle(DS.secondary).accessibilityLabel("关闭")
-        }.frame(height: 40)
+        }.frame(height: DS.ButtonSize.regular.height)
         }
         if !compact {
         Text(bookID.hasPrefix("book_local_") || store.cloud == nil
@@ -1100,7 +1098,7 @@ struct NotesRegionAIView: View {
                           Button("查看原文") {
                             onClose()
                             store.openCitation(citation)
-                          }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
+                          }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary).buttonFrame()
                         }
                       }
                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
@@ -1119,7 +1117,7 @@ struct NotesRegionAIView: View {
                 if let failedQuestion {
                   Button("重试提问") { ask(failedQuestion) }
                     .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
-                    .accessibilityIdentifier("reader.regionRetry")
+                    .buttonFrame().accessibilityIdentifier("reader.regionRetry")
                 }
               }
               Color.clear.frame(height: 1).id("reader.regionTranscriptEnd")
@@ -1189,7 +1187,7 @@ struct NotesRegionAIView: View {
   }
   private func followup(_ title: String, question: String) -> some View {
     Button(title) { ask(question) }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
-      .padding(.horizontal, 12).frame(height: 40)
+      .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
       .background(.white, in: Capsule()).overlay(Capsule().stroke(DS.border)).disabled(loading)
   }
   private func persistConversation() async {

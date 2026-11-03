@@ -151,7 +151,7 @@ struct LearningAssignmentView: View {
       if question.page_start > 0 && question.source_kind != "ai_supplement" {
         HStack {
           Spacer()
-          Button("查看原文") { openSource(question) }.font(DS.font(.smallButton))
+          Button("查看原文") { openSource(question) }.font(DS.font(.smallButton)).buttonFrame()
             .foregroundStyle(DS.primary).buttonStyle(.plain)
         }.padding(.bottom, 10)
       }
@@ -159,7 +159,7 @@ struct LearningAssignmentView: View {
         if last { submit() } else { changeQuestion(1) }
       } label: {
         Text(last ? (submitting ? "正在生成诊断……" : "提交并查看诊断") : "提交答案")
-          .font(DS.font(.button)).frame(maxWidth: .infinity, minHeight: 54)
+          .font(DS.font(.button)).buttonFrame(.primary, fillsWidth: true)
           .foregroundStyle(canContinue ? Color.white : DS.secondary)
           .background(canContinue ? DS.primary : Color(hex: 0xedf1f5), in: Capsule())
           .overlay(Capsule().stroke(canContinue ? DS.primary : DS.border, lineWidth: 1))
@@ -246,7 +246,7 @@ struct LearningAssignmentView: View {
         Button("完成输入") {
           UIApplication.shared.sendAction(
             #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonStyle(.plain)
+        }.font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).buttonFrame().buttonStyle(.plain)
           .accessibilityIdentifier("learning.keyboard.done")
         Text("\(shortAnswer.count) / 300").font(DS.font(.caption)).foregroundStyle(DS.secondary)
         if !shortAnswer.isEmpty {
@@ -448,7 +448,7 @@ struct LearningDiagnosisView: View {
                 Text(citation.quote).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(6)
                   .lineLimit(2)
               }.frame(maxWidth: .infinity, alignment: .leading)
-              Button("查看原文") { store.openCitation(citation) }.font(DS.font(.smallButton))
+              Button("查看原文") { store.openCitation(citation) }.font(DS.font(.smallButton)).buttonFrame()
                 .foregroundStyle(DS.primary).buttonStyle(.plain).fixedSize()
             }.padding(13).frame(maxWidth: .infinity, alignment: .leading).background(
               Color(hex: 0xf3f6fb), in: RoundedRectangle(cornerRadius: 14)

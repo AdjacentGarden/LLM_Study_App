@@ -177,6 +177,12 @@ extension AppStore {
     preferences = value
     cloudState.requiresPersonalization = false
     cloudState.onboardingComplete = value.hasCompletedOnboarding
+    // Refresh effective course fingerprints after the server has saved the answers.
+    // A failed metadata read must not turn a successful preference save into a failure.
+    do { try await reloadCloud() }
+    catch { cloudState.syncError = "偏好已保存，课程设置将在联网后更新：" + error.localizedDescription }
+    preferences = value
+    cloudState.onboardingComplete = value.hasCompletedOnboarding
     persistCloud()
     await persistTask?.value
   }
@@ -737,7 +743,8 @@ extension AppStore {
           path + "/respond", method: "POST", body: body)
         cloudState.interview = CloudInterview(
           session_id: interview.session_id, phase: result.next_turn.phase,
-          turn: result.next_turn, profile: result.profile, purpose: interview.purpose)
+          turn: result.next_turn, profile: result.profile, purpose: interview.purpose,
+          design_fingerprint: result.design_fingerprint)
       } else if interview.phase == "adaptive_diagnosis" {
         cloudState.interview = try await cloud.request(path + "/next", method: "POST")
       } else if !interview.canGenerateCourse {
@@ -771,7 +778,11 @@ extension AppStore {
     }
     let epoch = cloudState.epoch
     cloudState.showDiagnosis = true
-    let service = CourseJobService(api: cloud, repository: repository, accountKey: accountKey)
+    let previousPublicationID = cloudResource?.needsPreferenceUpdate(chapterID: chapterID) == true
+      ? cloudResource?.courses.first(where: { $0.chapter_id == chapterID })?.course_id : nil
+    let service = CourseJobService(api: cloud, repository: repository, accountKey: accountKey,
+      designFingerprint: interview.design_fingerprint ?? cloudResource?.learning_design_fingerprint,
+      previousPublicationID: previousPublicationID)
     let task = Task<CloudCourse, Error> { @MainActor in
       let update: @Sendable (CloudCourseJob) async throws -> Void = { [weak self] job in
         try await MainActor.run {

@@ -149,6 +149,7 @@ struct ReaderOrigin: Sendable {
   }
 
   func clearCourseImports() {
+    suspendCourseUploads()
     for task in importState.tasks.values { task.cancel() }
     importState.tasks = [:]
     importState.preparationServices = [:]
@@ -166,6 +167,7 @@ struct ReaderOrigin: Sendable {
     importState.viewedCourseID = courseImport(for: course.id)?.id
     closeSheet()
     go(.study)
+    if let upload = courseUpload(for: course.id) { showCourseUpload(upload.id) }
   }
 
   func continueCourseImport(_ id: String) {
@@ -284,7 +286,10 @@ struct ReaderOrigin: Sendable {
   private func runCourseImport(_ id: String, retryPreparation: Bool, epoch: UUID) async {
     guard let record = importState.courses.first(where: { $0.id == id }) else { return }
     let ids = record.books.map(\.id)
-    let processingRoute = cloud == nil ? ProcessingRoute.onDevice : await processingPolicy.route(for: .ocr)
+    let processingRoute: ProcessingRoute
+    if let saved = importState.processingRoutes[id] { processingRoute = saved }
+    else if cloud == nil { processingRoute = .onDevice }
+    else { processingRoute = await processingPolicy.route(for: .ocr) }
     guard epoch == cloudState.epoch, !Task.isCancelled else { return }
     guard processingRoute != .cancelled else {
       updateCourseImport(id) { $0.job.status = .cancelled; $0.job.message = "已取消本次处理，原文件已保留。" }

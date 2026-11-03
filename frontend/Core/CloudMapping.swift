@@ -81,21 +81,54 @@ enum CloudMapping {
               content: bundle.opening, citations: [], source_chunk_ids: [], asset_ids: [],
               ai_generated: true))
         }
-        for (index, section) in (bundle.original_reading + bundle.worked_examples).enumerated() {
-          let citations = section.citations.map(citation)
-          blocks.append(
-            LessonBlock(
-              block_id: lessonID + ":section:\(index)", block_type: "explanation",
+        if let units = bundle.units, !units.isEmpty {
+          for (unitIndex, unit) in units.enumerated() {
+            if let check = unit.prerequisite_check, !check.isEmpty {
+              blocks.append(LessonBlock(
+                block_id: lessonID + ":unit:" + unit.unit_id + ":prerequisite",
+                block_type: "review_question", title: "单元 \(unitIndex + 1) · 学前检查",
+                content: check, citations: [], source_chunk_ids: [], asset_ids: [], ai_generated: true))
+            }
+            // Several presentation roles can share one reviewed explanation.
+            // Keep its first preferred position without repeating the same prose.
+            var shown = Set<String>()
+            for (sectionIndex, section) in unit.sections.enumerated() {
+              let identity = (section.point_id ?? "") + ":" + section.content
+              guard shown.insert(identity).inserted else { continue }
+              let question = ["checkpoint", "recall"].contains(section.kind ?? "")
+              let citations = section.citations.map(citation)
+              blocks.append(LessonBlock(
+                block_id: lessonID + ":unit:" + unit.unit_id + ":\(sectionIndex)",
+                block_type: question ? "review_question" : "knowledge",
+                title: "单元 \(unitIndex + 1) · \(section.title)（约 \(unit.estimated_minutes) 分钟）",
+                content: section.content, citations: citations,
+                source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
+            }
+          }
+          for (index, section) in (bundle.worked_examples + bundle.original_reading).enumerated() {
+            let citations = section.citations.map(citation)
+            blocks.append(LessonBlock(
+              block_id: lessonID + ":supplement:\(index)", block_type: "explanation",
               title: section.title, content: section.content, citations: citations,
               source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
-        }
-        for (index, point) in bundle.knowledge_points.enumerated() {
-          let citations = point.citations.map(citation)
-          blocks.append(
-            LessonBlock(
-              block_id: lessonID + ":point:\(index)", block_type: "knowledge",
-              title: point.title, content: point.explanation, citations: citations,
-              source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
+          }
+        } else {
+          for (index, section) in (bundle.original_reading + bundle.worked_examples).enumerated() {
+            let citations = section.citations.map(citation)
+            blocks.append(
+              LessonBlock(
+                block_id: lessonID + ":section:\(index)", block_type: "explanation",
+                title: section.title, content: section.content, citations: citations,
+                source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
+          }
+          for (index, point) in bundle.knowledge_points.enumerated() {
+            let citations = point.citations.map(citation)
+            blocks.append(
+              LessonBlock(
+                block_id: lessonID + ":point:\(index)", block_type: "knowledge",
+                title: point.title, content: point.explanation, citations: citations,
+                source_chunk_ids: citations.map(\.chunk_id), asset_ids: [], ai_generated: true))
+          }
         }
         // This public contract supplies review questions as text only. Keep
         // their question role; do not invent answers, citations or grading IDs.

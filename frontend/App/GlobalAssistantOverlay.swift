@@ -80,7 +80,7 @@ struct GlobalAssistantOverlay: View {
           HStack(spacing: 12) {
             Text(error).appFont(.supporting).foregroundStyle(DS.danger)
               .frame(maxWidth: .infinity, alignment: .leading)
-            Button("重试") { retry() }.disabled(busy)
+            Button("重试") { retry() }.buttonFrame().disabled(busy)
           }.padding(12)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
@@ -93,7 +93,7 @@ struct GlobalAssistantOverlay: View {
                 if ready { await history.flush() }
                 else { await loadHistory() }
               }
-            }
+            }.buttonFrame()
           }.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
         conversation(bottomInset: composerHeight + bottomPadding + 16)
@@ -301,7 +301,7 @@ struct GlobalAssistantOverlay: View {
           .disabled(!ready).accessibilityIdentifier("assistant-new-conversation")
       } label: {
         AssistantAdaptiveTitle(title: title).foregroundStyle(DS.text)
-          .padding(.horizontal, 56).frame(maxWidth: .infinity)
+          .padding(.horizontal, 56).buttonFrame(fillsWidth: true)
           .contentShape(Rectangle()).contentTransition(.opacity)
           .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: title)
       }
@@ -320,13 +320,13 @@ struct GlobalAssistantOverlay: View {
           VStack(alignment: .leading, spacing: 4) {
             Capsule().frame(width: 19, height: 3)
             Capsule().frame(width: 13, height: 3)
-          }.foregroundStyle(DS.text).frame(width: 44, height: 44)
+          }.foregroundStyle(DS.text).iconButtonFrame()
             .contentShape(Circle()).modifier(AssistantGlassSurface(radius: 22))
         }.accessibilityLabel("历史对话").accessibilityIdentifier("assistant-history")
         Spacer()
         Button(action: close) {
           Image(systemName: "xmark").font(.system(size: 17, weight: .medium))
-            .foregroundStyle(DS.text).frame(width: 44, height: 44).contentShape(Circle())
+            .foregroundStyle(DS.text).iconButtonFrame().contentShape(Circle())
             .modifier(AssistantGlassSurface(radius: 22))
         }.accessibilityLabel("收起 AI 助手").accessibilityIdentifier("global-assistant-close")
       }
@@ -376,7 +376,7 @@ struct GlobalAssistantOverlay: View {
         Button(action: toggleHistorySearch) {
           Image(systemName: "magnifyingglass").font(.system(size: 20, weight: .medium))
             .foregroundStyle(showingHistorySearch ? DS.primary : DS.secondary)
-            .frame(width: 44, height: 44).contentShape(Rectangle())
+            .iconButtonFrame().contentShape(Rectangle())
         }.buttonStyle(.plain)
           .accessibilityLabel(showingHistorySearch ? "收起历史搜索" : "搜索历史对话")
           .accessibilityIdentifier("assistant-history-search-toggle")
@@ -448,7 +448,7 @@ struct GlobalAssistantOverlay: View {
       if !historyQuery.isEmpty {
         Button { historyQuery = "" } label: {
           Image(systemName: "xmark.circle.fill").foregroundStyle(DS.secondary)
-            .frame(width: 32, height: 44).contentShape(Rectangle())
+            .iconButtonFrame().contentShape(Rectangle())
         }.accessibilityLabel("清除搜索")
       }
     }

@@ -39,7 +39,7 @@ struct CourseDiscoveryView: View {
             HStack(spacing: 6) {
               BCGlyph("Upload", color: DS.primary).frame(width: 18, height: 18)
               Text("分享").font(DS.font(.button))
-            }.frame(width: 86, height: 52)
+            }.frame(width: 86).buttonFrame()
               .background(DS.primarySoft, in: Capsule())
               .overlay(Capsule().stroke(DS.primary.opacity(0.18)))
           }.buttonStyle(.plain).foregroundStyle(DS.primary)
@@ -140,7 +140,7 @@ struct CourseDiscoveryView: View {
         Button {
           query = ""
         } label: {
-          Image(systemName: "xmark").frame(width: 44, height: 44)
+          Image(systemName: "xmark").iconButtonFrame()
         }.buttonStyle(.plain).accessibilityLabel("清除搜索内容")
       }
     }.padding(.horizontal, 14).frame(height: 52).frame(maxWidth: 820)
@@ -158,9 +158,7 @@ struct CourseDiscoveryView: View {
         Button {
           withAnimation { allCategories.toggle() }
         } label: {
-          Image(systemName: allCategories ? "chevron.up" : "chevron.down").frame(
-            width: 44, height: 44
-          ).background(DS.background.opacity(0.9))
+          Image(systemName: allCategories ? "chevron.up" : "chevron.down").iconButtonFrame().background(DS.background.opacity(0.9))
         }.buttonStyle(.plain).accessibilityLabel(allCategories ? "收起全部分类" : "查看更多分类")
       }.padding(.horizontal, -gutter)
       if allCategories {
@@ -179,7 +177,7 @@ struct CourseDiscoveryView: View {
     } label: {
       Text(value).font(DS.font(.cardTitle))
         .foregroundStyle(category == value && query.isEmpty ? DS.primary : DS.secondary)
-        .frame(width: 64, height: 44)
+        .frame(width: 64).buttonFrame()
 
     }.buttonStyle(.plain).accessibilityAddTraits(
       category == value && query.isEmpty ? .isSelected : [])
@@ -216,7 +214,7 @@ private struct CommunityCourseTile: View {
       HStack(spacing: 4) {
         Spacer(minLength: 0)
         Text("进入").font(DS.font(.smallButton)).foregroundStyle(.white).padding(.horizontal, 12)
-          .frame(minWidth: 56, minHeight: 36).background(DS.primary, in: Capsule())
+          .frame(minWidth: 56).buttonFrame().background(DS.primary, in: Capsule())
       }
     }.padding(12)
   }
@@ -318,7 +316,7 @@ struct LearnerProfileView: View {
         Button {
           store.go(.settings)
         } label: {
-          Image(systemName: "gearshape").frame(width: 44, height: 44).foregroundStyle(
+          Image(systemName: "gearshape").iconButtonFrame().foregroundStyle(
             DS.primaryPressed
           ).background(Color(hex: 0xF7F3FF), in: RoundedRectangle(cornerRadius: 12)).overlay(
             RoundedRectangle(cornerRadius: 12).stroke(Color(hex: 0xDED4F7)))
@@ -373,7 +371,7 @@ struct LearnerProfileView: View {
           VStack(alignment: .leading, spacing: 8) {
             Text("当前课程").font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
             if store.courses.isEmpty {
-              Button("选择课程") { store.go(.library) }.font(DS.font(.body)).foregroundStyle(DS.primary)
+              Button("选择课程") { store.go(.library) }.font(DS.font(.body)).foregroundStyle(DS.primary).buttonFrame()
             } else {
               Menu {
                 ForEach(store.courses) { course in
@@ -387,7 +385,7 @@ struct LearnerProfileView: View {
                   Spacer()
                   Image(systemName: "chevron.up.chevron.down").font(.system(size: 12))
                     .foregroundStyle(DS.text)
-                }.padding(.horizontal, 8).frame(height: 28).frame(
+                }.padding(.horizontal, 8).buttonFrame().frame(
                   maxWidth: .infinity, alignment: .leading
                 ).overlay(RoundedRectangle(cornerRadius: 6).stroke(DS.border))
               }.accessibilityLabel("切换课程")
@@ -561,7 +559,7 @@ struct LearnerSettingsView: View {
             Text("退出账号").font(DS.font(.button))
             Spacer()
             BCGlyph("ArrowRight", color: DS.danger).frame(width: 18, height: 18)
-          }.padding(.horizontal, 21).frame(maxWidth: .infinity).frame(height: 62).foregroundStyle(
+          }.padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame(fillsWidth: true).foregroundStyle(
             DS.danger
           )
           .background(DS.surface, in: RoundedRectangle(cornerRadius: 14))

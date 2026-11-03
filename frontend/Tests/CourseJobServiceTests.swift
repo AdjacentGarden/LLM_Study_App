@@ -785,4 +785,35 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertTrue(requests.all.isEmpty)
     XCTAssertEqual(store.cloudResource?.session_id, "existing-learning")
   }
+  func testChangedEffectivePreferencesSubmitNewIntentAndRecoverItsOwnReceipt() async throws {
+    let requests = CourseRequests()
+    let (api, session, host, repository) = try fixture { request in
+      let count = try requests.append(request)
+      var response = try JSONSerialization.jsonObject(with: self.job(count == 1 ? "succeeded" : "running", course: count == 1)) as! [String: Any]
+      response["job_id"] = count == 1 ? "job_previous" : "job_updated"
+      return (200, try JSONSerialization.data(withJSONObject: response))
+    }
+    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    let oldFingerprint = String(repeating: "a", count: 64)
+    let newFingerprint = String(repeating: "b", count: 64)
+    let old = CourseJobService(api: api, repository: repository, accountKey: "owner", designFingerprint: oldFingerprint)
+    let updated = CourseJobService(api: api, repository: repository, accountKey: "owner", designFingerprint: newFingerprint)
+    _ = try await old.current(sessionID: "session", chapterID: "chapter")
+    _ = try await updated.current(sessionID: "session", chapterID: "chapter")
+    let reverted = CourseJobService(api: api, repository: repository, accountKey: "owner",
+      designFingerprint: oldFingerprint, previousPublicationID: "course-b")
+    _ = try await reverted.current(sessionID: "session", chapterID: "chapter")
+    let reopened = CourseJobService(api: api, repository: try LocalBookCourseRepository(directory: repository.directory),
+      accountKey: "owner", designFingerprint: oldFingerprint, previousPublicationID: "course-b")
+    _ = try await reopened.current(sessionID: "session", chapterID: "chapter")
+    XCTAssertEqual(requests.all.map(\.0), ["POST", "POST", "POST", "GET"])
+    XCTAssertEqual(requests.all[0].1["design_fingerprint"] as? String, oldFingerprint)
+    XCTAssertEqual(requests.all[1].1["design_fingerprint"] as? String, newFingerprint)
+    XCTAssertNotEqual(requests.all[0].1["request_id"] as? String, requests.all[1].1["request_id"] as? String)
+    XCTAssertEqual(requests.all[2].1["design_fingerprint"] as? String, oldFingerprint)
+    XCTAssertNotEqual(requests.all[0].1["request_id"] as? String, requests.all[2].1["request_id"] as? String)
+    XCTAssertTrue(requests.allURLs[3].path.hasSuffix("/job_updated"))
+    XCTAssertEqual(try diskRequestIDs(repository.directory).count, 3)
+  }
+
 }

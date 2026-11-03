@@ -16,25 +16,20 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="launch-logo">
-                                <rect key="frame" x="115.5" y="261.5" width="144" height="144"/>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="StartupLockup" translatesAutoresizingMaskIntoConstraints="NO" id="launch-lockup">
+                                <rect key="frame" x="52.5" y="169.0" width="270" height="391"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="144" id="logo-width"/>
-                                    <constraint firstAttribute="height" constant="144" id="logo-height"/>
+                                    <constraint firstAttribute="width" secondItem="launch-lockup" secondAttribute="height" multiplier="270:391" id="lockup-aspect"/>
+                                    <constraint firstAttribute="width" constant="270" priority="750" id="lockup-ideal-width"/>
                                 </constraints>
-                            </imageView>
-                            <imageView userInteractionEnabled="NO" contentMode="scaleToFill" image="SplashCorners" translatesAutoresizingMaskIntoConstraints="NO" id="launch-logo-corners">
-                                <rect key="frame" x="115.5" y="261.5" width="144" height="144"/>
                             </imageView>
                         </subviews>
                         <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="launch-logo-corners" firstAttribute="leading" secondItem="launch-logo" secondAttribute="leading" id="corners-leading"/>
-                            <constraint firstItem="launch-logo-corners" firstAttribute="trailing" secondItem="launch-logo" secondAttribute="trailing" id="corners-trailing"/>
-                            <constraint firstItem="launch-logo-corners" firstAttribute="top" secondItem="launch-logo" secondAttribute="top" id="corners-top"/>
-                            <constraint firstItem="launch-logo-corners" firstAttribute="bottom" secondItem="launch-logo" secondAttribute="bottom" id="corners-bottom"/>
-                            <constraint firstItem="launch-logo" firstAttribute="centerX" secondItem="snD-IY-ifK" secondAttribute="centerX" id="logo-center-x"/>
-                            <constraint firstItem="launch-logo" firstAttribute="centerY" secondItem="snD-IY-ifK" secondAttribute="centerY" id="logo-center-y"/>
+                            <constraint firstItem="launch-lockup" firstAttribute="centerX" secondItem="snD-IY-ifK" secondAttribute="centerX" id="lockup-center-x"/>
+                            <constraint firstItem="launch-lockup" firstAttribute="centerY" secondItem="snD-IY-ifK" secondAttribute="centerY" multiplier="1.0926773455" id="lockup-center-y"/>
+                            <constraint firstItem="launch-lockup" firstAttribute="width" relation="lessThanOrEqual" secondItem="snD-IY-ifK" secondAttribute="width" multiplier="270:402" id="lockup-screen-width"/>
+                            <constraint firstItem="launch-lockup" firstAttribute="height" relation="lessThanOrEqual" secondItem="snD-IY-ifK" secondAttribute="height" multiplier="391:874" id="lockup-screen-height"/>
                         </constraints>
                     </view>
                 </viewController>
@@ -44,7 +39,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="Splash" width="1024" height="1024"/>
-        <image name="SplashCorners" width="144" height="144"/>
+        <image name="StartupLockup" width="270" height="391"/>
     </resources>
 </document>

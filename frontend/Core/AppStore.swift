@@ -14,6 +14,7 @@ import UIKit
   var bootError: String?
   var isLoading = true
   let courseState = CourseState()
+  let uploadState = CourseUploadState()
   var chapterDrafts: [String: [Chapter]] {
     get { courseState.chapterDrafts }
     set { courseState.chapterDrafts = newValue }

@@ -176,4 +176,58 @@ final class CourseTests: XCTestCase {
       task_id: id, user_id: "local_user", day: 1, title: title, task_type: "lesson",
       minutes: minutes, status: status, weak_points: [])
   }
+  private func personalizedResource() throws -> CloudResource {
+    let wire = #"""
+    {"id":"r","book_id":"b","workspace_id":"w","revision":0,"filename":"教材.pdf","status":"ready",
+     "learning_design_fingerprint":"current","progress":{"revision":0,"page":2,"completed_chapters":["c"],"task_status":{},"mastered_ids":[]},
+     "structure":{"title":"教材","summary":"摘要","source_page_count":3,"chapters":[{"chapter_id":"c","order":1,"title":"条件","start_page":1,"end_page":3,"summary":"摘要","knowledge_points":["知识点"],"source_block_ids":[]}]},
+     "courses":[{"course_id":"course","version":1,"chapter_id":"c","chapter_title":"条件","opening":"学习导引","summary":"课程总结",
+       "original_reading":[{"title":"教材原文","content":"有源原文","purpose":"核对","citations":[]}],
+       "knowledge_points":[{"point_id":"p","title":"概念","explanation":"旧的固定布局不应重复出现","mastery":0.5,"citations":[]}],
+       "flashcards":[],"worked_examples":[],"checkpoint_questions":[],"practice_items":[],"estimated_minutes":5,"created_at":"now","unresolved_source_warnings":[],
+       "design_fingerprint":"current","design_config":{"primary_goal":"exam","minutes_per_day":20,"guidance_styles":["examples"]},
+       "units":[{"unit_id":"unit-1","title":"概念","knowledge_point_ids":["p"],"estimated_minutes":5,
+         "prerequisite_check":"先回想前置概念",
+         "sections":[{"title":"原文例证","content":"按偏好组织的有源讲解","purpose":"讲解","kind":"evidence_example","point_id":"p","citations":[{"page_number":2,"quote":"有源原文"}]},
+           {"title":"本节重点","content":"按偏好组织的有源讲解","purpose":"重点","kind":"key_points","point_id":"p","citations":[]},
+           {"title":"检查理解","content":"为什么成立？","purpose":"自测","kind":"checkpoint","point_id":"p","citations":[]},
+           {"title":"主动回忆","content":"合上教材回忆条件","purpose":"回忆","kind":"recall","point_id":"p","citations":[]}]}]}]}
+    """#
+    return try JSONDecoder().decode(CloudResource.self, from: Data(wire.utf8))
+  }
+
+  func testPersonalizedUnitsDriveActualReadingOrderAndRetainQuestionRolesAndCitations() throws {
+    let resource = try personalizedResource()
+    // Exercise the same wire decode, immutable cache and mapping used by the App.
+    let cache = try JSONDecoder().decode(CloudContent.self, from: JSONEncoder().encode(CloudContent(resource: resource)))
+    let source = CloudMapping.source(cache.applying(to: resource))
+    let blocks = try XCTUnwrap(source.lessons.first).blocks
+    XCTAssertEqual(blocks.map(\.content), ["学习导引", "先回想前置概念", "按偏好组织的有源讲解", "为什么成立？", "合上教材回忆条件", "有源原文"])
+    XCTAssertEqual(blocks.filter { $0.block_type == "review_question" }.count, 3)
+    XCTAssertEqual(blocks[2].citations.first?.page_start, 2)
+    XCTAssertTrue(blocks[2].title.contains("约 5 分钟"))
+    XCTAssertFalse(resource.needsPreferenceUpdate(chapterID: "c"))
+    XCTAssertTrue(try XCTUnwrap(resource.courses.first?.personalizationSummary).contains("结合示例"))
+    XCTAssertEqual(resource.progress.completed_chapters, ["c"])
+  }
+
+  func testLegacyCoursesRemainReadableAndPreferenceChangesMarkExistingContentForUpdate() throws {
+    var resource = try personalizedResource()
+    resource.courses[0].units = nil
+    resource.courses[0].design_config = nil
+    resource.courses[0].design_fingerprint = nil
+    let source = CloudMapping.source(resource)
+    XCTAssertTrue(source.lessons[0].blocks.contains { $0.content == "旧的固定布局不应重复出现" })
+    XCTAssertTrue(resource.needsPreferenceUpdate(chapterID: "c"))
+    let current = CloudContent(resource: resource)
+    resource.learning_design_fingerprint = "new-preferences"
+    let restored = current.applying(to: resource)
+    XCTAssertEqual(restored.learning_design_fingerprint, "new-preferences")
+    XCTAssertTrue(restored.needsPreferenceUpdate(chapterID: "c"))
+    XCTAssertEqual(restored.courses[0].course_id, "course")
+    XCTAssertFalse(restored.needsPreferenceUpdate(chapterID: "not-generated"))
+    resource.learning_design_fingerprint = nil
+    XCTAssertFalse(resource.needsPreferenceUpdate(chapterID: "c"), "An older server must remain compatible")
+  }
+
 }

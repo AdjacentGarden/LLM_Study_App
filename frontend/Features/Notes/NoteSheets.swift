@@ -39,10 +39,10 @@ struct NotesTypePicker: View {
                 Text("教材第 \(printedPage) 页")
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 14))
-              }.font(DS.font(.body)).foregroundStyle(DS.text).padding(.horizontal, 8).frame(height: 30)
+              }.font(DS.font(.body)).foregroundStyle(DS.text).padding(.horizontal, 8).buttonFrame()
                 .background(.white, in: RoundedRectangle(cornerRadius: 5)).overlay(
                   RoundedRectangle(cornerRadius: 5).stroke(DS.border))
-            }
+            }.accessibilityIdentifier("notes.pagePicker")
             Text("选择后会在对应教材原页上直接批注").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
           }
         }.padding(.bottom, 18)
@@ -144,7 +144,7 @@ struct NotesConceptSheet: View {
               BCGlyph("BookOpenCheck", color: DS.primary).frame(width: 17, height: 17)
               Text("教材第 \(citation.printed_page_start ?? citation.page_start) 页").font(
                 DS.font(.cardTitle))
-            }.foregroundStyle(DS.primary).frame(minHeight: 44)
+            }.foregroundStyle(DS.primary).buttonFrame()
           }.padding(.bottom, 18)
         }
         Text("学习笔记").font(DS.font(.cardTitle)).foregroundStyle(DS.secondary).padding(
@@ -159,7 +159,7 @@ struct NotesConceptSheet: View {
         }
         NotesPrimaryAction(
           title: saving ? "正在保存…" : error == nil ? "保存到笔记" : "重试保存",
-          symbol: "square.and.arrow.down", secondary: true
+          symbol: "square.and.arrow.down", secondary: true, size: .primary
         ) { save() }.disabled(
           saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         ).accessibilityIdentifier("notes.save")
@@ -248,7 +248,7 @@ struct NotesTextEditor: View {
           Button {
             closeEditor()
           } label: {
-            NotesGlyph(name: "X", size: 18).frame(width: 44, height: 36)
+            NotesGlyph(name: "X", size: 18).iconButtonFrame()
           }.foregroundStyle(DS.secondary).accessibilityLabel("关闭")
         }
         if compact {
@@ -294,23 +294,24 @@ struct NotesTextEditor: View {
                 finish()
               }
             } label: {
-              NotesGlyph(name: "Trash2", size: 17).frame(width: 44, height: 44)
+              NotesGlyph(name: "Trash2", size: 17).iconButtonFrame()
             }.foregroundStyle(DS.secondary).accessibilityLabel("删除批注")
             Spacer(minLength: 0)
             Button(saving ? "保存中…" : error == nil ? "完成" : "重试保存") { save() }
               .accessibilityIdentifier("notes.save").disabled(
                 saving || bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
               )
-              .font(DS.font(.supporting, weight: .semibold)).padding(.horizontal, 12).frame(height: 44)
+              .font(DS.font(.supporting, weight: .semibold)).padding(.horizontal, 12).buttonFrame()
               .background(DS.background, in: RoundedRectangle(cornerRadius: 8))
             Button("问 AI") { save(askingAI: true) }.disabled(
               saving || bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ).font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary).padding(.horizontal, 12)
-              .frame(height: 44).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 8))
+              .buttonFrame().background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 8))
           }
         } else {
           BCButton(
-            saving ? "正在保存…" : error == nil ? "保存到笔记" : "重试保存", icon: "Save", style: .secondary
+            saving ? "正在保存…" : error == nil ? "保存到笔记" : "重试保存", icon: "Save", style: .secondary,
+            size: .primary
           ) { save() }
           .disabled(saving || bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
           .accessibilityIdentifier("notes.save")
@@ -323,7 +324,7 @@ struct NotesTextEditor: View {
               NotesGlyph(name: "Mic2", size: 17)
               Text(compact ? "开始语音批注" : "添加语音批注")
             }.font(DS.font(compact ? .smallButton : .button)).foregroundStyle(DS.primary).frame(
-              maxWidth: .infinity, minHeight: 44)
+              maxWidth: .infinity).buttonFrame()
           }.buttonStyle(.plain)
         }
         if saved {

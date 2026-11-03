@@ -49,8 +49,8 @@ Chapter edit/delete modifies `chapterDrafts` only; `confirmChapters` commits to 
 Route raw values exactly source enum. SheetRoute string enum .chat,.note,.noteType,.editChapter,.bookSwitcher,.addMaterials; context in store properties. Source imports store.processImport uses original file content. Errors must be surfaced and saved files retained.
 
 ## DesignSystem interface
-`DS` constants: primary,primaryPressed,primarySoft,background,surface,text,secondary,muted,border,warning,danger,mint,orange (Color); font(_ size:CGFloat=20,weight:Font.Weight=.regular)->Font; global/local animation. `Color(hex:UInt)`.
-`BCButton(_ title:String,icon:String?=nil,style:BCButtonStyle=.primary,action:@escaping()->Void)`; style enum primary,secondary,text,danger.
+`DS` constants: primary,primaryPressed,primarySoft,background,surface,text,secondary,muted,border,warning,danger,mint,orange (Color); font(_ style:DS.Typography=.body,weight:Font.Weight?=nil)->Font; global/local animation. `Color(hex:UInt)`.
+`BCButton(_ title:String,icon:String?=nil,style:BCButtonStyle=.primary,size:DS.ButtonSize?=nil,action:@escaping()->Void)`; style enum primary,secondary,text,danger. `DS.ButtonSize.primary` is 54pt; `.regular` is 44pt. Primary style defaults to 54pt; other styles default to 44pt, with an explicit size override when needed. Custom labels use `buttonFrame(_:fillsWidth:)` or `iconButtonFrame()` (44×44pt), before the background. See [button sizing](BUTTONS.md) for content-card and native-system boundaries.
 `BCCard { content }`, `BCPill(_ title:String,color:Color=DS.primary)`, `BCProgress(value:Double)` (0...1), `BCHeader(_ title:String,subtitle:String?=nil,back:(()->Void)?=nil,actionTitle:String?=nil,action:(()->Void)?=nil)`.
 `AssetImage(_ path:String,contentMode:ContentMode=.fit)` loads /assets paths from bundled Resources/Content (webp decoded natively).
 `StickerIcon(_ name:String,tone:String="violet",size:CGFloat=40)` names from source stickerArtwork, uses original SVG geometry.

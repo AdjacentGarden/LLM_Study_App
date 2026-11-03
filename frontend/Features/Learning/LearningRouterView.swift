@@ -81,8 +81,8 @@ struct LearningSourceButton: View {
         }
         .font(DS.font(.smallButton))
         .foregroundStyle(DS.primary)
-        .padding(.vertical, 14)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding)
+        .buttonFrame(fillsWidth: true)
         .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
       }
       .buttonStyle(.plain)

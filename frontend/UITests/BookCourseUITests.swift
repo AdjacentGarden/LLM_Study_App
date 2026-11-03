@@ -55,6 +55,41 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["PROFILE"].firstMatch.waitForExistence(timeout: 8))
   }
 
+  func testUnifiedButtonSizesAcrossPages() throws {
+    XCUIDevice.shared.orientation = .portrait
+    func check(_ button: XCUIElement, height: CGFloat, square: Bool = false) {
+      XCTAssertTrue(button.waitForExistence(timeout: 20))
+      XCTAssertEqual(button.frame.height, height, accuracy: 1)
+      if square { XCTAssertEqual(button.frame.width, 44, accuracy: 1) }
+      else { XCTAssertGreaterThanOrEqual(button.frame.width, 44) }
+    }
+
+    let upload = launch("upload", visual: true)
+    check(upload.buttons["upload.save"], height: 54)
+    check(upload.buttons["navigation.back"].firstMatch, height: 44, square: true)
+    keepScreenshot("button-sizes-upload", app: upload)
+    upload.terminate()
+
+    let discovery = launch("community", visual: true)
+    check(discovery.buttons["community.share.open"], height: 44)
+    check(discovery.buttons["全部"].firstMatch, height: 44)
+    keepScreenshot("button-sizes-discovery", app: discovery)
+    discovery.terminate()
+
+    let notes = launch("study", sheet: "noteType", visual: true)
+    check(notes.buttons["notes.pagePicker"], height: 44)
+    check(notes.buttons["overlay-close"], height: 44, square: true)
+    keepScreenshot("button-sizes-notes", app: notes)
+    notes.terminate()
+
+    let editor = launch("lesson", sheet: "note", visual: true)
+    let save = editor.buttons["notes.save"].firstMatch
+    check(save, height: 54)
+    try reveal(save, in: editor)
+    keepScreenshot("button-sizes-note-save", app: editor)
+    editor.terminate()
+  }
+
   func testCommunitySharingPanelOpensAndClosesWithoutPublishing() throws {
     XCUIDevice.shared.orientation = .portrait
     let app = launch("community")
@@ -730,6 +765,8 @@ final class BookCourseUITests: XCTestCase {
     voice.tap()
     let record = app.buttons["开始录音"].firstMatch
     XCTAssertTrue(record.waitForExistence(timeout: 10))
+    XCTAssertEqual(record.frame.width, 44, accuracy: 1)
+    XCTAssertEqual(record.frame.height, 44, accuracy: 1)
     XCTAssertFalse(app.buttons["使用示例录音"].firstMatch.exists)
     // Real microphone recording is verified with device permission tests;
     // an offline UI test must never inject audio or a fabricated transcript.
@@ -933,6 +970,10 @@ final class BookCourseUITests: XCTestCase {
     let last = app.buttons["第 14 天"].firstMatch
     XCTAssertTrue(first.waitForExistence(timeout: 15))
     XCTAssertTrue(seventh.exists && eighth.exists && last.exists)
+    for day in [first, seventh, eighth, last] {
+      XCTAssertEqual(day.frame.height, 44, accuracy: 1)
+      XCTAssertGreaterThanOrEqual(day.frame.width, 44)
+    }
     if app.windows.firstMatch.frame.width >= 384 {
       XCTAssertEqual(first.frame.minY, seventh.frame.minY, accuracy: 1)
       XCTAssertGreaterThan(eighth.frame.minY, first.frame.minY + 20)

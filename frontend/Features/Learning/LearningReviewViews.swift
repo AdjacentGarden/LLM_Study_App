@@ -201,7 +201,7 @@ struct LearningFlashcardsView: View {
                 printedEnd: card.printed_page_end))
               .font(DS.font(.supporting)).foregroundStyle(theme.muted)
             Spacer()
-            Button("查看原文") { openSource(card) }.font(DS.font(.smallButton)).foregroundStyle(
+            Button("查看原文") { openSource(card) }.font(DS.font(.smallButton)).buttonFrame().foregroundStyle(
               theme.accent
             ).buttonStyle(.plain)
           }
@@ -278,7 +278,7 @@ struct LearningFlashcardsView: View {
           Text(title).font(DS.font(.supporting, weight: .semibold))
           if !compact { Text(helper).font(DS.font(.supporting)).opacity(0.75) }
         }
-      }.frame(maxWidth: .infinity, minHeight: compact ? 44 : 58)
+      }.buttonFrame(fillsWidth: true)
         .foregroundStyle(primary ? Color.white : DS.primary)
         .background(primary ? DS.primary : DS.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay(
@@ -429,7 +429,7 @@ struct LearningExportView: View {
               }.frame(width: 22, height: 22).frame(width: 24, height: 24)
               Text(module).font(DS.font(.body)).foregroundStyle(DS.secondary)
               Spacer()
-            }.padding(.horizontal, 13).frame(minHeight: 56).contentShape(Rectangle())
+            }.padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame().contentShape(Rectangle())
               .background(DS.surface, in: RoundedRectangle(cornerRadius: 14))
               .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border, lineWidth: 1))
           }

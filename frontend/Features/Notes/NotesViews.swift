@@ -194,7 +194,7 @@ struct NotesHubView: View {
       }.font(DS.font(.cardTitle)).foregroundStyle(
         filter == value ? DS.primary : DS.secondary
       )
-      .padding(.horizontal, 13).frame(minHeight: 44)
+      .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
       .background(filter == value ? DS.primarySoft : .clear, in: RoundedRectangle(cornerRadius: 10))
       .overlay(RoundedRectangle(cornerRadius: 10).stroke(filter == value ? DS.primary : .clear))
     }.buttonStyle(.plain)
@@ -378,6 +378,7 @@ struct NotesPrimaryAction: View {
   let title: String
   var symbol: String? = nil
   var secondary = false
+  var size: DS.ButtonSize? = nil
   let action: () -> Void
   private func glyphName(_ symbol: String) -> String {
     switch symbol {
@@ -397,7 +398,8 @@ struct NotesPrimaryAction: View {
         }
         Text(title).font(DS.font(.button))
       }
-      .foregroundStyle(secondary ? DS.text : .white).frame(maxWidth: .infinity).frame(minHeight: 54)
+      .foregroundStyle(secondary ? DS.text : .white)
+      .buttonFrame(size ?? (secondary ? .regular : .primary), fillsWidth: true)
       .background(secondary ? .white : DS.primary, in: Capsule()).overlay(
         Capsule().stroke(secondary ? Color(hex: 0xb4c3d9) : .clear))
     }.buttonStyle(BCPressStyle())

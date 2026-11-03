@@ -59,6 +59,10 @@ private final class CloudUploadObserver: NSObject, URLSessionTaskDelegate, @unch
       lastActivity = .now
     }
     lock.unlock()
+    recordProgress(totalBytesSent: totalBytesSent)
+  }
+
+  func recordProgress(totalBytesSent: Int64) {
     let progress = CloudUploadProgress(
       sentBytes: min(fileBytes, max(0, totalBytesSent - headerBytes)), totalBytes: fileBytes)
     Task { @MainActor in onProgress(progress) }
@@ -96,6 +100,7 @@ actor CloudAPI {
     ["127.0.0.1", "localhost", "::1", "[::1]"].contains(baseURL.host ?? "")
   }
   private let session: URLSession
+  nonisolated let usesNativeBackgroundUploads: Bool
   private var cookies: [String: String]
   nonisolated let cacheOrigins: [String]
   private let credentialKeys: [String]
@@ -103,6 +108,7 @@ actor CloudAPI {
   private let coverCache = NSCache<NSString, NSData>()
 
   init(baseURL: URL, session: URLSession? = nil) {
+    usesNativeBackgroundUploads = session == nil
     let normalized = Self.normalizedURL(baseURL)
     self.baseURL = normalized
     cacheOrigins = Self.compatibleOrigins(baseURL)
@@ -213,6 +219,7 @@ actor CloudAPI {
 
   func uploadPDF(
     _ url: URL, filename: String = "textbook.pdf",
+    background: BackgroundUploadIdentity? = nil,
     onProgress: @escaping @MainActor @Sendable (CloudUploadProgress) -> Void = { _ in }
   ) async throws -> CloudUpload {
     let boundary = "CloudPath-" + UUID().uuidString
@@ -255,7 +262,8 @@ actor CloudAPI {
     let (bytes, _) = try await send(
       "/api/native/uploads", method: "POST", data: nil,
       contentType: "multipart/form-data; boundary=\(boundary)",
-      uploadFile: bodyURL, uploadObserver: observer)
+      headers: background.map { ["X-CloudPath-Upload-ID": $0.id.uuidString] } ?? [:],
+      uploadFile: bodyURL, uploadObserver: observer, backgroundUpload: background)
     return try JSONDecoder().decode(CloudUpload.self, from: bytes)
   }
 
@@ -357,7 +365,8 @@ actor CloudAPI {
   private func send(
     _ path: String, method: String, data: Data?, contentType: String?,
     headers: [String: String] = [:], uploadFile: URL? = nil,
-    uploadObserver: CloudUploadObserver? = nil, privateAsset: Bool = false
+    uploadObserver: CloudUploadObserver? = nil, backgroundUpload: BackgroundUploadIdentity? = nil,
+    privateAsset: Bool = false
   ) async throws
     -> (Data, HTTPURLResponse)
   {
@@ -368,7 +377,7 @@ actor CloudAPI {
     if privateAsset { request.cachePolicy = .reloadIgnoringLocalCacheData }
     request.httpMethod = method
     if uploadFile != nil {
-      request.timeoutInterval = 60
+      request.timeoutInterval = backgroundUpload != nil && usesNativeBackgroundUploads ? 900 : 60
     } else if path.hasPrefix("/api/auth/") || path == "/api/native/local-login" {
       // A relayed tailnet connection can spend most of the normal auth budget
       // establishing TCP and TLS before the server receives the request.
@@ -395,7 +404,12 @@ actor CloudAPI {
     let canRetry = baseURL.host?.lowercased().hasSuffix(".ts.net") == true
       && (method == "GET" || (method == "POST" && path.hasPrefix("/api/native/catalog/") && path.hasSuffix("/import")))
     do {
-      if let uploadFile {
+      if let uploadFile, let backgroundUpload, usesNativeBackgroundUploads {
+        let transport = await BackgroundUploadTransport.client(origin: baseURL, scope: backgroundUpload.scope)
+        (bytes, raw) = try await transport.upload(request, file: uploadFile, id: backgroundUpload.id) { sent, _ in
+          uploadObserver?.recordProgress(totalBytesSent: sent)
+        }
+      } else if let uploadFile {
         (bytes, raw) = try await session.upload(
           for: request, fromFile: uploadFile, delegate: uploadObserver)
       } else {
@@ -596,6 +610,12 @@ struct CloudResource: Codable, Sendable, Identifiable {
   var session_purpose: String? = nil
   var cover_url: String? = nil
   var isPreview: Bool { session_purpose == "preview" }
+  var learning_design_fingerprint: String? = nil
+  func needsPreferenceUpdate(chapterID: String) -> Bool {
+    guard let expected = learning_design_fingerprint, !expected.isEmpty,
+      let course = courses.first(where: { $0.chapter_id == chapterID }) else { return false }
+    return course.design_fingerprint != expected
+  }
   var path: String { "/api/workspaces/\(workspace_id)/resources/\(id)" }
 }
 struct CloudStructure: Codable, Sendable {
@@ -644,6 +664,25 @@ struct CloudSection: Codable, Sendable {
   var content: String
   var purpose: String
   var citations: [CloudCitation]
+  var kind: String? = nil
+  var point_id: String? = nil
+}
+struct CloudLearningUnit: Codable, Sendable {
+  var unit_id: String
+  var title: String
+  var knowledge_point_ids: [String]
+  var sections: [CloudSection]
+  var estimated_minutes: Int
+  var prerequisite_check: String? = nil
+}
+struct CloudLearningDesign: Codable, Sendable {
+  var learning_stage: String? = nil
+  var primary_goal: String? = nil
+  var minutes_per_day: Int? = nil
+  var guidance_styles: [String]? = nil
+  var learning_barriers: [String]? = nil
+  var planning_support: String? = nil
+  var sources: [String: String]? = nil
 }
 struct CloudKnowledge: Codable, Sendable {
   var point_id: String
@@ -684,6 +723,21 @@ struct CloudCourse: Codable, Sendable {
   var estimated_minutes: Int
   var created_at: String
   var unresolved_source_warnings: [String]
+  var units: [CloudLearningUnit]? = nil
+  var design_config: CloudLearningDesign? = nil
+  var design_fingerprint: String? = nil
+
+  var personalizationSummary: String? {
+    guard let config = design_config else { return nil }
+    var parts = [CourseOptions.goalLabel(config.primary_goal)]
+    let stages = ["middle": "初中阶段", "high": "高中阶段", "university": "大学阶段", "working": "工作阶段"]
+    if let stage = config.learning_stage, let label = stages[stage] { parts.append(label) }
+    let guidance = CourseOptions.selectionLabel(config.guidance_styles ?? [], options: CourseOptions.guidance)
+    if !(config.guidance_styles ?? []).isEmpty { parts.append(guidance) }
+    if let minutes = config.minutes_per_day { parts.append("每天 \(minutes) 分钟") }
+    if let units, !units.isEmpty { parts.append("分 \(units.count) 个单元学习") }
+    return parts.joined(separator: " · ")
+  }
 }
 struct CloudInterview: Codable, Sendable {
   var session_id: String
@@ -691,6 +745,7 @@ struct CloudInterview: Codable, Sendable {
   var turn: CloudTurn
   var profile: JSONValue
   var purpose: String? = nil
+  var design_fingerprint: String? = nil
   var isPreview: Bool { purpose == "preview" }
   var canGenerateCourse: Bool {
     ((purpose == nil || purpose == "learning") && phase == "complete")
@@ -722,6 +777,7 @@ struct CloudDiagnosticResult: Codable, Sendable {
   var evidence: JSONValue
   var next_turn: CloudTurn
   var profile: JSONValue
+  var design_fingerprint: String? = nil
 }
 struct CloudReviewState: Codable, Sendable {
   var algorithm: String

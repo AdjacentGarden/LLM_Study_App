@@ -448,6 +448,10 @@ class UnitEngine:
         # request; leading with them made every prompt prefix unique.
         payload = {
             'chapter_title': self.chapter.title, 'knowledge_goal': work['label'],
+            'teaching_preferences': self.bundle.design_config.teaching_preferences() if self.bundle.design_config else None,
+            'depth': self.bundle.decision.depth.value,
+            'scaffolds': self.bundle.decision.scaffolds,
+            'emphasis': self.bundle.decision.emphasis,
             'scope_conditions': {owner: self.by_id[owner]['scope_conditions'] for owner in work['focus_ids']},
             'repair_task': {
                 'component': unit['unit_id'], 'failure': work.get('feedback', []),

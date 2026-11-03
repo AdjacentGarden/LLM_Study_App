@@ -13,6 +13,9 @@ final class AssistantComposerUITests: XCTestCase {
     let ready = app.buttons["guide-mic"].waitForExistence(timeout: 20)
     if !ready { print(app.debugDescription) }
     XCTAssertTrue(ready)
+    let actionable = XCTNSPredicateExpectation(
+      predicate: NSPredicate { _, _ in app.buttons["guide-mic"].isHittable }, object: nil)
+    XCTAssertEqual(XCTWaiter.wait(for: [actionable], timeout: 10), .completed)
     return app
   }
 
@@ -34,6 +37,10 @@ final class AssistantComposerUITests: XCTestCase {
     XCTAssertFalse(app.descendants(matching: .any)["guide-ai-message"].exists)
     let mic = app.buttons["guide-mic"]
     let more = app.buttons["guide-more"]
+    for button in [mic, more, app.buttons["global-assistant-close"]] {
+      XCTAssertEqual(button.frame.width, 44, accuracy: 1)
+      XCTAssertEqual(button.frame.height, 44, accuracy: 1)
+    }
     let barWidth = mic.frame.maxX - more.frame.minX + 14
     if app.windows.firstMatch.frame.width < 720 {
       XCTAssertEqual(barWidth / app.windows.firstMatch.frame.width, 0.84, accuracy: 0.015)
@@ -115,6 +122,10 @@ final class AssistantComposerUITests: XCTestCase {
     XCTAssertTrue(record.waitForExistence(timeout: 5))
     let keyboard = app.buttons["guide-voice-keyboard"]
     let close = app.buttons["guide-voice-close"]
+    for button in [record, keyboard, close] {
+      XCTAssertEqual(button.frame.width, 44, accuracy: 1)
+      XCTAssertEqual(button.frame.height, 44, accuracy: 1)
+    }
     XCTAssertTrue(keyboard.isHittable)
     XCTAssertTrue(close.isHittable)
     XCTAssertEqual(record.frame.midX, (keyboard.frame.midX + close.frame.midX) / 2, accuracy: 3)
