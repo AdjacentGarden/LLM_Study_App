@@ -366,9 +366,9 @@ struct UnitPointValue: Codable, Hashable, Sendable {
   var y: CGFloat
 }
 struct NoteAnchor: Codable, Hashable, Sendable {
+  var courseResourceID: String?
   var courseID: String?
   var bookID: String
-  var courseResourceID: String?
   var chapterID: String?
   var page: Int
   var printedPage: Int?
@@ -377,9 +377,9 @@ struct NoteAnchor: Codable, Hashable, Sendable {
     courseID: String? = nil, courseResourceID: String? = nil, bookID: String, chapterID: String? = nil, page: Int,
     printedPage: Int? = nil, quote: String? = nil
   ) {
+    self.courseResourceID = courseResourceID
     self.courseID = courseID
     self.bookID = bookID
-    self.courseResourceID = courseResourceID
     self.chapterID = chapterID
     self.page = page
     self.printedPage = printedPage
@@ -446,10 +446,10 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
   }
 }
 struct SourcePageTarget: Codable, Hashable, Sendable {
-  var bookID: String
-  var title: String
   var courseResourceID: String?
   var courseID: String?
+  var bookID: String
+  var title: String
   var page: Int
   var pageEnd: Int?
   var printedPage: Int?
@@ -459,10 +459,10 @@ struct SourcePageTarget: Codable, Hashable, Sendable {
     bookID: String, title: String, page: Int, courseID: String? = nil, courseResourceID: String? = nil, pageEnd: Int? = nil, printedPage: Int? = nil,
     sourceText: String? = nil, from: Route? = nil
   ) {
-    self.bookID = bookID
-    self.title = title
     self.courseID = courseID
     self.courseResourceID = courseResourceID
+    self.bookID = bookID
+    self.title = title
     self.page = page
     self.pageEnd = pageEnd
     self.printedPage = printedPage

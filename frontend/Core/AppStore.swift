@@ -603,16 +603,6 @@ import UIKit
     go(.lesson)
   }
   func openSource(_ target: SourcePageTarget, allowDownload: Bool = true) {
-    guard let source = sources.first(where: { $0.id == target.bookID }) else {
-      showToast("这份资料尚未导入", kind: .warning)
-      return
-    }
-    let localOnly = target.bookID.hasPrefix("book_local_")
-    if allowDownload, cloud != nil, !localOnly, sourceFileURL(target.bookID) == nil,
-      source.summary.content_mode != "catalog"
-    {
-      let epoch = cloudState.epoch, generation = selectionGeneration
-      let book = selectedBookID, course = selectedCourseID, originRoute = route
     var target = target
     if target.courseID == nil {
       let courseRoutes: Set<Route> = [.study, .lesson, .courseDetail, .notes, .voiceNote, .flashcards, .plan, .assignment, .diagnosis, .mistakes]
@@ -623,6 +613,16 @@ import UIKit
       }
     }
     target.courseResourceID = courseResourceID(courseID: target.courseID, bookID: target.bookID)
+    guard let source = sources.first(where: { $0.id == target.bookID }) else {
+      showToast("这份资料尚未导入", kind: .warning)
+      return
+    }
+    let localOnly = target.bookID.hasPrefix("book_local_")
+    if allowDownload, cloud != nil, !localOnly, sourceFileURL(target.bookID) == nil,
+      source.summary.content_mode != "catalog"
+    {
+      let epoch = cloudState.epoch, generation = selectionGeneration
+      let book = selectedBookID, course = selectedCourseID, originRoute = route
       Task {
         do {
           let choice = await processingPolicy.route(for: .retrieval)
@@ -653,6 +653,7 @@ import UIKit
         courseID: selectedCourseID, bookID: selectedBookID,
         chapterID: selectedChapterID, lessonID: selectedLessonID)
     }
+    if let courseID = target.courseID, selectedCourseID != courseID { selectCourse(courseID) }
     if selectedBookID != target.bookID {
       if allowDownload && !localOnly { selectSource(target.bookID) }
       else {
@@ -663,7 +664,6 @@ import UIKit
         if sourceTarget?.bookID != target.bookID { sourceTarget = nil }
         if let index = courses.firstIndex(where: {
           $0.id == selectedCourseID && $0.resourceIDs.contains(target.bookID)
-    if let courseID = target.courseID, selectedCourseID != courseID { selectCourse(courseID) }
         }) {
           courses[index].activeResourceID = target.bookID
         } else if let course = courses.first(where: { $0.resourceIDs.contains(target.bookID) }) {
@@ -680,6 +680,7 @@ import UIKit
       }
     }
     var t = target
+    if t.courseResourceID == nil { t.courseResourceID = courseResourceID(courseID: t.courseID, bookID: target.bookID) }
     if t.from == nil { t.from = route }
     sourceTarget = t
     go(.source)
@@ -690,7 +691,6 @@ import UIKit
     openSource(
       SourcePageTarget(
         bookID: bookID,
-    if t.courseResourceID == nil { t.courseResourceID = courseResourceID(courseID: t.courseID, bookID: target.bookID) }
         title: currentSource?.summary.title ?? currentTitle, page: citation.page_start,
         pageEnd: citation.page_end, printedPage: citation.printed_page_start,
         sourceText: citation.quote, from: route))
@@ -805,6 +805,7 @@ import UIKit
       } catch { showToast(error.localizedDescription, kind: .error) }
     }
   }
+
   func addSource(_ bookID: String, to courseID: String?) async throws {
     let targetID = courseID ?? selectedCourseID
     if cloud != nil, targetID?.hasPrefix("local-course:") != true {
@@ -815,7 +816,6 @@ import UIKit
       return
     }
     guard sources.contains(where: { $0.id == bookID }) else { throw ContentError.missing("教材资料") }
-
     if let id = targetID, let i = courses.firstIndex(where: { $0.id == id }) {
       if !courses[i].resourceIDs.contains(bookID) { courses[i].resourceIDs.append(bookID) }
       courses[i].updatedAt = .now
@@ -1177,6 +1177,15 @@ import UIKit
     }
     var updated = note
     if updated.anchor?.bookID.isEmpty == true { updated.anchor = nil }
+    if let anchor = updated.anchor {
+      guard let courseID = anchor.courseID,
+        let resourceID = courseResourceID(courseID: courseID, bookID: anchor.bookID) else {
+        throw ContentError.invalid("无指定课程，无法进行笔记撰写")
+      }
+      if let saved = anchor.courseResourceID, saved != resourceID { throw NoteStoreError.scopeMismatch }
+      updated.anchor?.courseResourceID = resourceID
+    }
+    updated.conversation = nil
     updated.updatedAt = .now
     let condition: NoteWriteCondition
     if let base = baseRevision {
@@ -1194,15 +1203,6 @@ import UIKit
       }
     } else if let base = noteState.revisions[updated.id] {
       condition = .revision(base)
-    if let anchor = updated.anchor {
-      guard let courseID = anchor.courseID,
-        let resourceID = courseResourceID(courseID: courseID, bookID: anchor.bookID) else {
-        throw ContentError.invalid("无指定课程，无法进行笔记撰写")
-      }
-      if let saved = anchor.courseResourceID, saved != resourceID { throw NoteStoreError.scopeMismatch }
-      updated.anchor?.courseResourceID = resourceID
-    }
-    updated.conversation = nil
     } else if let memory = notes.first(where: { $0.id == updated.id }) {
       // No known base: compare against the stored row the editor started from
       // instead of blindly overwriting a newer commit.
@@ -1262,6 +1262,9 @@ import UIKit
       guard noteScope == scope else { return }
       notes = stored.map(\.note)
       noteState.revisions = Dictionary(stored.map { ($0.note.id, $0.revision) }) { _, last in last }
+      await reloadAgentLearningObjects()
+      await assistantHistory.load(scope: assistantHistoryScope)
+      guard noteScope == scope else { return }
       if resumeAgent { agent.resume() }
     } catch { showToast(error.localizedDescription, kind: .error) }
   }
@@ -1279,9 +1282,6 @@ import UIKit
     creditRevision = ledger.revision
     credits = ledger.balance
     creditReservations = ledger.reservations
-      await reloadAgentLearningObjects()
-      await assistantHistory.load(scope: assistantHistoryScope)
-      guard noteScope == scope else { return }
   }
   func reserveCredits(_ amount: Int) async throws -> String {
     let (id, ledger) = try await repository.reserveCredits(amount)
