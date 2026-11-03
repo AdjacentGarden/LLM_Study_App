@@ -24,6 +24,7 @@ struct GlobalAssistantOverlay: View {
   @State private var cameraPermissionTask: Task<Void, Never>?
   @State private var selectedPhotos: [PhotosPickerItem] = []
   @State private var addingAttachments = false
+  @State private var preparingSubmission = false
   @State private var attachmentImportStatus = "正在读取附件…"
   @State private var attachmentError: String?
   @State private var attachmentImportTask: Task<Void, Never>?
@@ -39,6 +40,7 @@ struct GlobalAssistantOverlay: View {
   private var guideMessages: [ChatMessage] { session?.messages ?? [] }
   private var courseLinks: [String: [String]] { session?.courseLinks ?? [:] }
   private var busy: Bool { ready && history.busy }
+  private var readOnly: Bool { session?.acceptsNewMessages == false }
   private var attachments: [AssistantAttachment] { ready ? history.attachments : [] }
   private var storageIssue: String? {
     history.scope == store.assistantHistoryScope ? history.storageError : nil
@@ -76,7 +78,14 @@ struct GlobalAssistantOverlay: View {
         header
           .opacity(reduceMotion || revealed ? 1 : 0)
           .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(0.04), value: revealed)
-        if let error = session?.error {
+        if readOnly {
+          Text(session?.isReadOnly == true
+            ? "此对话已达到上下文上限，无法继续对话。请新建对话。"
+            : "当前上下文已达到 900K，正在完成本次任务；暂不能发送新消息。")
+            .appFont(.supporting).foregroundStyle(DS.secondary).padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        if let error = session?.error, !readOnly {
           HStack(spacing: 12) {
             Text(error).appFont(.supporting).foregroundStyle(DS.danger)
               .frame(maxWidth: .infinity, alignment: .leading)
@@ -101,14 +110,17 @@ struct GlobalAssistantOverlay: View {
       .padding(.horizontal, 16).padding(.top, 12)
       .frame(width: panelWidth, height: visibleHeight)
       .overlay(alignment: .bottom) {
-        AssistantComposer(voice: voice, busy: busy || !ready,
+        AssistantComposer(voice: voice, busy: busy || preparingSubmission || !ready || readOnly,
           placeholder: sessionContext.discovery ? "想学什么？问问 AI…" : "问教材、问错题、问计划…",
           attachments: attachments, addingAttachments: addingAttachments,
           attachmentImportStatus: attachmentImportStatus,
           showAttachmentChoices: {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { showingAttachmentChoices = true }
           },
-          removeAttachment: removeAttachment, textHorizontalInset: textInset, send: send)
+          removeAttachment: removeAttachment, textHorizontalInset: textInset,
+          contextTokens: session?.contextTokens ?? 0, contextEstimated: session?.contextEstimated ?? true,
+          send: send)
+          .disabled(readOnly)
           .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
           .background(alignment: .bottom) {
             // The footer stays translucent; messages can scroll behind the glass composer.
@@ -173,7 +185,19 @@ struct GlobalAssistantOverlay: View {
         return try await AssistantAttachmentImporter.photo(data, repository: store.repository, onProgress: progress)
       }
     }
-    .alert("无法添加附件", isPresented: Binding(get: { attachmentError != nil },
+    .alert("已达会话数上限，请删除无用历史会话", isPresented: Binding(get: { history.showingSessionLimit }, set: { history.showingSessionLimit = $0 })) {
+      Button("管理历史会话") { showingHistory = true }
+      Button("取消", role: .cancel) { }
+    }
+    .alert("此对话已达到上下文上限", isPresented: Binding(
+      get: { history.capacityAlertSessionID != nil && history.capacityAlertSessionID == history.archive.selectedID },
+      set: { if !$0 { history.capacityAlertSessionID = nil } })) {
+      Button("新建对话") { history.capacityAlertSessionID = nil; newSession() }
+    } message: { Text("无法继续对话，请新建对话。") }
+    .onChange(of: store.agent.active) { _, run in
+      if let run { history.recordRun(run) }
+    }
+    .alert("AI 助手", isPresented: Binding(get: { attachmentError != nil },
       set: { if !$0 { attachmentError = nil } })) {
       Button("好", role: .cancel) { attachmentError = nil }
     } message: { Text(attachmentError ?? "请重新选择文件。") }
@@ -199,6 +223,7 @@ struct GlobalAssistantOverlay: View {
         keyboardTop = .greatestFiniteMagnitude
       }
     }
+    .opacity(store.assistantState.screenshotExcludesAssistant ? 0 : 1)
     .onDisappear {
       cameraPermissionTask?.cancel()
       cancelAttachmentImport()
@@ -404,7 +429,7 @@ struct GlobalAssistantOverlay: View {
                 Image(systemName: item.id == history.archive.selectedID ? "checkmark.circle.fill" : "bubble.left")
                   .foregroundStyle(DS.primary).frame(width: 22).padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
-                  Text(item.title).appFont(.cardTitle).foregroundStyle(DS.text).lineLimit(1)
+                  Text(item.title + (item.isReadOnly ? " · 只读" : "")).appFont(.cardTitle).foregroundStyle(DS.text).lineLimit(1)
                   Text(historyPreview(item)).appFont(.supporting)
                     .foregroundStyle(DS.secondary).lineLimit(2)
                   Text(item.context.courseTitle + " · " + item.context.chapterTitle)
@@ -421,6 +446,11 @@ struct GlobalAssistantOverlay: View {
             }.buttonStyle(.plain)
               .listRowBackground(item.id == history.archive.selectedID ? DS.primarySoft : Color(.secondarySystemGroupedBackground))
               .accessibilityIdentifier("assistant-history-\(item.id)")
+              .swipeActions {
+                Button("删除", role: .destructive) {
+                  Task { await store.deleteAssistantSession(item.id) }
+                }
+              }
           }
           .listStyle(.plain).scrollContentBackground(.hidden)
           .scrollDismissesKeyboard(.interactively)
@@ -488,9 +518,18 @@ struct GlobalAssistantOverlay: View {
         ScrollView {
           VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
-              if let run = store.agent.active, run.scope == store.noteScope { agentRunCard(run) }
               ForEach(guideMessages) { message in
                 messageView(message).id(message.id)
+                if message.role == "user" {
+                  ForEach(session?.runs?.filter { $0.context.messageID == message.id } ?? []) { run in
+                    agentRunCard(run)
+                  }
+                  if let run = store.agent.active, run.scope == store.noteScope,
+                    run.context.sessionID == session?.id, run.context.messageID == message.id,
+                    !(session?.runs?.contains(where: { $0.id == run.id }) ?? false) {
+                    agentRunCard(run)
+                  }
+                }
               }
               if busy {
                 HStack(spacing: 8) {
@@ -584,18 +623,40 @@ struct GlobalAssistantOverlay: View {
 
   private func agentRunCard(_ run: AgentRunRecord) -> some View {
     VStack(alignment: .leading, spacing: 10) {
-      Label("AI 整理", systemImage: "sparkles")
+      Label("操作记录", systemImage: "sparkles")
         .appFont(.caption, weight: .semibold).foregroundStyle(DS.primary)
-      Text("《\(run.context.bookTitle)》PDF 第 \(run.context.page) 页")
+      Text(run.context.bookTitle.isEmpty ? "本次请求" : "《\(run.context.bookTitle)》PDF 第 \(run.context.page) 页")
         .appFont(.supporting).foregroundStyle(DS.text).lineLimit(2)
       HStack(spacing: 8) {
         Text(statusLabel(run.status)).appFont(.caption).foregroundStyle(DS.secondary)
         if run.status == .running { ProgressView().scaleEffect(0.7).tint(DS.primary) }
         Spacer(minLength: 0)
         if run.status == .running || run.status == .waitingForUser {
-          Button("取消") { store.agent.cancel() }
+          Button("取消") { if store.agent.active?.id == run.id { store.agent.cancel() } }
+            .disabled(store.agent.active?.id != run.id)
             .appFont(.caption, weight: .semibold).foregroundStyle(DS.danger)
             .accessibilityIdentifier("assistant.run.cancel")
+        }
+      }
+      if let events = run.events, !events.isEmpty {
+        DisclosureGroup("查看处理进度与工具记录") {
+          ForEach(Array(events.enumerated()), id: \.offset) { _, event in
+            VStack(alignment: .leading, spacing: 6) {
+              Text(event.message).appFont(.caption).foregroundStyle(DS.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+              if let path = event.attachmentPath, let image = UIImage(contentsOfFile: store.attachmentURL(path).path) {
+                Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 260)
+                  .clipShape(RoundedRectangle(cornerRadius: 12))
+                  .accessibilityLabel("发送给模型的实际截图")
+              }
+            }
+          }
+          ForEach(run.steps, id: \.id) { step in
+            ForEach(step.toolCalls, id: \.id) { call in
+              Text(call.name + " · " + (step.outcome(call.id)?.status ?? "未执行"))
+                .appFont(.caption).foregroundStyle(DS.secondary)
+            }
+          }
         }
       }
       if let choice = run.pendingChoice {
@@ -603,12 +664,13 @@ struct GlobalAssistantOverlay: View {
         if run.status == .waitingForUser {
           VStack(alignment: .leading, spacing: 8) {
             ForEach(choice.options, id: \.self) { option in
-              Button { store.agent.choose(option) } label: {
+              Button { if store.agent.active?.id == run.id { store.agent.choose(option) } } label: {
                 Text(option).appFont(.supporting).foregroundStyle(DS.primary)
                   .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
                   .frame(minHeight: 40)
                   .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
               }.buttonStyle(.plain)
+                .disabled(store.agent.active?.id != run.id)
                 .accessibilityIdentifier("assistant.run.option")
             }
           }
@@ -642,7 +704,8 @@ struct GlobalAssistantOverlay: View {
         HStack(spacing: 8) {
           Text(notice).appFont(.supporting).foregroundStyle(DS.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-          Button("继续") { store.agent.resume() }
+          Button("继续") { if store.agent.active?.id == run.id { store.agent.resume() } }
+            .disabled(store.agent.active?.id != run.id)
             .appFont(.supporting, weight: .semibold).foregroundStyle(DS.primary)
         }
       }
@@ -650,7 +713,8 @@ struct GlobalAssistantOverlay: View {
         Text("已取消，已保存的笔记仍保留").appFont(.caption).foregroundStyle(DS.secondary)
       }
       if run.status.isTerminal {
-        Button("关闭") { store.agent.dismiss() }
+        Button("关闭") { if store.agent.active?.id == run.id { store.agent.dismiss() } }
+          .disabled(store.agent.active?.id != run.id)
           .appFont(.caption, weight: .semibold).foregroundStyle(DS.secondary)
           .accessibilityIdentifier("assistant.run.close")
       }
@@ -680,6 +744,9 @@ struct GlobalAssistantOverlay: View {
     let scope = store.assistantHistoryScope
     await history.load(scope: scope)
     guard !Task.isCancelled, scope == store.assistantHistoryScope, history.isReady(for: scope) else { return }
+    do { try await store.syncAssistantHistory() }
+    catch { /* Local history stays accessible; the next send retries server reconciliation. */ }
+    guard scope == store.assistantHistoryScope else { return }
     loadedScope = scope
     voice.draft = history.draft
   }
@@ -709,24 +776,39 @@ struct GlobalAssistantOverlay: View {
 
   private func send() {
     var question = voice.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard ready, !busy, !addingAttachments, voice.phase == .text else { return }
+    guard ready, !busy, !readOnly, !addingAttachments, voice.phase == .text else { return }
     if question.isEmpty, let first = attachments.first {
       question = "请帮我分析附件“\(String(first.filename.prefix(120)))”中的内容。"
     }
     guard !question.isEmpty else { return }
+    guard store.cloud != nil, store.processingPolicy.path.kind != .offline else {
+      attachmentError = "AI 助手需要联网"; return
+    }
     guard question.count <= 2000 else { attachmentError = "问题最多 2,000 字，请精简后发送。"; return }
     let owner = store.assistantHistoryScope
     let epoch = store.cloudState.epoch
-    history.submit(question, context: sessionContext) { [store] context, messages, question in
-      guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch else { throw CancellationError() }
-      return try await store.answerHistorySession(context: context, history: messages, question: question)
+    let selectedID = history.archive.selectedID
+    let snapshot = store.assistantSessionContext
+    guard !preparingSubmission else { return }
+    preparingSubmission = true
+    Task { @MainActor in
+      defer { preparingSubmission = false }
+      do {
+        try await store.syncAssistantHistory()
+        guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch,
+          selectedID == history.archive.selectedID else { return }
+        history.submit(question, context: snapshot) { [store] context, messages, question in
+          guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch else { throw CancellationError() }
+          return try await store.answerHistorySession(context: context, history: messages, question: question)
+        }
+        voice.draft = history.draft
+      } catch { attachmentError = error.localizedDescription }
     }
-    voice.draft = history.draft
   }
 
   private func beginAttachmentImport(count: Int,
     load: @escaping @MainActor (Int, @escaping AssistantAttachmentImporter.Progress) async throws -> AssistantAttachment) {
-    guard ready, !addingAttachments, count > 0 else { return }
+    guard ready, !readOnly, !addingAttachments, count > 0 else { return }
     guard count + attachments.count <= AssistantAttachment.maximumCount else {
       selectedPhotos = []
       attachmentError = "每条消息最多添加 5 个附件，请减少选择数量。"
@@ -787,13 +869,25 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func retry() {
+    guard !preparingSubmission, !readOnly else { return }
     let owner = store.assistantHistoryScope
     let epoch = store.cloudState.epoch
-    history.retry { [store] context, messages, question in
-      guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch else { throw CancellationError() }
-      return try await store.answerHistorySession(context: context, history: messages, question: question)
+    let selectedID = history.archive.selectedID
+    preparingSubmission = true
+    Task { @MainActor in
+      defer { preparingSubmission = false }
+      do {
+        try await store.syncAssistantHistory()
+        guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch,
+          selectedID == history.archive.selectedID else { return }
+        history.retry { [store] context, messages, question in
+          guard owner == store.assistantHistoryScope, epoch == store.cloudState.epoch else { throw CancellationError() }
+          return try await store.answerHistorySession(context: context, history: messages, question: question)
+        }
+      } catch { attachmentError = error.localizedDescription }
     }
   }
+
 }
 
 private struct AssistantCameraRequest: Identifiable {

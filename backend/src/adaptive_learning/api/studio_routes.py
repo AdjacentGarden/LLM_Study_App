@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import Field
 
+from ..native import NativeRepository
 from ..studio import get_studio
 from ..studio_models import (
     MediaInput,
@@ -34,6 +35,22 @@ def studio_router(
 ) -> APIRouter:
     router = APIRouter(tags=["learning-studio"])
     studio = get_studio(data_dir)
+    native = NativeRepository(data_dir / "state" / "native.sqlite3")
+
+    def validate_note_resource(owner: str, data: NoteInput) -> None:
+        if not data.course_id and not data.course_resource_id:
+            # Legacy clients remain readable/migratable; new UI enforces course
+            # assignment before creating drafts. Never infer from book identity.
+            return
+        if not data.course_id or not data.course_resource_id:
+            raise HTTPException(422, "无指定课程，无法进行笔记撰写")
+        try:
+            resource = native.resource(owner, data.course_id, data.course_resource_id)
+            if resource["book_id"] != data.book_id:
+                raise KeyError(data.book_id)
+        except KeyError as error:
+            raise HTTPException(404, "课程教材关联不存在或无权访问") from error
+
     with studio.repo.connect() as db:
         db.executescript(
             "CREATE TABLE IF NOT EXISTS studio_note_editions (job_id TEXT PRIMARY KEY,owner TEXT NOT NULL,note_id TEXT NOT NULL,accepted INTEGER NOT NULL,updated REAL NOT NULL)"
@@ -54,19 +71,43 @@ def studio_router(
         return studio.submit(owner, data.model_dump(), data.kind)
 
     @router.get("/studio/notes")
-    def notes(book_id: str, offset: int = Query(0, ge=0, le=2000),
-              limit: int = Query(200, ge=1, le=200), owner: str = Depends(visitor)) -> dict[str, Any]:
+    def notes(
+        book_id: str,
+        offset: int = Query(0, ge=0, le=2000),
+        limit: int = Query(200, ge=1, le=200),
+        course_resource_id: str | None = None,
+        page: int | None = Query(None, ge=1),
+        owner: str = Depends(visitor),
+    ) -> dict[str, Any]:
         owned_book(owner, book_id)
         with studio.repo.connect() as db:
             rows = db.execute(
                 "SELECT n.*,g.logical_note_id FROM studio_notes n LEFT JOIN studio_note_logical_inputs g ON g.note_id=n.id "
                 "WHERE n.owner=? AND n.book_id=? ORDER BY n.updated DESC,n.id LIMIT ? OFFSET ?",
-                (owner, book_id, limit + 1, offset),
+                (
+                    owner,
+                    book_id,
+                    1000000 if course_resource_id or page else limit + 1,
+                    0 if course_resource_id or page else offset,
+                ),
             ).fetchall()
+        if course_resource_id or page:
+            rows = [
+                r
+                for r in rows
+                if (
+                    course_resource_id is None
+                    or json.loads(r["data"]).get("course_resource_id") == course_resource_id
+                )
+                and (page is None or page in json.loads(r["data"]).get("pages", []))
+            ][offset : offset + limit + 1]
         return {
             "items": [
-                {**{k: v for k, v in studio.public_note(r).items() if k != "strokes"},
-                 "logical_note_id": r["logical_note_id"]} for r in rows[:limit]
+                {
+                    **{k: v for k, v in studio.public_note(r).items() if k != "strokes"},
+                    "logical_note_id": r["logical_note_id"],
+                }
+                for r in rows[:limit]
             ],
             "next_offset": offset + limit if len(rows) > limit else None,
         }
@@ -74,16 +115,21 @@ def studio_router(
     @router.post("/studio/notes")
     def save(data: NoteInput, owner: str = Depends(visitor)) -> dict[str, Any]:
         owned_book(owner, data.book_id)
+        validate_note_resource(owner, data)
         return studio.save_note(owner, data)
 
     @router.put("/studio/notes/{key}/logical-group")
-    def bind_group(key: str, data: NoteLogicalGroup, owner: str = Depends(visitor)) -> dict[str, Any]:
+    def bind_group(
+        key: str, data: NoteLogicalGroup, owner: str = Depends(visitor)
+    ) -> dict[str, Any]:
         value = studio.note(owner, key)
         owned_book(owner, value["book_id"])
         return studio.bind_note_group(owner, key, data)
 
     @router.put("/studio/note-groups/{logical_note_id}/archive")
-    def archive_group(logical_note_id: str, data: NoteGroupArchive, owner: str = Depends(visitor)) -> dict[str, Any]:
+    def archive_group(
+        logical_note_id: str, data: NoteGroupArchive, owner: str = Depends(visitor)
+    ) -> dict[str, Any]:
         owned_book(owner, data.book_id)
         return studio.archive_note_group(owner, data.book_id, logical_note_id)
 
@@ -98,7 +144,12 @@ def studio_router(
             ).fetchone()
         return {
             **value,
-            "edition": {"job_id": row["job_id"], **studio.public_note_result(json.loads(row["result"]))} if row else None,
+            "edition": {
+                "job_id": row["job_id"],
+                **studio.public_note_result(json.loads(row["result"])),
+            }
+            if row
+            else None,
         }
 
     @router.put("/studio/notes/{key}/audio")
@@ -169,9 +220,15 @@ def studio_router(
         if data.action == "improve" and (len(data.transcript) < 2 or "[待确认]" in data.transcript):
             raise HTTPException(422, "请先核对并补充识别文字，再检查理解")
         capabilities = studio.capabilities()
-        ready = (capabilities.get("voice_text_notes", False) if speech else
-                 capabilities["voice_notes"] if voice and data.action == "voice_note" else
-                 capabilities.get("voice_notes_legacy", capabilities["voice_notes"]) if voice else capabilities["notes_ai"])
+        ready = (
+            capabilities.get("voice_text_notes", False)
+            if speech
+            else capabilities["voice_notes"]
+            if voice and data.action == "voice_note"
+            else capabilities.get("voice_notes_legacy", capabilities["voice_notes"])
+            if voice
+            else capabilities["notes_ai"]
+        )
         if not ready:
             raise HTTPException(
                 503, f"笔记 AI 暂未就绪，你的{'录音' if voice else '手写内容'}已保存"
@@ -212,9 +269,11 @@ def studio_router(
 
     @router.get("/studio/jobs")
     def jobs(
-        book_id: str, owner: str = Depends(visitor),
-        request_id: str | None = Query(default=None, min_length=1, max_length=100,
-                                      pattern=r"^[a-zA-Z0-9_-]+$"),
+        book_id: str,
+        owner: str = Depends(visitor),
+        request_id: str | None = Query(
+            default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$"
+        ),
     ) -> dict[str, Any]:
         owned_book(owner, book_id)
         if request_id is not None:

@@ -25,7 +25,7 @@ def test_authoritative_schema_and_import_inventory_are_complete():
 
 
 def test_merged_queues_and_durable_note_aliases_have_explicit_import_contract():
-    assert SCHEMA_VERSION == 12
+    assert SCHEMA_VERSION == 13
     assert TABLES['course_jobs.sqlite3'] == (
         'course_jobs', 'course_job_requests', 'teaching_course_repairs', 'teaching_course_units',
         'teaching_course_proofs', 'teaching_course_submissions', 'teaching_course_epochs')
@@ -67,7 +67,7 @@ def test_isolated_teaching_repair_state_and_submission_proofs_have_explicit_impo
 
 
 def test_assistant_ledger_has_explicit_import_contract():
-    assert TABLES['assistant.sqlite3'] == ('assistant_runs', 'assistant_steps')
+    assert TABLES['assistant.sqlite3'] == ('assistant_runs', 'assistant_steps', 'assistant_conversations', 'assistant_conversation_events', 'assistant_conversation_runs', 'assistant_history_initializations')
     assert JSON_COLUMNS['assistant_steps'] == {'message_json'}
     schema = (MIGRATIONS / '012_assistant_ledger.sql').read_text()
     assert 'PRIMARY KEY(owner,run_id,step_id)' in schema

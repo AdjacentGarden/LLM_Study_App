@@ -43,8 +43,101 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
   @ObservationIgnored private var driveGeneration = 0
   @ObservationIgnored private var driveGenerationAtStart = 0
   @ObservationIgnored private var cancelInFlight = false
+  @ObservationIgnored private var registeredSessionIDs: Set<String> = []
 
   init(store: AppStore? = nil) { self.store = store }
+
+  /// One gateway and one executor for every entry point, without requiring a selected textbook.
+  func answerUnified(sessionID: String, messageID: String, request: String,
+    context: AgentFrozenContext, history: [ChatMessage], attachments: [AssistantAttachment],
+    ephemeral: Bool) async throws -> AssistantHistoryAnswer {
+    guard let store, let scope = store.noteScope, store.cloud != nil,
+      store.processingPolicy.path.kind != .offline else { throw AgentValidationError(message: "AI 助手需要联网") }
+    guard !isWorking, !cancelInFlight, active?.status.isTerminal != false else { throw AgentValidationError(message: "请先完成或取消当前助手任务") }
+    var context = context
+    context.scope = scope
+    context.sessionID = sessionID
+    context.messageID = messageID
+    var migrationHistory: [ChatMessage]?
+    let previousMessages = history.filter { $0.id != messageID && ["user", "assistant"].contains($0.role) }
+    if !ephemeral, !previousMessages.isEmpty, !registeredSessionIDs.contains(sessionID), let cloud = store.cloud {
+      let remote: [[String: JSONValue]] = try await cloud.request("/api/assistant/conversations")
+      guard store.noteScope == scope, !isWorking, active?.status.isTerminal != false else { throw CancellationError() }
+      if remote.contains(where: { $0["session_id"]?.stringValue == sessionID }) { registeredSessionIDs.insert(sessionID) }
+      else { migrationHistory = previousMessages }
+    }
+    let now = Date()
+    var run = AgentRunRecord(id: "run-" + UUID().uuidString.lowercased(), scope: scope,
+      status: .running, request: request, context: context, evidence: [], steps: [], createdAt: now, updatedAt: now)
+    run.ephemeral = ephemeral
+    var seenAttachments = Set<String>()
+    run.attachments = (attachments + history.flatMap { $0.attachments ?? [] }).filter { seenAttachments.insert($0.id).inserted }
+    run.history = migrationHistory // A missing legacy session bootstraps once; ordinary turns stay incremental.
+    run.events = [AgentRunEvent(kind: "started", message: "正在处理请求")]
+    run.contextTokens = (request.utf8.count + history.reduce(0) { $0 + $1.text.utf8.count }) / 3
+    run.contextEstimated = true
+    if !context.selection.isEmpty {
+      run.evidence = [Self.evidence(for: AgentSelection(bookID: context.bookID, courseID: context.courseID,
+        chapterID: context.chapterID, page: context.page, printedPage: context.printedPage, text: context.selection), sourceVersion: context.sourceVersion)]
+    }
+    if ephemeral, let prior = active, prior.ephemeral == true, prior.scope == scope, prior.context.sessionID == sessionID {
+      let fresh = Set(run.evidence.map(\.id))
+      run.evidence += prior.evidence.filter { !fresh.contains($0.id) }
+    }
+    active = run
+    begin { [weak self] in
+      guard let self else { return }
+      if case .saved(let saved) = await self.checkpoint(run) { await self.runLoop(runID: saved.id, scope: scope) }
+    }
+    while let current = active, current.id == run.id, current.scope == scope {
+      try Task.checkCancellation()
+      if current.status.isTerminal {
+        if current.status == .completed {
+          return AssistantHistoryAnswer(text: current.finalText ?? "", contextTokens: current.contextTokens,
+            capacityState: current.capacityState)
+        }
+        throw AgentValidationError(message: current.failure ?? notice ?? "任务已取消")
+      }
+      if !isWorking, current.status != .waitingForUser {
+        throw AgentValidationError(message: notice ?? "任务已暂停，联网后可继续核对")
+      }
+      try await Task.sleep(for: .milliseconds(100))
+    }
+    throw CancellationError()
+  }
+
+  func frozenContext(session: AssistantSessionContext) -> AgentFrozenContext {
+    let store = self.store
+    let hasSnapshot = session.pageType != nil
+    let source = store?.sources.first { $0.id == session.bookID }
+    return AgentFrozenContext(scope: store?.noteScope ?? "", courseID: session.courseID,
+      bookID: session.bookID, bookTitle: session.bookTitle ?? source?.summary.title ?? "", sourceVersion: session.sourceVersion ?? source.map { Self.sourceVersion(for: $0.summary) } ?? "",
+      chapterID: session.chapterID, page: max(1, session.page ?? store?.sourceTarget?.page ?? store?.activeLesson?.page_start ?? 1),
+      printedPage: hasSnapshot ? session.printedPage : store?.sourceTarget?.printedPage, selection: session.selection ?? store?.selectedQuote ?? "",
+      currentNoteID: hasSnapshot ? session.currentNoteID : store?.noteState.focusNoteID, capturedAt: .now,
+      courseResourceID: session.courseResourceID ?? session.courseID.flatMap { store?.courseResourceID(courseID: $0, bookID: session.bookID) },
+      pageType: session.pageType ?? store?.route.rawValue, practiceState: hasSnapshot ? session.practiceState : (store?.route == .assignment ? "pending" : nil))
+  }
+
+  private func loadRun(_ id: String, scope: String) async throws -> AgentRunRecord? {
+    if let active, active.id == id, active.scope == scope, active.ephemeral == true { return active }
+    return try await store?.repository.loadRun(id, scope: scope)
+  }
+
+  /// Closing a temporary annotation discards conversation state and never creates history.
+  func closeEphemeral() {
+    guard let run = active, run.ephemeral == true else { return }
+    invalidateDrive()
+    if let store {
+      let preserved = Set(store.notes.flatMap { $0.references ?? [] }.compactMap(\.attachmentPath))
+      let paths = (run.events ?? []).compactMap(\.attachmentPath) + (run.attachments ?? []).flatMap { [$0.path, $0.thumbnailPath, $0.textPath].compactMap { $0 } }
+      for path in paths where !preserved.contains(path) { try? FileManager.default.removeItem(at: store.repository.attachmentURL(path)) }
+    }
+    active = nil
+    if let cloud = store?.cloud, let sessionID = run.context.sessionID {
+      Task { try? await cloud.closeTemporaryAssistantSession(sessionID) }
+    }
+  }
 
   // MARK: Pure helpers
 
@@ -58,7 +151,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     for selection: AgentSelection, sourceVersion: String
   ) -> AgentEvidence {
     let quote = selection.text.trimmingCharacters(in: .whitespacesAndNewlines)
-    let digest = AgentDigest.sha256("\(sourceVersion)|\(selection.page)|\(quote)")
+    let digest = AgentDigest.sha256("\(selection.courseID ?? "")|\(selection.bookID)|\(sourceVersion)|\(selection.page)|\(quote)")
     return AgentEvidence(
       id: "ev-" + String(digest.prefix(16)), bookID: selection.bookID,
       courseID: selection.courseID, sourceVersion: sourceVersion,
@@ -74,25 +167,49 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     for step in run.steps where step.index < stepIndex {
       for call in step.toolCalls {
         guard let outcome = step.outcome(call.id) else { continue }
+        let object = (try? JSONSerialization.jsonObject(with: Data(outcome.resultJSON.utf8))) as? [String: Any]
         results.append(AssistantToolResultDTO(
           step_index: step.index, tool_call_id: call.id,
-          content: String(outcome.resultJSON.prefix(4000))))
+          content: outcome.resultJSON, complete: object?["complete"] as? Bool ?? true,
+          continuation: (object?["next_offset"] as? Int).map(String.init)))
       }
     }
-    let context = AssistantTurnContextDTO(
+    var context = AssistantTurnContextDTO(
       book_id: run.context.bookID, book_title: run.context.bookTitle,
       course_id: run.context.courseID, source_version: run.context.sourceVersion,
-      chapter_id: run.context.chapterID, page: run.context.page,
+      chapter_id: run.context.chapterID, page: max(1, run.context.page),
       printed_page: run.context.printedPage, selection: run.context.selection,
       current_note_id: run.context.currentNoteID)
+    context.course_resource_id = run.context.courseResourceID
+    context.page_type = run.context.pageType
+    context.practice_state = run.context.practiceState
+    let attachmentMetadata: [[String: JSONValue]] = (run.attachments ?? []).map {
+      ["attachment_id": .string($0.id), "filename": .string($0.filename),
+       "kind": .string($0.kind.rawValue), "page_count": .number(Double($0.pageCount ?? 1))]
+    }
+    context.snapshot = ["attachments": .array(attachmentMetadata.map(JSONValue.object))]
     let evidence = run.evidence.map {
       AssistantTurnEvidenceDTO(
-        evidence_id: $0.id, page: $0.page, printed_page: $0.printedPage, quote: $0.quote)
+        evidence_id: $0.id, page: $0.page, printed_page: $0.printedPage, quote: $0.quote,
+        source_type: $0.sourceType, object_id: $0.objectID, source_version: $0.sourceVersion, book_id: $0.bookID,
+        course_id: $0.courseID, course_resource_id: $0.courseResourceID)
     }
-    return AssistantTurnRequestDTO(
-      contract_version: 1, run_id: run.id, step_id: "\(run.id).s\(stepIndex)",
+    var body = AssistantTurnRequestDTO(
+      contract_version: run.context.sessionID == nil ? 1 : 2, run_id: run.id, step_id: "\(run.id).s\(stepIndex)",
       step_index: stepIndex, request: run.request, context: context, evidence: evidence,
-      tools: ["save_note", "open_note", "ask_user"], tool_results: results)
+      tools: run.context.sessionID == nil ? ["save_note", "open_note", "ask_user"] : UnifiedAgentTools.names, tool_results: results)
+    body.session_id = run.context.sessionID
+    body.message_id = run.context.messageID
+    body.ephemeral = run.ephemeral
+    body.attachments = run.images?.map { original in
+      var image = original
+      let introducedNow = run.steps.first(where: { $0.index == stepIndex - 1 })?.outcomes.contains { $0.resultJSON.contains(original.attachment_id) } == true
+      if stepIndex > 0, !introducedNow { image.data_base64 = nil }
+      return image
+    }
+    // Only the current session is supplied. The gateway persists ordinary turns incrementally.
+    body.history = stepIndex == 0 && run.ephemeral != true ? run.history?.map { ["role": .string($0.role), "text": .string($0.text)] } : nil
+    return body
   }
 
   nonisolated static func validateSaveNote(
@@ -207,8 +324,8 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       }
       active = nil
     }
-    guard store.cloud != nil else {
-      notice = "当前未连接学习服务，无法使用助手整理笔记"
+    guard store.cloud != nil, store.processingPolicy.path.kind != .offline else {
+      notice = "AI 助手需要联网"
       return false
     }
     guard let scope = store.noteScope else {
@@ -231,12 +348,14 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     }
     let version = Self.sourceVersion(for: source.summary)
     let evidence = Self.evidence(for: selection, sourceVersion: version)
-    let context = AgentFrozenContext(
+    var context = AgentFrozenContext(
       scope: scope, courseID: selection.courseID, bookID: selection.bookID,
       bookTitle: source.summary.title, sourceVersion: version,
       chapterID: selection.chapterID, page: selection.page,
       printedPage: selection.printedPage, selection: text,
       currentNoteID: nil, capturedAt: .now)
+    context.courseResourceID = selection.courseID.flatMap { store.courseResourceID(courseID: $0, bookID: selection.bookID) }
+    context.pageType = store.route.rawValue
     let now = Date.now
     let run = AgentRunRecord(
       id: "run-" + UUID().uuidString.lowercased(), version: 0, scope: scope,
@@ -271,7 +390,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     let toolCallID = choice.toolCallID
     begin { [weak self] in
       guard let self else { return }
-      guard let fresh = try? await store.repository.loadRun(runID, scope: scope) else { return }
+      guard let fresh = try? await self.loadRun(runID, scope: scope) else { return }
       var run = fresh
       guard !Task.isCancelled, run.status == .waitingForUser,
         let pending = run.pendingChoice, pending.toolCallID == toolCallID,
@@ -279,12 +398,23 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       guard let index = run.steps.firstIndex(where: {
         $0.toolCalls.contains { $0.id == toolCallID }
       }) else { return }
+      let choiceResult: String
+      if let action = pending.actionName, action != "repeated_failure", let json = pending.actionArgumentsJSON, option == pending.options.first {
+        do {
+          let arguments = try JSONDecoder().decode([String: JSONValue].self, from: Data(json.utf8))
+          choiceResult = try await UnifiedAgentTools.performConfirmedMutation(action, args: arguments,
+            operationID: run.id + "." + toolCallID, scope: scope, store: store)
+        } catch {
+          self.notice = error.localizedDescription
+          return // Keep the original confirmation and operation ID available for reconciliation.
+        }
+      } else { choiceResult = Self.answeredResult(option) }
       run.steps[index].outcomes.removeAll { $0.toolCallID == toolCallID }
       run.steps[index].outcomes.append(AgentToolOutcome(
-        toolCallID: toolCallID, status: "ok", resultJSON: Self.answeredResult(option),
+        toolCallID: toolCallID, status: "ok", resultJSON: choiceResult,
         noteID: nil, noteRevision: nil))
       run.pendingChoice = nil
-      run.status = .running
+      run.status = pending.actionName == "repeated_failure" && option == pending.options.first ? .cancelled : .running
       switch await self.checkpoint(run) {
       case .saved(let saved):
         self.active = saved
@@ -297,6 +427,13 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
 
   func cancel() {
     guard let run = active, !run.status.isTerminal, run.scope == store?.noteScope else {
+      return
+    }
+    if run.ephemeral == true {
+      invalidateDrive()
+      var cancelled = run; cancelled.cancelRequested = true; cancelled.status = .cancelled
+      active = cancelled
+      Task { await self.reconcileCancellation(cancelled) }
       return
     }
     cancelInFlight = true
@@ -318,7 +455,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
             self.notice = error.localizedDescription
             break
           }
-          guard let reloaded = try? await store.repository.loadRun(run.id, scope: run.scope)
+          guard let reloaded = try? await self.loadRun(run.id, scope: run.scope)
           else { break }
           // A concurrent terminal transition wins; never turn a completed run into cancelled.
           if reloaded.status.isTerminal, !reloaded.cancelRequested {
@@ -337,16 +474,87 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         self.active = saved
         self.notice = nil
       }
-      if let cloud = store.cloud { try? await cloud.cancelAssistantRun(run.id) }
+      if let saved { await self.reconcileCancellation(saved) }
+    }
+  }
+
+  /// A cancelled write may already have committed remotely. Only read its receipt.
+  private func reconcileCancellation(_ original: AgentRunRecord) async {
+    guard let store, original.scope == store.noteScope, let cloud = store.cloud else { return }
+    var run = original
+    do {
+      try await cloud.cancelAssistantRun(run.id)
+      guard let session = run.context.sessionID else { return }
+      var missing = false
+      var receipts: [JSONValue] = []
+      for index in run.steps.indices {
+        for call in run.steps[index].toolCalls {
+          var outcome = run.steps[index].outcome(call.id)
+          if outcome == nil, ["create_flashcards", "create_review_task", "update_study_plan", "remove_course"].contains(call.name) {
+            let receipt: [String: JSONValue] = try await cloud.request("/api/assistant/operations/\(run.id).\(call.id)")
+            guard run.scope == store.noteScope else { return }
+            if receipt["state"]?.stringValue == "completed" {
+              let data = try JSONEncoder().encode(receipt)
+              let result = AgentToolOutcome(toolCallID: call.id, status: "ok", resultJSON: String(decoding: data, as: UTF8.self))
+              outcome = result
+              run.steps[index].outcomes.append(result)
+              run.events = (run.events ?? []) + [AgentRunEvent(kind: "completed", message: UnifiedAgentTools.label(call.name) + "已核对完成", toolCallID: call.id)]
+              if call.name == "remove_course", let choice = run.pendingChoice,
+                let json = choice.actionArgumentsJSON,
+                let args = try? JSONDecoder().decode([String: JSONValue].self, from: Data(json.utf8)),
+                let course = args["course_id"]?.stringValue, case .array(let ids)? = args["frozen_resource_ids"] {
+                try await store.clearLocalCourseData(course, resourceIDs: Set(ids.compactMap(\.stringValue)))
+                store.cacheAcknowledgedCourseRemoval(course)
+              }
+              await store.reloadAgentLearningObjects()
+            } else { missing = true }
+          }
+          if let outcome {
+            let object = try? JSONDecoder().decode([String: JSONValue].self, from: Data(outcome.resultJSON.utf8))
+            var receipt: [String: JSONValue] = ["step_index": .number(Double(run.steps[index].index)),
+              "tool_call_id": .string(call.id), "content": .string(outcome.resultJSON),
+              "complete": object?["complete"] ?? .bool(true)]
+            if case .number(let offset)? = object?["next_offset"] { receipt["continuation"] = .string(String(Int(offset))) }
+            receipts.append(.object(receipt))
+          }
+        }
+      }
+      if !receipts.isEmpty {
+        let _: [String: JSONValue] = try await cloud.request("/api/assistant/conversations/\(session)/receipts", method: "POST",
+          body: ["run_id": .string(run.id), "ephemeral": .bool(run.ephemeral == true), "tool_results": .array(receipts)])
+      }
+      run.cancellationReconciled = !missing
+      if missing { run.failure = "任务已取消；未收到回执的操作仍待核对" }
+      guard store.noteScope == run.scope else { return }
+      if run.ephemeral != true {
+        run = try await store.repository.saveRun(run)
+        store.assistantHistory.recordRun(run)
+      }
+      if active?.id == run.id { active = run }
+    } catch {
+      if active?.id == run.id { notice = "任务已取消，联网后将核对操作结果" }
     }
   }
 
   /// Drop in-memory state when the account scope goes away. Persisted runs stay.
   func reset() {
+    if let run = active, run.ephemeral == true, let repository = store?.repository {
+      let paths = (run.events ?? []).compactMap(\.attachmentPath) + (run.attachments ?? []).flatMap { [$0.path, $0.thumbnailPath, $0.textPath].compactMap { $0 } }
+      Task {
+        guard let notes = try? await repository.loadStoredNotes(scope: run.scope) else { return }
+        let preserved = Set(notes.flatMap { $0.note.references ?? [] }.compactMap(\.attachmentPath))
+        for path in paths where !preserved.contains(path) { try? FileManager.default.removeItem(at: repository.attachmentURL(path)) }
+      }
+    }
+    store?.assistantState.learningObjects = []
+    store?.learningState.agentFocusCardID = nil
+    store?.learningState.agentFocusMistakeID = nil
+    store?.learningState.agentFocusPlanDate = nil
     invalidateDrive()
     active = nil
     notice = nil
     cancelInFlight = false
+    registeredSessionIDs = []
   }
 
   func resume() {
@@ -355,6 +563,9 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       guard let self, let store = self.store, store.noteScope == scope else { return }
       let runs = (try? await store.repository.loadRuns(scope: scope)) ?? []
       guard !Task.isCancelled else { return }
+      for cancelled in runs where cancelled.context.sessionID != nil && cancelled.cancelRequested && cancelled.cancellationReconciled != true {
+        await self.reconcileCancellation(cancelled)
+      }
       if let run = runs.first(where: {
         $0.status == .running || $0.status == .waitingForUser
       }) {
@@ -362,7 +573,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         self.notice = nil
         if run.status == .running {
           guard store.cloud != nil else {
-            self.notice = "当前未连接学习服务，无法使用助手整理笔记"
+            self.notice = "AI 助手需要联网"
             return
           }
           await self.runLoop(runID: run.id, scope: scope)
@@ -425,16 +636,22 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
   private func checkpoint(_ run: AgentRunRecord) async -> Checkpoint {
     guard let store else { return .failed }
     let generation = driveGenerationAtStart
+    if run.ephemeral == true {
+      guard run.scope == store.noteScope, !Task.isCancelled else { return .conflict }
+      active = run
+      return .saved(run)
+    }
     do {
       let saved = try await store.repository.saveRun(run)
       guard driveGeneration == generation, !Task.isCancelled, saved.scope == store.noteScope
       else { return .conflict }
       active = saved
+      store.assistantHistory.recordRun(saved)
       return .saved(saved)
     } catch let error as NoteStoreError {
       if case .runConflict = error {
         // Another owner advanced the row; reload and re-drive from that state.
-        let reloaded = try? await store.repository.loadRun(run.id, scope: run.scope)
+        let reloaded = try? await loadRun(run.id, scope: run.scope)
         if driveGeneration == generation, !Task.isCancelled,
           let reloaded, reloaded.scope == store.noteScope {
           active = reloaded
@@ -453,7 +670,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     guard let store else { return }
     while !Task.isCancelled {
       guard store.noteScope == scope else { return }
-      guard let loaded = try? await store.repository.loadRun(runID, scope: scope) else { return }
+      guard let loaded = try? await loadRun(runID, scope: scope) else { return }
       guard !Task.isCancelled else { return }
       var run = loaded
       active = run
@@ -488,7 +705,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       switch last.state {
       case .pending:
         guard let cloud = store.cloud else {
-          notice = "当前未连接学习服务，无法使用助手整理笔记"
+          notice = "AI 助手需要联网"
           return
         }
         run.steps[arrayIndex].state = .posted
@@ -527,7 +744,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
 
       case .posted:
         guard let cloud = store.cloud else {
-          notice = "当前未连接学习服务，无法使用助手整理笔记"
+          notice = "AI 助手需要联网"
           return
         }
         do {
@@ -582,14 +799,6 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
           }
           return
         }
-        if run.steps.count >= AgentRunRecord.maxSteps {
-          run.status = .failed
-          run.failure = "已达到助手步骤上限"
-          switch await checkpoint(run) {
-          case .conflict: continue
-          case .saved, .failed: return
-          }
-        }
         let next = run.steps.count
         run.steps.append(AgentStep(index: next, id: "\(run.id).s\(next)", state: .pending))
         switch await checkpoint(run) {
@@ -613,9 +822,41 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       return .redo
     }
     var response = first
+    if let sessionID = run.context.sessionID, run.ephemeral != true, first.state != "refused" { registeredSessionIDs.insert(sessionID) }
     var waited: Duration = .zero
     while !Task.isCancelled {
       if run.cancelRequested { return .redo }
+      if let tokens = response.context_tokens {
+        run.contextTokens = tokens
+        run.contextEstimated = response.context_estimated
+        if tokens >= 1_000_000 { run.capacityState = "archived" }
+        else if tokens >= 900_000, run.capacityState != "archived" { run.capacityState = "finishing" }
+      }
+      if let state = response.capacity_state, state != "open" { run.capacityState = state }
+      if run.capacityState == "archived" {
+        let calls = response.message?.tool_calls ?? []
+        run.steps[index].content = response.message?.content
+        run.steps[index].state = response.state == "completed" ? .completed : .failed
+        run.steps[index].toolCalls = calls.map { call in
+          let json = (try? AgentDigest.canonicalJSON(Self.foundationObject(.object(call.arguments)))) ?? "{}"
+          return AgentToolCall(id: call.id, name: call.name, argumentsJSON: json, argumentsHash: AgentDigest.sha256(call.name + "\n" + json))
+        }
+        run.steps[index].outcomes = calls.map { call in
+          AgentToolOutcome(toolCallID: call.id, status: "skipped", resultJSON: Self.errorResult("未执行：上下文已达到上限"))
+        }
+        if response.state == "completed", calls.isEmpty {
+          run.finalText = response.message?.content ?? ""
+          run.status = .completed
+        } else {
+          run.status = .failed
+          run.failure = "此对话已达到上下文上限，无法继续对话。请新建对话。"
+        }
+        switch await checkpoint(run) {
+        case .saved(let saved): run = saved; return .stop
+        case .conflict: return .redo
+        case .failed: return .stop
+        }
+      }
       // A refused budget ends the run whatever the wire state says, including
       // the response of a retryable re-POST.
       if response.refused != nil {
@@ -623,7 +864,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
           run.status = .cancelled
         } else {
           run.status = .failed
-          run.failure = "已达到本次任务的模型预算（\(response.refused ?? "未知")）"
+          run.failure = response.error ?? "API 错误：\(response.refused ?? "未知")"
         }
         switch await checkpoint(run) {
         case .conflict: return .redo
@@ -659,7 +900,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         waited += pollInterval > .zero ? pollInterval : .milliseconds(1)
         guard !Task.isCancelled else { return .stop }
         guard let cloud = store.cloud else {
-          notice = "当前未连接学习服务，无法使用助手整理笔记"
+          notice = "AI 助手需要联网"
           return .stop
         }
         do {
@@ -691,7 +932,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         } catch { return .stop }
         guard !Task.isCancelled, !run.cancelRequested else { return .stop }
         guard let cloud = store.cloud else {
-          notice = "当前未连接学习服务，无法使用助手整理笔记"
+          notice = "AI 助手需要联网"
           return .stop
         }
         do {
@@ -740,7 +981,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
           run.status = .cancelled
         } else {
           run.status = .failed
-          run.failure = "已达到本次任务的模型预算（\(response.refused ?? "未知")）"
+          run.failure = response.error ?? "API 错误：\(response.refused ?? "未知")"
         }
         switch await checkpoint(run) {
         case .conflict: return .redo
@@ -769,7 +1010,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     }
     for callID in initial.toolCalls.map(\.id) {
       guard !Task.isCancelled else { return .stop }
-      guard let fresh = try? await store.repository.loadRun(run.id, scope: run.scope) else {
+      guard let fresh = try? await loadRun(run.id, scope: run.scope) else {
         return .stop
       }
       guard !Task.isCancelled else { return .stop }
@@ -789,9 +1030,41 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         flow = await openNoteTool(call: call, run: &run, stepIndex: stepIndex)
       case "ask_user":
         flow = await askUserTool(call: call, run: &run, stepIndex: stepIndex)
+      case "delete_note", "remove_course":
+        do {
+          run.pendingChoice = try await UnifiedAgentTools.prepareMutation(call, run: run, store: store)
+          run.status = .waitingForUser
+          switch await checkpoint(run) {
+          case .saved(let saved): run = saved; flow = .stop
+          case .conflict: flow = .redo
+          case .failed: flow = .stop
+          }
+        } catch {
+          flow = await appendOutcome(Self.errorOutcome(call.id, error.localizedDescription), run: &run, stepIndex: stepIndex)
+        }
       default:
-        flow = await appendOutcome(
-          Self.errorOutcome(call.id, "未知工具"), run: &run, stepIndex: stepIndex)
+        if UnifiedAgentTools.names.contains(call.name) {
+          run.events = (run.events ?? []) + [AgentRunEvent(kind: "reading", message: UnifiedAgentTools.label(call.name), toolCallID: call.id)]
+          switch await checkpoint(run) {
+          case .saved(let saved): run = saved
+          case .conflict: return .redo
+          case .failed: return .stop
+          }
+          do {
+            let result = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+            run.events = (run.events ?? []) + [AgentRunEvent(kind: "completed", message: "已完成：" + UnifiedAgentTools.label(call.name), toolCallID: call.id)]
+            flow = await appendOutcome(AgentToolOutcome(toolCallID: call.id, status: "ok", resultJSON: result, noteID: nil, noteRevision: nil), run: &run, stepIndex: stepIndex)
+          } catch let error as CloudError where error.transportFailure {
+            notice = Self.networkNotice
+            return .stop
+          } catch is CancellationError {
+            return .stop
+          } catch {
+            flow = await appendOutcome(Self.errorOutcome(call.id, error.localizedDescription), run: &run, stepIndex: stepIndex)
+          }
+        } else {
+          flow = await appendOutcome(Self.errorOutcome(call.id, "未知工具"), run: &run, stepIndex: stepIndex)
+        }
       }
       switch flow {
       case .stop: return .stop
@@ -810,6 +1083,22 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     }
     run.steps[index].outcomes.removeAll { $0.toolCallID == outcome.toolCallID }
     run.steps[index].outcomes.append(outcome)
+    if outcome.status == "error", let call = run.steps[index].toolCalls.first(where: { $0.id == outcome.toolCallID }) {
+      let repeated = run.steps.flatMap { step in step.toolCalls.filter { prior in
+        prior.name == call.name && prior.argumentsHash == call.argumentsHash && step.outcome(prior.id)?.status == "error"
+      } }.count
+      if repeated >= 3 {
+        run.status = .waitingForUser
+        run.failure = "相同操作连续失败，未取得新信息。" + outcome.resultJSON
+        run.pendingChoice = AgentPendingChoice(toolCallID: call.id, question: "相同操作已连续失败：" + outcome.resultJSON,
+          options: ["停止任务", "继续尝试"], selected: nil, actionName: "repeated_failure")
+        switch await checkpoint(run) {
+        case .saved(let saved): run = saved; return .stop
+        case .conflict: return .redo
+        case .failed: return .stop
+        }
+      }
+    }
     switch await checkpoint(run) {
     case .saved(let saved): run = saved; return .next
     case .conflict: return .redo
@@ -821,6 +1110,20 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     call: AgentToolCall, run: inout AgentRunRecord, stepIndex: Int
   ) async -> Flow {
     guard let store else { return .stop }
+    if !run.context.bookID.isEmpty, run.context.courseID == nil {
+      return await appendOutcome(Self.errorOutcome(call.id, "无指定课程，无法进行笔记撰写"), run: &run, stepIndex: stepIndex)
+    }
+    // A follow-up may cite a passage verified during a previous message in this chat.
+    if let sessionID = run.context.sessionID, run.ephemeral != true,
+      let requested = Self.strings(Self.arguments(call)["evidence_ids"]),
+      let previous = store.assistantHistory.sessions.first(where: { $0.id == sessionID })?.runs {
+      let scope = run.scope
+      for id in requested where run.evidence(id) == nil {
+        if let verified = previous.reversed().lazy.filter({ $0.scope == scope }).compactMap({ $0.evidence(id) }).first {
+          run.evidence.append(verified)
+        }
+      }
+    }
     switch Self.validateSaveNote(Self.arguments(call), run: run) {
     case .failure(let error):
       return await appendOutcome(
@@ -830,21 +1133,40 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       let references = args.evidenceIDs.compactMap { id in
         run.evidence(id).map(NoteReference.init)
       }
+      let raw = Self.arguments(call)
+      let targetCourseID = raw["course_id"]?.stringValue ?? run.context.courseID
+      let targetBookID = raw["book_id"]?.stringValue ?? run.context.bookID
+      var anchor: NoteAnchor?
+      if !targetBookID.isEmpty {
+        guard let targetCourseID, let course = store.courses.first(where: { $0.id == targetCourseID }),
+          course.resourceIDs.contains(targetBookID), let resourceID = store.courseResourceID(courseID: targetCourseID, bookID: targetBookID),
+          raw["course_resource_id"]?.stringValue == nil || raw["course_resource_id"]?.stringValue == resourceID else {
+          return await appendOutcome(Self.errorOutcome(call.id, "无指定课程，无法进行笔记撰写"), run: &run, stepIndex: stepIndex)
+        }
+        anchor = NoteAnchor(courseID: targetCourseID, courseResourceID: resourceID, bookID: targetBookID,
+          chapterID: raw["chapter_id"]?.stringValue ?? run.context.chapterID,
+          page: UnifiedAgentTools.integer(raw, "page", default: run.context.page), printedPage: run.context.printedPage,
+          quote: run.context.selection.isEmpty ? nil : run.context.selection)
+      }
       let note = StudyNote(
-        id: "note-" + UUID().uuidString.lowercased(), kind: .text,
+        id: "note-" + String(AgentDigest.sha256(run.id + call.id).prefix(32)), kind: .text,
         title: args.title, body: args.body,
-        anchor: NoteAnchor(
-          courseID: run.context.courseID, bookID: run.context.bookID,
-          chapterID: run.context.chapterID, page: run.context.page,
-          printedPage: run.context.printedPage, quote: run.context.selection),
+        anchor: anchor,
         references: references.isEmpty ? nil : references,
         provenance: NoteProvenance(
           runID: run.id, toolCallID: call.id, sourceLabel: args.sourceLabel))
       let result = Self.savedResult(noteID: note.id, revision: 1)
       do {
+        if run.ephemeral == true {
+          let committed = try await store.repository.commitEphemeralToolNote(scope: run.scope, runID: run.id,
+            toolCallID: call.id, argumentsHash: call.argumentsHash, note: note)
+          if let row = try await store.repository.loadStoredNote(committed.noteID, scope: run.scope) { store.applyCommitted([row], scope: run.scope) }
+          if !run.committedNoteIDs.contains(committed.noteID) { run.committedNoteIDs.append(committed.noteID) }
+          return await appendOutcome(AgentToolOutcome(toolCallID: call.id, status: "ok", resultJSON: Self.savedResult(noteID: committed.noteID, revision: committed.revision), noteID: committed.noteID, noteRevision: committed.revision), run: &run, stepIndex: stepIndex)
+        }
         let commit = try await store.repository.commitToolNote(
           run: run, toolCallID: call.id, argumentsHash: call.argumentsHash,
-          note: note, result: result)
+          note: note, result: result, verifiedCourseResourceID: anchor?.courseResourceID)
         if let afterCommitToolNote { await afterCommitToolNote() }
         if let saved = commit.run {
           run = saved
@@ -894,7 +1216,6 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     guard let store else { return .stop }
     let args = Self.arguments(call)
     guard let noteID = args["note_id"]?.stringValue,
-      run.committedNoteIDs.contains(noteID),
       (try? await store.repository.loadStoredNote(noteID, scope: run.scope)) != nil else {
       return await appendOutcome(
         Self.errorOutcome(call.id, "笔记尚未保存或不属于当前任务"),
@@ -948,12 +1269,35 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
 
 extension AppStore {
   func startSelectionNote(_ selection: AgentSelection, request: String) {
-    let started = agent.start(selection, request: request)
-    if !started, let notice = agent.notice {
-      showToast(notice, kind: .warning)
+    guard cloud != nil, processingPolicy.path.kind != .offline else { showToast("AI 助手需要联网", kind: .warning); return }
+    guard selection.courseID != nil else {
+      showToast("无指定课程，无法进行笔记撰写", kind: .warning)
+      return
     }
-    // Show the run that is blocking the new request, or the run just started.
-    if started || agent.active != nil { globalAssistantOpen = true }
+    var context = assistantSessionContext
+    context.courseID = selection.courseID
+    context.bookID = selection.bookID
+    context.bookIDs = [selection.bookID]
+    context.chapterID = selection.chapterID
+    context.page = selection.page
+    context.printedPage = selection.printedPage
+    context.selection = selection.text
+    context.courseResourceID = selection.courseID.flatMap { courseResourceID(courseID: $0, bookID: selection.bookID) }
+    if let source = sources.first(where: { $0.id == selection.bookID }) {
+      context.bookTitle = source.summary.title
+      context.sourceVersion = AgentRuntime.sourceVersion(for: source.summary)
+    }
+    let epoch = cloudState.epoch
+    globalAssistantOpen = true
+    Task { @MainActor in
+      await assistantHistory.load(scope: assistantHistoryScope)
+      do { try await syncAssistantHistory() } catch { showToast(error.localizedDescription, kind: .warning); return }
+      guard epoch == cloudState.epoch else { return }
+      assistantHistory.submit(request, context: context) { [weak self] snapshot, history, question in
+        guard let self else { throw CancellationError() }
+        return try await self.answerHistorySession(context: snapshot, history: history, question: question)
+      }
+    }
   }
 
   func openAgentNote(_ noteID: String) {

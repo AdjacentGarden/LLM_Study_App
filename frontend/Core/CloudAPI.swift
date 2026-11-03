@@ -278,6 +278,16 @@ actor CloudAPI {
     return bytes
   }
 
+  /// Paths come from a verified source asset, never directly from model arguments.
+  func downloadAssistantSourceAsset(_ path: String, bookID: String) async throws -> Data {
+    guard let parts = URLComponents(string: path), parts.scheme == nil, parts.host == nil,
+      (path.hasPrefix("/api/books/" + bookID + "/") || path.hasPrefix("/assets/textbook/")), !path.contains("..") else {
+      throw CloudError(status: 403, message: "原图地址不属于已授权教材")
+    }
+    let (data, _) = try await send(path, method: "GET", data: nil, contentType: nil)
+    return data
+  }
+
   nonisolated static func isBookCoverPath(_ path: String) -> Bool {
     guard let parts = URLComponents(string: path), parts.scheme == nil, parts.host == nil,
       parts.fragment == nil,

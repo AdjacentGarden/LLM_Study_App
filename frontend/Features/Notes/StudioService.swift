@@ -77,7 +77,7 @@ actor StudioService {
 
   private func anchoredIdentity(_ note: StudyNote) -> String {
     let anchor = note.anchor
-    return [note.id, anchor?.bookID ?? "", anchor?.chapterID ?? "", String(anchor?.page ?? 0),
+    return [note.id, anchor?.courseResourceID ?? "", anchor?.bookID ?? "", anchor?.chapterID ?? "", String(anchor?.page ?? 0),
       anchor?.quote ?? "", note.title].joined(separator: "|")
   }
 
@@ -173,10 +173,17 @@ actor StudioService {
     guard let anchor = note.anchor, !anchor.bookID.isEmpty else {
       throw CloudError(status: 409, message: "请先将笔记关联到已上传的教材；原始笔记已保存在本机。")
     }
+    guard let courseID = anchor.courseID, let resourceID = anchor.courseResourceID else {
+      throw CloudError(status: 409, message: "无指定课程，无法进行笔记撰写")
+    }
+    guard !courseID.hasPrefix("local-course:"), !resourceID.hasPrefix("local-resource:"), !anchor.bookID.hasPrefix("book_local_") else {
+      throw CloudError(status: 409, message: "本机课程尚未关联在线课程，请先完成课程上传；原始笔记仍保存在本机。")
+    }
     return [
       "id": .string(remoteID), "revision": .number(Double(revision)),
       "logical_note_id": .string(logicalNoteID(note, scope: scope)),
-      "book_id": .string(anchor.bookID), "chapter_id": .string(anchor.chapterID ?? ""),
+      "book_id": .string(anchor.bookID), "course_id": .string(courseID),
+      "course_resource_id": .string(resourceID), "chapter_id": .string(anchor.chapterID ?? ""),
       "chapter_title": .string(String(note.title.prefix(250))),
       "excerpt": .string(String((anchor.quote ?? "").prefix(3000))),
       "pages": .array([.number(Double(max(1, anchor.page)))]),

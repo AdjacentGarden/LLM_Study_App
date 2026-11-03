@@ -24,6 +24,11 @@ struct AgentFrozenContext: Codable, Hashable, Sendable {
   var selection: String
   var currentNoteID: String?
   var capturedAt: Date
+  var sessionID: String? = nil
+  var messageID: String? = nil
+  var courseResourceID: String? = nil
+  var pageType: String? = nil
+  var practiceState: String? = nil
 }
 
 /// Locally registered evidence. Notes cite these records, never model text.
@@ -37,6 +42,10 @@ struct AgentEvidence: Codable, Hashable, Sendable {
   var printedPage: Int?
   var quote: String
   var quoteSHA256: String
+  var attachmentPath: String? = nil
+  var sourceType: String? = nil
+  var objectID: String? = nil
+  var courseResourceID: String? = nil
 }
 
 /// Executor-generated citation stored with a note. It keeps the source version
@@ -51,6 +60,10 @@ struct NoteReference: Codable, Hashable, Sendable {
   var printedPage: Int?
   var quote: String
   var quoteSHA256: String
+  var attachmentPath: String? = nil
+  var sourceType: String? = nil
+  var objectID: String? = nil
+  var courseResourceID: String? = nil
   init(_ evidence: AgentEvidence) {
     evidenceID = evidence.id
     bookID = evidence.bookID
@@ -61,6 +74,10 @@ struct NoteReference: Codable, Hashable, Sendable {
     printedPage = evidence.printedPage
     quote = evidence.quote
     quoteSHA256 = evidence.quoteSHA256
+    attachmentPath = evidence.attachmentPath
+    sourceType = evidence.sourceType
+    objectID = evidence.objectID
+    courseResourceID = evidence.courseResourceID
   }
 }
 
@@ -115,10 +132,11 @@ struct AgentPendingChoice: Codable, Hashable, Sendable {
   var question: String
   var options: [String]
   var selected: String?
+  var actionName: String? = nil
+  var actionArgumentsJSON: String? = nil
 }
 
 struct AgentRunRecord: Codable, Hashable, Identifiable, Sendable {
-  static let maxSteps = 8
   var id: String
   /// Optimistic-concurrency counter maintained by the repository.
   var version = 0
@@ -130,11 +148,20 @@ struct AgentRunRecord: Codable, Hashable, Identifiable, Sendable {
   var steps: [AgentStep]
   var pendingChoice: AgentPendingChoice?
   var cancelRequested = false
+  var cancellationReconciled: Bool? = nil
   var finalText: String?
   var failure: String?
   var committedNoteIDs: [String] = []
   var createdAt: Date
   var updatedAt: Date
+  var ephemeral: Bool? = nil
+  var attachments: [AssistantAttachment]? = nil
+  var history: [ChatMessage]? = nil
+  var events: [AgentRunEvent]? = nil
+  var contextTokens: Int? = nil
+  var contextEstimated: Bool? = nil
+  var capacityState: String? = nil
+  var images: [AssistantImageDTO]? = nil
 
   func evidence(_ id: String) -> AgentEvidence? { evidence.first { $0.id == id } }
 }
@@ -148,4 +175,13 @@ enum AgentDigest {
     let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
     return String(decoding: data, as: UTF8.self)
   }
+}
+
+struct AgentRunEvent: Codable, Hashable, Identifiable, Sendable {
+  var id = UUID().uuidString
+  var kind: String
+  var message: String
+  var toolCallID: String? = nil
+  var timestamp = Date()
+  var attachmentPath: String? = nil
 }

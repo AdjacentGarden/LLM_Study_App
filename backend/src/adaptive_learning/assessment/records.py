@@ -79,6 +79,11 @@ def learning_records(
         evidence.append(
             {
                 "id": str(i),
+                "attempt_id": f"{session.session_id}:{i}",
+                "question_id": observation.item_id,
+                "chapter_id": observation.chapter_id,
+                "source_type": "learning_record",
+                "source_version": str(session.revision),
                 "title": observation.question_snapshot or prompt,
                 "kind": kind,
                 "chapter": chapters.get(observation.chapter_id, "历史章节"),

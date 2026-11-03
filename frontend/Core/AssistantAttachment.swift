@@ -3,7 +3,7 @@ import ImageIO
 import PDFKit
 import UniformTypeIdentifiers
 
-/// Originals stay in the app sandbox. Only extracted text enters the current QA API.
+/// Originals stay in the app sandbox and are read by ID within the current session.
 struct AssistantAttachment: Codable, Hashable, Identifiable, Sendable {
   enum Kind: String, Codable, Sendable { case image, document }
   var id = UUID().uuidString
@@ -84,11 +84,6 @@ enum AssistantAttachmentImporter {
       extracted = try await LocalFileImporter.extract(url: url, bookID: "chat-attachment", filename: filename)
     }
     try Task.checkCancellation()
-    guard extracted.chunks.contains(where: { $0.text.contains(where: { !$0.isWhitespace }) }) else {
-      throw ContentError.invalid(isImage
-        ? "没有从图片中识别到文字。请添加清晰的文字图片；当前附件问答暂不支持纯图形分析。"
-        : "文件中没有可读取的文字，请选择其他文件。")
-    }
     let thumbnail = isImage ? await Task.detached(priority: .utility) { thumbnailData(data) }.value : nil
     try Task.checkCancellation()
     onProgress("正在保存附件全文…")

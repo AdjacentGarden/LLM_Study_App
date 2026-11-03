@@ -13,6 +13,8 @@ class Strict(BaseModel):
 
 class Anchor(Strict):
     book_id: str = Field(min_length=1, max_length=100)
+    course_id: str | None = Field(default=None, max_length=128)
+    course_resource_id: str | None = Field(default=None, max_length=128)
     chapter_id: str = Field(default="", max_length=150)
     chapter_title: str = Field(default="", max_length=250)
     excerpt: str = Field(default="", max_length=3000)

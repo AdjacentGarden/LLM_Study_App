@@ -362,7 +362,8 @@ extension LocalBookCourseRepository {
   /// run's outcome in one transaction. The key is (scope, run, tool call): a
   /// replay returns the original note and revision; different arguments conflict.
   func commitToolNote(
-    run: AgentRunRecord, toolCallID: String, argumentsHash: String, note: StudyNote, result: String
+    run: AgentRunRecord, toolCallID: String, argumentsHash: String, note: StudyNote, result: String,
+    verifiedCourseResourceID: String? = nil
   ) throws -> ToolNoteCommit {
     let scope = run.scope
     return try db.transaction {
@@ -373,8 +374,18 @@ extension LocalBookCourseRepository {
       }
       guard let stored = try loadRun(run.id, scope: scope) else { throw NoteStoreError.runConflict(runID: run.id) }
       guard !stored.cancelRequested, !stored.status.isTerminal else { throw NoteStoreError.runClosed(runID: run.id) }
-      guard run.context.scope == scope, note.anchor?.bookID == run.context.bookID,
-        note.anchor?.courseID == run.context.courseID else { throw NoteStoreError.scopeMismatch }
+      guard run.context.scope == scope else { throw NoteStoreError.scopeMismatch }
+      if let anchor = note.anchor {
+        guard anchor.courseID != nil, anchor.courseResourceID != nil, !anchor.bookID.isEmpty else {
+          throw NoteStoreError.scopeMismatch
+        }
+        if let verifiedCourseResourceID {
+          guard anchor.courseResourceID == verifiedCourseResourceID else { throw NoteStoreError.scopeMismatch }
+        } else {
+          guard anchor.bookID == run.context.bookID, anchor.courseID == run.context.courseID,
+            anchor.courseResourceID == run.context.courseResourceID else { throw NoteStoreError.scopeMismatch }
+        }
+      }
       if let provenance = note.provenance {
         guard provenance.runID == run.id, provenance.toolCallID == toolCallID else {
           throw NoteStoreError.scopeMismatch
@@ -399,6 +410,93 @@ extension LocalBookCourseRepository {
       if !next.committedNoteIDs.contains(note.id) { next.committedNoteIDs.append(note.id) }
       let saved = try writeRun(next, scope: scope)
       return ToolNoteCommit(noteID: note.id, revision: written.revision, replayed: false, run: saved)
+    }
+  }
+}
+
+struct NoteCourseResource: Sendable, Equatable {
+  var courseID: String
+  var bookID: String
+  var resourceID: String
+}
+
+extension LocalBookCourseRepository {
+  /// Repeatable migration: explicit ownership always wins, ambiguous anchors stay unassigned.
+  func migrateNoteOwnership(scope: String, relationships: [NoteCourseResource]) throws -> [StoredNote] {
+    try db.transaction {
+      for stored in try loadStoredNotes(scope: scope) {
+        guard let anchor = stored.note.anchor else { continue }
+        var note = stored.note
+        var changed = note.conversation != nil
+        note.conversation = nil
+        if anchor.courseResourceID == nil {
+          let matches = relationships.filter {
+            $0.bookID == anchor.bookID && (anchor.courseID == nil || $0.courseID == anchor.courseID)
+          }
+          if matches.count == 1, let match = matches.first {
+            note.anchor?.courseID = match.courseID
+            note.anchor?.courseResourceID = match.resourceID
+            changed = true
+          }
+        }
+        if changed { _ = try writeNote(note, scope: scope, condition: .revision(stored.revision)) }
+      }
+      return try loadStoredNotes(scope: scope)
+    }
+  }
+
+  func deleteCourseNotes(scope: String, courseID: String, resourceIDs: Set<String>) throws -> [String] {
+    try db.transaction {
+      let ids = try loadStoredNotes(scope: scope).filter { stored in
+        guard let anchor = stored.note.anchor else { return false }
+        return anchor.courseResourceID.map(resourceIDs.contains) == true
+      }.map { $0.note.id }
+      for id in ids { try tombstone(id, scope: scope) }
+      return ids
+    }
+  }
+}
+
+extension LocalBookCourseRepository {
+  /// Temporary chat commits only the artifact and a minimal operation receipt; no run or chat text.
+  func commitEphemeralToolNote(scope: String, runID: String, toolCallID: String,
+    argumentsHash: String, note: StudyNote) throws -> ToolNoteCommit {
+    try db.transaction {
+      if let receipt = try toolReceipt(scope: scope, runID: runID, toolCallID: toolCallID) {
+        guard receipt.argumentsHash == argumentsHash, let noteID = receipt.noteID, let revision = receipt.revision else {
+          throw NoteStoreError.receiptConflict(toolCallID: toolCallID)
+        }
+        return ToolNoteCommit(noteID: noteID, revision: revision, replayed: true)
+      }
+      guard note.anchor == nil || (note.anchor?.courseID != nil && note.anchor?.courseResourceID != nil) else {
+        throw NoteStoreError.scopeMismatch
+      }
+      var artifact = note
+      artifact.conversation = nil
+      let written = try writeNote(artifact, scope: scope, condition: .absent)
+      let result = try AgentDigest.canonicalJSON(["note_id": artifact.id, "revision": written.revision])
+      try db.run(
+        "INSERT INTO tool_receipts(scope,run_id,tool_call_id,arguments_hash,note_id,revision,result,created_at) VALUES(?,?,?,?,?,?,?,?)",
+        [.text(scope), .text(runID), .text(toolCallID), .text(argumentsHash), .text(artifact.id),
+         .int(written.revision), .text(result), .real(Date.now.timeIntervalSince1970)])
+      return ToolNoteCommit(noteID: artifact.id, revision: written.revision, replayed: false)
+    }
+  }
+}
+
+extension LocalBookCourseRepository {
+  /// Explicit promotion mapping, captured from the upload's course relationship.
+  func rebindNoteCourse(scope: String, from oldCourseID: String, to courseID: String,
+    resources: [String: String]) throws -> [StoredNote] {
+    try db.transaction {
+      for stored in try loadStoredNotes(scope: scope) where stored.note.anchor?.courseID == oldCourseID {
+        guard let anchor = stored.note.anchor, let resourceID = resources[anchor.bookID] else { continue }
+        var note = stored.note
+        note.anchor?.courseID = courseID
+        note.anchor?.courseResourceID = resourceID
+        _ = try writeNote(note, scope: scope, condition: .revision(stored.revision))
+      }
+      return try loadStoredNotes(scope: scope)
     }
   }
 }

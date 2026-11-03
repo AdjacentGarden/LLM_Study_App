@@ -98,6 +98,7 @@ extension AppStore {
         ?? workspace.resources.first?.book_id
       return Course(
         id: workspace.id, name: workspace.name, resourceIDs: workspace.resources.map(\.book_id),
+        courseResourceIDs: Dictionary(workspace.resources.map { ($0.book_id, $0.id) }, uniquingKeysWith: { first, _ in first }),
         activeResourceID: active, diagnosis: workspace.preferences,
         createdAt: Date(timeIntervalSince1970: workspace.created),
         updatedAt: Date(timeIntervalSince1970: workspace.updated))
@@ -359,6 +360,13 @@ extension AppStore {
   }
 
   func bindUploadedBook(localID: String, uploaded: CloudUpload) {
+    for index in courses.indices where courses[index].resourceIDs.contains(localID) {
+      let relationship = courseResourceID(courseID: courses[index].id, bookID: localID)
+      var mapping = courses[index].courseResourceIDs ?? [:]
+      if let relationship { mapping[uploaded.book_id] = relationship }
+      mapping[localID] = nil
+      courses[index].courseResourceIDs = mapping
+    }
     if let i = sources.firstIndex(where: { $0.id == localID }) {
       if sources.contains(where: { $0.id == uploaded.book_id && $0.id != localID }) {
         sources.remove(at: i)
@@ -459,6 +467,8 @@ extension AppStore {
     async throws
   {
     guard let cloud else { return }
+    let promotedCourseID = draft.importCourseID ?? draft.editingCourseID
+    let ownershipScope = noteScope
     let importWorkspaceID = draft.importCourseID.map { id in
       "workspace_" + SHA256.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined().prefix(32)
     }
@@ -490,6 +500,14 @@ extension AppStore {
     selectedCourseID = workspaceID
     selectedBookID = resourceIDs.first
     try await reloadCloud()
+    if let promotedCourseID, promotedCourseID != workspaceID, let ownershipScope,
+      ownershipScope == noteScope,
+      let remote = cloudState.workspaces.first(where: { $0.id == workspaceID }) {
+      let resources = Dictionary(remote.resources.map { ($0.book_id, $0.id) }, uniquingKeysWith: { first, _ in first })
+      let stored = try await repository.rebindNoteCourse(scope: ownershipScope, from: promotedCourseID,
+        to: workspaceID, resources: resources)
+      applyCommitted(stored, scope: ownershipScope)
+    }
     selectCourse(workspaceID)
   }
 
@@ -854,6 +872,9 @@ extension AppStore {
   func removeCloudCourse(_ id: String) async {
     let epoch = cloudState.epoch
     let importID = courseImport(for: id)?.id
+    let resourceIDs = Set((courses.first(where: { $0.id == id })?.resourceIDs ?? []).compactMap {
+      courseResourceID(courseID: id, bookID: $0)
+    })
     do {
       guard let cloud else { return }
       if let importID, courseImport(for: id)?.needsPreparation == true {
@@ -863,6 +884,7 @@ extension AppStore {
       }
       let _: CloudOK = try await cloud.request("/api/workspaces/\(id)", method: "DELETE")
       guard epoch == cloudState.epoch else { return }
+      try await clearLocalCourseData(id, resourceIDs: resourceIDs)
       if let importID {
         importState.tasks[importID]?.cancel()
         importState.tasks[importID] = nil
@@ -870,6 +892,8 @@ extension AppStore {
       }
       cloudState.pending = cloudState.pending.filter { $0.value.workspaceID != id }
       if cloudState.pendingSelection?.workspace_id == id { cloudState.pendingSelection = nil }
+      cacheAcknowledgedCourseRemoval(id)
+      await persistTask?.value
       try await reloadCloud()
       if let next = selectedCourseID {
         selectCourse(next)
@@ -1115,7 +1139,9 @@ extension AppStore {
     if cloud != nil {
       guard let resource = cloudResource else { return }
       let path: String
-      if resource.source_content != nil {
+      if assistantState.learningObjects.contains(where: { $0.id == card.id && $0.course_id == resource.workspace_id && $0.kind == "flashcard" }) {
+        path = "/api/assistant/learning-data/\(card.id)/review"
+      } else if resource.source_content != nil {
         path = resource.path + "/catalog-flashcards/\(card.id)"
       } else if let session = resource.session_id {
         path = "/api/interviews/\(session)/courses/\(card.lesson_id)/flashcards/\(card.id)"
@@ -1348,6 +1374,7 @@ extension AppStore {
             dailyPlanState.pending.append(completion)
           }
           cloudState.pendingReviews.removeAll { $0.eventID == review.eventID }
+          if review.path.hasPrefix("/api/assistant/learning-data/") { await reloadAgentLearningObjects() }
           cloudState.syncError = nil
           saveCloudCacheOnly()
           // Persist the acknowledged event before sending another one. A lost response

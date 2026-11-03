@@ -199,8 +199,9 @@ import UIKit
   }
   var flashcards: [Flashcard] {
     guard let s = currentSource else { return [] }
-    let scoped = s.flashcards.filter { $0.chapter_id == selectedChapterID }
-    return selectedChapterID == nil ? s.flashcards : scoped
+    let cards = s.flashcards + agentFlashcards
+    let scoped = cards.filter { $0.chapter_id == selectedChapterID }
+    return selectedChapterID == nil ? cards : scoped
   }
   var quizzes: [QuizQuestion] {
     guard let s = currentSource else { return [] }
@@ -220,10 +221,8 @@ import UIKit
     chapters.first { $0.id == selectedChapterID }?.title ?? activeLesson?.title ?? "章节学习"
   }
   var notesForCurrentSource: [StudyNote] {
-    notes.filter {
-      $0.anchor?.bookID == selectedBookID
-        && ($0.anchor?.courseID == nil || $0.anchor?.courseID == selectedCourseID)
-    }
+    guard let resourceID = courseResourceID(courseID: selectedCourseID, bookID: selectedBookID ?? "") else { return [] }
+    return notes.filter { $0.anchor?.courseResourceID == resourceID }
   }
   var locationKey: String { "\(selectedCourseID ?? "")::\(selectedBookID ?? "")" }
   /// Reload the real server discovery catalog; only Debug tests inject a fixture.
@@ -614,6 +613,16 @@ import UIKit
     {
       let epoch = cloudState.epoch, generation = selectionGeneration
       let book = selectedBookID, course = selectedCourseID, originRoute = route
+    var target = target
+    if target.courseID == nil {
+      let courseRoutes: Set<Route> = [.study, .lesson, .courseDetail, .notes, .voiceNote, .flashcards, .plan, .assignment, .diagnosis, .mistakes]
+      if route == .source, sourceTarget?.bookID == target.bookID {
+        target.courseID = sourceTarget?.courseID
+      } else if courseRoutes.contains(route), currentCourse?.resourceIDs.contains(target.bookID) == true {
+        target.courseID = selectedCourseID
+      }
+    }
+    target.courseResourceID = courseResourceID(courseID: target.courseID, bookID: target.bookID)
       Task {
         do {
           let choice = await processingPolicy.route(for: .retrieval)
@@ -654,6 +663,7 @@ import UIKit
         if sourceTarget?.bookID != target.bookID { sourceTarget = nil }
         if let index = courses.firstIndex(where: {
           $0.id == selectedCourseID && $0.resourceIDs.contains(target.bookID)
+    if let courseID = target.courseID, selectedCourseID != courseID { selectCourse(courseID) }
         }) {
           courses[index].activeResourceID = target.bookID
         } else if let course = courses.first(where: { $0.resourceIDs.contains(target.bookID) }) {
@@ -680,6 +690,7 @@ import UIKit
     openSource(
       SourcePageTarget(
         bookID: bookID,
+    if t.courseResourceID == nil { t.courseResourceID = courseResourceID(courseID: t.courseID, bookID: target.bookID) }
         title: currentSource?.summary.title ?? currentTitle, page: citation.page_start,
         pageEnd: citation.page_end, printedPage: citation.printed_page_start,
         sourceText: citation.quote, from: route))
@@ -777,13 +788,22 @@ import UIKit
       importState.tasks[record.id] = nil
       importState.courses.removeAll { $0.id == record.id }
     }
-    dismissedSourceIDs.formUnion(removed.resourceIDs)
-    courses.removeAll { $0.id == id }
-    if selectedCourseID == id {
-      selectedCourseID = courses.first?.id
-      if let next = selectedCourseID { selectCourse(next) } else { selectedBookID = nil }
+    let resourceIDs = Set(removed.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) })
+    Task { @MainActor in
+      do {
+        try await clearLocalCourseData(id, resourceIDs: resourceIDs)
+        dismissedSourceIDs.formUnion(removed.resourceIDs.filter { bookID in
+          !courses.contains(where: { $0.id != id && $0.resourceIDs.contains(bookID) })
+        })
+        courses.removeAll { $0.id == id }
+        if selectedCourseID == id {
+          selectedCourseID = courses.first?.id
+          if let next = selectedCourseID { selectCourse(next) } else { selectedBookID = nil }
+        }
+        persist()
+        showToast("课程及关联学习数据已移除", kind: .success)
+      } catch { showToast(error.localizedDescription, kind: .error) }
     }
-    persist()
   }
   func addSource(_ bookID: String, to courseID: String?) async throws {
     let targetID = courseID ?? selectedCourseID
@@ -795,6 +815,7 @@ import UIKit
       return
     }
     guard sources.contains(where: { $0.id == bookID }) else { throw ContentError.missing("教材资料") }
+
     if let id = targetID, let i = courses.firstIndex(where: { $0.id == id }) {
       if !courses[i].resourceIDs.contains(bookID) { courses[i].resourceIDs.append(bookID) }
       courses[i].updatedAt = .now
@@ -1129,8 +1150,10 @@ import UIKit
     go(.diagnosis)
   }
   func makeAnchor(page: Int? = nil) -> NoteAnchor {
-    NoteAnchor(
-      courseID: selectedCourseID, bookID: selectedBookID ?? "",
+    let courseID = [.source, .voiceNote].contains(route) && sourceTarget?.bookID == selectedBookID
+      ? sourceTarget?.courseID : selectedCourseID
+    return NoteAnchor(
+      courseID: courseID, courseResourceID: courseResourceID(courseID: courseID, bookID: selectedBookID ?? ""), bookID: selectedBookID ?? "",
       chapterID: selectedChapterID,
       page: page ?? (sourceTarget?.bookID == selectedBookID ? sourceTarget?.page : nil)
         ?? activeLesson?.page_start ?? 1,
@@ -1171,6 +1194,15 @@ import UIKit
       }
     } else if let base = noteState.revisions[updated.id] {
       condition = .revision(base)
+    if let anchor = updated.anchor {
+      guard let courseID = anchor.courseID,
+        let resourceID = courseResourceID(courseID: courseID, bookID: anchor.bookID) else {
+        throw ContentError.invalid("无指定课程，无法进行笔记撰写")
+      }
+      if let saved = anchor.courseResourceID, saved != resourceID { throw NoteStoreError.scopeMismatch }
+      updated.anchor?.courseResourceID = resourceID
+    }
+    updated.conversation = nil
     } else if let memory = notes.first(where: { $0.id == updated.id }) {
       // No known base: compare against the stored row the editor started from
       // instead of blindly overwriting a newer commit.
@@ -1222,7 +1254,11 @@ import UIKit
   func reloadNotes(resumeAgent: Bool = true) async {
     guard let scope = noteScope else { return }
     do {
-      let stored = try await repository.loadStoredNotes(scope: scope)
+      let relationships = courses.flatMap { course in course.resourceIDs.compactMap { bookID -> NoteCourseResource? in
+        guard let resourceID = courseResourceID(courseID: course.id, bookID: bookID) else { return nil }
+        return NoteCourseResource(courseID: course.id, bookID: bookID, resourceID: resourceID)
+      } }
+      let stored = try await repository.migrateNoteOwnership(scope: scope, relationships: relationships)
       guard noteScope == scope else { return }
       notes = stored.map(\.note)
       noteState.revisions = Dictionary(stored.map { ($0.note.id, $0.revision) }) { _, last in last }
@@ -1243,6 +1279,9 @@ import UIKit
     creditRevision = ledger.revision
     credits = ledger.balance
     creditReservations = ledger.reservations
+      await reloadAgentLearningObjects()
+      await assistantHistory.load(scope: assistantHistoryScope)
+      guard noteScope == scope else { return }
   }
   func reserveCredits(_ amount: Int) async throws -> String {
     let (id, ledger) = try await repository.reserveCredits(amount)
@@ -1260,32 +1299,20 @@ import UIKit
     }
   }
   func ask(_ question: String) async {
-    if cloud != nil && !(selectedBookID?.hasPrefix("book_local_") ?? false) {
-      await askCloud(question)
-      return
+    guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    guard cloud != nil, processingPolicy.path.kind != .offline else {
+      showToast("AI 助手需要联网", kind: .warning); return
     }
-    guard !chatLoading, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      return
+    let snapshot = assistantSessionContext
+    await assistantHistory.load(scope: assistantHistoryScope)
+    do { try await syncAssistantHistory() }
+    catch { showToast(error.localizedDescription, kind: .error); return }
+    closeSheet()
+    globalAssistantOpen = true
+    assistantHistory.submit(question, context: snapshot) { [weak self] context, history, question in
+      guard let self else { throw CancellationError() }
+      return try await self.answerHistorySession(context: context, history: history, question: question)
     }
-    chatLoading = true
-    let generation = selectionGeneration
-    let scope = currentCourse?.resourceIDs ?? [selectedBookID].compactMap { $0 }
-    let book = selectedBookID ?? ""
-    do {
-      chatMessages.append(ChatMessage(role: "user", text: question))
-      let result = try await answerAssistant(
-        question: question, bookID: book, bookIDs: scope, chapterID: selectedChapterID,
-        sources: sources, history: Array(chatMessages.suffix(8)))
-      guard generation == selectionGeneration, !Task.isCancelled else {
-        chatLoading = false
-        return
-      }
-      chatMessages.append(
-        ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
-    } catch {
-      showToast(error.localizedDescription, kind: .error)
-    }
-    chatLoading = false
   }
   func snapshot() -> AppSnapshot {
     captureCourseImportDraft()
@@ -1328,5 +1355,146 @@ import UIKit
     }
     selectedChapterID = "c2s1"
     selectedLessonID = "lesson_meiosis"
+  }
+}
+
+extension AppStore {
+  /// The association remains stable across launches and never aliases a textbook file ID.
+  func courseResourceID(courseID: String?, bookID: String) -> String? {
+    guard let courseID, let course = courses.first(where: { $0.id == courseID }),
+      course.resourceIDs.contains(bookID) else { return nil }
+    if let remote = cloudState.workspaces.first(where: { $0.id == courseID })?
+      .resources.first(where: { $0.book_id == bookID }) { return remote.id }
+    return course.courseResourceIDs?[bookID] ?? "local-resource:" + AgentDigest.sha256(courseID + ":" + bookID)
+  }
+
+  var unassignedSourceNotes: [StudyNote] {
+    notes.filter { $0.anchor != nil && $0.anchor?.courseResourceID == nil }
+  }
+
+  func claimSourceNote(_ id: String, courseID: String) async throws {
+    guard var note = notes.first(where: { $0.id == id }), let anchor = note.anchor,
+      anchor.courseResourceID == nil,
+      let resourceID = courseResourceID(courseID: courseID, bookID: anchor.bookID) else {
+      throw ContentError.invalid("请选择包含对应教材的课程。")
+    }
+    note.anchor?.courseID = courseID
+    note.anchor?.courseResourceID = resourceID
+    _ = try await saveNote(note)
+  }
+
+  /// Cloud deletion calls this with the relationship IDs frozen before removing the workspace.
+  func clearLocalCourseData(_ id: String, resourceIDs: Set<String>) async throws {
+    guard let scope = noteScope else { throw NoteStoreError.scopeMismatch }
+    let deleted = try await repository.deleteCourseNotes(scope: scope, courseID: id, resourceIDs: resourceIDs)
+    guard noteScope == scope else { throw CancellationError() }
+    notes.removeAll { deleted.contains($0.id) }
+    for noteID in deleted { noteState.revisions[noteID] = nil }
+    locations = locations.filter { !$0.key.hasPrefix(id + "::") }
+    mistakes.removeAll { $0.course_id == id }
+    assistantState.learningObjects.removeAll { $0.course_id == id }
+    try await repository.saveAgentLearningObjects(assistantState.learningObjects, scope: scope)
+    guard noteScope == scope else { throw CancellationError() }
+    dailyPlanState.plans = dailyPlanState.plans.filter { !$0.key.hasPrefix(id + ":") }
+    dailyPlanState.errors = dailyPlanState.errors.filter { !$0.key.hasPrefix(id + ":") }
+    dailyPlanState.requests = dailyPlanState.requests.filter { !$0.key.hasPrefix(id + ":") }
+    dailyPlanState.confirming = dailyPlanState.confirming.filter { !$0.hasPrefix(id + ":") }
+    dailyPlanState.pending.removeAll { $0.workspaceID == id }
+    if dailyPlanState.focus?.workspaceID == id { dailyPlanState.focus = nil }
+    cloudState.pending = cloudState.pending.filter { $0.value.workspaceID != id }
+    cloudState.pendingReviews.removeAll { $0.workspaceID == id }
+    if cloudState.pendingSelection?.workspace_id == id { cloudState.pendingSelection = nil }
+    // Source payloads are shared by courses. Remove only exclusively owned local learning data.
+    let books = courses.first(where: { $0.id == id })?.resourceIDs ?? []
+    for bookID in books where !courses.contains(where: { $0.id != id && $0.resourceIDs.contains(bookID) }) {
+      if let index = sources.firstIndex(where: { $0.id == bookID }) {
+        let cardIDs = Set(sources[index].flashcards.map(\.id))
+        mastered.subtract(cardIDs)
+        sources[index].flashcards = []
+        sources[index].plan.tasks = []
+      }
+    }
+  }
+}
+
+extension AppStore {
+  func courseRemovalSummary(_ id: String) -> String {
+    guard let course = courses.first(where: { $0.id == id }) else { return "课程已不存在" }
+    let resourceIDs = Set(course.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) })
+    let noteCount = notes.filter { $0.anchor?.courseResourceID.map(resourceIDs.contains) == true }.count
+    let ownedBooks = course.resourceIDs.filter { bookID in
+      !courses.contains(where: { $0.id != id && $0.resourceIDs.contains(bookID) })
+    }
+    let ownedSources = sources.filter { ownedBooks.contains($0.id) }
+    let savedObjects = assistantState.learningObjects.filter { $0.course_id == id }
+    let cards = ownedSources.reduce(0) { $0 + $1.flashcards.count } + savedObjects.filter { $0.kind == "flashcard" }.count
+    let reviews = ownedSources.reduce(0) { $0 + $1.plan.tasks.count } + savedObjects.filter { ["review_task", "plan"].contains($0.kind) }.count
+    let records = mistakes.filter { $0.course_id == id }.count
+    let sharedSources = sources.filter { course.resourceIDs.contains($0.id) && !ownedBooks.contains($0.id) }
+    let uncertainCards = sharedSources.reduce(0) { $0 + $1.flashcards.count }
+    let uncertainTasks = sharedSources.reduce(0) { $0 + $1.plan.tasks.count }
+    let uncertainRecords = mistakes.filter { $0.course_id == nil && course.resourceIDs.contains($0.book_id) }.count
+    let titles = sharedSources.map { "\($0.summary.title)（\($0.id)）" }.joined(separator: "、")
+    let unresolved = uncertainCards + uncertainTasks + uncertainRecords
+    return "笔记 \(noteCount) 条 · 闪卡 \(cards) 张 · 复习任务 \(reviews) 项 · 学习记录 \(records) 条"
+      + (unresolved > 0 ? "。另有旧闪卡 \(uncertainCards) 张、任务 \(uncertainTasks) 项、学习记录 \(uncertainRecords) 条缺少课程归属，保留待核对。关联教材：\(titles.isEmpty ? course.resourceIDs.joined(separator: "、") : titles)。" : "")
+  }
+}
+
+extension AppStore {
+  /// Save the acknowledged cloud deletion before fetching again, including when the next request disconnects.
+  func cacheAcknowledgedCourseRemoval(_ id: String) {
+    cloudState.workspaces.removeAll { $0.id == id }
+    courses.removeAll { $0.id == id }
+    if selectedCourseID == id {
+      selectedCourseID = courses.first?.id
+      selectedBookID = courses.first?.activeResourceID ?? courses.first?.resourceIDs.first
+      selectedChapterID = nil
+      selectedLessonID = nil
+      sourceTarget = nil
+    }
+    saveCloudCacheOnly()
+  }
+}
+
+struct CourseRemovalConfirmation: Sendable {
+  var courseID: String
+  var operationID: String
+  var scope: String
+  var arguments: [String: JSONValue]
+  var summary: String
+}
+
+extension AppStore {
+  func prepareCourseRemoval(_ id: String) async throws -> CourseRemovalConfirmation {
+    guard let scope = noteScope, let course = courses.first(where: { $0.id == id }) else {
+      throw ContentError.invalid("课程已不存在或不属于当前账号。")
+    }
+    let operationID = "manual-course-removal-" + UUID().uuidString.lowercased()
+    var arguments: [String: JSONValue] = ["course_id": .string(id),
+      "local_version": .string(try UnifiedAgentTools.courseMutationVersion(id, store: self)),
+      "frozen_resource_ids": .array(course.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) }.map(JSONValue.string))]
+    var summary = "本机：" + courseRemovalSummary(id)
+    if let cloud, !id.hasPrefix("local-course:") {
+      let response: [String: JSONValue] = try await cloud.request("/api/assistant/tools/remove_course", method: "POST", body: [
+        "operation_id": .string(operationID), "arguments": .object(["course_id": .string(id), "confirmed": .bool(false)])])
+      guard noteScope == scope else { throw CancellationError() }
+      guard case .object(let impact)? = response["impact"], case .object(let counts)? = impact["counts"], let version = impact["version"] else {
+        throw ContentError.invalid("未能取得课程删除影响清单，请重试。")
+      }
+      arguments["impact_version"] = version
+      func count(_ key: String) -> Int { if case .number(let value)? = counts[key] { return Int(value) }; return 0 }
+      summary += "\n云端：笔记 \(count("notes")) 条 · 闪卡 \(count("flashcards")) 张 · 复习任务 \(count("review_tasks")) 项 · 学习记录 \(count("learning_records")) 条。"
+      if case .number(let legacy)? = impact["unassigned_legacy_notes_preserved"], legacy > 0 {
+        summary += "另有 \(Int(legacy)) 条未归属云端笔记，移除课程后仍会保留。"
+      }
+    }
+    return CourseRemovalConfirmation(courseID: id, operationID: operationID, scope: scope, arguments: arguments, summary: summary)
+  }
+
+  func confirmCourseRemoval(_ confirmation: CourseRemovalConfirmation) async throws {
+    guard confirmation.scope == noteScope else { throw CancellationError() }
+    _ = try await UnifiedAgentTools.performConfirmedMutation("remove_course", args: confirmation.arguments,
+      operationID: confirmation.operationID, scope: confirmation.scope, store: self)
   }
 }

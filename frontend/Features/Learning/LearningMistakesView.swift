@@ -42,11 +42,25 @@ struct LearningMistakesView: View {
     Group {
       if reviewing, let selected { review(selected) } else { overview }
     }
+    .onChange(of: selected?.id, initial: true) { _, id in store.learningState.visibleMistakeID = id }
+    .onDisappear { store.learningState.visibleMistakeID = nil }
+    .onAppear { focusAgentMistake() }
+    .onChange(of: store.learningState.agentFocusMistakeID) { _, _ in focusAgentMistake() }
+    .onChange(of: mistakes.map(\.id)) { _, _ in focusAgentMistake() }
     .onChange(of: store.selectedBookID) { _, _ in
       selectedID = nil
       reviewing = false
       resetReview()
     }
+  }
+
+  private func focusAgentMistake() {
+    guard let id = store.learningState.agentFocusMistakeID, mistakes.contains(where: { $0.id == id }) else { return }
+    search = ""
+    filter = "全部"
+    selectedID = id
+    reviewing = false
+    resetReview()
   }
 
   private var overview: some View {

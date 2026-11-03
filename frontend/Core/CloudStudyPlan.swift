@@ -80,7 +80,15 @@ extension AppStore {
   }
 
   func dailyStudyPlan(_ day: String = DailyStudyPlanState.day()) -> CloudStudyPlan? {
-    selectedCourseID.flatMap { dailyPlanState.plans[DailyStudyPlanState.key($0, day)] }
+    guard let id = selectedCourseID else { return nil }
+    let extra = agentPlanTasks(courseID: id, date: day)
+    guard var plan = dailyPlanState.plans[DailyStudyPlanState.key(id, day)] else {
+      return extra.isEmpty ? nil : CloudStudyPlan(plan_id: "agent:" + id + ":" + day, day: day, budget_minutes: extra.reduce(0) { $0 + $1.minutes },
+        estimated_minutes: extra.reduce(0) { $0 + $1.minutes }, needs_confirmation: false, confirmed: true, revision: 1,
+        tasks: extra, queue: [], preferences_changed: false, remaining_task_count: extra.count)
+    }
+    plan.tasks.append(contentsOf: extra.filter { candidate in !plan.tasks.contains { $0.id == candidate.id } })
+    return plan
   }
 
   var dailyStudyPlanLoadKey: String {
@@ -149,6 +157,7 @@ extension AppStore {
   func completeDailyStudyTask(_ task: CloudStudyPlanTask, day: String, workspaceID: String? = nil,
     waitForSync: Bool = true) async {
     guard cloudState.authenticated, let wid = workspaceID ?? selectedCourseID else { return }
+    if await completeAgentStudyTask(task, day: day, courseID: wid) { return }
     let key = DailyStudyPlanState.key(wid, day)
     let epoch = cloudState.epoch
     guard let plan = dailyPlanState.plans[key], let savedTask = plan.tasks.first(where: { $0.id == task.id }),
@@ -177,6 +186,16 @@ extension AppStore {
       guard cloudState.cacheWriteError == nil else { throw ContentError.storage("完成记录尚未保存，请重试。") }
       let key = DailyStudyPlanState.key(entry.workspaceID, entry.day)
       do {
+        if let object = agentTaskObject(taskID: entry.taskID, courseID: entry.workspaceID) {
+          let _: [String: JSONValue] = try await cloud.request("/api/assistant/learning-data/\(object.id)/complete", method: "POST",
+            body: ["operation_id": .string(entry.eventID), "task_id": .string(entry.taskID)])
+          guard epoch == cloudState.epoch else { throw CancellationError() }
+          dailyPlanState.pending.removeAll { $0.eventID == entry.eventID }
+          await reloadAgentLearningObjects()
+          saveCloudCacheOnly()
+          await persistTask?.value
+          continue
+        }
         var safe = CharacterSet.urlPathAllowed
         safe.remove(charactersIn: "/?#%")
         guard let taskID = entry.taskID.addingPercentEncoding(withAllowedCharacters: safe) else { return }
@@ -214,6 +233,15 @@ extension AppStore {
       return
     }
     selectSource(task.book_id)
+    if task.kind == "recall", let cardID = task.card_id,
+      let card = ((currentSource?.flashcards ?? []) + agentFlashcards).first(where: { $0.id == cardID }) {
+      dailyPlanState.focus = CloudPlanFocus(workspaceID: wid, day: day, task: task)
+      selectedChapterID = card.chapter_id.isEmpty ? nil : card.chapter_id
+      selectedLessonID = lessons.first(where: { $0.chapter_id == card.chapter_id })?.id
+      learningState.agentFocusCardID = cardID
+      go(.flashcards)
+      return
+    }
     guard let lesson = lessons.first(where: { $0.id == task.lesson_id || $0.chapter_id == task.chapter_id }),
       lesson.status == "ready" else { showToast("课程内容尚未准备好，请稍后刷新。", kind: .warning); return }
     dailyPlanState.focus = CloudPlanFocus(workspaceID: wid, day: day, task: task)

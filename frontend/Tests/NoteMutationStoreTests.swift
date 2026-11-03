@@ -19,7 +19,7 @@ final class NoteMutationStoreTests: XCTestCase {
     let ev = evidence(scope: scope, book: book)
     let context = AgentFrozenContext(scope: scope, courseID: "course-a", bookID: book, bookTitle: "生物",
       sourceVersion: "sha256:v1", chapterID: "c2", page: 11, printedPage: 16, selection: ev.quote,
-      currentNoteID: nil, capturedAt: .now)
+      currentNoteID: nil, capturedAt: .now, courseResourceID: "resource-a")
     let call = AgentToolCall(id: "call-1", name: "create_note", argumentsJSON: "{}", argumentsHash: "hash-a")
     return AgentRunRecord(id: id, scope: scope, status: .running, request: "整理并解释", context: context,
       evidence: [ev], steps: [AgentStep(index: 0, id: "step-0", state: .completed, toolCalls: [call])],
@@ -28,7 +28,7 @@ final class NoteMutationStoreTests: XCTestCase {
 
   private func toolNote(_ run: AgentRunRecord, id: String = "assistant-note") -> StudyNote {
     StudyNote(id: id, kind: .text, title: "减数分裂", body: "整理后的解释",
-      anchor: NoteAnchor(courseID: run.context.courseID, bookID: run.context.bookID,
+      anchor: NoteAnchor(courseID: run.context.courseID, courseResourceID: run.context.courseResourceID, bookID: run.context.bookID,
         chapterID: run.context.chapterID, page: run.context.page, printedPage: run.context.printedPage,
         quote: run.context.selection),
       references: run.evidence.map(NoteReference.init),

@@ -276,6 +276,7 @@ class LLMConfig:
     proxy_url: str | None = None
     thinking_enabled: bool | None = None
     reasoning_effort: str | None = None
+    context_window_tokens: int = 1_000_000
 
     def __post_init__(self) -> None:
         if self.timeout_seconds < 1:

@@ -37,6 +37,8 @@ struct AssistantComposer: View {
   let showAttachmentChoices: () -> Void
   let removeAttachment: (String) -> Void
   var textHorizontalInset: CGFloat = 0
+  var contextTokens: Int = 0
+  var contextEstimated: Bool = true
   let send: () -> Void
   @FocusState private var focused: Bool
   @State private var keyboardFocusTask: Task<Void, Never>?
@@ -48,6 +50,9 @@ struct AssistantComposer: View {
 
   var body: some View {
     VStack(spacing: 10) {
+      Text("当前上下文 \(contextEstimated ? "约 " : "")\(contextTokens >= 1000 ? String(format: "%.1fK", Double(contextTokens) / 1000) : String(contextTokens)) / 1M tokens")
+        .appFont(.caption).foregroundStyle(contextTokens >= 900_000 ? DS.danger : DS.secondary)
+        .accessibilityIdentifier("assistant.context.capacity")
       if let error = voice.error {
         Text(error).appFont(.supporting).foregroundStyle(DS.danger)
           .frame(maxWidth: .infinity, alignment: .leading).padding(12)

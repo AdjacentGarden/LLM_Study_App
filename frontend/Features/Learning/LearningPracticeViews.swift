@@ -24,7 +24,7 @@ struct LearningAssignmentView: View {
   private var questions: [QuizQuestion] {
     store.quizzes.filter {
       (store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID)
-        && (store.activeDailyStudyTask?.task.practice_item_id == nil
+        && (store.learningState.agentFocusQuizID != nil || store.activeDailyStudyTask?.task.practice_item_id == nil
           || $0.id == store.activeDailyStudyTask?.task.practice_item_id)
     }
   }
@@ -54,12 +54,21 @@ struct LearningAssignmentView: View {
       }
       .background(Color(hex: 0xd9d2ff))
       .task(id: "\(store.selectedBookID ?? ""):\(store.selectedChapterID ?? "")") {
-        index = 0
+        index = store.learningState.agentFocusQuizID.flatMap { target in questions.firstIndex { $0.id == target } } ?? 0
         answers = [:]
         shortAnswer = ""
         error = nil
-        store.selectedQuizIndex = 0
+        store.selectedQuizIndex = index
+        store.learningState.visibleQuizID = questions.indices.contains(index) ? questions[index].id : nil
       }
+      .onChange(of: store.learningState.agentFocusQuizID) { _, target in
+        if let target, let found = questions.firstIndex(where: { $0.id == target }) {
+          index = found; store.selectedQuizIndex = found; shortAnswer = answers[target] ?? ""
+          store.learningState.visibleQuizID = target
+        }
+      }
+      .onChange(of: question.id) { _, id in store.learningState.visibleQuizID = id }
+      .onDisappear { store.learningState.visibleQuizID = nil; store.learningState.agentFocusQuizID = nil }
     } else {
       LearningNoSource(title: "暂无可练习的章节", message: "完成教材解析并进入章节后，就能按判断题、选择题、简答题的顺序检查理解。")
     }

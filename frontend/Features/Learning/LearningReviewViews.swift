@@ -121,6 +121,10 @@ struct LearningFlashcardsView: View {
         .frame(width: max(0, viewport.size.width - 32), height: height)
         .padding(.horizontal, 16).padding(.top, 12)
       }
+      .onChange(of: current.id, initial: true) { _, id in store.learningState.visibleCardID = id }
+      .onAppear { focusAgentCard() }
+      .onChange(of: store.learningState.agentFocusCardID) { _, _ in focusAgentCard() }
+      .onChange(of: cards.map(\.id)) { _, _ in focusAgentCard() }
       .onChange(of: index) { _, _ in reviewStarted = .now }
       .onChange(of: store.selectedCourseID) { _, _ in resetDeck() }
       .onChange(of: store.selectedChapterID) { _, _ in resetDeck() }
@@ -129,6 +133,7 @@ struct LearningFlashcardsView: View {
         if reduced { settleFlip() }
       }
       .onDisappear {
+        store.learningState.visibleCardID = nil
         switchTask?.cancel()
         settleFlip()
       }
@@ -365,6 +370,16 @@ struct LearningFlashcardsView: View {
         isTransitioning = false
       }
     }
+  }
+
+  private func focusAgentCard() {
+    guard let id = store.learningState.agentFocusCardID, let target = cards.firstIndex(where: { $0.id == id }) else { return }
+    switchTask?.cancel()
+    settleFlip()
+    index = target
+    revealed = false
+    drag = 0
+    isTransitioning = false
   }
 
   private func resetDeck() {

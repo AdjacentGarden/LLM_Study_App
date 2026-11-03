@@ -19,6 +19,15 @@ import Observation
 }
 
 @MainActor @Observable final class LearningSessionState {
+  var agentFocusQuizID: String?
+  var visibleQuizID: String?
+  var visibleCardID: String?
+  var visibleMistakeID: String?
+  var visibleNoteID: String?
+  var visiblePlanDay: String?
+  var agentFocusCardID: String?
+  var agentFocusMistakeID: String?
+  var agentFocusPlanDate: String?
   var readerCompletionVisible = false
   var readerOverlayVisible = false
   var selectedChapterID: String? = nil
@@ -73,6 +82,8 @@ struct ReaderOrigin: Sendable {
 }
 
 @MainActor @Observable final class AssistantConversationState {
+  var learningObjects: [AgentLearningObject] = []
+  var screenshotExcludesAssistant = false
   var globalAssistantOpen: Bool = false
   var chatMessages: [ChatMessage] = []
   var chatLoading: Bool = false

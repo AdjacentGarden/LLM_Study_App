@@ -73,8 +73,8 @@ from ..learning_preferences import resolve_learning_design
 from ..llm.book_parallel import ordered_book_map
 from ..llm.client import (
     LLMConfig,
-    LLMCooldownError,
     LLMContextLimitError,
+    LLMCooldownError,
     LLMError,
     LLMRefusalError,
     LLMTimeoutError,
@@ -174,6 +174,7 @@ def assistant_tool_chat() -> ToolChatClient | None:
         base_url=settings.text_base_url, api_key=settings.text_api_key, model=settings.text_model,
         timeout_seconds=settings.rag_generation_timeout_seconds, max_retries=0,
         proxy_url=settings.llm_https_proxy,
+        context_window_tokens=int(os.getenv("ASSISTANT_CONTEXT_WINDOW_TOKENS", "1000000")),
     )
     if not supports_tool_chat(config):
         return None

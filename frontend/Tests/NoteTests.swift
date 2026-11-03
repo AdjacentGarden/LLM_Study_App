@@ -9,7 +9,7 @@ final class NoteTests: XCTestCase {
     func note(_ id: String, kind: NoteKind = .text, course: String = "course",
       book: String = "book", chapter: String = "chapter") -> StudyNote {
       StudyNote(id: id, kind: kind, title: id,
-        anchor: NoteAnchor(courseID: course, bookID: book, chapterID: chapter, page: 2),
+        anchor: NoteAnchor(courseID: course, courseResourceID: course + ":" + book, bookID: book, chapterID: chapter, page: 2),
         drawingPath: kind == .ink ? "saved.drawing" : nil)
     }
     let notes = [note("text"), note("ink", kind: .ink), note("voice", kind: .voice),
@@ -23,24 +23,24 @@ final class NoteTests: XCTestCase {
       "Raw handwriting remains visible before recognition or organization")
   }
 
-  func testChapterNotesIncludeSubsectionsAndLegacyPageAnnotationsWithoutShowingUnscopedNotes() {
+  func testChapterNotesIncludeOwnedSubsectionsAndExcludeUnassignedLegacyAnnotations() {
     func chapter(_ id: String, parent: String? = nil, start: Int, end: Int) -> Chapter {
       Chapter(chapter_id: id, level: parent == nil ? 1 : 2, source_title: id, ai_title: id,
         page_start: start, page_end: end, confidence: 100, status: "ready", source: "server", parent_id: parent)
     }
     let chapters = [chapter("root", start: 1, end: 5), chapter("section", parent: "root", start: 2, end: 3)]
     let notes = [
-      StudyNote(id: "root", kind: .text, title: "章笔记", anchor: NoteAnchor(bookID: "book", chapterID: "root", page: 2)),
-      StudyNote(id: "section", kind: .voice, title: "小节笔记", anchor: NoteAnchor(bookID: "book", chapterID: "section", page: 2)),
+      StudyNote(id: "root", kind: .text, title: "章笔记", anchor: NoteAnchor(courseID: "course", courseResourceID: "resource", bookID: "book", chapterID: "root", page: 2)),
+      StudyNote(id: "section", kind: .voice, title: "小节笔记", anchor: NoteAnchor(courseID: "course", courseResourceID: "resource", bookID: "book", chapterID: "section", page: 2)),
       StudyNote(id: "legacy", kind: .ink, title: "旧手写", anchor: NoteAnchor(bookID: "book", page: 2)),
       StudyNote(id: "retired", kind: .ink, title: "旧章节编号", anchor: NoteAnchor(bookID: "book", chapterID: "old-section-id", page: 2)),
       StudyNote(id: "outside", kind: .ink, title: "其他页", anchor: NoteAnchor(bookID: "book", page: 6)),
       StudyNote(id: "free", kind: .text, title: "自由笔记"),
     ]
     XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
-      chapterID: "root", chapters: chapters).map(\.id), ["root", "section", "legacy", "retired"])
+      chapterID: "root", chapters: chapters).map(\.id), ["root", "section"])
     XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
-      chapterID: "section", chapters: chapters).map(\.id), ["section", "legacy", "retired"])
+      chapterID: "section", chapters: chapters).map(\.id), ["section"])
     XCTAssertTrue(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
       chapterID: nil, chapters: chapters).isEmpty)
     XCTAssertTrue(NotesChapterScope.notes(notes, courseID: "course", bookID: nil,
@@ -254,7 +254,7 @@ final class NoteTests: XCTestCase {
     XCTAssertEqual(notes.first?.body, "Preserved draft")
   }
 
-  func testAnnotationConversationSurvivesBodyEditUpgradeAndRepositoryReopen() async throws {
+  func testTemporaryAnnotationConversationIsDiscardedWhileEditedArtifactSurvivesReopen() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let repository = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
@@ -269,7 +269,7 @@ final class NoteTests: XCTestCase {
     staleDraft.body = "结合问答修正后的理解"
     var merged = NotesAnnotationRecord.mergingConversation(draft: staleDraft, stored: replied)
     XCTAssertEqual(merged.body, staleDraft.body)
-    XCTAssertEqual(merged.conversation, replied.conversation)
+    XCTAssertNil(merged.conversation)
     merged.kind = .voice
     try await repository.saveNote(merged)
     let reopened = try LocalBookCourseRepository(includeFixtures: true, directory: directory)
@@ -278,7 +278,7 @@ final class NoteTests: XCTestCase {
     XCTAssertEqual(restored[0].id, original.id)
     XCTAssertEqual(restored[0].kind, .voice)
     XCTAssertEqual(restored[0].body, staleDraft.body)
-    XCTAssertEqual(restored[0].conversation, replied.conversation)
+    XCTAssertNil(restored[0].conversation)
     var unrelated = replied
     unrelated.id = "another-annotation"
     XCTAssertNil(NotesAnnotationRecord.mergingConversation(draft: original, stored: unrelated).conversation)

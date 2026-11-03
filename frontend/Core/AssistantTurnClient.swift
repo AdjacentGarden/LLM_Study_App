@@ -12,6 +12,10 @@ struct AssistantTurnContextDTO: Codable, Sendable, Equatable {
   var printed_page: Int?
   var selection: String
   var current_note_id: String?
+  var course_resource_id: String? = nil
+  var page_type: String? = nil
+  var practice_state: String? = nil
+  var snapshot: [String: JSONValue]? = nil
 }
 
 struct AssistantTurnEvidenceDTO: Codable, Sendable, Equatable {
@@ -19,12 +23,20 @@ struct AssistantTurnEvidenceDTO: Codable, Sendable, Equatable {
   var page: Int
   var printed_page: Int?
   var quote: String
+  var source_type: String? = nil
+  var object_id: String? = nil
+  var source_version: String? = nil
+  var book_id: String? = nil
+  var course_id: String? = nil
+  var course_resource_id: String? = nil
 }
 
 struct AssistantToolResultDTO: Codable, Sendable, Equatable {
   var step_index: Int
   var tool_call_id: String
   var content: String
+  var complete: Bool? = nil
+  var continuation: String? = nil
 }
 
 struct AssistantTurnRequestDTO: Codable, Sendable, Equatable {
@@ -37,6 +49,11 @@ struct AssistantTurnRequestDTO: Codable, Sendable, Equatable {
   var evidence: [AssistantTurnEvidenceDTO]
   var tools: [String]
   var tool_results: [AssistantToolResultDTO]
+  var session_id: String? = nil
+  var message_id: String? = nil
+  var ephemeral: Bool? = nil
+  var history: [[String: JSONValue]]? = nil
+  var attachments: [AssistantImageDTO]? = nil
 }
 
 struct AssistantToolCallDTO: Decodable, Sendable {
@@ -52,15 +69,15 @@ struct AssistantMessageDTO: Decodable, Sendable {
 
 struct AssistantBudgetDTO: Decodable, Sendable {
   var steps: Int
-  var steps_max: Int
+  var steps_max: Int?
   var posts: Int
-  var posts_max: Int
+  var posts_max: Int?
   var input_tokens: Int
-  var input_tokens_max: Int
+  var input_tokens_max: Int?
   var output_tokens: Int
-  var output_tokens_max: Int
+  var output_tokens_max: Int?
   var model_seconds: Double
-  var model_seconds_max: Double
+  var model_seconds_max: Double?
   var cached_input_tokens: Int?
 }
 
@@ -78,14 +95,18 @@ struct AssistantTurnResponseDTO: Decodable, Sendable {
   var retry_after: Double?
   /// cancelled | steps | posts | input_tokens | output_tokens | model_seconds
   var refused: String?
-  var budget: AssistantBudgetDTO
+  var budget: AssistantBudgetDTO?
+  var context_tokens: Int? = nil
+  var context_window: Int? = nil
+  var capacity_state: String? = nil
+  var context_estimated: Bool? = nil
 }
 
 struct AssistantCapabilitiesDTO: Decodable, Sendable {
   var contract_version: Int
   var available: Bool
   var tools: [String]
-  var max_steps: Int
+  var max_steps: Int?
 }
 
 extension CloudAPI {
@@ -106,5 +127,22 @@ extension CloudAPI {
 
   func assistantCapabilities() async throws -> AssistantCapabilitiesDTO {
     try await request("/api/assistant/capabilities")
+  }
+}
+
+/// An actual model image input. It is always selected from this run's authorized resources.
+struct AssistantImageDTO: Codable, Hashable, Sendable, Equatable {
+  var attachment_id: String
+  var media_type: String
+  var data_base64: String?
+  var source_type: String
+  var object_id: String
+  var page: Int?
+  var version: String?
+}
+
+extension CloudAPI {
+  func closeTemporaryAssistantSession(_ id: String) async throws {
+    let _: [String: JSONValue] = try await request("/api/assistant/conversations/\(id)/close", method: "POST")
   }
 }

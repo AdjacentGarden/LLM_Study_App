@@ -236,10 +236,14 @@ struct SourceContent: Codable, Identifiable, Hashable, Sendable {
   var plan: StudyPlan
   var id: String { summary.book_id }
 }
+struct CatalogOrigin: Codable, Hashable, Sendable {
+  var book_id: String
+}
 struct CommunityBook: Codable, Identifiable, Hashable, Sendable {
   var id: String
   var title: String
   var catalogTitle: String
+  var catalog_origin: CatalogOrigin? = nil
   var owner: String
   var cover: String
   var subject: String
@@ -279,6 +283,8 @@ struct Course: Codable, Identifiable, Hashable, Sendable {
   var id: String = UUID().uuidString
   var name: String
   var resourceIDs: [String]
+  /// Stable course–textbook relationships; values are never textbook IDs.
+  var courseResourceIDs: [String: String]? = nil
   var activeResourceID: String?
   var diagnosis: [String: [String]] = [:]
   var createdAt: Date = .now
@@ -362,16 +368,18 @@ struct UnitPointValue: Codable, Hashable, Sendable {
 struct NoteAnchor: Codable, Hashable, Sendable {
   var courseID: String?
   var bookID: String
+  var courseResourceID: String?
   var chapterID: String?
   var page: Int
   var printedPage: Int?
   var quote: String?
   init(
-    courseID: String? = nil, bookID: String, chapterID: String? = nil, page: Int,
+    courseID: String? = nil, courseResourceID: String? = nil, bookID: String, chapterID: String? = nil, page: Int,
     printedPage: Int? = nil, quote: String? = nil
   ) {
     self.courseID = courseID
     self.bookID = bookID
+    self.courseResourceID = courseResourceID
     self.chapterID = chapterID
     self.page = page
     self.printedPage = printedPage
@@ -440,17 +448,21 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
 struct SourcePageTarget: Codable, Hashable, Sendable {
   var bookID: String
   var title: String
+  var courseResourceID: String?
+  var courseID: String?
   var page: Int
   var pageEnd: Int?
   var printedPage: Int?
   var sourceText: String?
   var from: Route?
   init(
-    bookID: String, title: String, page: Int, pageEnd: Int? = nil, printedPage: Int? = nil,
+    bookID: String, title: String, page: Int, courseID: String? = nil, courseResourceID: String? = nil, pageEnd: Int? = nil, printedPage: Int? = nil,
     sourceText: String? = nil, from: Route? = nil
   ) {
     self.bookID = bookID
     self.title = title
+    self.courseID = courseID
+    self.courseResourceID = courseResourceID
     self.page = page
     self.pageEnd = pageEnd
     self.printedPage = printedPage

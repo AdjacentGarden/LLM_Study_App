@@ -45,7 +45,7 @@ struct DailyStudyPlanView: View {
       BCCard {
         VStack(alignment: .leading, spacing: 12) {
           Text(store.currentCourse?.name ?? store.currentTitle).font(DS.font(.sectionTitle))
-          DatePicker("学习日期", selection: $selectedDate, in: ...Date.now, displayedComponents: .date)
+          DatePicker("学习日期", selection: $selectedDate, displayedComponents: .date)
             .datePickerStyle(.compact).font(DS.font(.body))
             .accessibilityIdentifier("plan.date")
           if let plan {
@@ -98,6 +98,10 @@ struct DailyStudyPlanView: View {
         ProgressView("正在安排学习任务…").frame(maxWidth: .infinity).padding(24)
       }
     }
+    .onChange(of: day, initial: true) { _, day in store.learningState.visiblePlanDay = day }
+    .onDisappear { store.learningState.visiblePlanDay = nil }
+    .onAppear { focusAgentDate() }
+    .onChange(of: store.learningState.agentFocusPlanDate) { _, _ in focusAgentDate() }
     .refreshable { await store.loadDailyStudyPlan(day: day) }
     .task(id: store.dailyStudyPlanLoadKey + day) {
       store.dailyPlanState.focus = nil
@@ -111,6 +115,14 @@ struct DailyStudyPlanView: View {
         Task { await store.loadDailyStudyPlan(day: day) }
       }
     }
+  }
+
+  private func focusAgentDate() {
+    guard let value = store.learningState.agentFocusPlanDate else { return }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
+    if let date = formatter.date(from: value) { selectedDate = date }
   }
 
   private func taskCard(_ task: CloudStudyPlanTask, plan: CloudStudyPlan) -> some View {
