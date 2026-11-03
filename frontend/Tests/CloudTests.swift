@@ -107,7 +107,8 @@ final class CloudTests: XCTestCase {
       try await store.saveNote(note)
       XCTFail("The editor must receive the SQLite failure")
     } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
-    XCTAssertEqual(store.notes.first?.body, note.body)
+    // Memory reflects committed rows only; the editor keeps the unsaved draft.
+    XCTAssertTrue(store.notes.isEmpty)
     let failed = try await repo.loadCloudState("note-write-failure")
     XCTAssertNil(failed)
     await repo.setWriteFaultForTesting(false)

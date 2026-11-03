@@ -15,9 +15,13 @@ protocol StudyNoteRepository: Sendable {
 }
 
 /// SQLite's connection is confined to LocalBookCourseRepository's actor.
-private final class SQLiteConnection: @unchecked Sendable {
+final class SQLiteConnection: @unchecked Sendable {
+  /// Version 2 moves notes into revisioned rows beside agent runs and tool receipts.
+  static let schemaVersion = 2
   var handle: OpaquePointer?
   var failWrites = false
+  /// Set when a newer app wrote this file; reads continue but every write is refused.
+  private(set) var newerSchemaVersion: Int?
   #if DEBUG
   var writeCounts: [String: Int] = [:]
   var writtenBytes = 0
@@ -28,9 +32,34 @@ private final class SQLiteConnection: @unchecked Sendable {
         url.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
         == SQLITE_OK
     else { throw ContentError.storage("无法打开本地数据库") }
-    try execute(
-      "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS records(kind TEXT NOT NULL,id TEXT NOT NULL,payload BLOB NOT NULL,PRIMARY KEY(kind,id)); PRAGMA user_version=1;"
-    )
+    // A newer app owns the file's schema. Its tables (and pragmas) must not be
+    // touched, so inspect the version before any setup statement runs.
+    let version = try userVersion()
+    if version > Self.schemaVersion {
+      newerSchemaVersion = version
+    } else {
+      try execute(
+        "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS records(kind TEXT NOT NULL,id TEXT NOT NULL,payload BLOB NOT NULL,PRIMARY KEY(kind,id));"
+      )
+    }
+  }
+  /// True after a failed prepare because the newer schema has no `records` table.
+  private var recordsTableMissing: Bool {
+    guard let handle else { return true }
+    return String(cString: sqlite3_errmsg(handle)).contains("no such table")
+  }
+  func userVersion() throws -> Int {
+    var statement: OpaquePointer?
+    guard sqlite3_prepare_v2(handle, "PRAGMA user_version", -1, &statement, nil) == SQLITE_OK else { throw failure() }
+    defer { sqlite3_finalize(statement) }
+    guard sqlite3_step(statement) == SQLITE_ROW else { throw failure() }
+    return Int(sqlite3_column_int64(statement, 0))
+  }
+  func checkWritable() throws {
+    guard !failWrites else { throw ContentError.storage("存储暂时不可写") }
+    if newerSchemaVersion != nil {
+      throw ContentError.storage("本机数据来自更新版本的云径，请更新应用后再保存")
+    }
   }
   deinit { sqlite3_close(handle) }
   func execute(_ sql: String) throws {
@@ -40,7 +69,7 @@ private final class SQLiteConnection: @unchecked Sendable {
     .storage(handle.flatMap { sqlite3_errmsg($0) }.map { String(cString: $0) } ?? "数据库不可写")
   }
   func put(_ kind: String, _ id: String, _ bytes: Data) throws {
-    guard !failWrites else { throw ContentError.storage("存储暂时不可写") }
+    try checkWritable()
     if try get(kind, id).first == bytes { return }
     var statement: OpaquePointer?
     guard
@@ -63,7 +92,10 @@ private final class SQLiteConnection: @unchecked Sendable {
   }
   func contains(_ kind: String, _ id: String) throws -> Bool {
     var statement: OpaquePointer?
-    guard sqlite3_prepare_v2(handle, "SELECT 1 FROM records WHERE kind=? AND id=?", -1, &statement, nil) == SQLITE_OK else { throw failure() }
+    guard sqlite3_prepare_v2(handle, "SELECT 1 FROM records WHERE kind=? AND id=?", -1, &statement, nil) == SQLITE_OK else {
+      if recordsTableMissing { return false }
+      throw failure()
+    }
     defer { sqlite3_finalize(statement) }
     let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
     sqlite3_bind_text(statement, 1, kind, -1, transient)
@@ -78,7 +110,10 @@ private final class SQLiteConnection: @unchecked Sendable {
       id == nil
       ? "SELECT payload FROM records WHERE kind=? ORDER BY id"
       : "SELECT payload FROM records WHERE kind=? AND id=?"
-    guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { throw failure() }
+    guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else {
+      if recordsTableMissing { return [] }
+      throw failure()
+    }
     defer { sqlite3_finalize(statement) }
     let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
     sqlite3_bind_text(statement, 1, kind, -1, transient)
@@ -95,6 +130,7 @@ private final class SQLiteConnection: @unchecked Sendable {
     return result
   }
   func delete(_ kind: String, _ id: String) throws {
+    try checkWritable()
     var statement: OpaquePointer?
     guard
       sqlite3_prepare_v2(handle, "DELETE FROM records WHERE kind=? AND id=?", -1, &statement, nil)
@@ -110,8 +146,8 @@ private final class SQLiteConnection: @unchecked Sendable {
 actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   nonisolated let directory: URL
   nonisolated let includesFixtureContent: Bool
-  private let db: SQLiteConnection
-  private let encoder = JSONEncoder(), decoder = JSONDecoder()
+  let db: SQLiteConnection
+  let encoder = JSONEncoder(), decoder = JSONDecoder()
   init(directory: URL? = nil, includeFixtures: Bool = false) throws {
     let root =
       directory
@@ -128,6 +164,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     self.encoder.outputFormatting = [.sortedKeys]
     try FileManager.default.createDirectory(
       at: root.appendingPathComponent("attachments"), withIntermediateDirectories: true)
+    if db.newerSchemaVersion == nil { try Self.migrateNoteStore(db, decoder: decoder, encoder: encoder) }
   }
   init(includeFixtures: Bool, directory: URL?) throws {
     try self.init(directory: directory, includeFixtures: includeFixtures)
@@ -171,7 +208,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try db.put("assistant-history", scope, encoder.encode(value))
   }
 
-  private struct CloudDiskState: Codable {
+  struct CloudDiskState: Codable {
     var state: CloudLocalSnapshot
     var noteIDs: [String]
     var sourceIDs: [String]
@@ -224,9 +261,8 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
           }
         }
       }
-      state.notes = try disk.noteIDs.compactMap { id in
-        try db.get("cloud-note", key + ":" + id).first.map { try decoder.decode(StudyNote.self, from: $0) }
-      }
+      // Notes are owned by the revisioned note table, never by this snapshot.
+      state.notes = try loadStoredNotes(scope: key).map(\.note)
       state.sources = state.workspaces.flatMap(\.resources).map(CloudMapping.source)
       for id in disk.sourceIDs {
         guard let bytes = try db.get("cloud-source", key + ":" + id).first else { continue }
@@ -243,7 +279,9 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
       return state
     }
     guard let data = try db.get("cloud", key).first else { return nil }
-    return try decoder.decode(CloudLocalSnapshot.self, from: data)
+    var legacy = try decoder.decode(CloudLocalSnapshot.self, from: data)
+    legacy.notes = try loadStoredNotes(scope: key).map(\.note)
+    return legacy
   }
 
   func saveCloudState(_ value: CloudLocalSnapshot, key: String) throws {
@@ -282,11 +320,13 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
           state.workspaces[wi].resources[ri] = resource
         }
       }
-      for note in value.notes ?? [] { try db.put("cloud-note", key + ":" + note.id, encoder.encode(note)) }
+      // Only first-seen notes are adopted (seeded caches); a snapshot can never
+      // overwrite, roll back or resurrect a committed note.
+      try importSnapshotNotes(value.notes ?? [], scope: key)
       for source in extraSources { try db.put("cloud-source", key + ":" + source.id, encoder.encode(source)) }
       state.sources = []
       state.notes = nil
-      let disk = CloudDiskState(state: state, noteIDs: (value.notes ?? []).map(\.id), sourceIDs: extraSources.map(\.id))
+      let disk = CloudDiskState(state: state, noteIDs: [], sourceIDs: extraSources.map(\.id))
       try db.put("cloud-shell-v2", key, encoder.encode(disk))
       try db.delete("cloud", key)
       try db.execute("COMMIT")
@@ -331,14 +371,13 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     source.summary.updated_at = max(source.summary.updated_at, local.summary.updated_at)
     return source
   }
+  /// The unsigned-in (local) note scope; signed-in accounts use their cache key.
   func loadNotes() throws -> [StudyNote] {
     try retireUnchangedPreviewContent()
-    return try db.get("note").map { try decoder.decode(StudyNote.self, from: $0) }.sorted {
-      $0.updatedAt > $1.updatedAt
-    }
+    return try loadStoredNotes(scope: Self.localNoteScope).map(\.note)
   }
-  func saveNote(_ note: StudyNote) throws { try db.put("note", note.id, encoder.encode(note)) }
-  func deleteNote(_ id: String) throws { try db.delete("note", id) }
+  func saveNote(_ note: StudyNote) throws { _ = try mutateNote(note, scope: Self.localNoteScope) }
+  func deleteNote(_ id: String) throws { try deleteNote(id, scope: Self.localNoteScope) }
   func saveAttachment(_ data: Data, extension ext: String) throws -> String {
     let safeExtension = ext.filter { $0.isLetter || $0.isNumber }.prefix(12)
     let relative = "attachments/\(UUID().uuidString).\(safeExtension)"
@@ -426,6 +465,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   #endif
 
   func seedDemoNotesIfNeeded() throws {
+    guard db.newerSchemaVersion == nil else { return }
     guard includesFixtureContent else { return }
     guard try db.get("meta", "learning-notes-demo-v1").isEmpty else { return }
     let (note, drawing) = try DemoNoteSeed.make()
@@ -434,7 +474,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     )
     try db.execute("BEGIN IMMEDIATE")
     do {
-      if try db.get("note", note.id).isEmpty { try db.put("note", note.id, encoder.encode(note)) }
+      try importSnapshotNotes([note], scope: Self.localNoteScope)
       try db.put("meta", "learning-notes-demo-v1", Data([1]))
       try db.execute("COMMIT")
     } catch {
@@ -446,6 +486,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   /// Upgrade only untouched legacy previews. Archive records before retiring them;
   /// imported files and edited notes/content are never selected by this migration.
   private func retireUnchangedPreviewContent() throws {
+    guard db.newerSchemaVersion == nil else { return }
     guard !includesFixtureContent, try db.get("meta", "retired-previews-v1").isEmpty,
       let baseline = try? ContentBundle.load([SourceContent].self, name: "sources")
     else { return }
@@ -465,14 +506,13 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
         try db.put("retired-preview-source-v1", id, bytes)
         try db.delete("source", id)
       }
-      for bytes in try db.get("note") {
-        let note = try decoder.decode(StudyNote.self, from: bytes)
+      for note in try loadStoredNotes(scope: Self.localNoteScope).map(\.note) {
         if note.createdAt == note.updatedAt, note.organizedText == nil, note.transcript == nil,
           note.drawingPath == "attachments/demo-uncertain.pkdrawing",
           noteSeeds.contains(where: { $0.id == note.id && $0.title == note.title && $0.recognizedText == note.body })
         {
-          try db.put("retired-preview-note-v1", note.id, bytes)
-          try db.delete("note", note.id)
+          try db.put("retired-preview-note-v1", note.id, encoder.encode(note))
+          try tombstone(note.id, scope: Self.localNoteScope)
         }
       }
       if let bytes = try db.get("app", "state").first {

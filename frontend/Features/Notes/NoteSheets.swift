@@ -345,12 +345,17 @@ struct NotesTextEditor: View {
       record.body = bodyText
       record.anchor = effectiveAnchor
       record.position = note?.position ?? position
+      // The editor saves against the copy it opened, so an assistant or
+      // other-screen commit made meanwhile is reported instead of overwritten.
+      let opened = store.notes.contains { $0.id == record.id } ? note : nil
+      var base = store.noteState.revisions[record.id]
       persistence = NotesTextDraftPersistence(
         note: record, initiallySaved: store.notes.contains { $0.id == record.id }
       ) { record in
         let updated = NotesAnnotationRecord.mergingConversation(
           draft: record, stored: store.notes.first { $0.id == record.id })
-        try await store.saveNote(updated)
+        base = try await store.saveNote(
+          updated, baseRevision: base, opened: base == nil ? opened : nil)
       }
       editorReady = true
     }

@@ -395,13 +395,18 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
   var organizedText: String?
   var drawingPath: String?
   var conversation: [ChatMessage]?
+  /// Executor-made citations, stored in note_references rather than the payload.
+  var references: [NoteReference]?
+  /// Set only for assistant-written notes; legacy and hand-written notes stay nil.
+  var provenance: NoteProvenance?
   init(
     id: String = UUID().uuidString, kind: NoteKind, title: String, body: String = "",
     anchor: NoteAnchor? = nil, createdAt: Date = .now, updatedAt: Date = .now,
     position: UnitPointValue? = nil, audioPath: String? = nil, duration: Double = 0,
     transcript: String? = nil, organizedText: String? = nil, drawingPath: String? = nil,
     conversation: [ChatMessage]? = nil, voiceRecognitionSource: String? = nil,
-    voiceRecognitionAudioSHA256: String? = nil
+    voiceRecognitionAudioSHA256: String? = nil, references: [NoteReference]? = nil,
+    provenance: NoteProvenance? = nil
   ) {
     self.id = id
     self.kind = kind
@@ -419,6 +424,8 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
     self.organizedText = organizedText
     self.drawingPath = drawingPath
     self.conversation = conversation
+    self.references = references
+    self.provenance = provenance
   }
   /// Legacy transcripts have no provenance and must never be treated as a new
   /// on-device recognition. Tie a reusable result to the exact saved recording.

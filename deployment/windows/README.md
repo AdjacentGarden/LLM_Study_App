@@ -13,6 +13,8 @@ Use a clean, pinned release checkout and Python 3.11+. Install
 Keep the previous interpreter/checkout, existing app.env, runtime and independent
 model relay. Configured PostgreSQL requires the explicit migrations in the
 PostgreSQL runbook; the startup entry never chooses SQLite as a fallback.
+SQLite deployments need no migrate command; the runbook's SQLite note covers the
+automatic `state/assistant.sqlite3` upgrade, backup and single-worker rules.
 
 ## Validate a candidate
 

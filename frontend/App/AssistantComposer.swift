@@ -213,6 +213,26 @@ private struct AssistantMicrophoneOrb: View {
   }
 }
 
+private struct AssistantVoiceRing: View {
+  let index: Int
+  let level: Double
+  let reduceMotion: Bool
+  let reduceTransparency: Bool
+
+  var body: some View {
+    let ring = Double(index)
+    let fill: Double = reduceTransparency ? 0.16 : 0.045 + ring * 0.035 + level * 0.05
+    let diameter = CGFloat(128 - index * 14)
+    let scale: Double = reduceMotion ? 1 : 1 + level * (0.28 - ring * 0.065)
+    return Circle()
+      .fill(DS.primary.opacity(fill))
+      .overlay { Circle().strokeBorder(DS.primary.opacity(0.10 + level * 0.14), lineWidth: 0.7) }
+      .frame(width: diameter, height: diameter)
+      .scaleEffect(scale)
+      .accessibilityHidden(true)
+  }
+}
+
 private struct AssistantVoiceControls: View {
   @Bindable var voice: AssistantVoiceInput
   let onKeyboard: () -> Void
@@ -251,15 +271,9 @@ private struct AssistantVoiceControls: View {
 
         ZStack {
           ForEach(0..<3) { index in
-            Circle()
-              .fill(DS.primary.opacity(reduceTransparency ? 0.16 :
-                0.045 + Double(index) * 0.035 + voice.level * 0.05))
-              .overlay {
-                Circle().strokeBorder(DS.primary.opacity(0.10 + voice.level * 0.14), lineWidth: 0.7)
-              }
-              .frame(width: CGFloat(128 - index * 14), height: CGFloat(128 - index * 14))
-              .scaleEffect(1 + (reduceMotion ? 0 : voice.level * (0.28 - Double(index) * 0.065)))
-              .accessibilityHidden(true)
+            AssistantVoiceRing(
+              index: index, level: voice.level, reduceMotion: reduceMotion,
+              reduceTransparency: reduceTransparency)
           }
           AssistantMicrophoneOrb(size: 84, working: working, recording: voice.phase == .recording)
         }

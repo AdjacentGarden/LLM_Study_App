@@ -79,6 +79,8 @@ extension AppStore {
       sources = []
       courses = []
       notes = []
+      agent.reset()
+      noteState.revisions = [:]
       chatMessages = []
       Task { await cloud?.clearCredentials() }
     }
@@ -277,6 +279,8 @@ extension AppStore {
       sources = []
       courses = []
       notes = []
+      agent.reset()
+      noteState.revisions = [:]
       locations = [:]
       mastered = []
       mistakes = []
@@ -361,6 +365,14 @@ extension AppStore {
     }
     for i in notes.indices where notes[i].anchor?.bookID == localID {
       notes[i].anchor?.bookID = uploaded.book_id
+    }
+    if let scope = noteScope {
+      Task { [repository] in
+        do {
+          let stored = try await repository.rebindNoteAnchors(scope: scope, from: localID, to: uploaded.book_id)
+          self.applyCommitted(stored.filter { $0.note.anchor?.bookID == uploaded.book_id }, scope: scope)
+        } catch { self.showToast(error.localizedDescription, kind: .error) }
+      }
     }
     for (key, value) in locations where key.hasSuffix("::" + localID) {
       locations[String(key.dropLast(localID.count)) + uploaded.book_id] = value

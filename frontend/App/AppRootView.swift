@@ -172,7 +172,10 @@ struct AppRootView: View {
     .task(id: store.activeCourseImportKey) { await store.observeCourseImports() }
     .onChange(of: scenePhase) { _, phase in
       if phase != .active { store.persist() } else { store.startCloudSync() }
-      if phase == .background { store.processingPolicy.cancelPending() }
+      if phase == .background {
+        store.processingPolicy.cancelPending()
+        store.agent.suspend()
+      } else if phase == .active { store.agent.resume() }
     }
     .onChange(of: store.cloudState.epoch) { _, _ in store.processingPolicy.reset() }
     .sheet(isPresented: Binding(get: { store.cloudState.showDiagnosis }, set: { store.cloudState.showDiagnosis = $0 })) {

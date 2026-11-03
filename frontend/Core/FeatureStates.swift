@@ -51,6 +51,10 @@ struct ReaderOrigin: Sendable {
   var contextCitation: LessonCitation?
   var noteKind: NoteKind = .text
   var notes: [StudyNote] = []
+  /// Last committed revision the UI has seen; edits compare-and-swap against it.
+  var revisions: [String: Int] = [:]
+  /// One-shot note selection for the notes page; cleared after the list applies it.
+  var focusNoteID: String? = nil
 }
 
 @MainActor @Observable final class ImportTaskState {

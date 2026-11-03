@@ -41,6 +41,17 @@ extension NoteKind {
   }
 }
 
+extension NoteProvenance {
+  var sourceLabelText: String {
+    switch sourceLabel {
+    case "textbook": "来源：教材原文"
+    case "general": "来源：一般知识（非教材引用）"
+    case "mixed": "来源：教材原文 + 一般知识"
+    default: "来源：\(sourceLabel)"
+    }
+  }
+}
+
 enum NotesChapterScope {
   static func notes(_ notes: [StudyNote], courseID: String?, bookID: String?,
     chapterID: String?, chapters: [Chapter]) -> [StudyNote] {
@@ -128,7 +139,12 @@ struct NotesHubView: View {
         }
       }
     )
-    .task { await store.reloadNotes() }
+    .onAppear { applyFocusNote() }
+    .onChange(of: store.noteState.focusNoteID) { _, _ in applyFocusNote() }
+    .task {
+      await store.reloadNotes()
+      applyFocusNote()
+    }
     .overlay {
       if let note = editor {
         NotesPopup(width: 560, height: 650, dim: true, onOutside: { editorCloseRequest += 1 }) {
@@ -182,6 +198,13 @@ struct NotesHubView: View {
       .background(filter == value ? DS.primarySoft : .clear, in: RoundedRectangle(cornerRadius: 10))
       .overlay(RoundedRectangle(cornerRadius: 10).stroke(filter == value ? DS.primary : .clear))
     }.buttonStyle(.plain)
+  }
+  private func applyFocusNote() {
+    guard let id = store.noteState.focusNoteID else { return }
+    if filter != nil, !filtered.contains(where: { $0.id == id }) { filter = nil }
+    guard filtered.contains(where: { $0.id == id }) else { return }
+    selectedID = id
+    store.noteState.focusNoteID = nil
   }
   private var empty: some View {
     BCCard {
@@ -239,8 +262,37 @@ struct NotesHubView: View {
               ).font(DS.font(.caption)).foregroundStyle(DS.muted).frame(minHeight: 18, alignment: .top)
             }
           }
+          if let provenance = note.provenance {
+            Text(provenance.sourceLabelText).font(DS.font(.caption)).foregroundStyle(DS.muted)
+              .padding(.top, 12)
+          }
           if let quote = note.anchor?.quote, !quote.isEmpty {
             NotesQuote(quote: quote).padding(.top, 20)
+          }
+          if let references = note.references, !references.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+              Text("教材原文依据").font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
+              ForEach(references, id: \.evidenceID) { reference in
+                Button {
+                  let bookID =
+                    store.sources.contains(where: { $0.id == reference.bookID })
+                    ? reference.bookID : (note.anchor?.bookID ?? reference.bookID)
+                  store.openSource(
+                    SourcePageTarget(
+                      bookID: bookID, title: note.title, page: reference.page,
+                      printedPage: reference.printedPage, from: .notes))
+                } label: {
+                  VStack(alignment: .leading, spacing: 6) {
+                    Text(
+                      reference.printedPage.map { "教材第 \($0) 页" }
+                        ?? "PDF 第 \(reference.page) 页"
+                    ).font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.secondary)
+                    NotesQuote(quote: reference.quote, textStyle: .supporting)
+                  }.frame(maxWidth: .infinity, alignment: .leading)
+                }.buttonStyle(.plain)
+                  .accessibilityIdentifier("notes.reference")
+              }
+            }.padding(.top, 20)
           }
           Text(preview(note)).font(DS.font(.reading)).lineSpacing(6).foregroundStyle(DS.secondary)
             .textSelection(.enabled).padding(.top, 35).padding(.bottom, 36)

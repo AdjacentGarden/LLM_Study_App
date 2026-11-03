@@ -167,6 +167,7 @@ import UIKit
   @ObservationIgnored private var creditRevision = 0
   @ObservationIgnored var selectionGeneration = 0
   @ObservationIgnored let assistant: AssistantService
+  @ObservationIgnored let agent: AgentRuntime
   let processingPolicy: ProcessingNetworkPolicy
   @ObservationIgnored let appleTextbookSearch: AppleTextbookSearch
   var activeImportRoute: ProcessingRoute?
@@ -181,6 +182,8 @@ import UIKit
     self.assistant = AssistantService()
     self.processingPolicy = processingPolicy ?? ProcessingNetworkPolicy()
     self.appleTextbookSearch = appleTextbookSearch ?? AppleTextbookSearch()
+    self.agent = AgentRuntime()
+    self.agent.store = self
   }
   var currentCourse: Course? { courses.first { $0.id == selectedCourseID } }
   var currentSource: SourceContent? { sources.first { $0.id == selectedBookID } }
@@ -286,7 +289,8 @@ import UIKit
       let ledger = try await repository.recoverCredits(startingBalance: credits)
       applyCredits(ledger)
       try await repository.seedDemoNotesIfNeeded()
-      notes = try await repository.loadNotes()
+      _ = try await repository.loadNotes()
+      await reloadNotes()
       if importState.courses.isEmpty, importJob != nil { _ = registerCourseImport() }
       retainPendingCourseDraft()
       for i in importState.courses.indices where importState.courses[i].job.status == .running {
@@ -1132,41 +1136,97 @@ import UIKit
       printedPage: sourceTarget?.bookID == selectedBookID ? sourceTarget?.printedPage : nil,
       quote: selectedQuote.isEmpty ? nil : selectedQuote)
   }
-  func saveNote(_ note: StudyNote) async throws {
+  /// Signed-in notes belong to the account cache key; otherwise the local scope.
+  var noteScope: String? {
+    if cloud == nil { return LocalBookCourseRepository.localNoteScope }
+    guard cloudState.authenticated else { return nil }
+    return cloudState.cacheKey
+  }
+  /// Memory changes only after the note row commits, so a failed write is never shown as saved.
+  /// `baseRevision` is the revision an editor opened; a newer commit elsewhere
+  /// then fails with a conflict instead of overwriting the latest body.
+  @discardableResult func saveNote(
+    _ note: StudyNote, baseRevision: Int? = nil, opened: StudyNote? = nil
+  ) async throws -> Int {
+    guard let scope = noteScope else {
+      throw CloudError(status: 409, message: "笔记尚未保存，请重新打开课程后重试")
+    }
     var updated = note
     if updated.anchor?.bookID.isEmpty == true { updated.anchor = nil }
     updated.updatedAt = .now
-    if cloud != nil {
-      if let index = notes.firstIndex(where: { $0.id == updated.id }) {
-        notes[index] = updated
+    let condition: NoteWriteCondition
+    if let base = baseRevision {
+      condition = .revision(base)
+    } else if let opened {
+      // Compare against the copy the editor opened, not the live revision map.
+      let stored = try await repository.loadStoredNote(opened.id, scope: scope)
+      if let stored {
+        guard stored.note.title == opened.title, stored.note.body == opened.body else {
+          throw NoteStoreError.revisionConflict(noteID: updated.id)
+        }
+        condition = .revision(stored.revision)
       } else {
-        notes.append(updated)
+        condition = .absent
       }
-      guard let saved = persistCloud() else {
-        throw CloudError(status: 409, message: "笔记尚未保存，请重新打开课程后重试")
+    } else if let base = noteState.revisions[updated.id] {
+      condition = .revision(base)
+    } else if let memory = notes.first(where: { $0.id == updated.id }) {
+      // No known base: compare against the stored row the editor started from
+      // instead of blindly overwriting a newer commit.
+      let stored = try await repository.loadStoredNote(updated.id, scope: scope)
+      if let stored {
+        guard stored.note.title == memory.title, stored.note.body == memory.body else {
+          throw NoteStoreError.revisionConflict(noteID: updated.id)
+        }
+        condition = .revision(stored.revision)
+      } else {
+        condition = .absent
       }
-      try await saved.value.get()
-      return
+    } else {
+      condition = .absent
     }
-    try await repository.saveNote(updated)
-    await reloadNotes()
+    let stored = try await repository.mutateNote(updated, scope: scope, condition: condition)
+    applyCommitted([stored], scope: scope)
+    // Keep the account cache shell present for offline restarts; notes are not part of it.
+    if cloud != nil { persistCloud() }
+    return stored.revision
+  }
+  /// Merge committed rows into memory unless the account changed meanwhile.
+  func applyCommitted(_ stored: [StoredNote], scope: String) {
+    guard noteScope == scope else { return }
+    for item in stored {
+      noteState.revisions[item.note.id] = item.revision
+      if let index = notes.firstIndex(where: { $0.id == item.note.id }) {
+        notes[index] = item.note
+      } else {
+        notes.insert(item.note, at: 0)
+      }
+    }
   }
   func deleteNote(_ id: String) async {
-    if let cloud {
-      let deleted = notes.first { $0.id == id }
-      notes.removeAll { $0.id == id }
-      persistCloud()
-      if let deleted { await StudioService(api: cloud).deleteLogicalNote(note: deleted) }
+    guard let scope = noteScope else { return }
+    let deleted = notes.first { $0.id == id }
+    do {
+      try await repository.deleteNote(id, scope: scope)
+    } catch {
+      showToast(error.localizedDescription, kind: .error)
       return
     }
-    do {
-      try await repository.deleteNote(id)
-      await reloadNotes()
-    } catch { showToast(error.localizedDescription, kind: .error) }
+    if noteScope == scope {
+      notes.removeAll { $0.id == id }
+      noteState.revisions[id] = nil
+    }
+    if let cloud, let deleted { await StudioService(api: cloud).deleteLogicalNote(note: deleted) }
   }
-  func reloadNotes() async {
-    if cloud != nil { return }
-    do { notes = try await repository.loadNotes() } catch { showToast(error.localizedDescription, kind: .error) }
+  func reloadNotes(resumeAgent: Bool = true) async {
+    guard let scope = noteScope else { return }
+    do {
+      let stored = try await repository.loadStoredNotes(scope: scope)
+      guard noteScope == scope else { return }
+      notes = stored.map(\.note)
+      noteState.revisions = Dictionary(stored.map { ($0.note.id, $0.revision) }) { _, last in last }
+      if resumeAgent { agent.resume() }
+    } catch { showToast(error.localizedDescription, kind: .error) }
   }
   func sourceFileURL(_ bookID: String) -> URL? {
     guard let relative = filePaths[bookID] else { return nil }

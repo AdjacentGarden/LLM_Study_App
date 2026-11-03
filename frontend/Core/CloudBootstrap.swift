@@ -9,8 +9,17 @@ extension AppStore {
   }
 
   func loadCloudCache(_ account: CloudAccountState) async throws -> CloudLocalSnapshot? {
+    let current = cloudCacheKey(account)
     for origin in cloud?.cacheOrigins ?? [] {
-      if let cached = try await repository.loadCloudState(cloudCacheKey(account, origin: origin)) { return cached }
+      let key = cloudCacheKey(account, origin: origin)
+      if var cached = try await repository.loadCloudState(key) {
+        // A legacy origin's notes are copied (never moved) into the current scope once.
+        if key != current, let notes = cached.notes, !notes.isEmpty {
+          try await repository.adoptNotes(notes, scope: current)
+          cached.notes = try await repository.loadStoredNotes(scope: current).map(\.note)
+        }
+        return cached
+      }
     }
     return nil
   }
@@ -31,6 +40,7 @@ extension AppStore {
         cloudState.pendingSelection = cached.pendingSelection
         cloudState.creationWorkspaceID = cached.creationWorkspaceID
         notes = cached.notes ?? []
+        noteState.revisions = [:]
         courses = cached.snapshot.courses
         draft = cached.snapshot.draft
         chapterDrafts = cached.snapshot.chapterDrafts ?? [:]
@@ -113,6 +123,8 @@ extension AppStore {
         cloudState.authenticated = true
         cloudState.isHydrating = true
         restoreCloudCache(local)
+        // The cached shell carries no revisions; refresh them before the first save.
+        await reloadNotes(resumeAgent: false)
         preloadedKey = cloudState.cacheKey
         cloudState.isHydrating = false
         route = cloudState.onboardingComplete ? .study : .onboarding
@@ -151,6 +163,7 @@ extension AppStore {
         sources = []
         courses = []
         notes = []
+        noteState.revisions = [:]
         shelf = []
         preferences = nil
         locations = [:]
@@ -175,6 +188,8 @@ extension AppStore {
       cloudState.cacheKey = key
       let cached = try await loadCloudCache(account)
       if let cached, preloadedKey != key { restoreCloudCache(cached) }
+      // Refresh note revisions (and let the agent resume) once the final scope is restored.
+      if preloadedKey == key || cached != nil { await reloadNotes() }
       if !offlineBoot {
       do { try await reloadCloud() } catch {
         guard cached != nil, let failure = error as? CloudError, failure.transportFailure else { throw error }

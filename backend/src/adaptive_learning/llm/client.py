@@ -22,6 +22,7 @@ import httpx
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 from .model_admission import AdmissionDenied, admission, overload_wait, route_key
+from .prompt_cache import cached_input_tokens
 
 
 class LLMError(RuntimeError):
@@ -320,12 +321,11 @@ class OpenAICompatibleClient:
         usage = body.get("usage")
         if not isinstance(usage, dict):
             return
-        details = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
         values = {
             "responses": 1,
             "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
             "output_tokens": usage.get("output_tokens", usage.get("completion_tokens", 0)),
-            "cached_input_tokens": usage.get("cache_read_input_tokens", details.get("cached_tokens", 0)),
+            "cached_input_tokens": cached_input_tokens(usage),
         }
         with self._usage_lock:
             for key, value in values.items():

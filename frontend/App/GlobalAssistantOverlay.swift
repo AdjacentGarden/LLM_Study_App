@@ -488,6 +488,7 @@ struct GlobalAssistantOverlay: View {
         ScrollView {
           VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
+              if let run = store.agent.active, run.scope == store.noteScope { agentRunCard(run) }
               ForEach(guideMessages) { message in
                 messageView(message).id(message.id)
               }
@@ -581,6 +582,93 @@ struct GlobalAssistantOverlay: View {
     .accessibilityIdentifier(user ? "guide-user-message" : "guide-ai-message")
   }
 
+  private func agentRunCard(_ run: AgentRunRecord) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Label("AI 整理", systemImage: "sparkles")
+        .appFont(.caption, weight: .semibold).foregroundStyle(DS.primary)
+      Text("《\(run.context.bookTitle)》PDF 第 \(run.context.page) 页")
+        .appFont(.supporting).foregroundStyle(DS.text).lineLimit(2)
+      HStack(spacing: 8) {
+        Text(statusLabel(run.status)).appFont(.caption).foregroundStyle(DS.secondary)
+        if run.status == .running { ProgressView().scaleEffect(0.7).tint(DS.primary) }
+        Spacer(minLength: 0)
+        if run.status == .running || run.status == .waitingForUser {
+          Button("取消") { store.agent.cancel() }
+            .appFont(.caption, weight: .semibold).foregroundStyle(DS.danger)
+            .accessibilityIdentifier("assistant.run.cancel")
+        }
+      }
+      if let choice = run.pendingChoice {
+        Text(choice.question).appFont(.supporting).foregroundStyle(DS.text)
+        if run.status == .waitingForUser {
+          VStack(alignment: .leading, spacing: 8) {
+            ForEach(choice.options, id: \.self) { option in
+              Button { store.agent.choose(option) } label: {
+                Text(option).appFont(.supporting).foregroundStyle(DS.primary)
+                  .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                  .frame(minHeight: 40)
+                  .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
+              }.buttonStyle(.plain)
+                .accessibilityIdentifier("assistant.run.option")
+            }
+          }
+        }
+      }
+      if let text = run.finalText, !text.isEmpty {
+        Text(text).appFont(.body).foregroundStyle(DS.text).textSelection(.enabled)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      ForEach(run.committedNoteIDs, id: \.self) { id in
+        Button {
+          close()
+          store.openAgentNote(id)
+        } label: {
+          HStack(spacing: 8) {
+            Text("打开笔记").appFont(.supporting, weight: .semibold)
+            Spacer(minLength: 0)
+            if let label = store.notes.first(where: { $0.id == id })?.provenance?.sourceLabelText {
+              Text(label).appFont(.caption).foregroundStyle(DS.secondary)
+            }
+            Image(systemName: "chevron.right").font(.caption)
+          }.foregroundStyle(DS.primary).padding(.horizontal, 12).frame(minHeight: 40)
+            .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
+        }.buttonStyle(.plain)
+          .accessibilityIdentifier("assistant.run.openNote")
+      }
+      if let failure = run.failure {
+        Text(failure).appFont(.supporting).foregroundStyle(DS.danger)
+      }
+      if let notice = store.agent.notice, !run.status.isTerminal {
+        HStack(spacing: 8) {
+          Text(notice).appFont(.supporting).foregroundStyle(DS.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+          Button("继续") { store.agent.resume() }
+            .appFont(.supporting, weight: .semibold).foregroundStyle(DS.primary)
+        }
+      }
+      if run.status == .cancelled {
+        Text("已取消，已保存的笔记仍保留").appFont(.caption).foregroundStyle(DS.secondary)
+      }
+      if run.status.isTerminal {
+        Button("关闭") { store.agent.dismiss() }
+          .appFont(.caption, weight: .semibold).foregroundStyle(DS.secondary)
+          .accessibilityIdentifier("assistant.run.close")
+      }
+    }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+      .modifier(AssistantGlassSurface(radius: 22, clear: true))
+      .accessibilityElement(children: .contain)
+      .accessibilityIdentifier("assistant.run.card")
+  }
+  private func statusLabel(_ status: AgentRunStatus) -> String {
+    switch status {
+    case .running: "正在整理…"
+    case .waitingForUser: "等待你的选择"
+    case .completed: "已完成"
+    case .cancelled: "已取消"
+    case .failed: "未能完成"
+    case .uncertain: "结果待确认"
+    }
+  }
   private func close() {
     cancelAttachmentImport()
     saveDraft()

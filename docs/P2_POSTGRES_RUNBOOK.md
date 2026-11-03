@@ -27,7 +27,9 @@ python -m adaptive_learning.worker --queue ocr
 
 选择 psycopg 3 + 有界 psycopg_pool + 小型 DB-API 边界而非重写 ORM，是为了保留已存在的 SQL、事务边界和数据结构。适配只处理绑定占位符与 Row 的下标/字段读取，不在运行时替换 SQLite SQL 方言。业务冲突语句已改为显式 `ON CONFLICT`，消息插入用 `RETURNING`；SQLite 端显式注册 `strpos` 对齐搜索函数。
 
-Schema 由 `migrations/001…005.sql` 和 `schema_migrations` 显式升级，当前版本 5。应用启动仅检查版本；不会在 PostgreSQL 上运行开发建表逻辑。升级在一个事务中运行，并用 advisory lock 排除同时升级。`test_schema_inventory.py` 检查权威表在源代码、migration、导入清单中一一对应；新增业务表必须同时更新三处。
+Schema 由 `migrations/001…012.sql` 和 `schema_migrations` 显式升级，当前版本 12。应用启动仅检查版本；不会在 PostgreSQL 上运行开发建表逻辑。升级在一个事务中运行，并用 advisory lock 排除同时升级。`test_schema_inventory.py` 检查权威表在源代码、migration、导入清单中一一对应；新增业务表必须同时更新三处。
+
+012 在首次发布前经过修订。任何应用过早期草稿 012 的非生产 PostgreSQL 库必须删除后重新迁移（`python -m adaptive_learning.migrate schema`），不能在其上继续升级。
 
 兼容阶段的多步骤业务写事务保留 SQLite `BEGIN IMMEDIATE` 的串行保护：PostgreSQL 用数据库级事务 advisory key `2026102201`。验证码次数、全局 Studio 预算、revision 检查、Native FSRS 与事件等关键区因此保持先读后写不变量。**该锁仍是业务写热点**；当前并发正确性优先，不能宣称所有业务写已水平扩展。未来按主体拆锁时，要对 Studio 全局预算单独锁定并定义锁顺序。
 
@@ -52,8 +54,10 @@ Compose 启动 PostgreSQL 17、健康检查、一次性 schema 容器、API 与 
 
 `import-sqlite` 只接受空目标，不提供覆盖或合并现有目标数据的开关。
 
+4090 / Windows 上的 SQLite 部署不需要执行迁移命令：助手账本 `state/assistant.sqlite3` 由 API 启动时自动创建，并按受控的 `ALTER` 升级；重启前应连同数据目录一并备份 `state/assistant.sqlite3`；必须保持恰好一个 API worker（`--workers 1`）。`python -m adaptive_learning.migrate schema` 仅适用于 PostgreSQL，且需要 `DATABASE_URL`。
+
 1. 安排维护窗口，关闭写入口、停 API 与所有 OCR/Studio Worker，等待在途请求结束。确认不会有另一台副本继续写入。工具要求 `--writes-stopped` 明确确认此前提；它不能替代运维停写。
-2. 备份整个 APP_DATA_DIR、签名材料、PDF/OCR/媒体/模型及索引，保留原路径映射。工具随后用 SQLite backup API 为每个权威库创建一致快照，但跨库一致性依赖前一步停写。
+2. 备份整个 APP_DATA_DIR、签名材料、PDF/OCR/媒体/模型及索引，保留原路径映射。`state/assistant.sqlite3` 是新增的助手运行与预算账本，必须一并备份。工具随后用 SQLite backup API 为每个权威库创建一致快照，但跨库一致性依赖前一步停写。
 3. 准备独立空 PostgreSQL 数据库，并确认连接目标。先做隔离演练，不指向正式库。
 4. 执行：
 

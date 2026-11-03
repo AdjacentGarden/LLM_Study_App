@@ -1967,15 +1967,17 @@ class TeachingContentGenerator:
                 "source_warnings": evidence.warnings,
                 "source_coverage": evidence.source_coverage,
                 "support_spans": visible_spans,
-                "previous_review_feedback": self._fact_batch_feedback(
-                    previous_feedback, {point.point_id for point in batch}, set(parts)
-                ),
                 "response_json_schema": self._fact_response_schema(set(parts), bool(batch)),
                 "output_contract": {
                     "point_ids": [point.point_id for point in batch],
                     "lesson_component_ids": list(parts),
                     "lesson_required": include_lesson,
                 },
+                # Review feedback and the candidate change every round; they
+                # trail the stable schema so rounds share a cached prefix.
+                "previous_review_feedback": self._fact_batch_feedback(
+                    previous_feedback, {point.point_id for point in batch}, set(parts)
+                ),
                 "candidate": {
                     "points": [
                         {
@@ -2332,9 +2334,9 @@ class TeachingContentGenerator:
             "sources": bounded_teaching_sources(evidence, [inputs, candidate]),
             "source_warnings": evidence.warnings,
                 "source_coverage": evidence.source_coverage,
+            "lesson_component_ids": list(self._lesson_components(frozen_lesson)),
             "previous_review_feedback": teaching_feedback,
             "candidate": candidate,
-            "lesson_component_ids": list(self._lesson_components(frozen_lesson)),
         }
         expected = {item["point_id"] for item in inputs}
         fact_jobs = self._build_fact_jobs(

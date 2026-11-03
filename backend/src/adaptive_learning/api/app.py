@@ -53,6 +53,7 @@ from ..assessment.models import (
 from ..assessment.records import learning_records
 from ..assessment.repository import SessionConflictError, SQLiteAssessmentRepository
 from ..assessment.scoring import OpenAnswerScorer
+from ..assistant_ledger import AssistantLedger
 from ..community import CommunityRepository
 from ..config import get_settings
 from ..database import DATABASE_ERRORS, close_pools, healthcheck
@@ -78,6 +79,7 @@ from ..llm.client import (
     LLMTimeoutError,
     OpenAICompatibleClient,
 )
+from ..llm.tool_chat import ToolChatClient, supports_tool_chat
 from ..native import NativeRepository
 from ..personalization.flashcard_quality import FlashcardQualityError, FlashcardQualityGate
 from ..personalization.generator import (
@@ -108,6 +110,7 @@ from ..rag.service import QABusyError, TextbookQAResult, TextbookQAService
 from ..rag.textbook_context import textbook_context
 from ..worker_presence import WorkerPresence, readiness
 from .account_guard import learning_guard
+from .assistant_routes import assistant_router
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
 from .course_jobs import (
@@ -158,6 +161,26 @@ assessment_repository = SQLiteAssessmentRepository(
     settings.data_dir / "state" / "assessments.sqlite3"
 )
 native_repository = NativeRepository(settings.data_dir / "state" / "native.sqlite3")
+assistant_ledger = AssistantLedger(settings.data_dir / "state" / "assistant.sqlite3")
+_assistant_tool_chat: ToolChatClient | None = None
+_assistant_tool_chat_lock = threading.Lock()
+
+
+def assistant_tool_chat() -> ToolChatClient | None:
+    """One shared tool-call client for the configured text route, built on first use."""
+    global _assistant_tool_chat
+    config = LLMConfig(
+        base_url=settings.text_base_url, api_key=settings.text_api_key, model=settings.text_model,
+        timeout_seconds=settings.rag_generation_timeout_seconds, max_retries=0,
+        proxy_url=settings.llm_https_proxy,
+    )
+    if not supports_tool_chat(config):
+        return None
+    with _assistant_tool_chat_lock:
+        # Settings are fixed in production; a replaced client may still be draining.
+        if _assistant_tool_chat is None or _assistant_tool_chat.config != config:
+            _assistant_tool_chat = ToolChatClient(config)
+        return _assistant_tool_chat
 ocr_worker = OCRWorker(
     repository=job_repository,
     runner=SubprocessOCRRunner(backend=settings.ocr_backend),
@@ -1702,3 +1725,4 @@ app.include_router(
     )
 )
 app.include_router(native_router(sys.modules[__name__]))
+app.include_router(assistant_router(sys.modules[__name__]))

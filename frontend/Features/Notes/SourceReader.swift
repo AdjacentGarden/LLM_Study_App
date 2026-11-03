@@ -131,6 +131,9 @@ struct NotesSourceReaderView: View {
   private var heading: String {
     chapter?.source_title ?? capturedTarget?.title ?? source?.summary.title ?? "教材原文"
   }
+  private var selectionPrintedPage: Int? {
+    chapter?.printed_page_start.map { $0 + page - (chapter?.page_start ?? page) }
+  }
   private var imagePath: String? {
     NotesPageManifest.assets.first { $0.book_id == bookID && $0.pdf_page == page }?.url
   }
@@ -217,6 +220,20 @@ struct NotesSourceReaderView: View {
             } else if mode == .text {
               Text("点击原文任意位置，添加文字或语音批注").font(DS.font(.supporting)).foregroundStyle(DS.primary).padding(10)
                 .background(.white, in: Capsule()).padding(10).allowsHitTesting(false)
+            }
+          }
+          .overlay(alignment: .bottom) {
+            if mode == .read, pdf != nil,
+              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+              BCButton("整理成笔记", icon: "Sparkles") {
+                store.startSelectionNote(
+                  AgentSelection(
+                    bookID: bookID, courseID: capturedCourseID, chapterID: chapter?.chapter_id,
+                    page: page, printedPage: selectionPrintedPage, text: selectedText),
+                  request: "请整理并解释这段教材原文，保存为笔记后打开。")
+              }.frame(maxWidth: 220).padding(12)
+                .accessibilityIdentifier("reader.selection.note")
             }
           }
       }

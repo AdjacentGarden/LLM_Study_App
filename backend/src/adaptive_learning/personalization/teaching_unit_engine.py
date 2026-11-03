@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
@@ -96,7 +96,8 @@ class UnitEngine:
         return specs
 
     def advance(self) -> Any:
-        from .teaching_content import TeachingScopePlanner, _AuditedScopeClient, validate_scope_plan
+        from .teaching_content import _AuditedScopeClient
+        from .teaching_scope import TeachingScopePlanner, validate_scope_plan
         if not self.g.client or not self.g.review_client:
             raise TeachingRepairPending(30)
         if not self.state.get('plans'):
@@ -295,13 +296,13 @@ class UnitEngine:
                     if source is None or not any(match.group(1) == term for match in naming.finditer(source.quote)):
                         continue
                     start, end = goal_match.span(1)
-                    candidate = {'item_id': self.by_id[work['owner_id']]['item_id'],
+                    practice_candidate = {'item_id': self.by_id[work['owner_id']]['item_id'],
                         'prompt': '知识点术语回顾：' + work['label'][:start] + '____' + work['label'][end:],
                         'expected_answer': term, 'rubric': ['填入术语“' + term + '”。'], 'source_ids': [key]}
                     work['source_fallback_attempted'] = True
                     self.g._audit('source_fallback_draft', unit_id=unit['unit_id'], source_ids=[key],
-                                  candidate_sha256=fingerprint(candidate), approved=False)
-                    return candidate  # Still passes all schema/fact/teacher/rubric/final gates.
+                                  candidate_sha256=fingerprint(practice_candidate), approved=False)
+                    return practice_candidate  # Still passes all schema/fact/teacher/rubric/final gates.
             return None
         high = {'explanation': EXPLANATION_MAX_CHARS,
                 'opening': OPENING_MAX_CHARS, 'summary': SUMMARY_MAX_CHARS}[kind]
@@ -443,10 +444,9 @@ class UnitEngine:
         if rubric_baseline is not None:
             shape = {'rubric': shape['rubric']}
         pack = self._pack(unit)
+        # Per-attempt identifiers (a fresh nonce each attempt) trail the
+        # request; leading with them made every prompt prefix unique.
         payload = {
-            'engine': ENGINE_VERSION, 'epoch': self.run.identity['epoch'],
-            'unit_id': unit['unit_id'], 'attempt_nonce': work['attempt_nonce'],
-            'mode': work['mode'], 'revision': work['revision'],
             'chapter_title': self.chapter.title, 'knowledge_goal': work['label'],
             'scope_conditions': {owner: self.by_id[owner]['scope_conditions'] for owner in work['focus_ids']},
             'repair_task': {
@@ -461,11 +461,16 @@ class UnitEngine:
                                '按定位问题修正题设、答案、评分和引用，可保留有效问项；解除旧的rubric_only编辑限制。'
                 ),
             },
+            'output_shape': {'component': shape},
+            'engine': ENGINE_VERSION,
             'previous_candidate': unit['candidate'], 'rejected_design': work.get('rejected_design'),
             'latest_invalid_draft': work.get('latest_invalid_draft'),
             'prior_failed_designs': [{'candidate': entry.get('candidate'), 'feedback': entry.get('feedback')}
                                      for entry in work.get('history', [])][-6:],
-            'output_shape': {'component': shape}, **pack,
+            **pack,
+            'epoch': self.run.identity['epoch'],
+            'unit_id': unit['unit_id'], 'mode': work['mode'], 'revision': work['revision'],
+            'attempt_nonce': work['attempt_nonce'],
         }
         prompt = GENERATION_PROMPT + '''\n当前为独立组件任务，优先采用本请求output_shape。
 只返回一个JSON对象，唯一顶层字段component，不能返回points/lesson或其他组件。
@@ -526,7 +531,7 @@ required_task_edits是当前评分审核定位的题设修改要求，不是新�
                 }
                 raise _UnitRejected(validation, 'writer_format')
         else:
-            model = {'explanation': _ExplanationPatch, 'flashcard': _Card, 'practice': _Practice,
+            model: Any = {'explanation': _ExplanationPatch, 'flashcard': _Card, 'practice': _Practice,
                      'example': _Example, 'checkpoint': _Checkpoint}[kind.split('_')[0]]
             normalized = model.model_validate(candidate).model_dump()
             candidate.clear()
@@ -655,7 +660,7 @@ required_task_edits是当前评分审核定位的题设修改要求，不是新�
                 'missing_citation_source_ids': list(proof._missing_citation_source_ids)}, 'fact')
         if cache and proof.source_ids:
             cache.remember(envelope, proof.model_dump())
-        return proof.model_dump()
+        return cast(dict[str, Any], proof.model_dump())
 
     def _review_one(self, unit: dict[str, Any]) -> None:
         from .rubric_alignment import RubricAlignmentResult, make_rubric_alignment_batch

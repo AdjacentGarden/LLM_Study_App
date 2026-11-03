@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Security
 
 struct AssistantAnswer: Sendable {
@@ -39,6 +40,8 @@ enum DeveloperSecrets {
   }
 }
 actor AssistantService {
+  private static let logger = Logger(
+    subsystem: "com.littleri.bookcourseai.swiftui", category: "assistant-model")
   let retriever = NativeTextbookRetriever()
   private let session: URLSession
   private let forceOffline: Bool
@@ -209,7 +212,10 @@ actor AssistantService {
       body["tools"] = tools
       body["tool_choice"] = "auto"
     }
-    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+    // Swift dictionaries iterate in a per-process seeded order. The provider
+    // renders tool schemas into the prompt in received key order, so sorted
+    // keys keep that prompt prefix identical across launches for its cache.
+    request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
     let (data, response) = try await session.data(for: request)
     guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
       throw ContentError.invalid("在线学习助手暂时不可用，请稍后重试。")
@@ -218,6 +224,12 @@ actor AssistantService {
       let choices = json["choices"] as? [[String: Any]],
       let message = choices.first?["message"] as? [String: Any]
     else { throw ContentError.invalid("在线学习助手返回的内容无法读取") }
+    if let usage = json["usage"] as? [String: Any] {
+      let input = usage["prompt_tokens"] as? Int ?? 0
+      let cached = usage["prompt_cache_hit_tokens"] as? Int
+        ?? (usage["prompt_tokens_details"] as? [String: Any])?["cached_tokens"] as? Int ?? 0
+      Self.logger.info("model usage input=\(input) cached=\(cached) output=\(usage["completion_tokens"] as? Int ?? 0)")
+    }
     return message
   }
 }
