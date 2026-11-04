@@ -248,6 +248,15 @@ struct CourseDiagnosisQuestion: Identifiable {
 
 extension AppStore {
   func courseFeatureStartDraft(catalogID: String? = nil) {
+    if let catalogID, cloud != nil {
+      Task { @MainActor in
+        do {
+          if !cloudState.privateLocalMode { try await verifyLocalFirstCapabilities() }
+          _ = try await acquirePublicCourseGroup(catalogID: catalogID, name: community.first(where: { $0.id == catalogID })?.title ?? "")
+        } catch { showToast(error.localizedDescription, kind: .error) }
+      }
+      return
+    }
     retainPendingCourseDraft()
     draft.name = ""
     draft.resourceIDs = []

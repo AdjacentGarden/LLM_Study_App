@@ -80,6 +80,15 @@ struct CloudLocalSnapshot: Codable, Sendable {
 }
 
 @MainActor @Observable final class CloudState {
+  var legacyPrivateSyncEnabled = false
+  var localDeletedCourseIDs: Set<String> = []
+  var localCourseSources: [String: [SourceContent]] = [:]
+  var localDiagnostics: [String: LocalDiagnosticSession] = [:]
+  var privateLocalMode = false
+  var localFirstChecked = false
+  var publicLibraryDownloading = false
+  var localFirstError: String?
+  var migrationStatus: String?
   var account: CloudAccountState?
   var authenticated = false
   var localLogin = false

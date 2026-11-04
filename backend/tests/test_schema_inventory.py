@@ -25,7 +25,7 @@ def test_authoritative_schema_and_import_inventory_are_complete():
 
 
 def test_merged_queues_and_durable_note_aliases_have_explicit_import_contract():
-    assert SCHEMA_VERSION == 14
+    assert SCHEMA_VERSION == 15
     assert TABLES['course_jobs.sqlite3'] == (
         'course_jobs', 'course_job_requests', 'teaching_course_repairs', 'teaching_course_units',
         'teaching_course_proofs', 'teaching_course_submissions', 'teaching_course_epochs')
@@ -81,3 +81,12 @@ def test_assistant_ledger_has_explicit_import_contract():
     schema = (MIGRATIONS / '012_assistant_ledger.sql').read_text()
     assert 'PRIMARY KEY(owner,run_id,step_id)' in schema
     assert 'UNIQUE(owner,run_id,step_index)' in schema
+
+
+def test_local_first_groups_and_digest_export_checkpoint_have_explicit_schema():
+    assert 'public_course_groups' in TABLES['community.sqlite3']
+    assert 'private_export_checkpoints' in TABLES['native.sqlite3']
+    assert JSON_COLUMNS['public_course_groups'] == {'book_ids', 'manifest'}
+    schema = (MIGRATIONS / '015_local_first_public_materials.sql').read_text()
+    assert set(re.findall(r'CREATE TABLE IF NOT EXISTS (\w+)', schema)) == {
+        'public_course_groups', 'private_export_checkpoints'}

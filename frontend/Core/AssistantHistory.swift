@@ -380,6 +380,14 @@ enum AssistantSessionTitle {
     var runs = archive.sessions[index].runs ?? []
     if let i = runs.firstIndex(where: { $0.id == run.id }) { runs[i] = run } else { runs.append(run) }
     archive.sessions[index].runs = runs
+    if run.legacyArchived == true {
+      archive.sessions[index].capacityState = "read_only"
+      archive.sessions[index].capacityReason = "旧版任务已归档，请另开新版对话"
+      archive.sessions[index].pendingQuestion = nil
+      archive.sessions[index].error = run.failure
+      persist()
+      return
+    }
     if run.capacityState == "archived" || run.capacityState == "read_only" {
       archive.sessions[index].capacityState = "read_only"
       archive.sessions[index].capacityReason = "上下文已封存"
@@ -560,50 +568,19 @@ private struct RemoteAssistantSession: Decodable, Sendable {
 extension AppStore {
   /// Local tombstones survive offline deletion and release the server slot before another send.
   func syncAssistantHistory() async throws {
-    guard let cloud, let scope = assistantHistoryScope, assistantHistory.isReady(for: scope),
-      processingPolicy.path.kind != .offline else { return }
-    let epoch = cloudState.epoch
+    // Normal chat never uploads or overwrites phone-owned history. Legacy
+    // migration is a separate, explicit archive import with version checks.
+    guard assistantHistory.isReady(for: assistantHistoryScope) else { return }
+    await assistantHistory.flush()
     for id in assistantHistory.archive.deletedSessionIDs ?? [] {
-      let _: [String: JSONValue] = try await cloud.request("/api/assistant/conversations/\(id)", method: "DELETE")
-      guard scope == assistantHistoryScope, epoch == cloudState.epoch else { throw CancellationError() }
       assistantHistory.acknowledgeDeletion(id)
     }
-    var remote: [RemoteAssistantSession] = try await cloud.request("/api/assistant/conversations")
-    guard scope == assistantHistoryScope, epoch == cloudState.epoch else { throw CancellationError() }
-    let legacy = assistantHistory.sessions.filter { $0.context.sessionID == nil && !$0.messages.isEmpty }
-    if remote.isEmpty, !legacy.isEmpty {
-      let payload: [JSONValue] = legacy.map { session in
-        .object(["session_id": .string(session.id), "title": .string(session.title),
-          "state": .string(session.isReadOnly ? "archived" : session.capacityState ?? "open"),
-          "input_tokens": .number(Double(session.contextTokens ?? 0)),
-          "estimated": .bool(session.contextEstimated ?? true),
-          "messages": .array(session.messages.filter { ["user", "assistant"].contains($0.role) }.map {
-            .object(["role": .string($0.role), "text": .string($0.text)])
-          })])
-      }
-      let _: [String: JSONValue] = try await cloud.request("/api/assistant/conversations/migrate", method: "POST",
-        body: ["sessions": .array(payload)])
-      guard scope == assistantHistoryScope, epoch == cloudState.epoch else { throw CancellationError() }
-      remote = try await cloud.request("/api/assistant/conversations")
-      guard scope == assistantHistoryScope, epoch == cloudState.epoch else { throw CancellationError() }
-    }
-    var sessions: [AssistantSession] = []
-    for item in remote {
-      if assistantHistory.sessions.contains(where: { $0.id == item.session_id }) {
-        sessions.append(item.localSession)
-      } else {
-        let detail: RemoteAssistantSession = try await cloud.request("/api/assistant/conversations/\(item.session_id)")
-        guard scope == assistantHistoryScope, epoch == cloudState.epoch else { throw CancellationError() }
-        sessions.append(detail.localSession)
-      }
-    }
-    assistantHistory.mergeRemoteSessions(sessions)
   }
 
   func deleteAssistantSession(_ id: String) async {
     if agent.active?.context.sessionID == id { agent.cancel() }
     assistantHistory.delete(id)
     do { try await syncAssistantHistory() }
-    catch { showToast("已在本机删除；联网后将继续清理历史名额。", kind: .warning) }
+    catch { showToast("已在本机删除；本机保存状态仍待核对。", kind: .warning) }
   }
 }

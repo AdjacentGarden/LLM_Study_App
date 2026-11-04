@@ -55,7 +55,7 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     config.protocolClasses = [StudyPlanProtocol.self]
     let session = URLSession(configuration: config)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
-    let store = AppStore(repository: repo, cloud: CloudAPI(baseURL: URL(string: "http://\(host)")!, session: session))
+    let store = AppStore(repository: repo, cloud: CloudAPI(baseURL: URL(string: "http://\(host)")!, session: session, legacyPrivateSyncEnabled: true))
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = host
     store.cloudState.workspaces = [CloudWorkspace(id: "workspace", name: "数学课", preferences: [:],
@@ -118,7 +118,7 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertTrue(store.dailyPlanState.pending.isEmpty)
     XCTAssertEqual(store.cloudResource?.progress.completed_chapters, [])
     XCTAssertEqual(probe.requests.filter { $0.httpMethod == "POST" }.count, 1)
-    XCTAssertEqual(try body(sent.requests[0])["day"] as? String, day)
+    XCTAssertEqual(try body(XCTUnwrap(sent.requests.first))["day"] as? String, day)
     await store.completeDailyStudyTask(task, day: day)
     XCTAssertEqual(probe.requests.filter { $0.httpMethod == "POST" }.count, 1,
       "A stale card or delayed reader callback must not send an acknowledged task again")
@@ -233,8 +233,8 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(restored.dailyStudyPlan(day)?.completedCount, 1)
     let writes = probe.requests.filter { $0.httpMethod == "POST" }
     XCTAssertEqual(writes.count, 2)
-    XCTAssertEqual(try body(writes[0])["event_id"] as? String, event)
-    XCTAssertEqual(try body(writes[1])["event_id"] as? String, event)
+    XCTAssertEqual(try body(XCTUnwrap(writes.first))["event_id"] as? String, event)
+    XCTAssertEqual(try body(XCTUnwrap(writes.dropFirst().first))["event_id"] as? String, event)
   }
 
   func testLateResponseAfterAccountChangeCannotInstallOldPlan() async throws {

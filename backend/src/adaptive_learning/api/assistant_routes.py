@@ -194,7 +194,7 @@ class OperationRequest(Strict):
 
 
 class TurnRequest(Strict):
-    contract_version: Literal[1, 2]
+    contract_version: Literal[1, 2, 3]
     run_id: str = Field(pattern=_ID)
     step_id: str = Field(pattern=_ID)
     step_index: int = Field(ge=0)
@@ -208,6 +208,7 @@ class TurnRequest(Strict):
     evidence: list[TurnEvidence] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=lambda: list(TOOL_SCHEMAS))
     tool_results: list[ToolResult] = Field(default_factory=list)
+    client_messages: list[dict[str, Any]] = Field(default_factory=list)
 
 
 UNIFIED_SYSTEM_PROMPT = (
@@ -296,7 +297,7 @@ for _name in (
         "acquire_course": "按已确认目录 ID 获取课程，加入课程和文件下载分别返回真实状态。",
         "read_material": "定位任意已保存课程的文字或原图，mode=text|image，保留来源 ID/版本/页码。",
         "read_attachment": "仅按当前会话 attachment_id 读取附件文字或图像及页码。",
-        "read_learning_data": "读取当前账号的笔记、计划、复习、闪卡、已提交作答和学习进度。kind=preparation 专查课程的解析任务，不要用目录推断进度；禁止返回其他聊天。",
+        "read_learning_data": "读取当前账号的笔记、计划、复习、闪卡、已提交作答和学习进度。新版手机支持 kind=lessons 查询本机讲义、kind=media 查询已保存的图解和视频、kind=notes 查询含语音转写和整理结果的笔记，可按 course_id 和 keyword 筛选。kind=preparation 专查课程的解析任务，不要用目录推断进度；禁止返回其他聊天。",
         "navigate": "打开已确定业务 ID 对应的界面，必须核对页面和对象实际已到达。",
         "capture_screen": "捕获实际当前页面，target=business（业务页）或 full（包括助手）。",
         "edit_note": "按笔记 ID 和 revision 编辑，防止覆盖用户更新。",
@@ -739,6 +740,9 @@ def assistant_router(services: Any) -> APIRouter:
         # Query runs have a separate ACL-aware replay contract.
         if body.run_id.startswith("query:"):
             raise HTTPException(409, "此助手查询请通过普通对话继续")
+        if body.contract_version == 3:
+            from .private_forwarding import private_turn
+            return private_turn(services, actor, body)
         repository = sessions()
         ephemeral = body.contract_version == 2 and body.ephemeral
         session = body.session_id or body.run_id
@@ -1004,6 +1008,10 @@ def assistant_router(services: Any) -> APIRouter:
     def step_status(run_id: str, step_id: str, actor: str = Depends(owner)) -> dict[str, Any]:
         if run_id.startswith("query:"):
             raise HTTPException(404, "助手步骤不存在")
+        from .private_forwarding import private_ledger, PRIVATE_PREFIX, wire
+        private = private_ledger(services).step(actor, PRIVATE_PREFIX + run_id, PRIVATE_PREFIX + step_id)
+        if private is not None:
+            return wire(*private, run=run_id, step_id=step_id)
         sessions()
         found = services.assistant_ledger.step(actor, run_id, step_id)
         if found is None:
@@ -1028,6 +1036,14 @@ def assistant_router(services: Any) -> APIRouter:
 
     @router.post("/runs/{run_id}/cancel")
     def cancel(run_id: str, actor: str = Depends(owner)) -> dict[str, Any]:
+        from .private_forwarding import private_ledger, PRIVATE_PREFIX
+        private = private_ledger(services)
+        with private.connect() as db:
+            private_run = private._run(db, actor, PRIVATE_PREFIX + run_id)
+        private.cancel(actor, PRIVATE_PREFIX + run_id)
+        if private_run is not None:
+            budget = private.cancel(actor, PRIVATE_PREFIX + run_id)
+            return {"run_id": run_id, "cancelled": True, "budget": budget.public()}
         target = services.assistant_ledger
         for key, memory in sessions().memory_ledgers.items():
             if key[0] == actor:

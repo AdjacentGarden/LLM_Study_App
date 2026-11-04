@@ -34,7 +34,8 @@ final class LearningTests: XCTestCase {
           checkedLatin = true
         }
         if fragment.contains(where: { "中文学习，。".contains($0) }) {
-          XCTAssertEqual(name, chinese, "Chinese run: \(fragment)")
+          let fallback = chinese == "PingFangSC-Semibold" ? "BookCourseNotoSansSC-Bold" : "BookCourseNotoSansSC-Regular"
+          XCTAssertTrue([chinese, fallback].contains(name), "Chinese run: \(fragment)")
           checkedChinese = true
         }
       }
@@ -44,7 +45,8 @@ final class LearningTests: XCTestCase {
   }
 
   func testBilingualLineHeightIncludesChineseMetrics() throws {
-    let chinese = try XCTUnwrap(UIFont(name: "PingFangSC-Semibold", size: 16))
+    let base = DS.uiFont(.reading, weight: .semibold) as CTFont
+    let chinese = CTFontCreateForString(base, "学习" as CFString, CFRange(location: 0, length: 2)) as UIFont
     XCTAssertGreaterThanOrEqual(DS.lineHeight(.reading, weight: .semibold), chinese.lineHeight)
     XCTAssertGreaterThanOrEqual(DS.lineHeight(.reading, weight: .semibold), DS.uiFont(.reading, weight: .semibold).lineHeight)
   }

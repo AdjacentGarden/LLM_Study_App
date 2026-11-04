@@ -76,7 +76,7 @@ actor AssistantService {
       question: question, bookID: bookID, bookIDs: bookIDs, chapterID: chapterID, sources: sources)
     guard !hits.isEmpty else {
       return AssistantAnswer(
-        answer: "当前资料中没有找到相关内容。你可以换一个具体知识点，或添加相关资料后再问我。", citations: [])
+        answer: "本机已保存的教材中没有找到足够可靠的原文依据。你可以换一个具体知识点，或添加相关资料后再问我。", citations: [])
     }
     let citations = makeCitations(hits, sources: sources)
     let evidence = hits.prefix(3).enumerated().map { i, hit in

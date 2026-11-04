@@ -214,7 +214,7 @@ def get_settings() -> Settings:
         ocr_worker_poll_seconds=_float("OCR_WORKER_POLL_SECONDS", 1),
         ocr_retry_delay_seconds=_float("OCR_RETRY_DELAY_SECONDS", 30),
         ocr_max_attempts=_int("OCR_MAX_ATTEMPTS", 3),
-        ocr_backend=os.getenv("OCR_BACKEND", "vlm-auto-engine"),
+        ocr_backend=os.getenv("OCR_BACKEND", "paddle-gpu"),
         llm_provider=os.getenv("LLM_PROVIDER", "rules"),
         teaching_review_provider=os.getenv("TEACHING_REVIEW_PROVIDER", "").strip(),
         teaching_review_model=os.getenv("TEACHING_REVIEW_MODEL", "").strip(),

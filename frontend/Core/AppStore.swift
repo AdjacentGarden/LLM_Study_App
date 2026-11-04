@@ -185,6 +185,7 @@ import UIKit
     self.appleTextbookSearch = appleTextbookSearch ?? AppleTextbookSearch()
     self.agent = AgentRuntime()
     self.agent.store = self
+    cloudState.legacyPrivateSyncEnabled = cloud?.legacyPrivateSyncEnabled ?? false
   }
   var currentCourse: Course? { courses.first { $0.id == selectedCourseID } }
   var currentSource: SourceContent? { sources.first { $0.id == selectedBookID } }
@@ -584,8 +585,10 @@ import UIKit
   func selectCourse(_ courseID: String) {
     guard let course = courses.first(where: { $0.id == courseID }) else { return }
     captureCourseImportDraft()
+    captureLocalCourseContent()
     selectedCourseID = courseID
-    if cloud != nil { installCloudSources(workspaceID: courseID) }
+    if cloudState.privateLocalMode { installLocalCourseContent(courseID) }
+    else if cloud != nil { installCloudSources(workspaceID: courseID) }
     if let book = course.activeResourceID ?? course.resourceIDs.first {
       if sources.contains(where: { $0.id == book }) { selectSource(book) }
       else {
@@ -628,7 +631,7 @@ import UIKit
       return
     }
     let localOnly = target.bookID.hasPrefix("book_local_")
-    if allowDownload, cloud != nil, !localOnly, sourceFileURL(target.bookID) == nil,
+    if allowDownload, cloud != nil, !cloudState.privateLocalMode, !localOnly, sourceFileURL(target.bookID) == nil,
       source.summary.content_mode != "catalog"
     {
       let epoch = cloudState.epoch, generation = selectionGeneration
@@ -747,9 +750,10 @@ import UIKit
     route = .onboarding
   }
   func createCourse(name: String, resourceIDs: [String], diagnosis: [String: [String]] = [:]) {
+    if cloud != nil && !cloudState.privateLocalMode { showToast("本机个人存储尚未就绪，请重试连接", kind: .warning); return }
     let localOnly = resourceIDs.contains { $0.hasPrefix("book_local_") }
       || draft.editingCourseID?.hasPrefix("local-course:") == true
-    if cloud != nil && !localOnly {
+    if cloud != nil && !localOnly && !cloudState.privateLocalMode {
       Task {
         do {
           try await saveCloudCourse(name: name, resourceIDs: resourceIDs, diagnosis: diagnosis)
@@ -778,7 +782,7 @@ import UIKit
     persist()
   }
   func removeCourse(_ id: String) {
-    if cloud != nil && !id.hasPrefix("local-course:") {
+    if cloud != nil && !cloudState.privateLocalMode && !id.hasPrefix("local-course:") {
       Task { await removeCloudCourse(id) }
       return
     }
@@ -818,7 +822,7 @@ import UIKit
 
   func addSource(_ bookID: String, to courseID: String?) async throws {
     let targetID = courseID ?? selectedCourseID
-    if cloud != nil, targetID?.hasPrefix("local-course:") != true {
+    if cloud != nil, !cloudState.privateLocalMode, targetID?.hasPrefix("local-course:") != true {
       guard !bookID.hasPrefix("book_local_") else {
         throw ContentError.invalid("原文件已保存在本机，请完成上传后再加入在线课程。")
       }
@@ -841,7 +845,7 @@ import UIKit
   }
 
   func removeSource(_ bookID: String, from courseID: String) {
-    if cloud != nil && !courseID.hasPrefix("local-course:") {
+    if cloud != nil && !cloudState.privateLocalMode && !courseID.hasPrefix("local-course:") {
       Task { await removeCloudResource(bookID: bookID, workspaceID: courseID) }
       return
     }
@@ -977,7 +981,7 @@ import UIKit
     persist()
   }
   func confirmChapters() {
-    if cloud != nil {
+    if cloud != nil && !cloudState.privateLocalMode {
       Task { await confirmCloudChapters() }
       return
     }
@@ -1032,7 +1036,7 @@ import UIKit
         sources[i].plan.tasks[j].status = "done"
       }
     }
-    if let resource = cloudResource, resource.book_id == lesson.book_id {
+    if !cloudState.privateLocalMode, let resource = cloudResource, resource.book_id == lesson.book_id {
       var pending = cloudState.pending[resource.id] ?? CloudPendingProgress(
         workspaceID: resource.workspace_id, resourceID: resource.id, value: resource.progress,
         baseMasteredIDs: resource.progress.mastered_ids)
@@ -1067,7 +1071,7 @@ import UIKit
   func setMastery(_ questionID: String, mastered: Bool) {
     let key = masteryKey(questionID)
     if mastered { self.mastered.insert(key) } else { self.mastered.remove(key) }
-    if cloud != nil, let resource = cloudResource {
+    if cloud != nil, !cloudState.privateLocalMode, let resource = cloudResource {
       var pending =
         cloudState.pending[resource.id]
         ?? CloudPendingProgress(
@@ -1082,10 +1086,14 @@ import UIKit
     mastered.contains(masteryKey(questionID))
   }
   func masteryKey(_ questionID: String) -> String {
-    "\(cloud != nil ? cloudResource?.id ?? "unselected" : selectedBookID ?? "")::\(questionID)"
+    "\(cloudState.privateLocalMode ? locationKey : cloud != nil ? cloudResource?.id ?? "unselected" : selectedBookID ?? "")::\(questionID)"
   }
   func submitAssignment(question: QuizQuestion, answer: String) {
-    if cloud != nil {
+    if cloudState.privateLocalMode {
+      Task { do { try await submitLocalPractice(question: question, answer: answer) } catch { handleCloudError(error) } }
+      return
+    }
+    if cloud != nil && !cloudState.privateLocalMode {
       Task { await submitCloudAssignment(question: question, answer: answer) }
       return
     }
@@ -1266,7 +1274,7 @@ import UIKit
       notes.removeAll { $0.id == id }
       noteState.revisions[id] = nil
     }
-    if let cloud, let deleted { await StudioService(api: cloud).deleteLogicalNote(note: deleted) }
+    if let cloud, !cloudState.privateLocalMode, let deleted { await StudioService(api: cloud).deleteLogicalNote(note: deleted) }
   }
   func reloadNotes(resumeAgent: Bool = true) async {
     guard let scope = noteScope else { return }
@@ -1402,6 +1410,7 @@ extension AppStore {
 
   /// Cloud deletion calls this with the relationship IDs frozen before removing the workspace.
   func clearLocalCourseData(_ id: String, resourceIDs: Set<String>) async throws {
+    if cloudState.privateLocalMode { cloudState.localDeletedCourseIDs.insert(id); cloudState.localCourseSources.removeValue(forKey: id) }
     guard let scope = noteScope else { throw NoteStoreError.scopeMismatch }
     let deleted = try await repository.deleteCourseNotes(scope: scope, courseID: id, resourceIDs: resourceIDs)
     guard noteScope == scope else { throw CancellationError() }
@@ -1492,7 +1501,7 @@ extension AppStore {
       "local_version": .string(try UnifiedAgentTools.courseMutationVersion(id, store: self)),
       "frozen_resource_ids": .array(course.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) }.map(JSONValue.string))]
     var summary = "本机：" + courseRemovalSummary(id)
-    if let cloud, !id.hasPrefix("local-course:") {
+    if let cloud, !cloudState.privateLocalMode, !id.hasPrefix("local-course:") {
       let response: [String: JSONValue] = try await cloud.request("/api/assistant/tools/remove_course", method: "POST", body: [
         "operation_id": .string(operationID), "arguments": .object(["course_id": .string(id), "confirmed": .bool(false)])])
       guard noteScope == scope else { throw CancellationError() }

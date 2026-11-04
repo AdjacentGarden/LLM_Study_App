@@ -76,7 +76,7 @@ struct StudyCoursePreparationView: View {
           }
           .padding(.horizontal, 14).padding(.vertical, 14).frame(minHeight: 50)
           .background(DS.surface, in: RoundedRectangle(cornerRadius: 15))
-          .shadow(color: DS.text.opacity(0.10), radius: 3, x: 2, y: 4)
+          .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
           .accessibilityElement(children: .combine)
           .accessibilityIdentifier("study.preparation.step.\(step.id)")
         }

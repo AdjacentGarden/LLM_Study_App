@@ -345,7 +345,7 @@ struct ReaderOrigin: Sendable {
             guard epoch == cloudState.epoch else { return }
             bindUploadedBook(localID: bookID, uploaded: uploaded)
             bookID = uploaded.book_id
-            if !id.hasPrefix("local-course:"),
+            if !cloudState.privateLocalMode, !id.hasPrefix("local-course:"),
               cloudState.workspaces.contains(where: { $0.id == id }),
               cloudState.workspaces.first(where: { $0.id == id })?.resources.contains(where: { $0.book_id == bookID }) != true {
               let _: CloudResource = try await cloud.request("/api/workspaces/\(id)/resources", method: "POST", body: ["book_id": .string(bookID)])
@@ -456,6 +456,10 @@ struct ReaderOrigin: Sendable {
         $0.job.message = complete ? (onDeviceOnly ? "本机文字识别完成，可阅读原文与检索" : "资料整理完成") : "新资料已保存，等待解析"
         if onDeviceOnly && complete { $0.setupCompleted = true }
         $0.draft.parseCompleted = complete
+      }
+      if cloudState.privateLocalMode, !onDeviceOnly, let completed = courseImport(for: id) {
+        try await queuePublicCoursePublication(title: completed.draft.name, bookIDs: completed.books.map(\.id), courseID: id)
+        await resumePublicLibraryTasks()
       }
       if Set(draft.resourceIDs) == Set(importState.courses.first(where: { $0.id == id })?.draft.resourceIDs ?? []) {
         draft.parseCompleted = importState.courses.first(where: { $0.id == id })?.job.status == .completed

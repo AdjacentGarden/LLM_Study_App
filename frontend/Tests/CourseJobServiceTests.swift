@@ -58,13 +58,6 @@ private final class CourseRequests: @unchecked Sendable {
   var allURLs: [URL] { lock.withLock { urls } }
 }
 
-private actor CourseJobSignal {
-  private var marked = false
-  private var waiter: CheckedContinuation<Void, Never>?
-  func mark() { marked = true; waiter?.resume(); waiter = nil }
-  func wait() async { if !marked { await withCheckedContinuation { waiter = $0 } } }
-}
-
 private actor CoursePhaseUpdates {
   var stages: [String] = []
   func append(_ job: CloudCourseJob) { stages.append(job.stage) }
@@ -80,7 +73,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     let session = URLSession(configuration: config)
     let repository = try LocalBookCourseRepository(directory:
       FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
-    return (CloudAPI(baseURL: URL(string: "https://\(host)")!, session: session), session, host, repository)
+    return (CloudAPI(baseURL: URL(string: "https://\(host)")!, session: session, legacyPrivateSyncEnabled: true), session, host, repository)
   }
   private func job(_ status: String, chapter: String = "chapter", course: Bool = false) throws -> Data {
     var value: [String: Any] = ["job_id": "course_job_owned", "session_id": "session",
@@ -160,8 +153,8 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       let count = try requests.append(request)
       XCTAssertEqual(request.timeoutInterval, 20)
       if request.httpMethod == "POST" {
-        XCTAssertEqual(try self.diskRequestIDs(root), [requests.all[0].1["request_id"] as! String])
-        XCTAssertEqual(requests.all[0].1["retry"] as? Bool, false)
+        XCTAssertEqual(try self.diskRequestIDs(root), [(try XCTUnwrap(requests.all.first)).1["request_id"] as! String])
+        XCTAssertEqual((try XCTUnwrap(requests.all.first)).1["retry"] as? Bool, false)
         return (202, try self.job("queued"))
       }
       XCTAssertEqual(request.url?.path, "/api/interviews/session/course-jobs/course_job_owned")
@@ -246,7 +239,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     do { _ = try await resumed.waitForCourse(sessionID: "session", chapterID: "chapter") { _ in }; XCTFail("Must remain failed") }
     catch let error as CloudError { XCTAssertEqual(error.status, 409) }
     XCTAssertEqual(requests.all.map(\.0), ["POST", "POST", "GET"])
-    XCTAssertEqual(requests.all[0].1["request_id"] as? String, requests.all[1].1["request_id"] as? String)
+    XCTAssertEqual((try XCTUnwrap(requests.all.first)).1["request_id"] as? String, (try XCTUnwrap(requests.all.dropFirst(1).first)).1["request_id"] as? String)
     XCTAssertTrue(requests.all.filter { $0.0 == "POST" }.allSatisfy { ($0.1["retry"] as? Bool) == false })
   }
 
@@ -315,7 +308,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
 
   func testCancellationStopsSleepAndReopenedServiceOnlyQueriesSavedJob() async throws {
     let requests = CourseRequests()
-    let signal = CourseJobSignal()
+    let signal = expectation(description: "Course job request started")
     let (api, session, host, repository) = try fixture { request in
       _ = try requests.append(request); return (202, try self.job("running"))
     }
@@ -323,10 +316,10 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     let service = CourseJobService(api: api, repository: repository, accountKey: "owner")
     let task = Task {
       try await service.waitForCourse(sessionID: "session", chapterID: "chapter", pollInterval: .seconds(30)) {
-        _ in await signal.mark()
+        _ in signal.fulfill()
       }
     }
-    await signal.wait()
+    await fulfillment(of: [signal], timeout: 5)
     task.cancel()
     do { _ = try await task.value; XCTFail("Cancellation must stop polling") } catch is CancellationError {}
     let reopened = try LocalBookCourseRepository(directory: repository.directory)
@@ -346,7 +339,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       _ = try await CourseJobService(api: api, repository: repository, accountKey: account)
         .current(sessionID: "session", chapterID: chapter)
     }
-    let other = CloudAPI(baseURL: URL(string: "http://\(host):8100")!, session: session)
+    let other = CloudAPI(baseURL: URL(string: "http://\(host):8100")!, session: session, legacyPrivateSyncEnabled: true)
     _ = try await CourseJobService(api: other, repository: repository, accountKey: "owner-a")
       .current(sessionID: "session", chapterID: "chapter")
     XCTAssertEqual(requests.all.map(\.0), ["POST", "POST", "POST", "POST"])
@@ -455,11 +448,23 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       default: XCTFail("Unexpected endpoint: \(request.url?.path ?? "")"); throw URLError(.unsupportedURL)
       }
     }
-    defer { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    // XCTest runs teardown blocks in reverse order, including on a thrown assertion.
+    addTeardownBlock { CourseJobProtocol.install(host, nil); session.invalidateAndCancel() }
+    func drainBeforeClosingSession(_ store: AppStore) {
+      addTeardownBlock { @MainActor in
+        store.cloudState.legacyPrivateSyncEnabled = false
+        store.cloudState.epoch = UUID()
+        var tasks = Array(store.cloudState.stageSaveTasks.values)
+        if let retry = store.cloudState.retryTask { tasks.append(retry) }
+        for task in tasks { task.cancel() }
+        for task in tasks { await task.value }
+      }
+    }
     let original = Data("Saved original PDF bytes".utf8)
     let path = try await repository.saveAttachment(original, extension: "pdf")
     let store = AppStore(repository: repository, cloud: api,
       processingPolicy: stableWiFiProcessingPolicyForTesting())
+    drainBeforeClosingSession(store)
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = "import-owner"
     store.draft.resourceIDs = ["book"]
@@ -480,6 +485,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     let cached = try XCTUnwrap(loadedCache)
     let restored = AppStore(repository: try LocalBookCourseRepository(directory: repository.directory), cloud: api,
       processingPolicy: stableWiFiProcessingPolicyForTesting())
+    drainBeforeClosingSession(restored)
     restored.cloudState.authenticated = true
     restored.cloudState.cacheKey = "import-owner"
     restored.restoreCloudCache(cached)
@@ -491,8 +497,6 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertEqual(restored.sources.first { $0.id == "book" }?.chapters.count, 1)
     XCTAssertEqual(requests.all.filter { $0.0 == "POST" }.count, 1)
     XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(path)), original)
-    store.cloudState.retryTask?.cancel()
-    restored.cloudState.retryTask?.cancel()
   }
 
   func testProductionLANDefaultRetainsManualVPNAndLoopbackConfiguration() {
@@ -522,7 +526,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
 
   @MainActor func testUncertainDiagnosisOnlyExplicitActionGrantsOneInFlightNonce() async throws {
     let requests = CourseRequests()
-    let started = CourseJobSignal()
+    let started = expectation(description: "Course job request started")
     let (api, session, host, repository) = try fixture(errorCode: "diagnostic_submission_uncertain") { request in
       _ = try requests.append(request)
       if request.httpMethod == "GET" {
@@ -533,7 +537,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       if request.url?.query == "resource_revision=0" {
         return (409, try JSONSerialization.data(withJSONObject: ["detail": "上次诊断提交结果待确认，请确认后点击重试诊断"]))
       }
-      Task { await started.mark() }
+      started.fulfill()
       Thread.sleep(forTimeInterval: 0.08)
       let interview = CloudInterview(session_id: "session", phase: "profile_confirmation",
         turn: CloudTurn(turn_id: "confirm", phase: "profile_confirmation", message: "请确认学习偏好",
@@ -553,7 +557,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertEqual(store.cloudState.error, originalError)
     XCTAssertTrue(store.canRetryCloudDiagnosis)
     let retry = Task { @MainActor in await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true) }
-    await started.wait()
+    await fulfillment(of: [started], timeout: 5)
     XCTAssertTrue(store.cloudState.isWorking)
     XCTAssertFalse(store.canRetryCloudDiagnosis)
     await store.beginCloudLearning(chapterID: "chapter", retryDiagnosis: true)
@@ -563,9 +567,9 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertEqual(store.cloudState.interview?.session_id, "session")
     XCTAssertFalse(store.canRetryCloudDiagnosis)
     XCTAssertTrue(requests.all.map(\.1).allSatisfy(\.isEmpty))
-    XCTAssertEqual(requests.allURLs[0].query, "resource_revision=0")
-    XCTAssertNil(requests.allURLs[1].query)
-    let query = URLComponents(url: requests.allURLs[2], resolvingAgainstBaseURL: false)!.queryItems!
+    XCTAssertEqual((try XCTUnwrap(requests.allURLs.first)).query, "resource_revision=0")
+    XCTAssertNil((try XCTUnwrap(requests.allURLs.dropFirst(1).first)).query)
+    let query = URLComponents(url: (try XCTUnwrap(requests.allURLs.dropFirst(2).first)), resolvingAgainstBaseURL: false)!.queryItems!
     XCTAssertEqual(Set(query.map(\.name)), ["resource_revision", "retry", "retry_request_id"])
     XCTAssertEqual(query.first { $0.name == "resource_revision" }?.value, "0")
     XCTAssertEqual(query.first { $0.name == "retry" }?.value, "true")
@@ -600,7 +604,7 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertNil(store.cloudState.interview)
     await store.restoreCloudDiagnosis()
     XCTAssertEqual(requests.all.map(\.0), ["POST", "GET", "GET", "GET"])
-    XCTAssertEqual(requests.allURLs[0].query, "resource_revision=0")
+    XCTAssertEqual((try XCTUnwrap(requests.allURLs.first)).query, "resource_revision=0")
     XCTAssertTrue(requests.allURLs.dropFirst().allSatisfy { $0.query == nil })
     XCTAssertEqual(store.cloudState.interview?.session_id, "session")
     XCTAssertEqual(store.cloudState.interview?.phase, "complete")
@@ -807,12 +811,16 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
       accountKey: "owner", designFingerprint: oldFingerprint, previousPublicationID: "course-b")
     _ = try await reopened.current(sessionID: "session", chapterID: "chapter")
     XCTAssertEqual(requests.all.map(\.0), ["POST", "POST", "POST", "GET"])
-    XCTAssertEqual(requests.all[0].1["design_fingerprint"] as? String, oldFingerprint)
-    XCTAssertEqual(requests.all[1].1["design_fingerprint"] as? String, newFingerprint)
-    XCTAssertNotEqual(requests.all[0].1["request_id"] as? String, requests.all[1].1["request_id"] as? String)
-    XCTAssertEqual(requests.all[2].1["design_fingerprint"] as? String, oldFingerprint)
-    XCTAssertNotEqual(requests.all[0].1["request_id"] as? String, requests.all[2].1["request_id"] as? String)
-    XCTAssertTrue(requests.allURLs[3].path.hasSuffix("/job_updated"))
+    let commands = requests.all.map(\.1)
+    let original = try XCTUnwrap(commands.first)
+    let updatedCommand = try XCTUnwrap(commands.dropFirst().first)
+    let restored = try XCTUnwrap(commands.dropFirst(2).first)
+    XCTAssertEqual(original["design_fingerprint"] as? String, oldFingerprint)
+    XCTAssertEqual(updatedCommand["design_fingerprint"] as? String, newFingerprint)
+    XCTAssertNotEqual(original["request_id"] as? String, updatedCommand["request_id"] as? String)
+    XCTAssertEqual(restored["design_fingerprint"] as? String, oldFingerprint)
+    XCTAssertNotEqual(original["request_id"] as? String, restored["request_id"] as? String)
+    XCTAssertTrue(try XCTUnwrap(requests.allURLs.dropFirst(3).first).path.hasSuffix("/job_updated"))
     XCTAssertEqual(try diskRequestIDs(repository.directory).count, 3)
   }
 

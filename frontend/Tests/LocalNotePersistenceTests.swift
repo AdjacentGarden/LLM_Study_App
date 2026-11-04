@@ -40,7 +40,9 @@ final class LocalNotePersistenceTests: XCTestCase {
     store.cloudState.authenticated = true
     store.cloudState.account = account
     store.cloudState.cacheKey = store.cloudCacheKey(account)
-    let anchor = NoteAnchor(courseID: "my-course", bookID: "book_local_original",
+    store.cloudState.privateLocalMode = true
+    store.courses = [Course(id: "my-course", name: "本机课程", resourceIDs: ["book_local_original"], courseResourceIDs: ["book_local_original": "resource"])]
+    let anchor = NoteAnchor(courseID: "my-course", courseResourceID: "resource", bookID: "book_local_original",
       chapterID: "chapter-2", page: 17, printedPage: 12,
       quote: "我手动选中的原文位置\n第二行")
     let note = StudyNote(id: "same-local-note-id", kind: .text,
@@ -48,6 +50,7 @@ final class LocalNotePersistenceTests: XCTestCase {
       anchor: anchor, createdAt: Date(timeIntervalSince1970: 1_700_000_000),
       organizedText: "这是用户确认保存的整理文字。")
     try await store.saveNote(note)
+    try await store.persistPrivateState()
     await store.flush()
     let saved = try XCTUnwrap(store.notes.first)
     XCTAssertEqual(saved.body, note.body)
@@ -57,9 +60,11 @@ final class LocalNotePersistenceTests: XCTestCase {
 
     let reopenedRepository = try LocalBookCourseRepository(directory: root)
     let reopened = AppStore(repository: reopenedRepository, cloud: api)
+    reopened.cloudState.authenticated = true
     let loaded = try await reopened.loadCloudCache(account)
     let cached = try XCTUnwrap(loaded)
     reopened.restoreCloudCache(cached)
+    await reopened.reloadNotes(resumeAgent: false)
     XCTAssertEqual(reopened.notes, [saved])
     // Configured-service notes live in the local account cache, not the
     // anonymous note table or a backend notes endpoint.
@@ -78,14 +83,20 @@ final class LocalNotePersistenceTests: XCTestCase {
     other.cloudState.cacheKey = other.cloudCacheKey(otherAccount)
     try await other.saveNote(StudyNote(id: note.id, kind: .text,
       title: "另一账号的同名记录", body: "不应覆盖账号A的正文"))
+    other.cloudState.privateLocalMode = true
+    try await other.persistPrivateState()
     await other.flush()
 
     let again = AppStore(repository: try LocalBookCourseRepository(directory: root), cloud: api)
+    again.cloudState.authenticated = true
     let loadedAgain = try await again.loadCloudCache(account)
     again.restoreCloudCache(try XCTUnwrap(loadedAgain))
+    await again.reloadNotes(resumeAgent: false)
     XCTAssertEqual(again.notes, [saved])
     let restoredOther = try await again.loadCloudCache(otherAccount)
-    XCTAssertEqual(restoredOther?.notes?.first?.body, "不应覆盖账号A的正文")
+    again.restoreCloudCache(try XCTUnwrap(restoredOther))
+    await again.reloadNotes(resumeAgent: false)
+    XCTAssertEqual(again.notes.first?.body, "不应覆盖账号A的正文")
 
     let otherAPI = CloudAPI(baseURL: URL(string: "https://other-\(host)")!, session: session)
     let otherOrigin = AppStore(repository: try LocalBookCourseRepository(directory: root), cloud: otherAPI)

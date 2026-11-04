@@ -15,7 +15,9 @@ enum ContentBundle {
   }
 
   static var root: URL { Bundle.main.resourceURL! }
+  static func registerMaterialURL(_ url: URL) { LocalMaterialURLs.register(url) }
   static func url(_ path: String) -> URL? {
+    if let approved = LocalMaterialURLs.url(path) { return approved }
     let relative = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     guard !relative.split(separator: "/").contains("..") else { return nil }
     for base in [
@@ -64,5 +66,21 @@ enum ContentError: LocalizedError {
     case .invalid(let s): s
     case .storage(let s): "保存失败：\(s)"
     }
+  }
+}
+
+/// Only checksummed material files explicitly registered by the library can be
+/// loaded as file URLs. Model text and remote asset URLs cannot grant this access.
+private enum LocalMaterialURLs {
+  private static let lock = NSLock()
+  nonisolated(unsafe) private static var approved: [String: URL] = [:]
+  static func register(_ url: URL) {
+    guard url.isFileURL, FileManager.default.fileExists(atPath: url.path) else { return }
+    lock.lock(); defer { lock.unlock() }
+    approved[url.absoluteString] = url
+  }
+  static func url(_ path: String) -> URL? {
+    lock.lock(); defer { lock.unlock() }
+    return approved[path]
   }
 }

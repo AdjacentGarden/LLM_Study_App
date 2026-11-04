@@ -165,6 +165,9 @@ struct AgentRunRecord: Codable, Hashable, Identifiable, Sendable {
   var contextEstimated: Bool? = nil
   var capacityState: String? = nil
   var images: [AssistantImageDTO]? = nil
+  var privateTransport: Bool? = nil
+  var legacyArchived: Bool? = nil
+  var clientHistory: [[String: JSONValue]]? = nil
 
   func evidence(_ id: String) -> AgentEvidence? { evidence.first { $0.id == id } }
 }

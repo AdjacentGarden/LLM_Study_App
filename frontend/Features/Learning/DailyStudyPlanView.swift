@@ -8,7 +8,8 @@ struct DailyStudyPlanSummary: View {
 
   var body: some View {
     StudyProgressCard(compact: compact, progress: store.courseLearningProgress,
-      taskTitle: taskTitle, issue: planIssue) { store.go(.plan) }
+      taskTitle: taskTitle, materialCount: store.currentCourse?.resourceIDs.count ?? 1,
+      issue: planIssue) { store.go(.plan) }
     .task(id: store.dailyStudyPlanLoadKey + day) { await store.loadDailyStudyPlan(day: day) }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active {

@@ -149,6 +149,10 @@ from .schemas import (
     UploadResponse,
 )
 from .store import BookRecord, MemoryStore
+from .public_material_routes import public_material_router
+from .private_forwarding import private_forwarding_router
+from .private_export import private_export_router
+from ..public_materials import PublicMaterials, public_group_contains_book
 from .teaching_audit import PrivateTeachingAudit
 
 logger = logging.getLogger(__name__)
@@ -537,7 +541,8 @@ def book_cover(book_id: str, request: Request) -> FileResponse:
         raise HTTPException(status_code=404, detail="未找到教材封面")
     published = book_id in settings.published_book_ids
     community_public = not published and account_repository.repo.is_public_book(book_id)
-    if not published and not community_public:
+    group_public = not published and not community_public and public_group_contains_book(account_repository.repo, book_id)
+    if not published and not community_public and not group_public:
         actor = account_repository.request_owner(request)
         if not actor or not (account_repository.repo.owns_upload(actor, book_id)
                              or account_repository.repo.owns(actor, book_id)):
@@ -825,6 +830,10 @@ def _prepare_diagnostics(book_id: str) -> None:
                                or (preparation_queue.get(book_id) or {}).get("status") == "cancelled")
     try:
         generate_diagnostic_bank(book_id)
+        try:
+            PublicMaterials(sys.modules[__name__]).refresh_for_book(book_id)
+        except Exception:
+            logger.exception("public material refresh deferred", extra={"book_id": book_id})
     except HTTPException as error:
         if error.status_code == 202 and isinstance(error.detail, dict):
             raise PreparationDeferred(error.detail) from error
@@ -1772,3 +1781,7 @@ app.include_router(
 app.include_router(native_router(sys.modules[__name__]))
 app.include_router(assistant_router(sys.modules[__name__]))
 app.include_router(assistant_query_router(sys.modules[__name__]))
+
+app.include_router(public_material_router(sys.modules[__name__]))
+app.include_router(private_forwarding_router(sys.modules[__name__]))
+app.include_router(private_export_router(sys.modules[__name__]))

@@ -316,7 +316,8 @@ struct StudyDirectoryView: View {
           .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
       } else if !directory.isEmpty {
         StudyProgressCard(compact: compact, progress: store.courseLearningProgress,
-          taskTitle: currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始") {
+          taskTitle: currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始",
+          materialCount: store.currentCourse?.resourceIDs.count ?? 1) {
             store.go(.plan)
           }
       }
@@ -442,7 +443,7 @@ struct StudyDirectoryView: View {
       }
       .padding(.horizontal, 12).padding(.vertical, 9)
       .background {
-        StudyToolGlassSurface(tint: .violet, cornerRadius: 20, depth: 3, shadowOpacity: 0.06)
+        StudyToolGlassSurface(tint: .violet, cornerRadius: 20, depth: 3)
       }
       .padding(.top, 4).padding(.trailing, 3)
       LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 14) {

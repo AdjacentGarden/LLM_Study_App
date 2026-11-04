@@ -76,7 +76,7 @@ struct CloudPlanFocus: Sendable {
 
 extension AppStore {
   var usesCloudDailyPlan: Bool {
-    cloud != nil && selectedCourseID.map { id in cloudState.workspaces.contains { $0.id == id } } == true
+    !cloudState.privateLocalMode && cloud != nil && selectedCourseID.map { id in cloudState.workspaces.contains { $0.id == id } } == true
   }
 
   func dailyStudyPlan(_ day: String = DailyStudyPlanState.day()) -> CloudStudyPlan? {
@@ -101,6 +101,7 @@ extension AppStore {
   }
 
   func loadDailyStudyPlan(day: String = DailyStudyPlanState.day(), workspaceID: String? = nil) async {
+    guard !cloudState.privateLocalMode else { return }
     guard let cloud, cloudState.authenticated, let wid = workspaceID ?? selectedCourseID,
       cloudState.workspaces.contains(where: { $0.id == wid }) else { return }
     let key = DailyStudyPlanState.key(wid, day)
@@ -129,6 +130,12 @@ extension AppStore {
   }
 
   func confirmDailyStudyPlan(day: String) async {
+    if cloudState.privateLocalMode, let id = selectedCourseID {
+      let key = DailyStudyPlanState.key(id, day)
+      dailyPlanState.plans[key]?.confirmed = true
+      dailyPlanState.plans[key]?.needs_confirmation = false
+      persist(); return
+    }
     guard let cloud, let wid = selectedCourseID, let plan = dailyStudyPlan(day) else { return }
     let key = DailyStudyPlanState.key(wid, day), epoch = cloudState.epoch
     guard !dailyPlanState.confirming.contains(key) else { return }
@@ -157,6 +164,13 @@ extension AppStore {
   func completeDailyStudyTask(_ task: CloudStudyPlanTask, day: String, workspaceID: String? = nil,
     waitForSync: Bool = true) async {
     guard cloudState.authenticated, let wid = workspaceID ?? selectedCourseID else { return }
+    if cloudState.privateLocalMode {
+      if await completeAgentStudyTask(task, day: day, courseID: wid) { return }
+      let key = DailyStudyPlanState.key(wid, day)
+      if let i = dailyPlanState.plans[key]?.tasks.firstIndex(where: { $0.id == task.id }) { dailyPlanState.plans[key]?.tasks[i].status = "done" }
+      if let si = sources.firstIndex(where: { $0.id == task.book_id }), let ti = sources[si].plan.tasks.firstIndex(where: { $0.id == task.id }) { sources[si].plan.tasks[ti].status = "done" }
+      persist(); return
+    }
     if await completeAgentStudyTask(task, day: day, courseID: wid) { return }
     let key = DailyStudyPlanState.key(wid, day)
     let epoch = cloudState.epoch
@@ -179,6 +193,7 @@ extension AppStore {
 
   /// Called by the existing serialized sync worker, using durable event IDs on every retry.
   func syncDailyStudyCompletions(epoch: UUID) async throws {
+    guard cloudState.legacyPrivateSyncEnabled else { return }
     guard let cloud else { return }
     while let entry = dailyPlanState.pending.first {
       await persistTask?.value

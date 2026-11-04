@@ -111,8 +111,8 @@ def test_default_launcher_is_portable_loopback_and_preserves_pythonpath(setup_la
     run, events, environment, _ = setup_launcher
     result = run()
     assert result.returncode == 0, result.stderr
-    assert len(events()) == 1
-    application = events()[0]
+    service, application = events()
+    assert service["args"][0].endswith("fast_ocr_service.py")
     assert application["interpreter"] == environment["APP_PYTHON"]
     assert application["environment"]["APP_HOST"] == "127.0.0.1"
     assert application["environment"]["FORWARDED_ALLOW_IPS"] == "127.0.0.1"
@@ -153,7 +153,7 @@ def test_unselected_or_externally_managed_services_are_left_alone(setup_launcher
 def test_mineru_resident_is_opt_in_and_uses_supplied_port(setup_launcher):
     run, events, _, _ = setup_launcher
     result = run(
-        content="OCR_WORKER_ENABLED=true\nMINERU_RESIDENT_ENABLED=true\nMINERU_API_URL=http://127.0.0.1:18304\n"
+        content="OCR_WORKER_ENABLED=true\nOCR_BACKEND=vlm-auto-engine\nMINERU_RESIDENT_ENABLED=true\nMINERU_API_URL=http://127.0.0.1:18304\n"
     )
     assert result.returncode == 0, result.stderr
     service, app = events()

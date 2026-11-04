@@ -109,13 +109,13 @@ final class CloudTests: XCTestCase {
     } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
     // Memory reflects committed rows only; the editor keeps the unsaved draft.
     XCTAssertTrue(store.notes.isEmpty)
-    let failed = try await repo.loadCloudState("note-write-failure")
+    let failed = try await repo.loadStoredNote(note.id, scope: "note-write-failure")
     XCTAssertNil(failed)
     await repo.setWriteFaultForTesting(false)
     try await store.saveNote(note)
     await store.flush()
-    let saved = try await repo.loadCloudState("note-write-failure")
-    XCTAssertEqual(saved?.notes?.first?.body, note.body)
+    let saved = try await repo.loadStoredNote(note.id, scope: "note-write-failure")
+    XCTAssertEqual(saved?.note.body, note.body)
   }
 
   func testCatalogOnlyUsesServerEntriesAndDeduplicatesRefresh() throws {
@@ -563,7 +563,7 @@ extension CloudTests {
       }
       let api = CloudAPI(
         baseURL: URL(string: "https://transport-\(UUID().uuidString)\(suffix)")!,
-        session: isolatedCloudSession())
+        session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
       do {
         let result: CloudOK = try await api.request(path, method: method,
           body: method == "POST" ? ["id": .string("stable-workspace")] : nil)
@@ -581,7 +581,7 @@ extension CloudTests {
     }
     var calls = 0
     OfflineCloudProtocol.respond { _ in calls += 1; throw URLError(.timedOut) }
-    let api = CloudAPI(baseURL: URL(string: "https://bounded-\(UUID().uuidString).ts.net")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://bounded-\(UUID().uuidString).ts.net")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     do {
       let _: CloudOK = try await api.request("/api/health")
       XCTFail("A persistent failure must remain visible")
@@ -625,7 +625,7 @@ extension CloudTests {
   @MainActor func testGeneratedLessonCompletionWithoutPlanSurvivesOfflineCacheReload() async throws {
     OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    let api = CloudAPI(baseURL: URL(string: "https://completion-\(UUID().uuidString).example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://completion-\(UUID().uuidString).example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: directory)
     let store = AppStore(repository: repo, cloud: api)
     let resource = generatedResourceWithoutDailyPlan()
@@ -683,7 +683,7 @@ extension CloudTests {
       }
       return (200, Data("{\"ok\":true}".utf8))
     }
-    let api = CloudAPI(baseURL: URL(string: "https://ack-\(UUID().uuidString).example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://ack-\(UUID().uuidString).example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repo, cloud: api)
     let resource = generatedResourceWithoutDailyPlan()
@@ -793,6 +793,14 @@ extension CloudTests {
     let newAnswers = LearnerPreferences(displayName: "重新选择", primaryGoal: "exam", dailyTime: "under30")
     OfflineCloudProtocol.respond { request in
       switch request.url!.path {
+      case "/api/native/local-first/capabilities":
+        return (200, Data(#"{"schema_version":1,"public_library":true,"private_forwarding":true,"private_export":true,"legacy_writes_active":true}"#.utf8))
+      case "/api/private/export":
+        return (200, Data(#"{"schema_version":1,"snapshot_revision":"test","records":[],"files":[],"legacy_writes_active":true}"#.utf8))
+      case "/api/private/export/checkpoint": return (200, Data(#"{"verified":true}"#.utf8))
+      case "/api/assistant/conversations": return (200, Data("[]".utf8))
+      case "/api/public/library/course-groups": return (200, Data(#"{"schema_version":1,"items":[]}"#.utf8))
+      case let path where path.hasSuffix("/catalog-records"): return (404, Data("{}".utf8))
       case "/api/auth/me": return (200, try JSONEncoder().encode(account))
       case "/api/native/bootstrap": return (200, try JSONEncoder().encode(bootstrap))
       case "/api/native/learner-preferences": return (200, try JSONEncoder().encode(newAnswers))
@@ -808,9 +816,10 @@ extension CloudTests {
     await store.logoutCloud()
     XCTAssertFalse(store.cloudState.authenticated)
     XCTAssertFalse(store.cloudState.onboardingComplete)
-    let signedOut = try await repo.loadCloudState(key)
+    let signedOut = try await repo.loadPersonalState(scope: key)
     XCTAssertEqual(signedOut?.requiresPersonalization, true)
-    XCTAssertEqual(signedOut?.notes?.first?.id, "private-note")
+    let notes = try await repo.loadStoredNotes(scope: key)
+    XCTAssertEqual(notes.first?.note.id, "private-note")
     XCTAssertEqual(LearnerOnboardingDraft.load(scope: key).step, 0)
 
     // A new client represents signing in again after closing the app.
@@ -834,7 +843,7 @@ extension CloudTests {
     try await restarted.saveCloudPreferences(name: "重新选择", goal: "exam", dailyTime: "under30")
     await restarted.flush()
     XCTAssertFalse(restarted.cloudState.requiresPersonalization)
-    let completedCache = try await repo.loadCloudState(key)
+    let completedCache = try await repo.loadPersonalState(scope: key)
     XCTAssertEqual(completedCache?.requiresPersonalization, false)
     let normalLaunch = AppStore(repository: repo, cloud: signedInAPI)
     await normalLaunch.boot()
@@ -895,9 +904,9 @@ extension CloudTests {
     store.rebuildCloudCourses()
     XCTAssertEqual(store.courses.first?.resourceIDs, [id], "Server refresh must preserve pending local imports")
     await store.flush()
-    let cached = try await repo.loadCloudState(key)
+    let cached = try await repo.loadPersonalState(scope: key)
     let restored = AppStore(repository: try LocalBookCourseRepository(directory: root), cloud: api)
-    restored.restoreCloudCache(try XCTUnwrap(cached))
+    restored.restorePrivateState(try XCTUnwrap(cached))
     XCTAssertEqual(restored.sources.map(\.id), [id])
     XCTAssertEqual(restored.courses.first?.resourceIDs, [id])
     XCTAssertEqual(try Data(contentsOf: XCTUnwrap(restored.sourceFileURL(id))), original)
@@ -953,8 +962,8 @@ extension CloudTests {
     let localID = try XCTUnwrap(store.sources.first?.id)
     await store.flush()
     let restored = AppStore(repository: try LocalBookCourseRepository(directory: root), cloud: api)
-    let cached = try await repo.loadCloudState(key)
-    restored.restoreCloudCache(try XCTUnwrap(cached))
+    let cached = try await repo.loadPersonalState(scope: key)
+    restored.restorePrivateState(try XCTUnwrap(cached))
     XCTAssertEqual(try Data(contentsOf: XCTUnwrap(restored.sourceFileURL(localID))), original)
     XCTAssertTrue(restored.courses.contains { $0.resourceIDs.contains(localID) })
     restored.bindUploadedBook(localID: localID,
@@ -994,8 +1003,8 @@ extension CloudTests {
     XCTAssertTrue(store.notes.isEmpty)
   }
 
-  @MainActor func testExplicit401NullAccountAndBootstrap401CannotRestoreCachedIdentity() async throws {
-    for mode in ["auth401", "null-account", "bootstrap401"] {
+  @MainActor func testExplicit401NullAccountAndCapabilities401CannotRestoreCachedIdentity() async throws {
+    for mode in ["auth401", "null-account", "capabilities401"] {
       let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
       let url = URL(string: "https://expired-\(UUID().uuidString).example")!
       let account = cachedAccount()
@@ -1003,7 +1012,7 @@ extension CloudTests {
       let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
       _ = try await seedOfflineCache(repo, api: api, account: account)
       OfflineCloudProtocol.respond { request in
-        if mode == "auth401" || request.url!.path.contains("bootstrap") { return (401, Data("{\"detail\":\"expired\"}".utf8)) }
+        if mode == "auth401" || request.url!.path == "/api/native/local-first/capabilities" { return (401, Data("{\"detail\":\"expired\"}".utf8)) }
         var response = account
         if mode == "null-account" { response.account = nil }
         return (200, try JSONEncoder().encode(response))
@@ -1065,7 +1074,7 @@ extension CloudTests {
     let repo = try LocalBookCourseRepository(
       directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let api = CloudAPI(baseURL: URL(string: "https://retry-\(UUID().uuidString).example")!,
-      session: isolatedCloudSession())
+      session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let account = cachedAccount()
     let cached = try await seedOfflineCache(repo, api: api, account: account)
     let store = AppStore(repository: repo, cloud: api)
@@ -1124,7 +1133,7 @@ extension CloudTests {
     let url = URL(string: "https://recover-\(UUID().uuidString).example")!
     let account = cachedAccount()
     CloudAPI.seedLegacyIdentityForTesting(url: url, account: account)
-    let api = CloudAPI(baseURL: url, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: url, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let cached = try await seedOfflineCache(repo, api: api, account: account)
     OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
     let store = AppStore(repository: repo, cloud: api)
@@ -1206,7 +1215,7 @@ extension CloudTests {
 
 extension CloudTests {
   @MainActor func testStageSaveCoalescesAnswersAndFinalFlushDoesNotResubmitAcknowledgedData() async throws {
-    let api = CloudAPI(baseURL: URL(string: "https://stage-save.example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://stage-save.example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repo, cloud: api)
     store.draft = CourseDraft(name: "分阶段课程", resourceIDs: ["book"], parseCompleted: true)
@@ -1257,7 +1266,7 @@ extension CloudTests {
 
   @MainActor func testFailedStageSaveRetainsLocalAnswersAndCannotPassFinalFlush() async throws {
     OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
-    let api = CloudAPI(baseURL: URL(string: "https://stage-offline.example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://stage-offline.example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repo, cloud: api)
     store.draft = CourseDraft(name: "断网草稿", resourceIDs: ["book"], diagnosis: ["urgency": ["urgent"]], step: 1)
@@ -1280,7 +1289,7 @@ extension CloudTests {
 
 extension CloudTests {
   @MainActor func testAcknowledgedStageConfirmationOnlySendsFinalReceipt() async throws {
-    let api = CloudAPI(baseURL: URL(string: "https://stage-confirm.example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://stage-confirm.example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repo, cloud: api)
     store.draft = CourseDraft(name: "已同步课程", resourceIDs: ["book"], parseCompleted: true)
@@ -1378,7 +1387,7 @@ extension CloudTests {
 
 extension CloudTests {
   @MainActor func testStageSaveKeepsEditsMadeWhileAnOlderRequestIsInFlight() async throws {
-    let api = CloudAPI(baseURL: URL(string: "https://stage-inflight.example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://stage-inflight.example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repo, cloud: api)
     store.draft = CourseDraft(name: "继续编辑", resourceIDs: ["book"], diagnosis: ["urgency": ["steady"]])
@@ -1414,7 +1423,7 @@ extension CloudTests {
   }
 
   @MainActor func testStageSaveLateReceiptCannotRepopulateAnotherAccount() async throws {
-    let api = CloudAPI(baseURL: URL(string: "https://stage-account.example")!, session: isolatedCloudSession())
+    let api = CloudAPI(baseURL: URL(string: "https://stage-account.example")!, session: isolatedCloudSession(), legacyPrivateSyncEnabled: true)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repo, cloud: api)
     store.draft = CourseDraft(name: "旧账号草稿", resourceIDs: ["book"])

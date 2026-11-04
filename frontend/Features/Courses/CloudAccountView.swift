@@ -393,6 +393,7 @@ struct CloudLearningSetupView: View {
   @Environment(AppStore.self) private var store
   @State private var selected: [String] = []
   @State private var confidence = 0.6
+  @State private var shortAnswer = ""
   @State private var started = Date()
   @State private var advancing = false
   @State private var advanceTask: Task<Void, Never>?
@@ -495,6 +496,11 @@ struct CloudLearningSetupView: View {
               }
             }.padding(.top, 12)
           }
+          if let item = turn.item, item.options.isEmpty {
+            TextField("写下你的回答", text: $shortAnswer, axis: .vertical)
+              .textFieldStyle(.roundedBorder).lineLimit(3...8)
+              .accessibilityIdentifier("local.diagnosis.shortAnswer")
+          }
           if turn.item != nil {
             VStack(alignment: .leading) {
               Text("对这次回答的信心：\(Int(confidence * 100))%")
@@ -545,6 +551,7 @@ struct CloudLearningSetupView: View {
         cancelAdvance()
         selected = []
         confidence = 0.6
+        shortAnswer = ""
         started = Date()
       }
   }
@@ -583,7 +590,8 @@ struct CloudLearningSetupView: View {
       advancing = false
       submitting = true
       defer { submitting = false }
-      await store.advanceCloudInterview(selected: selected, confidence: confidence,
+      let response = turn?.item?.options.isEmpty == true ? [shortAnswer] : selected
+      await store.advanceCloudInterview(selected: response, confidence: confidence,
         seconds: Date().timeIntervalSince(started))
     }
   }

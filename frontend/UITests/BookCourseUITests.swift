@@ -55,6 +55,33 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["PROFILE"].firstMatch.waitForExistence(timeout: 8))
   }
 
+  func testStudyProgressCloudsPreserveCollapseAndPlanEntry() throws {
+    let app = launch("study", visual: true)
+    let progress = app.descendants(matching: .any).matching(identifier: "study.plan.progress").firstMatch
+    let details = app.buttons["计划详情"].firstMatch
+    XCTAssertTrue(details.waitForExistence(timeout: 20))
+    let originalProgress = progress.value as? String
+    keepScreenshot("study-clouds-expanded", app: app)
+    let scroll = app.scrollViews["study.scroll"]
+    // Drag in the directory gutter, clear of embedded tool-card gestures.
+    scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.85))
+      .press(forDuration: 0.05, thenDragTo:
+        scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.15)))
+    XCTAssertTrue(details.waitForNonExistence(timeout: 5))
+    XCTAssertTrue(progress.exists)
+    XCTAssertEqual(progress.value as? String, originalProgress)
+    keepScreenshot("study-clouds-compact", app: app)
+    for _ in 0..<3 {
+      scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.15))
+        .press(forDuration: 0.05, thenDragTo:
+          scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.85)))
+      if details.waitForExistence(timeout: 1) { break }
+    }
+    XCTAssertTrue(details.waitForExistence(timeout: 5))
+    details.tap()
+    XCTAssertTrue(app.buttons["navigation.back"].firstMatch.waitForExistence(timeout: 5))
+  }
+
   func testUnifiedButtonSizesAcrossPages() throws {
     XCUIDevice.shared.orientation = .portrait
     func check(_ button: XCUIElement, height: CGFloat, square: Bool = false) {
@@ -1048,5 +1075,53 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(
       app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "你好！我是你的学习助手")).firstMatch
         .waitForExistence(timeout: 10))
+  }
+}
+
+extension BookCourseUITests {
+  func testFlashcardAnswerSourceAndBidirectionalBrowsing() throws {
+    let app = launch("flashcards", visual: true)
+    let face = app.buttons["flashcard-face"].firstMatch
+    XCTAssertTrue(face.waitForExistence(timeout: 15))
+    XCTAssertFalse(app.buttons["flashcard-source"].exists)
+    face.tap()
+    XCTAssertTrue(app.buttons["flashcard-source"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["flashcard-source-pages"].exists)
+    let answer = face.label
+    keepScreenshot("flashcard-answer-source-shadow", app: app)
+    face.swipeLeft()
+    let next = NSPredicate { _, _ in face.label.hasPrefix("问题：") && face.label != answer }
+    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: next, object: nil)], timeout: 5), .completed)
+    keepScreenshot("flashcard-next-real-content", app: app)
+    let start = face.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+    start.press(forDuration: 0.05,
+      thenDragTo: face.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)),
+      withVelocity: .slow, thenHoldForDuration: 1)
+    let previous = NSPredicate { _, _ in face.label == answer }
+    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: previous, object: nil)], timeout: 5), .completed)
+    XCTAssertTrue(app.buttons["flashcard-source"].exists)
+    app.buttons["flashcard-source"].tap()
+    let readerHeading = app.buttons["reader.heading"]
+    XCTAssertTrue(readerHeading.waitForExistence(timeout: 5))
+    XCTAssertTrue(readerHeading.label.contains("PDF第11页"), readerHeading.label)
+    keepScreenshot("flashcard-original-source", app: app)
+  }
+}
+
+
+extension BookCourseUITests {
+  func testFlashcardRatingsUse54PointGlassCapsulesWithoutSupplementNotice() throws {
+    let app = launch("flashcards", chapter: "c1s1", visual: true)
+    let face = app.buttons["flashcard-face"].firstMatch
+    XCTAssertTrue(face.waitForExistence(timeout: 15))
+    face.tap()
+    let again = app.buttons["flashcard-again"]
+    let remember = app.buttons["flashcard-remember"]
+    XCTAssertTrue(remember.waitForExistence(timeout: 5))
+    XCTAssertEqual(again.frame.height, 54, accuracy: 1)
+    XCTAssertEqual(remember.frame.height, 54, accuracy: 1)
+    XCTAssertFalse(app.staticTexts["flashcard-source-unavailable"].exists)
+    XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "AI 补充内容")).firstMatch.exists)
+    keepScreenshot("flashcard-44pt-glass-capsules", app: app)
   }
 }

@@ -44,6 +44,13 @@ def studio_router(
             return
         if not data.course_id or not data.course_resource_id:
             raise HTTPException(422, "无指定课程，无法进行笔记撰写")
+        # Device course IDs are local labels. save() separately checks book
+        # access and Studio always scopes private records to the session owner.
+        if data.course_id.startswith("local-course:"):
+            relation = f"{data.course_id}:{data.book_id}"
+            if data.course_resource_id in {relation, "local-resource:" + hashlib.sha256(relation.encode()).hexdigest()}:
+                return
+            raise HTTPException(404, "课程教材关联不匹配")
         try:
             resource = native.resource(owner, data.course_id, data.course_resource_id)
             if resource["book_id"] != data.book_id:

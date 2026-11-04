@@ -201,6 +201,20 @@ def native_router(services: Any) -> APIRouter:
         response.headers["Cache-Control"] = "private, no-store"
         return str(value)
 
+    @router.get("/native/local-first/capabilities")
+    def local_first_capabilities(request: Request, actor: str = Depends(owner)) -> dict[str, Any]:
+        from ..ingestion.figure_layout import layout_capabilities
+        paths = {getattr(route, "path", "") for route in request.app.routes}
+        public = "/api/public/library/course-groups" in paths
+        forwarding = "/api/assistant/private-model" in paths
+        exporting = "/api/private/export" in paths
+        return {"schema_version": 1, "local_first": public and forwarding and exporting,
+                "public_library": public, "public_course_groups": public,
+                "private_model": forwarding, "private_forwarding": forwarding,
+                "private_export": exporting, "legacy_writes_active": True,
+                "server_private_sync": False,
+                "ocr": {"text_backend": services.settings.ocr_backend, "figures": layout_capabilities()}}
+
     def resource(wid: str, rid: str, actor: str) -> dict[str, Any]:
         try:
             result = services.native_repository.resource(actor, wid, rid)

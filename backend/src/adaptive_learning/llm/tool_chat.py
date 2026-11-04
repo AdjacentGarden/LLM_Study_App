@@ -104,6 +104,9 @@ class ToolChatClient:
             "max_tokens": max_tokens,
             "temperature": 0.3,
         }
+        if not tools:
+            payload.pop("tools", None)
+            payload.pop("tool_choice", None)
         if urlsplit(base_url).hostname == "api.deepseek.com":
             # Thinking mode requires replaying private reasoning between tool
             # steps. The gateway never stores it, so keep tool turns nonthinking.

@@ -10,6 +10,13 @@ extension AppStore {
 
   func loadCloudCache(_ account: CloudAccountState) async throws -> CloudLocalSnapshot? {
     let current = cloudCacheKey(account)
+    if let state = try await repository.loadPersonalState(scope: current) {
+      cloudState.privateLocalMode = true
+      cloudState.cacheKey = current
+      restorePrivateState(state)
+      return CloudLocalSnapshot(snapshot: state.snapshot, sources: state.sources, workspaces: state.workspaces,
+        filePaths: state.filePaths, pending: [:], notes: nil)
+    }
     for origin in cloud?.cacheOrigins ?? [] {
       let key = cloudCacheKey(account, origin: origin)
       if var cached = try await repository.loadCloudState(key) {
@@ -25,6 +32,7 @@ extension AppStore {
   }
 
   func restoreCloudCache(_ cached: CloudLocalSnapshot) {
+    if cloudState.privateLocalMode { return } // loadCloudCache already restored the full local authority.
         dailyPlanState.reset()
         dailyPlanState.plans = cached.dailyPlans ?? [:]
         dailyPlanState.pending = cached.pendingPlanCompletions ?? []
@@ -160,6 +168,8 @@ extension AppStore {
       defer { cloudState.isHydrating = false }
       let key = cloudCacheKey(account)
       if cloudState.cacheKey != key {
+        cloudState.privateLocalMode = false; cloudState.localFirstChecked = false
+        cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
         dailyPlanState.reset()
         cloudState.onboardingComplete = false
         cloudState.requiresPersonalization = false
@@ -195,11 +205,19 @@ extension AppStore {
       if preloadedKey == key || cached != nil { await reloadNotes() }
       if !offlineBoot {
       do { try await reloadCloud() } catch {
-        guard cached != nil, let failure = error as? CloudError, failure.transportFailure else { throw error }
-        rebuildCloudCourses()
-        scheduleCloudRetry()
-        cloudState.syncError = "正在使用本机缓存：" + error.localizedDescription
-        offlineBoot = true
+        if cached != nil, cloudState.privateLocalMode, (error as? CloudError)?.status != 401 {
+          // Capabilities can disappear during a server rollout. Keep phone state usable,
+          // while the central API gate continues refusing every legacy personal write.
+          cloudState.syncError = "本机数据可继续使用，学习服务暂不可用：" + error.localizedDescription
+          scheduleCloudRetry()
+          offlineBoot = true
+        } else {
+          guard cached != nil, let failure = error as? CloudError, failure.transportFailure else { throw error }
+          rebuildCloudCourses()
+          scheduleCloudRetry()
+          cloudState.syncError = "正在使用本机缓存：" + error.localizedDescription
+          offlineBoot = true
+        }
       }
       }
       if let id = selectedCourseID { selectCourse(id) }
@@ -221,6 +239,26 @@ extension AppStore {
   }
 
   func reloadCloud() async throws {
+    if cloudState.legacyPrivateSyncEnabled, !cloudState.privateLocalMode { try await reloadLegacyCloud(); return }
+    guard cloud != nil else { return }
+    try await verifyLocalFirstCapabilities()
+    guard let scope = noteScope else { throw ContentError.invalid("请先登录") }
+    if try await repository.loadPersonalState(scope: scope) == nil {
+      try await migrateLegacyPersonalData()
+      try await persistPrivateState()
+    } else {
+      // New phone contents always win; old-client updates are archived only.
+      do { try await migrateLegacyPersonalData() }
+      catch { cloudState.migrationStatus = "旧版变化尚未校验，已保留本机数据：" + error.localizedDescription }
+    }
+    try await refreshPublicCourseGroups()
+    await resumePublicLibraryTasks()
+    shelf = sources.filter { sourceFileURL($0.id) != nil }.map {
+      ShelfBook(bookId: $0.id, title: $0.summary.title, filename: $0.summary.filename ?? $0.summary.title, coverUrl: $0.summary.cover_url ?? "")
+    }
+    cloudState.syncError = nil
+  }
+  private func reloadLegacyCloud() async throws {
     guard let cloud else { return }
     let epoch = cloudState.epoch
     cloudState.materialSyncCount += 1

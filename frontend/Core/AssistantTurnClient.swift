@@ -54,6 +54,7 @@ struct AssistantTurnRequestDTO: Codable, Sendable, Equatable {
   var ephemeral: Bool? = nil
   var history: [[String: JSONValue]]? = nil
   var attachments: [AssistantImageDTO]? = nil
+  var client_messages: [[String: JSONValue]]? = nil
 }
 
 struct AssistantToolCallDTO: Decodable, Sendable {
@@ -144,5 +145,29 @@ struct AssistantImageDTO: Codable, Hashable, Sendable, Equatable {
 extension CloudAPI {
   func closeTemporaryAssistantSession(_ id: String) async throws {
     let _: [String: JSONValue] = try await request("/api/assistant/conversations/\(id)/close", method: "POST")
+  }
+}
+
+
+struct PrivateModelStepResponseDTO: Codable, Sendable {
+  var request_id: String
+  var state: String
+  var content: String?
+  var error: String?
+  var retry_after: Double?
+}
+
+extension CloudAPI {
+  func acknowledgeAssistantStep(runID: String, stepID: String) async throws {
+    let _: [String: JSONValue] = try await request("/api/assistant/runs/\(runID)/steps/\(stepID)/ack", method: "POST")
+  }
+  func privateModelStep(_ body: [String: JSONValue]) async throws -> PrivateModelStepResponseDTO {
+    try await request("/api/assistant/private-model", method: "POST", body: body)
+  }
+  func privateModelStepStatus(_ requestID: String) async throws -> PrivateModelStepResponseDTO {
+    try await request("/api/assistant/private-model/\(requestID)")
+  }
+  func acknowledgePrivateModelStep(_ requestID: String) async throws {
+    let _: [String: JSONValue] = try await request("/api/assistant/private-model/\(requestID)/ack", method: "POST")
   }
 }

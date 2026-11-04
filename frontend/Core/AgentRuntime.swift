@@ -54,25 +54,33 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     guard let store, let scope = store.noteScope, store.cloud != nil,
       store.processingPolicy.path.kind != .offline else { throw AgentValidationError(message: "AI 助手需要联网") }
     guard !isWorking, !cancelInFlight, active?.status.isTerminal != false else { throw AgentValidationError(message: "请先完成或取消当前助手任务") }
+    if let legacy = store.assistantHistory.sessions.first(where: { $0.id == sessionID }),
+      (legacy.runs ?? []).contains(where: { $0.privateTransport != true && $0.status != .completed }) {
+      throw AgentValidationError(message: "旧版未完成任务已归档，请另开新版对话")
+    }
     var context = context
     context.scope = scope
     context.sessionID = sessionID
     context.messageID = messageID
-    var migrationHistory: [ChatMessage]?
     let previousMessages = history.filter { $0.id != messageID && ["user", "assistant"].contains($0.role) }
-    if !ephemeral, !previousMessages.isEmpty, !registeredSessionIDs.contains(sessionID), let cloud = store.cloud {
-      let remote: [[String: JSONValue]] = try await cloud.request("/api/assistant/conversations")
-      guard store.noteScope == scope, !isWorking, active?.status.isTerminal != false else { throw CancellationError() }
-      if remote.contains(where: { $0["session_id"]?.stringValue == sessionID }) { registeredSessionIDs.insert(sessionID) }
-      else { migrationHistory = previousMessages }
-    }
     let now = Date()
     var run = AgentRunRecord(id: "run-" + UUID().uuidString.lowercased(), scope: scope,
       status: .running, request: request, context: context, evidence: [], steps: [], createdAt: now, updatedAt: now)
     run.ephemeral = ephemeral
     var seenAttachments = Set<String>()
     run.attachments = (attachments + history.flatMap { $0.attachments ?? [] }).filter { seenAttachments.insert($0.id).inserted }
-    run.history = migrationHistory // A missing legacy session bootstraps once; ordinary turns stay incremental.
+    run.privateTransport = true
+    run.history = previousMessages
+    let previousRuns = ephemeral ? [active].compactMap { $0 }.filter { $0.context.sessionID == sessionID }
+      : store.assistantHistory.sessions.first(where: { $0.id == sessionID })?.runs ?? []
+    let prior = previousRuns.filter { $0.status == .completed && $0.privateTransport == true }
+    if !prior.isEmpty {
+      run.clientHistory = prior.flatMap { Self.privateTranscript(for: $0, stepIndex: $0.steps.count, includeHistory: false) }
+    }
+    // Prior image inputs already live in the frozen clientHistory transcript.
+    // New tool images belong only to this turn, avoiding quadratic duplication.
+    run.images = nil
+
     run.events = [AgentRunEvent(kind: "started", message: "正在处理请求")]
     run.contextTokens = (request.utf8.count + history.reduce(0) { $0 + $1.text.utf8.count }) / 3
     run.contextEstimated = true
@@ -182,7 +190,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       for path in paths where !preserved.contains(path) { try? FileManager.default.removeItem(at: store.repository.attachmentURL(path)) }
     }
     active = nil
-    if let cloud = store?.cloud, let sessionID = run.context.sessionID {
+    if run.privateTransport != true, let cloud = store?.cloud, let sessionID = run.context.sessionID {
       Task { try? await cloud.closeTemporaryAssistantSession(sessionID) }
     }
   }
@@ -257,7 +265,45 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     }
     // Only the current session is supplied. The gateway persists ordinary turns incrementally.
     body.history = stepIndex == 0 && run.ephemeral != true ? run.history?.map { ["role": .string($0.role), "text": .string($0.text)] } : nil
+    if run.privateTransport == true {
+      body.contract_version = 3
+      body.client_messages = privateTranscript(for: run, stepIndex: stepIndex)
+      body.history = nil
+      body.attachments = nil // Actual bytes are already in the complete client transcript.
+    }
     return body
+  }
+
+  /// Full current-run receipts and images are rebuilt from phone-owned durable state.
+  nonisolated static func privateTranscript(for run: AgentRunRecord, stepIndex: Int, includeHistory: Bool = true) -> [[String: JSONValue]] {
+    var messages: [[String: JSONValue]] = []
+    if includeHistory {
+      if let saved = run.clientHistory { messages += saved }
+      else { messages += (run.history ?? []).map { ["role": .string($0.role), "content": .string($0.text)] } }
+    }
+    let context = (try? JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(run.context))) ?? .null
+    let evidence = (try? JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(run.evidence))) ?? .array([])
+    let snapshot = (try? AgentDigest.canonicalJSON(["context": foundationObject(context), "evidence": foundationObject(evidence)])) ?? ""
+    var parts: [JSONValue] = [.object(["type": .string("text"), "text": .string("发送时页面与可用证据：" + snapshot + "\n用户请求：" + run.request)])]
+    for image in run.images ?? [] {
+      guard let bytes = image.data_base64 else { continue }
+      parts.append(.object(["type": .string("text"), "text": .string("图片标识：" + image.attachment_id)]))
+      parts.append(.object(["type": .string("image_url"), "image_url": .object(["url": .string("data:" + image.media_type + ";base64," + bytes)])]))
+    }
+    messages.append(["role": .string("user"), "content": .array(parts)])
+    for step in run.steps where step.index < stepIndex && step.state == .completed {
+      var message: [String: JSONValue] = ["role": .string("assistant"), "content": .string(step.content ?? "")]
+      if !step.toolCalls.isEmpty {
+        message["tool_calls"] = .array(step.toolCalls.map { call in .object(["id": .string(call.id), "type": .string("function"),
+          "function": .object(["name": .string(call.name), "arguments": .string(call.argumentsJSON)])]) })
+      }
+      messages.append(message)
+      for call in step.toolCalls {
+        guard let result = step.outcome(call.id) else { continue }
+        messages.append(["role": .string("tool"), "tool_call_id": .string(call.id), "content": .string(result.resultJSON)])
+      }
+    }
+    return messages
   }
 
   nonisolated static func validateSaveNote(
@@ -405,11 +451,12 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     context.courseResourceID = selection.courseID.flatMap { store.courseResourceID(courseID: $0, bookID: selection.bookID) }
     context.pageType = store.route.rawValue
     let now = Date.now
-    let run = AgentRunRecord(
+    var run = AgentRunRecord(
       id: "run-" + UUID().uuidString.lowercased(), version: 0, scope: scope,
       status: .running, request: requestText, context: context, evidence: [evidence],
       steps: [], pendingChoice: nil, cancelRequested: false, finalText: nil,
       failure: nil, committedNoteIDs: [], createdAt: now, updatedAt: now)
+    run.privateTransport = true
     notice = nil
     active = run
     begin { [weak self] in
@@ -440,6 +487,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       guard let self else { return }
       guard let fresh = try? await self.loadRun(runID, scope: scope) else { return }
       var run = fresh
+      guard run.privateTransport == true else { self.notice = "旧版任务已归档，请另开新版对话"; return }
       guard !Task.isCancelled, run.status == .waitingForUser,
         let pending = run.pendingChoice, pending.toolCallID == toolCallID,
         pending.options.contains(option) else { return }
@@ -451,7 +499,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         do {
           let arguments = try JSONDecoder().decode([String: JSONValue].self, from: Data(json.utf8))
           choiceResult = try await UnifiedAgentTools.performConfirmedMutation(action, args: arguments,
-            operationID: run.id + "." + toolCallID, scope: scope, store: store)
+            operationID: run.id + "." + toolCallID, scope: scope, store: store, localOnly: run.privateTransport == true)
         } catch {
           self.notice = error.localizedDescription
           return // Keep the original confirmation and operation ID available for reconciliation.
@@ -530,8 +578,14 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
   private func reconcileCancellation(_ original: AgentRunRecord) async {
     guard let store, original.scope == store.noteScope, let cloud = store.cloud else { return }
     var run = original
+    guard run.privateTransport == true else { return }
     do {
       try await cloud.cancelAssistantRun(run.id)
+      if run.privateTransport == true {
+        run.cancellationReconciled = true
+        _ = try? await store.repository.saveRun(run)
+        return
+      }
       guard let session = run.context.sessionID else { return }
       var missing = false
       var receipts: [JSONValue] = []
@@ -609,13 +663,28 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     guard !isWorking, !cancelInFlight, let store, let scope = store.noteScope else { return }
     begin { [weak self] in
       guard let self, let store = self.store, store.noteScope == scope else { return }
-      let runs = (try? await store.repository.loadRuns(scope: scope)) ?? []
+      var runs = (try? await store.repository.loadRuns(scope: scope)) ?? []
       guard !Task.isCancelled else { return }
-      for cancelled in runs where cancelled.context.sessionID != nil && cancelled.cancelRequested && cancelled.cancellationReconciled != true {
+      for index in runs.indices where runs[index].privateTransport != true && runs[index].status != .completed && runs[index].legacyArchived != true {
+        var archived = runs[index]
+        archived.legacyArchived = true
+        archived.status = .cancelled
+        archived.cancellationReconciled = true
+        archived.failure = "旧版未完成任务已归档，请另开新版对话。原记录保留，不再查询或执行。"
+        archived.events = (archived.events ?? []) + [AgentRunEvent(kind: "archived", message: archived.failure!)]
+        do {
+          archived = try await store.repository.saveRun(archived)
+          runs[index] = archived
+          store.assistantHistory.recordRun(archived)
+          self.notice = archived.failure
+          if self.active?.id == archived.id { self.active = archived }
+        } catch { self.notice = "旧任务归档尚未保存，不执行后续操作"; return }
+      }
+      for cancelled in runs where cancelled.privateTransport == true && cancelled.context.sessionID != nil && cancelled.cancelRequested && cancelled.cancellationReconciled != true {
         await self.reconcileCancellation(cancelled)
       }
       if let run = runs.first(where: {
-        $0.status == .running || $0.status == .waitingForUser
+        $0.privateTransport == true && ($0.status == .running || $0.status == .waitingForUser)
       }) {
         self.active = run
         self.notice = nil
@@ -932,7 +1001,10 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         run.steps[index].content = response.message?.content ?? ""
         run.steps[index].toolCalls = calls
         switch await checkpoint(run) {
-        case .saved(let saved): run = saved; return .next
+        case .saved(let saved):
+          run = saved
+          if run.privateTransport == true { try? await store.cloud?.acknowledgeAssistantStep(runID: run.id, stepID: run.steps[index].id) }
+          return .next
         case .conflict: return .redo
         case .failed: return .stop
         }

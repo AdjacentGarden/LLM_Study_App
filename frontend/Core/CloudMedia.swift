@@ -106,20 +106,23 @@ extension CloudAPI {
   private var cacheKey: String?
   private let receiptRoot: URL
   private let cacheRoot: URL
+  private let saveToLibrary: ((String, URL) async throws -> Void)?
 
   var isPreviewingHistory: Bool { historyPreview != nil }
   var displayedJob: StudioJob? { historyPreview ?? job }
   var displayedImageData: Data? { isPreviewingHistory ? historyImageData : imageData }
   var displayedVideoURL: URL? { isPreviewingHistory ? historyVideoURL : videoURL }
 
-  init(api: CloudAPI?, request: LessonMediaRequest, storageRoot: URL? = nil) {
+  init(api: CloudAPI?, request: LessonMediaRequest, storageRoot: URL? = nil,
+    libraryDirectory: URL? = nil, saveToLibrary: ((String, URL) async throws -> Void)? = nil) {
+    self.saveToLibrary = saveToLibrary
     self.api = api
     context = request
     let files = FileManager.default
     receiptRoot = storageRoot?.appendingPathComponent("receipts", isDirectory: true)
       ?? files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("CloudPath/MediaReceipts", isDirectory: true)
-    cacheRoot = storageRoot?.appendingPathComponent("artifacts", isDirectory: true)
+    cacheRoot = libraryDirectory ?? storageRoot?.appendingPathComponent("artifacts", isDirectory: true)
       ?? files.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("CloudPath/MediaArtifacts", isDirectory: true)
   }
@@ -162,6 +165,7 @@ extension CloudAPI {
         if receipt?.state == "succeeded", let cacheURL,
           FileManager.default.fileExists(atPath: cacheURL.path) {
           let bytes = try Data(contentsOf: cacheURL, options: .mappedIfSafe)
+          if let id = receipt?.jobID { try await saveToLibrary?(id, cacheURL) }
           if kind == .image { imageData = bytes } else { videoURL = cacheURL }
         }
       }
@@ -463,6 +467,7 @@ extension CloudAPI {
     }
     guard generation == refreshID, job?.id == value.id else { return }
     try bytes.write(to: cacheURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    try await saveToLibrary?(value.id, cacheURL)
     if kind == .image { imageData = bytes } else { videoURL = cacheURL }
   }
 
@@ -471,5 +476,21 @@ extension CloudAPI {
     videoURL = nil
     historyImageData = nil
     historyVideoURL = nil
+  }
+}
+
+extension LocalBookCourseRepository {
+  func saveLessonMedia(_ url: URL, id: String, context: LessonMediaRequest, resourceID: String, scope: String) throws {
+    let key = AgentDigest.sha256(context.id + "|" + id)
+    guard url.deletingLastPathComponent().standardizedFileURL.path == directory.appendingPathComponent("lesson-media").standardizedFileURL.path,
+      FileManager.default.fileExists(atPath: url.path) else { throw ContentError.storage("生成素材尚未保存") }
+    let record: [String: JSONValue] = ["id": .string(key), "kind": .string(context.kind),
+      "course_id": .string(context.courseID), "course_resource_id": .string(resourceID), "book_id": .string(context.bookID),
+      "chapter_id": .string(context.chapterID), "lesson_id": .string(context.lessonID), "title": .string(context.title),
+      "file": .string(url.lastPathComponent), "excerpt": .string(context.excerpt), "pages": .array(context.pages.map { .number(Double($0)) })]
+    try db.put("lesson-media:" + scope, key, encoder.encode(record))
+  }
+  func localLessonMedia(scope: String) throws -> [[String: JSONValue]] {
+    try db.get("lesson-media:" + scope).map { try decoder.decode([String: JSONValue].self, from: $0) }
   }
 }

@@ -52,8 +52,10 @@ struct LearningFlashcardsView: View {
   @Environment(\.verticalSizeClass) private var verticalSizeClass
   @State private var index = 0
   @State private var reviewStarted = Date()
+  @State private var revealedCards: Set<String> = []
   @State private var revealed = false
   @State private var drag: CGFloat = 0
+  @State private var lastHorizontalDrag = Date.distantPast
   @State private var isTransitioning = false
   @State private var switchTask: Task<Void, Never>?
   @State private var flipAngle: Double = 0
@@ -80,20 +82,18 @@ struct LearningFlashcardsView: View {
         // Stop at the usual tab bar top without adding navigation to this detail page.
         let navigationSpace: CGFloat = store.isPad ? 0 : verticalSizeClass == .compact ? 32 : 49
         let bottom = viewport.frame(in: .global).maxY - viewport.safeAreaInsets.bottom - navigationSpace
-        let height = max(0, min(viewport.size.height, bottom - top) - 12)
+        let baseHeight = max(0, min(viewport.size.height, bottom - top) - 12)
+        let height = min(max(0, viewport.size.height - 12), baseHeight + 48)
         let compact = height < 360
         ZStack(alignment: .top) {
-          if index + 2 < cards.count {
-            RoundedRectangle(cornerRadius: 16).fill(DS.surface)
-              .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
-              .padding(.horizontal, 21).padding(.top, 26)
+          let neighbor = drag > 0 ? index - 1 : index + 1
+          if cards.indices.contains(neighbor) {
+            memoryCard(cards[neighbor], at: neighbor, compact: compact, preview: true)
+              .scaleEffect(0.97).offset(y: 10)
+              .allowsHitTesting(false).accessibilityHidden(true)
           }
-          if index + 1 < cards.count {
-            RoundedRectangle(cornerRadius: 16).fill(DS.surface)
-              .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
-              .padding(.horizontal, 12).padding(.top, 14)
-          }
-          memoryCard(current, compact: compact)
+          memoryCard(current, at: index, compact: compact)
+            .id(current.id)
             .offset(x: drag)
             .rotationEffect(.degrees(Double(drag) / 28))
             .opacity(isTransitioning ? 0 : 1)
@@ -103,14 +103,21 @@ struct LearningFlashcardsView: View {
                   guard !isTransitioning, !isFlipping,
                     abs(value.translation.width) > abs(value.translation.height) * 1.2
                   else { return }
+                  lastHorizontalDrag = .now
                   drag = min(160, max(-160, value.translation.width))
                 }
                 .onEnded { value in
                   guard !isFlipping, !isTransitioning else { return }
+                  if abs(value.translation.width) > 20 && abs(value.translation.width) > abs(value.translation.height) * 1.2 {
+                    lastHorizontalDrag = .now
+                  }
                   if value.translation.width < -65
                     && abs(value.translation.width) > abs(value.translation.height) * 1.2 && !last
                   {
                     advance()
+                  } else if value.translation.width > 65
+                    && abs(value.translation.width) > abs(value.translation.height) * 1.2 && index > 0 {
+                    move(to: index - 1)
                   } else {
                     withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8))
                     { drag = 0 }
@@ -153,7 +160,11 @@ struct LearningFlashcardsView: View {
     }
   }
 
-  private func memoryCard(_ card: Flashcard, compact: Bool) -> some View {
+  private func memoryCard(_ card: Flashcard, at cardIndex: Int, compact: Bool, preview: Bool = false) -> some View {
+    let theme = LearningCardTheme.all[cardIndex % LearningCardTheme.all.count]
+    let revealed = preview ? revealedCards.contains(card.id) : self.revealed
+    let angle = preview ? (revealed ? 180.0 : 0.0) : flipAngle
+    let last = cardIndex == cards.count - 1
     let layout = compact ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
     return layout {
       Button(action: flip) {
@@ -171,14 +182,14 @@ struct LearningFlashcardsView: View {
           }
           GeometryReader { geometry in
             ZStack {
-              cardFaceContent(card, answer: false)
+              cardFaceContent(card, answer: false, theme: theme)
                 .modifier(
                   LearningCardFaceRotation(
-                    angle: flipAngle, perspective: geometry.size.width / 1000))
-              cardFaceContent(card, answer: true)
+                    angle: angle, perspective: geometry.size.width / 1000))
+              cardFaceContent(card, answer: true, theme: theme)
                 .modifier(
                   LearningCardFaceRotation(
-                    angle: flipAngle - 180, perspective: geometry.size.width / 1000))
+                    angle: angle - 180, perspective: geometry.size.width / 1000))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
           }
@@ -193,56 +204,64 @@ struct LearningFlashcardsView: View {
       }.buttonStyle(.plain)
         .frame(maxHeight: .infinity)
         .disabled(isFlipping || isTransitioning)
-        .accessibilityIdentifier("flashcard-face")
+        .accessibilityIdentifier(preview ? "preview-flashcard-face-\(cardIndex)" : "flashcard-face")
         .accessibilityValue(store.isMastered(card.id) ? "mastered" : "unmastered")
         .accessibilityLabel("\(revealed ? "参考答案" : "问题")：\(revealed ? card.back : card.front)")
         .accessibilityHint(revealed ? "点按返回问题，向左轻扫下一张" : "点按查看答案，向左轻扫下一张")
         .accessibilityAction(named: "下一张") { if !last { advance() } }
       VStack(spacing: compact ? 6 : 10) {
-        if card.page_start > 0 && card.source_kind != "ai_supplement" {
-          HStack {
-            Text(learningPageLabel(
-                card.page_start, end: card.page_end, printed: card.printed_page_start,
-                printedEnd: card.printed_page_end))
+        if revealed {
+          if let source = sourceTarget(card) {
+            HStack(spacing: 8) {
+              Text("知识点来源 · " + learningPageLabel(source.page, end: source.pageEnd,
+                printed: source.printedPage, printedEnd: card.page_start > 0 ? card.printed_page_end : nil))
+                .font(DS.font(.supporting)).foregroundStyle(theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(preview ? "preview-flashcard-source-pages-\(cardIndex)" : "flashcard-source-pages")
+              Spacer(minLength: 0)
+              Button("查看原文") { openSource(card) }
+                .font(DS.font(.smallButton)).buttonFrame().foregroundStyle(theme.accent)
+                .buttonStyle(.plain).accessibilityIdentifier(preview ? "preview-flashcard-source-\(cardIndex)" : "flashcard-source")
+            }
+          } else if card.source_kind != "ai_supplement" {
+            Text("来源页码暂不可用")
               .font(DS.font(.supporting)).foregroundStyle(theme.muted)
-            Spacer()
-            Button("查看原文") { openSource(card) }.font(DS.font(.smallButton)).buttonFrame().foregroundStyle(
-              theme.accent
-            ).buttonStyle(.plain)
+              .accessibilityIdentifier(preview ? "preview-flashcard-source-unavailable-\(cardIndex)" : "flashcard-source-unavailable")
           }
         }
         VStack(spacing: 6) {
           HStack {
             Text("本轮进度").font(DS.font(.supporting, weight: .semibold))
             Spacer()
-            Text("\(index + 1) / \(cards.count)").font(DS.font(.supporting, weight: .semibold))
+            Text("\(cardIndex + 1) / \(cards.count)").font(DS.font(.supporting, weight: .semibold))
           }
           .font(DS.font(.supporting)).foregroundStyle(theme.muted)
           GeometryReader { geometry in
             ZStack(alignment: .leading) {
               Capsule().fill(theme.surface)
               Capsule().fill(theme.accent).frame(
-                width: geometry.size.width * Double(index + 1) / Double(max(1, cards.count)))
+                width: geometry.size.width * Double(cardIndex + 1) / Double(max(1, cards.count)))
             }
           }.frame(height: 4)
-        }.accessibilityElement(children: .combine).accessibilityIdentifier("flashcard-progress")
+        }.accessibilityElement(children: .combine).accessibilityIdentifier(preview ? "preview-flashcard-progress-\(cardIndex)" : "flashcard-progress")
         if last {
           BCButton("完成记忆", icon: "checkmark") {
+            guard Date().timeIntervalSince(lastHorizontalDrag) > 0.25 else { return }
             store.showToast("已完成本轮闪卡记忆", kind: .success)
             store.back()
           }
           .disabled(isFlipping || isTransitioning)
-          .accessibilityIdentifier("flashcard-finish")
+          .accessibilityIdentifier(preview ? "preview-flashcard-finish-\(cardIndex)" : "flashcard-finish")
         }
         if revealed {
           HStack(spacing: 12) {
-            ratingButton("还不熟", helper: "稍后再复习", icon: "arrow.counterclockwise", primary: false, compact: compact) {
+            ratingButton("还不熟", helper: "稍后再复习", icon: "arrow.counterclockwise", primary: false, compact: compact, theme: theme, preview: preview) {
               store.reviewFlashcard(
                 card, mastered: false, seconds: Date().timeIntervalSince(reviewStarted))
               store.showToast("已加入复习队列", kind: .success)
               if last { store.back() } else { advance() }
             }
-            ratingButton("记住了", helper: last ? "完成本轮" : "进入下一张", icon: "checkmark", primary: true, compact: compact) {
+            ratingButton("记住了", helper: last ? "完成本轮" : "进入下一张", icon: "checkmark", primary: true, compact: compact, theme: theme, preview: preview) {
               store.reviewFlashcard(
                 card, mastered: true, seconds: Date().timeIntervalSince(reviewStarted))
               store.showToast("已记录为掌握", kind: .success)
@@ -255,13 +274,13 @@ struct LearningFlashcardsView: View {
         .frame(width: compact ? 220 : nil).background(DS.surface)
     }
     .background(DS.surface)
-    .clipShape(RoundedRectangle(cornerRadius: 16))
-    .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
+    .clipShape(RoundedRectangle(cornerRadius: 24))
+    .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
   }
 
-  private func cardFaceContent(_ card: Flashcard, answer: Bool) -> some View {
+  private func cardFaceContent(_ card: Flashcard, answer: Bool, theme: LearningCardTheme) -> some View {
     ScrollView {
-      cardFace(card, answer: answer)
+      cardFace(card, answer: answer, theme: theme)
     }
     .defaultScrollAnchor(.center)
     .scrollBounceBehavior(.basedOnSize)
@@ -273,26 +292,30 @@ struct LearningFlashcardsView: View {
   }
 
   private func ratingButton(
-    _ title: String, helper: String, icon: String, primary: Bool, compact: Bool,
+    _ title: String, helper: String, icon: String, primary: Bool, compact: Bool, theme: LearningCardTheme, preview: Bool,
     action: @escaping () -> Void
   ) -> some View {
-    Button(action: action) {
+    Button {
+      guard Date().timeIntervalSince(lastHorizontalDrag) > 0.25 else { return }
+      action()
+    } label: {
       HStack(spacing: 9) {
         Image(systemName: icon).font(DS.font(.cardTitle))
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 1) {
           Text(title).font(DS.font(.supporting, weight: .semibold))
-          if !compact { Text(helper).font(DS.font(.supporting)).opacity(0.75) }
+          if !compact { Text(helper).font(DS.font(.caption)).opacity(0.75) }
         }
-      }.buttonFrame(fillsWidth: true)
-        .foregroundStyle(primary ? Color.white : DS.primary)
-        .background(primary ? DS.primary : DS.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-          RoundedRectangle(cornerRadius: 14).stroke(primary ? DS.primary : DS.border, lineWidth: 1))
-    }.buttonStyle(.plain).disabled(isTransitioning || isFlipping)
-      .accessibilityIdentifier(primary ? "flashcard-remember" : "flashcard-again")
+      }
+      .padding(.horizontal, 10).frame(maxWidth: .infinity).frame(height: 54)
+      .foregroundStyle(primary ? Color.white : theme.accent)
+    }
+    .buttonStyle(StudyToolEntryStyle(tint: primary ? theme.accent : nil, showsBorder: false))
+    .shadow(color: Color.black.opacity(0.12), radius: 5, x: 0, y: 3)
+    .disabled(isTransitioning || isFlipping)
+      .accessibilityIdentifier(preview ? "preview-flashcard-rating" : primary ? "flashcard-remember" : "flashcard-again")
   }
 
-  private func cardFace(_ card: Flashcard, answer: Bool) -> some View {
+  private func cardFace(_ card: Flashcard, answer: Bool, theme: LearningCardTheme) -> some View {
     VStack(alignment: .leading, spacing: 15) {
       Text(answer ? "参考答案" : "问题 · \(card.concept)")
         .font(DS.font(.cardTitle)).foregroundStyle(theme.accent)
@@ -309,8 +332,11 @@ struct LearningFlashcardsView: View {
   }
 
   private func flip() {
-    guard !isTransitioning, !isFlipping else { return }
+    guard !isTransitioning, !isFlipping, Date().timeIntervalSince(lastHorizontalDrag) > 0.25 else { return }
     flipTask?.cancel()
+    if let current {
+      if revealed { revealedCards.remove(current.id) } else { revealedCards.insert(current.id) }
+    }
     if reduceMotion {
       revealed.toggle()
       settleFlip()
@@ -340,18 +366,21 @@ struct LearningFlashcardsView: View {
     }
   }
 
-  private func advance() {
-    guard !last, !isTransitioning, !isFlipping else { return }
+  private func advance() { move(to: index + 1) }
+
+  private func move(to target: Int) {
+    guard cards.indices.contains(target), target != index, !isTransitioning, !isFlipping else { return }
+    let direction: CGFloat = target > index ? -1 : 1
     if reduceMotion {
-      index += 1
-      revealed = false
+      index = target
+      revealed = revealedCards.contains(cards[index].id)
       settleFlip()
       drag = 0
       return
     }
     withAnimation(.easeIn(duration: 0.14)) {
       isTransitioning = true
-      drag = -90
+      drag = direction * 90
     }
     let bookID = store.selectedBookID
     let chapterID = store.selectedChapterID
@@ -361,10 +390,11 @@ struct LearningFlashcardsView: View {
       guard !Task.isCancelled, store.selectedBookID == bookID, store.selectedChapterID == chapterID,
         !cards.isEmpty
       else { return }
-      index = min(index + 1, cards.count - 1)
-      revealed = false
+      guard cards.indices.contains(target) else { return }
+      index = target
+      revealed = revealedCards.contains(cards[index].id)
       settleFlip()
-      drag = 30
+      drag = -direction * 30
       withAnimation(.easeOut(duration: 0.22)) {
         drag = 0
         isTransitioning = false
@@ -386,18 +416,28 @@ struct LearningFlashcardsView: View {
     switchTask?.cancel()
     index = 0
     reviewStarted = .now
+    revealedCards = []
     revealed = false
     settleFlip()
     drag = 0
     isTransitioning = false
   }
 
+  private func sourceTarget(_ card: Flashcard) -> SourcePageTarget? {
+    guard card.source_kind != "ai_supplement" else { return nil }
+    if card.page_start > 0 {
+      return SourcePageTarget(bookID: card.book_id, title: card.concept, page: card.page_start,
+        pageEnd: max(card.page_start, card.page_end), printedPage: card.printed_page_start, from: .flashcards)
+    }
+    let chunks = store.currentSource?.chunks.filter { card.source_chunk_ids.contains($0.id) } ?? []
+    guard let first = chunks.min(by: { $0.page_start < $1.page_start }), first.page_start > 0 else { return nil }
+    return SourcePageTarget(bookID: card.book_id, title: card.concept, page: first.page_start,
+      pageEnd: chunks.map(\.page_end).max(), printedPage: first.printed_page_start, from: .flashcards)
+  }
+
   private func openSource(_ card: Flashcard) {
-    guard let id = store.selectedBookID else { return }
-    store.openSource(
-      SourcePageTarget(
-        bookID: id, title: card.concept, page: card.page_start, pageEnd: card.page_end,
-        printedPage: card.printed_page_start, from: .flashcards))
+    guard Date().timeIntervalSince(lastHorizontalDrag) > 0.25 else { return }
+    if let target = sourceTarget(card) { store.openSource(target) }
   }
 }
 

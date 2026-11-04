@@ -578,7 +578,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run MinerU and create auditable OCR artifacts")
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--backend", default="vlm-auto-engine")
+    parser.add_argument("--backend", default=os.getenv("OCR_BACKEND", "paddle-gpu"))
     parser.add_argument("--language", default="ch")
     parser.add_argument("--skip-run", action="store_true")
     return parser.parse_args()

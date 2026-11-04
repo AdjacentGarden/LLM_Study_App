@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import XCTest
 
@@ -86,14 +87,14 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   private let host: String
   private let session: URLSession
 
-  init(network: ProcessingNetworkKind) throws {
+  init(network: ProcessingNetworkKind, legacyQuery: Bool = false) throws {
     directory = FileManager.default.temporaryDirectory.appendingPathComponent("routing-" + UUID().uuidString)
     repository = try LocalBookCourseRepository(directory: directory)
     host = "routing-" + UUID().uuidString.lowercased() + ".example"
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [NetworkRoutingProtocol.self]
     session = URLSession(configuration: configuration)
-    api = CloudAPI(baseURL: URL(string: "https://" + host)!, session: session)
+    api = CloudAPI(baseURL: URL(string: "https://" + host)!, session: session, legacyPrivateSyncEnabled: legacyQuery)
     policy = ProcessingNetworkPolicy(monitoring: false, automaticallySchedules: false,
       now: { 0 }, wifiStability: 0, cellularDebounce: 0, unknownGrace: 0)
     policy.updatePath(ProcessingNetworkPath(kind: network))
@@ -271,7 +272,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertFalse(answer.citations.isEmpty)
     XCTAssertTrue(answer.citations.allSatisfy { $0.bookID == id && (1...2).contains($0.page) })
     XCTAssertTrue(fixture.probe.requests.isEmpty, "Local OCR/search must not upload, prepare, or query cloud QA.")
-    let cached = try await fixture.repository.loadCloudState("isolated-routing-owner")
+    let cached = try await fixture.repository.loadPersonalState(scope: "isolated-routing-owner")
     XCTAssertEqual(cached?.filePaths[id], fixture.store.filePaths[id])
     XCTAssertEqual(cached?.sources.first { $0.id == id }?.chunks.count, 2)
     XCTAssertEqual(try Data(contentsOf: original), bytes)
@@ -333,6 +334,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   func testStableWiFiRetainsExistingPDFUploadInsteadOfSilentlySwitchingToLocal() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
+    fixture.store.cloudState.localFirstChecked = true
     fixture.probe.respond { request in
       XCTAssertEqual(request.httpMethod, "POST")
       XCTAssertEqual(request.url?.path, "/api/native/uploads")
@@ -352,6 +354,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   func testRepeatedPDFImportReusesRunningPreparationAcrossCacheRestore() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
+    fixture.store.cloudState.localFirstChecked = true
     fixture.probe.respond { _ in
       (200, try JSONEncoder().encode(CloudUpload(book_id: "server-upload",
         filename: "text.pdf", status: "uploaded")))
@@ -373,13 +376,14 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(fixture.store.courseImport(for: courseID)?.books.count, 1)
     XCTAssertEqual(fixture.store.courseImport(for: courseID)?.books.first?.stage, "diagnostics")
 
-    let saved = try await fixture.repository.loadCloudState("isolated-routing-owner")
+    let saved = try await fixture.repository.loadPersonalState(scope: "isolated-routing-owner")
     let cached = try XCTUnwrap(saved)
     let restored = AppStore(repository: fixture.repository, cloud: fixture.api,
       processingPolicy: stableWiFiProcessingPolicyForTesting())
     restored.cloudState.authenticated = true
     restored.cloudState.cacheKey = "isolated-routing-owner"
-    restored.restoreCloudCache(cached)
+    restored.cloudState.privateLocalMode = true
+    restored.restorePrivateState(cached)
     let renamed = fixture.directory.appendingPathComponent("renamed.pdf")
     try Data(contentsOf: file).write(to: renamed)
     await restored.importFile(renamed)
@@ -394,6 +398,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   func testDifferentPDFContentsWithSameFilenameRemainSeparate() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
+    fixture.store.cloudState.localFirstChecked = true
     fixture.probe.respond { _ in
       (200, try JSONEncoder().encode(CloudUpload(book_id: UUID().uuidString,
         filename: "text.pdf", status: "uploaded")))
@@ -434,7 +439,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testStableWiFiUsesUnifiedAssistantAndMapsCrossBookEvidence() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let source = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: "server-book", filename: "text.pdf")
     fixture.store.sources = [source]
@@ -462,7 +467,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testPendingLocalImportSendsOnlyDeviceEvidenceNeverServerScope() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let localID = "book_local_pending_evidence"
     let serverID = "server-pending-scope"
@@ -531,7 +536,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testSelectionRemainsAHintAndOnlyDeviceCoursesAreClientMetadata() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let primary = "server-book", second = "server-second", local = "book_local_pending"
     let workspace = "workspace-qa"
@@ -573,7 +578,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testLongReaderHintsUseTheirOwnBoundedFieldsWithoutChangingTheQuestion() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let question = String(repeating: "问", count: 1999)
     let reading = CloudReadingContext(pdfPage: 3,
@@ -608,13 +613,14 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertTrue(context.discovery)
     XCTAssertTrue(context.bookID.isEmpty)
     fixture.probe.respond { request in
+      if request.url?.path.hasSuffix("/ack") == true { return (200, Data("{}".utf8)) }
       if request.url?.path == "/api/assistant/conversations" {
         return (200, Data("[]".utf8))
       }
       XCTAssertEqual(request.url?.path, "/api/assistant/turn")
       let body = try routingRequestBody(request)
       let object: [String: Any] = [
-        "contract_version": 2,
+        "contract_version": 3,
         "run_id": body["run_id"]?.stringValue ?? "",
         "step_id": body["step_id"]?.stringValue ?? "",
         "step_index": 0, "state": "completed", "attempt": 1,
@@ -655,7 +661,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testLongConversationBoundsOnlyTheRequestAndKeepsRecentMessages() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let conversation = (0..<100).map { index in
       ChatMessage(role: index.isMultiple(of: 2) ? "user" : "assistant",
@@ -684,7 +690,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testRepeatedQuestionDoesNotReuseAnOlderHistoryMessageID() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let oldQuestion = ChatMessage(role: "user", text: "再解释一下")
     let history = [oldQuestion, ChatMessage(role: "assistant", text: "之前的解释")]
@@ -712,7 +718,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testRetainedQueryTransportPersistsExactPayloadAndRetryReusesItAfterRelaunch() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let history = fixture.store.assistantHistory
     await history.load(scope: fixture.store.assistantHistoryScope)
@@ -789,5 +795,91 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     try await waitForHistory(history)
     XCTAssertEqual(history.current?.id, sessionID)
     XCTAssertEqual(history.current?.context.bookID, "second-book")
+  }
+}
+
+extension AppStoreNetworkRoutingTests {
+  func testJoinedBooksPersonalLessonAndVoiceNoteRemainSearchableAfterRestart() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let store = fixture.store
+    let base = "/api/public/library/course-groups/group_test"
+    var downloads: [String: Data] = [:]
+    let books = try ["book-a", "book-b"].map { id in
+      let chapter = CloudChapter(chapter_id: "ch", order: 1, title: "向量", start_page: 1, end_page: 1,
+        summary: "", knowledge_points: [], source_block_ids: [])
+      let files = try [("pdf", Data(contentsOf: pdf())), ("ocr_pages", Data("{\"page_number\":1,\"text\":\"向量有方向 \(id)\"}".utf8)),
+        ("diagnostics", Data("{\"items\":[]}".utf8)), ("grading", Data("{\"items\":[]}".utf8))].map { kind, data in
+          let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+          let path = base + "/assets/" + hash
+          downloads[path] = data
+          return PublicMaterialFile(asset_id: kind, kind: kind, sha256: hash, bytes: data.count,
+            media_type: kind == "pdf" ? "application/pdf" : "application/json", download_url: path)
+        }
+      return PublicMaterialBook(book_id: id, title: id, content_version: "v1", structure: CloudStructure(
+        title: id, summary: "", source_page_count: 1, chapters: [chapter]), files: files, figures: [])
+    }
+    downloads[base + "/manifest"] = try JSONEncoder().encode(PublicMaterialManifest(schema_version: 1, group_id: "group_test",
+      title: "数学", description: "", version: "v1", books: books))
+    downloads["/api/native/local-first/capabilities"] = Data(#"{"schema_version":1,"public_library":true,"private_forwarding":true,"private_export":true,"legacy_writes_active":true}"#.utf8)
+    fixture.probe.respond { request in
+      let path = try XCTUnwrap(request.url?.path)
+      if let bytes = downloads[path] { return (200, bytes) }
+      if path.hasSuffix("/ack") { return (200, Data("{}".utf8)) }
+      XCTAssertEqual(path, "/api/assistant/private-model")
+      let body = try routingRequestBody(request)
+      guard case .array(let messages) = body["messages"], case .object(let message) = messages.last else { throw URLError(.badServerResponse) }
+      let input = try JSONDecoder().decode([String: JSONValue].self,
+        from: Data(try XCTUnwrap(message["content"]?.stringValue).utf8))
+      let result: [String: Any]
+      if body["operation"] == .string("lecture") {
+        XCTAssertEqual(input["preferences"], .object(["goal": .array([.string("复习")])]))
+        let citation: [String: Any] = ["page_number": 1, "quote": "向量有方向"]
+        let section: [String: Any] = ["title": "定向练习", "content": "画一个向量", "purpose": "复习", "citations": [citation]]
+        let course: [String: Any] = ["course_id": try XCTUnwrap(input["publication_id"]?.stringValue), "version": 1,
+          "chapter_id": "ch", "chapter_title": "向量", "opening": "定向练习", "summary": "定向练习",
+          "original_reading": [section], "knowledge_points": [["point_id":"p","title":"方向","explanation":"定向练习","mastery":0,"citations":[citation]]],
+          "units": [["unit_id":"u","title":"定向练习","knowledge_point_ids":["p"],"sections":[section],"estimated_minutes":5]],
+          "flashcards": [], "worked_examples": [], "checkpoint_questions": [], "practice_items": [], "estimated_minutes": 5,
+          "created_at": "2026-11-04", "unresolved_source_warnings": []]
+        result = ["course": course, "practice_grading": []]
+      } else {
+        XCTAssertEqual(body["operation"], .string("plan"))
+        result = ["user_id":"owner","book_id":"book-a","days":1,"daily_minutes":5,
+          "tasks":[["task_id":"task","user_id":"owner","day":1,"title":"练习","task_type":"learn","minutes":5,
+            "chapter_id":"ch","lesson_id":try XCTUnwrap(input["lesson_id"]?.stringValue),"status":"pending","weak_points":[]]]]
+      }
+      let content = String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self)
+      return (200, try JSONEncoder().encode(PrivateModelStepResponseDTO(request_id: try XCTUnwrap(body["request_id"]?.stringValue),
+        state: "completed", content: content)))
+    }
+    try await store.verifyLocalFirstCapabilities()
+    let course = try await store.acquirePublicCourseGroup(catalogID: "group_test", name: "数学")
+    XCTAssertEqual(course.resourceIDs, ["book-a", "book-b"])
+    XCTAssertTrue(store.draft.diagnosis.isEmpty)
+    store.draft.diagnosis = ["goal": ["复习"]]
+    await store.confirmCloudChapters()
+    try await store.beginLocalDiagnosis(chapterID: "ch", preview: true)
+    try await store.saveNote(StudyNote(kind: .voice, title: "语音", anchor: NoteAnchor(courseID: course.id, bookID: "book-a", page: 1),
+      transcript: "录音里的向量例子"))
+    store.completeLesson()
+    try await store.persistPrivateState()
+    let requestsBeforeSearch = fixture.probe.requests.count
+    let reopened = AppStore(repository: try LocalBookCourseRepository(directory: fixture.directory), cloud: fixture.api)
+    reopened.cloudState.authenticated = true
+    reopened.cloudState.cacheKey = store.cloudState.cacheKey
+    reopened.cloudState.privateLocalMode = true
+    let state = try await reopened.repository.loadPersonalState(scope: try XCTUnwrap(store.noteScope))
+    reopened.restorePrivateState(try XCTUnwrap(state))
+    await reopened.reloadNotes(resumeAgent: false)
+    for (kind, keyword) in [("lessons","定向练习"), ("notes","录音里的向量例子"), ("plans","练习"), ("progress","ch")] {
+      let response = try await reopened.readLocalPersonalLearning(args: ["course_id": .string(course.id),
+        "kind": .string(kind), "keyword": .string(keyword)])
+      XCTAssertGreaterThan(response["total"]?.numberValue ?? 0, 0, kind)
+    }
+    let hits = try await AppleTextbookSearch(useSystemEmbeddings: false).search(query: "向量有方向", sources: reopened.sources,
+      bookIDs: Set(course.resourceIDs), limit: 8)
+    XCTAssertEqual(Set(hits.hits.filter(\.reliable).map(\.chunk.book_id)), Set(course.resourceIDs))
+    XCTAssertEqual(fixture.probe.requests.count, requestsBeforeSearch)
   }
 }

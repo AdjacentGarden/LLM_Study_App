@@ -10,8 +10,14 @@ struct LearningMediaSheet: View {
   @State private var model: CloudMediaModel
   @State private var actionTask: Task<Void, Never>?
 
-  init(request: LessonMediaRequest, api: CloudAPI?) {
-    _model = State(initialValue: CloudMediaModel(api: api, request: request))
+  init(request: LessonMediaRequest, store: AppStore) {
+    let scope = store.noteScope
+    _model = State(initialValue: CloudMediaModel(api: store.cloud ?? CloudAPI.configured(), request: request,
+      libraryDirectory: store.repository.directory.appendingPathComponent("lesson-media")) { id, url in
+      guard let scope, scope == store.noteScope,
+        let resourceID = store.courseResourceID(courseID: request.courseID, bookID: request.bookID) else { throw NoteStoreError.scopeMismatch }
+      try await store.repository.saveLessonMedia(url, id: id, context: request, resourceID: resourceID, scope: scope)
+    })
   }
 
   private var mediaName: String { model.kind == .image ? "辅助图" : "讲解视频" }
