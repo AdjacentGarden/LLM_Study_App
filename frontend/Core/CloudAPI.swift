@@ -410,11 +410,11 @@ actor CloudAPI {
     if !legacyPrivateSyncEnabled, Self.isLegacyPrivateMutation(path: path, method: method) {
       throw CloudError(status: 409, message: "此操作已迁至本机个人存储；请等待本机资料就绪后重试。")
     }
-    guard path.hasPrefix("/api/"), let url = URL(string: path, relativeTo: baseURL) else {
+    guard (path.hasPrefix("/api/") || (method == "GET" && path == "/openapi.json")), let url = URL(string: path, relativeTo: baseURL) else {
       throw CloudError(status: 0, message: "服务地址无效")
     }
     var request = URLRequest(url: url)
-    if privateAsset { request.cachePolicy = .reloadIgnoringLocalCacheData }
+    if privateAsset || url.path == "/api/native/local-first/capabilities" || url.path == "/openapi.json" { request.cachePolicy = .reloadIgnoringLocalCacheData }
     request.httpMethod = method
     if uploadFile != nil {
       request.timeoutInterval = backgroundUpload != nil && usesNativeBackgroundUploads ? 900 : 60
@@ -477,6 +477,11 @@ actor CloudAPI {
     guard let response = raw as? HTTPURLResponse else {
       throw CloudError(status: 0, message: "服务响应无效")
     }
+    #if DEBUG
+    if ProcessInfo.processInfo.arguments.contains("--trace-cloud-status") {
+      print("CloudPath HTTP", method, url.path, response.statusCode)
+    }
+    #endif
     let headers = response.allHeaderFields.reduce(into: [String: String]()) { result, pair in
       result[String(describing: pair.key)] = String(describing: pair.value)
     }

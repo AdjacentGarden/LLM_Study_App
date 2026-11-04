@@ -70,7 +70,23 @@ extension LocalBookCourseRepository {
     do {
       let value: LocalFirstCapabilities = try await cloud.request("/api/native/local-first/capabilities")
       guard epoch == cloudState.epoch else { throw CancellationError() }
-      guard value.schema_version == 1, value.public_library, value.private_forwarding, value.private_export else {
+      var supported = value.public_library && value.private_forwarding && value.private_export
+      if value.schema_version == 1, !value.public_library, !value.private_forwarding, !value.private_export {
+        // Release c242719 inspected only top-level routes. Confirm its included routers
+        // against the live contract without starting a generation or a migration.
+        struct Contract: Decodable { let paths: [String: [String: Operation]] }
+        struct Operation: Decodable {}
+        struct Health: Decodable { let release_commit: String? }
+        let health: Health = try await cloud.request("/api/health")
+        if health.release_commit == "c242719e77b9c89779f1332bd9a659ef6bd5c11e" {
+          let contract: Contract = try await cloud.request("/openapi.json")
+          supported = contract.paths["/api/public/library/course-groups"]?["get"] != nil
+            && contract.paths["/api/assistant/private-model"]?["post"] != nil
+            && contract.paths["/api/private/export"]?["get"] != nil
+        }
+      }
+      guard epoch == cloudState.epoch else { throw CancellationError() }
+      guard value.schema_version == 1, supported else {
         throw ContentError.invalid("学习服务尚不支持本机个人数据，请更新服务后重试")
       }
       cloudState.privateLocalMode = true

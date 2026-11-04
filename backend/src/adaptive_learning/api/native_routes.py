@@ -204,10 +204,10 @@ def native_router(services: Any) -> APIRouter:
     @router.get("/native/local-first/capabilities")
     def local_first_capabilities(request: Request, actor: str = Depends(owner)) -> dict[str, Any]:
         from ..ingestion.figure_layout import layout_capabilities
-        paths = {getattr(route, "path", "") for route in request.app.routes}
-        public = "/api/public/library/course-groups" in paths
-        forwarding = "/api/assistant/private-model" in paths
-        exporting = "/api/private/export" in paths
+        paths = request.app.openapi()["paths"]
+        public = "get" in paths.get("/api/public/library/course-groups", {})
+        forwarding = "post" in paths.get("/api/assistant/private-model", {})
+        exporting = "get" in paths.get("/api/private/export", {})
         return {"schema_version": 1, "local_first": public and forwarding and exporting,
                 "public_library": public, "public_course_groups": public,
                 "private_model": forwarding, "private_forwarding": forwarding,

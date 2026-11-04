@@ -119,7 +119,14 @@ extension AppStore {
     cloudState.error = nil
     cloudState.localLogin = cloud.prefersLocalLogin
     bootError = nil
-    defer { isLoading = false }
+    defer {
+      isLoading = false
+      #if DEBUG
+      if ProcessInfo.processInfo.arguments.contains("--trace-cloud-status") {
+        print("CloudPath startup", bootError == nil ? "ready" : "failed", route.rawValue, cloudState.localFirstChecked, cloudState.isHydrating)
+      }
+      #endif
+    }
     do {
       community = []
       // Present only the last verified identity for this normalized service origin.
