@@ -62,6 +62,7 @@ struct AssistantHistoryAnswer: Sendable {
   var courseIDs: [String] = []
   var contextTokens: Int? = nil
   var capacityState: String? = nil
+  var sourceLabel: String? = nil
 }
 
 enum AssistantSessionTitle {
@@ -140,7 +141,10 @@ enum AssistantSessionTitle {
       for index in archive.sessions.indices {
         if archive.sessions[index].pendingQuestion != nil,
           let run = archive.sessions[index].runs?.last, run.status == .completed, let finalText = run.finalText {
-          archive.sessions[index].messages.append(ChatMessage(id: run.id + ".answer", role: "assistant", text: finalText))
+          let message = ChatMessage(id: run.id + ".answer", role: "assistant", text: finalText,
+            citations: run.finalCitations ?? [], sourceLabel: run.finalSourceLabel)
+          archive.sessions[index].messages.append(message)
+          if let ids = run.finalCourseIDs, !ids.isEmpty { archive.sessions[index].courseLinks[message.id] = ids }
           archive.sessions[index].pendingQuestion = nil
         }
         if archive.sessions[index].capacityState == "finishing", archive.sessions[index].runs?.last?.status.isTerminal == true {
@@ -258,6 +262,24 @@ enum AssistantSessionTitle {
     run(id: session.id, answer: answer)
   }
 
+  func freezeQueryPayload(_ proposed: [String: JSONValue], messageID: String) async throws -> [String: JSONValue] {
+    guard let position = archive.sessions.firstIndex(where: { session in
+      session.messages.contains { $0.id == messageID && $0.role == "user" }
+    }), let message = archive.sessions[position].messages.firstIndex(where: { $0.id == messageID }) else {
+      // Reader questions can use the same transport without belonging to the
+      // global history archive. Their caller owns the request lifetime.
+      return proposed
+    }
+    let token = generation
+    let frozen = archive.sessions[position].messages[message].unifiedQueryPayload ?? proposed
+    archive.sessions[position].messages[message].unifiedQueryPayload = frozen
+    await flush()
+    try Task.checkCancellation()
+    guard token == generation else { throw CancellationError() }
+    if let storageError { throw ContentError.storage(storageError) }
+    return frozen
+  }
+
   private func run(id: String,
     answer: @escaping @MainActor (AssistantSessionContext, [ChatMessage], String) async throws -> AssistantHistoryAnswer) {
     guard let index = archive.sessions.firstIndex(where: { $0.id == id }),
@@ -281,8 +303,12 @@ enum AssistantSessionTitle {
         try Task.checkCancellation()
         guard token == generation,
           let position = archive.sessions.firstIndex(where: { $0.id == id }) else { return }
-        let message = ChatMessage(role: "assistant", text: response.text, citations: response.citations)
+        let message = ChatMessage(role: "assistant", text: response.text, citations: response.citations,
+          sourceLabel: response.sourceLabel)
         archive.sessions[position].messages.append(message)
+        if let user = archive.sessions[position].messages.lastIndex(where: { $0.role == "user" }) {
+          archive.sessions[position].messages[user].unifiedQueryPayload = nil
+        }
         if !response.courseIDs.isEmpty { archive.sessions[position].courseLinks[message.id] = response.courseIDs }
         archive.sessions[position].pendingQuestion = nil
         archive.sessions[position].error = nil
@@ -374,7 +400,9 @@ enum AssistantSessionTitle {
         if run.status == .completed, let finalText = run.finalText {
           let messageID = run.id + ".answer"
           if !archive.sessions[index].messages.contains(where: { $0.id == messageID }) {
-            archive.sessions[index].messages.append(ChatMessage(id: messageID, role: "assistant", text: finalText))
+            archive.sessions[index].messages.append(ChatMessage(id: messageID, role: "assistant", text: finalText,
+              citations: run.finalCitations ?? [], sourceLabel: run.finalSourceLabel))
+            if let ids = run.finalCourseIDs, !ids.isEmpty { archive.sessions[index].courseLinks[messageID] = ids }
           }
           archive.sessions[index].pendingQuestion = nil
           archive.sessions[index].error = nil

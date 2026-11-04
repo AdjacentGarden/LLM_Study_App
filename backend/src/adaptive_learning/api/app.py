@@ -113,6 +113,7 @@ from ..rag.textbook_context import textbook_context
 from ..worker_presence import WorkerPresence, readiness
 from .account_guard import learning_guard
 from .assistant_routes import assistant_router
+from .assistant_query_routes import assistant_query_router
 from .chapter_dependency import require_chapter_reconstructor
 from .community_routes import community_router
 from .course_jobs import (
@@ -1770,3 +1771,4 @@ app.include_router(
 )
 app.include_router(native_router(sys.modules[__name__]))
 app.include_router(assistant_router(sys.modules[__name__]))
+app.include_router(assistant_query_router(sys.modules[__name__]))

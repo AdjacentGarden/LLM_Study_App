@@ -150,6 +150,9 @@ struct AgentRunRecord: Codable, Hashable, Identifiable, Sendable {
   var cancelRequested = false
   var cancellationReconciled: Bool? = nil
   var finalText: String?
+  var finalCitations: [Citation]? = nil
+  var finalSourceLabel: String? = nil
+  var finalCourseIDs: [String]? = nil
   var failure: String?
   var committedNoteIDs: [String] = []
   var createdAt: Date

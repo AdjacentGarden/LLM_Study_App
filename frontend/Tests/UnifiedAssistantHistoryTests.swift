@@ -129,11 +129,18 @@ import XCTest
       context: frozen, evidence: [], steps: [], finalText: "任务已完成", createdAt: .now, updatedAt: .now)
     run.contextTokens = 100
     run.capacityState = "archived"
+    run.finalCitations = [Citation(bookID: "book", chapterID: "chapter", chapterTitle: "教材原文",
+      page: 4, chunkID: "evidence", quote: "可核验原文", score: 1)]
+    run.finalSourceLabel = "textbook"
+    run.finalCourseIDs = ["community-course"]
     session.runs = [run]
     try await repository.saveAssistantHistory(AssistantHistoryArchive(sessions: [session], selectedID: session.id), scope: "owner")
     let history = AssistantHistoryStore(repository: repository)
     await history.load(scope: "owner")
     XCTAssertEqual(history.current?.messages.last?.text, "任务已完成")
+    XCTAssertEqual(history.current?.messages.last?.sourceLabel, "textbook")
+    XCTAssertEqual(history.current?.messages.last?.citations.first?.quote, "可核验原文")
+    XCTAssertEqual(history.current?.courseLinks[run.id + ".answer"], ["community-course"])
     XCTAssertNil(history.current?.pendingQuestion)
     XCTAssertTrue(history.current?.isReadOnly == true)
     history.recordRun(run)

@@ -20,6 +20,9 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from .assistant_query_tools import TOOL_SCHEMAS as QUERY_TOOL_SCHEMAS
+from .assistant_query_tools import TOOL_DESCRIPTIONS as QUERY_TOOL_DESCRIPTIONS
+
 from ..accounts import COOKIE
 from ..assistant_ledger import (
     AssistantLedger,
@@ -220,6 +223,8 @@ UNIFIED_SYSTEM_PROMPT = (
     "最终回复写给学习者，第一句直接回答问题。用课程名、章节标题、笔记名指代对象。"
     "默认不输出内部编号、工具名、版本号、原始状态码、JSON、分页参数或执行流水；"
     "用户明确要求技术信息时可提供相关字段。保留教材本身的章节号、必要的引用页码、失败原因及删除影响。"
+    "跨教材找知识点可直接用 search_learning_materials，不要求先列课程；要比较指定课程时分别限定范围取得双方证据。"
+    "当前页面只是指代线索，不限制其他课程查询。图像描述未读取前不能声称看过图片。"
     "问有哪些课程就列课程名；问有哪些章节时用 read_course_catalog(kind=outline)，默认只列主要章名；"
     "点名某章或明确要求完整目录才展开小节。目录来源的不确定性集中说明一次。"
     "问解析、生成诊断题或教材准备进度时用 read_learning_data(kind=preparation,course_id=...)。"
@@ -362,6 +367,11 @@ for _schema in TOOL_SCHEMAS.values():
                 "additionalProperties": False,
             }
             _schema["properties"][_field]["items"]["properties"]["minutes"] = {"type": "integer"}
+
+
+# Reuse the strict read-only search contract; execution remains an Agent tool.
+TOOL_SCHEMAS["search_learning_materials"] = QUERY_TOOL_SCHEMAS["search_learning_materials"]
+TOOL_DESCRIPTIONS["search_learning_materials"] = QUERY_TOOL_DESCRIPTIONS["search_learning_materials"]
 
 
 def _multimodal_message(body: TurnRequest) -> str | list[dict[str, Any]]:
@@ -726,6 +736,9 @@ def assistant_router(services: Any) -> APIRouter:
 
     @router.post("/turn")
     def turn(body: TurnRequest, actor: str = Depends(owner)) -> dict[str, Any]:
+        # Query runs have a separate ACL-aware replay contract.
+        if body.run_id.startswith("query:"):
+            raise HTTPException(409, "此助手查询请通过普通对话继续")
         repository = sessions()
         ephemeral = body.contract_version == 2 and body.ephemeral
         session = body.session_id or body.run_id
@@ -989,6 +1002,8 @@ def assistant_router(services: Any) -> APIRouter:
 
     @router.get("/runs/{run_id}/steps/{step_id}")
     def step_status(run_id: str, step_id: str, actor: str = Depends(owner)) -> dict[str, Any]:
+        if run_id.startswith("query:"):
+            raise HTTPException(404, "助手步骤不存在")
         sessions()
         found = services.assistant_ledger.step(actor, run_id, step_id)
         if found is None:

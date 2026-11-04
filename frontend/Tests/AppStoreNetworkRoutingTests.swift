@@ -433,29 +433,104 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     await fixture.store.flush()
   }
 
-  func testStableWiFiRetainsExistingServerQA() async throws {
+  func testStableWiFiUsesUnifiedAssistantAndMapsCrossBookEvidence() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
     let source = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: "server-book", filename: "text.pdf")
     fixture.store.sources = [source]
     fixture.probe.respond { request in
       XCTAssertEqual(request.httpMethod, "POST")
-      XCTAssertEqual(request.url?.path, "/api/books/server-book/qa")
-      let answer = CloudQA(book_id: "server-book", status: "answered", answer: "Existing server answer",
-        claims: [.init(text: "Original evidence", citations: [.init(page_number: 1, block_id: nil,
-          quote: "Native learning page one")])], confidence: 0.9)
+      XCTAssertEqual(request.url?.path, "/api/assistant/query")
+      XCTAssertEqual(request.timeoutInterval, 290)
+      let answer = CloudAssistantQuery(answer: "Unified answer", citations: [
+        .init(book_id: source.id, page_number: 1, block_id: nil,
+          quote: "Native learning page one", evidence_id: "evidence-1"),
+        .init(book_id: "another-book", page_number: 2, block_id: "block-2",
+          quote: "Cross-book evidence", evidence_id: "evidence-2"),
+      ], source_label: "textbook")
       return (200, try JSONEncoder().encode(answer))
     }
     let answer = try await fixture.store.answerAssistant(question: "Native learning page one",
       bookID: source.id, bookIDs: [source.id], chapterID: nil, sources: [source], history: [])
-    XCTAssertEqual(answer.answer, "Existing server answer")
+    XCTAssertEqual(answer.answer, "Unified answer")
+    XCTAssertEqual(answer.sourceLabel, "textbook")
     XCTAssertEqual(answer.citations.first?.bookID, source.id)
+    XCTAssertEqual(answer.citations.last?.bookID, "another-book")
     XCTAssertEqual(fixture.probe.requests.count, 1)
     XCTAssertNil(fixture.policy.prompt)
     await fixture.api.clearCredentials()
   }
 
-  func testPendingLocalImportCannotContaminateAnOnlineCourseQAScope() async throws {
+  func testPendingLocalImportSendsOnlyDeviceEvidenceNeverServerScope() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let localID = "book_local_pending_evidence"
+    let serverID = "server-pending-scope"
+    let local = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: localID, filename: "local.pdf")
+    let server = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: serverID, filename: "server.pdf")
+    fixture.store.sources = [local, server]
+    fixture.probe.respond { _ in
+      (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "已收到本机证据", citations: [])))
+    }
+    let question = "Native learning page one"
+    _ = try await fixture.store.answerAssistant(question: question, bookID: serverID,
+      bookIDs: [serverID, localID], chapterID: nil, sources: [local, server], history: [])
+    let withLocal = try routingRequestBody(XCTUnwrap(fixture.probe.requests.last))
+    guard case .array(let evidence)? = withLocal["device_evidence"] else {
+      XCTFail("Pending local books must send a device_evidence array"); throw URLError(.badServerResponse)
+    }
+    XCTAssertFalse(evidence.isEmpty)
+    for item in evidence {
+      guard case .object(let entry) = item else { throw URLError(.badServerResponse) }
+      XCTAssertEqual(entry["book_id"], .string(localID))
+      XCTAssertGreaterThanOrEqual(entry["page_number"]?.numberValue ?? 0, 1)
+      XCTAssertFalse(entry["quote"]?.stringValue?.isEmpty ?? true)
+    }
+    XCTAssertFalse(evidence.contains { item in
+      guard case .object(let entry) = item else { return false }
+      return entry["book_id"] == .string(serverID)
+    })
+
+    _ = try await fixture.store.answerAssistant(question: question, bookID: serverID,
+      bookIDs: [serverID], chapterID: nil, sources: [local, server], history: [])
+    let withoutLocal = try routingRequestBody(XCTUnwrap(fixture.probe.requests.last))
+    XCTAssertNil(withoutLocal["device_evidence"],
+      "Server-scoped books must never be described as device evidence")
+    await fixture.api.clearCredentials()
+  }
+
+  func testHistoryStorePersistsExecutorSourceLabelAndCourseLinks() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let known = "community_functions"
+    let history = fixture.store.assistantHistory
+    await history.load(scope: fixture.store.assistantHistoryScope)
+    history.submit("我之前学到哪里了？", context: fixture.store.assistantSessionContext) { _, _, _ in
+      AssistantHistoryAnswer(text: "已根据学习记录回答", courseIDs: [known], sourceLabel: "learning_records")
+    }
+    try await waitForHistory(history)
+    let message = try XCTUnwrap(history.current?.messages.last)
+    XCTAssertEqual(message.role, "assistant")
+    XCTAssertEqual(message.sourceLabel, "learning_records")
+    XCTAssertEqual(history.current?.courseLinks[message.id], [known])
+    await history.flush()
+    let reopened = AssistantHistoryStore(repository: fixture.repository)
+    await reopened.load(scope: fixture.store.assistantHistoryScope)
+    XCTAssertEqual(reopened.current?.messages.last?.sourceLabel, "learning_records")
+    XCTAssertEqual(reopened.current?.courseLinks[message.id], [known])
+    XCTAssertTrue(fixture.probe.requests.isEmpty)
+  }
+
+  func testLegacyChatMessageWithoutSourceLabelDecodesAsNil() throws {
+    let data = Data(#"{"id":"legacy-message","role":"assistant","text":"旧回答","citations":[]}"#.utf8)
+    let message = try JSONDecoder().decode(ChatMessage.self, from: data)
+    XCTAssertEqual(message.id, "legacy-message")
+    XCTAssertEqual(message.text, "旧回答")
+    XCTAssertNil(message.sourceLabel)
+    XCTAssertNil(message.sourceLabelText)
+  }
+
+  func testSelectionRemainsAHintAndOnlyDeviceCoursesAreClientMetadata() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
     let primary = "server-book", second = "server-second", local = "book_local_pending"
@@ -466,7 +541,8 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     fixture.store.selectedCourseID = workspace
     fixture.store.selectedBookID = primary
     fixture.store.courses = [Course(id: workspace, name: "在线课程",
-      resourceIDs: [primary, local, second], activeResourceID: primary)]
+      resourceIDs: [primary, local, second], activeResourceID: primary),
+      Course(id: "local-course:pending", name: "本机待处理课程", resourceIDs: [local])]
     fixture.store.cloudState.workspaces = [CloudWorkspace(id: workspace, name: "在线课程",
       preferences: [:], created: 0, updated: 0, resources: [primary, second].map {
         CloudResource(id: "resource-" + $0, book_id: $0, workspace_id: workspace,
@@ -474,11 +550,16 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
           courses: [], progress: CloudProgress())
       })]
     fixture.probe.respond { request in
-      XCTAssertEqual(request.url?.path, "/api/workspaces/\(workspace)/resources/resource-\(primary)/qa")
+      XCTAssertEqual(request.url?.path, "/api/assistant/query")
       let body = try routingRequestBody(request)
-      XCTAssertEqual(body["book_ids"], .array([.string(primary), .string(second)]))
-      return (200, try JSONEncoder().encode(CloudQA(book_id: primary, status: "general",
-        answer: "回答可用", claims: [], confidence: 0)))
+      guard case .object(let context)? = body["context"], case .array(let locals)? = body["local_courses"] else {
+        XCTFail("Expected separate page hint and local metadata"); throw URLError(.badServerResponse)
+      }
+      XCTAssertEqual(context["book_ids"], .array([primary, local, "foreign-book", second].map(JSONValue.string)))
+      XCTAssertEqual(locals.count, 1, "Server courses are loaded from authenticated tools, never client facts")
+      guard case .object(let pending) = locals[0] else { throw URLError(.badServerResponse) }
+      XCTAssertEqual(pending["id"], .string("local-course:pending"))
+      return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "回答可用", citations: [])))
     }
     let answer = try await fixture.store.answerAssistant(question: "请解释", bookID: primary,
       bookIDs: [primary, local, "foreign-book", second, second], chapterID: nil,
@@ -500,15 +581,16 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     fixture.probe.respond { request in
       let body = try routingRequestBody(request)
       XCTAssertEqual(body["question"], .string(question))
-      guard case .object(let context)? = body["reading_context"] else {
+      guard case .object(let pageContext)? = body["context"],
+        case .object(let context)? = pageContext["reading_context"] else {
         XCTFail("Reading hints must not be concatenated into question"); throw URLError(.badServerResponse)
       }
       XCTAssertEqual(context["pdf_page"], .number(3))
       XCTAssertEqual(context["note_text"]?.stringValue?.unicodeScalars.count, 4000)
       XCTAssertEqual(context["page_text"]?.stringValue?.unicodeScalars.count, 1200)
       XCTAssertEqual(context["note_truncated"], .bool(true))
-      return (200, try JSONEncoder().encode(CloudQA(book_id: "library-book", status: "general",
-        answer: "独立上下文已收到", claims: [], confidence: 0)))
+      XCTAssertEqual(request.url?.path, "/api/assistant/query")
+      return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "独立上下文已收到", citations: [])))
     }
     let result = try await fixture.store.answerAssistant(question: question,
       bookID: "library-book", bookIDs: ["library-book"], chapterID: nil,
@@ -516,5 +598,186 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(result.answer, "独立上下文已收到")
     XCTAssertEqual(fixture.probe.requests.count, 1)
     await fixture.api.clearCredentials()
+  }
+
+  func testDiscoveryAndNoSelectedBookUseUnifiedAgentTurnWithoutQuery() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    fixture.store.route = .community
+    let context = fixture.store.assistantSessionContext
+    XCTAssertTrue(context.discovery)
+    XCTAssertTrue(context.bookID.isEmpty)
+    fixture.probe.respond { request in
+      if request.url?.path == "/api/assistant/conversations" {
+        return (200, Data("[]".utf8))
+      }
+      XCTAssertEqual(request.url?.path, "/api/assistant/turn")
+      let body = try routingRequestBody(request)
+      let object: [String: Any] = [
+        "contract_version": 2,
+        "run_id": body["run_id"]?.stringValue ?? "",
+        "step_id": body["step_id"]?.stringValue ?? "",
+        "step_index": 0, "state": "completed", "attempt": 1,
+        "message": ["content": "你有两门课程。", "tool_calls": []] as [String: Any],
+        "budget": ["steps": 1, "steps_max": 8, "posts": 1, "posts_max": 24,
+          "input_tokens": 0, "input_tokens_max": 100000, "output_tokens": 0,
+          "output_tokens_max": 10000, "model_seconds": 0, "model_seconds_max": 120,
+          "cached_input_tokens": 0],
+      ]
+      return (200, try JSONSerialization.data(withJSONObject: object))
+    }
+    let response = try await fixture.store.answerHistorySession(context: context,
+      history: [ChatMessage(role: "user", text: "当前有哪些课程？")], question: "当前有哪些课程？")
+    XCTAssertEqual(response.text, "你有两门课程。")
+    XCTAssertFalse(fixture.probe.requests.contains { $0.url?.path == "/api/assistant/query" })
+    XCTAssertEqual(fixture.probe.requests.filter { $0.url?.path == "/api/assistant/turn" }.count, 1)
+    await fixture.api.clearCredentials()
+  }
+
+  func testRetainedQueryTransportOnDeviceChoiceNeverPostsConversationOrCourseMetadata() async throws {
+    let fixture = try NetworkRoutingFixture(network: .cellular)
+    defer { fixture.close() }
+    let source = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: "cached-book", filename: "text.pdf")
+    fixture.store.sources = [source]
+    fixture.store.selectedBookID = source.id
+    let question = "Native learning page one"
+    let task = Task {
+      try await fixture.store.answerAssistant(question: question, bookID: source.id,
+        bookIDs: [source.id], chapterID: nil, sources: [source], history: [])
+    }
+    let choice = try await prompt(fixture.policy)
+    XCTAssertTrue(fixture.probe.requests.isEmpty)
+    fixture.policy.resolvePrompt(.onDevice, promptID: choice.id)
+    let response = try await task.value
+    XCTAssertTrue(response.answer.contains("本机教材检索"))
+    XCTAssertFalse(response.citations.isEmpty)
+    XCTAssertTrue(fixture.probe.requests.isEmpty)
+  }
+
+  func testLongConversationBoundsOnlyTheRequestAndKeepsRecentMessages() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let conversation = (0..<100).map { index in
+      ChatMessage(role: index.isMultiple(of: 2) ? "user" : "assistant",
+        text: "message-\(index):" + String(repeating: "字", count: 4500))
+    }
+    fixture.probe.respond { request in
+      let body = try routingRequestBody(request)
+      guard case .array(let turns)? = body["history"] else { throw URLError(.badServerResponse) }
+      XCTAssertLessThanOrEqual(turns.count, 40)
+      let contents = turns.compactMap { value -> String? in
+        guard case .object(let item) = value else { return nil }
+        return item["content"]?.stringValue
+      }
+      XCTAssertLessThanOrEqual(contents.reduce(0) { $0 + $1.unicodeScalars.count }, 50_000)
+      XCTAssertTrue(contents.last?.hasPrefix("message-99:") == true)
+      XCTAssertTrue(contents.allSatisfy { $0.unicodeScalars.count <= 4000 })
+      return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "继续回答", citations: [])))
+    }
+    let answer = try await fixture.store.answerAssistant(question: "继续", bookID: "", bookIDs: [],
+      chapterID: nil, sources: [], history: conversation)
+    XCTAssertEqual(answer.answer, "继续回答")
+    XCTAssertEqual(conversation.count, 100)
+    XCTAssertTrue(conversation[0].text.hasPrefix("message-0:"))
+    XCTAssertGreaterThan(conversation[0].text.count, 4000)
+    await fixture.api.clearCredentials()
+  }
+
+  func testRepeatedQuestionDoesNotReuseAnOlderHistoryMessageID() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let oldQuestion = ChatMessage(role: "user", text: "再解释一下")
+    let history = [oldQuestion, ChatMessage(role: "assistant", text: "之前的解释")]
+    fixture.probe.respond { _ in
+      (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "新的解释", citations: [])))
+    }
+    for _ in 0..<2 {
+      _ = try await fixture.store.answerAssistant(question: oldQuestion.text, bookID: "", bookIDs: [],
+        chapterID: nil, sources: [], history: history)
+    }
+    let ids = try fixture.probe.requests.map { try routingRequestBody($0)["request_id"]?.stringValue }
+    XCTAssertEqual(ids.count, 2)
+    XCTAssertNotEqual(ids[0], oldQuestion.id)
+    XCTAssertNotEqual(ids[0], ids[1])
+    await fixture.api.clearCredentials()
+  }
+
+  private func waitForHistory(_ history: AssistantHistoryStore) async throws {
+    let deadline = ContinuousClock.now + .seconds(5)
+    while !history.runningIDs.isEmpty, ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    XCTAssertTrue(history.runningIDs.isEmpty)
+    await history.flush()
+  }
+
+  func testRetainedQueryTransportPersistsExactPayloadAndRetryReusesItAfterRelaunch() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let history = fixture.store.assistantHistory
+    await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.selectedBookID = "first-book"
+    fixture.store.courses = [Course(id: "local-course:first", name: "第一门待处理课", resourceIDs: ["book_local_first"])]
+    let context = fixture.store.assistantSessionContext
+    let question = "当前有哪些课程？"
+    fixture.probe.respond { _ in (503, Data("{\"detail\":\"稍后重试\"}".utf8)) }
+    history.submit(question, context: context) { context, messages, question in
+      let result = try await fixture.store.answerAssistant(question: question, bookID: context.bookID,
+        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: [], history: messages,
+        bindToCurrentSelection: false, requestID: context.messageID, requestContext: context)
+      return AssistantHistoryAnswer(text: result.answer, citations: result.citations, sourceLabel: result.sourceLabel)
+    }
+    try await waitForHistory(history)
+    XCTAssertNotNil(history.current?.error)
+    let initial = try routingRequestBody(XCTUnwrap(fixture.probe.requests.first))
+    let saved = try await fixture.repository.loadAssistantHistory(scope: "isolated-routing-owner")
+    XCTAssertEqual(saved?.sessions.first?.messages.first?.unifiedQueryPayload, initial)
+
+    history.reset()
+    await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.selectedBookID = "second-book"
+    fixture.store.courses = [Course(id: "local-course:second", name: "第二门待处理课", resourceIDs: ["book_local_second"])]
+    fixture.probe.respond { request in
+      XCTAssertEqual(try routingRequestBody(request), initial, "Retry must not bill a changed request with the old ID")
+      return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "已恢复回答", citations: [])))
+    }
+    history.retry { context, messages, question in
+      XCTAssertEqual(context.bookID, "first-book")
+      let result = try await fixture.store.answerAssistant(question: question, bookID: context.bookID,
+        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: [], history: messages,
+        bindToCurrentSelection: false, requestID: context.messageID, requestContext: context)
+      return AssistantHistoryAnswer(text: result.answer, citations: result.citations, sourceLabel: result.sourceLabel)
+    }
+    try await waitForHistory(history)
+    XCTAssertEqual(fixture.probe.requests.count, 2)
+    XCTAssertEqual(history.current?.messages.last?.text, "已恢复回答")
+    XCTAssertNil(history.current?.pendingQuestion)
+    XCTAssertNil(history.current?.messages.first?.unifiedQueryPayload)
+    await fixture.api.clearCredentials()
+  }
+
+  func testNewTurnCapturesCurrentPageInsteadOfTheOriginalSessionScope() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let history = fixture.store.assistantHistory
+    await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.selectedBookID = "first-book"
+    let first = fixture.store.assistantSessionContext
+    history.submit("先看第一本", context: first) { context, _, _ in
+      XCTAssertEqual(context.bookID, "first-book")
+      return AssistantHistoryAnswer(text: "第一本")
+    }
+    try await waitForHistory(history)
+    let sessionID = history.current?.id
+    fixture.store.selectedBookID = "second-book"
+    let second = fixture.store.assistantSessionContext
+    history.submit("这本书呢？", context: second) { context, messages, _ in
+      XCTAssertEqual(context.bookID, "second-book")
+      XCTAssertEqual(messages.map(\.text), ["先看第一本", "第一本", "这本书呢？"])
+      return AssistantHistoryAnswer(text: "第二本")
+    }
+    try await waitForHistory(history)
+    XCTAssertEqual(history.current?.id, sessionID)
+    XCTAssertEqual(history.current?.context.bookID, "second-book")
   }
 }

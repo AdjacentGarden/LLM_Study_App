@@ -93,8 +93,9 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       try Task.checkCancellation()
       if current.status.isTerminal {
         if current.status == .completed {
-          return AssistantHistoryAnswer(text: current.finalText ?? "", contextTokens: current.contextTokens,
-            capacityState: current.capacityState)
+          return AssistantHistoryAnswer(text: current.finalText ?? "", citations: current.finalCitations ?? [],
+            courseIDs: current.finalCourseIDs ?? [], contextTokens: current.contextTokens,
+            capacityState: current.capacityState, sourceLabel: current.finalSourceLabel)
         }
         throw AgentValidationError(message: current.failure ?? notice ?? "任务已取消")
       }
@@ -104,6 +105,53 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       try await Task.sleep(for: .milliseconds(100))
     }
     throw CancellationError()
+  }
+
+  /// Build reply metadata from executor receipts and registered evidence, including recovered runs.
+  nonisolated static func completeAnswer(_ text: String, run: inout AgentRunRecord) {
+    var answer = text
+    let cited = run.evidence.filter { text.contains("[" + $0.id + "]") }
+      .sorted { (text.range(of: "[" + $0.id + "]")?.lowerBound ?? text.endIndex)
+        < (text.range(of: "[" + $1.id + "]")?.lowerBound ?? text.endIndex) }
+    let textbook = cited.filter { ($0.sourceType == "textbook" || $0.sourceType == nil) && !$0.bookID.isEmpty && !$0.quote.isEmpty }
+    run.finalCitations = textbook.enumerated().map { index, evidence in
+      answer = answer.replacingOccurrences(of: "[" + evidence.id + "]", with: "[\(index + 1)]")
+      return Citation(bookID: evidence.bookID, chapterID: evidence.chapterID ?? "", chapterTitle: "教材原文",
+        page: evidence.page, printedPage: evidence.printedPage, chunkID: evidence.id, quote: evidence.quote, score: 1)
+    }
+    // Raw and invented evidence handles must never masquerade as clickable citations.
+    if let pattern = try? NSRegularExpression(pattern: "\\[(?:ev[-_]|evidence_|src_)[A-Za-z0-9_:.-]+\\]") {
+      answer = pattern.stringByReplacingMatches(in: answer, range: NSRange(answer.startIndex..., in: answer), withTemplate: "")
+    }
+    var kinds = Set<String>()
+    if run.evidence.contains(where: { $0.sourceType == "textbook" || ($0.sourceType == nil && !$0.bookID.isEmpty) }) {
+      kinds.insert(textbook.isEmpty ? "textbook_uncited" : "textbook")
+    }
+    for evidence in run.evidence {
+      if evidence.sourceType == "attachment" { kinds.insert("attachments") }
+      if evidence.sourceType == "screenshot" { kinds.insert("screen") }
+    }
+    var links: [(Int, String)] = []
+    for step in run.steps {
+      for call in step.toolCalls {
+        guard let receipt = step.outcome(call.id), receipt.status == "ok",
+          let object = try? JSONSerialization.jsonObject(with: Data(receipt.resultJSON.utf8)) as? [String: Any],
+          object["ok"] as? Bool != false else { continue }
+        if ["list_courses", "read_course_catalog", "read_learning_data"].contains(call.name) { kinds.insert("learning_records") }
+        if call.name == "search_discovery" {
+          kinds.insert("public_catalog")
+          for item in object["items"] as? [[String: Any]] ?? [] {
+            guard let id = item["catalog_id"] as? String ?? item["id"] as? String,
+              let title = item["title"] as? String, !title.isEmpty, let range = text.range(of: title) else { continue }
+            links.append((text.distance(from: text.startIndex, to: range.lowerBound), id))
+          }
+        }
+      }
+    }
+    var seen = Set<String>()
+    run.finalCourseIDs = Array(links.sorted { $0.0 < $1.0 }.map(\.1).filter { seen.insert($0).inserted }.prefix(6))
+    run.finalSourceLabel = kinds.count > 1 ? "mixed" : kinds.first ?? "general"
+    run.finalText = answer.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   func frozenContext(session: AssistantSessionContext) -> AgentFrozenContext {
@@ -264,7 +312,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     }
   }
 
-  private nonisolated static func strings(_ value: JSONValue?) -> [String]? {
+  nonisolated static func strings(_ value: JSONValue?) -> [String]? {
     guard case .array(let values)? = value else { return nil }
     var result: [String] = []
     for item in values {
@@ -790,7 +838,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
           }
         }
         if last.toolCalls.isEmpty {
-          run.finalText = last.content ?? ""
+          Self.completeAnswer(last.content ?? "", run: &run)
           run.status = .completed
           switch await checkpoint(run) {
           case .saved(let saved): active = saved
@@ -845,7 +893,7 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
           AgentToolOutcome(toolCallID: call.id, status: "skipped", resultJSON: Self.errorResult("未执行：上下文已达到上限"))
         }
         if response.state == "completed", calls.isEmpty {
-          run.finalText = response.message?.content ?? ""
+          Self.completeAnswer(response.message?.content ?? "", run: &run)
           run.status = .completed
         } else {
           run.status = .failed

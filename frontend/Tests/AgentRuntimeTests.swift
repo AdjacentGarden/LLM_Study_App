@@ -1710,3 +1710,97 @@ extension AgentRuntimeTests {
     XCTAssertNil(unavailable["status"])
   }
 }
+
+extension AgentRuntimeTests {
+  func testFinalAnswerUsesRegisteredCitationsAndPersistsSourceMetadata() throws {
+    var evidence = agentRepositoryEvidence()
+    evidence.sourceType = "textbook"
+    var run = agentRepositoryRun(scope: "owner", evidence: evidence)
+    AgentRuntime.completeAnswer("原文说明 [ev-1]。伪造引用 [ev_missing]。", run: &run)
+    XCTAssertEqual(run.finalCitations?.map(\.quote), [evidence.quote])
+    XCTAssertEqual(run.finalCitations?.first?.page, 11)
+    XCTAssertEqual(run.finalText, "原文说明 [1]。伪造引用 。")
+    XCTAssertEqual(run.finalSourceLabel, "textbook")
+    let restored = try JSONDecoder().decode(AgentRunRecord.self, from: JSONEncoder().encode(run))
+    XCTAssertEqual(restored.finalCitations, run.finalCitations)
+    XCTAssertEqual(restored.finalSourceLabel, "textbook")
+  }
+
+  func testFinalAnswerDoesNotTurnUncitedSearchResultsIntoCitations() {
+    var evidence = agentRepositoryEvidence()
+    evidence.sourceType = "textbook"
+    var run = agentRepositoryRun(scope: "owner", evidence: evidence)
+    AgentRuntime.completeAnswer("没有引用具体原文。", run: &run)
+    XCTAssertEqual(run.finalCitations, [])
+    XCTAssertEqual(run.finalSourceLabel, "textbook_uncited")
+  }
+
+  @MainActor func testCrossBookSearchRegistersServerEvidenceAndReportsLocalScopeGaps() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    store.sources = [agentSource(bookID: "book-test", title: "物理")]
+    store.courses = [Course(id: "course-agent", name: "物理", resourceIDs: ["book-test", "book_local_pending"])]
+    AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/search-materials") { request in
+      XCTAssertEqual(agentJSON(request)["query"] as? String, "动量守恒")
+      XCTAssertNil(agentJSON(request)["book_ids"], "The Agent can search without first selecting a book")
+      return .json(status: 200, body: #"{"ok":true,"searched_book_ids":["book-test"],"scope_truncated":false,"unavailable_book_ids":[],"evidence":[{"evidence_id":"ev_search","book_id":"book-test","course_id":"course-agent","resource_id":"resource-test","source_version":"ocr:test","page_number":2,"quote":"系统总动量保持不变"}]}"#)
+    }
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    let call = AgentToolCall(id: "search", name: "search_learning_materials", argumentsJSON: #"{"query":"动量守恒","include_images":false}"#, argumentsHash: "")
+    let payload = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+    let result = agentJSON(Data(payload.utf8))
+    XCTAssertEqual(result["searched_book_ids"] as? [String], ["book-test"])
+    XCTAssertEqual(result["device_only_book_ids_not_searched"] as? [String], ["book_local_pending"])
+    XCTAssertEqual(run.evidence("ev_search")?.sourceVersion, "ocr:test")
+    XCTAssertEqual(run.evidence("ev_search")?.courseResourceID, "resource-test")
+    XCTAssertNil(run.images)
+    run.context.sessionID = "search-session"
+    XCTAssertTrue(AgentRuntime.turnRequest(for: run, stepIndex: 0).tools.contains("search_learning_materials"))
+  }
+
+  @MainActor func testSearchImageFailureKeepsTextAndDoesNotClaimImageWasViewed() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/search-materials") { _ in
+      .json(status: 200, body: #"{"ok":true,"evidence":[{"evidence_id":"ev_search","book_id":"book-remote","course_id":"remote-not-loaded","resource_id":"resource-remote","page_number":3,"quote":"检索原文仍然可用"}],"images":[{"book_id":"book-remote","page":3,"status":"available_to_read"}]}"#)
+    }
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    let call = AgentToolCall(id: "search", name: "search_learning_materials", argumentsJSON: #"{"query":"原文","include_images":true}"#, argumentsHash: "")
+    let payload = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+    let result = agentJSON(Data(payload.utf8))
+    XCTAssertEqual(result["images_loaded"] as? Int, 0)
+    XCTAssertEqual((result["images"] as? [[String: Any]])?.first?["status"] as? String, "unavailable")
+    XCTAssertEqual(run.evidence("ev_search")?.quote, "检索原文仍然可用")
+    XCTAssertNil(run.images)
+  }
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testSearchCanSupplyActualPageImageToNextModelStep() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    store.sources = [agentSource(bookID: "book-image", title: "图片教材", pageCount: 1)]
+    agentRegisterCourse(store)
+    let png = try XCTUnwrap(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="))
+    store.filePaths["book-image"] = try await store.repository.saveAttachment(png, extension: "png")
+    AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/search-materials") { _ in
+      .json(status: 200, body: #"{"ok":true,"evidence":[{"evidence_id":"ev_image_search","book_id":"book-image","course_id":"course-agent","resource_id":"resource:book-image","page_number":1,"quote":"图片页面原文"}]}"#)
+    }
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    let call = AgentToolCall(id: "image-search", name: "search_learning_materials", argumentsJSON: #"{"query":"图片","include_images":true}"#, argumentsHash: "")
+    let payload = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+    let result = agentJSON(Data(payload.utf8))
+    XCTAssertEqual(result["images_loaded"] as? Int, 1)
+    let image = try XCTUnwrap(run.images?.first)
+    XCTAssertFalse(image.data_base64?.isEmpty ?? true)
+    XCTAssertEqual(image.page, 1)
+    XCTAssertEqual(image.source_type, "textbook")
+    run.steps[0].toolCalls = [call]
+    run.steps[0].outcomes = [AgentToolOutcome(toolCallID: call.id, status: "ok", resultJSON: payload)]
+    let next = AgentRuntime.turnRequest(for: run, stepIndex: 1)
+    XCTAssertEqual(next.attachments?.first?.attachment_id, image.attachment_id)
+  }
+}

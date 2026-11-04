@@ -449,9 +449,10 @@ final class CloudTests: XCTestCase {
     await store.flush()
     XCTAssertNil(store.cloudState.syncError, store.cloudState.syncError ?? "")
     XCTAssertTrue(store.cloudState.pending.isEmpty)
-    await store.ask("减数分裂有什么特点？")
-    let reply = try XCTUnwrap(store.chatMessages.last)
-    XCTAssertEqual(reply.role, "assistant")
+    let reply = try await store.answerAssistant(question: "减数分裂有什么特点？",
+      bookID: try XCTUnwrap(store.selectedBookID), bookIDs: store.currentCourse?.resourceIDs ?? [],
+      chapterID: store.selectedChapterID, sources: store.sources, history: [])
+    XCTAssertFalse(reply.answer.isEmpty)
     XCTAssertFalse(reply.citations.isEmpty)
     let card = try XCTUnwrap(store.flashcards.first)
     store.reviewFlashcard(card, mastered: true, seconds: 14)

@@ -8,13 +8,13 @@ import ZIPFoundation
 /// business objects before reads or navigation; model arguments never become filesystem paths.
 @MainActor enum UnifiedAgentTools {
   nonisolated static let names = ["list_courses", "read_course_catalog", "search_discovery", "acquire_course",
-    "read_material", "read_attachment", "read_learning_data", "navigate", "capture_screen",
+    "read_material", "search_learning_materials", "read_attachment", "read_learning_data", "navigate", "capture_screen",
     "save_note", "edit_note", "delete_note", "open_note", "create_flashcards", "create_review_task",
     "update_study_plan", "remove_course", "ask_user"]
 
   static func label(_ name: String) -> String {
     ["save_note": "保存笔记", "open_note": "打开笔记", "ask_user": "询问你的选择", "list_courses": "查看已保存课程", "read_course_catalog": "读取课程目录", "search_discovery": "检索发现页课程",
-     "acquire_course": "获取课程", "read_material": "读取课程资料", "read_attachment": "读取本会话附件",
+     "acquire_course": "获取课程", "read_material": "读取课程资料", "search_learning_materials": "跨教材检索原文", "read_attachment": "读取本会话附件",
      "read_learning_data": "读取学习记录", "navigate": "打开目标页面", "capture_screen": "查看当前界面",
      "edit_note": "更新笔记", "delete_note": "删除笔记", "create_flashcards": "创建闪卡",
      "create_review_task": "创建复习任务", "update_study_plan": "更新学习计划", "remove_course": "移除课程"][name] ?? "执行操作"
@@ -69,7 +69,18 @@ import ZIPFoundation
             "status": store.sources.first { $0.id == bookID }?.summary.status ?? "not_ready"]
          }]
       }
-      return try encoded(page(values, args: args))
+      var result = page(values, args: args)
+      let accountIDs = Set(store.cloudState.workspaces.map(\.id))
+      let accountCount = store.courses.filter { course in
+        accountIDs.contains(course.id) || store.courseImport(for: course.id).map { accountIDs.contains(store.workspaceID(for: $0)) } == true
+      }.count
+      result["total_courses"] = values.count
+      result["account_course_count"] = accountCount
+      result["device_pending_course_count"] = values.count - accountCount
+      result["creation_in_progress_count"] = store.courses.filter { store.courseImport(for: $0.id)?.setupCompleted == false ||
+        store.courseImport(for: $0.id).map { $0.setupCompleted == nil } == true }.count
+      result["count_note"] = "总数按本机课程列表去重，包含创建中的课程；同步到账号不代表已经完成创建或开始学习。"
+      return try encoded(result)
 
     case "read_course_catalog":
       let target = try course(args, store: store)
@@ -142,6 +153,9 @@ import ZIPFoundation
           "original_file": "download_failed", "error": error.localizedDescription])
       }
       return try encoded(["status": existing == nil ? "added" : "already_added", "course_id": courseID, "original_file": "downloaded"])
+
+    case "search_learning_materials":
+      return try await searchMaterials(args, run: &run, store: store)
 
     case "read_material":
       let targetCourse = try course(args, store: store)
@@ -316,6 +330,104 @@ import ZIPFoundation
 
     default: throw AgentValidationError(message: "未知工具：" + call.name)
     }
+  }
+
+  /// BM25 is a read-only server tool; generation stays in this Agent's existing loop.
+  private static func searchMaterials(_ args: [String: JSONValue], run: inout AgentRunRecord, store: AppStore) async throws -> String {
+    guard let cloud = store.cloud else { throw AgentValidationError(message: "跨教材检索需要连接学习服务") }
+    let epoch = store.cloudState.epoch
+    let query = try required(args, "query")
+    var body = args
+    body["query"] = .string(query)
+    // Creation drafts keep their local identity until confirmed, while their server workspace is stable.
+    if case .array(let ids)? = body["course_ids"] {
+      body["course_ids"] = .array(ids.map { id in
+        guard let value = id.stringValue, let record = store.courseImport(for: value) else { return id }
+        return .string(store.workspaceID(for: record))
+      })
+    }
+    let response: [String: JSONValue] = try await cloud.request("/api/assistant/search-materials", method: "POST", body: body)
+    try Task.checkCancellation()
+    guard epoch == store.cloudState.epoch, run.scope == store.noteScope else { throw CancellationError() }
+    var result = AgentRuntime.foundationObject(.object(response)) as? [String: Any] ?? [:]
+    guard result["ok"] as? Bool != false else { return try encoded(result) }
+    let excerpts = result["evidence"] as? [[String: Any]] ?? []
+    for item in excerpts {
+      guard let id = item["evidence_id"] as? String, let bookID = item["book_id"] as? String,
+        let page = item["page_number"] as? Int, page > 0, let quote = item["quote"] as? String, !quote.isEmpty else { continue }
+      let remoteCourse = item["course_id"] as? String
+      let course = store.courses.first { course in
+        course.id == remoteCourse || store.courseImport(for: course.id).map { store.workspaceID(for: $0) == remoteCourse } == true
+      }
+      let chapter = store.sources.first { $0.id == bookID }?.chapters.first { $0.page_start <= page && $0.page_end >= page }
+      let version = item["source_version"] as? String ?? ("excerpt:" + AgentDigest.sha256(quote))
+      let evidence = AgentEvidence(id: id, bookID: bookID, courseID: course?.id ?? remoteCourse,
+        sourceVersion: version, chapterID: chapter?.id, page: page, printedPage: nil, quote: quote,
+        quoteSHA256: AgentDigest.sha256(quote), sourceType: "textbook", objectID: item["block_id"] as? String,
+        courseResourceID: item["resource_id"] as? String)
+      if !run.evidence.contains(where: { $0.id == id }) { run.evidence.append(evidence) }
+    }
+    let requestedBooks = AgentRuntime.strings(args["book_ids"])
+    let requestedCourses = AgentRuntime.strings(args["course_ids"])
+    let pending = store.courses.filter { course in
+      requestedCourses == nil || requestedCourses!.contains(course.id) || store.courseImport(for: course.id).map {
+        requestedCourses!.contains(store.workspaceID(for: $0))
+      } == true
+    }.flatMap(\.resourceIDs).filter { $0.hasPrefix("book_local_") }
+    result["device_only_book_ids_not_searched"] = Array(Set(pending.filter { requestedBooks == nil || requestedBooks!.contains($0) })).sorted()
+    result["device_scope_note"] = "此工具搜索服务端可访问的教材；本机待上传资料需用 read_material 另行读取。"
+    if args["include_images"] == .bool(true) {
+      var images: [[String: Any]] = []
+      var visited = Set<String>()
+      for item in excerpts {
+        guard images.count < 2, let bookID = item["book_id"] as? String, let page = item["page_number"] as? Int,
+          visited.insert(bookID + ":" + String(page)).inserted else { continue }
+        let remoteCourse = item["course_id"] as? String
+        guard let course = store.courses.first(where: { course in
+          course.resourceIDs.contains(bookID) && (course.id == remoteCourse ||
+            store.courseImport(for: course.id).map { store.workspaceID(for: $0) == remoteCourse } == true)
+        }) else {
+          images.append(["book_id": bookID, "page": page, "status": "unavailable", "reason": "课程尚未加载到本机，未提供图片"])
+          continue
+        }
+        if let remoteCourse, store.cloudState.workspaces.contains(where: { $0.id == remoteCourse }) {
+          do { try await store.hydrateCloudContent(workspaceID: remoteCourse) }
+          catch is CancellationError { throw CancellationError() }
+          catch { /* Page rendering can still use the authorized PDF download. */ }
+        }
+        try Task.checkCancellation()
+        guard epoch == store.cloudState.epoch, run.scope == store.noteScope else { throw CancellationError() }
+        let asset = store.sources.first(where: { $0.id == bookID })?.assets.first { $0.page == page }
+        var imageArgs: [String: JSONValue] = ["course_id": .string(course.id), "book_id": .string(bookID),
+          "page": .number(Double(page)), "mode": .string("image")]
+        if let asset { imageArgs["asset_id"] = .string(asset.id) }
+        do {
+          let imageCall = AgentToolCall(id: "search-image-" + String(page), name: "read_material",
+            argumentsJSON: try encoded(imageArgs.mapValues(AgentRuntime.foundationObject)), argumentsHash: "")
+          let payload = try await execute(imageCall, run: &run, store: store)
+          var descriptor = (try JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any]) ?? [:]
+          descriptor["book_id"] = bookID
+          descriptor["kind"] = asset == nil ? "page" : "illustration_or_page_fallback"
+          descriptor["status"] = "loaded"
+          images.append(descriptor)
+          // Include a full page as context as well when the first hit has an illustration.
+          if asset != nil, images.count < 2 {
+            imageArgs.removeValue(forKey: "asset_id")
+            let pageCall = AgentToolCall(id: "search-page-" + String(page), name: "read_material",
+              argumentsJSON: try encoded(imageArgs.mapValues(AgentRuntime.foundationObject)), argumentsHash: "")
+            let pagePayload = try await execute(pageCall, run: &run, store: store)
+            var descriptor = (try JSONSerialization.jsonObject(with: Data(pagePayload.utf8)) as? [String: Any]) ?? [:]
+            descriptor["book_id"] = bookID; descriptor["kind"] = "page"; descriptor["status"] = "loaded"
+            images.append(descriptor)
+          }
+        } catch is CancellationError { throw CancellationError() }
+        catch { images.append(["book_id": bookID, "page": page, "status": "unavailable", "reason": error.localizedDescription]) }
+      }
+      result["images"] = images
+      result["images_loaded"] = images.filter { $0["status"] as? String == "loaded" }.count
+      result["image_limit"] = 2
+    }
+    return try encoded(result)
   }
 
   private static func readPreparation(_ args: [String: JSONValue], store: AppStore) async throws -> String {

@@ -489,6 +489,25 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
   var text: String
   var citations: [Citation] = []
   var attachments: [AssistantAttachment]?
+  /// Frozen payload for the retained /query transport. Agent tasks use their own checkpoints.
+  var unifiedQueryPayload: [String: JSONValue]?
+  /// Origin derived from query-server results or the Agent executor
+  /// and its actual evidence/tool receipts.
+  var sourceLabel: String?
+
+  var sourceLabelText: String? {
+    switch sourceLabel {
+    case "textbook": return "来源：教材原文"
+    case "learning_records": return "来源：课程目录与学习记录"
+    case "public_catalog": return "来源：发现中的公开课程目录"
+    case "mixed": return "来源：多种资料"
+    case "attachments": return "来源：本会话附件"
+    case "screen": return "来源：当前页面截图"
+    case "general": return "来源：通用知识，非教材内容"
+    case "textbook_uncited": return "来源：未引用教材原文，可能结合页面内容与通用知识"
+    default: return nil
+    }
+  }
 }
 struct Diagnosis: Codable, Hashable, Sendable {
   var assignment_id: String
