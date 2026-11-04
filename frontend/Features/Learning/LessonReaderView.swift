@@ -108,15 +108,15 @@ enum LearningReadingTypography {
   }
   private struct EmphasisCandidate {
     var range: NSRange
-    var priority: Int
+    var score: Int
   }
 
-  static func paragraphs(in source: String, keyConcepts: [String] = []) -> [Paragraph] {
+  static func paragraphs(in source: String, keyConcepts: [String] = [], focusConcepts: [String] = []) -> [Paragraph] {
     let normalized = source.replacingOccurrences(of: "\r\n", with: "\n")
       .replacingOccurrences(of: "\r", with: "\n")
     var result: [Paragraph] = []
     var isCode = false
-    let phrases = keyPhrases(from: keyConcepts)
+    let phrases = knownTerms(from: keyConcepts)
     for line in normalized.components(separatedBy: "\n") {
       let trimmed = line.trimmingCharacters(in: .whitespaces)
       if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { isCode.toggle(); continue }
@@ -146,7 +146,7 @@ enum LearningReadingTypography {
         var paragraph = slice(parsed, range: range)
         paragraph.kind = kind
         if kind != .heading {
-          paragraph.emphasizedRanges = emphasis(in: paragraph, keyConcepts: phrases)
+          paragraph.emphasizedRanges = emphasis(in: paragraph, knownTerms: phrases, focusConcepts: focusConcepts)
         }
         result.append(paragraph)
         offset = NSMaxRange(range)
@@ -155,13 +155,13 @@ enum LearningReadingTypography {
     return result
   }
 
-  static func plainText(in source: String, keyConcepts: [String] = []) -> String {
-    paragraphs(in: source, keyConcepts: keyConcepts).map(\.text).joined(separator: "\n")
+  static func plainText(in source: String, keyConcepts: [String] = [], focusConcepts: [String] = []) -> String {
+    paragraphs(in: source, keyConcepts: keyConcepts, focusConcepts: focusConcepts).map(\.text).joined(separator: "\n")
   }
 
-  static func attributedText(in source: String, keyConcepts: [String] = []) -> NSAttributedString {
+  static func attributedText(in source: String, keyConcepts: [String] = [], focusConcepts: [String] = []) -> NSAttributedString {
     let result = NSMutableAttributedString(string: "")
-    for paragraph in paragraphs(in: source, keyConcepts: keyConcepts) {
+    for paragraph in paragraphs(in: source, keyConcepts: keyConcepts, focusConcepts: focusConcepts) {
       if result.length > 0 { result.append(NSAttributedString(string: "\n")) }
       let style = NSMutableParagraphStyle()
       style.minimumLineHeight = DS.readingLineHeight
@@ -202,14 +202,18 @@ enum LearningReadingTypography {
     // Markdown. Intraword operators are formula characters, not emphasis marks.
     let characters = Array(text)
     var markdown = ""
-    var isInlineCode = false
+    var codeDelimiterLength = 0
     func formulaCharacter(_ value: Character) -> Bool {
       let mathematical = value.unicodeScalars.allSatisfy { $0.isASCII || (0x0370...0x03FF).contains($0.value) || (0x1F00...0x1FFF).contains($0.value) || (0x1D400...0x1D7FF).contains($0.value) }
       return mathematical && (value.isLetter || value.isNumber || "()[]".contains(value))
     }
     for (index, character) in characters.enumerated() {
-      if character == "`" { isInlineCode.toggle() }
-      if !isInlineCode, "*_".contains(character), index > 0, index + 1 < characters.count,
+      if character == "`", index == 0 || characters[index - 1] != "`" {
+        let length = characters[index...].prefix { $0 == "`" }.count
+        if codeDelimiterLength == 0 { codeDelimiterLength = length }
+        else if codeDelimiterLength == length { codeDelimiterLength = 0 }
+      }
+      if codeDelimiterLength == 0, "*_".contains(character), index > 0, index + 1 < characters.count,
         formulaCharacter(characters[index - 1]), formulaCharacter(characters[index + 1]) {
         markdown.append("\\")
       }
@@ -247,57 +251,109 @@ enum LearningReadingTypography {
       links: paragraph.links.compactMap { link in local(link.range).map { Link(range: $0, url: link.url) } })
   }
 
-  private static func keyPhrases(from concepts: [String]) -> [String] {
-    let generic: Set<String> = ["本节", "概念", "练习", "例题", "解答", "知识点", "核心概念", "重点", "分析", "答案",
-      "性质", "物质", "内容", "过程", "情况", "结果", "方法", "作用", "反应", "具有", "形成", "化学", "不同", "相同"]
-    var result: [String] = []
-    var seen = Set<String>()
-    func append(_ value: String) {
-      let phrase = value.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard (2...16).contains(phrase.count), !generic.contains(phrase),
-        seen.insert(phrase.lowercased()).inserted else { return }
-      result.append(phrase)
-    }
-    // Already-curated short concepts outrank terms inferred from old summaries.
-    for concept in concepts where concept.count <= 16 { append(concept) }
-    for concept in concepts where concept.count > 16 {
-      if let regex = try? NSRegularExpression(pattern:
-        #"^([\p{Han}A-Za-z0-9·-]{2,12}?)(?:是|具有|位于|属于|通常|能够|可以)"#),
-        let match = regex.firstMatch(in: concept, range: NSRange(location: 0, length: (concept as NSString).length)) {
-        append((concept as NSString).substring(with: match.range(at: 1)))
+  private static let genericTerms: Set<String> = ["本节", "概念", "练习", "例题", "解答", "知识点", "核心概念", "重点", "分析", "答案",
+    "性质", "物质", "内容", "过程", "情况", "结果", "方法", "作用", "反应", "化学", "结构", "分子", "原子", "电子", "区别"]
+
+  /// Long knowledge assertions are evidence, not a bag of nouns to highlight.
+  /// Keep only complete short terms and explicitly introduced definition heads.
+  private static func knownTerms(from concepts: [String]) -> [String] {
+    var terms = Set<String>()
+    for raw in concepts {
+      let value = plainInlineText(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+      if (2...16).contains(value.count), value.rangeOfCharacter(from: .punctuationCharacters) == nil {
+        terms.insert(value)
+      } else if let head = matches(#"^([\p{Han}A-Za-z0-9·-]{2,12}?)(?:是指|指的是|定义为|是)"#, in: value).first {
+        terms.insert((value as NSString).substring(with: head.range(at: 1)))
       }
-      let tagger = NLTagger(tagSchemes: [.lexicalClass])
-      tagger.string = concept
-      var nouns: [String] = []
-      var previousEnd: String.Index?
-      var phrase = ""
-      tagger.enumerateTags(in: concept.startIndex..<concept.endIndex, unit: .word, scheme: .lexicalClass,
-        options: [.omitWhitespace, .omitPunctuation, .joinNames]) { tag, range in
-        let word = String(concept[range])
-        if tag == .noun {
-          if previousEnd == range.lowerBound, !phrase.isEmpty, (phrase + word).count <= 12 {
-            phrase += word
-            nouns.append(phrase)
-          } else { phrase = word }
-          nouns.append(word)
-          previousEnd = range.upperBound
-        } else if word == "最" {
-          phrase = word
-          previousEnd = range.upperBound
+    }
+    return terms.sorted()
+  }
+
+  private static func plainInlineText(_ text: String) -> String { inlineMarkdown(text).text }
+
+  private static func matches(_ pattern: String, in text: String) -> [NSTextCheckingResult] {
+    guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
+    return expression.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length))
+  }
+
+  private struct WordStructure {
+    var boundaries: Set<Int> = []
+    var protectedTerms: [NSRange] = []
+  }
+
+  private static func wordStructure(in text: String, knownTerms: [String]) -> WordStructure {
+    var result = WordStructure(boundaries: [0, (text as NSString).length])
+    let tagger = NLTagger(tagSchemes: [.lexicalClass])
+    tagger.string = text
+    var nounPhrase: Range<String.Index>?
+    func finishPhrase() {
+      if let range = nounPhrase { result.protectedTerms.append(NSRange(range, in: text)) }
+      nounPhrase = nil
+    }
+    let grammar: Set<String> = ["许多", "很多", "多个", "整个", "不同", "相同", "最后", "首先", "其次", "其中", "通常", "主要", "其他", "数量", "众多", "之间", "之中"]
+    tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass,
+      options: [.omitWhitespace, .omitPunctuation, .joinNames]) { tag, range in
+      let token = String(text[range])
+      let nsRange = NSRange(range, in: text)
+      result.boundaries.formUnion([nsRange.location, NSMaxRange(nsRange)])
+      let han = token.unicodeScalars.allSatisfy { (0x4E00...0x9FFF).contains($0.value) }
+      let number = token.range(of: #"^[第零一二三四五六七八九十百千万0-9]+$"#, options: .regularExpression) != nil
+      let nounLike = !number && !grammar.contains(token) && (tag == .noun || tag == .adjective || token == "最"
+        || (tag == .otherWord && han))
+      if nounLike {
+        if let previous = nounPhrase, previous.upperBound == range.lowerBound {
+          nounPhrase = previous.lowerBound..<range.upperBound
         } else {
-          if tag == .otherWord, word.count >= 3, word.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }) {
-            nouns.append(word)
-          }
-          phrase = ""
-          previousEnd = nil
+          finishPhrase()
+          nounPhrase = range
         }
-        return true
-      }
-      // Longer noun phrases tend to identify the concept better than its parts.
-      for noun in nouns.sorted(by: { $0.count > $1.count }) { append(noun) }
-      if result.count >= 36 { break }
+      } else { finishPhrase() }
+      return true
     }
-    return Array(result.prefix(48))
+    finishPhrase()
+    let source = text as NSString
+    for term in knownTerms where term.count >= 2 {
+      var search = NSRange(location: 0, length: source.length)
+      while search.length > 0 {
+        let range = source.range(of: term, options: .caseInsensitive, range: search)
+        guard range.location != NSNotFound else { break }
+        result.protectedTerms.append(range)
+        search = NSRange(location: NSMaxRange(range), length: source.length - NSMaxRange(range))
+      }
+    }
+    // A chemical formula is indivisible even when the tokenizer sees several
+    // element symbols, parentheses or subscript digits.
+    let formulas = matches(#"(?<![A-Za-z])(?:[A-Z][a-z]?[₀-₉0-9]*|\([A-Za-z₀-₉0-9]+\)[₀-₉0-9]*){2,}(?:[·.][0-9]+(?:[A-Z][a-z]?[₀-₉0-9]*)+)?"#, in: text)
+    result.protectedTerms.append(contentsOf: formulas.map(\.range))
+    let ions = matches(#"(?<![A-Za-z])(?:[A-Z][a-z]?[₀-₉0-9]*|\([A-Za-z₀-₉0-9]+\)[₀-₉0-9]*)+(?:\^?[⁰¹²³⁴⁵⁶⁷⁸⁹0-9]*[+−⁺⁻-]+|[+−⁺⁻-][0-9]+)"#, in: text)
+    result.protectedTerms.append(contentsOf: ions.map(\.range))
+    return result
+  }
+
+  private static func substantiveTerm(_ term: String, in context: String, range: NSRange,
+    allowVerbalCompound: Bool = false) -> Bool {
+    guard term.range(of: #"^(?:这|那|并不|而|不能|未必|所谓|我们|你们|它们)|(?:之间|之中|方面|原因|关系)$"#,
+      options: .regularExpression) == nil else { return false }
+    let tagger = NLTagger(tagSchemes: [.lexicalClass])
+    tagger.string = context
+    guard let termRange = Range(range, in: context) else { return false }
+    var tags: [NLTag] = []
+    var hasNoun = false
+    var invalid = false
+    tagger.enumerateTags(in: termRange, unit: .word, scheme: .lexicalClass,
+      options: [.omitWhitespace, .omitPunctuation]) { tag, range in
+      guard let tag else { invalid = true; return true }
+      let word = String(context[range])
+      if tag == .adjective && hasNoun { invalid = true }
+      if tag == .noun { hasNoun = true }
+      if [.particle, .preposition, .conjunction, .pronoun, .number, .determiner].contains(tag)
+        || (tag == .adverb && word != "最") { invalid = true }
+      tags.append(tag)
+      return true
+    }
+    guard !invalid else { return false }
+    if allowVerbalCompound, tags.count >= 2, tags.allSatisfy({ $0 == .verb }) { return true }
+    return hasNoun && !tags.contains(.verb)
   }
 
   private static func splitQuestionItems(_ text: String) -> [String] {
@@ -348,54 +404,119 @@ enum LearningReadingTypography {
     return pieces.filter { !$0.isEmpty }
   }
 
-  private static func emphasis(in paragraph: Paragraph, keyConcepts: [String]) -> [NSRange] {
+  private static func emphasis(in paragraph: Paragraph, knownTerms: [String], focusConcepts: [String]) -> [NSRange] {
     let text = paragraph.text as NSString
     let count = paragraph.text.filter { !$0.isWhitespace }.count
     let target = min(36, Int(Double(count) * 0.15))
     let maximum = min(42, Int(Double(count) * 0.20))
     let spanLimit = count < 80 ? 1 : count < 200 ? 2 : 3
     guard maximum >= 2 else { return [] }
-    var candidates = paragraph.emphasizedRanges.map { EmphasisCandidate(range: $0, priority: 0) }
-    let generic: Set<String> = ["本节", "概念", "练习", "例题", "解答", "知识点", "核心概念", "重点", "分析", "答案"]
-    var seenConcepts = Set<String>()
-    for (index, raw) in keyConcepts.enumerated() {
-      let concept = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard (2...16).contains(concept.count), !generic.contains(concept),
-        seenConcepts.insert(concept.lowercased()).inserted else { continue }
+    let focus = focusConcepts.map {
+      plainInlineText($0).replacingOccurrences(of: #"^(?:第[一二三四五六七八九十百0-9]+[章节课篇]|[0-9.]+)\s*"#,
+        with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+    }.filter { (2...16).contains($0.count) }
+    let words = wordStructure(in: paragraph.text, knownTerms: knownTerms + focus)
+    let examples = matches(#"以[^，。；：!?！？]*?为(?:代表|例)|(?:例如|比如|举例)[^，。；：!?！？]*"#, in: paragraph.text).map(\.range)
+    var candidates = paragraph.emphasizedRanges.map { EmphasisCandidate(range: $0, score: 120) }
+    func append(_ range: NSRange, score: Int) {
+      let value = text.substring(with: range)
+      guard (2...16).contains(value.count), value.range(of: #"^[+\-−]?[0-9一二三四五六七八九十]+(?:个|种|次|层|价|倍|%)"#,
+        options: .regularExpression) == nil else { return }
+      candidates.append(EmphasisCandidate(range: range, score: score))
+    }
+    func occurrences(_ term: String) -> [NSRange] {
+      var result: [NSRange] = []
       var search = NSRange(location: 0, length: text.length)
       while search.length > 0 {
-        let range = text.range(of: concept, options: .caseInsensitive, range: search)
+        let range = text.range(of: term, options: .caseInsensitive, range: search)
         guard range.location != NSNotFound else { break }
-        let isLatin = concept.unicodeScalars.allSatisfy { $0.isASCII }
-        func tokenCharacter(_ offset: Int) -> Bool {
-          guard offset >= 0, offset < text.length else { return false }
-          let value = text.character(at: offset)
-          return (48...57).contains(value) || (65...90).contains(value) || (97...122).contains(value) || value == 95
-        }
-        if !isLatin || (!tokenCharacter(range.location - 1) && !tokenCharacter(NSMaxRange(range))) {
-          candidates.append(EmphasisCandidate(range: range, priority: 10 + index))
-        }
+        result.append(range)
         search = NSRange(location: NSMaxRange(range), length: text.length - NSMaxRange(range))
       }
+      return result
     }
-    if let definition = try? NSRegularExpression(pattern:
-      #"^(?:[（(][0-9]+[）)]\s*)?([\p{Han}A-Za-z][\p{Han}A-Za-z0-9·-]{1,11}?)(?:是指|指的是|定义为|是)"#),
-      let match = definition.firstMatch(in: paragraph.text, range: NSRange(location: 0, length: text.length)) {
-      let range = match.range(at: 1)
-      if !["这", "这个", "它", "本节", "这里", "我们"].contains(text.substring(with: range)) {
-        candidates.append(EmphasisCandidate(range: range, priority: 20))
+    for term in knownTerms {
+      for range in occurrences(term) { append(range, score: genericTerms.contains(term) ? 35 : 65) }
+    }
+    for term in Set(focus) {
+      for range in occurrences(term) { append(range, score: 86) }
+    }
+    // Definitions give a term local importance even when that word would be
+    // too generic elsewhere (for example, a paragraph defining “分子”).
+    for definition in matches(#"(?:^|[。；！？]\s*)(?:[（(][0-9]+[）)]\s*)?([\p{Han}A-Za-z][\p{Han}A-Za-z0-9·-]{1,11}?)(?:是指|指的是|定义为|是)"#,
+      in: paragraph.text) {
+      let range = definition.range(at: 1)
+      if substantiveTerm(text.substring(with: range), in: paragraph.text, range: range) { append(range, score: 100) }
+    }
+    // Local teaching verbs identify their complete objects. Do not infer
+    // importance merely because a noun occurs somewhere in a chapter summary.
+    let instructionPattern = #"(认识|理解|掌握|比较|判断|学习|关注|了解|介绍)([^，。；：！？!?]+)"#
+    for instruction in matches(instructionPattern, in: paragraph.text) {
+      let verb = text.substring(with: instruction.range(at: 1))
+      let objectRange = instruction.range(at: 2)
+      let object = text.substring(with: objectRange)
+      let tagger = NLTagger(tagSchemes: [.lexicalClass])
+      tagger.string = object
+      var separators: [NSRange] = []
+      tagger.enumerateTags(in: object.startIndex..<object.endIndex, unit: .word, scheme: .lexicalClass) { tag, range in
+        if tag == .conjunction || tag == .particle || tag == .punctuation || tag == .preposition {
+          separators.append(NSRange(range, in: object))
+        }
+        return true
+      }
+      var start = 0
+      let end = (object as NSString).length
+      for separator in separators + [NSRange(location: end, length: 0)] {
+        let raw = (object as NSString).substring(with: NSRange(location: start, length: separator.location - start))
+        let term = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !genericTerms.contains(term), (2...12).contains(term.count), let local = raw.range(of: term) {
+          let range = NSRange(location: objectRange.location + start + NSRange(local, in: raw).location,
+            length: (term as NSString).length)
+          let base = ["认识", "理解", "掌握", "比较", "判断", "关注"].contains(verb) ? 90 : verb == "学习" ? 75 : 70
+          if substantiveTerm(term, in: paragraph.text, range: range, allowVerbalCompound: true) {
+            append(range, score: base + min(term.count, 8))
+          }
+        }
+        start = NSMaxRange(separator)
       }
     }
-    if let conditions = try? NSRegularExpression(pattern:
-      #"(?:富含|缺少|过量|足量|等量)[\p{Han}A-Za-z0-9]{1,6}?(?=的|时|[，。；：]|$)|(?:同|不同)[\p{Han}]{1,4}(?=[，。；：])"#) {
-      for match in conditions.matches(in: paragraph.text, range: NSRange(location: 0, length: text.length)) {
-        candidates.append(EmphasisCandidate(range: match.range, priority: 5))
+    // Preserve the entire direction, negation and qualifier of a relationship.
+    // If that complete claim will not fit the emphasis budget, leave it plain.
+    for clause in matches(#"[^，。；：、！？!?]+"#, in: paragraph.text) {
+      let prefix = text.substring(to: clause.range.location)
+      let governing = prefix.components(separatedBy: CharacterSet(charactersIn: "。；！？!?\n")).last ?? ""
+      if governing.range(of: #"不能|不得|不可|并非|不是|不应|未必|无法|只有|仅在|假设|如果|若|条件"#,
+        options: .regularExpression) != nil { continue }
+      let original = text.substring(with: clause.range)
+      let relation = original.replacingOccurrences(of: #"^(?:体现|说明|认识|理解|掌握|强调|揭示)"#,
+        with: "", options: .regularExpression)
+        .replacingOccurrences(of: #"(?:的观念|的关系|的规律|这一规律)$"#, with: "", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      if relation.range(of: #"^[\p{Han}A-Za-z0-9]{2,10}(?:决定|影响|取决于|制约)[\p{Han}A-Za-z0-9]{2,8}$"#,
+        options: .regularExpression) != nil, let local = original.range(of: relation) {
+        append(NSRange(location: clause.range.location + NSRange(local, in: original).location,
+          length: (relation as NSString).length), score: 110)
       }
+    }
+    for condition in matches(#"(?:富含|缺少|过量|足量|等量)[\p{Han}A-Za-z0-9]{1,6}?(?=的|时|[，。；：]|$)|(?:同|不同)(?!的)[\p{Han}]{1,4}(?=[，。；：])"#,
+      in: paragraph.text) { append(condition.range, score: 85) }
+    func wholeTerm(_ range: NSRange) -> Bool {
+      guard words.boundaries.contains(range.location), words.boundaries.contains(NSMaxRange(range)) else { return false }
+      return words.protectedTerms.allSatisfy { protected in
+        let intersection = NSIntersectionRange(protected, range)
+        return intersection.length == 0 || intersection == protected
+      }
+    }
+    candidates = candidates.compactMap { candidate in
+      guard wholeTerm(candidate.range), paragraph.codeRanges.allSatisfy({ NSIntersectionRange($0, candidate.range).length == 0 }) else { return nil }
+      var scored = candidate
+      if examples.contains(where: { NSIntersectionRange($0, candidate.range).length > 0 }) { scored.score -= 80 }
+      return scored.score >= 60 ? scored : nil
     }
     candidates.sort {
-      if $0.priority != $1.priority { return $0.priority < $1.priority }
-      if $0.range.location != $1.range.location { return $0.range.location < $1.range.location }
-      return $0.range.length > $1.range.length
+      if $0.score != $1.score { return $0.score > $1.score }
+      if $0.range.length != $1.range.length { return $0.range.length > $1.range.length }
+      return $0.range.location < $1.range.location
     }
     var selected: [NSRange] = []
     var terms = Set<String>()
@@ -404,9 +525,7 @@ enum LearningReadingTypography {
       guard selected.count < spanLimit else { break }
       let length = text.substring(with: candidate.range).filter { !$0.isWhitespace }.count
       let term = text.substring(with: candidate.range).lowercased()
-      guard length >= 2, !terms.contains(term),
-        selected.allSatisfy({ NSIntersectionRange($0, candidate.range).length == 0 }),
-        paragraph.codeRanges.allSatisfy({ NSIntersectionRange($0, candidate.range).length == 0 }),
+      guard length >= 2, !terms.contains(term), selected.allSatisfy({ NSIntersectionRange($0, candidate.range).length == 0 }),
         used + length <= target || (selected.isEmpty && length <= maximum) else { continue }
       selected.append(candidate.range)
       terms.insert(term)
@@ -419,9 +538,11 @@ enum LearningReadingTypography {
 private struct LearningPrettyReadingText: UIViewRepresentable {
   let text: String
   var keyConcepts: [String] = []
+  var focusConcepts: [String] = []
   final class Coordinator {
     var text = ""
     var keyConcepts: [String] = []
+    var focusConcepts: [String] = []
     var width: CGFloat = -1
     var height: CGFloat = 28
   }
@@ -453,13 +574,16 @@ private struct LearningPrettyReadingText: UIViewRepresentable {
     return CGSize(width: width, height: context.coordinator.height)
   }
   private func apply(width: CGFloat, view: UITextView, cache: Coordinator) {
-    guard cache.text != text || cache.keyConcepts != keyConcepts || abs(cache.width - width) > 0.1 else { return }
-    if cache.text != text || cache.keyConcepts != keyConcepts {
-      view.attributedText = LearningReadingTypography.attributedText(in: text, keyConcepts: keyConcepts)
+    guard cache.text != text || cache.keyConcepts != keyConcepts || cache.focusConcepts != focusConcepts
+      || abs(cache.width - width) > 0.1 else { return }
+    if cache.text != text || cache.keyConcepts != keyConcepts || cache.focusConcepts != focusConcepts {
+      view.attributedText = LearningReadingTypography.attributedText(in: text,
+        keyConcepts: keyConcepts, focusConcepts: focusConcepts)
       view.accessibilityLabel = view.attributedText.string
     }
     cache.text = text
     cache.keyConcepts = keyConcepts
+    cache.focusConcepts = focusConcepts
     cache.width = width
     cache.height = ceil(view.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height)
   }
@@ -748,7 +872,7 @@ struct LessonReaderView: View {
         Text("本节导读").font(DS.font(.cardTitle)).buttonFrame()
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(lesson.key_concepts.first ?? lesson.title)")
         .accessibilityIdentifier("lesson.concept")
-      paragraph(lesson.summary)
+      paragraph(lesson.summary, focusConcepts: [lesson.title])
       if let summary = cloudCourse?.personalizationSummary {
         VStack(alignment: .leading, spacing: 6) {
           Text("本章学习安排").font(DS.font(.cardTitle))
@@ -787,7 +911,7 @@ struct LessonReaderView: View {
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(section.block.title)")
         .accessibilityIdentifier("lesson.concept")
       ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, text in
-        paragraph(text, keyConcepts: (lesson?.key_concepts ?? []) + [section.block.title])
+        paragraph(text, focusConcepts: [section.block.title])
         if index < section.assets.count { figure(section.assets[index]) }
       }
       ForEach(Array(section.assets.dropFirst(paragraphs.count))) { asset in figure(asset) }
@@ -799,8 +923,15 @@ struct LessonReaderView: View {
         : .asymmetric(insertion: .opacity.combined(with: .offset(x: 12)), removal: .opacity))
   }
 
-  private func paragraph(_ text: String, keyConcepts: [String]? = nil) -> some View {
-    LearningPrettyReadingText(text: text, keyConcepts: keyConcepts ?? lesson?.key_concepts ?? [])
+  private var emphasisConcepts: [String] {
+    // Reviewed knowledge-point titles live in objectives; older books may only
+    // have full-sentence key_concepts. The renderer assesses local relevance.
+    (lesson?.objectives ?? []) + (lesson?.key_concepts ?? [])
+  }
+
+  private func paragraph(_ text: String, focusConcepts: [String] = []) -> some View {
+    LearningPrettyReadingText(text: text, keyConcepts: emphasisConcepts,
+      focusConcepts: focusConcepts)
       .frame(maxWidth: 721.5, alignment: .leading)
       .contextMenu {
         Button("摘录为笔记", systemImage: "note.text.badge.plus") {
@@ -976,7 +1107,7 @@ struct LessonReaderView: View {
         Text(title).font(DS.font(.sectionTitle))
         ScrollView {
           LearningPrettyReadingText(text: section?.block.content ?? lesson?.summary ?? "",
-            keyConcepts: (lesson?.key_concepts ?? []) + [title])
+            keyConcepts: emphasisConcepts, focusConcepts: [title])
         }.frame(maxHeight: 280)
         if let citation = section?.block.citations.first {
           LearningSourceButton(

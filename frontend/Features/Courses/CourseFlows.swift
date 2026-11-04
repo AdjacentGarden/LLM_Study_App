@@ -434,7 +434,7 @@ private struct OnboardingClockIcon: View {
       context.fill(Path(ellipseIn: CGRect(x: center.x - faceRadius, y: center.y - faceRadius,
         width: faceRadius * 2, height: faceRadius * 2)), with: .color(.white.opacity(0.88)))
       func point(angle: Double, length: CGFloat) -> CGPoint {
-        CGPoint(x: center.x + sin(angle) * length, y: center.y - cos(angle) * length)
+        CGPoint(x: center.x + CGFloat(sin(angle)) * length, y: center.y - CGFloat(cos(angle)) * length)
       }
       for tick in 0..<12 {
         let angle = Double(tick) * .pi / 6

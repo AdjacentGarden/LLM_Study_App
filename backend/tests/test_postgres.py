@@ -26,7 +26,7 @@ from adaptive_learning.assessment.repository import SessionConflictError, SQLite
 from adaptive_learning.community import CommunityRepository
 from adaptive_learning.database import close_pools, connect
 from adaptive_learning.ingestion.jobs import JobStateError, OCRRunResult, SQLiteOCRJobRepository
-from adaptive_learning.migrate import TABLES, import_sqlite, upgrade
+from adaptive_learning.migrate import SCHEMA_VERSION, TABLES, import_sqlite, upgrade
 from adaptive_learning.native import NativeConflict, NativeRepository
 from adaptive_learning.personalization.models import ChapterLearningBundle
 from adaptive_learning.personalization.policy import PersonalizationPolicy
@@ -101,7 +101,7 @@ def test_import_preserves_private_approvals_unknown_submissions_and_recovery_per
     repo.claim_diagnostic_chapter(pending)
     monkeypatch.setenv('DATABASE_URL', pg)
     result = import_sqlite(data_dir=data, backup_dir=tmp_path / 'backup', url=pg, writes_stopped=True)
-    assert result['verified'] and result['schema_version'] == 8
+    assert result['verified'] and result['schema_version'] == SCHEMA_VERSION
     assert result['tables']['diagnostic_chapter_cache']['rows'] == 2
     assert result['tables']['diagnostic_chapter_submissions']['rows'] == 3
     assert result['tables']['diagnostic_recovery_epochs']['rows'] == 1
@@ -213,7 +213,7 @@ def test_course_queue_pg_identity_and_cross_process_lock_contract(pg, tmp_path):
         actual = {row[0] for row in db.execute(
             'SELECT tablename FROM pg_tables WHERE schemaname=current_schema()'
         )}
-    assert len(expected) == 51
+    assert len(expected) == sum(len(tables) for tables in TABLES.values())
     assert actual == expected | {'schema_migrations', 'worker_presence'}
     queue = CourseJobQueue(tmp_path / 'one/course_jobs.sqlite3', lambda *_: {'course_id': 'approved'})
     other = CourseJobQueue(tmp_path / 'two/course_jobs.sqlite3', lambda *_: pytest.fail('no duplicate'))
@@ -257,7 +257,7 @@ def test_import_keeps_course_aliases_note_aliases_and_preparation_stage(pg, tmp_
     monkeypatch.setenv('DATABASE_URL', pg)
     report = import_sqlite(data_dir=source, backup_dir=tmp_path / 'backup', url=pg,
                            writes_stopped=True)
-    assert report['verified'] and report['schema_version'] == 8
+    assert report['verified'] and report['schema_version'] == SCHEMA_VERSION
     assert report['tables']['course_jobs']['rows'] == 1
     assert report['tables']['course_job_requests']['rows'] == 1
     assert report['tables']['studio_note_request_aliases']['rows'] == 1

@@ -89,7 +89,7 @@ final class LearningTests: XCTestCase {
   }
 
   func testReadingPreservesMarkdownParagraphsAndUsesNativeWrapping() {
-    let source = "## 核心概念\n原子序数等于核电荷数，**同主族**元素通常具有相同的最外层电子数。\n\n- 比较周期与族。\n- 再根据电子层判断位置。"
+    let source = "## 核心概念\n原子序数等于核电荷数，**同主族元素**通常具有相同的最外层电子数。\n\n- 比较周期与族。\n- 再根据电子层判断位置。"
     let paragraphs = LearningReadingTypography.paragraphs(in: source)
     XCTAssertEqual(paragraphs.count, 4)
     XCTAssertEqual(paragraphs[0].text, "核心概念")
@@ -98,7 +98,7 @@ final class LearningTests: XCTestCase {
     XCTAssertFalse(paragraphs.map(\.text).joined().contains("**"))
     XCTAssertEqual(paragraphs[1].emphasizedRanges.map {
       (paragraphs[1].text as NSString).substring(with: $0)
-    }, ["同主族"])
+    }, ["同主族元素"])
     let attributed = LearningReadingTypography.attributedText(in: source)
     XCTAssertTrue(attributed.string.contains("\n"))
     XCTAssertFalse(attributed.string.contains("\u{2028}"))
@@ -161,6 +161,7 @@ final class LearningTests: XCTestCase {
     let paragraph = LearningReadingTypography.paragraphs(in: source, keyConcepts: ["Fe", "ion"])[0]
     XCTAssertTrue(paragraph.text.contains("Fe(OH)3"))
     XCTAssertTrue(paragraph.text.contains("a*b*c"))
+    XCTAssertEqual(LearningReadingTypography.plainText(in: "保留``x*y``与``a_b``的原式。"), "保留x*y与a_b的原式。")
     let marked = paragraph.emphasizedRanges.map { (paragraph.text as NSString).substring(with: $0) }
     XCTAssertFalse(marked.contains("Fe"))
     if let ion = paragraph.emphasizedRanges.first(where: { (paragraph.text as NSString).substring(with: $0) == "ion" }) {
@@ -169,6 +170,98 @@ final class LearningTests: XCTestCase {
     let fenced = "```text\n  a*b*c\n\n  Fe(OH)3\n```"
     XCTAssertEqual(LearningReadingTypography.plainText(in: fenced), "  a*b*c\n\n  Fe(OH)3")
   }
+
+  func testOrganicIntroductionEmphasizesTheLocalLearningThread() {
+    let summary = "本章从碳原子的成键特点入手，介绍有机化合物数量众多、性质各异的原因。碳原子间可形成单键、双键或三键，多个碳原子可结合成碳链或碳环，构成不同的碳骨架。\n\n以甲烷、乙烯、乙炔为代表，学习烷烃、烯烃、炔烃的结构与性质，认识取代反应、加成反应和聚合反应，了解乙烯、乙醇、乙酸等重要有机物及其官能团。\n\n最后介绍糖类、蛋白质、油脂等基本营养物质，以及塑料、橡胶、纤维等有机高分子材料，体现结构决定性质、性质决定用途的观念。"
+    let paragraphs = LearningReadingTypography.paragraphs(in: summary,
+      keyConcepts: organicKnowledgeAssertions, focusConcepts: ["第七章 有机化合物"])
+    XCTAssertEqual(paragraphs.count, 3)
+    XCTAssertEqual(markedTerms(paragraphs[0]), ["有机化合物"])
+    XCTAssertEqual(markedTerms(paragraphs[1]), ["取代反应"])
+    XCTAssertEqual(markedTerms(paragraphs[2]), ["结构决定性质"])
+    XCTAssertEqual(paragraphs.map(\.text).joined(separator: "\n\n"), summary)
+    assertRestrainedEmphasis(paragraphs)
+    let reordered = LearningReadingTypography.paragraphs(in: summary,
+      keyConcepts: Array(organicKnowledgeAssertions.reversed()) + organicKnowledgeAssertions,
+      focusConcepts: ["第七章 有机化合物"])
+    XCTAssertEqual(reordered.map(markedTerms), paragraphs.map(markedTerms), "Metadata order and duplicated objectives do not determine importance")
+    for assertion in organicKnowledgeAssertions {
+      let reading = LearningReadingTypography.paragraphs(in: assertion, keyConcepts: organicKnowledgeAssertions)
+      XCTAssertEqual(reading.map(\.text).joined(), assertion)
+      XCTAssertFalse(reading.flatMap(markedTerms).contains("4个电子"))
+      assertRestrainedEmphasis(reading)
+    }
+  }
+
+  func testReadingRejectsTermsInsideLargerTermsEvenWhenExplicitlyMarked() {
+    for source in ["有机高分子材料由很多重复单元连接而成，需要结合链结构与材料性质理解。",
+      "分子结构与碳原子结构有区别，需要结合具体物质进行判断。",
+      "有机高**分子**材料与碳**原子**的成键特点有关，不能把术语截成半词。",
+      "多个碳原子结合成碳链或碳环后，还应核对其具体成键方式与价键饱和情况。"] {
+      let paragraphs = LearningReadingTypography.paragraphs(in: source, keyConcepts: ["分子", "原子", "原子结合"])
+      XCTAssertTrue(paragraphs.flatMap(markedTerms).allSatisfy { !["分子", "原子", "原子结合"].contains($0) })
+    }
+    let formula = "观察**Fe**(OH)3与Na2CO3·10H2O，完整保留式中的元素、括号与数字，不单独突出半个化学式。"
+    let paragraphs = LearningReadingTypography.paragraphs(in: formula, keyConcepts: ["Fe", "OH"])
+    XCTAssertFalse(paragraphs.flatMap(markedTerms).contains("Fe"))
+    XCTAssertEqual(paragraphs[0].text, formula.replacingOccurrences(of: "**", with: ""))
+    let ion = "溶液中的 Na+ 表示钠离子，Na 表示钠元素，两种符号的含义需要结合具体条件加以区别。"
+    let ions = LearningReadingTypography.paragraphs(in: ion, keyConcepts: ["Na"], focusConcepts: ["Na"])
+    let partial = (ion as NSString).range(of: "Na+")
+    XCTAssertFalse(ions[0].emphasizedRanges.contains { NSIntersectionRange($0, partial).length > 0 && $0 != partial })
+  }
+
+  func testReadingAllowsACompleteTermWhenItIsActuallyBeingDefined() {
+    for (text, expected) in [
+      ("甲烷是最简单的烷烃，学习时需要观察它的完整空间结构。", "甲烷"),
+      ("分子是保持物质化学性质的最小微粒，需要在具体物质中理解这一概念。", "分子"),
+      ("碳原子是组成有机物碳骨架的重要结构单位，需要结合其成键特点进行判断。", "碳原子"),
+    ] {
+      let paragraphs = LearningReadingTypography.paragraphs(in: text, keyConcepts: ["甲烷", "分子", "原子"])
+      XCTAssertEqual(paragraphs.flatMap(markedTerms), [expected])
+    }
+    let amount = "碳原子最外层有4个电子，分析成键时需要注意完整结构与实际反应条件，不能只看孤立数量。"
+    let uncertain = LearningReadingTypography.paragraphs(in: amount, keyConcepts: ["4个电子", "电子", "原子"])
+    XCTAssertTrue(uncertain.flatMap(markedTerms).isEmpty)
+  }
+
+  func testReadingKeepsNegationAndDirectionInCompleteRelationships() {
+    for source in ["并不是性质决定结构，而是结构决定性质。",
+      "性质不决定结构，应注意论证中的因果方向与适用条件，避免把结论倒置。",
+      "不能据此认为结构决定性质，而应结合给定条件检验这一推断，避免断章取义。",
+      "不能得出以下结论：结构决定性质。这里仍需核对当前研究对象及其实际适用条件，避免把猜测当作规律。",
+      "只有满足给定条件时才能采用这一判断：性质决定用途。这里还需要检查条件。"] {
+      let reading = LearningReadingTypography.paragraphs(in: source)
+      let terms = reading.flatMap(markedTerms)
+      XCTAssertFalse(terms.contains("并不"))
+      XCTAssertFalse(terms.contains("决定结构"))
+      XCTAssertFalse(terms.contains("性质决定结构"))
+      if source.hasPrefix("不能据此") { XCTAssertFalse(terms.contains("结构决定性质")) }
+      if source.contains("以下结论：") { XCTAssertFalse(terms.contains("结构决定性质")) }
+      if source.hasPrefix("只有") { XCTAssertFalse(terms.contains("性质决定用途")) }
+      XCTAssertEqual(reading.map(\.text).joined(), source)
+      assertRestrainedEmphasis(reading)
+    }
+  }
+
+  private func markedTerms(_ paragraph: LearningReadingTypography.Paragraph) -> [String] {
+    paragraph.emphasizedRanges.map { (paragraph.text as NSString).substring(with: $0) }
+  }
+
+  private var organicKnowledgeAssertions: [String] { [
+    "有机化合物组成元素不复杂，但数量众多、性质各异，研究需基于碳原子成键规律认识分子结构和特征基团。",
+    "碳原子间可形成单键、双键或三键，多个碳原子可结合成碳链或碳环，构成链状或环状碳骨架。",
+    "甲烷分子中碳原子以最外层4个电子分别与4个氢原子形成4个C—H共价键，5个原子形成正四面体空间结构。",
+    "烷烃是碳原子间以单键结合、剩余价键均与氢原子结合的饱和烃，最简单的烷烃是甲烷。",
+    "烷烃均为难溶于水的无色物质，熔点、沸点和密度一般随碳原子数增加而升高，常温下状态由气态变为液态再到固态。",
+    "甲烷与氯气在光照下发生取代反应，依次生成一氯甲烷、二氯甲烷、三氯甲烷和四氯化碳。",
+    "乙烯分子中含有碳碳双键，使乙烯表现出较活泼的化学性质，能发生氧化反应、加成反应和聚合反应。",
+    "加成反应是有机物分子中的不饱和碳原子与其他原子或原子团直接结合生成新化合物的反应。",
+    "乙醇可以看成是乙烷分子中一个氢原子被羟基取代的产物，羟基是乙醇的官能团。",
+    "乙酸的化学性质主要由羧基决定，具有酸性，能与乙醇发生酯化反应生成乙酸乙酯。",
+    "官能团对有机物性质具有决定作用，含有相同官能团的有机物在性质上具有相似之处，可据此对有机物分类。",
+    "糖类、蛋白质和油脂是人体必需的基本营养物质，也是食品工业的重要原料。",
+  ] }
 
   private func assertRestrainedEmphasis(_ paragraphs: [LearningReadingTypography.Paragraph], file: StaticString = #filePath, line: UInt = #line) {
     for paragraph in paragraphs where paragraph.kind != .heading {
