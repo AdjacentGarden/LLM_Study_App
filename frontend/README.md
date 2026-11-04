@@ -16,6 +16,12 @@
 
 本次迁移范围为**原仓库内的 fixtures 与公开静态资源**。没有导出旧设备、浏览器 IndexedDB、个人笔记、录音、账号、API key 或 `.env`。可用能力与演示边界见 [功能边界](docs/FEATURE_BOUNDARIES.md)。
 
+课程封面按资料导入顺序选取，优先使用第一份资料的封面；第一份缺失时依次检查后续资料。课程封面不随当前阅读资料切换。全部缺失或图片加载失败时，使用内置的六款 SVG 图书封面，按课程 ID 稳定选择样式；书架、列表、课程切换及学习页标题共用同一策略。
+
+AI 对话列表中的回复内容区最多展示 240 点高，超出时渐隐并显示省略提示，完整回答与操作记录通过右上角全屏按钮查看，气泡内不单独滚动。全屏正文基准字号为 20 点并增加行距，记录与引用同步放大，支持系统动态字体；历史保存与模型上下文仍使用完整内容。Debug 可通过 `--fixture --assistant --fixture-assistant-long-reply` 检查长回答展示，使用独立的 `--fixture-session` 隔离测试数据。
+
+应用在 iPhone 和 iPad 上统一仅支持正向竖屏，横持启动或旋转设备时不会自动切换横屏。方向限制同时配置于 Info.plist、工程生成脚本及 UIApplicationDelegate；iPad 使用全屏兼容模式。视觉 fixtures 也遵循相同限制。旋转回归入口为 `BookCourseUITests/testCorePagesRemainPortraitWhenDeviceRotates`，旧横屏采集及其历史验证记录不代表当前行为。
+
 ## 构建与运行
 
 需要 macOS、完整 Xcode、iOS 17 或更新的 Simulator runtime，以及 Python 3（脚本只用标准库）。请选择支持目标 runtime 的 Xcode：

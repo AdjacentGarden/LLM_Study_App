@@ -341,7 +341,7 @@ private struct HomeCourseShelf: View {
                 scrollCourseID = course.id
               }
             } label: {
-              CourseCoverImage(path: store.courseFeatureCover(course))
+              CourseCoverImage(path: store.courseFeatureCover(course), fallbackSeed: course.id)
                 .frame(width: coverWidth, height: coverHeight).clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .blur(radius: selectedCourseID == course.id ? 0 : 1.5)
@@ -445,7 +445,7 @@ struct CourseLibraryView: View {
             store.openCourse(course)
           } label: {
             HStack(spacing: 16) {
-              CourseCoverImage(path: store.courseFeatureCover(course)).frame(
+              CourseCoverImage(path: store.courseFeatureCover(course), fallbackSeed: course.id).frame(
                 width: 64, height: 86
               ).clipped().clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(alignment: .topTrailing) {

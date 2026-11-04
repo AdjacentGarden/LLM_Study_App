@@ -138,6 +138,17 @@ func learningTaskStatus(_ status: String) -> String {
   }
 }
 
+/// Explicit reading completion takes precedence over optional practice/review tasks.
+func learningReadingProgress(_ tasks: [StudyTask], chapterIDs: Set<String>,
+  completedChapterIDs: Set<String>) -> Double {
+  guard !chapterIDs.isEmpty else { return 0 }
+  let total = chapterIDs.reduce(0.0) { value, id in
+    value + (completedChapterIDs.contains(id) ? 1
+      : learningChapterProgress(tasks, chapterIDs: [id]))
+  }
+  return total / Double(chapterIDs.count)
+}
+
 func learningResourceURL(_ relative: String) -> URL? {
   let path = relative.hasPrefix("/") ? String(relative.dropFirst()) : relative
   guard let root = Bundle.main.resourceURL else { return nil }

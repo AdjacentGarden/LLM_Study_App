@@ -211,10 +211,17 @@ import UIKit
   var plan: StudyPlan? { currentSource?.plan }
   /// Explicit reading completion is independent of a daily plan or knowledge mastery.
   var completedChapterIDs: Set<String> {
-    if let resource = cloudResource {
+    completedChapterIDs(for: selectedBookID ?? "")
+  }
+  func completedChapterIDs(for bookID: String) -> Set<String> {
+    if let resource = cloudState.workspaces.first(where: { $0.id == selectedCourseID })?
+      .resources.first(where: { $0.book_id == bookID }) {
       return Set((cloudState.pending[resource.id]?.value ?? resource.progress).completed_chapters)
     }
-    return Set((plan?.tasks ?? []).filter { ["done", "completed"].contains($0.status) }.compactMap(\.chapter_id))
+    let key = "\(selectedCourseID ?? "")::\(bookID)"
+    let tasks = sources.first { $0.id == bookID }?.plan.tasks ?? []
+    return (locations[key]?.completedChapterIDs ?? []).union(
+      tasks.filter { ["done", "completed"].contains($0.status) }.compactMap(\.chapter_id))
   }
   var currentTitle: String { currentCourse?.name ?? currentSource?.summary.title ?? "我的课程" }
   var chapterTitle: String {
@@ -315,7 +322,10 @@ import UIKit
         if let i = arguments.firstIndex(of: "--chapter"), arguments.indices.contains(i + 1) {
           selectedChapterID = arguments[i + 1]
           selectedLessonID = lessons.first(where: { $0.chapter_id == selectedChapterID })?.id
-          locations[locationKey] = StudyLocation(chapterID: selectedChapterID, lessonID: selectedLessonID)
+          var location = locations[locationKey] ?? StudyLocation()
+          location.chapterID = selectedChapterID
+          location.lessonID = selectedLessonID
+          locations[locationKey] = location
         }
         if let i = arguments.firstIndex(of: "--route"), arguments.indices.contains(i + 1),
           let target = Route(rawValue: arguments[i + 1])
@@ -1016,7 +1026,7 @@ import UIKit
     persist()
   }
   func completeLesson() {
-    guard let lesson = activeLesson, lesson.status == "ready" else { return }
+    guard let lesson = activeLesson, ["ready", "generated"].contains(lesson.status) else { return }
     for i in sources.indices where sources[i].id == lesson.book_id {
       for j in sources[i].plan.tasks.indices where sources[i].plan.tasks[j].lesson_id == lesson.id {
         sources[i].plan.tasks[j].status = "done"
@@ -1033,10 +1043,17 @@ import UIKit
         pending.mutationID = UUID().uuidString
         cloudState.pending[resource.id] = pending
       }
+    } else {
+      var location = locations[locationKey] ?? StudyLocation()
+      var completed = location.completedChapterIDs ?? []
+      completed.insert(lesson.chapter_id)
+      location.completedChapterIDs = completed
+      locations[locationKey] = location
     }
     saveLocation()
+    let workspaceID = selectedCourseID, epoch = cloudState.epoch
     let planFocus = activeDailyStudyTask
-    Task { await finishDailyStudyTask(planFocus, kind: "learn") }
+    Task { await finishLessonDailyStudyTasks(lesson, workspaceID: workspaceID, epoch: epoch, focus: planFocus) }
     showToast("本课学习已完成", kind: .success)
   }
   func saveLocation(page: Int? = nil) {

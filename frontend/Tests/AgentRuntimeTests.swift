@@ -1678,3 +1678,35 @@ extension AgentRuntimeTests {
     XCTAssertTrue(assets.allSatisfy { $0["page"] as? Int == 13 && $0["metadata"] == nil })
   }
 }
+
+extension AgentRuntimeTests {
+  @MainActor func testPreparationProgressUsesTaskEvenWhenCatalogIsEmpty() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    store.sources = [agentSource(bookID: "book-test", title: "测试教材")]
+    agentRegisterCourse(store)
+    let path = "/api/books/book-test/prepare"
+    AgentScriptedRouter.shared.enqueue(host: host, method: "GET", path: path) { _ in
+      .json(status: 200, body: #"{"book_id":"book-test","status":"running","stage":"diagnostics","updated":1,"next_step":2,"diagnostics_completed":5,"diagnostics_total":12}"#)
+    }
+    AgentScriptedRouter.shared.enqueue(host: host, method: "GET", path: path) { _ in
+      .json(status: 403, body: "{}")
+    }
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    let call = AgentToolCall(id: "progress", name: "read_learning_data",
+      argumentsJSON: #"{"kind":"preparation","course_id":"course-agent"}"#, argumentsHash: "")
+    func task() async throws -> [String: Any] {
+      let result = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+      return try XCTUnwrap((agentJSON(Data(result.utf8))["tasks"] as? [[String: Any]])?.first)
+    }
+    let live = try await task()
+    XCTAssertEqual(live["source"] as? String, "live")
+    XCTAssertEqual(live["stage"] as? String, "diagnostics")
+    XCTAssertEqual(live["diagnostics_completed"] as? Int, 5)
+    XCTAssertEqual(live["diagnostics_total"] as? Int, 12)
+    let unavailable = try await task()
+    XCTAssertEqual(unavailable["source"] as? String, "unknown")
+    XCTAssertNil(unavailable["status"])
+  }
+}

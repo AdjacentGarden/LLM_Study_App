@@ -268,11 +268,21 @@ extension AppStore {
     persist()
   }
   func courseFeatureCover(_ course: Course) -> String? {
-    let bookID = course.activeResourceID ?? course.resourceIDs.first
-    return cloudState.workspaces.first { $0.id == course.id }?.resources.first { $0.book_id == bookID }?.cover_url
-      ?? sources.first { $0.id == bookID }?.summary.cover_url
-      ?? community.first { $0.id == bookID }?.cover
-      ?? shelf.first { $0.bookId == bookID }?.coverUrl
+    orderedResourceCover(course.resourceIDs, workspaceID: course.id)
+  }
+  /// Course artwork follows import order, independently of the open textbook.
+  func orderedResourceCover(_ resourceIDs: [String], workspaceID: String? = nil) -> String? {
+    for bookID in resourceIDs {
+      let candidates = [
+        cloudState.workspaces.first { $0.id == workspaceID }?.resources.first { $0.book_id == bookID }?.cover_url,
+        sources.first { $0.id == bookID }?.summary.cover_url,
+        community.first { $0.id == bookID }?.cover,
+        shelf.first { $0.bookId == bookID }?.coverUrl,
+      ]
+      if let path = candidates.compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+        .first(where: { !$0.isEmpty }) { return path }
+    }
+    return nil
   }
   func courseFeatureProgress(_ course: Course) -> Double {
     let tasks = sources.filter { course.resourceIDs.contains($0.id) }.flatMap { $0.plan.tasks }
@@ -309,6 +319,7 @@ struct CourseCoverImage: View {
   let path: String?
   var contentMode: ContentMode = .fill
   var documentKind: String? = nil
+  var fallbackSeed = ""
 
   private var remoteRequest: CloudBookCoverRequest? {
     guard let path, CloudAPI.isBookCoverPath(path), let api = store.cloud,
@@ -319,24 +330,17 @@ struct CourseCoverImage: View {
 
   var body: some View {
     Group {
-      if let path, ContentBundle.url(path) != nil {
+      if let path, ContentBundle.url(path) != nil, path.lowercased().hasSuffix(".svg") {
+        SVGAsset(path: path)
+      } else if let path, ContentBundle.image(path) != nil {
         AssetImage(path, contentMode: contentMode)
       } else if let request = remoteRequest, request == remoteCover.request,
         let data = remoteCover.data, let image = UIImage(data: data) {
         Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
       } else {
-        ZStack {
-          DS.primarySoft
-          if let documentKind {
-            VStack(spacing: 12) {
-              StickerIcon("FileText", size: 56)
-              Text(documentKind).font(DS.font(.cardTitle))
-              Text("AI 课程资料").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-            }
-          } else {
-            BCGlyph("FileText", color: DS.primary).frame(width: 30, height: 30)
-          }
-        }
+        SVGAsset(path: CourseCoverFallback.path(seed: fallbackSeed.isEmpty
+          ? path ?? documentKind ?? "library" : fallbackSeed))
+          .background(DS.primarySoft)
       }
     }.accessibilityHidden(true)
       .task(id: remoteRequest) { await remoteCover.load(remoteRequest, api: store.cloud) }

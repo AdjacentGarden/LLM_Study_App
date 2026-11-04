@@ -7,6 +7,18 @@ enum StudyCoursePreparation: Equatable {
 }
 
 @MainActor extension AppStore {
+  /// The course progress card measures reading, independently of today's tasks.
+  var courseLearningProgress: Double {
+    let bookIDs = Set(currentCourse?.resourceIDs ?? [selectedBookID ?? ""])
+    let values = sources.filter { bookIDs.contains($0.id) }.flatMap { source in
+      learningDirectory(source.id == selectedBookID ? chapters : source.chapters).map { node in
+        learningReadingProgress(source.plan.tasks, chapterIDs: Set(node.sections.map(\.id)),
+          completedChapterIDs: completedChapterIDs(for: source.id))
+      }
+    }
+    return values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
+  }
+
   func workspaceID(for record: CourseImportRecord) -> String {
     if let id = record.draft.creationWorkspaceID { return id }
     guard record.id.hasPrefix("local-course:") else { return record.id }

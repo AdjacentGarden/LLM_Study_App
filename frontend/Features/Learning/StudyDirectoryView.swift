@@ -128,22 +128,6 @@ struct StudyDirectoryView: View {
       !["done", "completed"].contains($0.status)
     } ?? courseTasks.first
   }
-  private var studyProgress: Double {
-    if courseTasks.isEmpty {
-      let ids = Set(directory.flatMap { $0.sections.map(\.id) })
-      return ids.isEmpty ? 0 : Double(ids.intersection(store.completedChapterIDs).count) / Double(ids.count)
-    }
-    if store.selectedBookID == "book_biology_2", (store.currentCourse?.resourceIDs.count ?? 1) <= 1,
-      !directory.isEmpty
-    {
-      let values = directory.map { node in
-        learningChapterProgress(
-          store.plan?.tasks ?? [], chapterIDs: Set(node.sections.map(\.id) + [node.id]))
-      }
-      return (values.reduce(0, +) / Double(values.count) * 100).rounded() / 100
-    }
-    return learningProgress(courseTasks)
-  }
   private var positionKey: String {
     "native.study.location.\(store.cloudState.cacheKey ?? "local").\(store.selectedCourseID ?? "none").\(store.selectedBookID ?? "none")"
   }
@@ -197,9 +181,6 @@ struct StudyDirectoryView: View {
                   else { store.go(.library) }
                 }
               } else {
-                if store.selectedCourseImport?.needsPreparation == true {
-                  StudyCoursePreparationView(preparation: .materials, compact: true)
-                }
                 ForEach(Array(directory.enumerated()), id: \.element.id) { index, node in
                   chapterCard(node, index: index)
                     .id(node.id)
@@ -281,12 +262,9 @@ struct StudyDirectoryView: View {
           store.openSheet(.bookSwitcher)
         } label: {
           HStack(spacing: 10) {
-            if let cover = store.currentSource?.summary.cover_url {
-              AssetImage(cover, contentMode: .fill)
-                .frame(width: 42, height: 50).clipped().clipShape(RoundedRectangle(cornerRadius: 5))
-            } else {
-              StickerIcon("LibraryBig", size: 36)
-            }
+            CourseCoverImage(path: store.currentCourse.flatMap { store.courseFeatureCover($0) },
+              fallbackSeed: store.currentCourse?.id ?? "library")
+              .frame(width: 42, height: 50).clipped().clipShape(RoundedRectangle(cornerRadius: 5))
             VStack(alignment: .leading, spacing: 3) {
               if !compact {
                 Text("当前课程").font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
@@ -317,7 +295,10 @@ struct StudyDirectoryView: View {
             .accessibilityIdentifier("study.course.create")
         }
       }
-      if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
+      if store.studyCoursePreparation == nil, !directory.isEmpty,
+        store.selectedCourseImport?.needsPreparation == true {
+        StudyCoursePreparationView(preparation: .materials, compact: true)
+      } else if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
         Text(label).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
           .accessibilityIdentifier("study.course.status")
       }
@@ -329,7 +310,7 @@ struct StudyDirectoryView: View {
         Text("教材目录 · 当前尚无生成的教学内容")
           .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
       } else if !directory.isEmpty {
-        StudyProgressCard(compact: compact, progress: studyProgress,
+        StudyProgressCard(compact: compact, progress: store.courseLearningProgress,
           taskTitle: currentTask?.title ?? directory.first?.chapter.title ?? "从第一节开始") {
             store.go(.plan)
           }
@@ -343,9 +324,8 @@ struct StudyDirectoryView: View {
     let sectionIDs = Set(node.sections.map(\.chapter_id) + [node.id])
     let tasks = store.plan?.tasks.filter { sectionIDs.contains($0.chapter_id ?? "") } ?? []
     let readingIDs = Set(node.sections.map(\.id))
-    let progress = tasks.isEmpty
-      ? (readingIDs.isEmpty ? 0 : Double(readingIDs.intersection(store.completedChapterIDs).count) / Double(readingIDs.count))
-      : learningChapterProgress(tasks, chapterIDs: sectionIDs)
+    let progress = learningReadingProgress(tasks, chapterIDs: readingIDs,
+      completedChapterIDs: store.completedChapterIDs)
     return VStack(alignment: .leading, spacing: 0) {
       Button {
         automaticallyPositioning = false
@@ -407,8 +387,8 @@ struct StudyDirectoryView: View {
   private func sectionRow(_ chapter: Chapter) -> some View {
     let expanded = expandedSection == chapter.id
     let sectionTasks = store.plan?.tasks.filter { $0.chapter_id == chapter.id } ?? []
-    let complete = sectionTasks.isEmpty ? store.completedChapterIDs.contains(chapter.id)
-      : sectionTasks.allSatisfy { ["done", "completed"].contains($0.status) }
+    let complete = store.completedChapterIDs.contains(chapter.id)
+      || (!sectionTasks.isEmpty && sectionTasks.allSatisfy { ["done", "completed"].contains($0.status) })
     return VStack(alignment: .leading, spacing: 0) {
       Button {
         automaticallyPositioning = false

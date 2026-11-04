@@ -94,7 +94,7 @@ private final class CoverRedirectPolicy: NSObject, URLSessionTaskDelegate, @unch
 
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
-  nonisolated static let defaultServer = "http://10.249.44.137:8100"
+  nonisolated static let defaultServer = "http://192.168.28.241:8100"
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
     ["127.0.0.1", "localhost", "::1", "[::1]"].contains(baseURL.host ?? "")

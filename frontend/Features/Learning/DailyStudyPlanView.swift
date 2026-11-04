@@ -7,7 +7,7 @@ struct DailyStudyPlanSummary: View {
   @State private var day = DailyStudyPlanState.day()
 
   var body: some View {
-    StudyProgressCard(compact: compact, progress: store.dailyStudyPlan(day)?.progress ?? 0,
+    StudyProgressCard(compact: compact, progress: store.courseLearningProgress,
       taskTitle: taskTitle, issue: planIssue) { store.go(.plan) }
     .task(id: store.dailyStudyPlanLoadKey + day) { await store.loadDailyStudyPlan(day: day) }
     .onChange(of: scenePhase) { _, phase in

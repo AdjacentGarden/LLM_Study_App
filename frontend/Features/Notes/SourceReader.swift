@@ -1124,6 +1124,10 @@ struct NotesRegionAIView: View {
                   }
                 }.id(message.id)
               }
+              if !loading, let run = store.agent.active, run.context.sessionID == temporarySessionID,
+                run.scope == store.noteScope, run.status.isTerminal {
+                AssistantResultActions(run: run, onNavigate: onClose)
+              }
               if loading {
                 bubble(isTextNote ? "正在结合批注和教材回答…" : "正在结合圈选内容回答…", user: false)
               }
@@ -1242,7 +1246,7 @@ struct NotesRegionAIView: View {
     }
   }
   private func bubble(_ text: String, user: Bool) -> some View {
-    Text(text).font(DS.font(.reading)).lineSpacing(8).textSelection(.enabled)
+    AssistantChatText(text, user: user).font(DS.font(.reading)).lineSpacing(8).textSelection(.enabled)
       .padding(12).frame(maxWidth: .infinity, alignment: .leading)
       .background(user ? DS.primarySoft : .white, in: RoundedRectangle(cornerRadius: 18))
       .overlay(RoundedRectangle(cornerRadius: 18).stroke(DS.border))

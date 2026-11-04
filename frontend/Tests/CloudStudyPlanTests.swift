@@ -135,6 +135,45 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertTrue(probe.requests.allSatisfy { $0.httpMethod == "GET" })
   }
 
+  func testLessonOpenedFromDirectoryCompletesOnlyItsScheduledLearningTasks() async throws {
+    let (store, probe, session, host) = try fixture()
+    defer { StudyPlanProtocol.install(host, nil); session.invalidateAndCancel() }
+    let today = DailyStudyPlanState.day()
+    var plan = try JSONDecoder().decode(CloudStudyPlan.self, from: wire())
+    plan.day = today
+    var practice = plan.tasks[0]
+    practice.task_id = "practice:resource:point"
+    practice.kind = "practice"
+    var other = plan.tasks[0]
+    other.task_id = "learn:other:point"
+    other.resource_id = "other-resource"
+    plan.tasks += [practice, other]
+    var done = plan
+    done.tasks[0].status = "done"
+    let pendingData = try JSONEncoder().encode(plan), doneData = try JSONEncoder().encode(done)
+    let writes = StudyPlanProbe()
+    writes.handler = { _ in (200, Data()) }
+    probe.handler = { request in
+      if request.httpMethod == "POST" {
+        _ = try writes.respond(request)
+        return (200, Data(#"{"ok":true}"#.utf8))
+      }
+      return (200, writes.requests.isEmpty ? pendingData : doneData)
+    }
+    var lesson = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first?.lessons.first)
+    lesson.book_id = "book"
+    lesson.chapter_id = "chapter"
+    XCTAssertNil(store.activeDailyStudyTask)
+    await store.finishLessonDailyStudyTasks(lesson, workspaceID: "workspace",
+      epoch: store.cloudState.epoch, focus: nil)
+    await store.flush()
+    XCTAssertEqual(store.dailyStudyPlan(today)?.completedCount, 1)
+    XCTAssertEqual(writes.requests.count, 1)
+    XCTAssertTrue(writes.requests.first?.url?.path.contains("/learn:resource:point/complete") == true)
+    XCTAssertEqual(store.dailyStudyPlan(today)?.tasks[1].status, practice.status)
+    XCTAssertEqual(store.dailyStudyPlan(today)?.tasks[2].status, other.status)
+  }
+
   func testReviewAcknowledgementCompletesAttachedPlanTask() async throws {
     let (store, probe, session, host) = try fixture()
     defer { StudyPlanProtocol.install(host, nil); session.invalidateAndCancel() }

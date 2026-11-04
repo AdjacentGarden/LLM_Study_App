@@ -260,6 +260,25 @@ extension AppStore {
     return focus
   }
 
+  /// Completing a whole lesson also completes its scheduled learning tasks,
+  /// including when the reader was opened from the chapter directory.
+  func finishLessonDailyStudyTasks(_ lesson: Lesson, workspaceID: String?, epoch: UUID,
+    focus: CloudPlanFocus?) async {
+    guard epoch == cloudState.epoch, let wid = workspaceID,
+      let resource = cloudState.workspaces.first(where: { $0.id == wid })?
+        .resources.first(where: { $0.book_id == lesson.book_id }) else { return }
+    let day = focus.flatMap { $0.task.kind == "learn" ? $0.day : nil } ?? DailyStudyPlanState.day()
+    let key = DailyStudyPlanState.key(wid, day)
+    if dailyPlanState.plans[key] == nil { await loadDailyStudyPlan(day: day, workspaceID: wid) }
+    guard epoch == cloudState.epoch, let plan = dailyPlanState.plans[key] else { return }
+    for task in plan.tasks where task.kind == "learn" && task.resource_id == resource.id
+      && task.book_id == lesson.book_id && task.chapter_id == lesson.chapter_id
+      && (task.lesson_id == nil || task.lesson_id == lesson.id) && !task.isDone {
+      guard epoch == cloudState.epoch else { return }
+      await completeDailyStudyTask(task, day: day, workspaceID: wid, waitForSync: false)
+    }
+  }
+
   func finishDailyStudyTask(_ focus: CloudPlanFocus?, kind: String, itemIDs: Set<String> = []) async {
     guard let focus, focus.task.kind == kind else { return }
     if kind == "practice", let item = focus.task.practice_item_id, !itemIDs.contains(item) { return }

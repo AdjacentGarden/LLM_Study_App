@@ -14,7 +14,14 @@ struct StudyCoursePreparationView: View {
   private var title: String {
     switch preparation {
     case .materials:
-      if compact { return "新增资料正在整理" }
+      if compact {
+        switch record?.job.status {
+        case .failed: return "新增资料解析未完成"
+        case .cancelled, .interrupted: return "新增资料解析已暂停"
+        case .queued: return "新增资料等待解析"
+        default: return "新增资料正在整理"
+        }
+      }
       if record?.job.status == .failed { return "资料解析未完成" }
       if record?.job.status == .cancelled || record?.job.status == .interrupted { return "继续整理这门课程" }
       return running ? "正在解析课程资料" : "课程资料已保存"
@@ -34,7 +41,43 @@ struct StudyCoursePreparationView: View {
     }
   }
 
-  var body: some View {
+  @ViewBuilder var body: some View {
+    if compact {
+      materialsNotice
+    } else {
+      preparationCard
+    }
+  }
+
+  private var materialsNotice: some View {
+    HStack(spacing: 8) {
+      Text(title).font(DS.font(.supporting, weight: .medium))
+        .foregroundStyle(record?.error != nil || record?.job.status == .failed ? DS.danger : DS.text)
+        .fixedSize(horizontal: false, vertical: true)
+      if running {
+        ProgressView().controlSize(.small).tint(DS.primary)
+      } else {
+        Image(systemName: record?.job.status == .failed ? "exclamationmark.circle"
+          : record?.job.status == .queued ? "clock" : "pause.circle")
+          .foregroundStyle(record?.job.status == .failed ? DS.danger : DS.secondary)
+          .accessibilityHidden(true)
+      }
+      if let progress = record?.ringProgress {
+        Text("\(Int((progress * 100).rounded()))%")
+          .font(DS.font(.caption)).foregroundStyle(DS.secondary)
+      }
+      Spacer(minLength: 0)
+      Button("查看进度") { store.openCoursePreparationDetails() }
+        .font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.primary)
+        .buttonFrame().buttonStyle(.plain)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityIdentifier("study.preparation.details")
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("study.materials.notice")
+  }
+
+  private var preparationCard: some View {
     BCCard {
       VStack(alignment: .leading, spacing: 16) {
         HStack(spacing: 12) {
@@ -71,7 +114,7 @@ struct StudyCoursePreparationView: View {
         actions
       }
     }
-    .accessibilityIdentifier(compact ? "study.materials.notice" : "study.preparation")
+    .accessibilityIdentifier("study.preparation")
   }
 
   @ViewBuilder private var actions: some View {

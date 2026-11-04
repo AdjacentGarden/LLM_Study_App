@@ -13,11 +13,11 @@ import ZIPFoundation
     "update_study_plan", "remove_course", "ask_user"]
 
   static func label(_ name: String) -> String {
-    ["list_courses": "查看已保存课程", "read_course_catalog": "读取课程目录", "search_discovery": "检索发现页课程",
+    ["save_note": "保存笔记", "open_note": "打开笔记", "ask_user": "询问你的选择", "list_courses": "查看已保存课程", "read_course_catalog": "读取课程目录", "search_discovery": "检索发现页课程",
      "acquire_course": "获取课程", "read_material": "读取课程资料", "read_attachment": "读取本会话附件",
      "read_learning_data": "读取学习记录", "navigate": "打开目标页面", "capture_screen": "查看当前界面",
      "edit_note": "更新笔记", "delete_note": "删除笔记", "create_flashcards": "创建闪卡",
-     "create_review_task": "创建复习任务", "update_study_plan": "更新学习计划", "remove_course": "移除课程"][name] ?? name
+     "create_review_task": "创建复习任务", "update_study_plan": "更新学习计划", "remove_course": "移除课程"][name] ?? "执行操作"
   }
 
   static func json<T: Encodable>(_ value: T) throws -> Any {
@@ -86,7 +86,7 @@ import ZIPFoundation
           "status": source.chapters.isEmpty ? (source.summary.status == "ready" ? "no_chapters" : "not_generated") : "complete",
           "chapters": try json(source.chapters), "complete": true]
       }
-      return try encoded(["course_id": target.id, "resources": resources, "complete": resources.allSatisfy { $0["complete"] as? Bool == true }])
+      return try encoded(["course_id": target.id, "show_outline": args["kind"]?.stringValue == "outline", "resources": resources, "complete": resources.allSatisfy { $0["complete"] as? Bool == true }])
 
     case "search_discovery":
       try await store.refreshCommunity()
@@ -260,6 +260,9 @@ import ZIPFoundation
         "next_offset": end < text.count ? end as Any : NSNull(), "page_count": file.pageCount ?? 1])
 
     case "read_learning_data":
+      if args["kind"]?.stringValue == "preparation" {
+        return try await readPreparation(args, store: store)
+      }
       return try await readLearning(args, run: &run, store: store)
 
     case "navigate":
@@ -313,6 +316,47 @@ import ZIPFoundation
 
     default: throw AgentValidationError(message: "未知工具：" + call.name)
     }
+  }
+
+  private static func readPreparation(_ args: [String: JSONValue], store: AppStore) async throws -> String {
+    let epoch = store.cloudState.epoch
+    let target = try course(args, store: store)
+    let record = store.courseImport(for: target.id)
+    let ids = args["book_id"]?.stringValue.map { [$0] } ?? target.resourceIDs
+    guard Set(ids).isSubset(of: Set(target.resourceIDs)) else { throw AgentValidationError(message: "资料不属于当前课程") }
+    var tasks: [[String: Any]] = []
+    for id in ids {
+      let cached = record?.books.first { $0.id == id }
+      var item: [String: Any] = ["book_id": id, "title": store.sources.first { $0.id == id }?.summary.title ?? target.name, "source": "unknown"]
+      if let cached {
+        item["source"] = "last_known"
+        item["status"] = cached.status.rawValue
+        item["stage"] = cached.stage
+        item["message"] = cached.message
+      }
+      if let cloud = store.cloud, record?.onDeviceOnly != true, !id.hasPrefix("book_local_") {
+        do {
+          let job: CloudBookPreparationJob = try await cloud.request("/api/books/\(id)/prepare")
+          item["source"] = "live"
+          item["status"] = job.status.rawValue
+          item["stage"] = job.stage
+          item["message"] = job.message
+          item["diagnostics_completed"] = job.diagnostics_completed
+          item["diagnostics_total"] = job.diagnostics_total
+        } catch let error as CloudError where error.status == 404 {
+          if let ocr: CloudBookStatus = try? await cloud.request("/api/books/\(id)/status") {
+            item["source"] = "live"
+            item["status"] = ocr.status
+            item["stage"] = "ocr"
+            item["message"] = ocr.current_step
+          }
+        } catch { /* Only the local snapshot, if present, is available. */ }
+      }
+      try Task.checkCancellation()
+      guard epoch == store.cloudState.epoch else { throw CancellationError() }
+      tasks.append(item)
+    }
+    return try encoded(["course_id": target.id, "tasks": tasks])
   }
 
   static func readLearning(_ args: [String: JSONValue], run: inout AgentRunRecord, store: AppStore) async throws -> String {

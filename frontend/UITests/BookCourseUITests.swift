@@ -341,7 +341,7 @@ final class BookCourseUITests: XCTestCase {
     let landscape = XCTNSPredicateExpectation(
       predicate: NSPredicate { _, _ in
         let bounds = app.windows.firstMatch.frame
-        return bounds.width > bounds.height && select.isHittable
+        return bounds.width < bounds.height && select.isHittable
           && bounds.contains(select.frame) && bounds.contains(save.frame)
           && abs(panel.frame.maxY - bounds.maxY) < 1
       }, object: nil)
@@ -351,7 +351,7 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertFalse(app.scrollViews.firstMatch.exists)
     XCTAssertEqual(panel.frame.maxY, app.windows.firstMatch.frame.maxY, accuracy: 1)
     let landscapeShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-    landscapeShot.name = "upload-fixed-landscape"
+    landscapeShot.name = "upload-fixed-portrait-after-rotation"
     landscapeShot.lifetime = .keepAlways
     add(landscapeShot)
   }
@@ -503,14 +503,14 @@ final class BookCourseUITests: XCTestCase {
     XCUIDevice.shared.orientation = .landscapeLeft
     let rotated = XCTNSPredicateExpectation(
       predicate: NSPredicate { _, _ in
-        app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
+        app.windows.firstMatch.frame.width < app.windows.firstMatch.frame.height
       }, object: nil)
     XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 15), .completed)
     for id in ["tab-home", "tab-study", "tab-community", "tab-profile"] {
       XCTAssertTrue(bar.buttons[id].isHittable)
     }
     XCTAssertGreaterThan(bar.frame.minY, app.windows.firstMatch.frame.height * 0.65)
-    keepScreenshot("liquid-glass-landscape", app: app)
+    keepScreenshot("liquid-glass-portrait-after-rotation", app: app)
   }
 
   func testNativePhoneTabBarAssistantAndKeyboardAvoidance() throws {
@@ -673,31 +673,27 @@ final class BookCourseUITests: XCTestCase {
     add(attachment)
   }
 
-  func testLandscapeCorePages() throws {
-    // A portrait geometry fixture can leave physical orientation at landscapeLeft.
-    // Force a genuine orientation change for every route instead of assigning
-    // an unchanged physical value, which produces no window rotation event.
-    XCUIDevice.shared.orientation = .portrait
+  func testCorePagesRemainPortraitWhenDeviceRotates() throws {
     defer { XCUIDevice.shared.orientation = .portrait }
-    for route in [
-      "home", "onboarding", "courseSetup", "community", "study", "lesson", "source", "assignment",
-      "notes", "profile", "settings",
-    ] {
+    for route in ["study", "courseSetup", "lesson", "notes"] {
+      // Cold launch with the device sideways must still open a portrait window.
       XCUIDevice.shared.orientation = .portrait
-      let app = launch(route, chapter: "c1s1", visual: true)
       XCUIDevice.shared.orientation = .landscapeLeft
-      let landscape = XCTNSPredicateExpectation(
-        predicate: NSPredicate { _, _ in
-          app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
-        }, object: nil)
-      XCTAssertEqual(
-        XCTWaiter.wait(for: [landscape], timeout: 15), .completed,
-        "Landscape did not take effect on \(route)")
+      let app = launch(route, chapter: "c2s1", visual: true,
+        extraArgs: ["--fixture-orientation", "landscape"])
       let ready = XCTNSPredicateExpectation(
         predicate: NSPredicate { _, _ in !app.staticTexts["正在准备学习空间"].exists }, object: nil)
-      XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
-      Thread.sleep(forTimeInterval: 0.8)
-      keepScreenshot("landscape-" + route, app: app)
+      XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 20), .completed)
+      for orientation: UIDeviceOrientation in [.portrait, .landscapeRight, .landscapeLeft, .portraitUpsideDown] {
+        XCUIDevice.shared.orientation = orientation
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+          let bounds = app.windows.firstMatch.frame
+          return bounds.width < bounds.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 10), .completed,
+          "Must remain portrait on \(route), device \(orientation.rawValue)")
+      }
+      keepScreenshot("portrait-locked-" + route, app: app)
       app.terminate()
     }
   }

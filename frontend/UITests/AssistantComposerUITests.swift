@@ -3,12 +3,13 @@ import XCTest
 final class AssistantComposerUITests: XCTestCase {
   override func setUpWithError() throws { continueAfterFailure = false }
 
-  private func launch(reduceMotion: Bool = true) -> XCUIApplication {
+  private func launch(reduceMotion: Bool = true, longReply: Bool = false) -> XCUIApplication {
     XCUIDevice.shared.orientation = .portrait
     let app = XCUIApplication()
     app.launchArguments = ["--fixture", "--fixture-session", UUID().uuidString,
       "--route", "study", "--assistant", "--fixture-assistant-voice"]
     if reduceMotion { app.launchArguments += ["--fixture-reduce-motion"] }
+    if longReply { app.launchArguments += ["--fixture-assistant-long-reply"] }
     app.launch()
     let ready = app.buttons["guide-mic"].waitForExistence(timeout: 20)
     if !ready { print(app.debugDescription) }
@@ -28,6 +29,60 @@ final class AssistantComposerUITests: XCTestCase {
     attachment.name = name
     attachment.lifetime = .keepAlways
     add(attachment)
+  }
+
+  func testLongReplyIsCappedAndFullScreenPreservesAllContent() {
+    let app = launch(longReply: true)
+    let preview = app.descendants(matching: .any)["assistant.reply.preview"].firstMatch
+    XCTAssertTrue(app.staticTexts["assistant.reply.truncated"].waitForExistence(timeout: 10))
+    XCTAssertLessThanOrEqual(preview.frame.height, 241)
+    let bubble = app.descendants(matching: .any)["guide-ai-message"].firstMatch
+    XCTAssertLessThanOrEqual(bubble.frame.height, 370)
+    screenshot("assistant-long-reply-preview", app: app)
+    app.buttons["assistant.reply.expand"].tap()
+    let detail = app.descendants(matching: .any)["assistant.reply.fullscreen"].firstMatch
+    XCTAssertTrue(detail.waitForExistence(timeout: 5))
+    let answer = detail.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "FULLSCREEN_END")).firstMatch
+    screenshot("assistant-long-reply-large-detail", app: app)
+    XCTAssertTrue(answer.waitForExistence(timeout: 5), "The full-screen view must retain the entire original answer")
+    XCTAssertFalse(detail.staticTexts["assistant.reply.truncated"].exists)
+    app.buttons["assistant.reply.collapse"].tap()
+    XCTAssertTrue(detail.waitForNonExistence(timeout: 5))
+    app.buttons["assistant.run.disclosure"].tap()
+    XCTAssertLessThanOrEqual(preview.frame.height, 241, "Expanded operation logs also obey the preview limit")
+    XCTAssertLessThanOrEqual(bubble.frame.height, 370)
+    app.buttons["assistant.reply.expand"].tap()
+    XCTAssertTrue(detail.waitForExistence(timeout: 5))
+    XCTAssertTrue(detail.staticTexts["处理记录 20：已检查课程资料和学习进度。"].waitForExistence(timeout: 5))
+    XCTAssertTrue(answer.exists)
+    app.buttons["assistant.reply.collapse"].tap()
+    XCTAssertTrue(detail.waitForNonExistence(timeout: 5))
+    XCTAssertEqual(app.buttons.matching(identifier: "assistant.reply.expand").count, 1)
+  }
+
+  func testTapAboveComposerDismissesKeyboardAndPreservesDraft() {
+    let app = launch()
+    let field = input(app)
+    field.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+    field.typeText("Keep this draft")
+    // Empty conversation space must work before the first reply exists.
+    let conversation = app.scrollViews["guide-conversation"]
+    conversation.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+    XCTAssertEqual(field.value as? String, "Keep this draft")
+    field.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+    field.typeText(" and continue")
+    XCTAssertTrue(app.keyboards.firstMatch.exists)
+    // Refocusing can place the caret at the tapped position rather than the end.
+    let editedDraft = field.value as? String ?? ""
+    XCTAssertTrue(editedDraft.contains("Keep this draft"))
+    XCTAssertTrue(editedDraft.contains(" and continue"))
+    app.staticTexts["assistant.context.capacity"].tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+    XCTAssertEqual(field.value as? String, editedDraft)
+    XCTAssertFalse(app.descendants(matching: .any)["guide-user-message"].exists)
   }
 
   func testTextMicSwitchMultilineKeyboardAndSend() {

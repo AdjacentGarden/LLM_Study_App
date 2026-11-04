@@ -96,6 +96,42 @@ private final class BookCoverProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(store.sources[0].lessons, source.lessons)
   }
 
+  func testCourseCoverFollowsResourceOrderRatherThanActiveBook() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = AppStore(repository: try LocalBookCourseRepository(directory: directory))
+    var first = try ContentBundle.load([SourceContent].self, name: "sources")[0]
+    var second = first
+    first.summary.book_id = "first"
+    first.summary.cover_url = "/assets/first.png"
+    second.summary.book_id = "second"
+    second.summary.cover_url = "/assets/second.png"
+    store.sources = [second, first] // Storage order is independent of import order.
+    var course = Course(id: "ordered", name: "两份教材", resourceIDs: ["first", "second"],
+      activeResourceID: "second", createdAt: .now)
+    XCTAssertEqual(store.courseFeatureCover(course), "/assets/first.png")
+    course.activeResourceID = "first"
+    XCTAssertEqual(store.courseFeatureCover(course), "/assets/first.png")
+    course.resourceIDs = ["second", "first"]
+    XCTAssertEqual(store.courseFeatureCover(course), "/assets/second.png")
+    store.sources[0].summary.cover_url = "  "
+    XCTAssertEqual(store.courseFeatureCover(course), "/assets/first.png")
+    store.sources[1].summary.cover_url = nil
+    XCTAssertNil(store.courseFeatureCover(course))
+    XCTAssertNil(store.orderedResourceCover([]))
+  }
+
+  func testAllFallbackCoversAreBundledValidSVGAndSelectionIsStable() throws {
+    let paths = Set((0..<100).map { CourseCoverFallback.path(seed: "course-\($0)") })
+    XCTAssertEqual(paths.count, 6)
+    XCTAssertEqual(CourseCoverFallback.path(seed: "课程甲"), CourseCoverFallback.path(seed: "课程甲"))
+    for path in paths {
+      let data = try ContentBundle.data(path)
+      XCTAssertTrue(XMLParser(data: data).parse(), path)
+      XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("viewBox=\"0 0 256 340\""))
+    }
+  }
+
   func testAuthenticatedDownloadCachesByVersionAccountEpochAndService() async throws {
     let api = api(), epoch = UUID(), bytes = png()
     var reads = 0

@@ -630,7 +630,11 @@ extension CloudTests {
     let resource = generatedResourceWithoutDailyPlan()
     installGeneratedResource(resource, store: store)
     XCTAssertTrue(store.plan?.tasks.isEmpty == true, "Reading completion must not fabricate a daily plan")
+    XCTAssertTrue(store.usesCloudDailyPlan)
+    XCTAssertNil(store.dailyStudyPlan())
+    XCTAssertEqual(store.courseLearningProgress, 0.5)
     store.completeLesson()
+    XCTAssertEqual(store.courseLearningProgress, 1, "Online course progress updates before sync without a daily plan")
     await store.flush()
     XCTAssertEqual(store.completedChapterIDs, Set(["c1", "c2"]))
     XCTAssertTrue(store.mastered.isEmpty, "Reading a lesson is not evidence of knowledge mastery")
@@ -643,6 +647,7 @@ extension CloudTests {
     restored.restoreCloudCache(cached)
     restored.installCloudSources(workspaceID: resource.workspace_id)
     XCTAssertEqual(restored.completedChapterIDs, Set(["c1", "c2"]))
+    XCTAssertEqual(restored.courseLearningProgress, 1)
     XCTAssertEqual(restored.chapters.first { $0.id == "c2" }?.status, "completed")
     XCTAssertTrue(restored.plan?.tasks.isEmpty == true)
     var other = resource
@@ -653,6 +658,7 @@ extension CloudTests {
       preferences: [:], created: 0, updated: 0, resources: [other]))
     restored.selectedCourseID = other.workspace_id
     XCTAssertTrue(restored.completedChapterIDs.isEmpty, "Completion belongs to this course material, not a shared book")
+    XCTAssertEqual(restored.courseLearningProgress, 0)
     store.cloudState.retryTask?.cancel()
     restored.cloudState.retryTask?.cancel()
   }

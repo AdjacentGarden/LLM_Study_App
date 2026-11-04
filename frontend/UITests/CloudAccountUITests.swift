@@ -5,6 +5,90 @@ final class CloudAccountUITests: XCTestCase {
     ProcessInfo.processInfo.environment["BOOKCOURSE_NATIVE_TEST_BASE_URL"]
       ?? "http://127.0.0.1:18101"
   }
+
+  @MainActor func testOnlineCourseProgressChangesAfterCompletingLessonAndSurvivesRelaunch() async throws {
+    continueAfterFailure = false
+    let config = URLSessionConfiguration.ephemeral
+    config.connectionProxyDictionary = [:]
+    config.timeoutIntervalForRequest = 5
+    let session = URLSession(configuration: config)
+    defer { session.invalidateAndCancel() }
+    let base = try XCTUnwrap(URL(string: nativeTestBaseURL))
+    let healthURL = base.appendingPathComponent("api/native-test/health")
+    guard let (data, _) = try? await session.data(from: healthURL),
+      let health = try? JSONDecoder().decode([String: Bool].self, from: data),
+      health["fixture_adapters"] == true, health["local_default"] == true
+    else { throw XCTSkip("Run scripts/test-cloud.sh with NATIVE_E2E_LOCAL_LOGIN=1") }
+
+    func request(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> [String: Any] {
+      var request = URLRequest(url: base.appendingPathComponent(path))
+      request.httpMethod = method
+      if let body {
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+      }
+      let (data, response) = try await session.data(for: request)
+      XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200, path)
+      return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    _ = try await request("api/native/local-login", method: "POST")
+    _ = try await request("api/native/learner-preferences", method: "PUT", body: [
+      "displayName": "进度回归测试", "learningStage": "high", "primaryGoal": "exam",
+      "dailyTime": "30to60", "learningBarriers": ["memory"], "guidanceStyles": ["examples"],
+      "planningSupport": "collaborative", "onboardingVersion": 2,
+    ])
+    let workspaceID = "ui-progress-" + UUID().uuidString
+    let workspace = try await request("api/native/catalog/community_genetics/import", method: "POST",
+      body: ["id": workspaceID, "name": "在线课程进度测试", "preferences": [:]])
+    let resources = try XCTUnwrap(workspace["resources"] as? [[String: Any]])
+    let resourceID = try XCTUnwrap(resources.first?["id"] as? String)
+    let path = "api/workspaces/\(workspaceID)/resources/\(resourceID)"
+    _ = try await request(path + "/progress", method: "PUT", body: [
+      "revision": 0, "mutation_id": UUID().uuidString, "page": 1,
+      "chapter_id": "c2s1", "lesson_id": "lesson_meiosis", "completed_chapters": [],
+      "task_status": [:], "mastered_ids": [],
+    ])
+
+    let app = XCUIApplication()
+    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = nativeTestBaseURL
+    app.launchArguments = ["--cloud-test-session", UUID().uuidString, "--fixture-reduce-motion"]
+    app.launch()
+    let progress = app.descendants(matching: .any)["study.plan.progress"].firstMatch
+    XCTAssertTrue(progress.waitForExistence(timeout: 25))
+    XCTAssertEqual(progress.value as? String, "0%")
+    tap(app.buttons["study.section.c2s1.lesson"], app: app)
+    let page = app.staticTexts["lesson.page"].firstMatch
+    XCTAssertTrue(page.waitForExistence(timeout: 15))
+    for _ in 0..<12 {
+      if app.buttons["完成本节"].firstMatch.exists { break }
+      let previous = page.value as? String
+      app.coordinate(withNormalizedOffset: CGVector(dx: 0.77, dy: 0.42)).press(forDuration: 0.08,
+        thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.23, dy: 0.42)))
+      let changed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        page.value as? String != previous
+      }, object: nil)
+      XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+    }
+    tap(app.buttons["完成本节"].firstMatch, app: app)
+    let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+      progress.exists && progress.value as? String != "0%"
+    }, object: nil)
+    XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 15), .completed)
+    let percentage = try XCTUnwrap(progress.value as? String)
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "Online course progress after completing a lesson"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(progress.waitForExistence(timeout: 25))
+    XCTAssertEqual(progress.value as? String, percentage)
+    let saved = try await request(path)
+    let savedProgress = try XCTUnwrap(saved["progress"] as? [String: Any])
+    XCTAssertTrue((savedProgress["completed_chapters"] as? [String] ?? []).contains("c2s1"))
+  }
+
   @MainActor func testLoginDesignAndServiceSettings() async throws {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.timeoutIntervalForRequest = 1
@@ -198,9 +282,9 @@ final class CloudAccountUITests: XCTestCase {
     tap(app.buttons["tab-community"], app: app)
     tap(app.buttons["community.course.community_genetics"], app: app)
     tap(app.buttons["community.import"], app: app)
-    for option in ["正常节奏，按计划来", "整块固定时间", "应试备考", "重点和考点", "导学笔记沉淀", "定期复盘"] {
+    for (index, option) in ["正常节奏，按计划来", "整块固定时间", "应试备考", "重点和考点", "导学笔记沉淀", "定期复盘"].enumerated() {
       tap(app.buttons[option], app: app)
-      tap(app.buttons["courseSetup.next"], app: app)
+      if index >= 2 { tap(app.buttons["courseSetup.next"], app: app) }
     }
     XCTAssertTrue(app.buttons["进入学习"].waitForExistence(timeout: 135))
     tap(app.buttons["进入学习"], app: app)
@@ -272,9 +356,9 @@ final class CloudAccountUITests: XCTestCase {
     tap(app.buttons["tab-community"], app: app)
     tap(app.buttons["community.course.community_genetics"], app: app)
     tap(app.buttons["community.import"], app: app)
-    for option in ["正常节奏，按计划来", "整块固定时间", "应试备考", "重点和考点", "导学笔记沉淀", "定期复盘"] {
+    for (index, option) in ["正常节奏，按计划来", "整块固定时间", "应试备考", "重点和考点", "导学笔记沉淀", "定期复盘"].enumerated() {
       tap(app.buttons[option], app: app)
-      tap(app.buttons["courseSetup.next"], app: app)
+      if index >= 2 { tap(app.buttons["courseSetup.next"], app: app) }
     }
     tap(app.buttons["进入学习"], app: app)
     XCTAssertTrue(app.buttons["tab-profile"].waitForExistence(timeout: 20))

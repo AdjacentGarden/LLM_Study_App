@@ -56,7 +56,7 @@ final class CourseFunctionalUITests: XCTestCase {
       tap(
         app.buttons.containing(NSPredicate(format: "label CONTAINS %@", choice)).firstMatch, in: app
       )
-      tap(app.buttons["courseSetup.next"], in: app)
+      if index >= 2 { tap(app.buttons["courseSetup.next"], in: app) }
     }
   }
 
@@ -90,7 +90,7 @@ final class CourseFunctionalUITests: XCTestCase {
     XCTAssertTrue(app.buttons["onboarding.choice.4.examples"].isSelected)
     tap(app.buttons["onboarding.choice.4.principles"], in: app)
     tap(app.buttons["onboarding.choice.5.collaborative"], in: app)
-    XCTAssertTrue(app.staticTexts["Hi，小明同学"].firstMatch.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["tab-profile"].waitForExistence(timeout: 10))
     tap(app.buttons["tab-profile"], in: app)
     tap(app.buttons["profile.settings"], in: app)
     XCTAssertTrue(app.staticTexts["更牢固记忆"].waitForExistence(timeout: 5))
@@ -106,6 +106,45 @@ final class CourseFunctionalUITests: XCTestCase {
     tap(app.buttons["tab-profile"], in: app)
     tap(app.buttons["profile.settings"], in: app)
     XCTAssertTrue(app.staticTexts["暂未设置"].firstMatch.waitForExistence(timeout: 10))
+  }
+
+  func testCoursePreferencesAutoAdvanceBackMultiSelectAndFinalConfirmation() {
+    let app = launch("courseSetup")
+    func option(_ question: String, _ value: String) -> XCUIElement {
+      app.buttons["courseSetup.option.\(question).\(value)"]
+    }
+    tap(option("urgency", "urgent"), in: app)
+    XCTAssertTrue(option("timePattern", "fragmented").waitForExistence(timeout: 5))
+    tap(app.buttons["上一步"], in: app)
+    XCTAssertTrue(option("urgency", "urgent").isSelected)
+    let attachment = XCTAttachment(screenshot: app.screenshot())
+    attachment.name = "course-preferences-profile-style"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+    tap(option("urgency", "steady"), in: app)
+    tap(option("timePattern", "fragmented"), in: app)
+    tap(option("goals", "systematic"), in: app) // Clear the fixture's existing selection.
+    XCTAssertFalse(app.buttons["courseSetup.next"].isEnabled)
+    tap(option("goals", "exam"), in: app)
+    tap(option("goals", "interest"), in: app)
+    XCTAssertTrue(option("goals", "exam").isSelected)
+    XCTAssertTrue(option("goals", "interest").isSelected)
+    tap(app.buttons["courseSetup.next"], in: app)
+    tap(app.buttons["上一步"], in: app)
+    XCTAssertTrue(option("goals", "exam").isSelected)
+    XCTAssertTrue(option("goals", "interest").isSelected)
+    tap(app.buttons["courseSetup.next"], in: app)
+    tap(option("contentFoci", "keyPoints"), in: app)
+    tap(app.buttons["courseSetup.next"], in: app)
+    tap(option("aids", "guidedNotes"), in: app)
+    tap(app.buttons["courseSetup.next"], in: app)
+    tap(option("reviews", "free"), in: app)
+    XCTAssertFalse(option("reviews", "periodic").isSelected)
+    XCTAssertTrue(option("reviews", "free").isSelected)
+    XCTAssertTrue(app.buttons["courseSetup.next"].exists)
+    XCTAssertFalse(app.buttons["chapters.confirm"].exists)
+    tap(app.buttons["courseSetup.next"], in: app)
+    XCTAssertTrue(app.buttons["chapters.confirm"].waitForExistence(timeout: 15))
   }
 
   func testQuestionnaireChapterCancelSaveRemoveCancelAndConfirm() {

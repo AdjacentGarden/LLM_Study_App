@@ -125,6 +125,10 @@ final class LearningTests: XCTestCase {
         chapter_id: "c3s1", status: "done", weak_points: []),
     ]
     XCTAssertEqual(learningChapterProgress(tasks, chapterIDs: ["c2s1"]), 0.25)
+    XCTAssertEqual(learningReadingProgress(tasks, chapterIDs: ["c2s1"],
+      completedChapterIDs: ["c2s1"]), 1, "Pending plan tasks must not hide a completed lesson")
+    XCTAssertEqual(learningReadingProgress([], chapterIDs: ["c2s1", "c2s2"],
+      completedChapterIDs: ["c2s1"]), 0.5)
     XCTAssertEqual(learningTaskStatus("processing"), "进行中")
   }
 

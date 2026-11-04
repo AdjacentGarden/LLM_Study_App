@@ -349,6 +349,8 @@ struct StudyLocation: Codable, Hashable, Sendable {
   var chapterID: String?
   var lessonID: String?
   var page: Int = 1
+  /// Local reading completions, scoped by the location's course and book key.
+  var completedChapterIDs: Set<String>? = nil
 }
 enum NoteKind: String, Codable, CaseIterable, Identifiable, Sendable {
   case text, ink, voice

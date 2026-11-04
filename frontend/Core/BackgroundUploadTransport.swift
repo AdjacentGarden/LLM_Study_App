@@ -161,6 +161,11 @@ struct BackgroundUploadIdentity: Sendable {
 }
 
 final class CloudPathAppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+    supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+    .portrait
+  }
+
   func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void) {
     BackgroundUploadTransport.handleEvents(identifier: identifier, completion: completionHandler)
