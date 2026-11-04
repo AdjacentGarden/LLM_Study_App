@@ -54,6 +54,33 @@ struct AssistantHistoryArchive: Codable, Sendable {
   var newAttachments: [AssistantAttachment]?
   var newContext: AssistantSessionContext?
   var deletedSessionIDs: [String]? = nil
+  /// Deletion receipts may be acknowledged, but migration and late saves must
+  /// always remember that the owner removed this conversation.
+  var removedSessionIDs: [String]? = nil
+  var removedIDs: Set<String> { Set((removedSessionIDs ?? []) + (deletedSessionIDs ?? [])) }
+}
+
+extension LocalBookCourseRepository {
+  /// Serialize tombstones with the latest stored archive. An older migration
+  /// or queued save cannot put a deleted conversation back into history.
+  func saveAssistantHistoryPreservingDeletions(_ value: AssistantHistoryArchive, scope: String) throws {
+    let previous = try loadAssistantHistory(scope: scope)
+    var merged = value
+    let removed = value.removedIDs.union(previous?.removedIDs ?? [])
+    merged.removedSessionIDs = removed.isEmpty ? nil : removed.sorted()
+    let present = Set(merged.sessions.map(\.id))
+    merged.sessions += (previous?.sessions ?? []).filter { !present.contains($0.id) && !removed.contains($0.id) }
+    merged.sessions.removeAll { removed.contains($0.id) }
+    if let selected = merged.selectedID, removed.contains(selected) { merged.selectedID = nil }
+    try saveAssistantHistory(merged, scope: scope)
+  }
+
+  func importAssistantHistorySessions(_ sessions: [AssistantSession], scope: String) throws {
+    var latest = try loadAssistantHistory(scope: scope) ?? AssistantHistoryArchive()
+    let existing = Set(latest.sessions.map(\.id)), removed = latest.removedIDs
+    latest.sessions += sessions.filter { !existing.contains($0.id) && !removed.contains($0.id) }
+    try saveAssistantHistoryPreservingDeletions(latest, scope: scope)
+  }
 }
 
 struct AssistantHistoryAnswer: Sendable {
@@ -135,6 +162,9 @@ enum AssistantSessionTitle {
       let saved = try await repository.loadAssistantHistory(scope: value) ?? AssistantHistoryArchive()
       guard token == generation else { return }
       archive = saved
+      let removed = archive.removedIDs
+      archive.removedSessionIDs = removed.isEmpty ? nil : removed.sorted()
+      archive.sessions.removeAll { removed.contains($0.id) }
       if let id = archive.selectedID, !archive.sessions.contains(where: { $0.id == id }) {
         archive.selectedID = sessions.first?.id
       }
@@ -200,13 +230,16 @@ enum AssistantSessionTitle {
     }
   }
 
-  func startNew(context: AssistantSessionContext) {
-    guard ready else { return }
+  @discardableResult func startNew(context: AssistantSessionContext) -> Bool {
+    guard ready else { return false }
+    guard archive.sessions.count < Self.maximumSessions else { showingSessionLimit = true; return false }
+    showingSessionLimit = false
+    draftSaveTask?.cancel()
     archive.selectedID = nil
-    archive.newDraft = ""
-    archive.newAttachments = nil
-    archive.newContext = context
+    if archive.newContext == nil { archive.newContext = context }
+    capacityAlertSessionID = nil
     persist()
+    return true
   }
 
   func select(_ id: String) {
@@ -324,6 +357,7 @@ enum AssistantSessionTitle {
           archive.newAttachments = archive.sessions[position].messages.first?.attachments
           archive.newContext = archive.sessions[position].context
           archive.sessions.remove(at: position)
+          archive.removedSessionIDs = Array(archive.removedIDs.union([id])).sorted()
           if archive.selectedID == id { archive.selectedID = nil }
           showingSessionLimit = true
         } else {
@@ -344,26 +378,30 @@ enum AssistantSessionTitle {
   }
 
   func delete(_ id: String) {
-    guard ready else { return }
+    guard ready, archive.sessions.contains(where: { $0.id == id }) else { return }
     requests[id]?.cancel()
     requests[id] = nil
     runningIDs.remove(id)
     archive.sessions.removeAll { $0.id == id }
     archive.deletedSessionIDs = Array(Set((archive.deletedSessionIDs ?? []) + [id]))
+    archive.removedSessionIDs = Array(archive.removedIDs.union([id])).sorted()
     if archive.selectedID == id { archive.selectedID = nil }
     if capacityAlertSessionID == id { capacityAlertSessionID = nil }
+    if archive.sessions.count < Self.maximumSessions { showingSessionLimit = false }
     // Attachments may be referenced by saved notes. History deletion never removes files.
     persist()
   }
 
   func acknowledgeDeletion(_ id: String) {
+    guard ready else { return }
+    archive.removedSessionIDs = Array(archive.removedIDs.union([id])).sorted()
     archive.deletedSessionIDs?.removeAll { $0 == id }
     persist()
   }
 
   func mergeRemoteSessions(_ values: [AssistantSession]) {
     guard ready else { return }
-    let deleted = Set(archive.deletedSessionIDs ?? [])
+    let deleted = archive.removedIDs
     for remote in values where !deleted.contains(remote.id) {
       if let index = archive.sessions.firstIndex(where: { $0.id == remote.id }) {
         if remote.isReadOnly { archive.sessions[index].capacityState = "read_only" }
@@ -375,7 +413,8 @@ enum AssistantSessionTitle {
   }
 
   func recordRun(_ run: AgentRunRecord) {
-    guard run.ephemeral != true, let sessionID = run.context.sessionID,
+    guard ready, run.scope == scope, run.ephemeral != true, let sessionID = run.context.sessionID,
+      !archive.removedIDs.contains(sessionID),
       let index = archive.sessions.firstIndex(where: { $0.id == sessionID }) else { return }
     var runs = archive.sessions[index].runs ?? []
     if let i = runs.firstIndex(where: { $0.id == run.id }) { runs[i] = run } else { runs.append(run) }
@@ -446,7 +485,7 @@ enum AssistantSessionTitle {
     saveTask = Task { [repository, weak self] in
       await previous?.value
       do {
-        try await repository.saveAssistantHistory(value, scope: scope)
+        try await repository.saveAssistantHistoryPreservingDeletions(value, scope: scope)
         if self?.scope == scope { self?.storageError = nil }
       } catch {
         if self?.scope == scope {
@@ -508,6 +547,9 @@ extension AppStore {
     let owner = assistantHistoryScope
     do {
       try await syncAssistantHistory()
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, owner == assistantHistoryScope,
+        context.sessionID.map({ !assistantHistory.archive.removedIDs.contains($0) }) != false else { throw CancellationError() }
       let response = try await agent.answerUnified(sessionID: context.sessionID ?? UUID().uuidString,
         messageID: context.messageID ?? history.last?.id ?? UUID().uuidString,
         request: question, context: agent.frozenContext(session: context), history: history,
@@ -570,17 +612,31 @@ extension AppStore {
   func syncAssistantHistory() async throws {
     // Normal chat never uploads or overwrites phone-owned history. Legacy
     // migration is a separate, explicit archive import with version checks.
-    guard assistantHistory.isReady(for: assistantHistoryScope) else { return }
+    let scope = assistantHistoryScope, epoch = cloudState.epoch
+    guard assistantHistory.isReady(for: scope) else { return }
     await assistantHistory.flush()
+    guard scope == assistantHistoryScope, epoch == cloudState.epoch,
+      assistantHistory.isReady(for: scope) else { throw CancellationError() }
+    if let issue = assistantHistory.storageError { throw ContentError.storage(issue) }
     for id in assistantHistory.archive.deletedSessionIDs ?? [] {
       assistantHistory.acknowledgeDeletion(id)
     }
   }
 
-  func deleteAssistantSession(_ id: String) async {
-    if agent.active?.context.sessionID == id { agent.cancel() }
+  @discardableResult func deleteAssistantSession(_ id: String, expectedScope: String? = nil) async -> Bool {
+    guard let scope = assistantHistoryScope, expectedScope == nil || expectedScope == scope,
+      assistantHistory.isReady(for: scope), assistantHistory.sessions.contains(where: { $0.id == id }) else { return false }
+    let epoch = cloudState.epoch
     assistantHistory.delete(id)
-    do { try await syncAssistantHistory() }
-    catch { showToast("已在本机删除；本机保存状态仍待核对。", kind: .warning) }
+    do {
+      try await agent.cancelSession(id, scope: scope)
+      guard scope == assistantHistoryScope, epoch == cloudState.epoch else { return true }
+      try await syncAssistantHistory()
+    } catch {
+      if scope == assistantHistoryScope, epoch == cloudState.epoch {
+        showToast("对话已移除，保存或任务取消仍待重试。", kind: .warning)
+      }
+    }
+    return true
   }
 }

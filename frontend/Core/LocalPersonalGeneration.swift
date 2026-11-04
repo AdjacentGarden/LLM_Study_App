@@ -100,6 +100,9 @@ private struct LocalLectureResult: Codable, Sendable {
     knowledge_points=[{point_id,title,explanation,mastery:0,citations}]；flashcards=[{card_id,front,back,reason_for_user,point_id,citations}]。
     units=[{unit_id,title,knowledge_point_ids,sections:[section],estimated_minutes,prerequisite_check}]，按教材知识依赖组织，提供解释、例题和回忆检查。
     practice_items=[{item_id,point_id,prompt,response_type,options:[字符串],estimated_seconds}]，每题必须对应practice_grading。
+    面向手机阅读：content、explanation和题目prompt按语义写短段，段落间使用两个换行符；题干条件与（1）（2）等子问分别成段，例题题目、解题步骤和结论分开，保留完整条件、单位和公式。
+    只在这些讲解/题干字段中用**关键词**适量强调核心概念、决定答案的条件或易错区别，优先本节知识点。通常每80–120字选择1–2个短词语，长段最多3处，强调字数约占10–15%、最多20%；短段没有明确重点可不加粗，不机械凑比例，不把整句、整段或所有数字加粗。
+    citation.quote及教材原文证据必须逐字保留，不加格式标记；不输出Markdown代码围栏、井号标题或复杂表格。
     引用quote必须逐字来自提供的同页原文，不得编造页码；课程至少含真实原文引用、知识解释和学习单元。
     chapter_id必须保持输入值，course_id使用输入的publication_id。不要输出占位内容或声称人工审核通过。
     """

@@ -8,6 +8,211 @@ protocol BookCourseRepository: Sendable {
   func loadSnapshot() async throws -> AppSnapshot?
   func saveSnapshot(_ snapshot: AppSnapshot) async throws
 }
+
+extension LocalBookCourseRepository {
+  private struct OriginalFileStamp: Codable, Equatable, Sendable {
+    var byteCount: Int
+    var modifiedAt: TimeInterval
+  }
+
+  private struct OriginalContentFile: Codable {
+    var relativePath: String
+    var stamp: OriginalFileStamp
+  }
+
+  private struct OriginalFingerprint: Codable {
+    var contentHash: String
+    var stamp: OriginalFileStamp
+  }
+
+  private struct OriginalBookIdentity: Codable {
+    var bookID: String
+    var relativePath: String
+    var stamp: OriginalFileStamp
+  }
+
+  private struct OriginalBookIdentities: Codable {
+    var preferredBookID: String
+    var books: [String: OriginalBookIdentity]
+  }
+
+  private nonisolated static func contentHash(_ data: Data) -> String {
+    SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+
+  private nonisolated static func normalizedContentHash(_ value: String) throws -> String {
+    let hash = value.lowercased()
+    guard hash.utf8.count == 64, hash.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+      throw ContentError.storage("原文件内容标识无效")
+    }
+    return hash
+  }
+
+  private func identityKey(contentHash: String, scope: String) -> String {
+    Self.contentHash(Data(scope.utf8)) + ":" + contentHash
+  }
+
+  private func originalFileStamp(relativePath: String) -> OriginalFileStamp? {
+    guard let values = try? attachmentURL(relativePath).resourceValues(
+      forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]),
+      values.isRegularFile == true, let count = values.fileSize,
+      let modified = values.contentModificationDate else { return nil }
+    return OriginalFileStamp(byteCount: count, modifiedAt: modified.timeIntervalSince1970)
+  }
+
+  private func saveOriginalFingerprint(hash: String, relativePath: String, stamp: OriginalFileStamp) throws {
+    try db.put("original-file-fingerprint", relativePath,
+      encoder.encode(OriginalFingerprint(contentHash: hash, stamp: stamp)))
+    let canonical = try db.get("original-content-file", hash).first.map {
+      try decoder.decode(OriginalContentFile.self, from: $0)
+    }
+    if canonical == nil || canonical.map({ originalFileStamp(relativePath: $0.relativePath) != $0.stamp }) == true {
+      try db.put("original-content-file", hash,
+        encoder.encode(OriginalContentFile(relativePath: relativePath, stamp: stamp)))
+    }
+  }
+
+  /// Returns a fingerprint only while the original's path, size and mtime match.
+  /// It never opens the file's contents on the import path.
+  func cachedContentHash(relativePath: String) throws -> String? {
+    guard let stamp = originalFileStamp(relativePath: relativePath),
+      let bytes = try db.get("original-file-fingerprint", relativePath).first else { return nil }
+    let fingerprint = try decoder.decode(OriginalFingerprint.self, from: bytes)
+    return fingerprint.stamp == stamp ? fingerprint.contentHash : nil
+  }
+
+  /// `books` must contain only the current account's book-to-original paths.
+  /// Full digests take precedence over the legacy content-derived local ID.
+  /// Historical originals are indexed separately, so lookup never scans them.
+  func resolveExistingBookID(contentHash: String, scope: String, books: [String: String]) throws -> String? {
+    try matchingBookIDs(contentHash: contentHash, scope: scope, books: books).first
+  }
+
+  func matchingBookIDs(contentHash: String, scope: String, books: [String: String]) throws -> [String] {
+    let hash = try Self.normalizedContentHash(contentHash)
+    var matches: [String] = []
+    if let bytes = try db.get("original-book-identity", identityKey(contentHash: hash, scope: scope)).first {
+      let identities = try decoder.decode(OriginalBookIdentities.self, from: bytes)
+      for identity in identities.books.values {
+        if let path = books[identity.bookID], path == identity.relativePath,
+          let stamp = originalFileStamp(relativePath: path) {
+          // Restaging can repair a missing original at the same path. Its new
+          // fingerprint still proves this book owns the imported bytes.
+          if try stamp == identity.stamp || cachedContentHash(relativePath: path) == hash {
+            matches.append(identity.bookID)
+          }
+        }
+      }
+      matches.sort { lhs, rhs in
+        if lhs == identities.preferredBookID { return true }
+        if rhs == identities.preferredBookID { return false }
+        return lhs < rhs
+      }
+    }
+    let localID = "book_local_" + hash.prefix(24)
+    if !matches.contains(localID), let path = books[localID],
+      let stamp = originalFileStamp(relativePath: path) {
+      // A known changed file must be reindexed; only never-indexed legacy IDs
+      // can use the old 96-bit local alias before the background warmup ends.
+      if let bytes = try db.get("original-file-fingerprint", path).first {
+        let fingerprint = try decoder.decode(OriginalFingerprint.self, from: bytes)
+        if fingerprint.stamp == stamp, fingerprint.contentHash == hash { matches.append(localID) }
+      } else {
+        matches.append(localID)
+      }
+    }
+    return matches
+  }
+
+  /// Called after staging and again after a cloud upload replaces the local ID.
+  /// Sharing original bytes between accounts does not share their book identity.
+  func recordContentIdentity(contentHash: String, bookID: String, relativePath: String, scope: String) throws {
+    try recordContentIdentity(contentHash: contentHash, bookID: bookID, relativePath: relativePath,
+      scope: scope, prefer: true)
+  }
+
+  private func recordContentIdentity(contentHash: String, bookID: String, relativePath: String,
+    scope: String, prefer: Bool) throws {
+    let hash = try Self.normalizedContentHash(contentHash)
+    guard let stamp = originalFileStamp(relativePath: relativePath) else {
+      throw ContentError.storage("原文件已不可用，请重新选择文件")
+    }
+    let identity = OriginalBookIdentity(bookID: bookID, relativePath: relativePath, stamp: stamp)
+    let key = identityKey(contentHash: hash, scope: scope)
+    try db.execute("BEGIN IMMEDIATE")
+    do {
+      var identities = try db.get("original-book-identity", key).first.map {
+        try decoder.decode(OriginalBookIdentities.self, from: $0)
+      } ?? OriginalBookIdentities(preferredBookID: bookID, books: [:])
+      identities.books[bookID] = identity
+      if prefer && (!bookID.hasPrefix("book_local_") || identities.preferredBookID.hasPrefix("book_local_")) {
+        identities.preferredBookID = bookID
+      }
+      try db.put("original-book-identity", key, encoder.encode(identities))
+      try saveOriginalFingerprint(hash: hash, relativePath: relativePath, stamp: stamp)
+      try db.execute("COMMIT")
+    } catch {
+      try? db.execute("ROLLBACK")
+      throw error
+    }
+  }
+
+  /// Start after account hydration. Concurrent callers join one indexing task.
+  /// Unchanged originals use persisted metadata; only new/changed legacy files
+  /// require a background read, and no extraction or OCR runs here.
+  func warmContentIdentityIndex(scope: String, books: [String: String]) async throws {
+    if let flight = contentIdentityWarmups[scope] { return try await flight.task.value }
+    let id = UUID()
+    let task = Task { try await self.indexOriginalContent(scope: scope, books: books) }
+    contentIdentityWarmups[scope] = (id, task)
+    defer { if contentIdentityWarmups[scope]?.id == id { contentIdentityWarmups[scope] = nil } }
+    try await task.value
+  }
+
+  private func indexOriginalContent(scope: String, books: [String: String]) async throws {
+    // Prefer uploaded identities to retained local aliases for the same bytes.
+    let ordered = books.sorted { lhs, rhs in
+      if lhs.key.hasPrefix("book_local_") != rhs.key.hasPrefix("book_local_") {
+        return !lhs.key.hasPrefix("book_local_")
+      }
+      return lhs.key < rhs.key
+    }
+    for (bookID, relativePath) in ordered {
+      try Task.checkCancellation()
+      guard let stamp = originalFileStamp(relativePath: relativePath) else { continue }
+      let hash: String
+      if let cached = try cachedContentHash(relativePath: relativePath) {
+        hash = cached
+      } else {
+        let url = attachmentURL(relativePath)
+        let read = Task.detached(priority: .utility) {
+          try Task.checkCancellation()
+          let bytes = try Data(contentsOf: url, options: .mappedIfSafe)
+          let hash = Self.contentHash(bytes)
+          try Task.checkCancellation()
+          return hash
+        }
+        #if DEBUG
+        contentIdentityHashReads += 1
+        #endif
+        do {
+          hash = try await withTaskCancellationHandler { try await read.value } onCancel: { read.cancel() }
+        } catch is CancellationError { throw CancellationError() }
+        catch { continue }
+        // A replacement or removal while hashing cannot seed a stale identity.
+        guard originalFileStamp(relativePath: relativePath) == stamp else { continue }
+        try saveOriginalFingerprint(hash: hash, relativePath: relativePath, stamp: stamp)
+      }
+      try recordContentIdentity(contentHash: hash, bookID: bookID, relativePath: relativePath,
+        scope: scope, prefer: false)
+      await Task.yield()
+    }
+  }
+
+  #if DEBUG
+  func contentIdentityHashReadsForTesting() -> Int { contentIdentityHashReads }
+  #endif
+}
 protocol StudyNoteRepository: Sendable {
   func loadNotes() async throws -> [StudyNote]
   func saveNote(_ note: StudyNote) async throws
@@ -32,6 +237,7 @@ final class SQLiteConnection: @unchecked Sendable {
         url.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
         == SQLITE_OK
     else { throw ContentError.storage("无法打开本地数据库") }
+    sqlite3_busy_timeout(handle, 5_000)
     // A newer app owns the file's schema. Its tables (and pragmas) must not be
     // touched, so inspect the version before any setup statement runs.
     let version = try userVersion()
@@ -148,6 +354,10 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   nonisolated let includesFixtureContent: Bool
   let db: SQLiteConnection
   let encoder = JSONEncoder(), decoder = JSONDecoder()
+  private var contentIdentityWarmups: [String: (id: UUID, task: Task<Void, Error>)] = [:]
+  #if DEBUG
+  private var contentIdentityHashReads = 0
+  #endif
   init(directory: URL? = nil, includeFixtures: Bool = false) throws {
     let root =
       directory
@@ -378,11 +588,60 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   }
   func saveNote(_ note: StudyNote) throws { _ = try mutateNote(note, scope: Self.localNoteScope) }
   func deleteNote(_ id: String) throws { try deleteNote(id, scope: Self.localNoteScope) }
+  /// General attachments have one owner, which may delete them when a temporary
+  /// conversation ends. Course originals use saveOriginalAttachment instead.
   func saveAttachment(_ data: Data, extension ext: String) throws -> String {
     let safeExtension = ext.filter { $0.isLetter || $0.isNumber }.prefix(12)
     let relative = "attachments/\(UUID().uuidString).\(safeExtension)"
     try data.write(to: directory.appendingPathComponent(relative), options: .atomic)
     return relative
+  }
+  func saveOriginalAttachment(_ data: Data, extension ext: String, contentHash: String? = nil) throws -> String {
+    // Staging supplies its digest so a new file is read and hashed only once.
+    let hash = try Self.normalizedContentHash(contentHash ?? Self.contentHash(data))
+    let safeExtension = String(ext.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(12))
+    let suffix = safeExtension.isEmpty ? "" : "." + safeExtension
+    // The transaction also serializes separate repository instances using this
+    // directory. The first spelling of the extension wins for identical bytes.
+    try db.execute("BEGIN IMMEDIATE")
+    do {
+      let previous = try db.get("original-content-file", hash).first.map {
+        try decoder.decode(OriginalContentFile.self, from: $0)
+      }
+      var relative: String
+      if let previous, originalFileStamp(relativePath: previous.relativePath).map({ $0 == previous.stamp }) != false {
+        relative = previous.relativePath
+      } else {
+        relative = "attachments/sha256-\(hash)\(suffix)"
+      }
+      if let previous, previous.relativePath == relative,
+        let current = originalFileStamp(relativePath: relative), current != previous.stamp {
+        // A changed original can now belong to another book. Preserve those
+        // bytes when restoring this digest instead of overwriting its old path.
+        var version = 1
+        repeat {
+          relative = "attachments/sha256-\(hash)-restored-\(version)\(suffix)"
+          version += 1
+        } while FileManager.default.fileExists(atPath: attachmentURL(relative).path)
+      }
+      let current = originalFileStamp(relativePath: relative)
+      if previous?.stamp != current || current?.byteCount != data.count || previous == nil {
+        try db.checkWritable()
+        try Task.checkCancellation()
+        try data.write(to: attachmentURL(relative), options: .atomic)
+      }
+      guard let stamp = originalFileStamp(relativePath: relative), stamp.byteCount == data.count else {
+        throw ContentError.storage("原文件保存不完整，请重新导入")
+      }
+      let file = OriginalContentFile(relativePath: relative, stamp: stamp)
+      try db.put("original-content-file", hash, encoder.encode(file))
+      try saveOriginalFingerprint(hash: hash, relativePath: relative, stamp: stamp)
+      try db.execute("COMMIT")
+      return relative
+    } catch {
+      try? db.execute("ROLLBACK")
+      throw error
+    }
   }
   /// Keep large extracted documents outside the conversation's JSON snapshot.
   func saveAssistantAttachmentText(_ chunks: [SourceChunk]) throws -> (path: String, characterCount: Int) {

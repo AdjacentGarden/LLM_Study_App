@@ -96,8 +96,8 @@ def test_writer_directive_abandons_unreadable_formula_without_changing_global_pr
     assert '必须放弃该结论和依赖它的原题设' in prompt
     assert '基础概念辨析题' in prompt
     assert json.loads(seen[0]['user'])['previous_candidate'] == candidate
-    # Personalized teaching v2 is part of the durable protocol identity.
-    assert content._teaching_protocol_fingerprint() == 'a299772bfaa4a400b19bf39360a8e02d2951c821485d9aea26556acb75b1c205'
+    # The shared mobile presentation policy binds new writer requests as well.
+    assert content._teaching_protocol_fingerprint() == '3c6fa6e6e229d7587171e0f8d96bfafbd47f9d82c0d8a52d2be96ae2daee889f'
 
 
 def test_deferred_review_does_not_invalidate_the_previous_successful_writer(unit_case):

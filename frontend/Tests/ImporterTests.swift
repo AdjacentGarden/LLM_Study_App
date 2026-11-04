@@ -1,3 +1,4 @@
+import CryptoKit
 import ImageIO
 import PDFKit
 import XCTest
@@ -120,16 +121,19 @@ final class ImporterTests: XCTestCase {
     }
   }
 
-  func testRepeatedContentGetsStableBookIDAndSeparateOriginalFiles() async throws {
+  func testRepeatedContentGetsStableBookIDAndReusesOriginalFile() async throws {
     let folder = try temporaryDirectory()
     defer { try? FileManager.default.removeItem(at: folder) }
     let repository = try LocalBookCourseRepository(directory: folder)
     let first = try await LocalFileImporter.stage(url: fixture("plain.txt"), repository: repository)
-    let second = try await LocalFileImporter.stage(
-      url: fixture("plain.txt"), repository: repository)
+    let renamed = folder.appendingPathComponent("改名后的原件.TXT")
+    try FileManager.default.copyItem(at: fixture("plain.txt"), to: renamed)
+    let second = try await LocalFileImporter.stage(url: renamed, repository: repository)
     XCTAssertEqual(first.source.id, second.source.id)
     XCTAssertTrue(first.source.id.hasPrefix("book_local_"))
-    XCTAssertNotEqual(first.relativePath, second.relativePath)
+    XCTAssertEqual(first.relativePath, second.relativePath)
+    XCTAssertEqual(first.contentHash?.count, 64)
+    XCTAssertEqual(first.contentHash, second.contentHash)
     XCTAssertEqual(first.source.summary.status, "uploaded")
     XCTAssertEqual(first.source.summary.average_confidence, 0)
     XCTAssertTrue(first.source.chapters.isEmpty && first.source.lessons.isEmpty)
@@ -138,6 +142,224 @@ final class ImporterTests: XCTestCase {
     let expected = try Data(contentsOf: fixture("plain.txt"))
     XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(first.relativePath)), expected)
     XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(second.relativePath)), expected)
+    let originals = try FileManager.default.contentsOfDirectory(
+      at: folder.appendingPathComponent("attachments"), includingPropertiesForKeys: nil)
+    XCTAssertEqual(originals.count, 1)
+  }
+
+  func testSameFilenameWithDifferentBytesKeepsSeparateOriginals() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder.appendingPathComponent("repository"))
+    let firstURL = folder.appendingPathComponent("first/教材.pdf")
+    let secondURL = folder.appendingPathComponent("second/教材.pdf")
+    for url in [firstURL, secondURL] {
+      try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    }
+    try Data("first original".utf8).write(to: firstURL)
+    try Data("other original".utf8).write(to: secondURL)
+    let first = try await LocalFileImporter.stage(url: firstURL, repository: repository)
+    let second = try await LocalFileImporter.stage(url: secondURL, repository: repository)
+    XCTAssertNotEqual(first.contentHash, second.contentHash)
+    XCTAssertNotEqual(first.source.id, second.source.id)
+    XCTAssertNotEqual(first.relativePath, second.relativePath)
+    XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(first.relativePath)), Data("first original".utf8))
+    XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(second.relativePath)), Data("other original".utf8))
+  }
+
+  func testConcurrentStagingAcrossRepositoriesStoresOneCompleteOriginal() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let firstRepository = try LocalBookCourseRepository(directory: folder)
+    let secondRepository = try LocalBookCourseRepository(directory: folder)
+    let input = try fixture("text.pdf")
+    let renamed = folder.appendingPathComponent("same-bytes.bin")
+    try FileManager.default.copyItem(at: input, to: renamed)
+    let staged = try await withThrowingTaskGroup(of: StagedSource.self) { group in
+      for index in 0..<8 {
+        let repository = index.isMultiple(of: 2) ? firstRepository : secondRepository
+        let url = index.isMultiple(of: 2) ? input : renamed
+        group.addTask { try await LocalFileImporter.stage(url: url, repository: repository) }
+      }
+      var values: [StagedSource] = []
+      for try await value in group { values.append(value) }
+      return values
+    }
+    XCTAssertEqual(Set(staged.map(\.relativePath)).count, 1)
+    let saved = try XCTUnwrap(staged.first)
+    XCTAssertEqual(try Data(contentsOf: firstRepository.attachmentURL(saved.relativePath)), try Data(contentsOf: input))
+    let files = try FileManager.default.contentsOfDirectory(
+      at: folder.appendingPathComponent("attachments"), includingPropertiesForKeys: nil)
+    XCTAssertEqual(files.count, 1)
+    let hash = try XCTUnwrap(saved.contentHash)
+    async let firstIdentity: Void = firstRepository.recordContentIdentity(contentHash: hash,
+      bookID: "first-book", relativePath: saved.relativePath, scope: "owner")
+    async let secondIdentity: Void = secondRepository.recordContentIdentity(contentHash: hash,
+      bookID: "second-book", relativePath: saved.relativePath, scope: "owner")
+    _ = try await (firstIdentity, secondIdentity)
+    let identities = try await firstRepository.matchingBookIDs(contentHash: hash, scope: "owner",
+      books: ["first-book": saved.relativePath, "second-book": saved.relativePath])
+    XCTAssertEqual(Set(identities), ["first-book", "second-book"])
+  }
+
+  func testMissingOriginalIsNotADuplicateAndRestagingRepairsItsPath() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder)
+    let input = try fixture("text.pdf")
+    let first = try await LocalFileImporter.stage(url: input, repository: repository)
+    let hash = try XCTUnwrap(first.contentHash)
+    let books = ["uploaded-book": first.relativePath]
+    try await repository.recordContentIdentity(contentHash: hash, bookID: "uploaded-book",
+      relativePath: first.relativePath, scope: "owner")
+    try FileManager.default.removeItem(at: repository.attachmentURL(first.relativePath))
+    let missing = try await repository.resolveExistingBookID(contentHash: hash, scope: "owner", books: books)
+    XCTAssertNil(missing)
+    let second = try await LocalFileImporter.stage(url: input, repository: repository)
+    XCTAssertEqual(second.relativePath, first.relativePath)
+    XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(second.relativePath)), try Data(contentsOf: input))
+    let repaired = try await repository.resolveExistingBookID(contentHash: hash, scope: "owner", books: books)
+    XCTAssertEqual(repaired, "uploaded-book")
+  }
+
+  func testContentIdentitySurvivesReopenAndIsScopedToItsAccount() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder)
+    let staged = try await LocalFileImporter.stage(url: fixture("text.pdf"), repository: repository)
+    let hash = try XCTUnwrap(staged.contentHash)
+    let books = ["A-book": staged.relativePath, "B-book": staged.relativePath]
+    try await repository.recordContentIdentity(contentHash: hash, bookID: "A-book",
+      relativePath: staged.relativePath, scope: "A")
+    let foreign = try await repository.matchingBookIDs(contentHash: hash, scope: "B", books: books)
+    XCTAssertTrue(foreign.isEmpty)
+    try await repository.recordContentIdentity(contentHash: hash, bookID: "B-book",
+      relativePath: staged.relativePath, scope: "B")
+    let reopened = try LocalBookCourseRepository(directory: folder)
+    let a = try await reopened.matchingBookIDs(contentHash: hash, scope: "A", books: books)
+    let b = try await reopened.matchingBookIDs(contentHash: hash, scope: "B", books: books)
+    XCTAssertEqual(a, ["A-book"])
+    XCTAssertEqual(b, ["B-book"])
+    let removed = try await reopened.matchingBookIDs(contentHash: hash, scope: "A", books: [:])
+    XCTAssertTrue(removed.isEmpty)
+  }
+
+  func testLegacyWarmupCachesFingerprintsAndPreservesAllMatchingBooks() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder)
+    let bytes = try Data(contentsOf: fixture("text.pdf"))
+    let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    let paths = ["failed-draft": "attachments/old-1.pdf", "rich-book": "attachments/old-2.pdf"]
+    for path in paths.values { try bytes.write(to: repository.attachmentURL(path)) }
+    async let firstWarmup: Void = repository.warmContentIdentityIndex(scope: "owner", books: paths)
+    async let joinedWarmup: Void = repository.warmContentIdentityIndex(scope: "owner", books: paths)
+    _ = try await (firstWarmup, joinedWarmup)
+    let matched = try await repository.matchingBookIDs(contentHash: hash, scope: "owner", books: paths)
+    XCTAssertEqual(Set(matched), Set(paths.keys))
+    let restaged = try await LocalFileImporter.stage(url: fixture("text.pdf"), repository: repository)
+    XCTAssertTrue(paths.values.contains(restaged.relativePath))
+    let originalCount = try FileManager.default.contentsOfDirectory(
+      at: folder.appendingPathComponent("attachments"), includingPropertiesForKeys: nil).count
+    XCTAssertEqual(originalCount, paths.count)
+    let reads = await repository.contentIdentityHashReadsForTesting()
+    XCTAssertEqual(reads, 2)
+    try await repository.warmContentIdentityIndex(scope: "owner", books: paths)
+    let repeatedReads = await repository.contentIdentityHashReadsForTesting()
+    XCTAssertEqual(repeatedReads, reads)
+    let reopened = try LocalBookCourseRepository(directory: folder)
+    try await reopened.warmContentIdentityIndex(scope: "owner", books: paths)
+    let reopenedReads = await reopened.contentIdentityHashReadsForTesting()
+    XCTAssertEqual(reopenedReads, 0)
+    let foreign = try await reopened.matchingBookIDs(contentHash: hash, scope: "another-owner", books: paths)
+    XCTAssertTrue(foreign.isEmpty)
+  }
+
+  func testChangedLegacyOriginalInvalidatesItsFingerprintWithoutReadingDuringLookup() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder)
+    let path = "attachments/legacy.pdf"
+    let bytes = Data("first".utf8), changed = Data("other".utf8)
+    let firstHash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    let changedHash = SHA256.hash(data: changed).map { String(format: "%02x", $0) }.joined()
+    let bookID = "book_local_" + firstHash.prefix(24)
+    let books = [bookID: path]
+    try bytes.write(to: repository.attachmentURL(path))
+    try await repository.warmContentIdentityIndex(scope: "owner", books: books)
+    try changed.write(to: repository.attachmentURL(path))
+    try FileManager.default.setAttributes([.modificationDate: Date.now.addingTimeInterval(2)],
+      ofItemAtPath: repository.attachmentURL(path).path)
+    let cached = try await repository.cachedContentHash(relativePath: path)
+    let oldMatch = try await repository.resolveExistingBookID(contentHash: firstHash, scope: "owner", books: books)
+    let lookupReads = await repository.contentIdentityHashReadsForTesting()
+    XCTAssertNil(cached)
+    XCTAssertNil(oldMatch)
+    XCTAssertEqual(lookupReads, 1)
+    try await repository.warmContentIdentityIndex(scope: "owner", books: books)
+    let reindexed = try await repository.resolveExistingBookID(contentHash: changedHash, scope: "owner", books: books)
+    let finalReads = await repository.contentIdentityHashReadsForTesting()
+    XCTAssertEqual(reindexed, bookID)
+    XCTAssertEqual(finalReads, 2)
+  }
+
+  func testRestagingDoesNotOverwriteAChangedCanonicalOriginal() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder)
+    let input = try fixture("plain.txt")
+    let first = try await LocalFileImporter.stage(url: input, repository: repository)
+    let changed = Data("changed bytes owned by another book".utf8)
+    try changed.write(to: repository.attachmentURL(first.relativePath))
+    try FileManager.default.setAttributes([.modificationDate: Date.now.addingTimeInterval(2)],
+      ofItemAtPath: repository.attachmentURL(first.relativePath).path)
+    try await repository.warmContentIdentityIndex(scope: "owner", books: ["changed-book": first.relativePath])
+    let restored = try await LocalFileImporter.stage(url: input, repository: repository)
+    let repeated = try await LocalFileImporter.stage(url: input, repository: repository)
+    XCTAssertNotEqual(restored.relativePath, first.relativePath)
+    XCTAssertEqual(repeated.relativePath, restored.relativePath)
+    XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(first.relativePath)), changed)
+    XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(restored.relativePath)), try Data(contentsOf: input))
+  }
+
+  func testTemporaryAttachmentCleanupDoesNotDeleteSharedCourseOriginal() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder)
+    let staged = try await LocalFileImporter.stage(url: fixture("text.pdf"), repository: repository)
+    let bytes = try Data(contentsOf: fixture("text.pdf"))
+    let temporary = try await repository.saveAttachment(bytes, extension: "pdf")
+    XCTAssertNotEqual(temporary, staged.relativePath)
+    try FileManager.default.removeItem(at: repository.attachmentURL(temporary))
+    XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(staged.relativePath)), bytes)
+  }
+
+  func testLargeOriginalDuplicateLookupUsesOnlyCachedMetadata() async throws {
+    let folder = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let repository = try LocalBookCourseRepository(directory: folder.appendingPathComponent("repository"))
+    let input = folder.appendingPathComponent("large-original.pdf")
+    // The check is byte identity only; it does not parse this synthetic payload.
+    try Data(repeating: 0x61, count: 17_480_000).write(to: input)
+    let started = Date.now
+    let first = try await LocalFileImporter.stage(url: input, repository: repository)
+    let firstSeconds = Date.now.timeIntervalSince(started)
+    let hash = try XCTUnwrap(first.contentHash)
+    try await repository.recordContentIdentity(contentHash: hash, bookID: "large-book",
+      relativePath: first.relativePath, scope: "owner")
+    let repeatedStarted = Date.now
+    let duplicate = try await LocalFileImporter.stage(url: input, repository: repository)
+    let repeatedSeconds = Date.now.timeIntervalSince(repeatedStarted)
+    let lookupStarted = Date.now
+    let matching = try await repository.matchingBookIDs(contentHash: hash, scope: "owner",
+      books: ["large-book": first.relativePath])
+    let lookupSeconds = Date.now.timeIntervalSince(lookupStarted)
+    let historicalReads = await repository.contentIdentityHashReadsForTesting()
+    print(String(format: "DUPLICATE_IMPORT_PERF bytes=17480000 first_stage_ms=%.3f repeat_stage_ms=%.3f cached_lookup_ms=%.3f historical_reads=%d",
+      firstSeconds * 1000, repeatedSeconds * 1000, lookupSeconds * 1000, historicalReads))
+    XCTAssertEqual(matching, ["large-book"])
+    XCTAssertEqual(first.relativePath, duplicate.relativePath)
+    XCTAssertEqual(historicalReads, 0)
   }
 
   func testExtractionFailureLeavesStagedOriginalAvailableForRetry() async throws {

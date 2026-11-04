@@ -76,6 +76,301 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
     return .init(body: Data("{\"book_id\":\"server-\(id)\",\"filename\":\"original.pdf\",\"status\":\"uploaded\"}".utf8), delay: delay)
   }
 
+  private func countingStore(_ counts: UploadRequestCounts, delay: Double = 0.05) throws -> AppStore {
+    try makeStore { request in
+      guard request.url?.path == "/api/native/uploads" else {
+        return .init(status: 404, body: Data("{}".utf8), delay: 0)
+      }
+      let count = counts.increment()
+      return .init(body: Data("{\"book_id\":\"server-\(count)\",\"filename\":\"book.pdf\",\"status\":\"uploaded\"}".utf8), delay: delay)
+    }
+  }
+
+  func testRenamedDuplicateReopensExistingCourseWithoutUploadingOrAddingPreparation() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    store.draft.name = "正在学习的数学"
+    let first = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "math.pdf")]))
+    try await wait("Initial material should finish uploading") { store.uploadState.batches.first?.isComplete == true }
+    let existingID = store.uploadState.batches[0].courseID
+    let oldBook = try XCTUnwrap(store.courses.first?.resourceIDs.first)
+    store.acknowledgeCourseUpload(first)
+    store.importState.courses[0].job.status = .completed
+    store.importState.courses[0].setupCompleted = true
+    store.importState.courses[0].books[0].status = .completed
+    let note = StudyNote(kind: .text, title: "保留批注", anchor: NoteAnchor(courseID: existingID, bookID: oldBook, page: 3))
+    store.notes = [note]
+    store.locations[existingID + "::" + oldBook] = StudyLocation(page: 7)
+    let duplicate = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "renamed.pdf")]))
+    try await wait("Same bytes must reuse the existing course") {
+      store.uploadState.batches.first { $0.id == duplicate }?.reusedCourseID == existingID
+    }
+    XCTAssertEqual(counts.value, 1)
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(store.selectedCourseID, existingID)
+    XCTAssertEqual(store.importState.courses.count, 1)
+    XCTAssertEqual(store.importState.courses[0].job.status, .completed)
+    XCTAssertEqual(store.notes, [note])
+    XCTAssertEqual(store.locations[existingID + "::" + oldBook]?.page, 7)
+    XCTAssertEqual(store.toast?.title, "这本教材已在「正在学习的数学」中，已为你打开")
+    XCTAssertTrue(try XCTUnwrap(store.uploadState.batches.first { $0.id == duplicate }).completionAcknowledged)
+    store.suspendCourseUploads()
+    store.restoreCourseUploads()
+    XCTAssertEqual(store.courses.count, 1, "A restored duplicate receipt must not resurrect its placeholder")
+    XCTAssertEqual(counts.value, 1)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testSameBatchDuplicatesUploadOnlyUniqueBytesAndKeepNewMaterials() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    let id = try XCTUnwrap(store.beginCourseUpload([
+      pdf(store, name: "one.pdf", contents: "same"),
+      pdf(store, name: "renamed.pdf", contents: "same"),
+      pdf(store, name: "new.pdf", contents: "different"),
+    ]))
+    try await wait("Two distinct materials should finish") { store.uploadState.batches.first?.isComplete == true }
+    let batch = try XCTUnwrap(store.uploadState.batches.first { $0.id == id })
+    XCTAssertEqual(counts.value, 2)
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(batch.files.filter(\.isSkippedDuplicate).count, 1)
+    XCTAssertEqual(Set(batch.files.compactMap(\.bookID)).count, 2)
+    XCTAssertEqual(store.courses[0].resourceIDs.count, 2)
+    XCTAssertEqual(store.importState.courses[0].books.count, 2)
+    XCTAssertEqual(batch.draft.resourceIDs.count, 2)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testMixedExistingAndNewMaterialsKeepOldCourseLearningInPlace() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    _ = store.beginCourseUpload([try pdf(store, name: "old.pdf", contents: "old")])
+    try await wait("Old material should be ready") { store.uploadState.batches.first?.isComplete == true }
+    let oldCourse = try XCTUnwrap(store.courses.first)
+    let oldBook = try XCTUnwrap(oldCourse.resourceIDs.first)
+    let note = StudyNote(kind: .text, title: "旧课笔记", anchor: NoteAnchor(courseID: oldCourse.id, bookID: oldBook, page: 2))
+    store.notes = [note]
+    let id = try XCTUnwrap(store.beginCourseUpload([
+      pdf(store, name: "copy.pdf", contents: "old"), pdf(store, name: "fresh.pdf", contents: "fresh"),
+    ]))
+    try await wait("Only the new material should upload") { store.uploadState.batches.first { $0.id == id }?.isComplete == true }
+    let batch = try XCTUnwrap(store.uploadState.batches.first { $0.id == id })
+    let newCourse = try XCTUnwrap(store.courses.first { $0.id == batch.courseID })
+    XCTAssertEqual(counts.value, 2)
+    XCTAssertEqual(store.courses.count, 2)
+    XCTAssertEqual(newCourse.resourceIDs.count, 1)
+    XCTAssertFalse(newCourse.resourceIDs.contains(oldBook))
+    XCTAssertEqual(store.courseImport(for: newCourse.id)?.books.count, 1)
+    XCTAssertEqual(store.courses.first { $0.id == oldCourse.id }?.resourceIDs, [oldBook])
+    XCTAssertEqual(store.notes, [note])
+    XCTAssertEqual(batch.files.filter(\.isSkippedDuplicate).count, 1)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testAddingAnExistingMaterialDoesNotChangeItsPreparationOrUploadAgain() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    _ = store.beginCourseUpload([try pdf(store, name: "existing.pdf")])
+    try await wait("Initial upload should finish") { store.uploadState.batches.first?.isComplete == true }
+    let course = try XCTUnwrap(store.courses.first)
+    store.importState.courses[0].job.status = .failed
+    store.importState.courses[0].job.message = "保留原进度"
+    let id = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "same.pdf")], targetCourseID: course.id))
+    try await wait("Repeated attachment should be skipped") { store.uploadState.batches.first { $0.id == id }?.isComplete == true }
+    XCTAssertEqual(counts.value, 1)
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(store.courses[0].resourceIDs.count, 1)
+    XCTAssertEqual(store.importState.courses[0].job.status, .failed)
+    XCTAssertEqual(store.importState.courses[0].job.message, "保留原进度")
+    XCTAssertEqual(store.toast?.title, "教材已在「\(course.name)」中，无需重复导入")
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testDifferentBytesWithTheSameFilenameRemainDistinctAndKeepOriginals() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    let original = try pdf(store, name: "same-name.pdf", contents: "first-edition")
+    let originalBytes = try Data(contentsOf: original)
+    _ = store.beginCourseUpload([original])
+    try await wait("First edition should upload") { store.uploadState.batches.first?.isComplete == true }
+    let firstPath = try XCTUnwrap(store.uploadState.batches[0].files[0].relativePath)
+    let second = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "same-name.pdf", contents: "second-edition")]))
+    try await wait("Changed bytes should upload separately") { store.uploadState.batches.first { $0.id == second }?.isComplete == true }
+    XCTAssertEqual(counts.value, 2)
+    XCTAssertEqual(store.courses.count, 2)
+    XCTAssertNotEqual(store.uploadState.batches[0].files[0].bookID, store.uploadState.batches[1].files[0].bookID)
+    XCTAssertEqual(try Data(contentsOf: store.repository.attachmentURL(firstPath)), originalBytes)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testConcurrentDuplicateImportsShareOneUploadAndOneCourse() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts, delay: 0.3)
+    let original = try pdf(store, name: "concurrent.pdf")
+    let first = try XCTUnwrap(store.beginCourseUpload([original]))
+    let second = try XCTUnwrap(store.beginCourseUpload([original]))
+    try await wait("Overlapping selections should share one transfer") {
+      store.uploadState.batches.count == 2 && store.uploadState.batches.allSatisfy(\.isComplete)
+    }
+    let batches = store.uploadState.batches
+    XCTAssertEqual(counts.value, 1)
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(Set(batches.map(\.courseID)).count, 1)
+    XCTAssertEqual(Set(batches.flatMap { $0.files.compactMap(\.bookID) }).count, 1)
+    XCTAssertEqual(Set(batches.map(\.id)), Set([first, second]))
+    XCTAssertEqual(batches.filter { $0.reusedCourseID != nil }.count, 1)
+    XCTAssertEqual(store.importState.courses.count, 1)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testFreshRepositoryRecognizesDuplicateFromDurableIdentityWithoutWarmup() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    _ = store.beginCourseUpload([try pdf(store, name: "before-restart.pdf")])
+    try await wait("First import should complete") { store.uploadState.batches.first?.isComplete == true }
+    await store.flush()
+    let repository = try LocalBookCourseRepository(directory: store.repository.directory, includeFixtures: false)
+    let restarted = AppStore(repository: repository, cloud: store.cloud, processingPolicy: store.processingPolicy)
+    restarted.isLoading = false
+    restarted.cloudState.authenticated = true
+    restarted.cloudState.cacheKey = store.cloudState.cacheKey
+    // Model the hydrated account snapshot, with a new repository actor and no
+    // in-memory hash claims or historical-file warmup.
+    restarted.courses = store.courses
+    restarted.sources = store.sources
+    restarted.filePaths = store.filePaths
+    restarted.importState.courses = store.importState.courses
+    store.suspendCourseUploads()
+    restarted.restoreCourseUploads()
+    let id = try XCTUnwrap(restarted.beginCourseUpload([pdf(restarted, name: "after-restart.pdf")]))
+    try await wait("Durable full-content identity should match after restart") {
+      restarted.uploadState.batches.first { $0.id == id }?.reusedCourseID != nil
+    }
+    XCTAssertEqual(counts.value, 1)
+    XCTAssertEqual(restarted.courses.count, 1)
+    XCTAssertEqual(restarted.sources.count, 1)
+    restarted.suspendCourseUploads()
+    await restarted.flush()
+  }
+
+  func testAccountSwitchRetiresInFlightClaimAndCannotReuseAnotherAccountsMaterial() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts, delay: 0.4)
+    let original = try pdf(store, name: "account.pdf")
+    _ = store.beginCourseUpload([original])
+    try await wait("First account should begin uploading") { counts.value == 1 }
+    store.cloudState.epoch = UUID()
+    store.suspendCourseUploads()
+    store.courses = []; store.sources = []; store.filePaths = [:]; store.importState.courses = []
+    store.cloudState.cacheKey = "second-account"
+    store.restoreCourseUploads()
+    let second = try XCTUnwrap(store.beginCourseUpload([original]))
+    try await wait("Second account needs its own transfer") { store.uploadState.batches.first { $0.id == second }?.isComplete == true }
+    XCTAssertEqual(counts.value, 2)
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(store.sources.map(\.id), ["server-2"])
+    XCTAssertNil(store.uploadState.batches[0].reusedCourseID)
+    XCTAssertEqual(store.uploadState.batches[0].scope, "second-account")
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testDuplicateChoosesCourseWithLearningAcrossAllFullHashBookAliases() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    let original = try pdf(store, name: "known.pdf")
+    let staged = try await LocalFileImporter.stage(url: original, repository: store.repository)
+    let hash = try XCTUnwrap(staged.contentHash)
+    var emptySource = staged.source
+    emptySource.summary.book_id = "server-empty"
+    emptySource.plan.book_id = emptySource.id
+    var learnedSource = staged.source
+    learnedSource.summary.book_id = "server-learned"
+    learnedSource.plan.book_id = learnedSource.id
+    store.sources = [emptySource, learnedSource]
+    store.filePaths = [emptySource.id: staged.relativePath, learnedSource.id: staged.relativePath]
+    store.courses = [
+      Course(id: "local-course:empty", name: "未完成的同教材课", resourceIDs: [emptySource.id], createdAt: .distantPast),
+      Course(id: "learned-course", name: "已有学习记录", resourceIDs: [learnedSource.id]),
+    ]
+    let note = StudyNote(kind: .text, title: "已有学习笔记", anchor: NoteAnchor(courseID: "learned-course", bookID: learnedSource.id, page: 8))
+    store.notes = [note]
+    // The most recently stored identity points to the empty draft. The course
+    // choice must still inspect every full-hash match and preserve learning.
+    for bookID in [learnedSource.id, emptySource.id] {
+      try await store.repository.recordContentIdentity(contentHash: hash, bookID: bookID,
+        relativePath: staged.relativePath, scope: store.courseUploadScope)
+    }
+    let id = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "another-name.pdf")]))
+    try await wait("A matching alias with learning should win over an older empty course") {
+      store.uploadState.batches.first { $0.id == id }?.reusedCourseID == "learned-course"
+    }
+    XCTAssertEqual(counts.value, 0)
+    XCTAssertEqual(store.courses.count, 2, "An import may remove only its own temporary course")
+    XCTAssertEqual(store.selectedCourseID, "learned-course")
+    XCTAssertEqual(store.uploadState.batches.first { $0.id == id }?.files.first?.bookID, learnedSource.id)
+    XCTAssertEqual(store.notes, [note])
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testRestoreFinishesDuplicateRedirectIfProcessStoppedBeforeRemovingPlaceholder() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    let staged = try await LocalFileImporter.stage(url: pdf(store, name: "restored.pdf"), repository: store.repository)
+    let existing = Course(id: "existing-course", name: "已有课程", resourceIDs: [staged.source.id])
+    let placeholder = Course(id: "local-course:upload:interrupted", name: "重复课程", resourceIDs: [])
+    store.courses = [existing, placeholder]
+    store.sources = [staged.source]
+    store.filePaths = [staged.source.id: staged.relativePath]
+    let file = CourseUploadFile(filename: "restored.pdf", relativePath: staged.relativePath,
+      bookID: staged.source.id, contentHash: staged.contentHash, skippedDuplicate: true, status: .completed)
+    let batch = CourseUploadBatch(courseID: placeholder.id, courseName: placeholder.name, scope: store.courseUploadScope,
+      draft: CourseDraft(importCourseID: placeholder.id), addingMaterials: false, files: [file])
+    store.uploadState.batches = [batch]
+    XCTAssertTrue(store.persistCourseUploads())
+    store.suspendCourseUploads()
+    store.restoreCourseUploads()
+    XCTAssertEqual(store.courses.map(\.id), [existing.id])
+    XCTAssertEqual(store.uploadState.batches.first?.reusedCourseID, existing.id)
+    XCTAssertEqual(counts.value, 0)
+    XCTAssertTrue(store.importState.courses.isEmpty)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
+  func testArchivedDuplicateUploadLedgerCannotRecreateOrUploadItsOldCourse() async throws {
+    let counts = UploadRequestCounts()
+    let store = try countingStore(counts)
+    let staged = try await LocalFileImporter.stage(url: pdf(store, name: "archived.pdf"), repository: store.repository)
+    let existing = Course(id: "retained-course", name: "保留的课程", resourceIDs: [staged.source.id])
+    store.courses = [existing]
+    store.sources = [staged.source]
+    store.filePaths = [staged.source.id: staged.relativePath]
+    store.cloudState.archivedDuplicateCourseAliases = ["local-course:old-duplicate": existing.id]
+    let file = CourseUploadFile(filename: "archived.pdf", relativePath: staged.relativePath,
+      bookID: staged.source.id, status: .queued)
+    store.uploadState.batches = [CourseUploadBatch(courseID: "local-course:old-duplicate", courseName: "旧重复课程",
+      scope: store.courseUploadScope, draft: CourseDraft(), addingMaterials: false, files: [file])]
+    XCTAssertTrue(store.persistCourseUploads())
+    store.suspendCourseUploads()
+    store.restoreCourseUploads()
+    XCTAssertEqual(store.courses.map(\.id), [existing.id])
+    XCTAssertEqual(store.uploadState.batches.first?.courseID, existing.id)
+    XCTAssertEqual(store.uploadState.batches.first?.reusedCourseID, existing.id)
+    XCTAssertTrue(store.uploadState.batches.first?.isComplete == true)
+    XCTAssertTrue(store.uploadState.tasks.isEmpty)
+    XCTAssertEqual(counts.value, 0)
+    store.suspendCourseUploads()
+    await store.flush()
+  }
+
   func testBackgroundCompletionDoesNotOverwriteTheSelectedCourseOrAnotherDraft() async throws {
     let store = try makeStore { request in
       let id = request.value(forHTTPHeaderField: "X-CloudPath-Upload-ID")!

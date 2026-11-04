@@ -68,7 +68,7 @@ struct CourseFileUploadProgressView: View {
         Text(file.filename).font(DS.font(.cardTitle)).lineLimit(2)
           .frame(maxWidth: .infinity, alignment: .leading)
         if file.status == .completed {
-          Label("完成", systemImage: "checkmark.circle.fill")
+          Label(file.isSkippedDuplicate ? "已跳过" : "完成", systemImage: "checkmark.circle.fill")
             .font(DS.font(.supporting)).foregroundStyle(DS.primary)
             .fixedSize().accessibilityIdentifier("upload.file.\(file.id).complete")
         } else {
@@ -87,7 +87,7 @@ struct CourseFileUploadProgressView: View {
         .accessibilityLabel(file.filename + "上传进度")
         .accessibilityValue("\(Int(file.fraction * 100))%")
         .accessibilityIdentifier("upload.file.\(file.id).progress")
-      Text(bytes(file.sentBytes) + " / " + bytes(file.totalBytes))
+      Text(file.isSkippedDuplicate ? "相同内容已存在，无需重复上传" : bytes(file.sentBytes) + " / " + bytes(file.totalBytes))
         .font(DS.font(.supporting)).monospacedDigit().foregroundStyle(DS.secondary)
         .accessibilityIdentifier("upload.file.\(file.id).bytes")
       if let error = file.error {
@@ -138,7 +138,7 @@ private struct CourseUploadCompletionAlert: ViewModifier {
   private var completion: CourseUploadBatch? {
     guard enabled, scenePhase == .active else { return nil }
     return store.uploadState.batches.first { batch in
-      batch.isComplete && !batch.completionAcknowledged
+      batch.isComplete && batch.files.contains { !$0.isSkippedDuplicate } && !batch.completionAcknowledged
         && (visibleBatchID.map { batch.id == $0 } ?? (store.uploadState.presentedID == nil))
     }
   }
@@ -154,7 +154,7 @@ private struct CourseUploadCompletionAlert: ViewModifier {
       Button("继续整理") { if let batch { store.continueCourseUpload(batch.id) } }
     } message: {
       if let batch {
-        Text("“\(batch.courseName)”的 \(batch.files.count) 份资料\(batch.onDeviceOnly ? "已保存在本机" : "已上传成功")，可以继续整理教材目录并设置课程。")
+        Text("“\(batch.courseName)”的 \(batch.files.filter { !$0.isSkippedDuplicate }.count) 份资料\(batch.onDeviceOnly ? "已保存在本机" : "已上传成功")，可以继续整理教材目录并设置课程。")
       }
     }
   }

@@ -174,8 +174,9 @@ struct AppRootView: View {
           .onAppear { uploadCoverActive = true }
     }
     .courseUploadCompletionAlert(enabled: !showingStartup && !uploadCoverActive && store.sheet == nil)
-    .onChange(of: "\(store.isLoading):\(store.cloudState.authenticated):\(store.cloudState.epoch):\(store.courseUploadScope)", initial: true) { _, _ in
+    .onChange(of: "\(store.isLoading):\(store.cloudState.isHydrating):\(store.cloudState.authenticated):\(store.cloudState.epoch):\(store.courseUploadScope)", initial: true) { _, _ in
       store.restoreCourseUploads()
+      store.startDuplicateImportMaintenance()
     }
     .statusBarHidden(showingStartup || store.isLoading)
     .task(id: store.activeCourseImportKey) { await store.observeCourseImports() }

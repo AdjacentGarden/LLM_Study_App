@@ -7,6 +7,7 @@ import os
 import shutil
 import signal
 import sqlite3
+import stat
 import subprocess
 import sys
 import threading
@@ -180,6 +181,70 @@ class SQLiteOCRJobRepository:
             progress=float(row["progress"]),
             current_step=str(row["current_step"]),
         )
+
+    def register_owned_book(
+        self,
+        *,
+        owner: str,
+        ownership_database_path: Path,
+        book_id: str,
+        original_name: str,
+        file_path: Path,
+        source_sha256: str,
+        now: float | None = None,
+    ) -> tuple[StoredBook, bool]:
+        """Reuse a private source or atomically register its book and ownership.
+
+        The existing DB write lock also covers the lookup, so simultaneous
+        requests in different API processes cannot register the same source
+        twice for one owner. SQLite keeps ownership in an attached database;
+        PostgreSQL already stores both tables in the same database.
+        """
+        timestamp = time.time() if now is None else now
+        with self._connect() as connection:
+            ownership_scope = ""
+            if not connection.postgres and ownership_database_path.resolve() != self.database_path.resolve():
+                connection.execute(
+                    "ATTACH DATABASE ? AS upload_accounts", (str(ownership_database_path),)
+                )
+                ownership_scope = "upload_accounts."
+            connection.begin_write()
+            matches = connection.execute(
+                "SELECT b.book_id,b.original_name,b.file_path,b.status,b.progress,b.current_step "
+                f"FROM {ownership_scope}upload_owners o JOIN books b ON b.book_id=o.book_id "
+                "WHERE o.owner=? AND b.source_sha256=? ORDER BY b.created_at,b.book_id",
+                (owner, source_sha256),
+            )
+            for row in matches:
+                source_path = Path(str(row["file_path"]))
+                try:
+                    source_stat = source_path.stat()
+                except OSError:
+                    continue
+                if not stat.S_ISREG(source_stat.st_mode) or not source_stat.st_size:
+                    continue
+                return StoredBook(
+                    book_id=str(row["book_id"]),
+                    original_name=str(row["original_name"]),
+                    file_path=source_path,
+                    status=str(row["status"]),
+                    progress=float(row["progress"]),
+                    current_step=str(row["current_step"]),
+                ), True
+            connection.execute(
+                """
+                INSERT INTO books(
+                    book_id, original_name, file_path, source_sha256, status, progress,
+                    current_step, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 'uploaded', 0, '等待教材识别', ?, ?)
+                """,
+                (book_id, original_name, str(file_path), source_sha256, timestamp, timestamp),
+            )
+            connection.execute(
+                f"INSERT INTO {ownership_scope}upload_owners(book_id,owner,created) VALUES (?,?,?)",
+                (book_id, owner, timestamp),
+            )
+        return StoredBook(book_id, original_name, file_path, "uploaded", 0, "等待教材识别"), False
 
     def enqueue(
         self,

@@ -8,6 +8,87 @@ import XCTest
       FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)))
   }
 
+  func testEmptyHistoricalDuplicatesArchiveWithoutRemovingOriginalOrLearningRecords() async throws {
+    let store = try store()
+    store.isLoading = false
+    let original = Course(id: "workspace_original", name: "化学", resourceIDs: ["server-old"])
+    let duplicate = Course(id: "local-course:duplicate", name: "chemistry", resourceIDs: ["server-new"])
+    store.courses = [duplicate, original]
+    store.importState.courses = [CourseImportRecord(id: duplicate.id,
+      draft: CourseDraft(resourceIDs: duplicate.resourceIDs), books: [],
+      job: ImportJob(bookIDs: duplicate.resourceIDs, status: .failed), stageSave: CourseStageSave())]
+    store.importJob = store.importState.courses.first?.job
+    store.notes = [StudyNote(kind: .text, title: "原课笔记",
+      anchor: NoteAnchor(courseID: original.id, bookID: "server-old", page: 8))]
+    store.locations[original.id + "::server-old"] = StudyLocation(page: 8)
+    store.selectedCourseID = duplicate.id
+    let path = try await store.repository.saveOriginalAttachment(Data("%PDF-1.4\nsame chemistry".utf8), extension: "pdf")
+    store.filePaths = ["server-old": path, "server-new": path]
+    try await store.repository.warmContentIdentityIndex(scope: "local", books: store.filePaths)
+    try await store.archiveEmptyDuplicateCourses(scope: "local", epoch: store.cloudState.epoch)
+    XCTAssertEqual(store.courses.map(\.id), [original.id])
+    XCTAssertEqual(store.selectedCourseID, original.id)
+    XCTAssertEqual(store.notes.count, 1)
+    XCTAssertEqual(store.locations[original.id + "::server-old"]?.page, 8)
+    XCTAssertEqual(store.filePaths.count, 2)
+    let archives = try await store.repository.duplicateCourseArchives(scope: "local")
+    XCTAssertEqual(archives.first?.course, duplicate)
+    XCTAssertEqual(archives.first?.record.id, duplicate.id)
+    XCTAssertTrue(store.cloudState.localDeletedCourseIDs.contains(duplicate.id))
+    XCTAssertNil(store.importJob)
+    // A legacy export may carry a course after its import record was retired.
+    // Reapplying the durable archive must hide it without needing a new parse.
+    store.courses.append(duplicate)
+    try await store.archiveEmptyDuplicateCourses(scope: "local", epoch: store.cloudState.epoch)
+    XCTAssertEqual(store.courses.map(\.id), [original.id])
+    let otherAccount = try await store.repository.duplicateCourseArchives(scope: "another-account")
+    XCTAssertTrue(otherAccount.isEmpty)
+    await store.flush()
+  }
+
+  func testDuplicateCourseWithPersonalNotesOrPreferencesIsPreserved() async throws {
+    let store = try store()
+    let original = Course(id: "workspace_original", name: "化学", resourceIDs: ["a"])
+    let notesCourse = Course(id: "local-course:notes", name: "笔记课", resourceIDs: ["b"])
+    let settingsCourse = Course(id: "local-course:settings", name: "个性化课", resourceIDs: ["c"])
+    store.courses = [original, notesCourse, settingsCourse]
+    store.importState.courses = [notesCourse, settingsCourse].map { course in
+      CourseImportRecord(id: course.id,
+        draft: CourseDraft(resourceIDs: course.resourceIDs, diagnosis: course.id == settingsCourse.id ? ["goal": ["exam"]] : [:]),
+        books: [], job: ImportJob(bookIDs: course.resourceIDs, status: .failed))
+    }
+    store.notes = [StudyNote(kind: .text, title: "不要删除",
+      anchor: NoteAnchor(courseID: notesCourse.id, bookID: "b", page: 1))]
+    let path = try await store.repository.saveOriginalAttachment(Data("%PDF-1.4\nsame".utf8), extension: "pdf")
+    store.filePaths = ["a": path, "b": path, "c": path]
+    try await store.repository.warmContentIdentityIndex(scope: "local", books: store.filePaths)
+    try await store.archiveEmptyDuplicateCourses(scope: "local", epoch: store.cloudState.epoch)
+    XCTAssertEqual(store.courses.count, 3)
+    let archives = try await store.repository.duplicateCourseArchives(scope: "local")
+    XCTAssertTrue(archives.isEmpty)
+    await store.flush()
+  }
+
+  func testDuplicateCourseWithUnselectedSavedTeachingContentIsPreserved() async throws {
+    let store = try store()
+    var content = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+    content.summary.book_id = "b"
+    let original = Course(id: "workspace_original", name: "已有课", resourceIDs: ["a"])
+    let saved = Course(id: "local-course:saved", name: "另一学习课", resourceIDs: ["b"])
+    store.courses = [original, saved]
+    store.sources = []
+    store.cloudState.localCourseSources[saved.id] = [content]
+    store.importState.courses = [CourseImportRecord(id: saved.id,
+      draft: CourseDraft(resourceIDs: ["b"]), books: [], job: ImportJob(bookIDs: ["b"], status: .failed))]
+    let path = try await store.repository.saveOriginalAttachment(Data("%PDF-1.4\nsame".utf8), extension: "pdf")
+    store.filePaths = ["a": path, "b": path]
+    try await store.repository.warmContentIdentityIndex(scope: "local", books: store.filePaths)
+    try await store.archiveEmptyDuplicateCourses(scope: "local", epoch: store.cloudState.epoch)
+    XCTAssertEqual(store.courses.count, 2)
+    XCTAssertEqual(store.cloudState.localCourseSources[saved.id]?.count, 1)
+    await store.flush()
+  }
+
   func testPrimaryNavigationAndLegacyHomeLinksResolveToStudy() async throws {
     let store = try store()
     XCTAssertEqual(Route.allCases.filter(\.isTab), [.community, .study, .profile])

@@ -5,11 +5,13 @@ from dataclasses import replace
 from importlib import import_module
 from types import SimpleNamespace
 
-from fastapi.testclient import TestClient
 from fastapi import Response, UploadFile
+from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from adaptive_learning.api.store import MemoryStore
+from adaptive_learning.community import CommunityRepository
+from adaptive_learning.ingestion.jobs import SQLiteOCRJobRepository
 
 api = import_module("adaptive_learning.api.app")
 
@@ -78,12 +80,21 @@ def test_startup_backfill_only_considers_active_resources_and_published_books(tm
 
 def test_cover_database_failure_does_not_fail_successfully_registered_upload(tmp_path, monkeypatch):
     registered, bound = [], []
+    jobs = SQLiteOCRJobRepository(tmp_path / "jobs.sqlite3")
+    ownership = CommunityRepository(tmp_path / "community.sqlite3")
+
+    def register_owned_book(**kwargs):
+        result = jobs.register_owned_book(**kwargs)
+        registered.append(kwargs)
+        if ownership.owns_upload(kwargs["owner"], result[0].book_id):
+            bound.append((kwargs["owner"], result[0].book_id))
+        return result
+
     monkeypatch.setattr(api, "settings", replace(api.settings, data_dir=tmp_path))
     monkeypatch.setattr(api, "store", MemoryStore())
-    monkeypatch.setattr(api, "job_repository", SimpleNamespace(register_book=lambda **kwargs: registered.append(kwargs)))
+    monkeypatch.setattr(api, "job_repository", SimpleNamespace(register_owned_book=register_owned_book))
     monkeypatch.setattr(api, "account_repository", SimpleNamespace(
-        request_owner=lambda request: "uploader", repo=SimpleNamespace(
-            bind_upload=lambda owner, book_id: bound.append((owner, book_id)))))
+        request_owner=lambda request: "uploader", repo=ownership))
 
     def unavailable(book_id):
         raise sqlite3.OperationalError("offline cover storage failure")

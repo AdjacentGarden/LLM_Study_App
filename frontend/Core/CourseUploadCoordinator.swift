@@ -11,12 +11,16 @@ struct CourseUploadFile: Codable, Identifiable, Sendable {
   var relativePath: String?
   var bookID: String?
   var originalBookID: String?
+  var contentHash: String? = nil
+  var skippedDuplicate: Bool? = nil
+  var reusedFromCourseID: String? = nil
   var sentBytes: Int64 = 0
   var totalBytes: Int64 = 0
   var status: Status = .preparing
   var error: String?
   var lastProgressAt = Date.now
   var slowNoticeShown = false
+  var isSkippedDuplicate: Bool { skippedDuplicate == true }
   var fraction: Double { status == .completed ? 1 : totalBytes > 0 ? min(1, Double(sentBytes) / Double(totalBytes)) : 0 }
 }
 
@@ -30,6 +34,9 @@ struct CourseUploadBatch: Codable, Identifiable, Sendable {
   var files: [CourseUploadFile]
   var onDeviceOnly = false
   var completionAcknowledged = false
+  /// A duplicate-only import has no course of its own. Keep its redirect in the
+  /// upload ledger so restoration cannot bring its temporary course back.
+  var reusedCourseID: String? = nil
   var isRunning: Bool { files.contains { [.preparing, .queued, .uploading].contains($0.status) } }
   var isComplete: Bool { !files.isEmpty && files.allSatisfy { $0.status == .completed } }
   var hasFailures: Bool { files.contains { [.failed, .cancelled].contains($0.status) } }
@@ -43,6 +50,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
   @ObservationIgnored var loadedScope: String?
   @ObservationIgnored var tasks: [UUID: Task<Void, Never>] = [:]
   @ObservationIgnored var taskTokens: [UUID: UUID] = [:]
+  @ObservationIgnored var stagedBooksByHash: [String: String] = [:]
   @ObservationIgnored var monitorToken = UUID()
   @ObservationIgnored var monitor: Task<Void, Never>?
 }
@@ -79,7 +87,14 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     #endif
     uploadState.batches = (try? Data(contentsOf: courseUploadFileURL))
       .flatMap { try? JSONDecoder().decode([CourseUploadBatch].self, from: $0) } ?? []
-    for batch in uploadState.batches {
+    applyArchivedCourseUploadAliases()
+    for id in uploadState.batches.map(\.id) {
+      if let pending = uploadState.batches.first(where: { $0.id == id }),
+        pending.reusedCourseID == nil, pending.isComplete,
+        pending.files.allSatisfy(\.isSkippedDuplicate) {
+        finishStagingCourseUpload(id, showNotice: false)
+      }
+      guard let batch = uploadState.batches.first(where: { $0.id == id }) else { continue }
       // A process may stop after the receipt is durable but before its larger
       // account snapshot finishes. Reapply that accepted identity locally.
       for file in batch.files {
@@ -89,9 +104,10 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
             uploaded: CloudUpload(book_id: book, filename: file.filename, status: "uploaded"))
         }
       }
-      if !courses.contains(where: { $0.id == batch.courseID }) {
+      if batch.reusedCourseID == nil, !courses.contains(where: { $0.id == batch.courseID }) {
         courses.append(Course(id: batch.courseID, name: batch.courseName,
-          resourceIDs: Array(Set(batch.files.compactMap(\.bookID))), activeResourceID: batch.files.compactMap(\.bookID).first))
+          resourceIDs: Array(Set(batch.files.filter { !$0.isSkippedDuplicate }.compactMap(\.bookID))),
+          activeResourceID: batch.files.first { !$0.isSkippedDuplicate }?.bookID))
       }
       for file in batch.files where file.status == .preparing {
         updateCourseUpload(batch.id, fileID: file.id) {
@@ -101,14 +117,57 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       }
       if batch.isRunning { launchCourseUpload(batch.id) }
     }
+    persistCourseUploads()
     startCourseUploadMonitor()
     if cloudState.privateLocalMode { Task { await resumePublicLibraryTasks() } }
+  }
+
+  /// Archiving an empty historical duplicate must also retire its upload
+  /// receipt; otherwise a restored queued receipt would recreate that course.
+  @discardableResult func applyArchivedCourseUploadAliases() -> Bool {
+    var changed = false
+    for index in uploadState.batches.indices {
+      let batch = uploadState.batches[index]
+      guard batch.scope == courseUploadScope else { continue }
+      var targetID = batch.courseID
+      var visited: Set<String> = []
+      while let next = cloudState.archivedDuplicateCourseAliases[targetID], visited.insert(targetID).inserted {
+        targetID = next
+      }
+      guard targetID != batch.courseID, let target = courses.first(where: { $0.id == targetID }) else { continue }
+      uploadState.tasks[batch.id]?.cancel()
+      uploadState.tasks[batch.id] = nil
+      uploadState.taskTokens[batch.id] = nil
+      for file in batch.files where [.queued, .uploading].contains(file.status) {
+        if let cloud, cloud.usesNativeBackgroundUploads {
+          Task { await BackgroundUploadTransport.client(origin: cloud.baseURL, scope: batch.scope).cancel(file.requestID) }
+        }
+      }
+      uploadState.batches[index].courseID = target.id
+      uploadState.batches[index].courseName = target.name
+      uploadState.batches[index].draft.importCourseID = target.id
+      uploadState.batches[index].draft.resourceIDs = []
+      uploadState.batches[index].reusedCourseID = target.id
+      uploadState.batches[index].completionAcknowledged = true
+      for f in uploadState.batches[index].files.indices {
+        uploadState.batches[index].files[f].skippedDuplicate = true
+        uploadState.batches[index].files[f].reusedFromCourseID = target.id
+        uploadState.batches[index].files[f].status = .completed
+        uploadState.batches[index].files[f].error = nil
+        uploadState.batches[index].files[f].sentBytes = uploadState.batches[index].files[f].totalBytes
+      }
+      if uploadState.presentedID == batch.id { uploadState.presentedID = nil }
+      changed = true
+    }
+    if changed { persistCourseUploads() }
+    return changed
   }
 
   func suspendCourseUploads() {
     for task in uploadState.tasks.values { task.cancel() }
     uploadState.tasks = [:]
     uploadState.taskTokens = [:]
+    uploadState.stagedBooksByHash = [:]
     uploadState.monitorToken = UUID()
     uploadState.monitor?.cancel()
     uploadState.monitor = nil
@@ -125,6 +184,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     var savedDraft = course == nil ? draft : CourseDraft()
     savedDraft.name = course?.name ?? (savedDraft.name.isEmpty
       ? urls[0].deletingPathExtension().lastPathComponent : savedDraft.name)
+    savedDraft.resourceIDs = []
     savedDraft.importCourseID = courseID
     // A batch owns its draft. Other courses and questionnaires remain independent.
     let batch = CourseUploadBatch(courseID: courseID, courseName: savedDraft.name,
@@ -159,14 +219,18 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
 
   private func stageCourseUpload(_ id: UUID, originals: [UUID: URL], epoch: UUID) async throws {
     guard let initial = uploadState.batches.first(where: { $0.id == id }) else { throw CancellationError() }
+    let scope = initial.scope
     // Protect only the short local copy; the system URLSession owns the long upload.
     let lease = UIApplication.shared.beginBackgroundTask(withName: "Save course originals") {
-      Task { @MainActor in self.cancelCourseUpload(id) }
+      Task { @MainActor in
+        guard self.courseUploadIsCurrent(id, epoch: epoch) else { return }
+        self.cancelCourseUpload(id)
+      }
     }
     defer { if lease != .invalid { UIApplication.shared.endBackgroundTask(lease) } }
     for file in initial.files where file.status == .preparing {
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch, let original = originals[file.id] else { continue }
+      guard courseUploadIsCurrent(id, epoch: epoch), let original = originals[file.id] else { continue }
       let repository = repository
       let staging = Task.detached(priority: .userInitiated) {
         try await LocalFileImporter.stage(url: original, repository: repository)
@@ -174,32 +238,136 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       do {
         let staged = try await withTaskCancellationHandler { try await staging.value } onCancel: { staging.cancel() }
         try Task.checkCancellation()
-        guard epoch == cloudState.epoch else { throw CancellationError() }
-        let oldPath = filePaths[staged.source.id]
-        let existing = sources.first { !$0.id.hasPrefix("book_local_") && oldPath != nil && filePaths[$0.id] == oldPath }
-        let bookID = existing?.id ?? staged.source.id
-        if !sources.contains(where: { $0.id == bookID }) { sources.append(staged.source) }
-        filePaths[bookID] = staged.relativePath
-        let bytes = (try? repository.attachmentURL(staged.relativePath)
+        guard courseUploadIsCurrent(id, epoch: epoch) else { throw CancellationError() }
+        let indexedIDs: [String]
+        if let hash = staged.contentHash {
+          indexedIDs = try await repository.matchingBookIDs(contentHash: hash, scope: scope, books: filePaths)
+        } else { indexedIDs = [] }
+        try Task.checkCancellation()
+        guard courseUploadIsCurrent(id, epoch: epoch) else { throw CancellationError() }
+        // Claim on the main actor before the next suspension. Two overlapping
+        // imports of the same bytes then share the first file and HTTP request.
+        let claimedID = staged.contentHash.flatMap { uploadState.stagedBooksByHash[$0] }
+        let matchingIDs = Set(indexedIDs + [claimedID, staged.source.id].compactMap { $0 })
+        let existingCourse = preferredCourseForDuplicate(bookIDs: matchingIDs,
+          excluding: initial.addingMaterials ? nil : initial.courseID)
+        let courseBookID = existingCourse?.resourceIDs.first { matchingIDs.contains($0) }
+          ?? uploadState.batches.first { $0.courseID == existingCourse?.id }?.files.first {
+            $0.bookID.map(matchingIDs.contains) == true && !$0.isSkippedDuplicate
+          }?.bookID
+        let bookID = courseBookID ?? claimedID ?? indexedIDs.first ?? staged.source.id
+        if let hash = staged.contentHash { uploadState.stagedBooksByHash[hash] = bookID }
+        let priorFile = uploadState.batches.first(where: { $0.id == id })?.files.first {
+          $0.id != file.id && $0.bookID == bookID && !$0.isSkippedDuplicate
+        }
+        let duplicate = priorFile != nil || existingCourse != nil
+        if !duplicate, !sources.contains(where: { $0.id == bookID }), bookID == staged.source.id {
+          sources.append(staged.source)
+        }
+        let existingPath = filePaths[bookID].flatMap { path -> String? in
+          (try? repository.attachmentURL(path).resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true ? path : nil
+        }
+        let path = existingPath ?? staged.relativePath
+        filePaths[bookID] = path
+        let bytes = (try? repository.attachmentURL(path)
           .resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
         updateCourseUpload(id, fileID: file.id) {
-          $0.relativePath = staged.relativePath; $0.bookID = bookID; $0.originalBookID = bookID
-          $0.totalBytes = bytes; $0.status = .queued
+          $0.relativePath = path; $0.bookID = bookID; $0.originalBookID = bookID
+          $0.contentHash = staged.contentHash; $0.skippedDuplicate = duplicate
+          $0.reusedFromCourseID = existingCourse?.id
+          $0.totalBytes = bytes; $0.status = duplicate ? .completed : .queued
+          if duplicate { $0.sentBytes = bytes }
         }
-        retainCourseUploadResources(id)
+        if let hash = staged.contentHash {
+          try await repository.recordContentIdentity(contentHash: hash, bookID: bookID, relativePath: path, scope: scope)
+        }
+        try Task.checkCancellation()
+        guard courseUploadIsCurrent(id, epoch: epoch) else { throw CancellationError() }
         // The owned file and course identity are durable before any HTTP write.
         try await repository.saveFilePaths(filePaths)
         if cloud == nil { try await repository.saveSources(sources) }
         persist()
         await persistTask?.value
         try Task.checkCancellation()
-        guard epoch == cloudState.epoch else { throw CancellationError() }
+        guard courseUploadIsCurrent(id, epoch: epoch) else { throw CancellationError() }
         persistCourseUploads()
       } catch is CancellationError { throw CancellationError() }
       catch {
+        guard courseUploadIsCurrent(id, epoch: epoch) else { throw CancellationError() }
         updateCourseUpload(id, fileID: file.id) { $0.status = .failed; $0.error = error.localizedDescription }
         persistCourseUploads()
       }
+    }
+    guard courseUploadIsCurrent(id, epoch: epoch) else { throw CancellationError() }
+    finishStagingCourseUpload(id)
+    persistCourseUploads()
+    persist()
+  }
+
+  private func courseUploadIsCurrent(_ id: UUID, epoch: UUID) -> Bool {
+    epoch == cloudState.epoch && uploadState.loadedScope == courseUploadScope
+      && uploadState.batches.contains { $0.id == id && $0.scope == courseUploadScope }
+  }
+
+  /// Matching uses the already computed content identity, never the filename.
+  /// Include another batch's staged files, before its course snapshot is saved.
+  private func preferredCourseForDuplicate(bookIDs: Set<String>, excluding excludedID: String?) -> Course? {
+    let excluded = Set([excludedID].compactMap { $0 })
+    if let course = preferredDuplicateCourse(matchingBookIDs: bookIDs, excluding: excluded) { return course }
+    let pendingCourseIDs = Set(uploadState.batches.filter { batch in
+      batch.scope == courseUploadScope && batch.files.contains {
+        $0.bookID.map(bookIDs.contains) == true && !$0.isSkippedDuplicate
+      }
+    }.map(\.courseID))
+    return courses.filter {
+      !excluded.contains($0.id) && pendingCourseIDs.contains($0.id)
+    }.sorted { $0.createdAt < $1.createdAt }.first
+  }
+
+  private func finishStagingCourseUpload(_ id: UUID, showNotice: Bool = true) {
+    guard let index = uploadState.batches.firstIndex(where: { $0.id == id }) else { return }
+    let batch = uploadState.batches[index]
+    let duplicates = batch.files.filter(\.isSkippedDuplicate)
+    guard !duplicates.isEmpty else { retainCourseUploadResources(id); return }
+    let isPresented = showNotice && uploadState.presentedID == id
+    if duplicates.count == batch.files.count, !batch.addingMaterials,
+      let preferred = preferredCourseForDuplicate(bookIDs: Set(duplicates.compactMap(\.bookID)), excluding: batch.courseID) {
+      // Only this batch's untouched placeholder is removed. Existing courses,
+      // learning content and personal records are never merged or deleted.
+      courses.removeAll { $0.id == batch.courseID && $0.resourceIDs.isEmpty }
+      uploadState.batches[index].courseID = preferred.id
+      uploadState.batches[index].courseName = preferred.name
+      uploadState.batches[index].draft.importCourseID = preferred.id
+      uploadState.batches[index].draft.resourceIDs = []
+      uploadState.batches[index].reusedCourseID = preferred.id
+      uploadState.batches[index].completionAcknowledged = true
+      if isPresented {
+        uploadState.presentedID = nil
+        openCourse(preferred)
+      } else if selectedCourseID == batch.courseID {
+        selectCourse(preferred.id)
+        importState.viewedCourseID = courseImport(for: preferred.id)?.id
+      }
+      let subject = duplicates.count == 1 ? "这本教材" : "这些资料"
+      if showNotice {
+        showToast("\(subject)已在「\(preferred.name)」中\(isPresented ? "，已为你打开" : "，无需重复导入")", kind: .info)
+      }
+      return
+    }
+    if duplicates.count == batch.files.count {
+      uploadState.batches[index].completionAcknowledged = true
+      if isPresented { uploadState.presentedID = nil }
+      if showNotice {
+        let ownerIDs = Set(duplicates.compactMap(\.reusedFromCourseID))
+        if ownerIDs.count == 1, let owner = courses.first(where: { ownerIDs.contains($0.id) }) {
+          showToast("教材已在「\(owner.name)」中，无需重复导入", kind: .info)
+        } else {
+          showToast("所选资料已导入，无需重复添加", kind: .info)
+        }
+      }
+    } else {
+      retainCourseUploadResources(id)
+      if showNotice { showToast("已跳过 \(duplicates.count) 份重复教材，继续导入新资料", kind: .info) }
     }
   }
 
@@ -207,15 +375,18 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     do {
       try await stageCourseUpload(id, originals: originals, epoch: epoch)
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch, let batch = uploadState.batches.first(where: { $0.id == id }) else { return }
+      guard courseUploadIsCurrent(id, epoch: epoch), let batch = uploadState.batches.first(where: { $0.id == id }) else { return }
+      // Duplicate-only selections reuse their existing course without asking
+      // for a processing route or starting another upload/parse job.
+      guard batch.files.contains(where: { [.queued, .uploading].contains($0.status) }) else { return }
       let route = batch.onDeviceOnly ? ProcessingRoute.onDevice : cloud == nil ? .onDevice : await processingPolicy.route(for: .ocr)
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch else { return }
+      guard courseUploadIsCurrent(id, epoch: epoch) else { return }
       guard route != .cancelled else { cancelCourseUpload(id); return }
       if cloud != nil, route == .onDevice, noteScope != nil { cloudState.privateLocalMode = true }
       if route == .existing, cloud != nil, !cloudState.localFirstChecked {
         try await verifyLocalFirstCapabilities()
-        guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+        guard courseUploadIsCurrent(id, epoch: epoch), !Task.isCancelled else { return }
       }
       if let index = uploadState.batches.firstIndex(where: { $0.id == id }) {
         uploadState.batches[index].onDeviceOnly = route == .onDevice
@@ -228,12 +399,12 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
           group.addTask { await self.uploadCourseFile(batchID: id, fileID: file.id, route: route, epoch: epoch) }
         }
       }
-      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      guard courseUploadIsCurrent(id, epoch: epoch), !Task.isCancelled else { return }
       persistCourseUploads()
       persist()
     } catch is CancellationError { return }
     catch {
-      guard epoch == cloudState.epoch else { return }
+      guard courseUploadIsCurrent(id, epoch: epoch) else { return }
       if let batch = uploadState.batches.first(where: { $0.id == id }) {
         for file in batch.files where [.preparing, .queued, .uploading].contains(file.status) {
           updateCourseUpload(id, fileID: file.id) { $0.status = .failed; $0.error = error.localizedDescription }
@@ -244,8 +415,9 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
   }
 
   private func uploadCourseFile(batchID: UUID, fileID: UUID, route: ProcessingRoute, epoch: UUID) async {
-    guard !Task.isCancelled, let batch = uploadState.batches.first(where: { $0.id == batchID }),
-      let file = batch.files.first(where: { $0.id == fileID }), let path = file.relativePath,
+    guard !Task.isCancelled, courseUploadIsCurrent(batchID, epoch: epoch),
+      let batch = uploadState.batches.first(where: { $0.id == batchID }),
+      let file = batch.files.first(where: { $0.id == fileID }), !file.isSkippedDuplicate, let path = file.relativePath,
       let localID = file.bookID else { return }
     updateCourseUpload(batchID, fileID: fileID) { $0.status = .uploading; $0.lastProgressAt = .now }
     persistCourseUploads()
@@ -253,7 +425,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       if let cloud, route == .existing, localID.hasPrefix("book_local_") {
         let uploaded = try await cloud.uploadPDF(repository.attachmentURL(path), filename: file.filename,
           background: BackgroundUploadIdentity(id: file.requestID, scope: batch.scope)) { [weak self] progress in
-          guard let self, epoch == self.cloudState.epoch else { return }
+          guard let self, self.courseUploadIsCurrent(batchID, epoch: epoch) else { return }
           self.updateCourseUpload(batchID, fileID: fileID) {
             guard $0.status == .uploading else { return }
             if progress.sentBytes > $0.sentBytes { $0.lastProgressAt = .now; $0.slowNoticeShown = false }
@@ -262,12 +434,24 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
           }
         }
         try Task.checkCancellation()
-        guard epoch == cloudState.epoch else { return }
+        guard courseUploadIsCurrent(batchID, epoch: epoch) else { return }
         bindUploadedBook(localID: localID, uploaded: uploaded)
-        updateCourseUpload(batchID, fileID: fileID) { $0.bookID = uploaded.book_id }
+        for hash in Array(uploadState.stagedBooksByHash.keys)
+        where uploadState.stagedBooksByHash[hash] == localID {
+          uploadState.stagedBooksByHash[hash] = uploaded.book_id
+        }
+        for b in uploadState.batches.indices {
+          for f in uploadState.batches[b].files.indices where uploadState.batches[b].files[f].bookID == localID {
+            uploadState.batches[b].files[f].bookID = uploaded.book_id
+          }
+        }
+        if let hash = file.contentHash {
+          try await repository.recordContentIdentity(contentHash: hash, bookID: uploaded.book_id,
+            relativePath: path, scope: batch.scope)
+        }
       }
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch else { return }
+      guard courseUploadIsCurrent(batchID, epoch: epoch) else { return }
       if let cloud, !cloudState.privateLocalMode, batch.addingMaterials,
         let bookID = uploadState.batches.first(where: { $0.id == batchID })?.files.first(where: { $0.id == fileID })?.bookID,
         !batch.courseID.hasPrefix("local-course:"),
@@ -276,30 +460,31 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
           body: ["book_id": .string(bookID)])
       }
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch else { return }
+      guard courseUploadIsCurrent(batchID, epoch: epoch) else { return }
       updateCourseUpload(batchID, fileID: fileID) { $0.status = .completed; $0.sentBytes = $0.totalBytes; $0.error = nil }
       retainCourseUploadResources(batchID)
       let durable = persistCourseUploads()
       persist()
       await persistTask?.value
-      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      guard courseUploadIsCurrent(batchID, epoch: epoch), !Task.isCancelled else { return }
       let snapshotDurable = durable && cloudState.cacheWriteError == nil
       if route == .existing, cloudState.privateLocalMode, let completedBatch = uploadState.batches.first(where: { $0.id == batchID }), completedBatch.isComplete {
-        do { try await queuePublicCoursePublication(title: completedBatch.courseName, bookIDs: completedBatch.files.compactMap(\.bookID), courseID: completedBatch.courseID) }
+        do { try await queuePublicCoursePublication(title: completedBatch.courseName,
+          bookIDs: completedBatch.files.filter { !$0.isSkippedDuplicate }.compactMap(\.bookID), courseID: completedBatch.courseID) }
         catch { cloudState.syncError = "公开资料整理登记可重试：" + error.localizedDescription }
       }
       if let cloud, cloud.usesNativeBackgroundUploads, snapshotDurable {
         BackgroundUploadTransport.client(origin: cloud.baseURL, scope: batch.scope).acknowledge(file.requestID)
       }
     } catch is CancellationError {
-      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      guard courseUploadIsCurrent(batchID, epoch: epoch), !Task.isCancelled else { return }
       updateCourseUpload(batchID, fileID: fileID) {
         $0.status = .failed; $0.error = "上传已中断，请重试。原文件仍保留在本机。"
       }
       persistCourseUploads()
     }
     catch {
-      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      guard courseUploadIsCurrent(batchID, epoch: epoch), !Task.isCancelled else { return }
       updateCourseUpload(batchID, fileID: fileID) { $0.status = .failed; $0.error = error.localizedDescription }
       persistCourseUploads()
     }
@@ -307,7 +492,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
 
   private func retainCourseUploadResources(_ id: UUID) {
     guard let index = uploadState.batches.firstIndex(where: { $0.id == id }) else { return }
-    let ids = uploadState.batches[index].files.compactMap(\.bookID)
+    let ids = uploadState.batches[index].files.filter { !$0.isSkippedDuplicate }.compactMap(\.bookID)
     uploadState.batches[index].draft.resourceIDs = Array(NSOrderedSet(array: ids)) as? [String] ?? ids
     let batch = uploadState.batches[index]
     if let c = courses.firstIndex(where: { $0.id == batch.courseID }) {
@@ -349,7 +534,13 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
   }
   func continueCourseUpload(_ id: UUID) {
     guard let batch = uploadState.batches.first(where: { $0.id == id }) else { return }
-    let completed = batch.files.filter { $0.status == .completed }.compactMap(\.bookID)
+    if batch.reusedCourseID != nil || batch.files.allSatisfy(\.isSkippedDuplicate) {
+      acknowledgeCourseUpload(id)
+      uploadState.presentedID = nil
+      if let course = courses.first(where: { $0.id == batch.courseID }) { openCourse(course) }
+      return
+    }
+    let completed = batch.files.filter { $0.status == .completed && !$0.isSkippedDuplicate }.compactMap(\.bookID)
     guard !completed.isEmpty else { return }
     retainPendingCourseDraft()
     acknowledgeCourseUpload(id)

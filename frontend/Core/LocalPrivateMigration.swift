@@ -102,6 +102,7 @@ extension LocalBookCourseRepository {
 
   private func hydrateLegacyPrivateObjects(records: [PrivateExportRecord], files: [String: String], descriptors: [PrivateExportFile]) async throws {
     guard let cloud, let scope = noteScope else { return }
+    let historyEpoch = cloudState.epoch
     let bootstrap: CloudBootstrap = try await cloud.request("/api/native/bootstrap?mode=metadata")
     let existingCourseIDs = Set(courses.map(\.id))
     for var workspace in bootstrap.workspaces where !cloudState.localDeletedCourseIDs.contains(workspace.id) {
@@ -325,11 +326,15 @@ extension LocalBookCourseRepository {
     assistantState.learningObjects = objects
     installLocalCourseContent(selectedCourseID ?? "")
     // Explicit migration reads the complete legacy chat; routine Agent history never syncs it back.
+    guard historyEpoch == cloudState.epoch, scope == assistantHistoryScope else { throw CancellationError() }
     struct RemoteSession: Decodable { var session_id: String; var title: String; var state: String; var input_tokens: Int; var messages: [[String: JSONValue]]? }
     let list: [RemoteSession] = try await cloud.request("/api/assistant/conversations")
-    var archive = try await repository.loadAssistantHistory(scope: scope) ?? AssistantHistoryArchive()
-    for item in list where !archive.sessions.contains(where: { $0.id == item.session_id }) && !(archive.deletedSessionIDs ?? []).contains(item.session_id) {
+    guard historyEpoch == cloudState.epoch, scope == assistantHistoryScope else { throw CancellationError() }
+    let archive = try await repository.loadAssistantHistory(scope: scope) ?? AssistantHistoryArchive()
+    var imported: [AssistantSession] = []
+    for item in list where !archive.sessions.contains(where: { $0.id == item.session_id }) && !archive.removedIDs.contains(item.session_id) {
       let detail: RemoteSession = try await cloud.request("/api/assistant/conversations/" + item.session_id)
+      guard historyEpoch == cloudState.epoch, scope == assistantHistoryScope else { throw CancellationError() }
       var session = AssistantSession(id: detail.session_id, title: detail.title,
         context: AssistantSessionContext(courseID: nil, bookID: "", bookIDs: [], chapterID: nil,
           courseTitle: "迁回对话", chapterTitle: "", prompts: [], discovery: false))
@@ -341,9 +346,10 @@ extension LocalBookCourseRepository {
         guard !text.isEmpty else { return nil }
         return ChatMessage(id: detail.session_id + ":legacy:\(index)", role: role, text: text)
       }
-      archive.sessions.append(session)
+      imported.append(session)
     }
-    try await repository.saveAssistantHistory(archive, scope: scope)
+    try await repository.importAssistantHistorySessions(imported, scope: scope)
+    guard historyEpoch == cloudState.epoch, scope == assistantHistoryScope else { throw CancellationError() }
     await assistantHistory.load(scope: scope)
   }
   private func importLegacyStrokes(_ value: JSONValue?) async throws -> String? {

@@ -14,7 +14,163 @@ struct CourseCreationStep: Identifiable {
   var active = false
 }
 
+/// Only empty, unfinished duplicate drafts are archived. Originals and all
+/// learning records remain available; the complete draft can be recovered.
+struct ArchivedDuplicateCourse: Codable, Sendable {
+  var course: Course
+  var record: CourseImportRecord
+  var targetCourseID: String
+  var locations: [String: StudyLocation]
+}
+
+extension LocalBookCourseRepository {
+  func duplicateCourseArchives(scope: String) throws -> [ArchivedDuplicateCourse] {
+    try db.get("duplicate-course-archive:" + scope).map {
+      try decoder.decode(ArchivedDuplicateCourse.self, from: $0)
+    }
+  }
+
+  func saveDuplicateCourseArchive(_ value: ArchivedDuplicateCourse, scope: String) throws {
+    try db.put("duplicate-course-archive:" + scope, value.course.id, encoder.encode(value))
+  }
+
+  func discardDuplicateCourseArchive(_ id: String, scope: String) throws {
+    try db.delete("duplicate-course-archive:" + scope, id)
+  }
+}
+
 @MainActor extension AppStore {
+  func preferredDuplicateCourse(matchingBookIDs: Set<String>, excluding: Set<String> = []) -> Course? {
+    func score(_ course: Course) -> Int {
+      var value = course.id.hasPrefix("local-course:") ? 0 : 100
+      if courseImport(for: course.id)?.setupCompleted == true { value += 1_000 }
+      if !course.diagnosis.isEmpty { value += 1_000 }
+      if notes.contains(where: { $0.anchor?.courseID == course.id }) { value += 10_000 }
+      if locations.contains(where: { $0.key.hasPrefix(course.id + "::") && $0.value.page > 1 }) { value += 10_000 }
+      if dailyPlanState.plans.keys.contains(where: { $0.hasPrefix(course.id + ":") }) { value += 10_000 }
+      let content = sources + (cloudState.localCourseSources[course.id] ?? [])
+      if content.contains(where: { course.resourceIDs.contains($0.id) && $0.lessons.contains {
+        ["ready", "generated"].contains($0.status) && $0.lesson_kind != "module_intro"
+      } }) { value += 1_000 }
+      return value
+    }
+    return courses.filter { !excluding.contains($0.id) && !matchingBookIDs.isDisjoint(with: $0.resourceIDs) }
+      .sorted { lhs, rhs in
+        let left = score(lhs), right = score(rhs)
+        if left != right { return left > right }
+        if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+        return lhs.id < rhs.id
+      }.first
+  }
+
+  /// Warm historical metadata once after hydration, outside the import path.
+  func startDuplicateImportMaintenance() {
+    guard !isLoading, !cloudState.isHydrating, cloud == nil || cloudState.authenticated else {
+      cloudState.duplicateMaintenanceTask?.cancel()
+      cloudState.duplicateMaintenanceScope = nil
+      return
+    }
+    let scope = courseUploadScope, epoch = cloudState.epoch
+    let key = scope + ":" + epoch.uuidString
+    guard cloudState.duplicateMaintenanceScope != key else { return }
+    cloudState.duplicateMaintenanceTask?.cancel()
+    cloudState.archivedDuplicateCourseAliases = [:]
+    cloudState.duplicateMaintenanceScope = key
+    let paths = filePaths
+    cloudState.duplicateMaintenanceTask = Task { [weak self, repository] in
+      do {
+        try await repository.warmContentIdentityIndex(scope: scope, books: paths)
+        guard let self, !Task.isCancelled, self.cloudState.epoch == epoch,
+          self.courseUploadScope == scope else { return }
+        try await self.archiveEmptyDuplicateCourses(scope: scope, epoch: epoch)
+      } catch {
+        // Import remains usable if optional historical cache warming fails.
+        if let self, self.cloudState.epoch == epoch { self.cloudState.duplicateMaintenanceScope = nil }
+      }
+    }
+  }
+
+  private func canArchiveDuplicateDraft(_ course: Course, generatedCourseIDs: Set<String>,
+    savedRecord: CourseImportRecord? = nil) -> Bool {
+    guard course.id.hasPrefix("local-course:"), course.resourceIDs.count == 1,
+      let record = courseImport(for: course.id) ?? savedRecord, record.setupCompleted != true,
+      record.job.status != .running, record.job.status != .completed,
+      record.draft.diagnosis.isEmpty, course.diagnosis.isEmpty,
+      record.stageSave.map({ !$0.chapters.isEmpty || $0.workspace != nil || $0.fingerprint != nil
+        || $0.attemptedFingerprint != nil || $0.serverDraftFingerprint != nil }) != true,
+      importState.tasks[course.id] == nil, !generatedCourseIDs.contains(course.id),
+      !uploadState.batches.contains(where: { $0.courseID == course.id && $0.isRunning }),
+      !cloudState.localDiagnostics.values.contains(where: { $0.courseID == course.id }),
+      !dailyPlanState.plans.keys.contains(where: { $0.hasPrefix(course.id + ":") }),
+      !mistakes.contains(where: { $0.course_id == course.id || ($0.course_id == nil && course.resourceIDs.contains($0.book_id)) }),
+      !assistantState.learningObjects.contains(where: { $0.course_id == course.id }) else { return false }
+    let relationships = Set(course.resourceIDs.compactMap { courseResourceID(courseID: course.id, bookID: $0) })
+    guard !notes.contains(where: { note in
+      note.anchor?.courseID == course.id || note.anchor?.courseResourceID.map(relationships.contains) == true
+        || (note.anchor?.courseID == nil && note.anchor?.courseResourceID == nil
+          && note.anchor.map { course.resourceIDs.contains($0.bookID) } == true)
+    }), !locations.contains(where: {
+      $0.key.hasPrefix(course.id + "::") && ($0.value.page > 1 || $0.value.lessonID != nil
+        || !($0.value.completedChapterIDs ?? []).isEmpty)
+    }) else { return false }
+    if draft.importCourseID == course.id, !draft.diagnosis.isEmpty { return false }
+    let content = sources + (cloudState.localCourseSources[course.id] ?? [])
+    return !content.contains { source in
+      course.resourceIDs.contains(source.id) && (source.lessons.contains {
+        ["ready", "generated"].contains($0.status) && $0.lesson_kind != "module_intro"
+      } || !source.plan.tasks.isEmpty || !source.flashcards.isEmpty || !source.quizzes.isEmpty)
+    }
+  }
+
+  func archiveEmptyDuplicateCourses(scope: String, epoch: UUID) async throws {
+    let archived = try await repository.duplicateCourseArchives(scope: scope)
+    let generated = Set(try await repository.localGenerations(scope: scope).map(\.courseID))
+    guard !Task.isCancelled, courseUploadScope == scope, cloudState.epoch == epoch else { return }
+    cloudState.archivedDuplicateCourseAliases = [:]
+    for archive in archived {
+      guard let keeper = courses.first(where: { $0.id == archive.targetCourseID }) else { continue }
+      if let restored = courses.first(where: { $0.id == archive.course.id }),
+        !canArchiveDuplicateDraft(restored, generatedCourseIDs: generated, savedRecord: archive.record) { continue }
+      retireArchivedDuplicate(archive.course.id, record: archive.record, keeper: keeper)
+    }
+    var hashes: [String: Set<String>] = [:]
+    for (bookID, path) in filePaths {
+      if let hash = try await repository.cachedContentHash(relativePath: path) { hashes[hash, default: []].insert(bookID) }
+    }
+    guard !Task.isCancelled, courseUploadScope == scope, cloudState.epoch == epoch else { return }
+    for matchingIDs in hashes.values {
+      guard let keeper = preferredDuplicateCourse(matchingBookIDs: matchingIDs) else { continue }
+      for course in courses where course.id != keeper.id && !matchingIDs.isDisjoint(with: course.resourceIDs) {
+        guard canArchiveDuplicateDraft(course, generatedCourseIDs: generated),
+          let record = courseImport(for: course.id) else { continue }
+        let archive = ArchivedDuplicateCourse(course: course, record: record, targetCourseID: keeper.id,
+          locations: locations.filter { $0.key.hasPrefix(course.id + "::") })
+        try await repository.saveDuplicateCourseArchive(archive, scope: scope)
+        guard !Task.isCancelled, courseUploadScope == scope, cloudState.epoch == epoch else { return }
+        guard canArchiveDuplicateDraft(course, generatedCourseIDs: generated) else {
+          try await repository.discardDuplicateCourseArchive(course.id, scope: scope)
+          continue
+        }
+        retireArchivedDuplicate(course.id, record: record, keeper: keeper)
+      }
+    }
+    applyArchivedCourseUploadAliases()
+    persist()
+    await persistTask?.value
+  }
+
+  private func retireArchivedDuplicate(_ id: String, record: CourseImportRecord, keeper: Course) {
+    cloudState.archivedDuplicateCourseAliases[id] = keeper.id
+    // Existing local tombstones also prevent old server exports from restoring
+    // this empty draft. This never deletes a server workspace or any records.
+    cloudState.localDeletedCourseIDs.insert(id)
+    courses.removeAll { $0.id == id }
+    importState.courses.removeAll { $0.id == id }
+    if importJob?.id == record.job.id { importJob = nil }
+    if draft.importCourseID == id { draft = CourseDraft() }
+    if selectedCourseID == id { selectCourse(keeper.id) }
+  }
+
   /// The course progress card measures reading, independently of today's tasks.
   var courseLearningProgress: Double {
     let bookIDs = Set(currentCourse?.resourceIDs ?? [selectedBookID ?? ""])

@@ -3,13 +3,14 @@ import XCTest
 final class AssistantComposerUITests: XCTestCase {
   override func setUpWithError() throws { continueAfterFailure = false }
 
-  private func launch(reduceMotion: Bool = true, longReply: Bool = false) -> XCUIApplication {
+  private func launch(reduceMotion: Bool = true, longReply: Bool = false, historyFixture: Bool = false) -> XCUIApplication {
     XCUIDevice.shared.orientation = .portrait
     let app = XCUIApplication()
     app.launchArguments = ["--fixture", "--fixture-session", UUID().uuidString,
       "--route", "study", "--assistant", "--fixture-assistant-voice"]
     if reduceMotion { app.launchArguments += ["--fixture-reduce-motion"] }
     if longReply { app.launchArguments += ["--fixture-assistant-long-reply"] }
+    if historyFixture { app.launchArguments += ["--fixture-history-controls"] }
     app.launch()
     let ready = app.buttons["guide-mic"].waitForExistence(timeout: 20)
     if !ready { print(app.debugDescription) }
@@ -29,6 +30,48 @@ final class AssistantComposerUITests: XCTestCase {
     attachment.name = name
     attachment.lifetime = .keepAlways
     add(attachment)
+  }
+
+  func testVisibleNewAndDeleteConversationControlsPersistAcrossRelaunch() {
+    let app = launch(historyFixture: true)
+    let field = input(app)
+    XCTAssertTrue(app.descendants(matching: .any)["guide-user-message"].firstMatch.waitForExistence(timeout: 5))
+    field.tap()
+    field.typeText("Keep my unsent draft")
+
+    let newConversation = app.buttons["assistant-new-conversation"]
+    XCTAssertTrue(newConversation.isHittable)
+    newConversation.tap()
+    XCTAssertFalse(app.descendants(matching: .any)["guide-user-message"].exists)
+    XCTAssertFalse(app.descendants(matching: .any)["guide-ai-message"].exists)
+    app.buttons["assistant-history"].tap()
+    XCTAssertTrue(app.buttons["assistant-history-new"].waitForExistence(timeout: 5))
+    app.buttons["assistant-history-fixture-first"].tap()
+    XCTAssertEqual(field.value as? String, "Keep my unsent draft")
+    app.buttons["assistant-history"].tap()
+    let removeFirst = app.buttons["删除对话：First conversation"]
+    XCTAssertTrue(removeFirst.isHittable)
+    screenshot("history-visible-new-and-delete", app: app)
+    removeFirst.tap()
+    let confirmation = app.alerts["删除这段对话？"]
+    XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+    app.buttons["assistant-history-delete-cancel"].firstMatch.tap()
+    XCTAssertTrue(removeFirst.exists)
+    removeFirst.tap()
+    app.buttons["assistant-history-delete-confirm"].firstMatch.tap()
+    XCTAssertTrue(removeFirst.waitForNonExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["删除对话：Second conversation"].exists)
+    screenshot("history-after-delete", app: app)
+
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(app.buttons["assistant-history"].waitForExistence(timeout: 20))
+    app.buttons["assistant-history"].tap()
+    XCTAssertTrue(app.buttons["删除对话：Second conversation"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["删除对话：First conversation"].exists)
+    app.buttons["assistant-history-new"].tap()
+    XCTAssertTrue(app.buttons["guide-mic"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.descendants(matching: .any)["guide-user-message"].exists)
   }
 
   func testLongReplyIsCappedAndFullScreenPreservesAllContent() {

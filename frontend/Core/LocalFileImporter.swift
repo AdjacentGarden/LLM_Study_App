@@ -7,6 +7,8 @@ import ZIPFoundation
 struct StagedSource: Sendable {
   var source: SourceContent
   var relativePath: String
+  /// The complete digest already calculated while staging the original.
+  var contentHash: String? = nil
 }
 enum LocalFileImporter {
   static let maximumBytes = 100 * 1024 * 1024
@@ -28,7 +30,8 @@ enum LocalFileImporter {
     let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     let id = "book_local_" + hash.prefix(24)
     try Task.checkCancellation()
-    let relative = try await repository.saveAttachment(data, extension: url.pathExtension)
+    let relative = try await repository.saveOriginalAttachment(
+      data, extension: url.pathExtension, contentHash: hash)
     let summary = SourceSummary(
       book_id: id, title: url.deletingPathExtension().lastPathComponent,
       filename: url.lastPathComponent, status: "uploaded", page_count: 0, chapter_count: 0,
@@ -40,7 +43,7 @@ enum LocalFileImporter {
         summary: summary, chapters: [], lessons: [], chunks: [], assets: [], flashcards: [],
         quizzes: [],
         plan: StudyPlan(user_id: "", book_id: id, days: 0, daily_minutes: 0, tasks: [])),
-      relativePath: relative)
+      relativePath: relative, contentHash: hash)
   }
   static func extract(url: URL, bookID: String, filename: String) async throws -> SourceContent {
     try Task.checkCancellation()

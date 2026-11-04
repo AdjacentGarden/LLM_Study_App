@@ -300,13 +300,37 @@ extension AppStore {
     let epoch = cloudState.epoch
     let bytes = try await cloud.downloadPDF(bookID: bookID)
     guard epoch == cloudState.epoch else { throw CancellationError() }
-    filePaths[bookID] = try await repository.saveAttachment(bytes, extension: "pdf")
+    filePaths[bookID] = try await repository.saveOriginalAttachment(bytes, extension: "pdf")
     persistCloud()
   }
 
   /// The original is durable and visible locally before any server request starts.
   func retainLocalImport(_ original: StagedSource, targetCourseID: String? = nil) async throws -> String {
     var staged = original
+    let epoch = cloudState.epoch, scope = courseUploadScope
+    if let hash = original.contentHash {
+      let matches = try await repository.matchingBookIDs(contentHash: hash, scope: scope, books: filePaths)
+      guard epoch == cloudState.epoch, scope == courseUploadScope else { throw CancellationError() }
+      if let course = preferredDuplicateCourse(matchingBookIDs: Set(matches + [original.source.id])),
+        let bookID = course.resourceIDs.first(where: { matches.contains($0) || $0 == original.source.id }) {
+        if let existing = sources.first(where: { $0.id == bookID }) { staged.source = existing }
+        staged.source.summary.book_id = bookID
+        staged.source.plan.book_id = bookID
+        let path = filePaths[bookID].flatMap { path in
+          ((try? repository.attachmentURL(path).resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true) ? path : nil
+        } ?? original.relativePath
+        filePaths[bookID] = path
+        filePaths[original.source.id] = path
+        try await repository.recordContentIdentity(contentHash: hash, bookID: bookID, relativePath: path, scope: scope)
+        guard epoch == cloudState.epoch, scope == courseUploadScope else { throw CancellationError() }
+        if targetCourseID == nil && draft.editingCourseID == nil { openCourse(course) }
+        showToast("这本教材已在「\(course.name)」中，无需重复导入", kind: .info)
+        persist()
+        await persistTask?.value
+        return bookID
+      }
+      if let bookID = matches.first, let existing = sources.first(where: { $0.id == bookID }) { staged.source = existing }
+    }
     // The content-derived local ID remains an alias after upload. Resolve it
     // before replacing its attachment path, including after a cache restore.
     if let path = filePaths[original.source.id],
@@ -318,6 +342,11 @@ extension AppStore {
     filePaths[original.source.id] = staged.relativePath
     if !sources.contains(where: { $0.id == staged.source.id }) { sources.append(staged.source) }
     filePaths[staged.source.id] = staged.relativePath
+    if let hash = original.contentHash {
+      try await repository.recordContentIdentity(contentHash: hash, bookID: staged.source.id,
+        relativePath: staged.relativePath, scope: scope)
+      guard epoch == cloudState.epoch, scope == courseUploadScope else { throw CancellationError() }
+    }
     if !draft.resourceIDs.contains(staged.source.id) { draft.resourceIDs.append(staged.source.id) }
     let courseID = "local-course:" + staged.source.id
     let targetCourseID = targetCourseID ?? draft.importCourseID ?? draft.editingCourseID
@@ -378,7 +407,16 @@ extension AppStore {
     }
     if sourceTarget?.bookID == localID { sourceTarget?.bookID = uploaded.book_id }
 
-    if let path = filePaths[localID] { filePaths[uploaded.book_id] = path }
+    if let path = filePaths[localID] {
+      filePaths[uploaded.book_id] = path
+      let scope = courseUploadScope, epoch = cloudState.epoch
+      Task { [repository] in
+        guard let hash = try? await repository.cachedContentHash(relativePath: path),
+          scope == self.courseUploadScope, epoch == self.cloudState.epoch else { return }
+        try? await repository.recordContentIdentity(contentHash: hash, bookID: uploaded.book_id,
+          relativePath: path, scope: scope)
+      }
+    }
     draft.resourceIDs = Array(NSOrderedSet(array: draft.resourceIDs.map { $0 == localID ? uploaded.book_id : $0 })) as? [String] ?? draft.resourceIDs
     for i in courses.indices {
       courses[i].resourceIDs = Array(NSOrderedSet(array: courses[i].resourceIDs.map {
@@ -405,6 +443,19 @@ extension AppStore {
       guard url.pathExtension.lowercased() == "pdf" else {
         throw CloudError(status: 415, message: "云端课程目前支持 PDF，请选择 PDF 文件。")
       }
+      let staged = try await LocalFileImporter.stage(url: url, repository: repository)
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
+      guard noteScope != nil else { throw ContentError.invalid("请先登录") }
+      if let hash = staged.contentHash {
+        let matches = try await repository.matchingBookIDs(contentHash: hash,
+          scope: courseUploadScope, books: filePaths)
+        guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
+        if preferredDuplicateCourse(matchingBookIDs: Set(matches + [staged.source.id])) != nil {
+          _ = try await retainLocalImport(staged, targetCourseID: targetCourseID)
+          return
+        }
+      }
       let processingRoute = await processingPolicy.route(for: .ocr)
       try Task.checkCancellation()
       guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
@@ -412,10 +463,6 @@ extension AppStore {
         importError = "已取消本次导入，原文件未上传。"
         return
       }
-      let staged = try await LocalFileImporter.stage(url: url, repository: repository)
-      try Task.checkCancellation()
-      guard epoch == cloudState.epoch else { return }
-      guard noteScope != nil else { throw ContentError.invalid("请先登录") }
       cloudState.privateLocalMode = true
       let retainedID = try await retainLocalImport(staged, targetCourseID: targetCourseID)
       originalSaved = true
@@ -436,6 +483,11 @@ extension AppStore {
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
       bindUploadedBook(localID: staged.source.id, uploaded: uploaded)
+      if let hash = staged.contentHash, let path = filePaths[uploaded.book_id] {
+        try await repository.recordContentIdentity(contentHash: hash, bookID: uploaded.book_id,
+          relativePath: path, scope: courseUploadScope)
+        guard epoch == cloudState.epoch else { return }
+      }
       await persistTask?.value
       if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
     } catch is CancellationError {

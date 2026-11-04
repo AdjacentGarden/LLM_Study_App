@@ -11,7 +11,10 @@ from adaptive_learning.personalization.rubric_alignment import (
     make_rubric_alignment_batch,
     parse_rubric_alignment_response,
 )
-from adaptive_learning.personalization.teaching_content import TeachingContentGenerator
+from adaptive_learning.personalization.teaching_content import (
+    GENERATION_PROMPT,
+    TeachingContentGenerator,
+)
 from adaptive_learning.personalization.teaching_unit_engine import (
     ENGINE_VERSION,
     UnitEngine,
@@ -79,6 +82,25 @@ def reject_rubric(case, scope='rubric_only'):
         case.engine._review_one(case.unit)
     assert failure.value.stage == 'rubric'
     case.engine._failed(case.unit, failure.value, 'repair')
+
+
+def test_unit_writer_uses_shared_mobile_layout_policy_with_unchanged_source_quotes(unit_case):
+    seen = []
+    candidate = deepcopy(unit_case.unit['candidate'])
+    unit_case.generator._structured = lambda **kwargs: seen.append(kwargs) or {'component': candidate}
+    result = unit_case.engine._write_one(unit_case.unit)
+    assert len(seen) == 1 and result == candidate
+    prompt = seen[0]['system']
+    assert prompt.startswith(GENERATION_PROMPT)
+    assert all(rule in prompt for rule in (
+        '多小问各自换行', '每80–120字通常1–2个短词语', '长段最多3处',
+        '10–15%', '上限20%', '短段无重点允许0处', 'citation.quote',
+    ))
+    payload = json.loads(seen[0]['user'])
+    assert payload['previous_candidate'] == candidate
+    assert payload['sources'] == {
+        key: source.model_dump() for key, source in unit_case.engine.evidence.sources.items()
+    }
 
 
 def test_typed_rubric_only_rejection_persists_exact_field_lock_after_both_reviews(unit_case):

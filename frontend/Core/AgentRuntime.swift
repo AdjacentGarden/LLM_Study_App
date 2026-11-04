@@ -51,8 +51,10 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
   func answerUnified(sessionID: String, messageID: String, request: String,
     context: AgentFrozenContext, history: [ChatMessage], attachments: [AssistantAttachment],
     ephemeral: Bool) async throws -> AssistantHistoryAnswer {
+    try Task.checkCancellation()
     guard let store, let scope = store.noteScope, store.cloud != nil,
       store.processingPolicy.path.kind != .offline else { throw AgentValidationError(message: "AI 助手需要联网") }
+    guard ephemeral || !store.assistantHistory.archive.removedIDs.contains(sessionID) else { throw CancellationError() }
     guard !isWorking, !cancelInFlight, active?.status.isTerminal != false else { throw AgentValidationError(message: "请先完成或取消当前助手任务") }
     if let legacy = store.assistantHistory.sessions.first(where: { $0.id == sessionID }),
       (legacy.runs ?? []).contains(where: { $0.privateTransport != true && $0.status != .completed }) {
@@ -521,6 +523,34 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
     }
   }
 
+  /// Retire every durable turn owned by this conversation, including a turn
+  /// that was paused before the app restarted. Other conversations keep running.
+  func cancelSession(_ sessionID: String, scope: String) async throws {
+    guard let store else { return }
+    let current = active.flatMap { $0.scope == scope && $0.context.sessionID == sessionID ? $0 : nil }
+    if current?.status.isTerminal == false { cancel() }
+    var runs = try await store.repository.loadRuns(scope: scope)
+    if let current, !runs.contains(where: { $0.id == current.id }) { runs.append(current) }
+    for candidate in runs where candidate.context.sessionID == sessionID && candidate.ephemeral != true {
+      var run = candidate
+      for attempt in 0..<3 {
+        if run.status.isTerminal { break }
+        run.cancelRequested = true
+        run.status = .cancelled
+        do {
+          run = try await store.repository.saveRun(run)
+          break
+        } catch let error as NoteStoreError {
+          guard case .runConflict = error, attempt < 2,
+            let refreshed = try await store.repository.loadRun(run.id, scope: scope) else { throw error }
+          run = refreshed
+        }
+      }
+      if active?.id == run.id, active?.scope == scope, store.noteScope == scope { active = run }
+      if run.cancelRequested, run.cancellationReconciled != true { await reconcileCancellation(run) }
+    }
+  }
+
   func cancel() {
     guard let run = active, !run.status.isTerminal, run.scope == store?.noteScope else {
       return
@@ -665,6 +695,16 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
       guard let self, let store = self.store, store.noteScope == scope else { return }
       var runs = (try? await store.repository.loadRuns(scope: scope)) ?? []
       guard !Task.isCancelled else { return }
+      var removed = (try? await store.repository.loadAssistantHistory(scope: scope))?.removedIDs ?? []
+      if store.assistantHistory.scope == scope { removed.formUnion(store.assistantHistory.archive.removedIDs) }
+      for sessionID in Set(runs.compactMap { run in
+        run.context.sessionID.flatMap { removed.contains($0) && !run.status.isTerminal ? $0 : nil }
+      }) {
+        do { try await self.cancelSession(sessionID, scope: scope) }
+        catch { self.notice = "已删除对话的任务尚未取消，不继续执行"; return }
+      }
+      if !removed.isEmpty { runs = (try? await store.repository.loadRuns(scope: scope)) ?? [] }
+      guard !Task.isCancelled, store.noteScope == scope else { return }
       for index in runs.indices where runs[index].privateTransport != true && runs[index].status != .completed && runs[index].legacyArchived != true {
         var archived = runs[index]
         archived.legacyArchived = true

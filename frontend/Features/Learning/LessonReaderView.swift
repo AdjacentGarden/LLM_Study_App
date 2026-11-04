@@ -1,5 +1,6 @@
 import AVKit
 import CryptoKit
+import NaturalLanguage
 import SwiftUI
 import UIKit
 
@@ -89,24 +90,344 @@ enum LearningPrettyLineBreaker {
   }
 }
 
-private final class LearningReadingTextView: UITextView {
-  override func copy(_ sender: Any?) {
-    guard let selectedTextRange, let selected = text(in: selectedTextRange) else { return }
-    // Generated line separators are presentation only, never copied into a note.
-    UIPasteboard.general.string = selected.replacingOccurrences(of: "\u{2028}", with: "")
+/// Presentation-only formatting also applies to lessons saved by older clients.
+/// The stored lesson, source quotes and citation bytes remain unchanged.
+enum LearningReadingTypography {
+  enum Kind { case body, heading, quote, code }
+  struct Link {
+    var range: NSRange
+    var url: URL
+  }
+  struct Paragraph {
+    var text: String
+    var kind: Kind = .body
+    var emphasizedRanges: [NSRange] = []
+    var italicRanges: [NSRange] = []
+    var codeRanges: [NSRange] = []
+    var links: [Link] = []
+  }
+  private struct EmphasisCandidate {
+    var range: NSRange
+    var priority: Int
+  }
+
+  static func paragraphs(in source: String, keyConcepts: [String] = []) -> [Paragraph] {
+    let normalized = source.replacingOccurrences(of: "\r\n", with: "\n")
+      .replacingOccurrences(of: "\r", with: "\n")
+    var result: [Paragraph] = []
+    var isCode = false
+    let phrases = keyPhrases(from: keyConcepts)
+    for line in normalized.components(separatedBy: "\n") {
+      let trimmed = line.trimmingCharacters(in: .whitespaces)
+      if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { isCode.toggle(); continue }
+      if isCode {
+        result.append(Paragraph(text: line, kind: .code))
+        continue
+      }
+      guard !trimmed.isEmpty else { continue }
+      var text = trimmed
+      var kind = Kind.body
+      if let heading = text.range(of: #"^#{1,6}\s+"#, options: .regularExpression) {
+        text.removeSubrange(heading)
+        kind = .heading
+      } else if text.hasPrefix("> ") {
+        text.removeFirst(2)
+        kind = .quote
+      } else if let bullet = text.range(of: #"^[-+*]\s+"#, options: .regularExpression) {
+        text.replaceSubrange(bullet, with: "• ")
+      }
+      let parsed = inlineMarkdown(text)
+      let pieces = kind == .heading ? [parsed.text] : splitQuestionItems(parsed.text).flatMap(splitLongParagraph)
+      let displayed = parsed.text as NSString
+      var offset = 0
+      for piece in pieces {
+        let range = displayed.range(of: piece, range: NSRange(location: offset, length: displayed.length - offset))
+        guard range.location != NSNotFound else { continue }
+        var paragraph = slice(parsed, range: range)
+        paragraph.kind = kind
+        if kind != .heading {
+          paragraph.emphasizedRanges = emphasis(in: paragraph, keyConcepts: phrases)
+        }
+        result.append(paragraph)
+        offset = NSMaxRange(range)
+      }
+    }
+    return result
+  }
+
+  static func plainText(in source: String, keyConcepts: [String] = []) -> String {
+    paragraphs(in: source, keyConcepts: keyConcepts).map(\.text).joined(separator: "\n")
+  }
+
+  static func attributedText(in source: String, keyConcepts: [String] = []) -> NSAttributedString {
+    let result = NSMutableAttributedString(string: "")
+    for paragraph in paragraphs(in: source, keyConcepts: keyConcepts) {
+      if result.length > 0 { result.append(NSAttributedString(string: "\n")) }
+      let style = NSMutableParagraphStyle()
+      style.minimumLineHeight = DS.readingLineHeight
+      style.lineSpacing = 3
+      style.paragraphSpacing = 13
+      style.lineBreakMode = .byWordWrapping
+      style.lineBreakStrategy = .pushOut
+      if paragraph.kind == .quote {
+        style.firstLineHeadIndent = 12
+        style.headIndent = 12
+      }
+      let font = paragraph.kind == .code
+        ? UIFont.monospacedSystemFont(ofSize: DS.uiFont(.reading).pointSize - 1, weight: .regular)
+        : DS.uiFont(.reading, weight: paragraph.kind == .heading ? .semibold : .regular)
+      let value = NSMutableAttributedString(string: paragraph.text, attributes: [
+        .font: font, .foregroundColor: UIColor(DS.secondary), .paragraphStyle: style,
+      ])
+      for range in paragraph.italicRanges {
+        if let descriptor = font.fontDescriptor.withSymbolicTraits(.traitItalic) {
+          value.addAttribute(.font, value: UIFont(descriptor: descriptor, size: font.pointSize), range: range)
+        }
+      }
+      for range in paragraph.codeRanges {
+        value.addAttribute(.font, value: UIFont.monospacedSystemFont(ofSize: font.pointSize - 1, weight: .regular), range: range)
+      }
+      for range in paragraph.emphasizedRanges {
+        value.addAttribute(.font, value: DS.uiFont(.reading, weight: .semibold), range: range)
+        value.addAttribute(.foregroundColor, value: UIColor(DS.text), range: range)
+      }
+      for link in paragraph.links { value.addAttribute(.link, value: link.url, range: link.range) }
+      result.append(value)
+    }
+    return result
+  }
+
+  private static func inlineMarkdown(_ text: String) -> Paragraph {
+    // Older lessons use literal multiplication/subscript tokens as well as
+    // Markdown. Intraword operators are formula characters, not emphasis marks.
+    let characters = Array(text)
+    var markdown = ""
+    var isInlineCode = false
+    func formulaCharacter(_ value: Character) -> Bool {
+      let mathematical = value.unicodeScalars.allSatisfy { $0.isASCII || (0x0370...0x03FF).contains($0.value) || (0x1F00...0x1FFF).contains($0.value) || (0x1D400...0x1D7FF).contains($0.value) }
+      return mathematical && (value.isLetter || value.isNumber || "()[]".contains(value))
+    }
+    for (index, character) in characters.enumerated() {
+      if character == "`" { isInlineCode.toggle() }
+      if !isInlineCode, "*_".contains(character), index > 0, index + 1 < characters.count,
+        formulaCharacter(characters[index - 1]), formulaCharacter(characters[index + 1]) {
+        markdown.append("\\")
+      }
+      markdown.append(character)
+    }
+    guard let parsed = try? AttributedString(markdown: markdown,
+      options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) else {
+      return Paragraph(text: text)
+    }
+    var paragraph = Paragraph(text: String(parsed.characters))
+    var offset = 0
+    for run in parsed.runs {
+      let content = String(parsed[run.range].characters)
+      let range = NSRange(location: offset, length: content.utf16.count)
+      if let intent = run.inlinePresentationIntent {
+        if intent.contains(.stronglyEmphasized) { paragraph.emphasizedRanges.append(range) }
+        if intent.contains(.emphasized) { paragraph.italicRanges.append(range) }
+        if intent.contains(.code) { paragraph.codeRanges.append(range) }
+      }
+      if let url = run.link { paragraph.links.append(Link(range: range, url: url)) }
+      offset += range.length
+    }
+    return paragraph
+  }
+
+  private static func slice(_ paragraph: Paragraph, range: NSRange) -> Paragraph {
+    func local(_ original: NSRange) -> NSRange? {
+      let overlap = NSIntersectionRange(original, range)
+      guard overlap.length > 0 else { return nil }
+      return NSRange(location: overlap.location - range.location, length: overlap.length)
+    }
+    return Paragraph(text: (paragraph.text as NSString).substring(with: range), kind: paragraph.kind,
+      emphasizedRanges: paragraph.emphasizedRanges.compactMap(local),
+      italicRanges: paragraph.italicRanges.compactMap(local), codeRanges: paragraph.codeRanges.compactMap(local),
+      links: paragraph.links.compactMap { link in local(link.range).map { Link(range: $0, url: link.url) } })
+  }
+
+  private static func keyPhrases(from concepts: [String]) -> [String] {
+    let generic: Set<String> = ["本节", "概念", "练习", "例题", "解答", "知识点", "核心概念", "重点", "分析", "答案",
+      "性质", "物质", "内容", "过程", "情况", "结果", "方法", "作用", "反应", "具有", "形成", "化学", "不同", "相同"]
+    var result: [String] = []
+    var seen = Set<String>()
+    func append(_ value: String) {
+      let phrase = value.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard (2...16).contains(phrase.count), !generic.contains(phrase),
+        seen.insert(phrase.lowercased()).inserted else { return }
+      result.append(phrase)
+    }
+    // Already-curated short concepts outrank terms inferred from old summaries.
+    for concept in concepts where concept.count <= 16 { append(concept) }
+    for concept in concepts where concept.count > 16 {
+      if let regex = try? NSRegularExpression(pattern:
+        #"^([\p{Han}A-Za-z0-9·-]{2,12}?)(?:是|具有|位于|属于|通常|能够|可以)"#),
+        let match = regex.firstMatch(in: concept, range: NSRange(location: 0, length: (concept as NSString).length)) {
+        append((concept as NSString).substring(with: match.range(at: 1)))
+      }
+      let tagger = NLTagger(tagSchemes: [.lexicalClass])
+      tagger.string = concept
+      var nouns: [String] = []
+      var previousEnd: String.Index?
+      var phrase = ""
+      tagger.enumerateTags(in: concept.startIndex..<concept.endIndex, unit: .word, scheme: .lexicalClass,
+        options: [.omitWhitespace, .omitPunctuation, .joinNames]) { tag, range in
+        let word = String(concept[range])
+        if tag == .noun {
+          if previousEnd == range.lowerBound, !phrase.isEmpty, (phrase + word).count <= 12 {
+            phrase += word
+            nouns.append(phrase)
+          } else { phrase = word }
+          nouns.append(word)
+          previousEnd = range.upperBound
+        } else if word == "最" {
+          phrase = word
+          previousEnd = range.upperBound
+        } else {
+          if tag == .otherWord, word.count >= 3, word.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }) {
+            nouns.append(word)
+          }
+          phrase = ""
+          previousEnd = nil
+        }
+        return true
+      }
+      // Longer noun phrases tend to identify the concept better than its parts.
+      for noun in nouns.sorted(by: { $0.count > $1.count }) { append(noun) }
+      if result.count >= 36 { break }
+    }
+    return Array(result.prefix(48))
+  }
+
+  private static func splitQuestionItems(_ text: String) -> [String] {
+    let pattern = #"(?<![A-Za-z0-9_])(?:[（(][1-9][0-9]?[）)]|[1-9][0-9]?[、.]\s+)"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else { return [text] }
+    let source = text as NSString
+    let matches = regex.matches(in: text, range: NSRange(location: 0, length: source.length))
+    var starts: [Int] = [0]
+    for match in matches {
+      let prefix = source.substring(to: match.range.location).trimmingCharacters(in: .whitespaces)
+      let suffix = source.substring(from: NSMaxRange(match.range)).trimmingCharacters(in: .whitespaces)
+      guard !suffix.isEmpty, !"与和及或、，。；）)".contains(suffix.first!) else { continue }
+      let atBoundary = prefix.isEmpty || prefix.last.map { "：:；;。！？!?，,".contains($0) } == true
+      let asksQuestion = suffix.range(of: #"^(?:请|指出|说明|写出|计算|判断|分析|比较|选择|填|求|证明|解释|回答|简述|完成|为什么|如何)"#,
+        options: .regularExpression) != nil
+      guard atBoundary || asksQuestion else { continue }
+      if match.range.location > 0 { starts.append(match.range.location) }
+    }
+    guard starts.count > 1 else { return [text] }
+    starts.append(source.length)
+    return zip(starts, starts.dropFirst()).map {
+      source.substring(with: NSRange(location: $0.0, length: $0.1 - $0.0))
+        .trimmingCharacters(in: .whitespaces)
+    }.filter { !$0.isEmpty }
+  }
+
+  private static func splitLongParagraph(_ text: String) -> [String] {
+    guard text.count > 180 else { return [text] }
+    var pieces: [String] = []
+    var start = text.startIndex
+    var count = 0
+    var index = start
+    while index < text.endIndex {
+      count += 1
+      let character = text[index]
+      let next = text.index(after: index)
+      if count >= 90, "。！？!?；".contains(character), text.distance(from: next, to: text.endIndex) >= 40 {
+        // A closing quote belongs to its sentence, so wait for a later boundary.
+        if next == text.endIndex || !"”’」』）)".contains(text[next]) {
+          pieces.append(String(text[start..<next]).trimmingCharacters(in: .whitespaces))
+          start = next
+          count = 0
+        }
+      }
+      index = next
+    }
+    pieces.append(String(text[start...]).trimmingCharacters(in: .whitespaces))
+    return pieces.filter { !$0.isEmpty }
+  }
+
+  private static func emphasis(in paragraph: Paragraph, keyConcepts: [String]) -> [NSRange] {
+    let text = paragraph.text as NSString
+    let count = paragraph.text.filter { !$0.isWhitespace }.count
+    let target = min(36, Int(Double(count) * 0.15))
+    let maximum = min(42, Int(Double(count) * 0.20))
+    let spanLimit = count < 80 ? 1 : count < 200 ? 2 : 3
+    guard maximum >= 2 else { return [] }
+    var candidates = paragraph.emphasizedRanges.map { EmphasisCandidate(range: $0, priority: 0) }
+    let generic: Set<String> = ["本节", "概念", "练习", "例题", "解答", "知识点", "核心概念", "重点", "分析", "答案"]
+    var seenConcepts = Set<String>()
+    for (index, raw) in keyConcepts.enumerated() {
+      let concept = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard (2...16).contains(concept.count), !generic.contains(concept),
+        seenConcepts.insert(concept.lowercased()).inserted else { continue }
+      var search = NSRange(location: 0, length: text.length)
+      while search.length > 0 {
+        let range = text.range(of: concept, options: .caseInsensitive, range: search)
+        guard range.location != NSNotFound else { break }
+        let isLatin = concept.unicodeScalars.allSatisfy { $0.isASCII }
+        func tokenCharacter(_ offset: Int) -> Bool {
+          guard offset >= 0, offset < text.length else { return false }
+          let value = text.character(at: offset)
+          return (48...57).contains(value) || (65...90).contains(value) || (97...122).contains(value) || value == 95
+        }
+        if !isLatin || (!tokenCharacter(range.location - 1) && !tokenCharacter(NSMaxRange(range))) {
+          candidates.append(EmphasisCandidate(range: range, priority: 10 + index))
+        }
+        search = NSRange(location: NSMaxRange(range), length: text.length - NSMaxRange(range))
+      }
+    }
+    if let definition = try? NSRegularExpression(pattern:
+      #"^(?:[（(][0-9]+[）)]\s*)?([\p{Han}A-Za-z][\p{Han}A-Za-z0-9·-]{1,11}?)(?:是指|指的是|定义为|是)"#),
+      let match = definition.firstMatch(in: paragraph.text, range: NSRange(location: 0, length: text.length)) {
+      let range = match.range(at: 1)
+      if !["这", "这个", "它", "本节", "这里", "我们"].contains(text.substring(with: range)) {
+        candidates.append(EmphasisCandidate(range: range, priority: 20))
+      }
+    }
+    if let conditions = try? NSRegularExpression(pattern:
+      #"(?:富含|缺少|过量|足量|等量)[\p{Han}A-Za-z0-9]{1,6}?(?=的|时|[，。；：]|$)|(?:同|不同)[\p{Han}]{1,4}(?=[，。；：])"#) {
+      for match in conditions.matches(in: paragraph.text, range: NSRange(location: 0, length: text.length)) {
+        candidates.append(EmphasisCandidate(range: match.range, priority: 5))
+      }
+    }
+    candidates.sort {
+      if $0.priority != $1.priority { return $0.priority < $1.priority }
+      if $0.range.location != $1.range.location { return $0.range.location < $1.range.location }
+      return $0.range.length > $1.range.length
+    }
+    var selected: [NSRange] = []
+    var terms = Set<String>()
+    var used = 0
+    for candidate in candidates {
+      guard selected.count < spanLimit else { break }
+      let length = text.substring(with: candidate.range).filter { !$0.isWhitespace }.count
+      let term = text.substring(with: candidate.range).lowercased()
+      guard length >= 2, !terms.contains(term),
+        selected.allSatisfy({ NSIntersectionRange($0, candidate.range).length == 0 }),
+        paragraph.codeRanges.allSatisfy({ NSIntersectionRange($0, candidate.range).length == 0 }),
+        used + length <= target || (selected.isEmpty && length <= maximum) else { continue }
+      selected.append(candidate.range)
+      terms.insert(term)
+      used += length
+    }
+    return selected.sorted { $0.location < $1.location }
   }
 }
 
 private struct LearningPrettyReadingText: UIViewRepresentable {
   let text: String
+  var keyConcepts: [String] = []
   final class Coordinator {
     var text = ""
+    var keyConcepts: [String] = []
     var width: CGFloat = -1
     var height: CGFloat = 28
   }
   func makeCoordinator() -> Coordinator { Coordinator() }
-  func makeUIView(context: Context) -> LearningReadingTextView {
-    let view = LearningReadingTextView()
+  func makeUIView(context: Context) -> UITextView {
+    let view = UITextView()
     view.backgroundColor = .clear
     view.isEditable = false
     view.isSelectable = true
@@ -114,15 +435,16 @@ private struct LearningPrettyReadingText: UIViewRepresentable {
     view.textContainerInset = .zero
     view.textContainer.lineFragmentPadding = 0
     view.dataDetectorTypes = []
+    view.accessibilityIdentifier = "lesson.readingText"
     view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     return view
   }
-  func updateUIView(_ uiView: LearningReadingTextView, context: Context) {
+  func updateUIView(_ uiView: UITextView, context: Context) {
     if uiView.bounds.width > 0 {
       apply(width: uiView.bounds.width, view: uiView, cache: context.coordinator)
     }
   }
-  func sizeThatFits(_ proposal: ProposedViewSize, uiView: LearningReadingTextView, context: Context)
+  func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context)
     -> CGSize?
   {
     let width = min(721.5, proposal.width ?? 721.5)
@@ -130,23 +452,16 @@ private struct LearningPrettyReadingText: UIViewRepresentable {
     apply(width: width, view: uiView, cache: context.coordinator)
     return CGSize(width: width, height: context.coordinator.height)
   }
-  private func apply(width: CGFloat, view: LearningReadingTextView, cache: Coordinator) {
-    guard cache.text != text || abs(cache.width - width) > 0.1 else { return }
-    let font = DS.uiFont(.reading)
-    let lines = LearningPrettyLineBreaker.lines(in: text, width: width) {
-      (String($0) as NSString).size(withAttributes: [.font: font]).width
+  private func apply(width: CGFloat, view: UITextView, cache: Coordinator) {
+    guard cache.text != text || cache.keyConcepts != keyConcepts || abs(cache.width - width) > 0.1 else { return }
+    if cache.text != text || cache.keyConcepts != keyConcepts {
+      view.attributedText = LearningReadingTypography.attributedText(in: text, keyConcepts: keyConcepts)
+      view.accessibilityLabel = view.attributedText.string
     }
-    let style = NSMutableParagraphStyle()
-    style.minimumLineHeight = DS.readingLineHeight
-    style.maximumLineHeight = DS.readingLineHeight
-    style.lineBreakMode = .byClipping
-    view.attributedText = NSAttributedString(
-      string: lines.joined(separator: "\u{2028}"),
-      attributes: [.font: font, .foregroundColor: UIColor(DS.secondary), .paragraphStyle: style])
-    view.accessibilityLabel = text
     cache.text = text
+    cache.keyConcepts = keyConcepts
     cache.width = width
-    cache.height = CGFloat(lines.count) * DS.readingLineHeight
+    cache.height = ceil(view.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height)
   }
 }
 
@@ -457,7 +772,11 @@ struct LessonReaderView: View {
   }
 
   private func sectionContent(_ section: LearningReadingSection) -> some View {
-    let paragraphs = section.block.content.components(separatedBy: "\n\n").map {
+    // A fenced block may contain blank lines; keep its parser state together.
+    let content = section.block.content
+    let groups = content.contains("```") || content.contains("~~~")
+      ? [content] : content.components(separatedBy: "\n\n")
+    let paragraphs = groups.map {
       $0.trimmingCharacters(in: .whitespacesAndNewlines)
     }.filter { !$0.isEmpty }
     return VStack(alignment: .leading, spacing: 20) {
@@ -468,7 +787,7 @@ struct LessonReaderView: View {
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(section.block.title)")
         .accessibilityIdentifier("lesson.concept")
       ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, text in
-        paragraph(text)
+        paragraph(text, keyConcepts: (lesson?.key_concepts ?? []) + [section.block.title])
         if index < section.assets.count { figure(section.assets[index]) }
       }
       ForEach(Array(section.assets.dropFirst(paragraphs.count))) { asset in figure(asset) }
@@ -480,17 +799,17 @@ struct LessonReaderView: View {
         : .asymmetric(insertion: .opacity.combined(with: .offset(x: 12)), removal: .opacity))
   }
 
-  private func paragraph(_ text: String) -> some View {
-    LearningPrettyReadingText(text: text)
+  private func paragraph(_ text: String, keyConcepts: [String]? = nil) -> some View {
+    LearningPrettyReadingText(text: text, keyConcepts: keyConcepts ?? lesson?.key_concepts ?? [])
       .frame(maxWidth: 721.5, alignment: .leading)
       .contextMenu {
         Button("摘录为笔记", systemImage: "note.text.badge.plus") {
-          store.selectedQuote = text
+          store.selectedQuote = LearningReadingTypography.plainText(in: text)
           store.noteState.contextCitation = citation
           store.openSheet(.note)
         }
         Button("询问 AI", systemImage: "sparkles") {
-          store.selectedQuote = text
+          store.selectedQuote = LearningReadingTypography.plainText(in: text)
           store.openSheet(.chat)
         }
       }
@@ -656,8 +975,8 @@ struct LessonReaderView: View {
         }
         Text(title).font(DS.font(.sectionTitle))
         ScrollView {
-          Text(section?.block.content ?? lesson?.summary ?? "").font(DS.font(.reading)).lineSpacing(7)
-            .textSelection(.enabled)
+          LearningPrettyReadingText(text: section?.block.content ?? lesson?.summary ?? "",
+            keyConcepts: (lesson?.key_concepts ?? []) + [title])
         }.frame(maxHeight: 280)
         if let citation = section?.block.citations.first {
           LearningSourceButton(
@@ -669,7 +988,7 @@ struct LessonReaderView: View {
           }
         }
         BCButton("保存为学习笔记", icon: "note.text.badge.plus") {
-          store.selectedQuote = "\(title)\n\(section?.block.content ?? lesson?.summary ?? "")"
+          store.selectedQuote = "\(title)\n" + LearningReadingTypography.plainText(in: section?.block.content ?? lesson?.summary ?? "")
           concept = nil
           store.noteState.contextCitation =
             section?.block.citations.first ?? lesson?.blocks.flatMap(\.citations).first

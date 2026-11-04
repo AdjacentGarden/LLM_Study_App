@@ -66,7 +66,6 @@ from ..ingestion.chaptering import (
 from ..ingestion.covers import cover_url, get_cover_service
 from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRunner
 from ..ingestion.models import BookStructure, ChapterDraft
-from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
 from ..ingestion.preparation import PreparationDeferred, PreparationFailed, PreparationQueue
 from ..learning_design import NativeLearningDesign, resolved_profile
@@ -478,6 +477,7 @@ async def upload_book(file: Annotated[UploadFile, File()], request: Request, res
                             secure=request.url.scheme == "https", max_age=31536000)
     try:
         size = 0
+        digest = hashlib.sha256()
         with target.open("wb") as output:
             while data := await file.read(1024 * 1024):
                 if size == 0 and b"%PDF-" not in data[:1024]:
@@ -485,30 +485,35 @@ async def upload_book(file: Annotated[UploadFile, File()], request: Request, res
                 size += len(data)
                 if size > 100 * 1024 * 1024:
                     raise HTTPException(413, "PDF 不能超过 100 MB")
+                digest.update(data)
                 output.write(data)
         if not size:
             raise HTTPException(422, "不能上传空文件")
+        stored, duplicate = job_repository.register_owned_book(
+            owner=owner,
+            ownership_database_path=account_repository.repo.path,
+            book_id=book_id,
+            original_name=file.filename or "book.pdf",
+            file_path=target,
+            source_sha256=digest.hexdigest(),
+        )
     except BaseException:
         shutil.rmtree(target_dir, ignore_errors=True)
         raise
-    store.books[book_id] = BookRecord(
-        book_id=book_id,
-        original_name=file.filename or "book.pdf",
-        file_path=target,
-    )
-    job_repository.register_book(
-        book_id=book_id,
-        original_name=file.filename or "book.pdf",
-        file_path=target,
-        source_sha256=sha256_file(target),
-    )
-    account_repository.repo.bind_upload(owner, book_id)
-    _enqueue_cover(book_id)
+    if duplicate:
+        shutil.rmtree(target_dir, ignore_errors=True)
+    else:
+        store.books[book_id] = BookRecord(
+            book_id=book_id,
+            original_name=stored.original_name,
+            file_path=stored.file_path,
+        )
+        _enqueue_cover(book_id)
     return UploadResponse(
-        book_id=book_id,
-        filename=file.filename or "book.pdf",
-        status="uploaded",
-        next=f"POST /api/books/{book_id}/process",
+        book_id=stored.book_id,
+        filename=stored.original_name,
+        status=stored.status,
+        next=f"POST /api/books/{stored.book_id}/process",
     )
 
 

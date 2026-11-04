@@ -504,6 +504,71 @@ def test_complete_course_replaces_templates_only_after_independent_review():
     assert evidence.warnings[0] in output.unresolved_source_warnings
 
 
+def test_mobile_paragraphs_and_emphasis_survive_review_without_changing_source_quotes():
+    original, chapter, evidence = course(1)
+    before = deepcopy(evidence.sources["s1"].model_dump())
+
+    class FormattedClient(Client):
+        def structured(self, *, system, user, **kwargs):
+            response = super().structured(system=system, user=user, **kwargs)
+            if system == GENERATION_PROMPT:
+                for point in response["points"]:
+                    point["explanation"] = point["explanation"].replace(
+                        "温度是否保持不变", "**温度是否保持不变**"
+                    ).replace("不能脱离这个前提。", "不能脱离这个前提。\n\n")
+                    point["practice"]["prompt"] = point["practice"]["prompt"].replace(
+                        "能否", "\n（1）能否"
+                    ).replace("请给出理由。", "\n（2）请给出理由。")
+            elif system == FACT_REVIEW_PROMPT:
+                data = json.loads(user)
+                response = advertised_fact_response(response, data)
+                for component in response["components"]:
+                    if component["point_id"] is None:
+                        continue
+                    point = next(row for row in data["candidate"]["points"]
+                                 if row["point_id"] == component["point_id"])
+                    part = point["component_evidence"][component["component_id"]]
+                    blank_ids = {row["assertion_id"] for row in part["assertion_contract"]["assertions"]
+                                 if not row["text"].strip()}
+                    # These exact separators carry no fact. They still receive
+                    # the ordinary complete assertion and scope-matrix review.
+                    for decision in component["assertion_checks"]:
+                        if decision["assertion_id"] in blank_ids:
+                            decision.update(is_factual=False, support_span_ids=[])
+            return response
+
+    client = FormattedClient()
+    output = TeachingContentGenerator(client).generate(original, chapter, evidence)
+    assert "**温度是否保持不变**" in output.knowledge_points[0].explanation
+    assert "\n\n" in output.knowledge_points[0].explanation
+    assert "\n（1）" in output.practice_items[0].prompt
+    assert "\n（2）" in output.practice_items[0].prompt
+    assert output.knowledge_points[0].citations[0].model_dump() == before
+    assert output.practice_items[0].citations[0].model_dump() == before
+    assert evidence.sources["s1"].model_dump() == before
+    assert client.review_calls == client.rubric_calls == 1
+    assert len(point_batches(client)) == 1
+    assert output.teaching_review["accepted"] is True
+    assert output.teaching_fact_review["accepted"] is True
+
+
+def test_rendered_example_separates_reviewed_problem_steps_and_conclusion_without_rewriting():
+    from adaptive_learning.personalization.teaching_content import _Example, _render_example
+
+    candidate = deepcopy(lesson_candidate()["worked_examples"][0])
+    candidate["problem"] = "已知：密闭容器中的温度发生改变。\n（1）能否直接沿用原结论？\n（2）应如何处理？"
+    example = _Example.model_validate(candidate)
+    before = example.model_dump()
+    rendered = _render_example(example)
+    problem, steps, conclusion = rendered.split("\n\n")
+    assert problem == "题目：" + candidate["problem"]
+    assert steps.splitlines() == ["解题步骤：", *[
+        f"{index}. {step}" for index, step in enumerate(candidate["steps"], start=1)
+    ]]
+    assert conclusion == "结论：" + candidate["answer"]
+    assert example.model_dump() == before
+
+
 @pytest.mark.parametrize("mode", ["duplicate", "missing", "unknown_source", "invented_quote",
     "changed_card", "label_repeat", "answer_leak", "empty_rubric", "invisible", "task_example",
     "duplicate_checkpoint", "practice_checkpoint", "string_bool", "missing_review", "duplicate_review",

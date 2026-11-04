@@ -82,6 +82,9 @@ struct CloudLocalSnapshot: Codable, Sendable {
 @MainActor @Observable final class CloudState {
   var legacyPrivateSyncEnabled = false
   var localDeletedCourseIDs: Set<String> = []
+  var archivedDuplicateCourseAliases: [String: String] = [:]
+  @ObservationIgnored var duplicateMaintenanceTask: Task<Void, Never>?
+  @ObservationIgnored var duplicateMaintenanceScope: String?
   var localCourseSources: [String: [SourceContent]] = [:]
   var localDiagnostics: [String: LocalDiagnosticSession] = [:]
   var privateLocalMode = false

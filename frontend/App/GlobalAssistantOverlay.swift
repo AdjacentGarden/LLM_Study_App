@@ -2,6 +2,14 @@ import AVFoundation
 import PhotosUI
 import SwiftUI
 
+private struct AssistantSessionDeletion {
+  var id: String
+  var title: String
+  var scope: String
+  var epoch: UUID
+  var isRunning: Bool
+}
+
 /// A conversation above the current page, with its own voice/text composer.
 struct GlobalAssistantOverlay: View {
   @Environment(AppStore.self) private var store
@@ -15,6 +23,7 @@ struct GlobalAssistantOverlay: View {
   @State private var showingHistory = false
   @State private var showingHistorySearch = false
   @State private var historyQuery = ""
+  @State private var pendingSessionDeletion: AssistantSessionDeletion?
   @FocusState private var historySearchFocused: Bool
   @State private var loadedScope: String?
   @State private var showingAttachmentChoices = false
@@ -207,6 +216,15 @@ struct GlobalAssistantOverlay: View {
       set: { if !$0 { attachmentError = nil } })) {
       Button("好", role: .cancel) { attachmentError = nil }
     } message: { Text(attachmentError ?? "请重新选择文件。") }
+    .alert("删除这段对话？", isPresented: Binding(get: { pendingSessionDeletion != nil },
+      set: { if !$0 { pendingSessionDeletion = nil } }), presenting: pendingSessionDeletion) { item in
+      Button("取消", role: .cancel) { pendingSessionDeletion = nil }
+        .accessibilityIdentifier("assistant-history-delete-cancel")
+      Button("删除", role: .destructive) { confirmSessionDeletion(item) }
+        .accessibilityIdentifier("assistant-history-delete-confirm")
+    } message: { item in
+      Text("将移除「\(item.title)」的聊天记录。\(item.isRunning ? "正在进行的回答会停止。" : "")已保存的笔记等学习内容会保留。")
+    }
     .onChange(of: voice.draft) { _, _ in saveDraft() }
     .onChange(of: history.archive.selectedID) { _, _ in
       guard ready else { return }
@@ -327,17 +345,11 @@ struct GlobalAssistantOverlay: View {
 
   private var header: some View {
     ZStack {
-      Menu {
-        Button("新对话", systemImage: "square.and.pencil") { newSession() }
-          .disabled(!ready).accessibilityIdentifier("assistant-new-conversation")
-      } label: {
-        AssistantAdaptiveTitle(title: title).foregroundStyle(DS.text)
-          .padding(.horizontal, 56).buttonFrame(fillsWidth: true)
-          .contentShape(Rectangle()).contentTransition(.opacity)
-          .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: title)
-      }
-      .menuIndicator(.hidden)
-      .accessibilityHint("点按可新建对话").accessibilityIdentifier("assistant-session-title")
+      AssistantAdaptiveTitle(title: title).foregroundStyle(DS.text)
+        .padding(.horizontal, 100).buttonFrame(fillsWidth: true)
+        .contentTransition(.opacity)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: title)
+        .accessibilityIdentifier("assistant-session-title")
       HStack {
         Button {
           saveDraft()
@@ -355,6 +367,12 @@ struct GlobalAssistantOverlay: View {
             .contentShape(Circle()).modifier(AssistantGlassSurface(radius: 22))
         }.accessibilityLabel("历史对话").accessibilityIdentifier("assistant-history")
         Spacer()
+        Button(action: newSession) {
+          Image(systemName: "square.and.pencil").font(.system(size: 18, weight: .medium))
+            .foregroundStyle(DS.text).iconButtonFrame().contentShape(Circle())
+            .modifier(AssistantGlassSurface(radius: 22))
+        }.disabled(!ready || preparingSubmission)
+          .accessibilityLabel("新建对话").accessibilityIdentifier("assistant-new-conversation")
         Button(action: close) {
           Image(systemName: "xmark").font(.system(size: 17, weight: .medium))
             .foregroundStyle(DS.text).iconButtonFrame().contentShape(Circle())
@@ -417,6 +435,14 @@ struct GlobalAssistantOverlay: View {
       if showingHistorySearch {
         historySearchField.transition(.opacity)
       }
+      Button(action: newSession) {
+        Label("新建对话", systemImage: "square.and.pencil")
+          .appFont(.supporting, weight: .semibold).foregroundStyle(DS.primary)
+          .frame(maxWidth: .infinity, minHeight: 44)
+          .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 14))
+      }.buttonStyle(.plain).disabled(!ready || preparingSubmission)
+        .padding(.horizontal, 16).padding(.bottom, 12)
+        .accessibilityIdentifier("assistant-history-new")
       Group {
         if !ready {
           if history.loading { ProgressView("正在读取历史对话…") }
@@ -430,6 +456,7 @@ struct GlobalAssistantOverlay: View {
             description: Text("试试其他标题、关键词或聊天内容。"))
         } else {
           List(matchingSessions) { item in
+            HStack(spacing: 4) {
             Button { selectSession(item.id) } label: {
               HStack(alignment: .top, spacing: 12) {
                 Image(systemName: item.id == history.archive.selectedID ? "checkmark.circle.fill" : "bubble.left")
@@ -450,11 +477,18 @@ struct GlobalAssistantOverlay: View {
               }.padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }.buttonStyle(.plain)
-              .listRowBackground(item.id == history.archive.selectedID ? DS.primarySoft : Color(.secondarySystemGroupedBackground))
               .accessibilityIdentifier("assistant-history-\(item.id)")
-              .swipeActions {
+              Button { requestSessionDeletion(item) } label: {
+                Image(systemName: "trash").font(.system(size: 17))
+                  .foregroundStyle(DS.secondary).iconButtonFrame().contentShape(Rectangle())
+              }.buttonStyle(.plain)
+                .accessibilityLabel("删除对话：\(item.title)")
+                .accessibilityIdentifier("assistant-history-delete-\(item.id)")
+            }
+              .listRowBackground(item.id == history.archive.selectedID ? DS.primarySoft : Color(.secondarySystemGroupedBackground))
+              .swipeActions(allowsFullSwipe: false) {
                 Button("删除", role: .destructive) {
-                  Task { await store.deleteAssistantSession(item.id) }
+                  requestSessionDeletion(item)
                 }
               }
           }
@@ -743,8 +777,26 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func loadHistory() async {
+    pendingSessionDeletion = nil
     let scope = store.assistantHistoryScope
     #if DEBUG
+    if let scope, ContentBundle.fixtureMode,
+      ProcessInfo.processInfo.arguments.contains("--fixture-history-controls") {
+      let existing = try? await store.repository.loadAssistantHistory(scope: scope)
+      if existing?.sessions.isEmpty != false, existing?.removedIDs.isEmpty != false {
+        history.reset()
+        await history.flush()
+        // Exercise history controls without depending on a live model response.
+        let samples = ["First conversation", "Second conversation"].enumerated().map { index, title in
+          var sample = AssistantSession(id: index == 0 ? "fixture-first" : "fixture-second",
+            title: title, context: store.assistantSessionContext)
+          sample.messages = [ChatMessage(role: "user", text: title)]
+          return sample
+        }
+        try? await store.repository.saveAssistantHistory(
+          AssistantHistoryArchive(sessions: samples, selectedID: samples.first?.id), scope: scope)
+      }
+    }
     if let scope, ContentBundle.fixtureMode,
       ProcessInfo.processInfo.arguments.contains("--fixture-assistant-long-reply"),
       !history.sessions.contains(where: { $0.title == "长回答展示测试" }) {
@@ -793,12 +845,33 @@ struct GlobalAssistantOverlay: View {
   }
 
   private func newSession() {
+    guard ready, !preparingSubmission else { return }
     cancelAttachmentImport()
     saveDraft()
     voice.returnToText()
-    history.startNew(context: store.assistantSessionContext)
-    voice.draft = ""
+    guard history.startNew(context: store.assistantSessionContext) else { return }
+    voice.draft = history.draft
     dismissHistory()
+  }
+
+  private func requestSessionDeletion(_ item: AssistantSession) {
+    guard ready, let scope = loadedScope else { return }
+    saveDraft()
+    voice.returnToText()
+    historySearchFocused = false
+    dismissComposerKeyboard()
+    pendingSessionDeletion = AssistantSessionDeletion(id: item.id, title: item.title, scope: scope,
+      epoch: store.cloudState.epoch, isRunning: history.runningIDs.contains(item.id))
+  }
+
+  private func confirmSessionDeletion(_ item: AssistantSessionDeletion) {
+    pendingSessionDeletion = nil
+    guard ready, item.scope == store.assistantHistoryScope, item.epoch == store.cloudState.epoch else { return }
+    let selected = history.archive.selectedID == item.id
+    if selected { cancelAttachmentImport(); voice.returnToText() }
+    Task { @MainActor in
+      _ = await store.deleteAssistantSession(item.id, expectedScope: item.scope)
+    }
   }
 
   private func send() {

@@ -531,6 +531,11 @@ answer（明确结果与条件）、title、source_ids；“阅读/思考/用自
 可从原文明确前提进行逻辑推导和条件判断，推导步骤不必逐字出现在原文；不得新增未经支持的事实前提。
 检查题可整合章节知识或检查易错条件；不为追求形式不同而改变已正确的事实。每题另给 expected_answer 和 source_ids 供审校。
 reading_source_ids 选取足以支撑本课的连续清晰段落，优先覆盖条件/例外，最多12段。
+按手机阅读组织生成文本：一个自然段围绕一个要点，通常80–180字；较长讲解按概念、条件、推理或易错处的实际转折分段，短内容不强拆，也不截断公式或删去必要限定。
+自然段之间留空行（JSON字符串内用\\n\\n）。题干先交代已知条件，再列实际问项；多小问各自换行（\\n），沿用清楚的编号，不把背景、多个小问和解题步骤挤在同一段。
+仅生成的content、explanation、prompt字段可用**词语**标记少量重点；其他字段保持纯文本。优先强调核心概念、关键条件、转折或必要结论，不加粗整句、整段或所有数字。
+按每段可见字数与知识重要性分配粗体：每80–120字通常1–2个短词语，长段最多3处；强调文字约占该段10–15%，上限20%，短段无重点允许0处，不为凑比例加粗。
+加粗不改变原有字词、科学符号、事实或范围；sources中的quote、citation.quote及其他原文证据须逐字保留，绝不插入粗体标记或改写原文。
 所有正常中文保留科学符号，不输出隐形字符或词中错误空格。不要向用户暴露内部ID、模型或OCR技术细节。
 仅按当前请求generation_output_shape的完整字段结构返回严格JSON；其中占位文字须替换为真实待审内容。
 previous_candidate仅为只读上下文，不是本次输出schema；具体ID仍须严格遵守output_contract。
@@ -4980,4 +4985,4 @@ class TeachingContentGenerator:
 
 def _render_example(example: _Example) -> str:
     steps = "\n".join(f"{index}. {step}" for index, step in enumerate(example.steps, start=1))
-    return f"题目：{example.problem}\n解题步骤：\n{steps}\n结论：{example.answer}"
+    return f"题目：{example.problem}\n\n解题步骤：\n{steps}\n\n结论：{example.answer}"

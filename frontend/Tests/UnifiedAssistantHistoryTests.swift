@@ -1,6 +1,21 @@
 import XCTest
 @testable import BookCourse
 
+@MainActor private final class HistoryAnswerGate {
+  private var continuation: CheckedContinuation<AssistantHistoryAnswer, Never>?
+  var started = false
+  func wait() async -> AssistantHistoryAnswer {
+    await withCheckedContinuation { continuation in
+      self.continuation = continuation
+      started = true
+    }
+  }
+  func finish(_ text: String) {
+    continuation?.resume(returning: AssistantHistoryAnswer(text: text))
+    continuation = nil
+  }
+}
+
 @MainActor final class UnifiedAssistantHistoryTests: XCTestCase {
   private func repository() throws -> LocalBookCourseRepository {
     try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
@@ -8,6 +23,189 @@ import XCTest
   private var context: AssistantSessionContext {
     AssistantSessionContext(courseID: nil, bookID: "", bookIDs: [], chapterID: nil,
       courseTitle: "首页", chapterTitle: "", prompts: [], discovery: false)
+  }
+  private func wait(_ message: String, until condition: () -> Bool) async throws {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    XCTAssertTrue(condition(), message)
+  }
+
+  func testNewConversationPreservesBothDraftsAndLetsTheOriginalReplyFinish() async throws {
+    let repository = try repository()
+    let history = AssistantHistoryStore(repository: repository)
+    await history.load(scope: "owner")
+    let answer = HistoryAnswerGate()
+    history.submit("第一段对话", context: context) { _, _, _ in await answer.wait() }
+    try await wait("First reply should start") { answer.started }
+    let originalID = try XCTUnwrap(history.current?.id)
+    history.setDraft("第一段的草稿", context: context)
+    XCTAssertTrue(history.startNew(context: context))
+    XCTAssertNil(history.current)
+    XCTAssertTrue(history.runningIDs.contains(originalID), "Starting another chat must preserve the original request")
+    history.setDraft("第二段的草稿", context: context)
+    history.select(originalID)
+    XCTAssertEqual(history.draft, "第一段的草稿")
+    XCTAssertTrue(history.startNew(context: context))
+    XCTAssertEqual(history.draft, "第二段的草稿")
+    answer.finish("第一段的回答")
+    try await wait("The reply should stay with its original session") { !history.runningIDs.contains(originalID) }
+    XCTAssertEqual(history.sessions.first?.messages.last?.text, "第一段的回答")
+    XCTAssertNil(history.current)
+    await history.flush()
+    let reopened = AssistantHistoryStore(repository: repository)
+    await reopened.load(scope: "owner")
+    XCTAssertNil(reopened.current)
+    XCTAssertEqual(reopened.draft, "第二段的草稿")
+    XCTAssertEqual(reopened.sessions.first?.draft, "第一段的草稿")
+  }
+
+  func testNewConversationAtLimitPreservesSelectionAndDeletionReleasesTheEntry() async throws {
+    let repository = try repository()
+    let sessions = (0..<AssistantHistoryStore.maximumSessions).map { AssistantSession(title: "对话\($0)", context: context) }
+    try await repository.saveAssistantHistory(AssistantHistoryArchive(sessions: sessions, selectedID: sessions[0].id), scope: "owner")
+    let history = AssistantHistoryStore(repository: repository)
+    await history.load(scope: "owner")
+    XCTAssertFalse(history.startNew(context: context))
+    XCTAssertEqual(history.current?.id, sessions[0].id)
+    XCTAssertTrue(history.showingSessionLimit)
+    history.delete(sessions[1].id)
+    XCTAssertTrue(history.startNew(context: context))
+    XCTAssertNil(history.current)
+    XCTAssertEqual(history.sessions.count, AssistantHistoryStore.maximumSessions - 1)
+    await history.flush()
+  }
+
+  func testDeleteRunningConversationRejectsLateAnswerRunAndAcknowledgedRemoteImport() async throws {
+    let repository = try repository()
+    let history = AssistantHistoryStore(repository: repository)
+    await history.load(scope: "owner")
+    let answer = HistoryAnswerGate()
+    history.submit("删除正在回答的对话", context: context) { _, _, _ in await answer.wait() }
+    try await wait("Reply should start") { answer.started }
+    let removed = try XCTUnwrap(history.current)
+    history.delete(removed.id)
+    XCTAssertFalse(history.busy)
+    XCTAssertFalse(history.runningIDs.contains(removed.id))
+    answer.finish("不应复活的迟到回答")
+    await Task.yield()
+    history.acknowledgeDeletion(removed.id)
+    history.mergeRemoteSessions([removed])
+    history.recordRun(run(id: "late", sessionID: removed.id, scope: "owner", status: .completed))
+    await history.flush()
+    try await repository.importAssistantHistorySessions([removed], scope: "owner")
+    let reopened = AssistantHistoryStore(repository: repository)
+    await reopened.load(scope: "owner")
+    XCTAssertTrue(reopened.sessions.isEmpty)
+    XCTAssertTrue(reopened.archive.deletedSessionIDs?.isEmpty == true)
+    XCTAssertTrue(reopened.archive.removedIDs.contains(removed.id))
+  }
+
+  func testStaleQueuedArchiveAndLegacyImportCannotOverwriteADeletionOrANewerSession() async throws {
+    let repository = try repository()
+    let removed = AssistantSession(title: "删除目标", context: context)
+    let stale = AssistantHistoryArchive(sessions: [removed], selectedID: removed.id)
+    try await repository.saveAssistantHistory(stale, scope: "owner")
+    let history = AssistantHistoryStore(repository: repository)
+    await history.load(scope: "owner")
+    history.delete(removed.id)
+    history.submit("新建的对话", context: context) { _, _, _ in AssistantHistoryAnswer(text: "新回答") }
+    try await wait("New reply should finish") { !history.busy }
+    let newID = try XCTUnwrap(history.current?.id)
+    await history.flush()
+    try await repository.saveAssistantHistoryPreservingDeletions(stale, scope: "owner")
+    try await repository.importAssistantHistorySessions([removed], scope: "owner")
+    let stored = try await repository.loadAssistantHistory(scope: "owner")
+    let saved = try XCTUnwrap(stored)
+    XCTAssertEqual(saved.sessions.map(\.id), [newID])
+    XCTAssertTrue(saved.removedIDs.contains(removed.id))
+    let other = AssistantSession(id: removed.id, title: "其他账号的同ID对话", context: context)
+    try await repository.importAssistantHistorySessions([other], scope: "other-account")
+    let otherStored = try await repository.loadAssistantHistory(scope: "other-account")
+    let otherArchive = try XCTUnwrap(otherStored)
+    XCTAssertEqual(otherArchive.sessions.map(\.id), [removed.id])
+  }
+
+  private func run(id: String, sessionID: String, scope: String, status: AgentRunStatus) -> AgentRunRecord {
+    var frozen = AgentFrozenContext(scope: scope, courseID: nil, bookID: "", bookTitle: "", sourceVersion: "",
+      chapterID: nil, page: 1, printedPage: nil, selection: "", currentNoteID: nil, capturedAt: .now)
+    frozen.sessionID = sessionID
+    var run = AgentRunRecord(id: id, scope: scope, status: status, request: "请求", context: frozen,
+      evidence: [], steps: [], createdAt: .now, updatedAt: .now)
+    run.privateTransport = true
+    return run
+  }
+
+  func testDeleteCancelsOnlyItsDurableRunsAndLeavesAnotherActiveConversationAndNotes() async throws {
+    let repository = try repository()
+    let store = AppStore(repository: repository)
+    let target = AssistantSession(title: "删除目标", context: context)
+    let other = AssistantSession(title: "另一个对话", context: context)
+    try await repository.saveAssistantHistory(AssistantHistoryArchive(sessions: [target, other], selectedID: target.id), scope: "local")
+    await store.assistantHistory.load(scope: "local")
+    _ = try await repository.saveRun(run(id: "target-run", sessionID: target.id, scope: "local", status: .running))
+    _ = try await repository.saveRun(run(id: "other-run", sessionID: other.id, scope: "local", status: .waitingForUser))
+    let note = StudyNote(kind: .text, title: "保存的学习笔记")
+    _ = try await repository.mutateNote(note, scope: "local")
+    store.agent.resume()
+    try await wait("The other conversation should be active") { store.agent.active?.id == "other-run" && !store.agent.isWorking }
+    let deleted = await store.deleteAssistantSession(target.id, expectedScope: "local")
+    XCTAssertTrue(deleted)
+    let targetStored = try await repository.loadRun("target-run", scope: "local")
+    let otherStored = try await repository.loadRun("other-run", scope: "local")
+    let targetRun = try XCTUnwrap(targetStored)
+    let otherRun = try XCTUnwrap(otherStored)
+    XCTAssertEqual(targetRun.status, .cancelled)
+    XCTAssertTrue(targetRun.cancelRequested)
+    XCTAssertEqual(otherRun.status, .waitingForUser)
+    XCTAssertFalse(otherRun.cancelRequested)
+    XCTAssertEqual(store.agent.active?.id, "other-run")
+    let notes = try await repository.loadStoredNotes(scope: "local")
+    XCTAssertEqual(notes.map(\.note.id), [note.id])
+    XCTAssertEqual(store.assistantHistory.sessions.map(\.id), [other.id])
+    await store.flush()
+  }
+
+  func testResumeRetiresADeletedConversationBeforeConsideringItsOldRun() async throws {
+    let repository = try repository()
+    let store = AppStore(repository: repository)
+    let removedID = "deleted-session"
+    try await repository.saveAssistantHistory(AssistantHistoryArchive(removedSessionIDs: [removedID]), scope: "local")
+    _ = try await repository.saveRun(run(id: "deleted-run", sessionID: removedID, scope: "local", status: .running))
+    store.agent.resume()
+    try await wait("Resume should finish cancelling the removed turn") { !store.agent.isWorking }
+    let stored = try await repository.loadRun("deleted-run", scope: "local")
+    let saved = try XCTUnwrap(stored)
+    XCTAssertEqual(saved.status, .cancelled)
+    XCTAssertTrue(saved.cancelRequested)
+    XCTAssertNotEqual(store.agent.active?.status, .running)
+  }
+
+  func testOldAccountCompletionAndDeleteConfirmationCannotChangeTheCurrentAccount() async throws {
+    let repository = try repository()
+    let session = AssistantSession(id: "shared-id", title: "账号A", context: context)
+    let second = AssistantSession(id: session.id, title: "账号B", context: context)
+    try await repository.saveAssistantHistory(AssistantHistoryArchive(sessions: [session], selectedID: session.id), scope: "account-A")
+    try await repository.saveAssistantHistory(AssistantHistoryArchive(sessions: [second], selectedID: second.id), scope: "account-B")
+    let history = AssistantHistoryStore(repository: repository)
+    await history.load(scope: "account-A")
+    let answer = HistoryAnswerGate()
+    history.submit("账号A的请求", context: context) { _, _, _ in await answer.wait() }
+    try await wait("Account A should start its request") { answer.started }
+    await history.load(scope: "account-B")
+    var late = run(id: "account-A-run", sessionID: session.id, scope: "account-A", status: .completed)
+    late.finalText = "不能进入账号B"
+    history.recordRun(late)
+    answer.finish("旧账号迟到的回答")
+    await history.flush()
+    XCTAssertEqual(history.current?.title, "账号B")
+    XCTAssertTrue(history.current?.messages.isEmpty == true)
+    let store = AppStore(repository: repository)
+    try await repository.saveAssistantHistory(AssistantHistoryArchive(sessions: [second]), scope: "local")
+    await store.assistantHistory.load(scope: "local")
+    let deleted = await store.deleteAssistantSession(second.id, expectedScope: "account-A")
+    XCTAssertFalse(deleted)
+    XCTAssertEqual(store.assistantHistory.sessions.count, 1)
+    XCTAssertTrue(store.assistantHistory.archive.removedIDs.isEmpty)
   }
   func testSixSessionLimitCountsSelectedAndReadOnlyAndDeleteReleasesSlot() async throws {
     let repository = try repository()
