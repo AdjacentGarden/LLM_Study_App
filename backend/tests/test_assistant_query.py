@@ -142,6 +142,34 @@ def test_completed_result_replays_without_model_or_tools(gateway):
     assert len(model.requests) == 2
 
 
+def test_query_output_limit_survives_replay_without_limiting_agent_ledger(gateway, monkeypatch):
+    a, _, install, state, ledger = gateway
+    monkeypatch.setattr(routes, "MAX_QUERY_OUTPUT_TOKENS", 10)
+    model = install(Model(stream(tool=("list_learning_resources", {}), finish="tool_calls")))
+    for _ in range(2):
+        response = a.post("/api/assistant/query", json=body())
+        assert response.status_code == 409, response.text
+        assert "处理上限" in response.json()["detail"]
+    assert len(model.requests) == 1
+    assert len(state.executions) == 1
+    owner = api.account_repository.session_owner(a.cookies.get("zhiwo_account"))
+    _, budget = ledger.step(owner, "query:chat_1", "query_0")
+    assert budget.output_tokens >= 10
+    assert budget.exhausted() is None, "Query policy must not reinstate Agent-wide limits"
+
+
+def test_query_step_limit_keeps_completed_tool_receipts_on_replay(gateway, monkeypatch):
+    a, _, install, state, _ = gateway
+    monkeypatch.setattr(routes, "MAX_QUERY_STEPS", 1)
+    model = install(Model(stream(tool=("list_learning_resources", {}), finish="tool_calls")))
+    for _ in range(2):
+        response = a.post("/api/assistant/query", json=body())
+        assert response.status_code == 409, response.text
+        assert "步骤上限" in response.json()["detail"]
+    assert len(model.requests) == 1
+    assert len(state.executions) == 1
+
+
 def test_retry_after_unsent_continuation_uses_stored_raw_tool_result(gateway):
     a, _, install, state, _ = gateway
 

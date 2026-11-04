@@ -19,16 +19,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..accounts import COOKIE
-from ..assistant_ledger import (
-    MAX_MODEL_SECONDS,
-    MAX_OUTPUT_TOKENS,
-    MAX_STEPS,
-    LedgerConflict,
-)
+from ..assistant_ledger import LedgerConflict
 from ..llm.tool_chat import ChatOutcome
 from .assistant_query_tools import QueryTools
 
 MAX_REQUEST_CHARS = 120_000
+# Query limits belong to this bounded HTTP query, not the phone Agent ledger.
+# The ledger retains usage across retries without imposing Agent-wide limits.
+MAX_QUERY_STEPS = 8
+MAX_QUERY_OUTPUT_TOKENS = 16_000
+MAX_QUERY_MODEL_SECONDS = 300.0
 STEP_OUTPUT_TOKENS = 4_000
 MAX_TOOL_RESULT_CHARS = 40_000
 # Whole-request wall clock. It must end before the LAN gateway's 300 s read
@@ -285,7 +285,7 @@ def assistant_query_router(services: Any) -> APIRouter:
         prior: list[dict[str, Any]] = []
         ledger = services.assistant_ledger
         try:
-            for index in range(MAX_STEPS):
+            for index in range(MAX_QUERY_STEPS):
                 step_id = f"query_{index}"
                 existing = ledger.step(actor, run_id, step_id)
                 if existing is not None:
@@ -310,6 +310,12 @@ def assistant_query_router(services: Any) -> APIRouter:
                     raise _error(503, "当前模型路线未配置助手工具调用")
                 if time.monotonic() - started >= MAX_REQUEST_SECONDS - 5:
                     raise _error(409, "本轮查询用时较长，请缩小问题范围后重新提问")
+                recorded = ledger.step(actor, run_id, "query_0")
+                if recorded is not None and (
+                    recorded[1].output_tokens >= MAX_QUERY_OUTPUT_TOKENS
+                    or recorded[1].model_seconds >= MAX_QUERY_MODEL_SECONDS
+                ):
+                    raise _error(409, "本轮助手查询达到处理上限，请缩小问题范围后重新提问")
                 estimated = max(1, size // 2)
                 claim = ledger.claim(
                     actor, run_id, step_id, index, context_digest=request_digest,
@@ -330,12 +336,12 @@ def assistant_query_router(services: Any) -> APIRouter:
                     # A concurrent request owns this step; never make a second POST.
                     _raise_step_error(claim.step.state, claim.step.retry_after)
                 deadline = min(float(client.config.timeout_seconds),
-                               MAX_MODEL_SECONDS - claim.budget.model_seconds,
+                               MAX_QUERY_MODEL_SECONDS - claim.budget.model_seconds,
                                MAX_REQUEST_SECONDS - (time.monotonic() - started))
                 try:
                     outcome = client.complete(
                         messages=messages, tools=tools.schemas, descriptions=tools.descriptions,
-                        max_tokens=min(STEP_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS - claim.budget.output_tokens),
+                        max_tokens=min(STEP_OUTPUT_TOKENS, MAX_QUERY_OUTPUT_TOKENS - claim.budget.output_tokens),
                         deadline_seconds=max(0.05, deadline),
                     )
                 except Exception:

@@ -28,6 +28,12 @@ import ZIPFoundation
     if case .number(let number)? = args[name], number.isFinite { return Int(number) }
     return fallback
   }
+  /// JSONValue stores numbers as Double; accept only exact, positive page integers.
+  static func materialPage(_ value: Any?) -> Int? {
+    guard let number = value as? Double, number.isFinite,
+      let page = Int(exactly: number), page > 0 else { return nil }
+    return page
+  }
   static func required(_ args: [String: JSONValue], _ name: String) throws -> String {
     guard let text = args[name]?.stringValue, !text.isEmpty else { throw AgentValidationError(message: "缺少参数：" + name) }
     return text
@@ -354,7 +360,7 @@ import ZIPFoundation
     let excerpts = result["evidence"] as? [[String: Any]] ?? []
     for item in excerpts {
       guard let id = item["evidence_id"] as? String, let bookID = item["book_id"] as? String,
-        let page = item["page_number"] as? Int, page > 0, let quote = item["quote"] as? String, !quote.isEmpty else { continue }
+        let page = materialPage(item["page_number"]), let quote = item["quote"] as? String, !quote.isEmpty else { continue }
       let remoteCourse = item["course_id"] as? String
       let course = store.courses.first { course in
         course.id == remoteCourse || store.courseImport(for: course.id).map { store.workspaceID(for: $0) == remoteCourse } == true
@@ -380,7 +386,7 @@ import ZIPFoundation
       var images: [[String: Any]] = []
       var visited = Set<String>()
       for item in excerpts {
-        guard images.count < 2, let bookID = item["book_id"] as? String, let page = item["page_number"] as? Int,
+        guard images.count < 2, let bookID = item["book_id"] as? String, let page = materialPage(item["page_number"]),
           visited.insert(bookID + ":" + String(page)).inserted else { continue }
         let remoteCourse = item["course_id"] as? String
         guard let course = store.courses.first(where: { course in

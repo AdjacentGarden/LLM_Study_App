@@ -716,8 +716,10 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     defer { fixture.close() }
     let history = fixture.store.assistantHistory
     await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.route = .study
+    fixture.store.selectedCourseID = "local-course:first"
     fixture.store.selectedBookID = "first-book"
-    fixture.store.courses = [Course(id: "local-course:first", name: "第一门待处理课", resourceIDs: ["book_local_first"])]
+    fixture.store.courses = [Course(id: "local-course:first", name: "第一门待处理课", resourceIDs: ["first-book"])]
     let context = fixture.store.assistantSessionContext
     let question = "当前有哪些课程？"
     fixture.probe.respond { _ in (503, Data("{\"detail\":\"稍后重试\"}".utf8)) }
@@ -735,8 +737,9 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
 
     history.reset()
     await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.selectedCourseID = "local-course:second"
     fixture.store.selectedBookID = "second-book"
-    fixture.store.courses = [Course(id: "local-course:second", name: "第二门待处理课", resourceIDs: ["book_local_second"])]
+    fixture.store.courses = [Course(id: "local-course:second", name: "第二门待处理课", resourceIDs: ["second-book"])]
     fixture.probe.respond { request in
       XCTAssertEqual(try routingRequestBody(request), initial, "Retry must not bill a changed request with the old ID")
       return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "已恢复回答", citations: [])))
@@ -761,6 +764,12 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     defer { fixture.close() }
     let history = fixture.store.assistantHistory
     await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.route = .study
+    fixture.store.courses = [
+      Course(id: "course-first", name: "第一门课程", resourceIDs: ["first-book"]),
+      Course(id: "course-second", name: "第二门课程", resourceIDs: ["second-book"]),
+    ]
+    fixture.store.selectedCourseID = "course-first"
     fixture.store.selectedBookID = "first-book"
     let first = fixture.store.assistantSessionContext
     history.submit("先看第一本", context: first) { context, _, _ in
@@ -769,6 +778,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     }
     try await waitForHistory(history)
     let sessionID = history.current?.id
+    fixture.store.selectedCourseID = "course-second"
     fixture.store.selectedBookID = "second-book"
     let second = fixture.store.assistantSessionContext
     history.submit("这本书呢？", context: second) { context, messages, _ in

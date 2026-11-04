@@ -1712,6 +1712,15 @@ extension AgentRuntimeTests {
 }
 
 extension AgentRuntimeTests {
+  @MainActor func testMaterialPageRequiresAnExactPositiveInteger() {
+    XCTAssertEqual(UnifiedAgentTools.materialPage(Double(2)), 2)
+    for invalid in [0.0, -1.0, 1.5, Double.infinity, Double.nan, Double(Int.max)] {
+      XCTAssertNil(UnifiedAgentTools.materialPage(invalid))
+    }
+    XCTAssertNil(UnifiedAgentTools.materialPage("2"))
+    XCTAssertNil(UnifiedAgentTools.materialPage(nil))
+  }
+
   func testFinalAnswerUsesRegisteredCitationsAndPersistsSourceMetadata() throws {
     var evidence = agentRepositoryEvidence()
     evidence.sourceType = "textbook"
