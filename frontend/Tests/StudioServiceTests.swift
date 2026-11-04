@@ -104,7 +104,7 @@ final class StudioServiceTests: XCTestCase {
     let original = Data(repeating: 7, count: 64)
     try original.write(to: url)
     defer { try? FileManager.default.removeItem(at: url) }
-    let note = StudyNote(kind: .voice, title: "自己的录音", anchor: NoteAnchor(bookID: "own-book", page: 3), duration: 4)
+    let note = StudyNote(kind: .voice, title: "自己的录音", anchor: NoteAnchor(courseID: "course-1", courseResourceID: "resource-1", bookID: "own-book", page: 3), duration: 4)
     do {
       _ = try await StudioService(api: api).prepareVoice(note: note, fileURL: url)
       XCTFail("Unavailable service must not fabricate a transcript")
@@ -137,6 +137,8 @@ final class StudioServiceTests: XCTestCase {
         XCTAssertEqual(body["revision"] as? Int, 0)
         XCTAssertEqual(body["pages"] as? [Int], [3])
         XCTAssertTrue((body["logical_note_id"] as? String)?.hasPrefix("native_") == true)
+        XCTAssertEqual(body["course_id"] as? String, "course-1")
+        XCTAssertEqual(body["course_resource_id"] as? String, "resource-1")
         return try self.json(["id": body["id"]!, "book_id": "own-book", "revision": 1,
           "audio_ready": false, "audio_sha256": ""])
       }
@@ -149,7 +151,7 @@ final class StudioServiceTests: XCTestCase {
         "audio_ready": true, "audio_sha256": hash])
     }
     defer { StudioContractProtocol.install(host: host, handler: nil); session.invalidateAndCancel() }
-    let note = StudyNote(kind: .voice, title: "自己的录音", anchor: NoteAnchor(bookID: "own-book", page: 3), duration: 4)
+    let note = StudyNote(kind: .voice, title: "自己的录音", anchor: NoteAnchor(courseID: "course-1", courseResourceID: "resource-1", bookID: "own-book", page: 3), duration: 4)
     let remote = try await StudioService(api: api).prepareVoice(note: note, fileURL: file)
     XCTAssertEqual(remote.revision, 2)
     XCTAssertTrue(remote.audio_ready)
@@ -195,7 +197,7 @@ final class StudioServiceTests: XCTestCase {
     try bytes.write(to: file)
     defer { try? FileManager.default.removeItem(at: file) }
     let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-    var note = StudyNote(kind: .voice, title: "原题目", anchor: NoteAnchor(bookID: "book-1", page: 3), duration: 4)
+    var note = StudyNote(kind: .voice, title: "原题目", anchor: NoteAnchor(courseID: "course-1", courseResourceID: "resource-1", bookID: "book-1", page: 3), duration: 4)
     var bookID = "book-1"
     var scopes = "owner-1"
     var logicalIDs: [String] = []
@@ -253,8 +255,8 @@ final class StudioServiceTests: XCTestCase {
     try bytes.write(to: file)
     defer { try? FileManager.default.removeItem(at: file) }
     let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-    let deleted = StudyNote(kind: .voice, title: "待删除", anchor: NoteAnchor(bookID: "book-1", page: 3), duration: 4)
-    let remaining = StudyNote(kind: .voice, title: "仍保留", anchor: NoteAnchor(bookID: "book-1", page: 4), duration: 4)
+    let deleted = StudyNote(kind: .voice, title: "待删除", anchor: NoteAnchor(courseID: "course-1", courseResourceID: "resource-1", bookID: "book-1", page: 3), duration: 4)
+    let remaining = StudyNote(kind: .voice, title: "仍保留", anchor: NoteAnchor(courseID: "course-1", courseResourceID: "resource-1", bookID: "book-1", page: 4), duration: 4)
     var scope = "scope-A", offline = false, missing = false
     var archivePaths: [String] = [], paths: [String] = []
     let (api, session, host) = client(accountID: "account-A") { request in

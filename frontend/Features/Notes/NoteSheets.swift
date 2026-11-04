@@ -85,6 +85,9 @@ struct NotesTypePicker: View {
     }.buttonStyle(.plain).disabled(disabled)
   }
   private func choose(_ kind: NoteKind) {
+    guard store.courseResourceID(courseID: store.selectedCourseID, bookID: store.selectedBookID ?? "") != nil else {
+      store.showToast("无指定课程，无法进行笔记撰写", kind: .warning); return
+    }
     store.noteKind = kind
     NotesCaptureContext.pendingKind = kind
     NotesCaptureContext.existingNoteID = nil
@@ -93,12 +96,12 @@ struct NotesTypePicker: View {
     if kind == .voice {
       if let source = store.currentSource {
         store.sourceTarget = SourcePageTarget(bookID: source.id, title: store.chapterTitle,
-          page: page, printedPage: printedPage, from: .notes)
+          page: page, courseID: store.selectedCourseID, courseResourceID: store.courseResourceID(courseID: store.selectedCourseID, bookID: source.id), printedPage: printedPage, from: .notes)
       }
       store.go(.voiceNote)
     } else if let source = store.currentSource {
       store.openSource(
-        SourcePageTarget(bookID: source.id, title: store.chapterTitle, page: page, from: .notes))
+        SourcePageTarget(bookID: source.id, title: store.chapterTitle, page: page, courseID: store.selectedCourseID, courseResourceID: store.courseResourceID(courseID: store.selectedCourseID, bookID: source.id), from: .notes))
     } else {
       store.openSheet(.note)
     }
@@ -171,6 +174,9 @@ struct NotesConceptSheet: View {
   }
   private func save() {
     guard !saving else { return }
+    guard store.makeAnchor().courseResourceID != nil else {
+      error = "无指定课程，无法进行笔记撰写"; return
+    }
     saving = true
     error = nil
     var note = pending ?? StudyNote(kind: .text, title: concept, body: text)
@@ -583,14 +589,11 @@ struct NotesTextEditor: View {
   }
 }
 
-/// Body edits and recorder upgrades preserve replies saved while their editor
-/// was hidden. A record from another note can never supply that conversation.
+/// Temporary annotation messages are never part of a saved artifact.
 enum NotesAnnotationRecord {
   static func mergingConversation(draft: StudyNote, stored: StudyNote?) -> StudyNote {
     var result = draft
-    if let stored, stored.id == draft.id {
-      result.conversation = stored.conversation ?? draft.conversation
-    }
+    result.conversation = nil
     return result
   }
   static func voicePreview(_ note: StudyNote) -> String {

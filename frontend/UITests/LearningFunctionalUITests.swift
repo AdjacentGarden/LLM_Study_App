@@ -294,8 +294,14 @@ final class LearningFunctionalUITests: XCTestCase {
     XCTAssertEqual(complete.frame.height, 54, accuracy: 1)
     tap(complete, app: app)
     XCTAssertTrue(app.buttons["study.course.switch"].firstMatch.waitForExistence(timeout: 10))
+    let section = app.buttons["study.section.c2s1.title"]
+    wait("Finishing the lesson must mark the section complete") { section.label.contains("已完成") }
+    evidence("learning-completed-section", app: app)
     app.terminate()
-    let reopened = launch("lesson", session: session)
+    let reopened = launch("study", session: session)
+    let restoredSection = reopened.buttons["study.section.c2s1.title"]
+    wait("The completed section must survive relaunch") { restoredSection.label.contains("已完成") }
+    tap(reopened.buttons["study.section.c2s1.lesson"], app: reopened)
     XCTAssertTrue(reopened.staticTexts["lesson.page"].firstMatch.waitForExistence(timeout: 20))
     XCTAssertEqual(
       reopened.staticTexts["lesson.page"].firstMatch.value as? String, "5",

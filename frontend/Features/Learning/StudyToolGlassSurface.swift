@@ -47,7 +47,6 @@ struct StudyToolGlassSurface: View {
   var cornerRadius: CGFloat = 20
   var depth: CGFloat = 5
   var pressed = false
-  var shadowOpacity: Double = 0.10
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -72,8 +71,7 @@ struct StudyToolGlassSurface: View {
         .blur(radius: 0.15)
     }
     .compositingGroup()
-    .shadow(color: DS.text.opacity(shadowOpacity), radius: pressed ? 4 : 7,
-      x: 0, y: pressed ? 2 : 5)
+    .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
     .allowsHitTesting(false).accessibilityHidden(true)
   }
 }
@@ -106,7 +104,7 @@ private struct StudyToolSampleSurface: View {
         .blur(radius: 0.2)
     }
     .compositingGroup()
-    .shadow(color: DS.text.opacity(0.08), radius: pressed ? 2 : 4, y: pressed ? 1 : 3)
+    .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
     .allowsHitTesting(false).accessibilityHidden(true)
   }
 }
@@ -131,6 +129,8 @@ struct StudyToolCardStyle: ButtonStyle {
 }
 
 struct StudyToolEntryStyle: ButtonStyle {
+  var tint: Color? = DS.primary
+  var showsBorder = true
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
 
   func makeBody(configuration: Configuration) -> some View {
@@ -141,25 +141,37 @@ struct StudyToolEntryStyle: ButtonStyle {
       .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
   }
 
+  private var fallbackColors: [Color] {
+    guard let tint else { return [.white.opacity(0.96), .white.opacity(0.88)] }
+    if tint == DS.primary { return [Color(hex: 0x9b53ff), DS.primary, Color(hex: 0x6c2bd9)] }
+    return [tint.opacity(0.85), tint, tint]
+  }
+
   @ViewBuilder private func materialLabel(_ configuration: Configuration) -> some View {
     if #available(iOS 26.0, *) {
-      configuration.label
-        .glassEffect(.regular.tint(DS.primary).interactive(!reduceMotion), in: Capsule())
+      if let tint {
+        configuration.label
+          .glassEffect(.regular.tint(tint).interactive(!reduceMotion), in: Capsule())
+      } else {
+        configuration.label
+          .glassEffect(.regular.interactive(!reduceMotion), in: Capsule())
+      }
     } else {
       configuration.label.background {
-        Capsule().fill(LinearGradient(colors: [Color(hex: 0x9b53ff), DS.primary, Color(hex: 0x6c2bd9)],
+        Capsule().fill(LinearGradient(colors: fallbackColors,
           startPoint: .topLeading, endPoint: .bottomTrailing))
           .overlay {
             Capsule().fill(LinearGradient(colors: [.white.opacity(0.22), .clear, .clear],
               startPoint: .top, endPoint: .bottom))
           }
           .overlay {
-            Capsule().stroke(LinearGradient(colors: [.white.opacity(0.8), .white.opacity(0.12)],
-              startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8)
+            if showsBorder {
+              Capsule().stroke(LinearGradient(colors: [.white.opacity(0.8), .white.opacity(0.12)],
+                startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8)
+            }
           }
           .compositingGroup()
-          .shadow(color: DS.primary.opacity(0.22), radius: configuration.isPressed ? 2 : 4,
-            y: configuration.isPressed ? 1 : 3)
+          .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
       }
     }
   }
@@ -169,7 +181,7 @@ struct StudyToolPreviewSurface: View {
   var body: some View {
     RoundedRectangle(cornerRadius: 12, style: .circular).fill(.white)
       .compositingGroup()
-      .shadow(color: Color(white: 0.615).opacity(0.25), radius: 6.3, x: 4, y: 4)
+      .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
       .allowsHitTesting(false).accessibilityHidden(true)
   }
 }

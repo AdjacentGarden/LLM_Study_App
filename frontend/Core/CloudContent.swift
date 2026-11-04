@@ -39,6 +39,7 @@ struct CloudContent: Codable, Sendable {
 
 extension AppStore {
   func hydrateCloudContent(workspaceID: String) async throws {
+    if cloudState.privateLocalMode { installLocalCourseContent(workspaceID); return }
     guard let cloud, let account = cloudState.cacheKey else { return }
     let epoch = cloudState.epoch
     guard let wi = cloudState.workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }

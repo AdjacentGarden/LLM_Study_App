@@ -175,6 +175,7 @@ final class AppleDocumentOCRTests: XCTestCase {
     let folder = try directory()
     defer { try? FileManager.default.removeItem(at: folder) }
     let url = folder.appendingPathComponent("synthetic.png")
+    let chineseFont = try XCTUnwrap(UIFont(name: "BookCourseNotoSansSC-Regular", size: 40))
     let image = UIGraphicsImageRenderer(size: CGSize(width: 800, height: 220)).image { context in
       UIColor.white.setFill()
       context.fill(CGRect(x: 0, y: 0, width: 800, height: 220))
@@ -182,7 +183,7 @@ final class AppleDocumentOCRTests: XCTestCase {
         .font: UIFont.systemFont(ofSize: 48), .foregroundColor: UIColor.black,
       ])
       ("化学反应与能量" as NSString).draw(at: CGPoint(x: 35, y: 140), withAttributes: [
-        .font: UIFont.systemFont(ofSize: 40), .foregroundColor: UIColor.black,
+        .font: chineseFont, .foregroundColor: UIColor.black,
       ])
     }
     try XCTUnwrap(image.pngData()).write(to: url)

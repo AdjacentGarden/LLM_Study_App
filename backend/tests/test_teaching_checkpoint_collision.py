@@ -170,7 +170,7 @@ def replay_generator(client):
         return SimpleNamespace()
 
     generator._apply = apply
-    bundle = SimpleNamespace(decision=SimpleNamespace(depth=SimpleNamespace(value="standard"), scaffolds=[]))
+    bundle = SimpleNamespace(design_config=None, decision=SimpleNamespace(depth=SimpleNamespace(value="standard"), scaffolds=[], emphasis=[]))
     chapter = SimpleNamespace(title="actual chapter diagnostic")
     return generator, bundle, chapter, reviews, applied
 

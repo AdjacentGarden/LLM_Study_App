@@ -37,6 +37,7 @@ from ..assessment.item_generation import (
     DIAGNOSTIC_BANK_VERSION,
     DiagnosticGenerationError,
     DiagnosticItemGenerator,
+    DiagnosticNoUsableItemsError,
     diagnostic_bank_fingerprint,
     diagnostic_bank_key,
     stable_knowledge_point_id,
@@ -67,14 +68,14 @@ from ..ingestion.jobs import OCRWorker, SQLiteOCRJobRepository, SubprocessOCRRun
 from ..ingestion.models import BookStructure, ChapterDraft
 from ..ingestion.ocr_job import sha256_file
 from ..ingestion.pipeline import new_book_id
-from ..ingestion.preparation import PreparationDeferred, PreparationQueue
+from ..ingestion.preparation import PreparationDeferred, PreparationFailed, PreparationQueue
 from ..learning_design import NativeLearningDesign, resolved_profile
 from ..learning_preferences import resolve_learning_design
 from ..llm.book_parallel import ordered_book_map
 from ..llm.client import (
     LLMConfig,
-    LLMCooldownError,
     LLMContextLimitError,
+    LLMCooldownError,
     LLMError,
     LLMRefusalError,
     LLMTimeoutError,
@@ -148,6 +149,10 @@ from .schemas import (
     UploadResponse,
 )
 from .store import BookRecord, MemoryStore
+from .public_material_routes import public_material_router
+from .private_forwarding import private_forwarding_router
+from .private_export import private_export_router
+from ..public_materials import PublicMaterials, public_group_contains_book
 from .teaching_audit import PrivateTeachingAudit
 
 logger = logging.getLogger(__name__)
@@ -175,6 +180,7 @@ def assistant_tool_chat() -> ToolChatClient | None:
         base_url=settings.text_base_url, api_key=settings.text_api_key, model=settings.text_model,
         timeout_seconds=settings.rag_generation_timeout_seconds, max_retries=0,
         proxy_url=settings.llm_https_proxy,
+        context_window_tokens=int(os.getenv("ASSISTANT_CONTEXT_WINDOW_TOKENS", "1000000")),
     )
     if not supports_tool_chat(config):
         return None
@@ -535,7 +541,8 @@ def book_cover(book_id: str, request: Request) -> FileResponse:
         raise HTTPException(status_code=404, detail="未找到教材封面")
     published = book_id in settings.published_book_ids
     community_public = not published and account_repository.repo.is_public_book(book_id)
-    if not published and not community_public:
+    group_public = not published and not community_public and public_group_contains_book(account_repository.repo, book_id)
+    if not published and not community_public and not group_public:
         actor = account_repository.request_owner(request)
         if not actor or not (account_repository.repo.owns_upload(actor, book_id)
                              or account_repository.repo.owns(actor, book_id)):
@@ -823,9 +830,15 @@ def _prepare_diagnostics(book_id: str) -> None:
                                or (preparation_queue.get(book_id) or {}).get("status") == "cancelled")
     try:
         generate_diagnostic_bank(book_id)
+        try:
+            PublicMaterials(sys.modules[__name__]).refresh_for_book(book_id)
+        except Exception:
+            logger.exception("public material refresh deferred", extra={"book_id": book_id})
     except HTTPException as error:
         if error.status_code == 202 and isinstance(error.detail, dict):
             raise PreparationDeferred(error.detail) from error
+        if (error.headers or {}).get("X-CloudPath-Error-Code") == "diagnostic_no_usable_items":
+            raise PreparationFailed("未生成可用诊断题，已保留处理记录。") from error
         raise
     finally:
         stop_requested.reset(token)
@@ -875,10 +888,11 @@ def prepare_book(book_id: str, request: Request, response: Response, retry: bool
         marker = ("prepare:" + retry_request_id if retry_request_id is not None else
                   json.dumps([existing["updated"], existing["stage"], existing["next_step"]]))
         assessment_repository.grant_diagnostic_recovery(book_id, marker)
-    return preparation_queue.enqueue(
+    value = preparation_queue.enqueue(
         book_id, retry=retry,
         refresh=bool(existing and existing['status'] == 'succeeded' and not ready),
     )
+    return _preparation_progress(book_id, value)
 
 
 @app.post("/api/books/{book_id}/prepare/cancel")
@@ -889,7 +903,7 @@ def cancel_book_preparation(book_id: str, request: Request, response: Response) 
     value = preparation_queue.cancel(book_id, create=bool(job and job.status == "ocr_ready"))
     if value is None:
         raise HTTPException(404, "尚未开始整理教材")
-    return value
+    return _preparation_progress(book_id, value)
 
 
 @app.get("/api/books/{book_id}/prepare")
@@ -899,16 +913,26 @@ def preparation_status(book_id: str, request: Request, response: Response) -> di
     value = preparation_queue.get(book_id)
     if value is None:
         raise HTTPException(404, "尚未开始整理教材")
-    if value["stage"] == "diagnostics" and isinstance(item_generator, DiagnosticItemGenerator) and item_generator.validation_retries is None:
-        from ..assessment.item_repairs import diagnostic_item_progress
+    return _preparation_progress(book_id, value)
+
+
+def _preparation_progress(book_id: str, value: dict[str, Any]) -> dict[str, Any]:
+    value.update(diagnostics_total=None, diagnostics_finalized=False)
+    if value["stage"] in {"diagnostics", "ready"}:
         structure = job_repository.get_structure(book_id)
         if structure is not None:
-            retained, remaining = _diagnostic_repair_parts(book_id, structure)
-            progress = diagnostic_item_progress(item_generator, structure.model_copy(update={"chapters": remaining}),
-                RepositoryDiagnosticChapterCache(assessment_repository), book_id)
-            progress["diagnostics_completed"] += len(retained)
-            progress["diagnostics_total"] += len(retained)
-            value.update(progress)
+            bank = assessment_repository.get_bank(
+                diagnostic_bank_key(book_id), expected_fingerprint=diagnostic_fingerprint(structure))
+            if isinstance(item_generator, DiagnosticItemGenerator) and item_generator.validation_retries is None:
+                from ..assessment.item_repairs import diagnostic_item_progress
+                retained, remaining = _diagnostic_repair_parts(book_id, structure)
+                progress = diagnostic_item_progress(item_generator, structure.model_copy(update={"chapters": remaining}),
+                    RepositoryDiagnosticChapterCache(assessment_repository), book_id,
+                    retained_point_ids={key for item in retained for key in item.knowledge_point_ids})
+                progress["diagnostics_completed"] += len(retained)
+                value.update(progress)
+            if bank:
+                value.update(diagnostics_completed=len(bank), diagnostics_total=len(bank), diagnostics_finalized=True)
     return value
 
 
@@ -948,8 +972,13 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
     try:
         retained, remaining = _diagnostic_repair_parts(book_id, structure)
         covered = {key for item in retained for key in item.knowledge_point_ids}
-        generated = item_generator.generate(structure.model_copy(update={"chapters": remaining}),
-            chapter_cache=RepositoryDiagnosticChapterCache(assessment_repository), cache_scope=book_id) if remaining else []
+        try:
+            generated = item_generator.generate(structure.model_copy(update={"chapters": remaining}),
+                chapter_cache=RepositoryDiagnosticChapterCache(assessment_repository), cache_scope=book_id) if remaining else []
+        except DiagnosticNoUsableItemsError:
+            if not retained:
+                raise
+            generated = []
         items = [*retained, *(item for item in generated
                              if not set(item.knowledge_point_ids) <= covered)]
         assessment_repository.save_bank(
@@ -958,11 +987,13 @@ def generate_diagnostic_bank(book_id: str) -> DiagnosticBankResponse:
             items=items,
         )
     except DiagnosticRepairPending as pending:
-        details = {**pending.details, "message": "正在准备学习诊断。"}
+        details = dict(pending.details)
         details["diagnostics_completed"] += len(retained)
-        details["diagnostics_total"] += len(retained)
         raise HTTPException(202, details,
                             headers={"Retry-After": str(max(1, int(pending.details["retry_after_seconds"])))}) from pending
+    except DiagnosticNoUsableItemsError as error:
+        raise HTTPException(422, "未生成可用诊断题，已保留处理记录。",
+                            headers={"X-CloudPath-Error-Code": "diagnostic_no_usable_items"}) from error
     except DiagnosticChapterSubmissionBlocked as error:
         raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请回教材准备页显式重试",
                             headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
@@ -1750,3 +1781,7 @@ app.include_router(
 app.include_router(native_router(sys.modules[__name__]))
 app.include_router(assistant_router(sys.modules[__name__]))
 app.include_router(assistant_query_router(sys.modules[__name__]))
+
+app.include_router(public_material_router(sys.modules[__name__]))
+app.include_router(private_forwarding_router(sys.modules[__name__]))
+app.include_router(private_export_router(sys.modules[__name__]))

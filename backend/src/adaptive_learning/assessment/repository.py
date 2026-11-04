@@ -13,7 +13,13 @@ from pydantic import TypeAdapter
 
 from ..database import Connection, connect
 from ..personalization.models import ChapterLearningBundle
-from .diagnostic_cache import DiagnosticChapterCacheError, chapter_identity, validate_chapter_items
+from .diagnostic_cache import (
+    MAX_DIAGNOSTIC_ITEM_ROUNDS,
+    DiagnosticChapterCacheError,
+    chapter_identity,
+    diagnostic_rounds_completed,
+    validate_chapter_items,
+)
 from .models import DiagnosticItem, InterviewSession
 
 _ITEMS = TypeAdapter(list[DiagnosticItem])
@@ -143,6 +149,7 @@ class SQLiteAssessmentRepository:
                                        (identity["scope"],)).fetchone()
             epoch = int(grant[0]) if grant else 0
             row = connection.execute("SELECT * FROM diagnostic_chapter_cache WHERE cache_key=?", (key,)).fetchone()
+            repair_state: dict[str, Any] = {}
             if row is not None:
                 if row["identity_json"] != payload or row["scope"] != identity["scope"]:
                     raise DiagnosticChapterCacheError("chapter approval identity mismatch")
@@ -159,6 +166,27 @@ class SQLiteAssessmentRepository:
                     return {"status": "approved", "token": None, "items": items}
                 if state in {"running", "unknown"} and epoch <= int(row["recovery_epoch"]):
                     return {"status": state, "token": None, "items": None}
+                repair = connection.execute(
+                    "SELECT state_json FROM diagnostic_item_repairs WHERE cache_key=?", (key,),
+                ).fetchone()
+                repair_state = json.loads(repair[0]) if repair else {}
+                if (repair_state.get("terminal_status") == "skipped"
+                        or diagnostic_rounds_completed(repair_state) >= MAX_DIAGNOSTIC_ITEM_ROUNDS):
+                    repair_state.update(terminal_status="skipped", skip_reason="attempt_limit", next_retry_at=0)
+                    if state == "running":
+                        connection.execute(
+                            "UPDATE diagnostic_chapter_submissions SET state='unknown',updated_at=? "
+                            "WHERE token=? AND state='running'", (timestamp, row["claim_token"]),
+                        )
+                    connection.execute(
+                        "UPDATE diagnostic_chapter_cache SET state='rejected',updated_at=? WHERE cache_key=?",
+                        (timestamp, key),
+                    )
+                    connection.execute(
+                        "UPDATE diagnostic_item_repairs SET state_json=?,updated_at=? WHERE cache_key=?",
+                        (json.dumps(repair_state, ensure_ascii=False, allow_nan=False), timestamp, key),
+                    )
+                    return {"status": "skipped", "token": None, "items": None}
                 if state == "running":
                     connection.execute(
                         "UPDATE diagnostic_chapter_submissions SET state='unknown',updated_at=? "
@@ -180,7 +208,7 @@ class SQLiteAssessmentRepository:
                 "INSERT INTO diagnostic_chapter_submissions(token,cache_key,state,recovery_epoch,created_at,updated_at) "
                 "VALUES (?,?,'running',?,?,?)", (token, key, epoch, timestamp, timestamp),
             )
-        return {"status": "claimed", "token": token, "items": None}
+        return {"status": "claimed", "token": token, "items": None, "repair_state": repair_state}
 
     def has_pending_diagnostic_submission(self, scope: str) -> bool:
         """Read-only admission check; never derive a retry nonce from live tokens."""

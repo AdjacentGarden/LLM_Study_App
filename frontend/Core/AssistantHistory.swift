@@ -10,6 +10,17 @@ struct AssistantSessionContext: Codable, Equatable, Sendable {
   var chapterTitle: String
   var prompts: [String]
   var discovery: Bool
+  var sessionID: String? = nil
+  var messageID: String? = nil
+  var courseResourceID: String? = nil
+  var page: Int? = nil
+  var printedPage: Int? = nil
+  var selection: String? = nil
+  var currentNoteID: String? = nil
+  var pageType: String? = nil
+  var practiceState: String? = nil
+  var sourceVersion: String? = nil
+  var bookTitle: String? = nil
 }
 
 struct AssistantSession: Codable, Identifiable, Sendable {
@@ -24,6 +35,16 @@ struct AssistantSession: Codable, Identifiable, Sendable {
   var courseLinks: [String: [String]] = [:]
   var pendingQuestion: String?
   var error: String?
+  var contextTokens: Int? = nil
+  var contextEstimated: Bool? = nil
+  /// Once locked, shrinking later inputs can never reopen this conversation.
+  var capacityState: String? = nil
+  var capacityTriggerTokens: Int? = nil
+  var finishingTaskID: String? = nil
+  var capacityReason: String? = nil
+  var runs: [AgentRunRecord]? = nil
+  var isReadOnly: Bool { capacityState == "read_only" || capacityState == "archived" }
+  var acceptsNewMessages: Bool { capacityState == nil || capacityState == "open" }
 }
 
 struct AssistantHistoryArchive: Codable, Sendable {
@@ -32,13 +53,16 @@ struct AssistantHistoryArchive: Codable, Sendable {
   var newDraft = ""
   var newAttachments: [AssistantAttachment]?
   var newContext: AssistantSessionContext?
+  var deletedSessionIDs: [String]? = nil
 }
 
 struct AssistantHistoryAnswer: Sendable {
   var text: String
   var citations: [Citation] = []
   var courseIDs: [String] = []
-  var sourceLabel: String?
+  var contextTokens: Int? = nil
+  var capacityState: String? = nil
+  var sourceLabel: String? = nil
 }
 
 enum AssistantSessionTitle {
@@ -79,6 +103,9 @@ enum AssistantSessionTitle {
   private(set) var loading = false
   private(set) var storageError: String?
   private(set) var runningIDs: Set<String> = []
+  var showingSessionLimit = false
+  var capacityAlertSessionID: String?
+  static let maximumSessions = 6
   @ObservationIgnored private let repository: LocalBookCourseRepository
   @ObservationIgnored private var generation = UUID()
   @ObservationIgnored private var requests: [String: Task<Void, Never>] = [:]
@@ -92,6 +119,7 @@ enum AssistantSessionTitle {
   var attachments: [AssistantAttachment] { current?.draftAttachments ?? (current == nil ? archive.newAttachments : nil) ?? [] }
   var sessions: [AssistantSession] { archive.sessions.sorted { $0.updatedAt > $1.updatedAt } }
   var busy: Bool { archive.selectedID.map(runningIDs.contains) ?? false }
+  var acceptsNewMessages: Bool { current?.acceptsNewMessages ?? true }
   func isReady(for value: String?) -> Bool { value != nil && scope == value && ready }
 
   func load(scope value: String?) async {
@@ -110,8 +138,22 @@ enum AssistantSessionTitle {
       if let id = archive.selectedID, !archive.sessions.contains(where: { $0.id == id }) {
         archive.selectedID = sessions.first?.id
       }
-      for index in archive.sessions.indices where archive.sessions[index].pendingQuestion != nil {
-        archive.sessions[index].error = "上次回答未完成，可以点击重试继续。"
+      for index in archive.sessions.indices {
+        if archive.sessions[index].pendingQuestion != nil,
+          let run = archive.sessions[index].runs?.last, run.status == .completed, let finalText = run.finalText {
+          let message = ChatMessage(id: run.id + ".answer", role: "assistant", text: finalText,
+            citations: run.finalCitations ?? [], sourceLabel: run.finalSourceLabel)
+          archive.sessions[index].messages.append(message)
+          if let ids = run.finalCourseIDs, !ids.isEmpty { archive.sessions[index].courseLinks[message.id] = ids }
+          archive.sessions[index].pendingQuestion = nil
+        }
+        if archive.sessions[index].capacityState == "finishing", archive.sessions[index].runs?.last?.status.isTerminal == true {
+          archive.sessions[index].capacityState = "read_only"
+          archive.sessions[index].finishingTaskID = nil
+        }
+        if archive.sessions[index].pendingQuestion != nil {
+          archive.sessions[index].error = archive.sessions[index].isReadOnly ? nil : "上次回答未完成，可以点击重试继续。"
+        }
       }
       ready = true
       loading = false
@@ -137,6 +179,8 @@ enum AssistantSessionTitle {
     ready = false
     loading = false
     storageError = nil
+    showingSessionLimit = false
+    capacityAlertSessionID = nil
   }
 
   func setDraft(_ text: String, context: AssistantSessionContext) {
@@ -186,7 +230,10 @@ enum AssistantSessionTitle {
     answer: @escaping @MainActor (AssistantSessionContext, [ChatMessage], String) async throws -> AssistantHistoryAnswer) {
     guard ready, !busy, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     let files = attachments
+    guard acceptsNewMessages else { capacityAlertSessionID = current?.id; return }
     if current == nil {
+      // Main-actor synchronous check + insertion is atomic across simultaneous entry points.
+      guard archive.sessions.count < Self.maximumSessions else { showingSessionLimit = true; return }
       let session = AssistantSession(title: AssistantSessionTitle.make(question),
         context: archive.newContext ?? context)
       archive.sessions.append(session)
@@ -196,11 +243,13 @@ enum AssistantSessionTitle {
       archive.newContext = nil
     }
     guard let index = archive.sessions.firstIndex(where: { $0.id == archive.selectedID }) else { return }
-    // The page is a hint for this turn, not a permanent scope for the chat.
-    // Keep this submitted hint unchanged while the turn is pending/retried.
+    let message = ChatMessage(role: "user", text: question, attachments: files.isEmpty ? nil : files)
     archive.sessions[index].context = context
-    archive.sessions[index].messages.append(ChatMessage(role: "user", text: question,
-      attachments: files.isEmpty ? nil : files))
+    archive.sessions[index].context.sessionID = archive.sessions[index].id
+    archive.sessions[index].context.messageID = message.id
+    archive.sessions[index].messages.append(message)
+    archive.sessions[index].contextTokens = (archive.sessions[index].messages.reduce(0) { $0 + $1.text.utf8.count }) / 3
+    archive.sessions[index].contextEstimated = true
     archive.sessions[index].draft = ""
     archive.sessions[index].draftAttachments = nil
     archive.sessions[index].pendingQuestion = question
@@ -209,7 +258,7 @@ enum AssistantSessionTitle {
   }
 
   func retry(answer: @escaping @MainActor (AssistantSessionContext, [ChatMessage], String) async throws -> AssistantHistoryAnswer) {
-    guard ready, !busy, let session = current, session.pendingQuestion != nil else { return }
+    guard ready, !busy, acceptsNewMessages, let session = current, session.pendingQuestion != nil else { return }
     run(id: session.id, answer: answer)
   }
 
@@ -236,6 +285,10 @@ enum AssistantSessionTitle {
     guard let index = archive.sessions.firstIndex(where: { $0.id == id }),
       let question = archive.sessions[index].pendingQuestion else { return }
     archive.sessions[index].error = nil
+    archive.sessions[index].context.sessionID = id
+    if archive.sessions[index].context.messageID == nil {
+      archive.sessions[index].context.messageID = archive.sessions[index].messages.last(where: { $0.role == "user" })?.id
+    }
     let session = archive.sessions[index]
     let token = generation
     runningIDs.insert(id)
@@ -260,16 +313,130 @@ enum AssistantSessionTitle {
         archive.sessions[position].pendingQuestion = nil
         archive.sessions[position].error = nil
         archive.sessions[position].updatedAt = Date()
+        if let tokens = response.contextTokens {
+          applyCapacity(sessionID: id, tokens: tokens, runningTaskID: nil, estimated: false)
+        }
       } catch {
         guard token == generation,
           let position = archive.sessions.firstIndex(where: { $0.id == id }) else { return }
-        archive.sessions[position].error = error is CancellationError
-          ? "回答已中断，可以点击重试继续。" : error.localizedDescription
+        if error.localizedDescription.contains("已达会话数上限"), archive.sessions[position].messages.count == 1 {
+          archive.newDraft = archive.sessions[position].messages.first?.text ?? question
+          archive.newAttachments = archive.sessions[position].messages.first?.attachments
+          archive.newContext = archive.sessions[position].context
+          archive.sessions.remove(at: position)
+          if archive.selectedID == id { archive.selectedID = nil }
+          showingSessionLimit = true
+        } else {
+          archive.sessions[position].error = error is CancellationError
+            ? "回答已中断，可以点击重试继续。" : error.localizedDescription
+        }
+      }
+      if let position = archive.sessions.firstIndex(where: { $0.id == id }),
+        archive.sessions[position].capacityState == "finishing" {
+        archive.sessions[position].capacityState = "read_only"
+        archive.sessions[position].finishingTaskID = nil
+        capacityAlertSessionID = id
       }
       runningIDs.remove(id)
       requests[id] = nil
       await flush()
     }
+  }
+
+  func delete(_ id: String) {
+    guard ready else { return }
+    requests[id]?.cancel()
+    requests[id] = nil
+    runningIDs.remove(id)
+    archive.sessions.removeAll { $0.id == id }
+    archive.deletedSessionIDs = Array(Set((archive.deletedSessionIDs ?? []) + [id]))
+    if archive.selectedID == id { archive.selectedID = nil }
+    if capacityAlertSessionID == id { capacityAlertSessionID = nil }
+    // Attachments may be referenced by saved notes. History deletion never removes files.
+    persist()
+  }
+
+  func acknowledgeDeletion(_ id: String) {
+    archive.deletedSessionIDs?.removeAll { $0 == id }
+    persist()
+  }
+
+  func mergeRemoteSessions(_ values: [AssistantSession]) {
+    guard ready else { return }
+    let deleted = Set(archive.deletedSessionIDs ?? [])
+    for remote in values where !deleted.contains(remote.id) {
+      if let index = archive.sessions.firstIndex(where: { $0.id == remote.id }) {
+        if remote.isReadOnly { archive.sessions[index].capacityState = "read_only" }
+        if let tokens = remote.contextTokens { archive.sessions[index].contextTokens = tokens }
+        if archive.sessions[index].messages.isEmpty { archive.sessions[index].messages = remote.messages }
+      } else { archive.sessions.append(remote) }
+    }
+    persist()
+  }
+
+  func recordRun(_ run: AgentRunRecord) {
+    guard run.ephemeral != true, let sessionID = run.context.sessionID,
+      let index = archive.sessions.firstIndex(where: { $0.id == sessionID }) else { return }
+    var runs = archive.sessions[index].runs ?? []
+    if let i = runs.firstIndex(where: { $0.id == run.id }) { runs[i] = run } else { runs.append(run) }
+    archive.sessions[index].runs = runs
+    if run.legacyArchived == true {
+      archive.sessions[index].capacityState = "read_only"
+      archive.sessions[index].capacityReason = "旧版任务已归档，请另开新版对话"
+      archive.sessions[index].pendingQuestion = nil
+      archive.sessions[index].error = run.failure
+      persist()
+      return
+    }
+    if run.capacityState == "archived" || run.capacityState == "read_only" {
+      archive.sessions[index].capacityState = "read_only"
+      archive.sessions[index].capacityReason = "上下文已封存"
+      archive.sessions[index].finishingTaskID = nil
+      capacityAlertSessionID = sessionID
+    } else if run.capacityState == "finishing", !archive.sessions[index].isReadOnly {
+      archive.sessions[index].capacityState = "finishing"
+      archive.sessions[index].finishingTaskID = run.id
+    }
+    if run.status.isTerminal {
+      if archive.sessions[index].capacityState == "finishing" {
+        archive.sessions[index].capacityState = "read_only"
+        archive.sessions[index].finishingTaskID = nil
+        capacityAlertSessionID = sessionID
+      }
+      // A task may finish after a process restart, without the original waiter closure.
+      if requests[sessionID] == nil {
+        if run.status == .completed, let finalText = run.finalText {
+          let messageID = run.id + ".answer"
+          if !archive.sessions[index].messages.contains(where: { $0.id == messageID }) {
+            archive.sessions[index].messages.append(ChatMessage(id: messageID, role: "assistant", text: finalText,
+              citations: run.finalCitations ?? [], sourceLabel: run.finalSourceLabel))
+            if let ids = run.finalCourseIDs, !ids.isEmpty { archive.sessions[index].courseLinks[messageID] = ids }
+          }
+          archive.sessions[index].pendingQuestion = nil
+          archive.sessions[index].error = nil
+        } else if let failure = run.failure { archive.sessions[index].error = failure }
+      }
+    }
+    if let tokens = run.contextTokens {
+      applyCapacity(sessionID: sessionID, tokens: tokens,
+        runningTaskID: run.status.isTerminal ? nil : run.id, estimated: run.contextEstimated == true)
+    }
+    persist()
+  }
+
+  func applyCapacity(sessionID: String, tokens: Int, runningTaskID: String?, estimated: Bool = false) {
+    guard let index = archive.sessions.firstIndex(where: { $0.id == sessionID }) else { return }
+    archive.sessions[index].contextTokens = tokens
+    archive.sessions[index].contextEstimated = estimated
+    guard tokens >= 900_000 else { persist(); return }
+    if archive.sessions[index].capacityTriggerTokens == nil { archive.sessions[index].capacityTriggerTokens = tokens }
+    archive.sessions[index].capacityReason = tokens >= 1_000_000 ? "上下文已达到 1M" : "上下文已达到 900K"
+    if !archive.sessions[index].isReadOnly {
+      archive.sessions[index].capacityState = runningTaskID != nil && tokens < 1_000_000 ? "finishing" : "read_only"
+      archive.sessions[index].finishingTaskID = runningTaskID
+    }
+    if archive.sessions[index].isReadOnly { capacityAlertSessionID = sessionID }
+    persist()
   }
 
   private func persist() {
@@ -305,46 +472,115 @@ extension AppStore {
 
   var assistantSessionContext: AssistantSessionContext {
     let discovery = route == .community
+    let coursePages: Set<Route> = [.study, .lesson, .courseDetail, .notes, .voiceNote, .flashcards, .plan, .assignment, .diagnosis, .mistakes]
+    let contextCourseID = route == .source ? sourceTarget?.courseID : (coursePages.contains(route) ? selectedCourseID : nil)
+    let contextBookID = route == .source ? sourceTarget?.bookID : (contextCourseID == nil ? nil : selectedBookID)
+    let readerPage = contextBookID.flatMap { locations["\(contextCourseID ?? "")::\($0)"]?.page } ?? sourceTarget?.page ?? 1
+    let readerMatches = sources.first(where: { $0.id == contextBookID })?.chapters
+      .filter { $0.page_start <= readerPage && $0.page_end >= readerPage } ?? []
+    let readerSections = readerMatches.filter { $0.level <= 2 }
+    let readerChapter = (readerSections.isEmpty ? readerMatches : readerSections).sorted {
+      $0.level == $1.level ? $0.page_end - $0.page_start < $1.page_end - $1.page_start : $0.level > $1.level
+    }.first
+    let contextChapterID = route == .source ? readerChapter?.id : selectedChapterID
     let concepts = activeLesson?.key_concepts ?? []
     let first = concepts.first ?? chapterTitle
-    return AssistantSessionContext(courseID: selectedCourseID, bookID: selectedBookID ?? "",
-      bookIDs: currentCourse?.resourceIDs ?? [selectedBookID].compactMap { $0 }, chapterID: selectedChapterID,
-      courseTitle: discovery ? "课程发现" : (currentCourse?.name ?? currentSource?.summary.title ?? "当前课程"),
+    return AssistantSessionContext(courseID: contextCourseID, bookID: contextBookID ?? "",
+      bookIDs: courses.first(where: { $0.id == contextCourseID })?.resourceIDs ?? [contextBookID].compactMap { $0 }, chapterID: contextBookID == nil ? nil : contextChapterID,
+      courseTitle: discovery ? "课程发现" : (contextCourseID == nil ? route.title : currentCourse?.name ?? "当前课程"),
       chapterTitle: discovery ? "帮你发现适合的课程" : (activeLesson?.title ?? chapterTitle),
       prompts: discovery ? ["按学科推荐", "按目标推荐", "查看全部课程"] : ["用一句话解释“\(first)”",
         concepts.count > 1 ? "比较“\(first)”和“\(concepts[1])”" : "围绕“\(chapterTitle)”给我出一道题"],
-      discovery: discovery)
+      discovery: discovery,
+      courseResourceID: courseResourceID(courseID: contextCourseID, bookID: contextBookID ?? ""),
+      page: max(1, route == .source ? readerPage : (sourceTarget?.page ?? activeLesson?.page_start ?? 1)),
+      printedPage: route == .source ? readerChapter?.printed_page_start.map { $0 + readerPage - (readerChapter?.page_start ?? readerPage) } : sourceTarget?.printedPage,
+      selection: contextBookID == nil ? "" : selectedQuote,
+      currentNoteID: noteState.focusNoteID, pageType: route.rawValue,
+      practiceState: route == .assignment ? "pending" : nil,
+      sourceVersion: sources.first(where: { $0.id == contextBookID }).map { AgentRuntime.sourceVersion(for: $0.summary) },
+      bookTitle: sources.first(where: { $0.id == contextBookID })?.summary.title)
   }
 
   func answerHistorySession(context: AssistantSessionContext, history: [ChatMessage],
     question: String) async throws -> AssistantHistoryAnswer {
     let epoch = cloudState.epoch
     let owner = assistantHistoryScope
-    let hasAttachments = history.contains { !($0.attachments ?? []).isEmpty }
-    // Without a learning service, discovery keeps matching the cached public catalog locally.
-    if context.discovery, cloud == nil {
-      if hasAttachments { throw ContentError.invalid("请进入课程后讨论附件内容，课程发现页用于查找课程。") }
-      let answer = answerCommunityCourseQuery(question, books: community)
-      return AssistantHistoryAnswer(text: answer.text, courseIDs: answer.courseIds)
-    }
     do {
-      let turns = try await AssistantAttachmentContext.history(history, question: question, repository: repository)
+      try await syncAssistantHistory()
+      let response = try await agent.answerUnified(sessionID: context.sessionID ?? UUID().uuidString,
+        messageID: context.messageID ?? history.last?.id ?? UUID().uuidString,
+        request: question, context: agent.frozenContext(session: context), history: history,
+        attachments: history.last?.attachments ?? [], ephemeral: false)
       guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
-      let response = try await answerAssistant(question: question, bookID: context.bookID,
-        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: sources,
-        history: turns,
-        courseID: context.courseID, bindToCurrentSelection: false, requiresOnline: hasAttachments,
-        requestID: history.last(where: { $0.role == "user" && $0.text == question })?.id,
-        requestContext: context)
-      guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
-      let known = Set(community.map(\.id))
-      return AssistantHistoryAnswer(text: response.answer, citations: response.citations,
-        courseIDs: response.courseIDs.filter(known.contains), sourceLabel: response.sourceLabel)
+      return response
     } catch {
       if let failure = error as? CloudError, failure.status == 401, epoch == cloudState.epoch {
         handleCloudError(error)
       }
       throw error
     }
+  }
+}
+
+private struct RemoteAssistantSession: Decodable, Sendable {
+  var session_id: String
+  var title: String
+  var state: String
+  var input_tokens: Int
+  var estimated: JSONValue
+  var created: Double?
+  var updated: Double?
+  var messages: [[String: JSONValue]]?
+
+  var localSession: AssistantSession {
+    var session = AssistantSession(id: session_id, title: title,
+      context: AssistantSessionContext(courseID: nil, bookID: "", bookIDs: [], chapterID: nil,
+        courseTitle: "已保存对话", chapterTitle: "", prompts: [], discovery: false))
+    session.createdAt = created.map(Date.init(timeIntervalSince1970:)) ?? .now
+    session.updatedAt = updated.map(Date.init(timeIntervalSince1970:)) ?? session.createdAt
+    session.contextTokens = input_tokens
+    session.contextEstimated = estimated == .bool(true) || estimated == .number(1)
+    session.capacityState = state == "archived" ? "read_only" : state
+    session.messages = (messages ?? []).enumerated().compactMap { index, message in
+      guard let role = message["role"]?.stringValue, ["user", "assistant"].contains(role) else { return nil }
+      if role == "user", let displayText = message["display_text"]?.stringValue {
+        return ChatMessage(id: session_id + ".remote.\(index)", role: role, text: displayText)
+      }
+      let content = message["content"]
+      if role == "user", case .array(let parts)? = content,
+        !parts.contains(where: { if case .object(let part) = $0 { return part["type"]?.stringValue == "text" }; return false }) { return nil }
+      let text: String
+      if let value = content?.stringValue { text = value }
+      else if case .array(let parts)? = content {
+        text = parts.compactMap { value -> String? in
+          if case .object(let part) = value { return part["text"]?.stringValue }
+          return nil
+        }.joined(separator: "\n")
+      } else { return nil }
+      guard !text.isEmpty else { return nil }
+      return ChatMessage(id: session_id + ".remote.\(index)", role: role, text: text)
+    }
+    return session
+  }
+}
+
+extension AppStore {
+  /// Local tombstones survive offline deletion and release the server slot before another send.
+  func syncAssistantHistory() async throws {
+    // Normal chat never uploads or overwrites phone-owned history. Legacy
+    // migration is a separate, explicit archive import with version checks.
+    guard assistantHistory.isReady(for: assistantHistoryScope) else { return }
+    await assistantHistory.flush()
+    for id in assistantHistory.archive.deletedSessionIDs ?? [] {
+      assistantHistory.acknowledgeDeletion(id)
+    }
+  }
+
+  func deleteAssistantSession(_ id: String) async {
+    if agent.active?.context.sessionID == id { agent.cancel() }
+    assistantHistory.delete(id)
+    do { try await syncAssistantHistory() }
+    catch { showToast("已在本机删除；本机保存状态仍待核对。", kind: .warning) }
   }
 }

@@ -22,7 +22,7 @@ private final class SpeechTextProtocol: URLProtocol, @unchecked Sendable {
 
 private final class SpeechTextFixture: @unchecked Sendable {
   let api: CloudAPI
-  let note = StudyNote(kind: .voice, title: "本机语音", anchor: NoteAnchor(bookID: "chemistry", page: 8))
+  let note = StudyNote(kind: .voice, title: "本机语音", anchor: NoteAnchor(courseID: "course", courseResourceID: "resource", bookID: "chemistry", page: 8))
   let text = "化学反应前后总能量保持守恒。"
   var requests: [URLRequest] = []
   var requestIDs: [String] = []

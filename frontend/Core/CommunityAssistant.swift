@@ -47,7 +47,7 @@ private enum CommunityAssistantRules {
     let recommended = Array(books.filter { $0.recommended == true }.prefix(4))
     let fallback = recommended.isEmpty ? Array(books.prefix(4)) : recommended
     return CommunityAssistantAnswer(
-      courseIds: fallback.map(\.id), text: "你可以输入课程名，也可以告诉我学科、年级或学习目标；先为你列出几门课程。")
+      courseIds: fallback.map(\.id), text: "我只根据发现页的课程目录回答。你可以输入课程名、学科或年级，下方是目前可查看的课程。")
   }
 }
 

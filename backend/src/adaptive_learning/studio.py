@@ -680,6 +680,10 @@ class Studio:
             old = db.execute("SELECT * FROM studio_notes WHERE id=?", (data.id,)).fetchone()
             if old and (old["owner"] != owner or old["book_id"] != data.book_id):
                 raise HTTPException(404, "笔记不存在")
+            if old is None and (data.pages or data.excerpt or data.chapter_id) and (
+                not data.course_id or not data.course_resource_id
+            ):
+                raise HTTPException(422,"无指定课程，无法进行笔记撰写")
             # Grouping is mutable ownership metadata, never part of a model's
             # immutable input/revision or its lost-response idempotency check.
             serialized = data.model_dump(exclude={"logical_note_id"})
@@ -716,6 +720,8 @@ class Studio:
                 )
             if old and old["revision"] == data.revision + 1:
                 existing = json.loads(old["data"])
+                existing.setdefault("course_id",None)
+                existing.setdefault("course_resource_id",None)
                 existing["revision"] = data.revision
                 if existing == serialized:
                     if data.logical_note_id is not None:

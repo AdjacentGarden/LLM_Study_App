@@ -512,7 +512,11 @@ struct NotesVoiceNoteView: View {
           }
         }
       case .requesting: ProgressView("正在请求麦克风权限…").font(DS.font(.supporting)).frame(height: 68)
-      case .idle: roundControl("Mic2", title: "开始录音", main: true) { Task { await audio.start() } }
+      case .idle: roundControl("Mic2", title: "开始录音", main: true) {
+        if let anchor = captureAnchor, anchor.courseResourceID == nil {
+          saveError = "无指定课程，无法进行笔记撰写"
+        } else { Task { await audio.start() } }
+      }
       }
     }.frame(maxWidth: .infinity).frame(height: DS.ButtonSize.regular.height + 18)
   }

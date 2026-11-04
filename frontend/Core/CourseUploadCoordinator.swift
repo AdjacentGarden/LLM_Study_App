@@ -102,6 +102,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       if batch.isRunning { launchCourseUpload(batch.id) }
     }
     startCourseUploadMonitor()
+    if cloudState.privateLocalMode { Task { await resumePublicLibraryTasks() } }
   }
 
   func suspendCourseUploads() {
@@ -211,6 +212,11 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
       guard route != .cancelled else { cancelCourseUpload(id); return }
+      if cloud != nil, route == .onDevice, noteScope != nil { cloudState.privateLocalMode = true }
+      if route == .existing, cloud != nil, !cloudState.localFirstChecked {
+        try await verifyLocalFirstCapabilities()
+        guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      }
       if let index = uploadState.batches.firstIndex(where: { $0.id == id }) {
         uploadState.batches[index].onDeviceOnly = route == .onDevice
       }
@@ -262,7 +268,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       }
       try Task.checkCancellation()
       guard epoch == cloudState.epoch else { return }
-      if let cloud, batch.addingMaterials,
+      if let cloud, !cloudState.privateLocalMode, batch.addingMaterials,
         let bookID = uploadState.batches.first(where: { $0.id == batchID })?.files.first(where: { $0.id == fileID })?.bookID,
         !batch.courseID.hasPrefix("local-course:"),
         cloudState.workspaces.first(where: { $0.id == batch.courseID })?.resources.contains(where: { $0.book_id == bookID }) != true {
@@ -278,6 +284,10 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
       await persistTask?.value
       guard epoch == cloudState.epoch, !Task.isCancelled else { return }
       let snapshotDurable = durable && cloudState.cacheWriteError == nil
+      if route == .existing, cloudState.privateLocalMode, let completedBatch = uploadState.batches.first(where: { $0.id == batchID }), completedBatch.isComplete {
+        do { try await queuePublicCoursePublication(title: completedBatch.courseName, bookIDs: completedBatch.files.compactMap(\.bookID), courseID: completedBatch.courseID) }
+        catch { cloudState.syncError = "公开资料整理登记可重试：" + error.localizedDescription }
+      }
       if let cloud, cloud.usesNativeBackgroundUploads, snapshotDurable {
         BackgroundUploadTransport.client(origin: cloud.baseURL, scope: batch.scope).acknowledge(file.requestID)
       }

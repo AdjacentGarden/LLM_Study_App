@@ -14,7 +14,14 @@ struct StudyCoursePreparationView: View {
   private var title: String {
     switch preparation {
     case .materials:
-      if compact { return "新增资料正在整理" }
+      if compact {
+        switch record?.job.status {
+        case .failed: return "新增资料解析未完成"
+        case .cancelled, .interrupted: return "新增资料解析已暂停"
+        case .queued: return "新增资料等待解析"
+        default: return "新增资料正在整理"
+        }
+      }
       if record?.job.status == .failed { return "资料解析未完成" }
       if record?.job.status == .cancelled || record?.job.status == .interrupted { return "继续整理这门课程" }
       return running ? "正在解析课程资料" : "课程资料已保存"
@@ -35,76 +42,74 @@ struct StudyCoursePreparationView: View {
   }
 
   var body: some View {
-    BCCard {
-      VStack(alignment: .leading, spacing: 16) {
-        HStack(spacing: 12) {
-          StickerIcon(preparation == .materials ? "Upload" : "ClipboardCheck", size: 40)
-          VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(DS.font(.sectionTitle))
-            CourseProgressMessage(message: message).font(DS.font(.supporting)).foregroundStyle(
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(alignment: .top, spacing: 12) {
+        StickerIcon(preparation == .materials ? "Upload" : "ClipboardCheck", size: 44)
+        VStack(alignment: .leading, spacing: 6) {
+          Text(title).font(DS.font(.sectionTitle))
+          CourseProgressMessage(message: message)
+            .font(DS.font(.supporting)).foregroundStyle(
               record?.error != nil || job?.status == .failed ? DS.danger : DS.secondary)
-          }
-          Spacer(minLength: 0)
-          if running { ProgressView().tint(DS.primary) }
         }
-        if preparation == .materials, let progress = record?.ringProgress {
-          BCProgress(value: progress)
-          Text("解析进度 \(Int((progress * 100).rounded()))%")
-            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-        }
-        if !compact, let record {
-          ForEach(record.books) { book in
-            HStack(spacing: 10) {
-              Image(systemName: book.status == .completed ? "checkmark.circle" : "doc.text")
-                .foregroundStyle(book.status == .completed ? DS.mint : DS.primary)
-              VStack(alignment: .leading, spacing: 4) {
-                Text(store.sources.first { $0.id == book.id }?.summary.filename
-                  ?? store.sources.first { $0.id == book.id }?.summary.title ?? "课程资料")
-                  .font(DS.font(.supporting, weight: .semibold)).lineLimit(2)
-                if preparation == .materials {
-                  CourseProgressMessage(message: book.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-                }
+        Spacer(minLength: 0)
+      }
+      .padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 32)
+
+      VStack(spacing: 12) {
+        ForEach(store.courseCreationSteps) { step in
+          HStack(spacing: 16) {
+            ZStack {
+              Circle().fill(DS.background).frame(width: 32, height: 32)
+              if step.completed {
+                Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                  .foregroundStyle(DS.mint)
+              } else if step.active {
+                ProgressView().controlSize(.small).tint(DS.primary)
+              } else {
+                Text("\(step.id + 1)").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
               }
             }
+            Text(step.title).font(DS.font(.body)).frame(maxWidth: .infinity, alignment: .leading)
+            Text(step.detail).font(DS.font(.supporting))
+              .foregroundStyle(step.completed ? DS.text : step.active ? DS.primary : DS.secondary)
+              .multilineTextAlignment(.trailing)
           }
+          .padding(.horizontal, 14).padding(.vertical, 14).frame(minHeight: 50)
+          .background(DS.surface, in: RoundedRectangle(cornerRadius: 15))
+          .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
+          .accessibilityElement(children: .combine)
+          .accessibilityIdentifier("study.preparation.step.\(step.id)")
         }
-        actions
+      }
+      .accessibilityIdentifier("study.preparation.steps")
+
+      if store.coursePreparationRequiresAction(preparation) {
+        BCButton("继续") { continuePreparation() }
+          .frame(maxWidth: 240).clipShape(Capsule())
+          .frame(maxWidth: .infinity).padding(.top, compact ? 32 : 64)
+          .accessibilityIdentifier("study.preparation.resume")
       }
     }
+    .padding(.horizontal, 4).padding(.bottom, 24)
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier(compact ? "study.materials.notice" : "study.preparation")
   }
 
-  @ViewBuilder private var actions: some View {
+  private func continuePreparation() {
     switch preparation {
     case .materials:
       if let record {
-        if !running {
-          BCButton(record.job.status == .queued && !record.started ? "开始解析" : "继续整理") {
-            Task { await store.startCourseImport(record.id,
-              retryPreparation: record.job.status == .cancelled) }
-          }.accessibilityIdentifier("study.preparation.resume")
-          if record.job.preparationFailed == true && record.job.status != .cancelled {
-            BCButton("重试教材准备", style: .secondary) {
-              Task { await store.startCourseImport(record.id, retryPreparation: true) }
-            }
-          }
-        }
-        BCButton("查看解析进度", style: running ? .primary : .secondary) {
-          store.openCoursePreparationDetails()
-        }.accessibilityIdentifier("study.preparation.details")
+        Task { await store.startCourseImport(record.id,
+          retryPreparation: record.job.status == .cancelled || record.job.preparationFailed == true) }
       }
-    case .setup:
-      BCButton("继续整理") { store.resumeSelectedCourseSetup() }
-        .accessibilityIdentifier("study.preparation.resume")
+    case .setup: store.resumeSelectedCourseSetup()
     case .localGeneration:
-      BCButton("在 Wi-Fi 下生成课程") {
-        if let bookID = store.selectedBookID { store.prepareLocalCourseOnWiFi(bookID: bookID) }
-      }.accessibilityIdentifier("study.preparation.generate")
-    case .diagnosis, .generation:
-      BCButton(preparation == .generation ? "查看生成详情" : "继续准备课程") {
-        store.resumeSelectedCourseGeneration()
-      }.disabled(store.cloudState.isWorking && store.selectedCourseJob == nil)
-        .accessibilityIdentifier("study.preparation.generate")
+      if let bookID = store.selectedBookID { store.prepareLocalCourseOnWiFi(bookID: bookID) }
+    case .diagnosis: store.resumeSelectedCourseGeneration()
+    case .generation:
+      if job?.status == .failed && job?.retryable == true {
+        Task { await store.restartCloudCourseGeneration() }
+      } else { store.resumeSelectedCourseGeneration() }
     }
   }
 }

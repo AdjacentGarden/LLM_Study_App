@@ -6,6 +6,57 @@ import XCTest
 @testable import BookCourse
 
 final class CoreTests: XCTestCase {
+  @MainActor func testReadingCompletionSurvivesRelaunchWithoutLessonLinkedPlanTasks() async throws {
+    for status in ["generated", "ready"] {
+      let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+      let repo = try LocalBookCourseRepository(directory: root)
+      let store = AppStore(repository: repo)
+      var source = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+      source.summary.book_id = "book_local_completion"
+      for i in source.lessons.indices { source.lessons[i].book_id = source.id }
+      store.sources = [source]
+      store.courses = [Course(id: "completion-course", name: "测试课程", resourceIDs: [source.id])]
+      store.selectedCourseID = "completion-course"
+      store.selectSource(source.id)
+      let sourceIndex = 0
+      let lessonIndex = try XCTUnwrap(store.sources[sourceIndex].lessons.firstIndex { $0.chapter_id == "c2s1" })
+      store.sources[sourceIndex].lessons[lessonIndex].status = status
+      store.sources[sourceIndex].plan.tasks = []
+      store.selectedChapterID = "c2s1"
+      store.selectedLessonID = store.sources[sourceIndex].lessons[lessonIndex].id
+      store.completeLesson()
+      await store.flush()
+      XCTAssertTrue(store.completedChapterIDs.contains("c2s1"), status)
+      let restored = AppStore(repository: try LocalBookCourseRepository(directory: root))
+      await restored.boot()
+      restored.selectSource(source.id)
+      XCTAssertTrue(restored.completedChapterIDs.contains("c2s1"), status)
+      XCTAssertTrue(restored.plan?.tasks.isEmpty == true, "Reading must not fabricate plan tasks")
+      XCTAssertFalse(restored.completedChapterIDs.contains("c2s2"))
+      restored.courses.append(Course(id: "another-course", name: "同书另一门课", resourceIDs: [source.id]))
+      restored.selectCourse("another-course")
+      XCTAssertFalse(restored.completedChapterIDs.contains("c2s1"), "Reading belongs to the selected course")
+      await restored.flush()
+    }
+  }
+
+  @MainActor func testPendingLessonCannotBeMarkedComplete() async throws {
+    let repo = try LocalBookCourseRepository(
+      directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), includeFixtures: true)
+    let store = AppStore(repository: repo)
+    await store.boot()
+    store.selectSource("book_biology_2")
+    let i = try XCTUnwrap(store.sources.firstIndex { $0.id == "book_biology_2" })
+    let j = try XCTUnwrap(store.sources[i].lessons.firstIndex { $0.chapter_id == "c2s1" })
+    store.sources[i].lessons[j].status = "pending"
+    store.sources[i].plan.tasks = []
+    store.selectedChapterID = "c2s1"
+    store.selectedLessonID = store.sources[i].lessons[j].id
+    store.completeLesson()
+    XCTAssertFalse(store.completedChapterIDs.contains("c2s1"))
+    await store.flush()
+  }
+
   @MainActor func testProductionFirstLaunchDoesNotSeedContentOrBalance() async throws {
     let repo = try LocalBookCourseRepository(
       directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
@@ -433,7 +484,7 @@ extension CoreTests {
     XCTAssertEqual(store.courseImport(for: id)?.job.status, .completed)
     XCTAssertNil(store.courseImport(for: id)?.ringProgress)
     store.openCourse(try XCTUnwrap(store.courses.first))
-    XCTAssertEqual(store.route, .study, "The existing setup remains available after parsing")
+    XCTAssertEqual(store.route, .courseSetup, "Selecting the parsed course resumes its questionnaire directly")
     store.continueCourseImport(id)
     XCTAssertEqual(store.route, .courseSetup)
     XCTAssertNil(store.draft.editingCourseID, "A new import must retain the new-course questionnaire flow")

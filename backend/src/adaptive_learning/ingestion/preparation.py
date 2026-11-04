@@ -17,6 +17,10 @@ from ..database import DATABASE_ERRORS, Connection, connect, database_url
 logger = logging.getLogger(__name__)
 
 
+class PreparationFailed(RuntimeError):
+    """A known preparation failure with a safe user-facing message."""
+
+
 class PreparationDeferred(RuntimeError):
     def __init__(self, details: dict[str, Any]) -> None:
         super().__init__("preparation will continue automatically")
@@ -263,7 +267,7 @@ class PreparationQueue:
                 "failed",
                 stage,
                 next_step,
-                "教材整理暂未完成，已保存处理进度，请重试。",
+                str(error) if isinstance(error, PreparationFailed) else "教材整理暂未完成，已保存处理进度，请重试。",
             )
         return True
 

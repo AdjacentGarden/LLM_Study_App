@@ -12,9 +12,12 @@ struct CloudBookPreparationJob: Codable, Sendable {
   var serverMessage: String? = nil
   var diagnostics_completed: Int? = nil
   var diagnostics_total: Int? = nil
+  var diagnostics_finalized: Bool? = nil
+  var diagnostics_skipped: Int? = nil
   enum CodingKeys: String, CodingKey {
     case book_id, status, stage, error, updated, next_step
     case structure_ready, rag_ready, diagnostics_ready, diagnostics_completed, diagnostics_total
+    case diagnostics_finalized, diagnostics_skipped
     case serverMessage = "message"
   }
   // Enriched only from successful read-only readiness/diagnostic responses.
@@ -27,14 +30,20 @@ struct CloudBookPreparationJob: Codable, Sendable {
   var marker: String { "\(stage)|\(next_step)|\(updated.bitPattern)" }
   var message: String {
     if status == .failed {
+      if let error, error == "未生成可用诊断题，已保留处理记录。" { return error }
       return "课程内容暂未准备完成，已保留进度，可以继续整理。"
     }
     if status == .cancelled { return "教材准备已暂停，已完成的内容会保留。" }
-    if status == .succeeded { return "教材内容已准备完成。" }
+    if status == .succeeded {
+      if diagnostics_finalized == true, let total = diagnostics_total, total > 0 {
+        return "学习诊断已准备完成，共 \(total) 道题。"
+      }
+      return "教材内容已准备完成。"
+    }
     if stage == "diagnostics" {
-      let detail = "正在准备学习诊断。"
-      if let completed = diagnostics_completed, let total = diagnostics_total, total > 0 {
-        return "诊断题已完成 \(completed)／\(total) 题 · \(detail)"
+      let detail = serverMessage ?? "正在准备学习诊断。"
+      if let completed = diagnostics_completed {
+        return "已生成 \(completed) 道诊断题 · \(detail)"
       }
       return detail
     }

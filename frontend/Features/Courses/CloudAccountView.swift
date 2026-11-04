@@ -393,7 +393,22 @@ struct CloudLearningSetupView: View {
   @Environment(AppStore.self) private var store
   @State private var selected: [String] = []
   @State private var confidence = 0.6
+  @State private var shortAnswer = ""
   @State private var started = Date()
+  @State private var advancing = false
+  @State private var advanceTask: Task<Void, Never>?
+  @State private var submitting = false
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  private var multiple: Bool {
+    (turn?.item?.response_type ?? turn?.response_type) == "multiple_choice"
+  }
+  private var autoAdvance: Bool {
+    guard let turn else { return false }
+    return turn.item == nil && turn.response_type == "single_choice"
+      && turn.phase != "profile_confirmation" && turn.phase != "adaptive_diagnosis"
+      && store.cloudState.interview?.canGenerateCourse != true
+  }
+  private var busy: Bool { advancing || submitting || store.cloudState.isWorking }
   private var turn: CloudTurn? { store.cloudState.interview?.turn }
   private var options: [CloudTurn.Option] {
     if let item = turn?.item {
@@ -405,10 +420,20 @@ struct CloudLearningSetupView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 22) {
         HStack {
-          Text(store.isCloudCoursePreview ? "准备预览课程" : "准备专属课程")
-            .font(DS.font(.sectionTitle))
+          Button { pause() } label: {
+            BCGlyph("ArrowLeft", color: DS.text).frame(width: 20, height: 20)
+              .iconButtonFrame().background(DS.surface, in: Circle())
+          }.buttonStyle(.plain).accessibilityLabel("返回课程，稍后继续")
           Spacer()
-          Button("稍后继续") { store.pauseCloudCourseGeneration() }.buttonFrame()
+          if let turn, store.cloudState.interview?.isPreview != true {
+            Text("\(Int(min(1, max(0, turn.progress)) * 100))%")
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+          }
+          Spacer()
+          Button("稍后继续") { pause() }.buttonFrame()
+        }
+        if let name = store.currentCourse?.name, !name.isEmpty {
+          Text(name).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         if store.cloudState.choosingLearningMode {
           VStack(alignment: .leading, spacing: 16) {
@@ -443,36 +468,38 @@ struct CloudLearningSetupView: View {
           }.accessibilityIdentifier("cloud.courseJob")
         } else if let turn {
           if store.cloudState.interview?.isPreview != true { BCProgress(value: turn.progress) }
-          Text(turn.message).font(DS.font(.body)).lineSpacing(5)
-          if let question = turn.item?.prompt ?? turn.question {
-            Text(question).font(DS.font(.sectionTitle)).lineSpacing(4)
+          PersonalizationQuestionTitle(title: turn.item?.prompt ?? turn.question
+            ?? (turn.phase == "profile_confirmation" ? "确认你的课程安排" : "准备专属课程"))
+            .accessibilityIdentifier("cloud.diagnosis.question").padding(.top, 12)
+          if !turn.message.isEmpty {
+            Text(turn.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+              .fixedSize(horizontal: false, vertical: true)
           }
-          ForEach(options) { option in
-            Button {
-              if turn.response_type == "multiple_choice" {
-                if selected.contains(option.id) {
-                  selected.removeAll { $0 == option.id }
-                } else {
-                  selected.append(option.id)
-                }
-              } else {
-                selected = [option.id]
+          if !options.isEmpty {
+            Text(multiple ? "可多选，选好后点击继续" : autoAdvance
+              ? "请选择一项，选择后自动进入下一题" : "请选择一项，确认后点击继续")
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+            PersonalizationChoices {
+              ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
+                OnboardingChoiceCard(label: option.label, selected: selected.contains(option.id), scale: 1,
+                  selectionHint: multiple ? "可选择多项，再点击继续" : autoAdvance
+                    ? "选择后自动进入下一题" : "选择后点击继续提交") {
+                  if turn.item != nil {
+                    Text(String(UnicodeScalar(65 + index) ?? "•"))
+                      .font(DS.font(.sectionTitle)).foregroundStyle(DS.primary)
+                      .frame(width: 56, height: 56).background(DS.primarySoft, in: Circle())
+                  } else {
+                    StickerIcon(turn.phase == "constraint_discovery" ? "Clock3" : "BookOpen", size: 56)
+                  }
+                } action: { choose(option.id) }
+                .disabled(busy).accessibilityIdentifier("cloud.diagnosis.option.\(option.id)")
               }
-            } label: {
-              HStack(spacing: 12) {
-                Image(systemName: selected.contains(option.id) ? "checkmark.circle.fill" : "circle")
-                Text(option.label).multilineTextAlignment(.leading).frame(
-                  maxWidth: .infinity, alignment: .leading)
-              }.font(DS.font(.body)).padding(18).foregroundStyle(
-                selected.contains(option.id) ? DS.primary : DS.text
-              )
-              .background(
-                selected.contains(option.id) ? DS.primarySoft : DS.surface,
-                in: RoundedRectangle(cornerRadius: 16)
-              )
-              .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border))
-            }.buttonStyle(.plain).disabled(store.cloudState.isWorking).accessibilityIdentifier(
-              "cloud.diagnosis.option.\(option.id)")
+            }.padding(.top, 12)
+          }
+          if let item = turn.item, item.options.isEmpty {
+            TextField("写下你的回答", text: $shortAnswer, axis: .vertical)
+              .textFieldStyle(.roundedBorder).lineLimit(3...8)
+              .accessibilityIdentifier("local.diagnosis.shortAnswer")
           }
           if turn.item != nil {
             VStack(alignment: .leading) {
@@ -484,20 +511,16 @@ struct CloudLearningSetupView: View {
           if let error = store.cloudState.error {
             Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
           }
-          BCButton(
-            store.cloudState.isWorking
-              ? "正在准备…"
-              : turn.phase == "profile_confirmation"
-                ? "确认并生成课程"
-                : store.cloudState.interview?.canGenerateCourse == true ? "生成或继续本章课程" : "继续"
-          ) {
-            Task {
-              await store.advanceCloudInterview(
-                selected: selected, confidence: confidence,
-                seconds: Date().timeIntervalSince(started))
-            }
-          }.disabled(store.cloudState.isWorking || (!options.isEmpty && selected.isEmpty))
-            .accessibilityIdentifier("cloud.diagnosis.next")
+          if busy { ProgressView("正在准备…").font(DS.font(.supporting)) }
+          if !autoAdvance || store.cloudState.error != nil {
+            CourseFlowPrimaryButton(title: busy ? "正在准备…"
+              : turn.phase == "profile_confirmation" ? "确认并生成课程"
+              : store.cloudState.interview?.canGenerateCourse == true ? "生成或继续本章课程" : "继续") {
+              submit()
+            }.clipShape(Capsule())
+              .disabled(busy || (!options.isEmpty && selected.isEmpty))
+              .accessibilityIdentifier("cloud.diagnosis.next").padding(.top, 24)
+          }
         } else {
           if let error = store.cloudState.error {
             Text("诊断准备尚未完成").font(DS.font(.cardTitle))
@@ -519,12 +542,57 @@ struct CloudLearningSetupView: View {
             ProgressView("正在恢复诊断…")
           }
         }
-      }.padding(24).frame(maxWidth: 660).frame(maxWidth: .infinity)
+      }.padding(.vertical, 24).frame(maxWidth: 400)
+        .padding(.horizontal, 37).frame(maxWidth: .infinity)
     }.background(DS.background.ignoresSafeArea())
       .interactiveDismissDisabled(store.cloudState.isWorking && store.cloudState.courseTask == nil)
+      .onDisappear { cancelAdvance() }
       .onChange(of: turn?.turn_id) { _, _ in
+        cancelAdvance()
         selected = []
+        confidence = 0.6
+        shortAnswer = ""
         started = Date()
       }
+  }
+
+  private func cancelAdvance() {
+    advanceTask?.cancel()
+    advanceTask = nil
+    advancing = false
+  }
+  private func pause() {
+    cancelAdvance()
+    store.pauseCloudCourseGeneration()
+  }
+  private func choose(_ id: String) {
+    guard !busy else { return }
+    if multiple {
+      selected = selected.contains(id) ? selected.filter { $0 != id } : selected + [id]
+    } else {
+      selected = [id]
+    }
+    if autoAdvance { submit(delay: true) }
+  }
+  private func submit(delay: Bool = false) {
+    guard !busy, let turnID = turn?.turn_id else { return }
+    advancing = true
+    advanceTask = Task { @MainActor in
+      defer { advancing = false }
+      if delay {
+        do { try await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 200)) }
+        catch { return }
+      }
+      guard !Task.isCancelled, turn?.turn_id == turnID else { return }
+      // Only the selection delay is cancellable by navigation. Once submitted,
+      // let the existing request finish so returning can restore its server turn.
+      advanceTask = nil
+      advancing = false
+      submitting = true
+      defer { submitting = false }
+      let response = turn?.item?.options.isEmpty == true ? [shortAnswer] : selected
+      await store.advanceCloudInterview(selected: response, confidence: confidence,
+        seconds: Date().timeIntervalSince(started))
+    }
   }
 }

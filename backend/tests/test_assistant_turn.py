@@ -234,9 +234,9 @@ def test_explicit_overload_is_retryable_only_after_retry_after(gateway):
     assert waiting["state"] == "retryable" and len(model.requests) == 1
 
 
-def test_budget_persists_across_restart_and_blocks_new_posts(gateway, monkeypatch):
+def test_cost_accounting_persists_across_restart_without_old_post_limit(gateway, monkeypatch):
     a, _, install, root = gateway
-    monkeypatch.setattr(ledger_module, "MAX_POSTS", 2)
+    monkeypatch.setattr(ledger_module, "MAX_POSTS", 2, raising=False)
     model = install(Model(save_call_stream(), save_call_stream("call_2"), final_stream()))
     a.post("/api/assistant/turn", json=body())
     a.post("/api/assistant/turn", json=body(1, tool_results=[
@@ -245,46 +245,36 @@ def test_budget_persists_across_restart_and_blocks_new_posts(gateway, monkeypatc
     third = a.post("/api/assistant/turn", json=body(2, tool_results=[
         {"step_index": 0, "tool_call_id": "call_1", "content": "{}"},
         {"step_index": 1, "tool_call_id": "call_2", "content": "{}"}])).json()
-    assert third["refused"] == "posts" and third["budget"]["posts"] == 2
+    assert third["refused"] is None and third["budget"]["posts"] == 3
+    assert len(model.requests) == 3
+
+
+def test_retryable_step_is_not_blocked_by_old_post_budget(gateway, monkeypatch):
+    a, _, install, _ = gateway
+    monkeypatch.setattr(ledger_module, "MAX_POSTS", 1, raising=False)
+    monkeypatch.setattr(tool_chat_module, "overload_wait", lambda *args: 0.0)
+    model = install(Model(lambda request: httpx.Response(429,json={"error":{"message":"busy"}}),save_call_stream()))
+    assert a.post("/api/assistant/turn",json=body()).json()["state"] == "retryable"
+    assert a.post("/api/assistant/turn",json=body()).json()["state"] == "completed"
     assert len(model.requests) == 2
 
 
-def test_refused_retryable_step_reports_refused_without_another_post(gateway, monkeypatch):
-    a, _, install, _ = gateway
-    monkeypatch.setattr(ledger_module, "MAX_POSTS", 1)
-    monkeypatch.setattr(tool_chat_module, "overload_wait", lambda *args: 0.0)
-    model = install(Model(
-        lambda request: httpx.Response(429, json={"error": {"message": "busy"}}),
-        save_call_stream(),
-    ))
-    first = a.post("/api/assistant/turn", json=body()).json()
-    assert first["state"] == "retryable" and first["attempt"] == 1
-    # The stored row stays retryable, but the wire state is refused and the
-    # attempt number never loops forward without another POST.
-    for _ in range(3):
-        refused = a.post("/api/assistant/turn", json=body()).json()
-        assert refused["state"] == "refused" and refused["refused"] == "posts"
-        assert refused["attempt"] == 1
-    assert len(model.requests) == 1
-
-
-def test_remaining_model_seconds_below_one_refuses_without_a_post(gateway, monkeypatch):
+def test_old_run_time_budget_does_not_refuse_a_model_request(gateway, monkeypatch):
     a, _, install, _ = gateway
     model = install(Model(save_call_stream()))
-    monkeypatch.setattr(ledger_module, "MAX_MODEL_SECONDS", 0.5)
+    monkeypatch.setattr(ledger_module, "MAX_MODEL_SECONDS", 0.5, raising=False)
     result = a.post("/api/assistant/turn", json=body()).json()
-    assert result["state"] == "refused" and result["refused"] == "model_seconds"
-    assert result["attempt"] == 0 and len(model.requests) == 0
+    assert result["state"] == "completed" and len(model.requests) == 1
 
 
-def test_eight_logical_steps_is_a_hard_limit(gateway, monkeypatch):
+def test_old_step_limit_does_not_stop_a_valid_next_step(gateway, monkeypatch):
     a, _, install, _ = gateway
-    monkeypatch.setattr(ledger_module, "MAX_STEPS", 1)
-    model = install(Model(save_call_stream()))
+    monkeypatch.setattr(ledger_module, "MAX_STEPS", 1, raising=False)
+    model = install(Model(save_call_stream(),final_stream()))
     a.post("/api/assistant/turn", json=body())
-    refused = a.post("/api/assistant/turn", json=body(1, tool_results=[
-        {"step_index": 0, "tool_call_id": "call_1", "content": "{}"}])).json()
-    assert refused["refused"] == "steps" and len(model.requests) == 1
+    result = a.post("/api/assistant/turn", json=body(1, tool_results=[
+        {"step_index":0,"tool_call_id":"call_1","content":"{}"}])).json()
+    assert result["state"] == "completed" and len(model.requests) == 2
 
 
 def test_cancel_fences_later_steps_but_keeps_completed_results(gateway):

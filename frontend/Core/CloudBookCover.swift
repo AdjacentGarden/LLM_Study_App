@@ -30,3 +30,12 @@ struct CloudBookCoverRequest: Hashable {
     }
   }
 }
+
+/// Deterministic across launches and devices; never use Swift's randomized hashValue.
+enum CourseCoverFallback {
+  static let styles = ["violet", "mint", "blue", "peach", "rose", "gold"]
+  static func path(seed: String) -> String {
+    let hash = seed.utf8.reduce(UInt64(14695981039346656037)) { ($0 ^ UInt64($1)) &* 1099511628211 }
+    return "covers/library-" + styles[Int(hash % UInt64(styles.count))] + ".svg"
+  }
+}

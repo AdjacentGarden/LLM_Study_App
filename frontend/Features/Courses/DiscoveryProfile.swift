@@ -34,15 +34,14 @@ struct CourseDiscoveryView: View {
         HStack(spacing: 10) {
           searchHeader
           Button {
+            searchFocused = false
             store.openCommunitySharing()
           } label: {
             HStack(spacing: 6) {
-              BCGlyph("Upload", color: DS.primary).frame(width: 18, height: 18)
+              BCGlyph("Upload", color: .white).frame(width: 18, height: 18)
               Text("分享").font(DS.font(.button))
             }.frame(width: 86).buttonFrame()
-              .background(DS.primarySoft, in: Capsule())
-              .overlay(Capsule().stroke(DS.primary.opacity(0.18)))
-          }.buttonStyle(.plain).foregroundStyle(DS.primary)
+          }.buttonStyle(StudyToolEntryStyle()).foregroundStyle(.white)
             .accessibilityLabel("分享到发现").accessibilityIdentifier("community.share.open")
         }
           .padding(.horizontal, gutter).padding(.top, 4).padding(.bottom, 12)
@@ -65,6 +64,7 @@ struct CourseDiscoveryView: View {
                 ) {
                   ForEach(books) { book in
                     Button {
+                      searchFocused = false
                       store.selectedCommunityID = book.id
                       store.go(.communityBook)
                     } label: {
@@ -99,6 +99,8 @@ struct CourseDiscoveryView: View {
         .accessibilityValue(refreshSummary)
         .accessibilityAction(named: Text("刷新课程")) { refreshRequest += 1 }
         .scrollDismissesKeyboard(.interactively)
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded { searchFocused = false })
         .overlay(alignment: .top) {
           DiscoveryRefreshScene(distance: pullDistance, phase: refreshPhase)
             .allowsHitTesting(false)
@@ -251,11 +253,13 @@ struct CommunityBookDetailView: View {
             maxWidth: .infinity, alignment: .leading)
         }
       } action: {
-        BCButton("导入到我的课程", icon: "square.and.arrow.down") {
+        BCButton(store.cloudState.publicLibraryDownloading ? "正在下载课程资料…" : "导入到我的课程", icon: "square.and.arrow.down") {
           store.courseFeatureStartDraft(catalogID: book.id)
-          store.draft.step = 0
-          store.go(.courseSetup)
-        }.accessibilityIdentifier("community.import")
+          if store.cloud == nil {
+            store.draft.step = 0
+            store.go(.courseSetup)
+          }
+        }.disabled(store.cloudState.publicLibraryDownloading).accessibilityIdentifier("community.import")
       }
     } else {
       EmptyStateView(
@@ -276,6 +280,8 @@ struct LearnerProfileView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var compactHeader = false
+  @State private var showingCoursePicker = false
+  @State private var profileCardWidth: CGFloat = 340
   private var tasks: [StudyTask] {
     store.sources.filter { store.currentCourse?.resourceIDs.contains($0.id) == true }.flatMap {
       $0.plan.tasks
@@ -343,7 +349,7 @@ struct LearnerProfileView: View {
             compactHeader = next
           }
         }
-      BCCard {
+      ProfileSurfaceCard {
         VStack(spacing: 12) {
           HStack {
             Text("PROFILE").font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
@@ -373,10 +379,8 @@ struct LearnerProfileView: View {
             if store.courses.isEmpty {
               Button("选择课程") { store.go(.library) }.font(DS.font(.body)).foregroundStyle(DS.primary).buttonFrame()
             } else {
-              Menu {
-                ForEach(store.courses) { course in
-                  Button(course.name) { store.selectCourse(course.id) }
-                }
+              Button {
+                showingCoursePicker = true
               } label: {
                 HStack {
                   Text(store.currentCourse?.name ?? "选择课程").font(DS.font(.body)).foregroundStyle(
@@ -388,14 +392,46 @@ struct LearnerProfileView: View {
                 }.padding(.horizontal, 8).buttonFrame().frame(
                   maxWidth: .infinity, alignment: .leading
                 ).overlay(RoundedRectangle(cornerRadius: 6).stroke(DS.border))
-              }.accessibilityLabel("切换课程")
+              }.buttonStyle(.plain).accessibilityLabel("切换课程")
+                .accessibilityIdentifier("profile.course.switch")
+                .popover(isPresented: $showingCoursePicker, arrowEdge: .top) {
+                  ScrollView {
+                    LazyVStack(spacing: 0) {
+                      ForEach(store.courses) { course in
+                        Button {
+                          store.selectCourse(course.id)
+                          showingCoursePicker = false
+                        } label: {
+                          HStack(spacing: 12) {
+                            CourseCoverImage(path: store.courseFeatureCover(course), fallbackSeed: course.id)
+                              .frame(width: 34, height: 46).clipped()
+                              .clipShape(RoundedRectangle(cornerRadius: 5))
+                            Text(course.name).font(DS.font(.body)).foregroundStyle(DS.text)
+                              .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                            if store.selectedCourseID == course.id {
+                              Image(systemName: "checkmark").foregroundStyle(DS.primary)
+                            }
+                          }
+                          .padding(.horizontal, 16).frame(minHeight: 68)
+                          .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("profile.course.\(course.id)")
+                        .accessibilityAddTraits(store.selectedCourseID == course.id ? .isSelected : [])
+                      }
+                    }.padding(.vertical, 8)
+                  }
+                  .frame(width: profileCardWidth, height: min(420, CGFloat(store.courses.count) * 68 + 16))
+                  .presentationCompactAdaptation(.popover)
+                }
 
             }
           }
         }
       }
+      .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { profileCardWidth = $0 }
 
-      BCCard {
+      ProfileSurfaceCard {
         VStack(alignment: .leading, spacing: 18) {
           HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -457,6 +493,17 @@ struct LearnerProfileView: View {
   }
 }
 
+private struct ProfileSurfaceCard<Content: View>: View {
+  @ViewBuilder var content: () -> Content
+
+  var body: some View {
+    content()
+      .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+      .background(DS.surface, in: RoundedRectangle(cornerRadius: 24))
+      .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
+  }
+}
+
 private struct ProfilePortraitArtwork: View {
   var body: some View {
     Canvas { context, size in
@@ -513,6 +560,7 @@ private struct ProfilePortraitArtwork: View {
 struct LearnerSettingsView: View {
   @Environment(AppStore.self) private var store
   @State private var confirmingLogout = false
+  @State private var showingArchive = false
   var body: some View {
     CourseFeaturePage(width: 640, useSourceLayoutTop: true) {
       SettingsSourceCard {
@@ -575,16 +623,22 @@ struct LearnerSettingsView: View {
       }.padding(.top, 8)
       SettingsSourceCard {
         VStack(alignment: .leading, spacing: 8) {
-          Text(store.cloud == nil ? "本机学习数据" : "账号学习数据").font(DS.font(.sectionTitle)).frame(
+          Text("本机学习数据").font(DS.font(.sectionTitle)).frame(
             height: 26, alignment: .top)
           Text(
             store.cloud == nil
               ? "已保留 \(store.courses.count) 门课程。退出账号后，课程、资料和学习记录仍会保留，完成引导即可继续学习。"
-              : "已保存 \(store.courses.count) 门课程。课程与已同步进度保留在账号中；本机笔记暂时只保存在这台设备。待同步进度会在下次登录后继续上传。"
+              : "当前账号在这台设备上保存了 \(store.courses.count) 门课程。助手在本机查找教材、讲义、笔记和学习进度。"
           ).font(DS.font(.body))
             .foregroundStyle(DS.secondary).lineSpacing(4).padding(.vertical, 2)
+          if store.cloudState.privateLocalMode {
+            if let status = store.cloudState.migrationStatus { Text(status).font(DS.font(.caption)) }
+            Button("查看旧版资料归档") { showingArchive = true }
+          }
         }
       }
+    }.sheet(isPresented: $showingArchive) {
+      if let scope = store.noteScope { LegacyLearningArchiveView(scope: scope).id(scope) }
     }.overlay {
       if confirmingLogout {
         ZStack {
@@ -598,7 +652,7 @@ struct LearnerSettingsView: View {
               store.cloud == nil
                 ? "退出后需要重新完成个性化问题。已有课程、资料和学习记录会保留在本机。"
                 : store.cloudState.localLogin
-                  ? "已同步课程和学习进度会保留在本地默认账号中，可直接重新进入。" : "退出后需要重新使用邮箱验证码登录。已同步课程和学习进度会保留在账号中。"
+                  ? "本机课程和学习进度会保留，再次进入此账号即可查看。" : "退出后需要重新使用邮箱验证码登录。在这台设备上登录原账号即可读取已保存的课程和学习进度。"
             ).font(DS.font(.body)).foregroundStyle(
               DS.secondary
             ).lineSpacing(6)
@@ -633,5 +687,56 @@ private struct SettingsSourceCard<Content: View>: View {
     content().padding(21).frame(maxWidth: .infinity, alignment: .leading)
       .background(DS.surface, in: RoundedRectangle(cornerRadius: 14))
       .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
+  }
+}
+
+private struct LegacyLearningArchiveView: View {
+  let scope: String
+  @Environment(AppStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  @State private var records: [PrivateExportRecord] = []
+  @State private var missing: Set<String> = []
+  @State private var message = "正在读取本机归档…"
+
+  var body: some View {
+    NavigationStack {
+      List {
+        if !message.isEmpty { Text(message) }
+        if !missing.isEmpty {
+          Section("待补齐的文件") {
+            ForEach(records.filter { missing.contains($0.id) }, id: \.id) { record in
+              Text([record.payload["book_id"]?.stringValue, record.payload["kind"]?.stringValue,
+                record.payload["identifier"]?.stringValue].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+            }
+          }
+        }
+        ForEach(records.indices, id: \.self) { index in
+          let record = records[index]
+          NavigationLink {
+            let encoder = JSONEncoder()
+            let text = (try? encoder.encode(record)).map { String(decoding: $0, as: UTF8.self) } ?? ""
+            ScrollView { Text(text).textSelection(.enabled).padding() }
+              .toolbar { ShareLink(item: text) { Text("导出记录") } }
+          } label: {
+            VStack(alignment: .leading) {
+              Text(record.payload["title"]?.stringValue ?? record.payload["name"]?.stringValue ?? record.kind)
+              Text(record.id + " · " + String(record.revision.prefix(8))).font(.caption).foregroundStyle(.secondary)
+            }
+          }
+        }
+      }
+      .navigationTitle("旧版资料归档")
+      .toolbar { Button("完成") { dismiss() } }
+      .task(id: scope) {
+        do {
+          let archived = try await store.repository.privateMigrationArchives(scope: scope)
+          let checkpoint = try await store.repository.privateMigrationCheckpoint(scope: scope)
+          guard !Task.isCancelled, store.noteScope == scope else { return }
+          records = archived.sorted { ($0.kind, $0.id, $0.revision) < ($1.kind, $1.id, $1.revision) }
+          missing = Set(checkpoint?.missingRecordIDs ?? [])
+          message = records.isEmpty ? "这台设备上还没有旧版资料归档。" : ""
+        } catch { message = error.localizedDescription }
+      }
+    }
   }
 }

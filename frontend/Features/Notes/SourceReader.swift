@@ -166,10 +166,8 @@ struct NotesSourceReaderView: View {
     return page == capturedTarget?.page ? capturedTarget?.sourceText ?? "" : ""
   }
   private var pageNotes: [StudyNote] {
-    store.notes.filter {
-      $0.anchor?.bookID == bookID && $0.anchor?.page == page
-        && ($0.anchor?.courseID == nil || $0.anchor?.courseID == capturedCourseID)
-    }
+    guard let resourceID = store.courseResourceID(courseID: capturedCourseID, bookID: bookID) else { return [] }
+    return store.notes.filter { $0.anchor?.courseResourceID == resourceID && $0.anchor?.page == page }
   }
   var body: some View {
     VStack(spacing: 0) {
@@ -227,6 +225,9 @@ struct NotesSourceReaderView: View {
               !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             {
               BCButton("整理成笔记", icon: "Sparkles") {
+                guard capturedCourseID != nil else {
+                  error = "无指定课程，无法进行笔记撰写"; return
+                }
                 store.startSelectionNote(
                   AgentSelection(
                     bookID: bookID, courseID: capturedCourseID, chapterID: chapter?.chapter_id,
@@ -239,6 +240,7 @@ struct NotesSourceReaderView: View {
       }
     }.background(.white).ignoresSafeArea(edges: .bottom)
       .task { await initialize() }
+      .onChange(of: selectedText) { _, value in store.selectedQuote = value }
       .onChange(of: drawingData) { _, _ in
         guard ready, drawingData != lastSavedDrawing else { return }
         if showInkReview, drawingData != reviewedDrawing {
@@ -267,7 +269,7 @@ struct NotesSourceReaderView: View {
         Task {
           guard await flushInk() else { return }
           capturedTarget = value
-          capturedCourseID = store.selectedCourseID
+          capturedCourseID = capturedTarget?.courseID
           capturedBookID = value?.bookID ?? store.selectedBookID
           page = NotesReadingPosition.initialPage(
             courseID: capturedCourseID, bookID: bookID, target: value, locations: store.locations,
@@ -321,6 +323,7 @@ struct NotesSourceReaderView: View {
                               pageText: pageText, referenceImage: regionPreview,
                               note: regionNote, onClose: closeRegion).id(regionSession)
           }
+          .opacity(store.assistantState.screenshotExcludesAssistant ? 0 : 1)
         }
       }
       .overlay {
@@ -650,6 +653,7 @@ struct NotesSourceReaderView: View {
   private func makeAnchor() -> NoteAnchor {
     var anchor = NoteAnchor(bookID: bookID, page: page)
     anchor.courseID = capturedCourseID
+    anchor.courseResourceID = store.courseResourceID(courseID: capturedCourseID, bookID: bookID)
     anchor.chapterID = chapter?.chapter_id
     anchor.printedPage = chapter?.printed_page_start.map {
       $0 + page - (chapter?.page_start ?? page)
@@ -658,6 +662,9 @@ struct NotesSourceReaderView: View {
     return anchor
   }
   private func createAnnotation(at position: UnitPointValue) {
+    guard store.courseResourceID(courseID: capturedCourseID, bookID: bookID) != nil else {
+      error = "无指定课程，无法进行笔记撰写"; return
+    }
     var note = StudyNote(kind: .text, title: heading, body: "")
     note.anchor = makeAnchor()
     note.position = position
@@ -670,6 +677,9 @@ struct NotesSourceReaderView: View {
     changeMode(selected ? .read : .ink)
   }
   private func changeMode(_ next: NotesReaderMode, toggle: Bool = false) {
+    if next != .read, store.courseResourceID(courseID: capturedCourseID, bookID: bookID) == nil {
+      error = "无指定课程，无法进行笔记撰写"; return
+    }
     Task {
       if await flushInk() {
         mode = toggle && next == mode ? .read : next
@@ -705,8 +715,9 @@ struct NotesSourceReaderView: View {
     }
   }
   private func initialize() async {
+    store.selectedQuote = ""
     capturedTarget = store.sourceTarget
-    capturedCourseID = store.selectedCourseID
+    capturedCourseID = capturedTarget?.courseID
     capturedBookID = capturedTarget?.bookID ?? store.selectedBookID
     page = NotesReadingPosition.initialPage(
       courseID: capturedCourseID, bookID: bookID, target: capturedTarget,
@@ -1036,6 +1047,12 @@ struct NotesRegionAIView: View {
   let note: StudyNote?
   var onClose: () -> Void
   @State private var messages: [ChatMessage] = []
+  @State private var temporarySessionID = UUID().uuidString
+  @State private var frozenContext: AgentFrozenContext?
+  @State private var contextTokens = 0
+  @State private var capacityLocked = false
+  @State private var showingCapacityAlert = false
+  @State private var temporaryAttachments: [AssistantAttachment] = []
   @State private var question = ""
   @State private var loading = false
   @State private var issue: String?
@@ -1061,9 +1078,7 @@ struct NotesRegionAIView: View {
         }.frame(height: DS.ButtonSize.regular.height)
         }
         if !compact {
-        Text(bookID.hasPrefix("book_local_") || store.cloud == nil
-          ? "从本机资料查找原文依据，离线结果以引用摘录呈现"
-          : "由已连接的学习服务检索教材并回答")
+        Text("临时批注对话 · 关闭后不保留问答，仅保留实际保存的学习产出")
           .font(DS.font(.caption)).foregroundStyle(DS.secondary)
         }
         if !compact && (!inputFocused || viewport.size.height >= 430) {
@@ -1075,7 +1090,7 @@ struct NotesRegionAIView: View {
               if messages.isEmpty {
                 bubble(isTextNote
                   ? "我会结合你的批注和所在教材页一起讨论。可以检查你的理解，也可以继续追问。"
-                  : "可以针对当前页提问。我会使用可提取的教材文字和检索依据；圈选图片暂作参照，请用文字补充图片中的细节。",
+                  : "可以针对当前页提问，也可以查询课程、讨论附件或保存学习产出。",
                   user: false)
               }
               ForEach(messages) { message in
@@ -1113,6 +1128,10 @@ struct NotesRegionAIView: View {
                   }
                 }.id(message.id)
               }
+              if !loading, let run = store.agent.active, run.context.sessionID == temporarySessionID,
+                run.scope == store.noteScope, run.status.isTerminal {
+                AssistantResultActions(run: run, onNavigate: onClose)
+              }
               if loading {
                 bubble(isTextNote ? "正在结合批注和教材回答…" : "正在结合圈选内容回答…", user: false)
               }
@@ -1140,6 +1159,14 @@ struct NotesRegionAIView: View {
           }
         }
         VStack(alignment: .leading, spacing: 8) {
+          Text("当前上下文 约 \(contextTokens / 1000)K / 1M tokens")
+            .font(DS.font(.caption)).foregroundStyle(DS.secondary)
+          if let run = store.agent.active, run.context.sessionID == temporarySessionID, let choice = run.pendingChoice {
+            Text(choice.question).font(DS.font(.supporting))
+            ForEach(choice.options, id: \.self) { option in
+              Button(option) { store.agent.choose(option) }
+            }
+          }
           if !compact {
             Text(isTextNote ? "针对这条批注提问" : "针对圈选区域提问")
               .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
@@ -1155,14 +1182,53 @@ struct NotesRegionAIView: View {
             .focused($inputFocused).submitLabel(.send).onSubmit { ask(question) }
             .accessibilityIdentifier("reader.regionInput")
           BCButton(loading ? "正在提问…" : "提问") { ask(question) }
-            .disabled(loading).accessibilityIdentifier("reader.regionSend")
+            .disabled(loading || capacityLocked).accessibilityIdentifier("reader.regionSend")
             .frame(width: compact ? 72 : nil)
           }
         }.fixedSize(horizontal: false, vertical: true)
       }.padding(12).frame(width: viewport.size.width, height: viewport.size.height)
-    }.task { messages = note?.conversation ?? [] }
+    }.task {
+      messages = []
+      var session = store.assistantSessionContext
+      session.bookID = bookID
+      session.chapterID = chapterID
+      session.courseID = note?.anchor?.courseID ?? store.sourceTarget?.courseID
+        ?? (store.currentCourse?.resourceIDs.contains(bookID) == true ? store.selectedCourseID : nil)
+      var context = store.agent.frozenContext(session: session)
+      context.page = page
+      context.selection = pageText
+      context.currentNoteID = note?.id
+      frozenContext = context
+    }
+      .onChange(of: store.agent.active) { _, run in
+        if let run, run.context.sessionID == temporarySessionID {
+          contextTokens = run.contextTokens ?? contextTokens
+          if contextTokens >= 900_000 { capacityLocked = true }
+          if contextTokens >= 1_000_000 || (capacityLocked && run.status.isTerminal) {
+            showingCapacityAlert = true
+          }
+        }
+      }
+      .alert("此对话已达到上下文上限", isPresented: $showingCapacityAlert) {
+        Button("新建对话") {
+          store.agent.closeEphemeral()
+          messages = []
+          temporarySessionID = UUID().uuidString
+          contextTokens = 0
+          capacityLocked = false
+        }
+      }
       .onDisappear {
         request?.cancel()
+        store.agent.closeEphemeral()
+        messages = []
+        let preserved = Set(store.notes.flatMap { $0.references ?? [] }.compactMap(\.attachmentPath))
+        for attachment in temporaryAttachments {
+          for path in [attachment.path, attachment.thumbnailPath, attachment.textPath].compactMap({ $0 }) where !preserved.contains(path) {
+            try? FileManager.default.removeItem(at: store.attachmentURL(path))
+          }
+        }
+        temporaryAttachments = []
       }
   }
   @ViewBuilder private var reference: some View {
@@ -1184,7 +1250,7 @@ struct NotesRegionAIView: View {
     }
   }
   private func bubble(_ text: String, user: Bool) -> some View {
-    Text(text).font(DS.font(.reading)).lineSpacing(8).textSelection(.enabled)
+    AssistantChatText(text, user: user).font(DS.font(.reading)).lineSpacing(8).textSelection(.enabled)
       .padding(12).frame(maxWidth: .infinity, alignment: .leading)
       .background(user ? DS.primarySoft : .white, in: RoundedRectangle(cornerRadius: 18))
       .overlay(RoundedRectangle(cornerRadius: 18).stroke(DS.border))
@@ -1194,15 +1260,9 @@ struct NotesRegionAIView: View {
       .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
       .background(.white, in: Capsule()).overlay(Capsule().stroke(DS.border)).disabled(loading)
   }
-  private func persistConversation() async {
-    guard let note, var latest = store.notes.first(where: { $0.id == note.id }) else { return }
-    latest.conversation = messages
-    do { try await store.saveNote(latest) }
-    catch { issue = "对话暂时未能保存，当前内容仍可查看。" }
-  }
   private func ask(_ raw: String) {
     let input = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !input.isEmpty, !loading else { return }
+    guard !input.isEmpty, !loading, !capacityLocked else { return }
     guard input.unicodeScalars.count <= 2000 else {
       issue = "问题最多 2000 字，请缩短问题后再提问；批注和页内文字会单独提供。"
       return
@@ -1212,31 +1272,27 @@ struct NotesRegionAIView: View {
     failedQuestion = nil
     inputFocused = false
     let history = messages
-    let submittedMessage = ChatMessage(role: "user", text: input)
-    let courseID = store.selectedCourseID
-    let selectedBookID = store.selectedBookID
-    let sourceBookIDs = store.currentCourse?.resourceIDs ?? [bookID]
-    let sources = store.sources
     let epoch = store.cloudState.epoch
     request = Task { @MainActor in
       do {
         try Task.checkCancellation()
         if question.trimmingCharacters(in: .whitespacesAndNewlines) == input { question = "" }
-        messages.append(submittedMessage)
-        await persistConversation()
-        let readingContext = CloudReadingContext(pdfPage: page, pageText: pageText,
-          noteText: note?.body ?? "")
-        let result = try await store.answerAssistant(question: input, bookID: bookID,
-          bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history,
-          readingContext: readingContext, requestID: submittedMessage.id)
-        try Task.checkCancellation()
-        guard store.selectedCourseID == courseID, store.selectedBookID == selectedBookID,
-          epoch == store.cloudState.epoch else {
-          throw CancellationError()
+        messages.append(ChatMessage(role: "user", text: input))
+        guard let frozenContext, !capacityLocked else { throw ContentError.invalid("此对话已达到上下文上限，请重新打开批注对话。") }
+        if temporaryAttachments.isEmpty, let image = referenceImage, let bytes = image.pngData() {
+          let attachment = try await AssistantAttachmentImporter.photo(bytes, repository: store.repository)
+          try Task.checkCancellation()
+          temporaryAttachments = [attachment]
         }
-        messages.append(ChatMessage(role: "assistant", text: result.answer, citations: result.citations,
+        let result = try await store.agent.answerUnified(sessionID: temporarySessionID,
+          messageID: messages.last?.id ?? UUID().uuidString, request: input,
+          context: frozenContext, history: history, attachments: temporaryAttachments, ephemeral: true)
+        try Task.checkCancellation()
+        guard epoch == store.cloudState.epoch else { throw CancellationError() }
+        contextTokens = result.contextTokens ?? contextTokens
+        capacityLocked = capacityLocked || contextTokens >= 900_000
+        messages.append(ChatMessage(role: "assistant", text: result.text, citations: result.citations,
           sourceLabel: result.sourceLabel))
-        await persistConversation()
       } catch {
         if !Task.isCancelled {
           issue = error.localizedDescription

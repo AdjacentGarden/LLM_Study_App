@@ -21,6 +21,7 @@ from ..community import CommunityRepository, text_fingerprint
 from ..ingestion.covers import cover_url
 from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..ingestion.models import BookStructure
+from ..public_materials import public_group_contains_book
 from ..social import SocialRepository
 from .account_routes import account_router
 from .retention_routes import retention_router
@@ -575,6 +576,8 @@ def community_router(
         # Native uploads already have durable ownership before an optional shelf
         # claim/publication. Studio access must not claim or publish on a read.
         if repo.owns_upload(owner, book_id) and jobs().get_book(book_id) is not None:
+            return
+        if accounts.account(owner) and public_group_contains_book(repo, book_id):
             return
         owned_book(owner, book_id)
 

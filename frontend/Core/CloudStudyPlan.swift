@@ -76,11 +76,19 @@ struct CloudPlanFocus: Sendable {
 
 extension AppStore {
   var usesCloudDailyPlan: Bool {
-    cloud != nil && selectedCourseID.map { id in cloudState.workspaces.contains { $0.id == id } } == true
+    !cloudState.privateLocalMode && cloud != nil && selectedCourseID.map { id in cloudState.workspaces.contains { $0.id == id } } == true
   }
 
   func dailyStudyPlan(_ day: String = DailyStudyPlanState.day()) -> CloudStudyPlan? {
-    selectedCourseID.flatMap { dailyPlanState.plans[DailyStudyPlanState.key($0, day)] }
+    guard let id = selectedCourseID else { return nil }
+    let extra = agentPlanTasks(courseID: id, date: day)
+    guard var plan = dailyPlanState.plans[DailyStudyPlanState.key(id, day)] else {
+      return extra.isEmpty ? nil : CloudStudyPlan(plan_id: "agent:" + id + ":" + day, day: day, budget_minutes: extra.reduce(0) { $0 + $1.minutes },
+        estimated_minutes: extra.reduce(0) { $0 + $1.minutes }, needs_confirmation: false, confirmed: true, revision: 1,
+        tasks: extra, queue: [], preferences_changed: false, remaining_task_count: extra.count)
+    }
+    plan.tasks.append(contentsOf: extra.filter { candidate in !plan.tasks.contains { $0.id == candidate.id } })
+    return plan
   }
 
   var dailyStudyPlanLoadKey: String {
@@ -93,6 +101,7 @@ extension AppStore {
   }
 
   func loadDailyStudyPlan(day: String = DailyStudyPlanState.day(), workspaceID: String? = nil) async {
+    guard !cloudState.privateLocalMode else { return }
     guard let cloud, cloudState.authenticated, let wid = workspaceID ?? selectedCourseID,
       cloudState.workspaces.contains(where: { $0.id == wid }) else { return }
     let key = DailyStudyPlanState.key(wid, day)
@@ -121,6 +130,12 @@ extension AppStore {
   }
 
   func confirmDailyStudyPlan(day: String) async {
+    if cloudState.privateLocalMode, let id = selectedCourseID {
+      let key = DailyStudyPlanState.key(id, day)
+      dailyPlanState.plans[key]?.confirmed = true
+      dailyPlanState.plans[key]?.needs_confirmation = false
+      persist(); return
+    }
     guard let cloud, let wid = selectedCourseID, let plan = dailyStudyPlan(day) else { return }
     let key = DailyStudyPlanState.key(wid, day), epoch = cloudState.epoch
     guard !dailyPlanState.confirming.contains(key) else { return }
@@ -149,6 +164,14 @@ extension AppStore {
   func completeDailyStudyTask(_ task: CloudStudyPlanTask, day: String, workspaceID: String? = nil,
     waitForSync: Bool = true) async {
     guard cloudState.authenticated, let wid = workspaceID ?? selectedCourseID else { return }
+    if cloudState.privateLocalMode {
+      if await completeAgentStudyTask(task, day: day, courseID: wid) { return }
+      let key = DailyStudyPlanState.key(wid, day)
+      if let i = dailyPlanState.plans[key]?.tasks.firstIndex(where: { $0.id == task.id }) { dailyPlanState.plans[key]?.tasks[i].status = "done" }
+      if let si = sources.firstIndex(where: { $0.id == task.book_id }), let ti = sources[si].plan.tasks.firstIndex(where: { $0.id == task.id }) { sources[si].plan.tasks[ti].status = "done" }
+      persist(); return
+    }
+    if await completeAgentStudyTask(task, day: day, courseID: wid) { return }
     let key = DailyStudyPlanState.key(wid, day)
     let epoch = cloudState.epoch
     guard let plan = dailyPlanState.plans[key], let savedTask = plan.tasks.first(where: { $0.id == task.id }),
@@ -170,6 +193,7 @@ extension AppStore {
 
   /// Called by the existing serialized sync worker, using durable event IDs on every retry.
   func syncDailyStudyCompletions(epoch: UUID) async throws {
+    guard cloudState.legacyPrivateSyncEnabled else { return }
     guard let cloud else { return }
     while let entry = dailyPlanState.pending.first {
       await persistTask?.value
@@ -177,6 +201,16 @@ extension AppStore {
       guard cloudState.cacheWriteError == nil else { throw ContentError.storage("完成记录尚未保存，请重试。") }
       let key = DailyStudyPlanState.key(entry.workspaceID, entry.day)
       do {
+        if let object = agentTaskObject(taskID: entry.taskID, courseID: entry.workspaceID) {
+          let _: [String: JSONValue] = try await cloud.request("/api/assistant/learning-data/\(object.id)/complete", method: "POST",
+            body: ["operation_id": .string(entry.eventID), "task_id": .string(entry.taskID)])
+          guard epoch == cloudState.epoch else { throw CancellationError() }
+          dailyPlanState.pending.removeAll { $0.eventID == entry.eventID }
+          await reloadAgentLearningObjects()
+          saveCloudCacheOnly()
+          await persistTask?.value
+          continue
+        }
         var safe = CharacterSet.urlPathAllowed
         safe.remove(charactersIn: "/?#%")
         guard let taskID = entry.taskID.addingPercentEncoding(withAllowedCharacters: safe) else { return }
@@ -214,6 +248,15 @@ extension AppStore {
       return
     }
     selectSource(task.book_id)
+    if task.kind == "recall", let cardID = task.card_id,
+      let card = ((currentSource?.flashcards ?? []) + agentFlashcards).first(where: { $0.id == cardID }) {
+      dailyPlanState.focus = CloudPlanFocus(workspaceID: wid, day: day, task: task)
+      selectedChapterID = card.chapter_id.isEmpty ? nil : card.chapter_id
+      selectedLessonID = lessons.first(where: { $0.chapter_id == card.chapter_id })?.id
+      learningState.agentFocusCardID = cardID
+      go(.flashcards)
+      return
+    }
     guard let lesson = lessons.first(where: { $0.id == task.lesson_id || $0.chapter_id == task.chapter_id }),
       lesson.status == "ready" else { showToast("课程内容尚未准备好，请稍后刷新。", kind: .warning); return }
     dailyPlanState.focus = CloudPlanFocus(workspaceID: wid, day: day, task: task)
@@ -230,6 +273,25 @@ extension AppStore {
     guard let focus = dailyPlanState.focus, focus.workspaceID == selectedCourseID,
       focus.task.book_id == selectedBookID, focus.task.chapter_id == selectedChapterID else { return nil }
     return focus
+  }
+
+  /// Completing a whole lesson also completes its scheduled learning tasks,
+  /// including when the reader was opened from the chapter directory.
+  func finishLessonDailyStudyTasks(_ lesson: Lesson, workspaceID: String?, epoch: UUID,
+    focus: CloudPlanFocus?) async {
+    guard epoch == cloudState.epoch, let wid = workspaceID,
+      let resource = cloudState.workspaces.first(where: { $0.id == wid })?
+        .resources.first(where: { $0.book_id == lesson.book_id }) else { return }
+    let day = focus.flatMap { $0.task.kind == "learn" ? $0.day : nil } ?? DailyStudyPlanState.day()
+    let key = DailyStudyPlanState.key(wid, day)
+    if dailyPlanState.plans[key] == nil { await loadDailyStudyPlan(day: day, workspaceID: wid) }
+    guard epoch == cloudState.epoch, let plan = dailyPlanState.plans[key] else { return }
+    for task in plan.tasks where task.kind == "learn" && task.resource_id == resource.id
+      && task.book_id == lesson.book_id && task.chapter_id == lesson.chapter_id
+      && (task.lesson_id == nil || task.lesson_id == lesson.id) && !task.isDone {
+      guard epoch == cloudState.epoch else { return }
+      await completeDailyStudyTask(task, day: day, workspaceID: wid, waitForSync: false)
+    }
   }
 
   func finishDailyStudyTask(_ focus: CloudPlanFocus?, kind: String, itemIDs: Set<String> = []) async {

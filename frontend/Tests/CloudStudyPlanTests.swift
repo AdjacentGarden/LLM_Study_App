@@ -55,7 +55,7 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     config.protocolClasses = [StudyPlanProtocol.self]
     let session = URLSession(configuration: config)
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
-    let store = AppStore(repository: repo, cloud: CloudAPI(baseURL: URL(string: "http://\(host)")!, session: session))
+    let store = AppStore(repository: repo, cloud: CloudAPI(baseURL: URL(string: "http://\(host)")!, session: session, legacyPrivateSyncEnabled: true))
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = host
     store.cloudState.workspaces = [CloudWorkspace(id: "workspace", name: "数学课", preferences: [:],
@@ -118,7 +118,7 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertTrue(store.dailyPlanState.pending.isEmpty)
     XCTAssertEqual(store.cloudResource?.progress.completed_chapters, [])
     XCTAssertEqual(probe.requests.filter { $0.httpMethod == "POST" }.count, 1)
-    XCTAssertEqual(try body(sent.requests[0])["day"] as? String, day)
+    XCTAssertEqual(try body(XCTUnwrap(sent.requests.first))["day"] as? String, day)
     await store.completeDailyStudyTask(task, day: day)
     XCTAssertEqual(probe.requests.filter { $0.httpMethod == "POST" }.count, 1,
       "A stale card or delayed reader callback must not send an acknowledged task again")
@@ -133,6 +133,45 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     await store.completeDailyStudyTask(try XCTUnwrap(store.dailyStudyPlan(day)?.tasks.first), day: day)
     XCTAssertTrue(store.dailyPlanState.pending.isEmpty)
     XCTAssertTrue(probe.requests.allSatisfy { $0.httpMethod == "GET" })
+  }
+
+  func testLessonOpenedFromDirectoryCompletesOnlyItsScheduledLearningTasks() async throws {
+    let (store, probe, session, host) = try fixture()
+    defer { StudyPlanProtocol.install(host, nil); session.invalidateAndCancel() }
+    let today = DailyStudyPlanState.day()
+    var plan = try JSONDecoder().decode(CloudStudyPlan.self, from: wire())
+    plan.day = today
+    var practice = plan.tasks[0]
+    practice.task_id = "practice:resource:point"
+    practice.kind = "practice"
+    var other = plan.tasks[0]
+    other.task_id = "learn:other:point"
+    other.resource_id = "other-resource"
+    plan.tasks += [practice, other]
+    var done = plan
+    done.tasks[0].status = "done"
+    let pendingData = try JSONEncoder().encode(plan), doneData = try JSONEncoder().encode(done)
+    let writes = StudyPlanProbe()
+    writes.handler = { _ in (200, Data()) }
+    probe.handler = { request in
+      if request.httpMethod == "POST" {
+        _ = try writes.respond(request)
+        return (200, Data(#"{"ok":true}"#.utf8))
+      }
+      return (200, writes.requests.isEmpty ? pendingData : doneData)
+    }
+    var lesson = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first?.lessons.first)
+    lesson.book_id = "book"
+    lesson.chapter_id = "chapter"
+    XCTAssertNil(store.activeDailyStudyTask)
+    await store.finishLessonDailyStudyTasks(lesson, workspaceID: "workspace",
+      epoch: store.cloudState.epoch, focus: nil)
+    await store.flush()
+    XCTAssertEqual(store.dailyStudyPlan(today)?.completedCount, 1)
+    XCTAssertEqual(writes.requests.count, 1)
+    XCTAssertTrue(writes.requests.first?.url?.path.contains("/learn:resource:point/complete") == true)
+    XCTAssertEqual(store.dailyStudyPlan(today)?.tasks[1].status, practice.status)
+    XCTAssertEqual(store.dailyStudyPlan(today)?.tasks[2].status, other.status)
   }
 
   func testReviewAcknowledgementCompletesAttachedPlanTask() async throws {
@@ -194,8 +233,8 @@ private final class StudyPlanProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(restored.dailyStudyPlan(day)?.completedCount, 1)
     let writes = probe.requests.filter { $0.httpMethod == "POST" }
     XCTAssertEqual(writes.count, 2)
-    XCTAssertEqual(try body(writes[0])["event_id"] as? String, event)
-    XCTAssertEqual(try body(writes[1])["event_id"] as? String, event)
+    XCTAssertEqual(try body(XCTUnwrap(writes.first))["event_id"] as? String, event)
+    XCTAssertEqual(try body(XCTUnwrap(writes.dropFirst().first))["event_id"] as? String, event)
   }
 
   func testLateResponseAfterAccountChangeCannotInstallOldPlan() async throws {

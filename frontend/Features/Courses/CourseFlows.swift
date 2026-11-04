@@ -64,12 +64,8 @@ struct LearnerOnboardingView: View {
           .disabled(saving || advancing)
           .padding(.top, max(12, 78 * verticalScale - geometry.safeAreaInsets.top))
 
-          Text(titles[step])
-            .font(DS.font(.pageTitle)).foregroundStyle(.black)
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
-            .accessibilityAddTraits(.isHeader).accessibilityIdentifier("onboarding.question")
+          PersonalizationQuestionTitle(title: titles[step])
+            .accessibilityIdentifier("onboarding.question")
             .padding(.top, 70 * verticalScale)
 
           Group {
@@ -111,7 +107,7 @@ struct LearnerOnboardingView: View {
                 }
               }.frame(maxWidth: .infinity, minHeight: 282 * scale, alignment: .top)
             } else if step == 2 {
-              LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+              PersonalizationChoices {
                 ForEach(Array(CourseOptions.times.enumerated()), id: \.element.0) { index, option in
                   OnboardingChoiceCard(label: option.1, selected: dailyTime == option.0,
                     scale: scale) {
@@ -125,7 +121,7 @@ struct LearnerOnboardingView: View {
                 }
               }.accessibilityLabel("每日学习时间")
             } else {
-              LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+              PersonalizationChoices {
                 ForEach(choices, id: \.0) { value, label, icon in
                   OnboardingChoiceCard(label: label, selected: isSelected(value), scale: scale) {
                     StickerIcon(icon, size: 56)
@@ -355,10 +351,11 @@ struct LearnerOnboardingView: View {
 }
 
 /// The four-card questionnaire composition from Figma 262:526.
-private struct OnboardingChoiceCard<Icon: View>: View {
+struct OnboardingChoiceCard<Icon: View>: View {
   let label: String
   let selected: Bool
   let scale: CGFloat
+  var selectionHint = "选择后自动进入下一题"
   @ViewBuilder let icon: () -> Icon
   let action: () -> Void
   var body: some View {
@@ -379,8 +376,41 @@ private struct OnboardingChoiceCard<Icon: View>: View {
       .contentShape(RoundedRectangle(cornerRadius: 16))
     }
     .buttonStyle(BCPressStyle())
-    .accessibilityLabel(label).accessibilityHint("选择后自动进入下一题")
+    .accessibilityLabel(label).accessibilityHint(selectionHint)
     .accessibilityAddTraits(selected ? .isSelected : [])
+  }
+}
+
+/// Shared by account preferences, course preferences and server-driven questions.
+struct PersonalizationQuestionTitle: View {
+  let title: String
+  var body: some View {
+    Text(title).font(DS.font(.pageTitle)).foregroundStyle(DS.text)
+      .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+      .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+      .accessibilityAddTraits(.isHeader)
+  }
+}
+
+struct PersonalizationOptionIcon: View {
+  let name: String
+  var body: some View {
+    if ContentBundle.url("icons/sticker-\(name).svg") != nil {
+      StickerIcon(name, size: 56)
+    } else {
+      CourseBadgeIcon(name: name, size: 56)
+    }
+  }
+}
+
+struct PersonalizationChoices<Content: View>: View {
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  @ViewBuilder let content: () -> Content
+  var body: some View {
+    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top),
+      count: dynamicTypeSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 10) {
+      content()
+    }
   }
 }
 
@@ -455,68 +485,83 @@ struct CourseSetupView: View {
   @State private var error: String?
   @State private var saving = false
   @State private var selectingFile = false
+  @State private var advancing = false
+  @State private var advanceTask: Task<Void, Never>?
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  private var question: CourseDiagnosisQuestion {
+    CourseDiagnosisQuestion.all[min(5, max(0, store.draft.step))]
+  }
+  private var canContinue: Bool {
+    store.draft.step < 0 || !(store.draft.diagnosis[question.id]?.isEmpty ?? true)
+  }
   var body: some View {
     @Bindable var store = store
     GeometryReader { geometry in
       ScrollView {
-        VStack(spacing: 12) {
-          Text(
-            store.draft.step < 0
-              ? "调整课程" : CourseDiagnosisQuestion.all[min(5, store.draft.step)].title
-          ).font(DS.font(.pageTitle))
-            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-            .frame(minHeight: 44, alignment: .top)
-          flowTop(step: max(0, store.draft.step), total: 6) { previous() }
-          if store.draft.step < 0 {
-            basicInformation
-          } else {
-            let question = CourseDiagnosisQuestion.all[min(5, store.draft.step)]
-            Spacer(minLength: 16)
-            VStack(spacing: 28) {
-              CourseBadgeIcon(name: question.icon, index: 3, size: 48)
-              // The original flow exposes the question as a group label and keeps the canvas focused on the choices.
-              CourseChoicesLayout(
-                columns: question.options.count == 5
-                  || (geometry.size.width <= 600 && question.multiple)
-                  ? 2 : geometry.size.width <= 600 ? 1 : nil
-              ) {
-                ForEach(question.options, id: \.0) { value, label, icon in
-                  CourseChoice(
-                    label: label,
-                    selected: store.draft.diagnosis[question.id]?.contains(value) == true,
-                    icon: icon, illustrated: true,
-                    toneIndex: question.options.firstIndex { $0.0 == value } ?? 0
-                  ) {
-                    store.draft.diagnosis[question.id] = question.toggle(
-                      value, in: store.draft.diagnosis[question.id] ?? [])
-                    error = nil
-                    store.persist()
-                  }
-                }
-              }.accessibilityElement(children: .contain).accessibilityLabel(question.title)
-            }
-            Spacer(minLength: 24)
+        VStack(alignment: .leading, spacing: 0) {
+          flowTop(step: max(0, store.draft.step), total: CourseDiagnosisQuestion.all.count) { previous() }
+            .disabled(saving)
+          if !store.draft.name.isEmpty {
+            Text(store.draft.name).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+              .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 24)
           }
-          VStack(spacing: 12) {
-            if let error { Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
-            CourseFlowPrimaryButton(
-              title: saving ? "正在准备课程…" : store.draft.step < 5 ? "下一页" : completionTitle
-            ) { next() }.clipShape(Capsule()).disabled(saving)
-              .accessibilityIdentifier("courseSetup.next")
-            if store.draft.editingCourseID != nil {
-              BCButton("返回课程", style: .text) {
-                store.persist()
-                store.back()
+          PersonalizationQuestionTitle(title: store.draft.step < 0 ? "调整课程" : question.title)
+            .accessibilityIdentifier("courseSetup.question")
+            .padding(.top, 32)
+          if store.draft.step < 0 {
+            basicInformation.padding(.top, 32)
+          } else {
+            Text(question.multiple ? "可多选，选好后点击下一步" : "请选择一项，选择后自动进入下一题")
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary).padding(.top, 12)
+            PersonalizationChoices {
+              ForEach(question.options, id: \.0) { value, label, icon in
+                OnboardingChoiceCard(label: label,
+                  selected: store.draft.diagnosis[question.id]?.contains(value) == true,
+                  scale: 1,
+                  selectionHint: question.multiple ? "可选择多项，再点击下一步" : "选择后自动进入下一题") {
+                  PersonalizationOptionIcon(name: icon)
+                } action: { choose(value) }
+                .accessibilityIdentifier("courseSetup.option.\(question.id).\(value)")
               }
             }
+            .accessibilityElement(children: .contain).accessibilityLabel(question.title)
+            .disabled(saving || advancing).padding(.top, 36)
           }
-        }.frame(maxWidth: 560).frame(
-          minHeight: max(440, geometry.size.height - (store.isPad ? 56 : 40))
-        ).padding(
-          .horizontal, 20
-        ).padding(.top, store.isPad ? 42 : 4).padding(.bottom, 20).frame(maxWidth: .infinity)
+          VStack(spacing: 16) {
+            if let message = store.courseDraftSyncMessage {
+              Text(message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                .accessibilityIdentifier("courseSetup.syncStatus")
+            }
+            if let error {
+              Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
+                .accessibilityIdentifier("courseSetup.error")
+            }
+            if saving { ProgressView("正在准备课程…") }
+            if store.draft.step < 0 || question.multiple || store.draft.step == 5 || error != nil {
+              CourseFlowPrimaryButton(
+                title: saving ? "正在准备课程…" : store.draft.step < 5 ? "下一步" : completionTitle
+              ) { next() }.clipShape(Capsule()).disabled(saving || advancing || !canContinue)
+                .accessibilityIdentifier("courseSetup.next")
+            }
+            if store.draft.editingCourseID != nil {
+              BCButton("返回课程", style: .text) {
+                cancelAdvance()
+                store.persist()
+                store.back()
+              }.disabled(saving)
+            }
+          }.frame(maxWidth: .infinity).padding(.top, 48)
+          Spacer(minLength: 36)
+        }
+        .frame(width: min(400, max(240, geometry.size.width - 74)),
+          alignment: .leading)
+        .frame(minHeight: geometry.size.height, alignment: .top)
+        .padding(.top, 24).padding(.bottom, 20).frame(maxWidth: .infinity)
       }.scrollDismissesKeyboard(.interactively)
-    }.fileImporter(
+    }
+    .background(DS.background.ignoresSafeArea())
+    .onDisappear { cancelAdvance() }
+    .fileImporter(
       isPresented: $selectingFile,
       allowedContentTypes: store.cloud == nil ? CourseUploadView.allowedTypes : [.pdf],
       allowsMultipleSelection: true
@@ -566,8 +611,34 @@ struct CourseSetupView: View {
       BCButton("添加本地资料", icon: "doc.badge.plus", style: .secondary) { selectingFile = true }
     }
   }
-  private func previous() {
+  private func cancelAdvance() {
+    advanceTask?.cancel()
+    advanceTask = nil
+    advancing = false
+  }
+  private func choose(_ value: String) {
+    guard !saving, !advancing else { return }
+    store.draft.diagnosis[question.id] = question.toggle(value, in: store.draft.diagnosis[question.id] ?? [])
     error = nil
+    store.persist()
+    guard !question.multiple, store.draft.step < 5 else { return }
+    advancing = true
+    let step = store.draft.step
+    advanceTask = Task { @MainActor in
+      do { try await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 200)) }
+      catch { return }
+      guard !Task.isCancelled, store.draft.step == step else { return }
+      advancing = false
+      next()
+    }
+  }
+  private func previous() {
+    cancelAdvance()
+    error = nil
+    if store.draft.importCourseID != nil && store.draft.editingCourseID == nil {
+      store.pauseCourseSetup()
+      return
+    }
     if store.draft.step > 0 {
       store.draft.step -= 1
     } else if store.draft.step == 0 && store.draft.editingCourseID != nil {
@@ -578,6 +649,7 @@ struct CourseSetupView: View {
     store.persist()
   }
   private func next() {
+    guard !saving, !advancing else { return }
     if store.draft.step < 0 {
       guard !store.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
         error = "请填写课程名称"
@@ -597,7 +669,7 @@ struct CourseSetupView: View {
     }
     error = nil
     if store.draft.step < 5 {
-      withAnimation { store.draft.step += 1 }
+      withAnimation(reduceMotion ? nil : DS.localAnimation) { store.draft.step += 1 }
       store.persist()
       return
     }
@@ -924,7 +996,6 @@ struct CourseProcessingView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var started = false
-  @State private var importStage = 0
   private var onDevice: Bool { !importing && (store.activeImportRoute == .onDevice || store.cloud == nil) }
   private var stages: [String] {
     if onDevice { return ["本机识别原文", "原文已保存，可阅读与检索"] }
@@ -937,12 +1008,13 @@ struct CourseProcessingView: View {
   }
   private var progress: Double {
     importing
-      ? Double(importStage) / 5
+      ? Double(store.courseCreationSteps.filter(\.completed).count) / Double(store.courseCreationSteps.count)
       : min(
         1, store.processingProgress > 1 ? store.processingProgress / 100 : store.processingProgress)
   }
   private var activeStage: Int {
-    if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return importing ? -1 : 0 }
+    if importing { return store.courseCreationSteps.firstIndex(where: { !$0.completed }) ?? stages.count }
+    if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return 0 }
     if onDevice { return store.importJob?.status == .completed ? 1 : 0 }
     if !importing, store.importState.courses.first(where: { $0.id == store.importState.legacyCourseID })?.onDeviceOnly == true {
       return store.importJob?.status == .completed ? 2 : 1
@@ -978,7 +1050,7 @@ struct CourseProcessingView: View {
           VStack(spacing: 12) {
             VStack(spacing: 8) {
               ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
-                let done = index < activeStage || progress >= 1
+                let done = importing ? store.courseCreationSteps[index].completed : index < activeStage || progress >= 1
                 let active = index == activeStage && progress < 1
                 HStack(spacing: 10) {
                   Group {
@@ -992,7 +1064,7 @@ struct CourseProcessingView: View {
                   }.frame(width: 30, height: 30)
                   Text(stage).font(DS.font(.cardTitle)).frame(
                     maxWidth: .infinity, alignment: .leading)
-                  Text(done ? "已完成" : active ? "处理中" : "等待中").font(DS.font(.supporting, weight: .semibold))
+                  Text(importing ? store.courseCreationSteps[index].detail : done ? "已完成" : active ? "处理中" : "等待中").font(DS.font(.supporting, weight: .semibold))
                     .foregroundStyle(done ? DS.mint : active ? DS.primaryPressed : DS.muted)
                 }.padding(.horizontal, 12).frame(height: 48).background(
                   active ? Color(hex: 0xFAF7FF) : DS.surface, in: RoundedRectangle(cornerRadius: 12)
@@ -1001,7 +1073,7 @@ struct CourseProcessingView: View {
                     active ? Color(hex: 0xDDD6FE) : DS.border))
               }
             }.padding(8).background(Color(hex: 0xF4F7FB), in: RoundedRectangle(cornerRadius: 14))
-            CourseProgressMessage(message: store.importError ?? (importing ? "正在为你整理资料，准备专属学习之旅…" : store.processingMessage))
+            CourseProgressMessage(message: store.importError ?? (importing ? "已完成 \(store.courseCreationSteps.filter(\.completed).count)/\(store.courseCreationSteps.count) 步" : store.processingMessage))
               .font(DS.font(.body)).foregroundStyle(store.importError == nil ? DS.muted : DS.danger)
               .multilineTextAlignment(.center).frame(minHeight: 44).padding(.horizontal, 8)
               .accessibilityAddTraits(.updatesFrequently)
@@ -1046,18 +1118,7 @@ struct CourseProcessingView: View {
     .task {
       guard !started else { return }
       started = true
-      if importing {
-        if ContentBundle.fixtureMode {
-          importStage = 2
-          return
-        }
-        for step in 1...5 {
-          if !reduceMotion { try? await Task.sleep(for: .milliseconds(360)) }
-          guard !Task.isCancelled else { return }
-          importStage = step
-        }
-        store.replace(.courseImportReady)
-      } else if !store.draft.parseCompleted {
+      if !importing && !store.draft.parseCompleted {
         await store.processImport()
       }
     }
@@ -1072,7 +1133,8 @@ struct CourseChapterConfirmationView: View {
     CourseFeaturePage(width: 920, useSourceLayoutTop: true) {
       BCCard {
         HStack(alignment: .top, spacing: 14) {
-          AssetImage(store.currentSource?.summary.cover_url ?? "").frame(width: 68, height: 90)
+          CourseCoverImage(path: store.currentSource?.summary.cover_url,
+            fallbackSeed: store.currentSource?.id ?? "library").frame(width: 68, height: 90)
             .clipped().clipShape(RoundedRectangle(cornerRadius: 5))
           VStack(alignment: .leading, spacing: 8) {
             BCPill("本次文件解析结果")
@@ -1133,6 +1195,10 @@ struct CourseChapterConfirmationView: View {
             Color(hex: 0xF6F8FC), in: RoundedRectangle(cornerRadius: 14)
           ).overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
         }
+      }
+      if let message = store.courseDraftSyncMessage {
+        Text(message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+          .accessibilityIdentifier("chapters.syncStatus")
       }
       if let error { Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
 
@@ -1347,7 +1413,7 @@ private struct CourseChoicesLayout: Layout {
   }
 }
 
-private struct CourseFlowPrimaryButton: View {
+struct CourseFlowPrimaryButton: View {
   let title: String
   let action: () -> Void
   @Environment(\.isEnabled) private var enabled
@@ -1370,7 +1436,8 @@ struct CourseImportProgressView: View {
     CourseFeaturePage(width: 720) {
       if let record {
         HStack(spacing: 16) {
-          CourseCoverImage(path: store.sources.first { record.draft.resourceIDs.contains($0.id) }?.summary.cover_url)
+          CourseCoverImage(path: store.orderedResourceCover(record.draft.resourceIDs, workspaceID: record.id),
+            fallbackSeed: record.id)
             .frame(width: 72, height: 100).clipped().clipShape(RoundedRectangle(cornerRadius: 8))
           VStack(alignment: .leading, spacing: 8) {
             Text(store.courses.first { $0.id == record.id }?.name ?? record.draft.name)

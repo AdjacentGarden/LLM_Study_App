@@ -55,6 +55,33 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["PROFILE"].firstMatch.waitForExistence(timeout: 8))
   }
 
+  func testStudyProgressCloudsPreserveCollapseAndPlanEntry() throws {
+    let app = launch("study", visual: true)
+    let progress = app.descendants(matching: .any).matching(identifier: "study.plan.progress").firstMatch
+    let details = app.buttons["计划详情"].firstMatch
+    XCTAssertTrue(details.waitForExistence(timeout: 20))
+    let originalProgress = progress.value as? String
+    keepScreenshot("study-clouds-expanded", app: app)
+    let scroll = app.scrollViews["study.scroll"]
+    // Drag in the directory gutter, clear of embedded tool-card gestures.
+    scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.85))
+      .press(forDuration: 0.05, thenDragTo:
+        scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.15)))
+    XCTAssertTrue(details.waitForNonExistence(timeout: 5))
+    XCTAssertTrue(progress.exists)
+    XCTAssertEqual(progress.value as? String, originalProgress)
+    keepScreenshot("study-clouds-compact", app: app)
+    for _ in 0..<3 {
+      scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.15))
+        .press(forDuration: 0.05, thenDragTo:
+          scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.85)))
+      if details.waitForExistence(timeout: 1) { break }
+    }
+    XCTAssertTrue(details.waitForExistence(timeout: 5))
+    details.tap()
+    XCTAssertTrue(app.buttons["navigation.back"].firstMatch.waitForExistence(timeout: 5))
+  }
+
   func testUnifiedButtonSizesAcrossPages() throws {
     XCUIDevice.shared.orientation = .portrait
     func check(_ button: XCUIElement, height: CGFloat, square: Bool = false) {
@@ -341,7 +368,7 @@ final class BookCourseUITests: XCTestCase {
     let landscape = XCTNSPredicateExpectation(
       predicate: NSPredicate { _, _ in
         let bounds = app.windows.firstMatch.frame
-        return bounds.width > bounds.height && select.isHittable
+        return bounds.width < bounds.height && select.isHittable
           && bounds.contains(select.frame) && bounds.contains(save.frame)
           && abs(panel.frame.maxY - bounds.maxY) < 1
       }, object: nil)
@@ -351,7 +378,7 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertFalse(app.scrollViews.firstMatch.exists)
     XCTAssertEqual(panel.frame.maxY, app.windows.firstMatch.frame.maxY, accuracy: 1)
     let landscapeShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-    landscapeShot.name = "upload-fixed-landscape"
+    landscapeShot.name = "upload-fixed-portrait-after-rotation"
     landscapeShot.lifetime = .keepAlways
     add(landscapeShot)
   }
@@ -503,14 +530,14 @@ final class BookCourseUITests: XCTestCase {
     XCUIDevice.shared.orientation = .landscapeLeft
     let rotated = XCTNSPredicateExpectation(
       predicate: NSPredicate { _, _ in
-        app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
+        app.windows.firstMatch.frame.width < app.windows.firstMatch.frame.height
       }, object: nil)
     XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 15), .completed)
     for id in ["tab-home", "tab-study", "tab-community", "tab-profile"] {
       XCTAssertTrue(bar.buttons[id].isHittable)
     }
     XCTAssertGreaterThan(bar.frame.minY, app.windows.firstMatch.frame.height * 0.65)
-    keepScreenshot("liquid-glass-landscape", app: app)
+    keepScreenshot("liquid-glass-portrait-after-rotation", app: app)
   }
 
   func testNativePhoneTabBarAssistantAndKeyboardAvoidance() throws {
@@ -673,31 +700,27 @@ final class BookCourseUITests: XCTestCase {
     add(attachment)
   }
 
-  func testLandscapeCorePages() throws {
-    // A portrait geometry fixture can leave physical orientation at landscapeLeft.
-    // Force a genuine orientation change for every route instead of assigning
-    // an unchanged physical value, which produces no window rotation event.
-    XCUIDevice.shared.orientation = .portrait
+  func testCorePagesRemainPortraitWhenDeviceRotates() throws {
     defer { XCUIDevice.shared.orientation = .portrait }
-    for route in [
-      "home", "onboarding", "courseSetup", "community", "study", "lesson", "source", "assignment",
-      "notes", "profile", "settings",
-    ] {
+    for route in ["study", "courseSetup", "lesson", "notes"] {
+      // Cold launch with the device sideways must still open a portrait window.
       XCUIDevice.shared.orientation = .portrait
-      let app = launch(route, chapter: "c1s1", visual: true)
       XCUIDevice.shared.orientation = .landscapeLeft
-      let landscape = XCTNSPredicateExpectation(
-        predicate: NSPredicate { _, _ in
-          app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height
-        }, object: nil)
-      XCTAssertEqual(
-        XCTWaiter.wait(for: [landscape], timeout: 15), .completed,
-        "Landscape did not take effect on \(route)")
+      let app = launch(route, chapter: "c2s1", visual: true,
+        extraArgs: ["--fixture-orientation", "landscape"])
       let ready = XCTNSPredicateExpectation(
         predicate: NSPredicate { _, _ in !app.staticTexts["正在准备学习空间"].exists }, object: nil)
-      XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
-      Thread.sleep(forTimeInterval: 0.8)
-      keepScreenshot("landscape-" + route, app: app)
+      XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 20), .completed)
+      for orientation: UIDeviceOrientation in [.portrait, .landscapeRight, .landscapeLeft, .portraitUpsideDown] {
+        XCUIDevice.shared.orientation = orientation
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+          let bounds = app.windows.firstMatch.frame
+          return bounds.width < bounds.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 10), .completed,
+          "Must remain portrait on \(route), device \(orientation.rawValue)")
+      }
+      keepScreenshot("portrait-locked-" + route, app: app)
       app.terminate()
     }
   }
@@ -1052,5 +1075,53 @@ final class BookCourseUITests: XCTestCase {
     XCTAssertTrue(
       app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "你好！我是你的学习助手")).firstMatch
         .waitForExistence(timeout: 10))
+  }
+}
+
+extension BookCourseUITests {
+  func testFlashcardAnswerSourceAndBidirectionalBrowsing() throws {
+    let app = launch("flashcards", visual: true)
+    let face = app.buttons["flashcard-face"].firstMatch
+    XCTAssertTrue(face.waitForExistence(timeout: 15))
+    XCTAssertFalse(app.buttons["flashcard-source"].exists)
+    face.tap()
+    XCTAssertTrue(app.buttons["flashcard-source"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["flashcard-source-pages"].exists)
+    let answer = face.label
+    keepScreenshot("flashcard-answer-source-shadow", app: app)
+    face.swipeLeft()
+    let next = NSPredicate { _, _ in face.label.hasPrefix("问题：") && face.label != answer }
+    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: next, object: nil)], timeout: 5), .completed)
+    keepScreenshot("flashcard-next-real-content", app: app)
+    let start = face.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+    start.press(forDuration: 0.05,
+      thenDragTo: face.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)),
+      withVelocity: .slow, thenHoldForDuration: 1)
+    let previous = NSPredicate { _, _ in face.label == answer }
+    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: previous, object: nil)], timeout: 5), .completed)
+    XCTAssertTrue(app.buttons["flashcard-source"].exists)
+    app.buttons["flashcard-source"].tap()
+    let readerHeading = app.buttons["reader.heading"]
+    XCTAssertTrue(readerHeading.waitForExistence(timeout: 5))
+    XCTAssertTrue(readerHeading.label.contains("PDF第11页"), readerHeading.label)
+    keepScreenshot("flashcard-original-source", app: app)
+  }
+}
+
+
+extension BookCourseUITests {
+  func testFlashcardRatingsUse54PointGlassCapsulesWithoutSupplementNotice() throws {
+    let app = launch("flashcards", chapter: "c1s1", visual: true)
+    let face = app.buttons["flashcard-face"].firstMatch
+    XCTAssertTrue(face.waitForExistence(timeout: 15))
+    face.tap()
+    let again = app.buttons["flashcard-again"]
+    let remember = app.buttons["flashcard-remember"]
+    XCTAssertTrue(remember.waitForExistence(timeout: 5))
+    XCTAssertEqual(again.frame.height, 54, accuracy: 1)
+    XCTAssertEqual(remember.frame.height, 54, accuracy: 1)
+    XCTAssertFalse(app.staticTexts["flashcard-source-unavailable"].exists)
+    XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "AI 补充内容")).firstMatch.exists)
+    keepScreenshot("flashcard-44pt-glass-capsules", app: app)
   }
 }

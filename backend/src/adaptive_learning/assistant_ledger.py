@@ -4,7 +4,8 @@ The phone owns tool execution and note writes. This ledger owns every model POST
 made on a run's behalf: a step is claimed before sending, fenced by its attempt
 number, and its final assistant message is stored before it is returned. Retries
 read the stored state first and only resend when no input can have been
-processed. Budgets are counted per run and never reset by a retry or restart.
+processed. Usage is counted per run and never reset by a retry or restart. These cost
+counters do not limit the number of steps or the capacity of a model request.
 """
 
 from __future__ import annotations
@@ -19,11 +20,6 @@ from typing import Any
 
 from .database import Connection, connect
 
-MAX_STEPS = 8
-MAX_POSTS = 12
-MAX_INPUT_TOKENS = 160_000
-MAX_OUTPUT_TOKENS = 16_000
-MAX_MODEL_SECONDS = 300.0
 #: Sends of one step whose earlier attempts provably never reached the model.
 MAX_ATTEMPTS = 4
 #: A claimed step whose owner has not reported by then is treated as uncertain.
@@ -45,25 +41,13 @@ class Budget:
     cached_input_tokens: int = 0
 
     def exhausted(self, *, new_step: bool = True) -> str | None:
-        if new_step and self.steps >= MAX_STEPS:
-            return "steps"
-        if self.posts >= MAX_POSTS:
-            return "posts"
-        if self.input_tokens >= MAX_INPUT_TOKENS:
-            return "input_tokens"
-        if self.output_tokens >= MAX_OUTPUT_TOKENS:
-            return "output_tokens"
-        if self.model_seconds >= MAX_MODEL_SECONDS:
-            return "model_seconds"
         return None
 
     def public(self) -> dict[str, Any]:
         return {
-            "steps": self.steps, "steps_max": MAX_STEPS,
-            "posts": self.posts, "posts_max": MAX_POSTS,
-            "input_tokens": self.input_tokens, "input_tokens_max": MAX_INPUT_TOKENS,
-            "output_tokens": self.output_tokens, "output_tokens_max": MAX_OUTPUT_TOKENS,
-            "model_seconds": round(self.model_seconds, 3), "model_seconds_max": MAX_MODEL_SECONDS,
+            "steps": self.steps, "posts": self.posts,
+            "input_tokens": self.input_tokens, "output_tokens": self.output_tokens,
+            "model_seconds": round(self.model_seconds, 3),
             "cached_input_tokens": self.cached_input_tokens,
         }
 
@@ -234,13 +218,6 @@ class AssistantLedger:
                 if any(r["state"] != "completed" for r in prior):
                     raise LedgerConflict("an earlier step has not completed")
             refused = "cancelled" if cancelled else budget.exhausted(new_step=row is None)
-            if refused is None and row is None and step_index >= MAX_STEPS:
-                refused = "steps"
-            if refused is None and budget.input_tokens + estimated_input_tokens > MAX_INPUT_TOKENS:
-                refused = "input_tokens"
-            if refused is None and MAX_MODEL_SECONDS - budget.model_seconds < 1.0:
-                # Too little time is left for a useful call; do not pay for one.
-                refused = "model_seconds"
             if refused is not None:
                 if row is None:
                     return Claim(self._absent(run_id, step_id, step_index, digest), budget,

@@ -29,6 +29,7 @@ struct AssistantGlassSurface: ViewModifier {
 
 struct AssistantComposer: View {
   @Bindable var voice: AssistantVoiceInput
+  let keyboardDismissalID: Int
   let busy: Bool
   let placeholder: String
   let attachments: [AssistantAttachment]
@@ -37,6 +38,8 @@ struct AssistantComposer: View {
   let showAttachmentChoices: () -> Void
   let removeAttachment: (String) -> Void
   var textHorizontalInset: CGFloat = 0
+  var contextTokens: Int = 0
+  var contextEstimated: Bool = true
   let send: () -> Void
   @FocusState private var focused: Bool
   @State private var keyboardFocusTask: Task<Void, Never>?
@@ -48,6 +51,10 @@ struct AssistantComposer: View {
 
   var body: some View {
     VStack(spacing: 10) {
+      Text("当前上下文 \(contextEstimated ? "约 " : "")\(contextTokens >= 1000 ? String(format: "%.1fK", Double(contextTokens) / 1000) : String(contextTokens)) / 1M tokens")
+        .appFont(.caption).foregroundStyle(contextTokens >= 900_000 ? DS.danger : DS.secondary)
+        .accessibilityIdentifier("assistant.context.capacity")
+        .onTapGesture { dismissKeyboard() }
       if let error = voice.error {
         Text(error).appFont(.supporting).foregroundStyle(DS.danger)
           .frame(maxWidth: .infinity, alignment: .leading).padding(12)
@@ -71,6 +78,7 @@ struct AssistantComposer: View {
           .accessibilityHidden(!voice.isVoiceMode)
       }
     }
+    .onChange(of: keyboardDismissalID) { _, _ in dismissKeyboard() }
     .onChange(of: scenePhase) { _, phase in
       // Permission prompts also make the scene inactive. Do not cancel them.
       if phase == .background { keyboardFocusTask?.cancel(); voice.interrupt() }
@@ -84,6 +92,12 @@ struct AssistantComposer: View {
       _ in voice.interrupt()
     }
     .onDisappear { keyboardFocusTask?.cancel(); voice.returnToText() }
+  }
+
+  private func dismissKeyboard() {
+    keyboardFocusTask?.cancel()
+    preparingKeyboard = false
+    focused = false
   }
 
   private func showKeyboard() {

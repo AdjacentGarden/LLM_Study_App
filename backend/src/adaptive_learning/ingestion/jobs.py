@@ -650,6 +650,10 @@ class SubprocessOCRRunner:
         if get_settings().vision_rescue_enabled:
             normalized = review_pages(job.source_path, normalized, job.output_dir / "review", heartbeat)
         report = json.loads((normalized / "quality_report.json").read_text(encoding="utf-8"))
+        if self.backend == "paddle-gpu":
+            from .figure_layout import extract_figures
+            # An optional isolated layout failure never fails successful text OCR.
+            extract_figures(job.source_path, normalized, heartbeat)
         _write_canonical_hashes(normalized)
         unresolved = report.get("quality_band_counts", {})
         needs_review = (not report.get("review_version")
@@ -846,7 +850,14 @@ def _write_canonical_hashes(normalized_dir: Path) -> None:
     missing = [path.name for path in paths if not path.is_file()]
     if missing:
         raise RuntimeError(f"normalized OCR output is incomplete: {', '.join(missing)}")
-    manifest = "\n".join(f"{sha256_file(path)}  {path.name}" for path in paths)
+    figure_manifest = normalized_dir / "figure_manifest.json"
+    if figure_manifest.is_file():
+        paths.append(figure_manifest)
+        for image in json.loads(figure_manifest.read_text()).get("figures", []):
+            path = (normalized_dir / image["file"]).resolve()
+            if path.is_relative_to((normalized_dir / "figures").resolve()) and path.is_file():
+                paths.append(path)
+    manifest = "\n".join(f"{sha256_file(path)}  {path.relative_to(normalized_dir.resolve()) if path.is_absolute() else path.relative_to(normalized_dir)}" for path in paths)
     (normalized_dir / "SHA256SUMS").write_text(manifest + "\n", encoding="utf-8")
 
 

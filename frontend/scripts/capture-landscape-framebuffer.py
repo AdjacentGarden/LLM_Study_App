@@ -5,7 +5,7 @@ XCT app.screenshot() can be clipped/sideways on iPadOS 26. Preserve those attach
 but use unmodified simctl screenshots taken immediately before each named attachment.
 This script does not build, change app sources, rotate images, or access user data.
 """
-import argparse, hashlib, json, subprocess, time
+import argparse, hashlib, json, plistlib, subprocess, time
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -15,6 +15,9 @@ p.add_argument('--derived-data',type=Path,default=ROOT/'DerivedData')
 p.add_argument('--result',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 a=p.parse_args()
+orientations=plistlib.loads((ROOT/'App/Info.plist').read_bytes()).get('UISupportedInterfaceOrientations~ipad', [])
+if 'UIInterfaceOrientationLandscapeLeft' not in orientations:
+ p.error('当前 App 仅支持竖屏，横屏采集已停用。请运行 testCorePagesRemainPortraitWhenDeviceRotates 验证方向锁定。')
 if a.udid=='booted':p.error('An explicit dedicated simulator UDID is required')
 a.output.mkdir(parents=True,exist_ok=True)
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()

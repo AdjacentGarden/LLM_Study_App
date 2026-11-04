@@ -146,8 +146,10 @@ def test_review_rejections_stay_pending_and_owner_can_pause_then_resume_only_una
         status = client.get("/api/books/private_book/prepare").json()
         assert status["status"] == "queued" and status["stage"] == "diagnostics"
         assert status["next_step"] == 2 and not status["error"]
-        assert (status["diagnostics_completed"], status["diagnostics_total"]) == (1, 2)
-        assert status["message"] == "正在准备学习诊断。"
+        assert status["diagnostics_completed"] == 1
+        assert status["diagnostics_total"] is None
+        assert status["diagnostics_finalized"] is False
+        assert status["message"] == "正在根据审核意见优化题目"
         for _ in range(3):
             assert client.get("/api/books/private_book/prepare").status_code == 200
         assert len(writer.calls) == 2
@@ -281,3 +283,91 @@ def test_upload_only_reranker_warmup_failure_blocks_ready_and_retry_reuses_embed
         assert encoder.calls == 1 and reranker.calls == 2
         assert qa_dependency.prepare_uploaded_book_index("private_book").is_dir()
         assert encoder.calls == 1 and reranker.calls == 2
+
+
+def test_preparation_finishes_with_smaller_bank_after_eighth_rejection(tmp_path, monkeypatch):
+    from adaptive_learning.assessment import item_repairs
+    from test_diagnostic_generation import structure
+    from test_diagnostic_item_repairs import Reviewer, Writer, generator
+
+    jobs, queue, token = setup(tmp_path, monkeypatch)
+    ready_ocr(jobs, tmp_path)
+    jobs.save_structure("private_book", structure())
+    writer, reviewer = Writer(), Reviewer(rejects=100)
+    monkeypatch.setattr(api_module, "item_generator", generator(writer, reviewer))
+    queue.steps = (("indexing", lambda book: None), ("structuring", lambda book: None),
+                   ("diagnostics", api_module._prepare_diagnostics))
+    clock = [1000.0]
+    monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
+    with TestClient(api_module.app) as client:
+        client.cookies.set("zhiwo_visitor", token)
+        assert client.post("/api/books/private_book/prepare").json()["diagnostics_total"] is None
+        for _ in range(7):
+            assert queue.process_one()
+            state = client.get("/api/books/private_book/prepare").json()
+            assert state["diagnostics_total"] is None
+            assert state["diagnostics_finalized"] is False
+            clock[0] += 200
+        assert queue.process_one()
+        state = client.get("/api/books/private_book/prepare").json()
+        assert state["status"] == "succeeded"
+        assert state["diagnostics_completed"] == state["diagnostics_total"] == 1
+        assert state["diagnostics_finalized"] is True
+        assert state["diagnostics_skipped"] == 1
+        bank = client.get("/api/books/private_book/diagnostics").json()
+        assert bank["item_count"] == 1
+        before = len(writer.calls)
+        assert client.post("/api/books/private_book/prepare?retry=true").json()["status"] == "succeeded"
+        assert len(writer.calls) == before
+
+
+def test_no_usable_diagnostics_is_safe_preparation_failure(tmp_path, monkeypatch):
+    from adaptive_learning.assessment import item_repairs
+    from adaptive_learning.assessment.item_generation import DiagnosticNoUsableItemsError
+    from test_diagnostic_generation import structure
+    from test_diagnostic_item_repairs import Reviewer, Writer, generator
+
+    jobs, queue, token = setup(tmp_path, monkeypatch)
+    ready_ocr(jobs, tmp_path)
+    jobs.save_structure("private_book", structure())
+    subject = generator(Writer(), Reviewer())
+    def empty(*args, **kwargs):
+        raise DiagnosticNoUsableItemsError("private details")
+    monkeypatch.setattr(subject, "generate", empty)
+    monkeypatch.setattr(api_module, "item_generator", subject)
+    queue.steps = (("indexing", lambda book: None), ("structuring", lambda book: None),
+                   ("diagnostics", api_module._prepare_diagnostics))
+    with TestClient(api_module.app) as client:
+        client.cookies.set("zhiwo_visitor", token)
+        assert client.post("/api/books/private_book/prepare").status_code == 200
+        assert queue.process_one()
+        state = client.get("/api/books/private_book/prepare").json()
+        assert state["status"] == "failed"
+        assert state["error"] == "未生成可用诊断题，已保留处理记录。"
+        assert state["diagnostics_total"] is None
+        assert state["diagnostics_finalized"] is False
+
+
+def test_retained_approved_items_finish_bank_when_remaining_points_are_exhausted(tmp_path, monkeypatch):
+    from adaptive_learning.assessment.item_generation import DiagnosticNoUsableItemsError, diagnostic_bank_key
+    from test_diagnostic_generation import structure
+    from test_diagnostic_item_repairs import Reviewer, Writer, cache, generator
+
+    jobs, _, token = setup(tmp_path, monkeypatch)
+    ready_ocr(jobs, tmp_path)
+    source = structure()
+    jobs.save_structure("private_book", source)
+    subject = generator(Writer(), Reviewer())
+    approved = subject.generate(source, chapter_cache=cache(tmp_path), cache_scope="private_book")
+    api_module.assessment_repository.save_bank(book_id="diagnostic-retained:private_book",
+        structure_fingerprint=api_module.diagnostic_fingerprint(source), items=approved[:1])
+    def exhausted(*args, **kwargs):
+        raise DiagnosticNoUsableItemsError("all remaining candidates exhausted")
+    monkeypatch.setattr(subject, "generate", exhausted)
+    monkeypatch.setattr(api_module, "item_generator", subject)
+    with TestClient(api_module.app) as client:
+        client.cookies.set("zhiwo_visitor", token)
+        response = client.post("/api/books/private_book/diagnostics")
+        assert response.status_code == 200
+        assert response.json()["item_count"] == 1
+        assert api_module.assessment_repository.get_bank(diagnostic_bank_key("private_book")) == approved[:1]

@@ -40,8 +40,11 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     }),
     "search_learning_materials": _schema({
         "query": {"type": "string", "minLength": 2, "maxLength": 500},
-        "book_ids": {"type": "array", "items": _ID, "maxItems": 20,
+        "book_ids": {"type": "array", "items": _ID, "minItems": 1, "maxItems": 20,
                      "uniqueItems": True},
+        "course_ids": {"type": "array", "items": _ID, "minItems": 1, "maxItems": 100,
+                       "uniqueItems": True},
+        "include_images": {"type": "boolean"},
         "chapter_id": _ID,
         "limit": {"type": "integer", "minimum": 1, "maximum": 12},
     }, ["query"]),
@@ -72,7 +75,9 @@ TOOL_DESCRIPTIONS = {
         "跨当前用户的教材检索原始 OCR 文本，不生成答案、不调用另一模型。省略 book_ids "
         "则检索全部可访问教材（最多 20 本，超出会明示）；指定其他书 ID 可跨课程检索。"
         "query 应是要查的具体知识点，可自行换关键词再次查询。结果 evidence 为可引用原文，"
-        "引用时保留 [evidence_id]。不包含未授权教材、私人笔记或隐式上传的文件。"
+        "引用时保留 [evidence_id]。course_ids 可限定课程，与 book_ids 同传时取交集；"
+        "include_images=true 返回命中页的图片读取描述，图片须实际加载后才能解读。"
+        "这是文字 BM25，不是视觉搜索。不包含未授权教材、私人笔记或隐式上传的文件。"
     ),
     "read_textbook_page": (
         "读取用户教材的指定 PDF 页原始 OCR 原文，每次最多 6000 字，可用 offset 继续。"
@@ -99,6 +104,7 @@ class _BookIndex:
     chunks: tuple[_Chunk, ...]
     lengths: tuple[int, ...]
     postings: dict[str, tuple[tuple[int, int], ...]]
+    source_version: str
 
     @classmethod
     def build(cls, chunks: tuple[_Chunk, ...]) -> _BookIndex:
@@ -109,8 +115,12 @@ class _BookIndex:
             lengths.append(sum(tokens.values()))
             for token, frequency in tokens.items():
                 postings.setdefault(token, []).append((index, frequency))
+        # Fingerprint the exact parsed OCR corpus, including page/block identity.
+        raw = json.dumps([(c.page, c.block_id, c.text) for c in chunks], ensure_ascii=False,
+                         separators=(",", ":"))
         return cls(chunks, tuple(lengths),
-                   {token: tuple(values) for token, values in postings.items()})
+                   {token: tuple(values) for token, values in postings.items()},
+                   "ocr:" + hashlib.sha256(raw.encode()).hexdigest())
 
 
 def _chunks(raw: str) -> tuple[_Chunk, ...]:
@@ -248,14 +258,29 @@ class QueryTools:
     def _list_learning_resources(self, offset: int = 0, limit: int = 15) -> dict[str, Any]:
         workspaces = self._workspaces()
         resources = self._resources()
-        local = [row for row in self.local_courses
-                 if isinstance(row, dict) and str(row.get("id", "")).startswith("local-course:")]
+        # Stage autosave creates a workspace before the local setup record is
+        # retired. Its deterministic identity must count as one course.
+        account_ids = {str(row["id"]) for row in workspaces}
+        seen_local: set[str] = set()
+        local = []
+        for row in self.local_courses:
+            key = str(row.get("id", "")) if isinstance(row, dict) else ""
+            if not key.startswith("local-course:") or key in seen_local:
+                continue
+            seen_local.add(key)
+            mapped = str(row.get("workspace_id") or (
+                "workspace_" + hashlib.sha256(key.encode()).hexdigest()[:32]))
+            if mapped not in account_ids:
+                local.append(row)
         total = len(workspaces) + len(local)
         items: list[dict[str, Any]] = []
         for workspace in workspaces[offset:offset + limit]:
             books = [r for r in resources if r["course_id"] == workspace["id"]]
+            draft_reader = getattr(self.services.native_repository, "creation_draft", None)
+            draft = draft_reader(self.actor, workspace["id"]) if draft_reader is not None else None
+            creation_state = ("confirmed" if draft.get("confirmed") is True else "draft") if draft else "unknown"
             items.append({"course_id": workspace["id"], "name": str(workspace["name"])[:120],
-                          "origin": "account", "book_count": len(books),
+                          "origin": "account", "creation_state": creation_state, "book_count": len(books),
                           "books": [self._listed_book(r) for r in books[:3]],
                           "books_truncated": len(books) > 3})
         start = max(0, offset - len(workspaces))
@@ -271,7 +296,7 @@ class QueryTools:
                 "courses": items, "total_courses": total, "account_course_count": len(workspaces),
                 "device_pending_course_count": len(local), "offset": offset,
                 "has_more": offset + len(items) < total,
-                "note": "设备待上传课程只是客户端提供的名称，不能用于读取服务器教材。课程存在不代表所有课程都在进行中；progress.revision=0 时页码可能只是默认位置。",
+                "note": "设备待上传课程只是客户端提供的名称，不能用于读取服务器教材。总数包含创建中的课程，creation_state=draft 尚未最终确认，unknown 表示无创建确认记录；课程存在不代表正在学习，progress.revision=0 时页码可能只是默认位置。",
                 "evidence": []}
 
     def _get_course_outline(self, course_id: str | None = None, book_id: str | None = None,
@@ -330,12 +355,20 @@ class QueryTools:
         return result
 
     def _search_learning_materials(self, query: str, book_ids: list[str] | None = None,
-                                   chapter_id: str | None = None, limit: int = 8) -> dict[str, Any]:
+                                   chapter_id: str | None = None, limit: int = 8,
+                                   course_ids: list[str] | None = None,
+                                   include_images: bool = False) -> dict[str, Any]:
         resources = self._resources()
-        by_book = {str(r["book_id"]): r for r in resources}
-        if book_ids and any(book not in by_book for book in book_ids):
+        accessible_books = {str(r["book_id"]) for r in resources}
+        accessible_courses = {str(w["id"]) for w in self._workspaces()}
+        if course_ids is not None and (not course_ids or not set(course_ids) <= accessible_courses):
+            raise KeyError("course")
+        if book_ids is not None and (not book_ids or not set(book_ids) <= accessible_books):
             raise KeyError("book")
-        selected = list(book_ids) if book_ids else list(by_book)
+        if course_ids is not None:
+            resources = [r for r in resources if r["course_id"] in course_ids]
+        by_book = {str(r["book_id"]): r for r in resources}
+        selected = [book for book in book_ids if book in by_book] if book_ids is not None else list(by_book)
         selected.sort(key=lambda value: value != self.context.get("book_id"))
         searched = selected[:20]
         candidates: list[tuple[str, _Chunk]] = []
@@ -343,6 +376,7 @@ class QueryTools:
         query_tokens = Counter(lexical_tokens(query))
         postings: dict[str, list[tuple[int, int]]] = {token: [] for token in query_tokens}
         unavailable: list[str] = []
+        source_versions: dict[str, str] = {}
         for book_id in searched:
             resource = by_book[book_id]
             try:
@@ -351,6 +385,7 @@ class QueryTools:
                 if chapter_id and chapter is None:
                     continue
                 book_index = self._book_chunks(book_id)
+                source_versions[book_id] = book_index.source_version
                 local_indexes: dict[int, int] = {}
                 for local_index, chunk in enumerate(book_index.chunks):
                     if chapter is not None and not (chapter.start_page <= chunk.page <= chapter.end_page):
@@ -403,11 +438,32 @@ class QueryTools:
             if book_id not in titles:
                 titles[book_id] = self._book_info(by_book[book_id])["title"]
             # Keep the complete bounded chunk so matching text cannot be cut off.
+            resource = by_book[book_id]
             evidence.append({**self._evidence(book_id, chunk, chunk.text),
-                             "book_title": titles[book_id]})
+                             "book_title": titles[book_id], "course_id": resource["course_id"],
+                             "course_ids": list(dict.fromkeys(r["course_id"] for r in resources
+                                                              if str(r["book_id"]) == book_id)),
+                             "resource_id": resource["id"],
+                             "source_version": source_versions[book_id]})
             per_page[location] = per_page.get(location, 0) + 1
+        images = []
+        seen_pages: set[tuple[str, int]] = set()
+        if include_images:
+            for item in evidence:
+                location = (item["book_id"], item["page_number"])
+                if location in seen_pages:
+                    continue
+                seen_pages.add(location)
+                images.append({"book_id": item["book_id"], "course_id": item["course_id"],
+                               "course_resource_id": item["resource_id"], "page": item["page_number"],
+                               "mode": "image", "kind": "page", "status": "available_to_read"})
+                if len(images) >= 4:
+                    break
         return {"ok": True, "method": "raw_ocr_bm25", "query": query,
-                "searched_book_ids": searched, "total_accessible_books": len(by_book),
+                "searched_book_ids": searched, "total_accessible_books": len(accessible_books),
+                "searched_course_ids": list(dict.fromkeys(r["course_id"] for r in resources
+                                                          if r["book_id"] in searched)),
+                "images": images, "image_search_method": "text_hit_page_descriptors",
                 "scope_truncated": len(selected) > 20, "unavailable_book_ids": unavailable,
                 "evidence": evidence,
                 "note": "仅返回原文检索片段。无命中不代表教材不存在相关知识；可换关键词或读取具体页面。"}

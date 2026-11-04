@@ -32,7 +32,20 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
 @MainActor final class CourseUploadTests: XCTestCase {
   private func makeStore(reply: @escaping (URLRequest) -> CourseUploadProtocol.Reply) throws -> AppStore {
     let host = "upload-" + UUID().uuidString.lowercased() + ".example"
-    CourseUploadProtocol.register(host, reply)
+    CourseUploadProtocol.register(host) { request in
+      if request.url?.path == "/api/native/local-first/capabilities" {
+        return .init(body: Data(#"{"schema_version":1,"public_library":true,"private_forwarding":true,"private_export":true,"legacy_writes_active":true}"#.utf8))
+      }
+      if request.url?.path == "/api/public/library/course-groups" {
+        return .init(body: Data(#"{"id":"group_upload","title":"测试课程","description":"","book_ids":[],"status":"pending","manifest_url":""}"#.utf8))
+      }
+      // Transfer tests intentionally model an unavailable draft-sync service.
+      // A draft-save failure must not turn an accepted upload into a failed upload.
+      if request.url?.path.contains("/creation-draft") == true {
+        return .init(status: 503, body: Data("{\"detail\":\"Draft sync unavailable in transfer fixture\"}".utf8))
+      }
+      return reply(request)
+    }
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [CourseUploadProtocol.self]
     let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory

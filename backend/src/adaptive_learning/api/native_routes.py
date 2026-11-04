@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import uuid
 from datetime import UTC, date, datetime
 from ipaddress import ip_address
@@ -130,6 +131,17 @@ class StructureInput(Strict):
     chapters: list[ChapterInput] = Field(min_length=1, max_length=500)
 
 
+class CreationDraftConfirmation(Strict):
+    request_id: str = Field(min_length=8, max_length=100)
+
+
+class CreationDraftInput(WorkspaceInput):
+    request_id: str = Field(min_length=8, max_length=100)
+    step: int = Field(ge=-1, le=5)
+    book_ids: list[str] = Field(min_length=1, max_length=50)
+    chapters: dict[str, list[ChapterInput]] = Field(default_factory=dict, max_length=50)
+
+
 class ProgressInput(Strict):
     revision: int = Field(ge=0)
     mutation_id: str = Field(min_length=8, max_length=100)
@@ -144,6 +156,8 @@ class ProgressInput(Strict):
 def native_router(services: Any) -> APIRouter:
     router = APIRouter(prefix="/api", tags=["native-client"])
     design = NativeLearningDesign(services)
+    chapter_locks: dict[str, Any] = {}
+    chapter_lock_guard = threading.Lock()
 
     @router.post("/native/local-login")
     def local_login(request: Request, response: Response) -> dict[str, bool]:
@@ -187,6 +201,20 @@ def native_router(services: Any) -> APIRouter:
         response.headers["Cache-Control"] = "private, no-store"
         return str(value)
 
+    @router.get("/native/local-first/capabilities")
+    def local_first_capabilities(request: Request, actor: str = Depends(owner)) -> dict[str, Any]:
+        from ..ingestion.figure_layout import layout_capabilities
+        paths = {getattr(route, "path", "") for route in request.app.routes}
+        public = "/api/public/library/course-groups" in paths
+        forwarding = "/api/assistant/private-model" in paths
+        exporting = "/api/private/export" in paths
+        return {"schema_version": 1, "local_first": public and forwarding and exporting,
+                "public_library": public, "public_course_groups": public,
+                "private_model": forwarding, "private_forwarding": forwarding,
+                "private_export": exporting, "legacy_writes_active": True,
+                "server_private_sync": False,
+                "ocr": {"text_backend": services.settings.ocr_backend, "figures": layout_capabilities()}}
+
     def resource(wid: str, rid: str, actor: str) -> dict[str, Any]:
         try:
             result = services.native_repository.resource(actor, wid, rid)
@@ -223,14 +251,21 @@ def native_router(services: Any) -> APIRouter:
                 for v in latest.values()
             ]
         progress = services.native_repository.progress(row["id"])
-        reviews = services.native_repository.catalog_review_states(row["id"]) if row["book_id"] == curated.BOOK_ID else {}
+        reviews = (
+            services.native_repository.catalog_review_states(row["id"])
+            if row["book_id"] == curated.BOOK_ID
+            else {}
+        )
         session_purpose = None
         session = None
         if row["session_id"]:
             session = services.assessment_repository.get_session(row["session_id"])
             if session:
                 session_purpose = session.purpose
-                reviews = {key: value.model_dump(mode="json") for key, value in session.profile.flashcard_reviews.items()}
+                reviews = {
+                    key: value.model_dump(mode="json")
+                    for key, value in session.profile.flashcard_reviews.items()
+                }
         return {
             "id": row["id"],
             "book_id": row["book_id"],
@@ -240,12 +275,16 @@ def native_router(services: Any) -> APIRouter:
             "session_purpose": session_purpose,
             "learning_design_fingerprint": design.config(
                 actor,
-                row["workspace_id"], session.profile if session else None,
+                row["workspace_id"],
+                session.profile if session else None,
             ).fingerprint,
             "filename": stored.original_name if stored else "教材.pdf",
             "cover_url": cover_url(services.settings.data_dir, row["book_id"])
-            or (curated.snapshot()["source"]["summary"].get("cover_url")
-                if row["book_id"] == curated.BOOK_ID else None),
+            or (
+                curated.snapshot()["source"]["summary"].get("cover_url")
+                if row["book_id"] == curated.BOOK_ID
+                else None
+            ),
             "status": "ready"
             if row["book_id"] == curated.BOOK_ID
             else stored.status
@@ -276,32 +315,56 @@ def native_router(services: Any) -> APIRouter:
             if k != "owner"
         }
 
-    bootstrap_service = BootstrapService(services.native_repository, services.assessment_repository,
-                                         services.job_repository, services.account_repository.repo,
-                                         data_dir=services.settings.data_dir)
+    bootstrap_service = BootstrapService(
+        services.native_repository,
+        services.assessment_repository,
+        services.job_repository,
+        services.account_repository.repo,
+        data_dir=services.settings.data_dir,
+    )
 
     @router.get("/native/bootstrap")
-    def bootstrap(mode: Literal["full", "metadata"] = "full", actor: str = Depends(owner)) -> dict[str, Any]:
+    def bootstrap(
+        mode: Literal["full", "metadata"] = "full", actor: str = Depends(owner)
+    ) -> dict[str, Any]:
         return bootstrap_service.assemble(actor, light=mode == "metadata")
 
     @router.get("/native/builtin-content/{version}")
     def builtin_content(version: str, actor: str = Depends(owner)) -> dict[str, Any]:
         if version != builtin_content_version():
             raise HTTPException(404, "课程内容版本已更新，请刷新课程")
-        return {"structure": curated.structure().model_dump(mode="json"), "courses": [],
-                "source_content": curated.public_source("__shared__", {})}
+        return {
+            "structure": curated.structure().model_dump(mode="json"),
+            "courses": [],
+            "source_content": curated.public_source("__shared__", {}),
+        }
 
     @router.get("/native/capabilities")
     def capabilities(actor: str = Depends(owner)) -> dict[str, Any]:
-        return {"contract_version": 1, "bootstrap_metadata": True,
-                "teaching_units": {"backend": True, "native": True},
-                "server_planning": {"backend": True, "native": True},
-                "note_cloud_sync": {"backend": True, "native": False},
-                "voice_transcription": {"backend": True, "native": True,
-                    "runtime_checked_at": "/api/studio/capabilities", "runtime_status_path": "/api/studio/capabilities"},
-                "handwriting": {"backend": True, "native": True, "runtime_status_path": "/api/studio/capabilities"},
-                "media_generation": {"backend": True, "native": True, "runtime_status_path": "/api/studio/capabilities"},
-                "community_social": {"backend": True, "native": False}}
+        return {
+            "contract_version": 1,
+            "bootstrap_metadata": True,
+            "teaching_units": {"backend": True, "native": True},
+            "server_planning": {"backend": True, "native": True},
+            "note_cloud_sync": {"backend": True, "native": False},
+            "voice_transcription": {
+                "backend": True,
+                "native": True,
+                "runtime_checked_at": "/api/studio/capabilities",
+                "runtime_status_path": "/api/studio/capabilities",
+            },
+            "handwriting": {
+                "backend": True,
+                "native": True,
+                "runtime_status_path": "/api/studio/capabilities",
+            },
+            "media_generation": {
+                "backend": True,
+                "native": True,
+                "runtime_status_path": "/api/studio/capabilities",
+            },
+            "community_social": {"backend": True, "native": False},
+        }
 
     @router.put("/native/learner-preferences")
     def learner_preferences(body: LearnerInput, actor: str = Depends(owner)) -> dict[str, Any]:
@@ -479,11 +542,14 @@ def native_router(services: Any) -> APIRouter:
         results = []
         for book_id in book_ids:
             selected = resource(wid, resources[book_id]["id"], actor)
-            question = scoped.model_copy(update={
-                "resource_id": selected["id"], "book_ids": [],
-                "chapter_id": body.chapter_id if book_id == row["book_id"] else None,
-                "reading_context": body.reading_context if book_id == row["book_id"] else None,
-            })
+            question = scoped.model_copy(
+                update={
+                    "resource_id": selected["id"],
+                    "book_ids": [],
+                    "chapter_id": body.chapter_id if book_id == row["book_id"] else None,
+                    "reading_context": body.reading_context if book_id == row["book_id"] else None,
+                }
+            )
             result = services.answer_book_question(
                 book_id, question, require_qa_service(book_id), request
             ).model_dump(mode="json")
@@ -501,9 +567,13 @@ def native_router(services: Any) -> APIRouter:
         supported = [result for _, result in results if result["status"] == "supported"]
         general = any(result["status"] == "general" for _, result in results)
         return {
-            "book_id": row["book_id"], "status": "general" if general else "supported" if supported else "insufficient",
-            "answer": "\n\n".join(f"{title}\n{result['answer']}" for title, result in results
-                                      if not general or result["status"] != "insufficient"),
+            "book_id": row["book_id"],
+            "status": "general" if general else "supported" if supported else "insufficient",
+            "answer": "\n\n".join(
+                f"{title}\n{result['answer']}"
+                for title, result in results
+                if not general or result["status"] != "insufficient"
+            ),
             "claims": [claim for _, result in results for claim in result["claims"]],
             "confidence": min((result["confidence"] for result in supported), default=0),
         }
@@ -522,12 +592,15 @@ def native_router(services: Any) -> APIRouter:
             with repo.connect() as db:
                 post = db.execute(
                     "SELECT p.book_id FROM posts p JOIN assets a ON a.book_id=p.book_id "
-                    "WHERE p.id=? AND p.kind='book' AND p.active=1", (post_id,),
+                    "WHERE p.id=? AND p.kind='book' AND p.active=1",
+                    (post_id,),
                 ).fetchone()
             if post is None or services.job_repository.get_book(str(post["book_id"])) is None:
                 raise HTTPException(404, "社区教材原文件暂不可用")
             try:
-                services.native_repository.save_workspace(actor, body.id, body.name, body.preferences)
+                services.native_repository.save_workspace(
+                    actor, body.id, body.name, body.preferences, explicit_reacquire=True
+                )
                 acquired = repo.acquire(actor, post_id)
             except KeyError as error:
                 raise HTTPException(404, "社区课程不存在或已撤回") from error
@@ -539,7 +612,9 @@ def native_router(services: Any) -> APIRouter:
         if catalog_id != curated.CATALOG_ID or not curated.catalog():
             raise HTTPException(404, "已有课程不存在")
         try:
-            services.native_repository.save_workspace(actor, body.id, body.name, body.preferences)
+            services.native_repository.save_workspace(
+                actor, body.id, body.name, body.preferences, explicit_reacquire=True
+            )
         except KeyError as error:
             raise HTTPException(404, "课程不存在") from error
         source = curated.snapshot()["source"]
@@ -566,12 +641,28 @@ def native_router(services: Any) -> APIRouter:
     @router.get("/workspaces/{wid}/resources/{rid}/catalog-records")
     def catalog_records(wid: str, rid: str, actor: str = Depends(owner)) -> dict[str, Any]:
         row = resource(wid, rid, actor)
-        if row["book_id"] != curated.BOOK_ID:
-            raise HTTPException(404, "已有课程不存在")
-        return {
+        evidence = services.native_repository.catalog_practice(rid)
+        result: dict[str, Any] = {
             "book_id": row["book_id"],
-            "evidence": services.native_repository.catalog_practice(rid),
+            "evidence": evidence,
+            "course_id": wid,
+            "course_resource_id": rid,
+            "complete": True,
+            "state": "ready" if evidence else "empty",
         }
+        if row["session_id"]:
+            session = services.assessment_repository.get_session(row["session_id"])
+            if session is None:
+                return {**result, "state": "not_ready", "complete": False}
+            records = services.get_learning_records(row["session_id"])
+            combined = evidence + list(records.get("evidence", []))
+            result.update(
+                knowledge=records.get("knowledge", []),
+                flashcards=records.get("flashcards", []),
+                evidence=sorted(combined, key=lambda record: record.get("at", ""), reverse=True),
+                state="ready" if combined else "empty",
+            )
+        return result
 
     @router.post("/workspaces/{wid}/resources/{rid}/catalog-flashcards/{card_id}")
     def catalog_flashcard(
@@ -580,12 +671,18 @@ def native_router(services: Any) -> APIRouter:
         row = resource(wid, rid, actor)
         if row["book_id"] != curated.BOOK_ID:
             raise HTTPException(404, "已有课程不存在")
-        card = next((c for c in curated.snapshot()["source"]["flashcards"] if c["card_id"] == card_id), None)
+        card = next(
+            (c for c in curated.snapshot()["source"]["flashcards"] if c["card_id"] == card_id), None
+        )
         if card is None:
             raise HTTPException(404, "闪卡不存在")
         try:
-            return cast(dict[str, Any], services.native_repository.review_catalog_card(
-                rid, body.event_id, card, body.rating, body.response_seconds))
+            return cast(
+                dict[str, Any],
+                services.native_repository.review_catalog_card(
+                    rid, body.event_id, card, body.rating, body.response_seconds
+                ),
+            )
         except NativeConflict as error:
             raise HTTPException(409, str(error)) from error
         except ValueError as error:
@@ -674,19 +771,88 @@ def native_router(services: Any) -> APIRouter:
             services.native_repository.save_workspace(actor, body.id, body.name, body.preferences)
         except KeyError as error:
             raise HTTPException(404, "课程不存在") from error
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
         return workspace_state(actor, body.id)
+
+    @router.put("/workspaces/{wid}/creation-draft")
+    def save_creation_draft(wid: str, body: CreationDraftInput, actor: str = Depends(owner)) -> dict[str, Any]:
+        if wid != body.id or len(set(body.book_ids)) != len(body.book_ids):
+            raise HTTPException(422, "课程草稿标识或资料列表无效")
+        if sum(len(s) for values in body.preferences.values() for s in values) > 10000:
+            raise HTTPException(422, "课程偏好内容过长")
+        for book_id in body.book_ids:
+            accessible_book(actor, book_id)
+        for book_id, values in body.chapters.items():
+            if book_id not in body.book_ids or not 1 <= len(values) <= 500:
+                raise HTTPException(422, "目录草稿与课程资料不匹配")
+            original = services.job_repository.get_structure(book_id)
+            if original is None:
+                raise HTTPException(409, "教材目录尚未准备完成")
+            allowed = {c.chapter_id for c in original.chapters}
+            if len({v.chapter_id for v in values}) != len(values) or any(
+                v.chapter_id not in allowed or not 1 <= v.start_page <= v.end_page <= original.source_page_count
+                for v in values
+            ):
+                raise HTTPException(422, "目录章节或页码范围无效")
+        try:
+            services.native_repository.save_workspace(actor, wid, body.name, body.preferences)
+            for book_id in body.book_ids:
+                services.native_repository.add_resource(actor, wid, book_id)
+            services.native_repository.save_creation_draft(actor, wid, body.model_dump(mode="json"))
+        except KeyError as error:
+            raise HTTPException(404, "课程不存在") from error
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        # Draft persistence deliberately never invokes a model or creates a learning session.
+        return {"request_id": body.request_id, "workspace": workspace_state(actor, wid)}
+
+    @router.post("/workspaces/{wid}/creation-draft/confirm")
+    def confirm_creation_draft(wid: str, body: CreationDraftConfirmation, actor: str = Depends(owner)) -> dict[str, Any]:
+        try:
+            saved = services.native_repository.creation_draft(actor, wid)
+        except KeyError as error:
+            raise HTTPException(404, "课程不存在") from error
+        if saved is None or saved["request_id"] != body.request_id:
+            raise HTTPException(409, "课程草稿已更新，请先同步最新修改")
+        workspace = workspace_state(actor, wid)
+        if not workspace["resources"] or any(r["structure"] is None for r in workspace["resources"]):
+            raise HTTPException(409, "教材目录尚未准备完成")
+        if workspace["name"] != saved["name"] or workspace["preferences"] != saved["preferences"]:
+            raise HTTPException(409, "课程配置已更新，请重新同步")
+        for book_id, values in saved["chapters"].items():
+            row = next((r for r in services.native_repository.resources(actor, wid) if r["book_id"] == book_id), None)
+            structure = effective_structure(row) if row else None
+            actual = [{"chapter_id": c.chapter_id, "title": c.title, "start_page": c.start_page,
+                       "end_page": c.end_page} for c in structure.chapters] if structure else None
+            if actual != values:
+                raise HTTPException(409, "目录草稿已保存，章节核验尚未完成，请稍后重试")
+        try:
+            services.native_repository.confirm_creation_draft(actor, wid, body.request_id)
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        return {"request_id": body.request_id, "workspace": workspace}
+
+    @router.get("/workspaces/{wid}/creation-draft")
+    def get_creation_draft(wid: str, actor: str = Depends(owner)) -> Any:
+        try:
+            return services.native_repository.creation_draft(actor, wid)
+        except KeyError as error:
+            raise HTTPException(404, "课程不存在") from error
 
     @router.get("/workspaces/{wid}")
     def get_workspace(wid: str, actor: str = Depends(owner)) -> dict[str, Any]:
         return workspace_state(actor, wid)
 
     @router.delete("/workspaces/{wid}")
-    def delete_workspace(wid: str, actor: str = Depends(owner)) -> dict[str, bool]:
+    def delete_workspace(wid: str, actor: str = Depends(owner)) -> dict[str, Any]:
         try:
-            services.native_repository.delete_workspace(actor, wid)
+            receipt = services.native_repository.delete_workspace(actor, wid)
         except KeyError as error:
             raise HTTPException(404, "课程不存在") from error
-        return {"ok": True}
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        return {"ok": True, "receipt": receipt}
 
     @router.post("/workspaces/{wid}/resources")
     def add_resource(wid: str, body: ResourceInput, actor: str = Depends(owner)) -> dict[str, Any]:
@@ -797,11 +963,26 @@ def native_router(services: Any) -> APIRouter:
     def save_chapters(
         wid: str, rid: str, body: StructureInput, actor: str = Depends(owner)
     ) -> dict[str, Any]:
+        resource(wid, rid, actor)
+        with chapter_lock_guard:
+            lock = chapter_locks.setdefault(rid, threading.Lock())
+        with lock:
+            return save_chapters_serialized(wid, rid, body, actor)
+
+    def save_chapters_serialized(wid: str, rid: str, body: StructureInput, actor: str) -> dict[str, Any]:
         row = resource(wid, rid, actor)
-        original = services.job_repository.get_structure(row["book_id"])
+        original = effective_structure(row)
         if original is None:
             raise HTTPException(409, "教材目录尚未准备完成")
-        originals = {c.chapter_id: c for c in original.chapters}
+        requested = [(v.chapter_id, v.title, v.start_page, v.end_page) for v in body.chapters]
+        current = [(c.chapter_id, c.title, c.start_page, c.end_page) for c in original.chapters]
+        if requested == current:
+            return resource_state(row, actor)
+        if body.revision != row["revision"]:
+            raise HTTPException(409, "目录已更新，请重新加载后再保存")
+        base = services.job_repository.get_structure(row["book_id"]) or original
+        originals = {c.chapter_id: c for c in base.chapters}
+        originals.update({c.chapter_id: c for c in original.chapters})
         seen = set()
         chapters = []
         for index, value in enumerate(body.chapters):
@@ -861,14 +1042,20 @@ def native_router(services: Any) -> APIRouter:
         if job is None or job.status != "ocr_ready":
             raise HTTPException(409, "教材原文尚未准备完成，暂时不能预览课程")
         session = create_preview_session(
-            user_id=actor, book_id=row["book_id"], structure=structure,
+            user_id=actor,
+            book_id=row["book_id"],
+            structure=structure,
             learning_design=design.config(actor, wid),
         )
         services.assessment_repository.create_session(session)
         services.account_repository.repo.claim_session(actor, session.session_id)
         try:
             sid = services.native_repository.attach_session(
-                rid, row["revision"], session.session_id, structure, "[]",
+                rid,
+                row["revision"],
+                session.session_id,
+                structure,
+                "[]",
             )
         except NativeConflict as error:
             raise HTTPException(409, str(error)) from error
@@ -878,16 +1065,26 @@ def native_router(services: Any) -> APIRouter:
         return services.get_interview(sid)
 
     @router.post("/workspaces/{wid}/resources/{rid}/session")
-    def start_session(wid: str, rid: str, actor: str = Depends(owner), retry: bool = False,
-                      retry_request_id: str | None = None,
-                      resource_revision: int | None = None) -> Any:
+    def start_session(
+        wid: str,
+        rid: str,
+        actor: str = Depends(owner),
+        retry: bool = False,
+        retry_request_id: str | None = None,
+        resource_revision: int | None = None,
+    ) -> Any:
         row = resource(wid, rid, actor)
         if row["session_id"]:
             return services.get_interview(row["session_id"])
         if resource_revision is not None and resource_revision != row["revision"]:
-            raise HTTPException(409, "教材目录已更新，请重新打开当前课程后继续",
-                                headers={"X-CloudPath-Error-Code": "resource_revision_changed"})
-        if retry and (retry_request_id is None or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id)):
+            raise HTTPException(
+                409,
+                "教材目录已更新，请重新打开当前课程后继续",
+                headers={"X-CloudPath-Error-Code": "resource_revision_changed"},
+            )
+        if retry and (
+            retry_request_id is None or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", retry_request_id)
+        ):
             raise HTTPException(422, "请通过明确的重试操作继续诊断")
         structure = effective_structure(row)
         if structure is None:
@@ -895,7 +1092,9 @@ def native_router(services: Any) -> APIRouter:
         fingerprint = services.diagnostic_fingerprint(structure)
         bank_key = diagnostic_bank_key(f"native:{rid}:{row['revision']}")
         original = services.job_repository.get_structure(row["book_id"])
-        canonical_structure = original is not None and structure_fingerprint(original) == structure_fingerprint(structure)
+        canonical_structure = original is not None and structure_fingerprint(
+            original
+        ) == structure_fingerprint(structure)
         if canonical_structure:
             items = services.assessment_repository.get_bank(
                 diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint
@@ -908,53 +1107,97 @@ def native_router(services: Any) -> APIRouter:
         if not items:
             if services.item_generator is None:
                 raise HTTPException(503, "诊断服务尚未配置，目录已保存，可稍后继续")
-            preparation = services.preparation_queue.get(row["book_id"]) if canonical_structure else None
-            if (retry and (not canonical_structure or preparation and preparation["status"] in {"failed", "cancelled"})
-                    and services.assessment_repository.has_pending_diagnostic_submission(row["book_id"])):
+            preparation = (
+                services.preparation_queue.get(row["book_id"]) if canonical_structure else None
+            )
+            if (
+                retry
+                and (
+                    not canonical_structure
+                    or preparation
+                    and preparation["status"] in {"failed", "cancelled"}
+                )
+                and services.assessment_repository.has_pending_diagnostic_submission(row["book_id"])
+            ):
                 services.assessment_repository.grant_diagnostic_recovery(
-                    row["book_id"], f"native:{rid}:{retry_request_id}")
+                    row["book_id"], f"native:{rid}:{retry_request_id}"
+                )
             if canonical_structure:
                 job = services.job_repository.get_job(row["book_id"])
                 if job is None or job.status != "ocr_ready":
                     raise HTTPException(409, "教材原文仍在准备中，请先完成资料解析")
                 # Ordinary uploaded books share the durable preparation worker.
                 # Opening a course never starts another synchronous model job.
-                preparation = services.preparation_queue.enqueue(row["book_id"], retry=retry,
-                    refresh=bool(preparation and preparation["status"] == "succeeded"))
+                preparation = services.preparation_queue.enqueue(
+                    row["book_id"],
+                    retry=retry,
+                    refresh=bool(preparation and preparation["status"] == "succeeded"),
+                )
                 items = services.assessment_repository.get_bank(
-                    diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint)
+                    diagnostic_bank_key(row["book_id"]), expected_fingerprint=fingerprint
+                )
                 if not items:
                     if preparation["status"] in {"failed", "cancelled"}:
-                        raise HTTPException(502, "教材目录已保留，学习诊断尚未完成，可显式重试准备",
-                            headers={"X-CloudPath-Error-Code": "diagnostic_generation_rejected"})
-                    raise HTTPException(409, "教材目录已就绪，正在后台准备学习诊断",
-                        headers={"X-CloudPath-Error-Code": "diagnostic_preparation_pending", "Retry-After": "5"})
+                        raise HTTPException(
+                            502,
+                            "教材目录已保留，学习诊断尚未完成，可显式重试准备",
+                            headers={"X-CloudPath-Error-Code": "diagnostic_generation_rejected"},
+                        )
+                    raise HTTPException(
+                        409,
+                        "教材目录已就绪，正在后台准备学习诊断",
+                        headers={
+                            "X-CloudPath-Error-Code": "diagnostic_preparation_pending",
+                            "Retry-After": "5",
+                        },
+                    )
         if not items:
             # Edited directories have their own exact structure/source identity.
             # A bounded pass retains approved items and schedules known repairs;
             # it must never borrow an unedited book's bank.
             try:
-                items = services.item_generator.generate(structure,
+                items = services.item_generator.generate(
+                    structure,
                     chapter_cache=RepositoryDiagnosticChapterCache(services.assessment_repository),
-                    cache_scope=row["book_id"])
+                    cache_scope=row["book_id"],
+                )
             except DiagnosticRepairPending as pending:
-                raise HTTPException(409, "已保存目录与已完成的诊断题，正在继续准备学习诊断",
-                    headers={"X-CloudPath-Error-Code": "diagnostic_resource_preparation_pending",
-                             "Retry-After": str(max(5, int(pending.details["retry_after_seconds"])))}) from pending
+                raise HTTPException(
+                    409,
+                    "已保存目录与已完成的诊断题，正在继续准备学习诊断",
+                    headers={
+                        "X-CloudPath-Error-Code": "diagnostic_resource_preparation_pending",
+                        "Retry-After": str(max(5, int(pending.details["retry_after_seconds"]))),
+                    },
+                ) from pending
             except DiagnosticChapterSubmissionBlocked as error:
-                raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
-                                    headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
+                raise HTTPException(
+                    409,
+                    "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
+                    headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"},
+                ) from error
             except DiagnosticChapterCacheError as error:
-                raise HTTPException(409, "诊断章节记录需核验，已审核内容已保留，请检查服务后继续") from error
+                raise HTTPException(
+                    409, "诊断章节记录需核验，已审核内容已保留，请检查服务后继续"
+                ) from error
             except DiagnosticGenerationError as error:
-                raise HTTPException(502, "诊断题未通过教材证据校验，已审核章节已保留，请重试诊断",
-                                    headers={"X-CloudPath-Error-Code": "diagnostic_generation_rejected"}) from error
+                raise HTTPException(
+                    502,
+                    "诊断题未通过教材证据校验，已审核章节已保留，请重试诊断",
+                    headers={"X-CloudPath-Error-Code": "diagnostic_generation_rejected"},
+                ) from error
             except LLMCooldownError as error:
-                raise HTTPException(503, "诊断服务暂时繁忙，本次未提交，请稍后重试诊断",
-                                    headers={"X-CloudPath-Error-Code": "diagnostic_generation_not_admitted"}) from error
+                raise HTTPException(
+                    503,
+                    "诊断服务暂时繁忙，本次未提交，请稍后重试诊断",
+                    headers={"X-CloudPath-Error-Code": "diagnostic_generation_not_admitted"},
+                ) from error
             except LLMError as error:
-                raise HTTPException(409, "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
-                                    headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"}) from error
+                raise HTTPException(
+                    409,
+                    "上次诊断提交结果待确认，已审核章节已保留，请确认后点击重试诊断",
+                    headers={"X-CloudPath-Error-Code": "diagnostic_submission_uncertain"},
+                ) from error
             services.assessment_repository.save_bank(
                 book_id=bank_key, structure_fingerprint=fingerprint, items=items
             )

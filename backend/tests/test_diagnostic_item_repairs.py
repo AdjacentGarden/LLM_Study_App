@@ -66,36 +66,119 @@ def generator(writer, reviewer):
         validation_retries=None, allow_grounded_answer_rewrite=True)
 
 
-def test_unlimited_single_item_repairs_survive_restart_and_never_regenerate_approved_item(tmp_path, monkeypatch):
+def test_eight_round_limit_survives_restart_and_completes_with_approved_items(tmp_path, monkeypatch):
     clock = [1000.0]
     monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
-    writer, reviewer = Writer(), Reviewer(rejects=9)
+    writer, reviewer = Writer(), Reviewer(rejects=100)
     subject = generator(writer, reviewer)
-    for attempt in range(9):
-        # Recreate both repository and generator to simulate restart after every verdict.
+    for attempt in range(7):
         with pytest.raises(DiagnosticRepairPending) as pending:
             generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
         assert pending.value.details["diagnostics_completed"] == 1
-        assert pending.value.details["diagnostics_total"] == 2
+        assert pending.value.details["diagnostics_total"] is None
+        assert pending.value.details["diagnostics_finalized"] is False
         if attempt == 0:
             calls = len(writer.calls)
             with pytest.raises(DiagnosticRepairPending):
                 subject.generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
-            assert len(writer.calls) == calls  # Polling before the durable retry time does no work.
+            assert len(writer.calls) == calls
         clock[0] += 200
     result = subject.generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
-    assert len(result) == 2
-    counts = Counter(call["knowledge_points"][0]["knowledge_point_id"] for call in writer.calls)
+    assert len(result) == 1
     keys = [row["knowledge_point_id"] for row in valid_payload()["items"]]
-    assert counts == {keys[0]: 10, keys[1]: 1}
+    counts = Counter(call["knowledge_points"][0]["knowledge_point_id"] for call in writer.calls)
+    assert counts == {keys[0]: 8, keys[1]: 1}
     assert reviewer.counts == counts
-    assert all(len(call["knowledge_points"]) == 1 for call in writer.calls)
     assert writer.calls[2]["repair_feedback"]["stage"] == "semantic_review"
-    assert writer.calls[2]["required_repairs"]
-    assert any(call["generation_strategy"] == "redesign" for call in writer.calls)
+    redesigns = [call for call in writer.calls if call["generation_strategy"] == "redesign"]
+    assert len(redesigns) == 2
+    for call in redesigns:
+        assert len(call["knowledge_points"]) == 1
+        assert not {"previous_candidate", "repair_feedback", "required_repairs", "preserve_accepted_items"} & call.keys()
     before = len(writer.calls)
-    assert subject.generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book") == result
+    assert generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book") == result
+    points = subject._select_points(structure().chapters[0])
+    identity = item_repairs._identity(subject, structure(), structure().chapters[0], points, 0, "book")
+    saved = cache(tmp_path)
+    assert saved.repair_state(identity)["terminal_status"] == "skipped"
+    saved.repository.grant_diagnostic_recovery("book", "user-retry")
+    assert saved.claim(identity)["status"] == "skipped"
     assert len(writer.calls) == before
+    progress = item_repairs.diagnostic_item_progress(subject, structure(), saved, "book")
+    assert progress == {"diagnostics_completed": 1, "diagnostics_skipped": 1,
+                        "diagnostics_total": None, "diagnostics_finalized": False}
+
+
+def test_eighth_round_may_still_succeed(tmp_path, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
+    writer, reviewer = Writer(), Reviewer(rejects=7)
+    for _ in range(7):
+        with pytest.raises(DiagnosticRepairPending):
+            generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
+        clock[0] += 200
+    assert len(generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")) == 2
+
+
+def test_legacy_exhausted_point_is_skipped_without_waiting_or_regenerating(tmp_path):
+    writer, reviewer = Writer(), Reviewer()
+    subject = generator(writer, reviewer)
+    value = structure()
+    points = subject._select_points(value.chapters[0])
+    identity = item_repairs._identity(subject, value, value.chapters[0], points, 0, "book")
+    saved = cache(tmp_path)
+    claim = saved.claim(identity)
+    saved.defer(identity, claim["token"], {"attempt": 15, "next_retry_at": 10**12})
+    result = subject.generate(value, chapter_cache=cache(tmp_path), cache_scope="book")
+    assert len(result) == 1
+    assert len(writer.calls) == 1
+    assert cache(tmp_path).repair_state(identity)["terminal_status"] == "skipped"
+
+
+def test_invalid_review_format_counts_towards_eight_rounds(tmp_path, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
+    writer, reviewer = Writer(), Reviewer()
+    review = reviewer.structured
+    broken = []
+
+    def invalid_format(**kwargs):
+        request = json.loads(kwargs["user"])
+        if request["items"][0]["knowledge_point_id"] == valid_payload()["items"][0]["knowledge_point_id"]:
+            broken.append(request)
+            return {"reviews": []}
+        return review(**kwargs)
+
+    reviewer.structured = invalid_format
+    for _ in range(7):
+        with pytest.raises(DiagnosticRepairPending):
+            generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
+        clock[0] += 200
+    assert len(generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")) == 1
+    assert len(broken) == 8
+    generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
+    assert len(broken) == 8
+
+
+def test_all_exhausted_points_fail_clearly_without_ninth_round(tmp_path, monkeypatch):
+    from adaptive_learning.assessment.item_generation import DiagnosticNoUsableItemsError
+    clock = [1000.0]
+    monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
+    writer, reviewer = Writer(), Reviewer()
+    def reject(**kwargs):
+        point = json.loads(kwargs["user"])["items"][0]["knowledge_point_id"]
+        return {"reviews": [{"knowledge_point_id": point, "accepted": False,
+            "issues": ["题目未能唯一回答本问"], "required_edits": {"prompt": True, "option_indices": []}}]}
+    reviewer.structured = reject
+    for _ in range(7):
+        with pytest.raises(DiagnosticRepairPending):
+            generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
+        clock[0] += 200
+    for _ in range(2):
+        with pytest.raises(DiagnosticNoUsableItemsError):
+            generator(writer, reviewer).generate(structure(), chapter_cache=cache(tmp_path), cache_scope="book")
+    counts = Counter(call["knowledge_points"][0]["knowledge_point_id"] for call in writer.calls)
+    assert list(counts.values()) == [8, 8]
 
 
 def test_reviewer_cooldown_reuses_candidate_without_paying_writer_again(tmp_path, monkeypatch):
@@ -290,3 +373,56 @@ def test_pause_before_preparation_submission_blocks_late_create(tmp_path):
     assert not queue.process_one() and not calls
     assert queue.enqueue("book", retry=True)["status"] == "queued"
     assert queue.process_one() and calls == ["book"]
+
+
+def test_redesign_discards_earlier_candidate_but_service_retry_reuses_fresh_one(tmp_path, monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
+    writer, reviewer = Writer(), Reviewer()
+    value = structure()
+    subject = generator(writer, reviewer)
+    saved = cache(tmp_path)
+    points = subject._select_points(value.chapters[0])
+    identity = item_repairs._identity(subject, value, value.chapters[0], points, 0, "book")
+    claim = saved.claim(identity)
+    saved.defer(identity, claim["token"], {"rounds_completed": 3, "context": {
+        "_pending_candidate": [valid_payload()["items"][0]], "_pending_candidate_round": 3,
+        "previous_candidate": {"private": "old question"}, "repair_feedback": {"private": "old feedback"}}})
+    original = reviewer.structured
+    cooling = [True]
+    def review(**kwargs):
+        if cooling[0]:
+            raise LLMCooldownError(5)
+        return original(**kwargs)
+    reviewer.structured = review
+    with pytest.raises(DiagnosticRepairPending):
+        subject.generate(value, chapter_cache=saved, cache_scope="book")
+    redesign = writer.calls[0]
+    assert redesign["generation_strategy"] == "redesign"
+    assert not {"previous_candidate", "repair_feedback"} & redesign.keys()
+    assert saved.repair_state(identity)["context"]["_pending_candidate_round"] == 4
+    before = len(writer.calls)
+    cooling[0] = False
+    clock[0] += 200
+    assert len(subject.generate(value, chapter_cache=cache(tmp_path), cache_scope="book")) == 2
+    assert len(writer.calls) == before
+
+
+def test_recovery_fences_old_running_submission_when_legacy_budget_is_exhausted(tmp_path):
+    from adaptive_learning.assessment.diagnostic_cache import chapter_identity
+    saved = cache(tmp_path)
+    subject = generator(Writer(), Reviewer())
+    value = structure()
+    points = subject._select_points(value.chapters[0])
+    identity = item_repairs._identity(subject, value, value.chapters[0], points, 0, "book")
+    claim = saved.claim(identity)
+    key, _ = chapter_identity(identity)
+    with saved.repository._connect() as db:
+        db.execute("INSERT INTO diagnostic_item_repairs(cache_key,state_json,updated_at) VALUES (?,?,?)",
+                   (key, json.dumps({"attempt": 15}), 1))
+    assert saved.claim(identity)["status"] == "running"
+    saved.repository.grant_diagnostic_recovery("book", "explicit-recovery")
+    assert saved.claim(identity)["status"] == "skipped"
+    assert saved.repository.has_pending_diagnostic_submission("book") is False
+    with pytest.raises(Exception, match="stale"):
+        saved.fail(identity, claim["token"], "rejected")

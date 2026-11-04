@@ -142,6 +142,34 @@ def test_completed_result_replays_without_model_or_tools(gateway):
     assert len(model.requests) == 2
 
 
+def test_query_output_limit_survives_replay_without_limiting_agent_ledger(gateway, monkeypatch):
+    a, _, install, state, ledger = gateway
+    monkeypatch.setattr(routes, "MAX_QUERY_OUTPUT_TOKENS", 10)
+    model = install(Model(stream(tool=("list_learning_resources", {}), finish="tool_calls")))
+    for _ in range(2):
+        response = a.post("/api/assistant/query", json=body())
+        assert response.status_code == 409, response.text
+        assert "处理上限" in response.json()["detail"]
+    assert len(model.requests) == 1
+    assert len(state.executions) == 1
+    owner = api.account_repository.session_owner(a.cookies.get("zhiwo_account"))
+    _, budget = ledger.step(owner, "query:chat_1", "query_0")
+    assert budget.output_tokens >= 10
+    assert budget.exhausted() is None, "Query policy must not reinstate Agent-wide limits"
+
+
+def test_query_step_limit_keeps_completed_tool_receipts_on_replay(gateway, monkeypatch):
+    a, _, install, state, _ = gateway
+    monkeypatch.setattr(routes, "MAX_QUERY_STEPS", 1)
+    model = install(Model(stream(tool=("list_learning_resources", {}), finish="tool_calls")))
+    for _ in range(2):
+        response = a.post("/api/assistant/query", json=body())
+        assert response.status_code == 409, response.text
+        assert "步骤上限" in response.json()["detail"]
+    assert len(model.requests) == 1
+    assert len(state.executions) == 1
+
+
 def test_retry_after_unsent_continuation_uses_stored_raw_tool_result(gateway):
     a, _, install, state, _ = gateway
 
@@ -378,3 +406,42 @@ def test_origin_auth_and_size_are_checked_before_model(gateway):
     request = body(history=[{"role": "user", "content": "x" * 24_000}] * 6)
     assert a.post("/api/assistant/query", json=request).status_code == 413
     assert not model.requests
+
+
+def test_material_search_http_is_authenticated_read_only_and_has_strict_arguments(gateway):
+    a, b, _, state, ledger = gateway
+    arguments = {"query": "遗传物质", "course_ids": ["workspace_biology"],
+                 "book_ids": ["biology"], "include_images": True, "limit": 3}
+    response = a.post("/api/assistant/search-materials", json=arguments)
+    assert response.status_code == 200 and response.json() == state.result
+    assert response.headers["cache-control"] == "private, no-store"
+    assert state.executions[-1][1:] == ("search_learning_materials", arguments)
+    # No model client is installed in this test: this route must not need one.
+    count = len(state.executions)
+    for bad in [{**arguments, "owner": "other"}, {**arguments, "limit": 13},
+                {**arguments, "course_ids": []}, {**arguments, "query": "x"}]:
+        assert a.post("/api/assistant/search-materials", json=bad).status_code == 422
+    assert len(state.executions) == count
+    b.cookies.clear()
+    assert b.post("/api/assistant/search-materials", json=arguments).status_code == 401
+
+
+def test_local_course_workspace_mapping_is_optional_for_existing_query_clients():
+    plain = routes.LocalCourse(id="local-course:one", name="草稿", book_ids=[])
+    assert plain.workspace_id is None
+    mapped = routes.LocalCourse(id="local-course:one", name="草稿", book_ids=[], workspace_id="workspace_one")
+    assert mapped.workspace_id == "workspace_one"
+
+
+def test_optional_workspace_mapping_keeps_legacy_query_request_digest(gateway):
+    a, _, install, _, ledger = gateway
+    install(Model(stream("保留原请求")))
+    request = body(local_courses=[{"id": "local-course:one", "name": "草稿", "book_ids": []}])
+    assert a.post("/api/assistant/query", json=request).status_code == 200
+    actor = api.account_repository.session_owner(a.cookies.get("zhiwo_account"))
+    saved, _ = ledger.step(actor, "query:chat_1", "query_0")
+    legacy = routes.QueryRequest.model_validate(request).model_dump(mode="json")
+    legacy.pop("device_evidence")
+    for course in legacy["local_courses"]:
+        course.pop("workspace_id")
+    assert saved.request_digest == routes._digest(legacy)

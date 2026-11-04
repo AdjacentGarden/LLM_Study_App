@@ -360,7 +360,7 @@ struct LessonReaderView: View {
       if let concept { conceptPanel(concept) }
     }
     .sheet(item: $mediaRequest) { request in
-      LearningMediaSheet(request: request, api: store.cloud ?? CloudAPI.configured())
+      LearningMediaSheet(request: request, store: store)
     }
   }
 

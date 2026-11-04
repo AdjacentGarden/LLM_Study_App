@@ -159,7 +159,7 @@ def test_semantic_rejection_after_format_recovery_still_requires_real_item_repai
     assert writer.calls[-1]["repair_feedback"]["stage"] == "semantic_review"
 
 
-def test_repeated_review_format_errors_back_off_without_consuming_semantic_redesign_attempts(tmp_path, monkeypatch):
+def test_review_format_errors_count_rounds_and_reuse_pending_candidate(tmp_path, monkeypatch):
     clock = [1000.0]
     monkeypatch.setattr(item_repairs.time, "time", lambda: clock[0])
     writer = Writer()
@@ -188,7 +188,7 @@ def test_repeated_review_format_errors_back_off_without_consuming_semantic_redes
         points = subject._select_points(value.chapters[0])
         identity = item_repairs._identity(subject, value, value.chapters[0], points, 0, "book")
         state = store.repair_state(identity)
-        assert state["attempt"] == 0
+        assert state["rounds_completed"] == state["attempt"] == number
         assert state["review_format_failures"] == number
         assert state["next_retry_at"] == clock[0] + delay
         assert state["context"]["repair_feedback"]["stage"] == "review_format"
@@ -198,11 +198,11 @@ def test_repeated_review_format_errors_back_off_without_consuming_semantic_redes
     with pytest.raises(DiagnosticRepairPending):
         subject.generate(value, chapter_cache=cache(tmp_path), cache_scope="book")
     state = cache(tmp_path).repair_state(identity)
-    assert state["attempt"] == 1 and state["review_format_failures"] == 0
+    assert state["attempt"] == 4 and state["review_format_failures"] == 0
     assert "_pending_candidate" not in state["context"]
     clock[0] += 200
     assert len(generator(writer, reviewer).generate(value, chapter_cache=cache(tmp_path), cache_scope="book")) == 2
-    assert len(writer.calls) == 3
+    assert len(writer.calls) == 4
     assert writer.calls[-1]["generation_strategy"] == "repair"
 
 

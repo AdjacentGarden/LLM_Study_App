@@ -318,7 +318,7 @@ def test_actual_parallel_repair_contracts_survive_sibling_service_failure(actual
         return fact, teacher
 
     generator._review_candidate = review
-    bundle = SimpleNamespace(decision=SimpleNamespace(depth=SimpleNamespace(value="standard"), scaffolds=[]))
+    bundle = SimpleNamespace(design_config=None, decision=SimpleNamespace(depth=SimpleNamespace(value="standard"), scaffolds=[], emphasis=[]))
     chapter = SimpleNamespace(title="actual v19 routing replay")
     with pytest.raises(teaching.TeachingServiceUnavailableError, match="sentinel reached second"):
         generator._generate(bundle, chapter, evidence)

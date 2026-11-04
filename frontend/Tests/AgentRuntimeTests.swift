@@ -215,6 +215,12 @@ private func agentMakeStore(
 }
 
 @MainActor
+private func agentRegisterCourse(_ store: AppStore) {
+  store.courses = [Course(id: "course-agent", name: "测试课程", resourceIDs: store.sources.map(\.id),
+    courseResourceIDs: Dictionary(uniqueKeysWithValues: store.sources.map { ($0.id, "resource:" + $0.id) }), activeResourceID: store.sources.first?.id)]
+}
+
+@MainActor
 private func agentWaitUntil(
   timeout: TimeInterval = 5,
   _ predicate: () async -> Bool
@@ -329,15 +335,17 @@ private func agentRepositoryRun(
     bookTitle: "生物学", sourceVersion: evidence.sourceVersion,
     chapterID: evidence.chapterID, page: evidence.page,
     printedPage: evidence.printedPage, selection: evidence.quote,
-    currentNoteID: nil, capturedAt: .now)
+    currentNoteID: nil, capturedAt: .now, courseResourceID: "resource-agent")
   let call = AgentToolCall(
     id: toolCallID, name: "save_note", argumentsJSON: "{}", argumentsHash: "hash-a")
-  return AgentRunRecord(
+  var run = AgentRunRecord(
     id: id, scope: scope, status: .running, request: "整理",
     context: context, evidence: [evidence],
     steps: [AgentStep(
       index: 0, id: "\(id).s0", state: .completed, toolCalls: [call])],
     createdAt: .now, updatedAt: .now)
+  run.privateTransport = true
+  return run
 }
 
 private func agentToolNote(
@@ -347,7 +355,7 @@ private func agentToolNote(
   StudyNote(
     id: id, kind: .text, title: title, body: body,
     anchor: NoteAnchor(
-      courseID: run.context.courseID, bookID: run.context.bookID,
+      courseID: run.context.courseID, courseResourceID: run.context.courseResourceID, bookID: run.context.bookID,
       chapterID: run.context.chapterID, page: run.context.page,
       printedPage: run.context.printedPage, quote: run.context.selection),
     references: run.evidence.map(NoteReference.init),
@@ -369,6 +377,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-citation"
     let source = agentSource(bookID: bookID, title: "生物学")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let text = "减数分裂时，染色体只复制一次。"
     let selection = AgentSelection(
@@ -490,6 +499,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-resume"
     let source = agentSource(bookID: bookID, title: "生物学")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: "course-agent", chapterID: "chapter-2",
@@ -574,6 +584,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-posted"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 7,
@@ -671,9 +682,10 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-cancel"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
-      bookID: bookID, courseID: nil, chapterID: nil, page: 5,
+      bookID: bookID, courseID: "course-agent", chapterID: nil, page: 5,
       printedPage: nil, text: "细胞分裂使细胞数目增多。")
     let version = AgentRuntime.sourceVersion(for: source.summary)
     let evidence = AgentRuntime.evidence(for: selection, sourceVersion: version)
@@ -745,6 +757,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-frozen"
     let source = agentSource(bookID: bookID, title: "原始教材")
     store.sources = [source, agentSource(bookID: "book-other", title: "另一本教材")]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     store.selectedChapterID = "chapter-2"
     let text = "有丝分裂间期完成DNA复制。"
@@ -827,6 +840,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-account"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 4,
@@ -873,6 +887,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-ask"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 6,
@@ -937,9 +952,10 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-invalid"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
-      bookID: bookID, courseID: nil, chapterID: nil, page: 8,
+      bookID: bookID, courseID: "course-agent", chapterID: nil, page: 8,
       printedPage: nil, text: "DNA聚合酶沿着模板链合成新链。")
     AgentScriptedRouter.shared.enqueue(
       host: host, method: "POST", path: "/api/assistant/turn"
@@ -999,6 +1015,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-refused"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 9,
@@ -1015,7 +1032,7 @@ final class AgentRuntimeTests: XCTestCase {
     }
     let run = try XCTUnwrap(store.agent.active)
     XCTAssertEqual(run.status, .failed)
-    XCTAssertEqual(run.failure, "已达到本次任务的模型预算（posts）")
+    XCTAssertEqual(run.failure, "API 错误：posts")
     let posts = AgentScriptedRouter.shared.snapshot().filter {
       $0.host == host && $0.method == "POST" && $0.path == "/api/assistant/turn"
     }
@@ -1032,6 +1049,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-blocked"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 10,
@@ -1078,6 +1096,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-reset"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 12,
@@ -1143,6 +1162,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-reset-checkpoint"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 17,
@@ -1190,6 +1210,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-cancel-race"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 13,
@@ -1240,6 +1261,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-cancel-suspend"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 15,
@@ -1298,6 +1320,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-stale-publish"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let text = "减数分裂时，染色体只复制一次。"
     let selection = AgentSelection(
@@ -1365,6 +1388,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-cancel-elsewhere"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
       bookID: bookID, courseID: nil, chapterID: nil, page: 16,
@@ -1409,9 +1433,10 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-mixed"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
-      bookID: bookID, courseID: nil, chapterID: nil, page: 14,
+      bookID: bookID, courseID: "course-agent", chapterID: nil, page: 14,
       printedPage: nil, text: "染色体由DNA和蛋白质组成。")
     let version = AgentRuntime.sourceVersion(for: source.summary)
     let evidence = AgentRuntime.evidence(for: selection, sourceVersion: version)
@@ -1455,9 +1480,10 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-general"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     let selection = AgentSelection(
-      bookID: bookID, courseID: nil, chapterID: nil, page: 15,
+      bookID: bookID, courseID: "course-agent", chapterID: nil, page: 15,
       printedPage: nil, text: "细胞学说认为细胞是生命的基本单位。")
     AgentScriptedRouter.shared.enqueue(
       host: host, method: "POST", path: "/api/assistant/turn"
@@ -1499,6 +1525,7 @@ final class AgentRuntimeTests: XCTestCase {
     let bookID = "book-agent-limits"
     let source = agentSource(bookID: bookID, title: "教材")
     store.sources = [source]
+    agentRegisterCourse(store)
     store.selectedBookID = bookID
     // 2001 grapheme clusters but 4002 Unicode scalars.
     let longSelectionText = String(repeating: "e\u{0301}", count: 2001)
@@ -1521,5 +1548,302 @@ final class AgentRuntimeTests: XCTestCase {
     XCTAssertFalse(store.agent.start(validSelection, request: longRequest))
     XCTAssertEqual(store.agent.notice, "请输入 1 到 2000 字的整理要求")
     XCTAssertNil(store.agent.active)
+  }
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testUnifiedHomeRunCanExecuteBeyondOldTwelveSubmissionLimit() async throws {
+    let root = agentTempDirectory(), host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: root, host: host)
+    defer { session.invalidateAndCancel() }
+    for index in 0..<14 {
+      AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/turn") { request in
+        agentTurnReply(request, toolCalls: [agentToolCall(id: "list-\(index)", name: "list_courses", arguments: [:])])
+      }
+    }
+    AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/turn") { request in
+      let body = agentJSON(request)
+      XCTAssertEqual(body["contract_version"] as? Int, 3)
+      XCTAssertEqual(body["session_id"] as? String, "session-long")
+      XCTAssertEqual(body["message_id"] as? String, "message-long")
+      return agentTurnReply(request, content: "已读取全部课程。")
+    }
+    let context = AgentFrozenContext(scope: store.noteScope!, courseID: nil, bookID: "", bookTitle: "", sourceVersion: "",
+      chapterID: nil, page: 1, printedPage: nil, selection: "", currentNoteID: nil, capturedAt: .now)
+    let answer = try await store.agent.answerUnified(sessionID: "session-long", messageID: "message-long",
+      request: "查看全部课程", context: context, history: [], attachments: [], ephemeral: false)
+    XCTAssertEqual(answer.text, "已读取全部课程。")
+    XCTAssertEqual(store.agent.active?.steps.count, 15)
+  }
+
+  func testUnifiedWireKeepsCompleteToolResultsAndCurrentSessionIdentity() throws {
+    var run = agentRepositoryRun(scope: "owner", evidence: agentRepositoryEvidence())
+    run.context.sessionID = "current-session"; run.context.messageID = "current-message"
+    let fullText = String(repeating: "完整资料", count: 3000)
+    run.steps[0].outcomes = [AgentToolOutcome(toolCallID: "call-save", status: "ok", resultJSON: fullText)]
+    let body = AgentRuntime.turnRequest(for: run, stepIndex: 1)
+    XCTAssertEqual(body.tool_results.first?.content, fullText)
+    XCTAssertEqual(body.contract_version, 3)
+    XCTAssertEqual(body.session_id, "current-session")
+    XCTAssertTrue(body.tools.contains("capture_screen"))
+    XCTAssertNil(body.history)
+  }
+
+  @MainActor func testUnifiedCatalogPaginationDoesNotDropSameNameCourses() async throws {
+    let repository = try LocalBookCourseRepository(directory: agentTempDirectory())
+    let store = AppStore(repository: repository)
+    store.courses = (0..<107).map { Course(id: "course-\($0)", name: "同名课程", resourceIDs: []) }
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    let call = AgentToolCall(id: "list", name: "list_courses", argumentsJSON: "{\"offset\":100,\"limit\":100}", argumentsHash: "hash")
+    let text = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+    let result = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+    XCTAssertEqual(result["total"] as? Int, 107)
+    XCTAssertEqual((result["items"] as? [[String: Any]])?.count, 7)
+    XCTAssertEqual(result["complete"] as? Bool, true)
+  }
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testUnifiedOneMillionContextSkipsNewActions() async throws {
+    let root = agentTempDirectory(), host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: root, host: host)
+    defer { session.invalidateAndCancel() }
+    AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/turn") { request in
+      let requestBody = agentJSON(request)
+      let response = agentTurnResponse(runID: requestBody["run_id"] as! String, stepIndex: 0, state: "completed", toolCalls: [
+        agentToolCall(id: "forbidden-write", name: "save_note", arguments: ["title": "不能执行", "body": "不能写入", "evidence_ids": [], "source_label": "general"])
+      ])
+      var object = agentJSON(Data(response.utf8)); object["context_tokens"] = 1_000_000; object["capacity_state"] = "archived"
+      return .json(status: 200, body: (try? AgentDigest.canonicalJSON(object)) ?? "{}")
+    }
+    let context = AgentFrozenContext(scope: store.noteScope!, courseID: nil, bookID: "", bookTitle: "", sourceVersion: "",
+      chapterID: nil, page: 1, printedPage: nil, selection: "", currentNoteID: nil, capturedAt: .now)
+    do {
+      _ = try await store.agent.answerUnified(sessionID: "session-full", messageID: "message-full", request: "保存笔记",
+        context: context, history: [], attachments: [], ephemeral: false)
+      XCTFail("A full context must stop before tool execution")
+    } catch { }
+    XCTAssertTrue(store.notes.isEmpty)
+    XCTAssertEqual(store.agent.active?.steps[0].outcomes.first?.status, "skipped")
+    XCTAssertEqual(store.agent.active?.capacityState, "archived")
+  }
+
+  @MainActor func testUnifiedFinishingTaskKeepsItsFinalAnswerWhenArchived() async throws {
+    let root = agentTempDirectory(), host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: root, host: host)
+    defer { session.invalidateAndCancel() }
+    AgentScriptedRouter.shared.enqueue(host: host, method: "POST", path: "/api/assistant/turn") { request in
+      let requestBody = agentJSON(request)
+      let response = agentTurnResponse(runID: requestBody["run_id"] as! String, stepIndex: 0, state: "completed", content: "收尾结果保留。")
+      var object = agentJSON(Data(response.utf8)); object["context_tokens"] = 900_000; object["capacity_state"] = "archived"
+      return .json(status: 200, body: (try? AgentDigest.canonicalJSON(object)) ?? "{}")
+    }
+    let context = AgentFrozenContext(scope: store.noteScope!, courseID: nil, bookID: "", bookTitle: "", sourceVersion: "",
+      chapterID: nil, page: 1, printedPage: nil, selection: "", currentNoteID: nil, capturedAt: .now)
+    let answer = try await store.agent.answerUnified(sessionID: "session-finish", messageID: "message-finish", request: "完成",
+      context: context, history: [], attachments: [], ephemeral: false)
+    XCTAssertEqual(answer.text, "收尾结果保留。")
+    XCTAssertEqual(answer.capacityState, "archived")
+    XCTAssertEqual(store.agent.active?.status, .completed)
+  }
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testOrdinaryChatReadsSubsectionFromParentIndexAndScopesPageAssets() async throws {
+    let store = AppStore(repository: try LocalBookCourseRepository(directory: agentTempDirectory()))
+    let book = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first { $0.id == "book_biology_2" })
+    store.sources = [book]
+    agentRegisterCourse(store)
+    store.selectedBookID = book.id
+    store.selectedCourseID = "course-agent"
+    store.selectedLessonID = book.lessons.first?.id
+    XCTAssertEqual(store.activeLesson?.page_start, 0)
+    XCTAssertEqual(store.assistantSessionContext.page, 1)
+    var oldSnapshot = store.assistantSessionContext
+    oldSnapshot.page = 0
+    XCTAssertEqual(store.agent.frozenContext(session: oldSnapshot).page, 1)
+
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    func read(_ filter: [String: Any]) async throws -> [String: Any] {
+      let args = filter.merging(["course_id": "course-agent", "book_id": book.id]) { existing, _ in existing }
+      let call = AgentToolCall(id: "read", name: "read_material", argumentsJSON: try AgentDigest.canonicalJSON(args), argumentsHash: "")
+      let result = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+      return agentJSON(Data(result.utf8))
+    }
+    let subsection = try await read(["chapter_id": "c2s1a"])
+    let passages = try XCTUnwrap(subsection["items"] as? [[String: Any]])
+    XCTAssertEqual(passages.compactMap { $0["page_start"] as? Int }, [11, 13])
+    let singlePage = try await read(["page": 13])
+    let assets = try XCTUnwrap(singlePage["assets"] as? [[String: Any]])
+    XCTAssertFalse(assets.isEmpty)
+    XCTAssertEqual(assets.compactMap { $0["asset_id"] as? String }, book.assets.filter { $0.page == 13 }.map(\.id))
+    XCTAssertTrue(assets.allSatisfy { $0["page"] as? Int == 13 && $0["metadata"] == nil })
+  }
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testPreparationProgressUsesTaskEvenWhenCatalogIsEmpty() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    store.sources = [agentSource(bookID: "book-test", title: "测试教材")]
+    agentRegisterCourse(store)
+    let path = "/api/books/book-test/prepare"
+    AgentScriptedRouter.shared.enqueue(host: host, method: "GET", path: path) { _ in
+      .json(status: 200, body: #"{"book_id":"book-test","status":"running","stage":"diagnostics","updated":1,"next_step":2,"diagnostics_completed":5,"diagnostics_total":12}"#)
+    }
+    AgentScriptedRouter.shared.enqueue(host: host, method: "GET", path: path) { _ in
+      .json(status: 403, body: "{}")
+    }
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    run.privateTransport = nil // Legacy tool remains compatible; new Agent reads local state.
+    let call = AgentToolCall(id: "progress", name: "read_learning_data",
+      argumentsJSON: #"{"kind":"preparation","course_id":"course-agent"}"#, argumentsHash: "")
+    func task() async throws -> [String: Any] {
+      let result = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+      return try XCTUnwrap((agentJSON(Data(result.utf8))["tasks"] as? [[String: Any]])?.first)
+    }
+    let live = try await task()
+    XCTAssertEqual(live["source"] as? String, "live")
+    XCTAssertEqual(live["stage"] as? String, "diagnostics")
+    XCTAssertEqual(live["diagnostics_completed"] as? Int, 5)
+    XCTAssertEqual(live["diagnostics_total"] as? Int, 12)
+    let unavailable = try await task()
+    XCTAssertEqual(unavailable["source"] as? String, "unknown")
+    XCTAssertNil(unavailable["status"])
+  }
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testMaterialPageRequiresAnExactPositiveInteger() {
+    XCTAssertEqual(UnifiedAgentTools.materialPage(Double(2)), 2)
+    for invalid in [0.0, -1.0, 1.5, Double.infinity, Double.nan, Double(Int.max)] {
+      XCTAssertNil(UnifiedAgentTools.materialPage(invalid))
+    }
+    XCTAssertNil(UnifiedAgentTools.materialPage("2"))
+    XCTAssertNil(UnifiedAgentTools.materialPage(nil))
+  }
+
+  func testFinalAnswerUsesRegisteredCitationsAndPersistsSourceMetadata() throws {
+    var evidence = agentRepositoryEvidence()
+    evidence.sourceType = "textbook"
+    var run = agentRepositoryRun(scope: "owner", evidence: evidence)
+    AgentRuntime.completeAnswer("原文说明 [ev-1]。伪造引用 [ev_missing]。", run: &run)
+    XCTAssertEqual(run.finalCitations?.map(\.quote), [evidence.quote])
+    XCTAssertEqual(run.finalCitations?.first?.page, 11)
+    XCTAssertEqual(run.finalText, "原文说明 [1]。伪造引用 。")
+    XCTAssertEqual(run.finalSourceLabel, "textbook")
+    let restored = try JSONDecoder().decode(AgentRunRecord.self, from: JSONEncoder().encode(run))
+    XCTAssertEqual(restored.finalCitations, run.finalCitations)
+    XCTAssertEqual(restored.finalSourceLabel, "textbook")
+  }
+
+  func testFinalAnswerDoesNotTurnUncitedSearchResultsIntoCitations() {
+    var evidence = agentRepositoryEvidence()
+    evidence.sourceType = "textbook"
+    var run = agentRepositoryRun(scope: "owner", evidence: evidence)
+    AgentRuntime.completeAnswer("没有引用具体原文。", run: &run)
+    XCTAssertEqual(run.finalCitations, [])
+    XCTAssertEqual(run.finalSourceLabel, "textbook_uncited")
+  }
+
+  @MainActor func testCrossBookSearchReadsOnlyLocalChunksAndReportsMissingBooks() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    var source = agentSource(bookID: "book-test", title: "物理")
+    source.chunks = [SourceChunk(chunk_id: "momentum", book_id: "book-test", chapter_id: "chapter", page_start: 2, page_end: 2,
+      content_type: "text", text: "系统动量守恒，总动量保持不变。", asset_ids: [], key_concepts: [])]
+    store.sources = [source]
+    store.courses = [Course(id: "course-agent", name: "物理", resourceIDs: ["book-test", "book_local_pending"])]
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    run.privateTransport = true
+    let call = AgentToolCall(id: "search", name: "search_learning_materials", argumentsJSON: #"{"query":"动量守恒","include_images":false}"#, argumentsHash: "")
+    let result = agentJSON(Data(try await UnifiedAgentTools.execute(call, run: &run, store: store).utf8))
+    XCTAssertEqual(result["searched_book_ids"] as? [String], ["book-test"])
+    XCTAssertEqual(result["unavailable_book_ids"] as? [String], ["book_local_pending"])
+    XCTAssertEqual(result["scope"] as? String, "local_material_library")
+    XCTAssertEqual((result["evidence"] as? [[String: Any]])?.first?["quote"] as? String, source.chunks[0].text)
+    XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter { $0.host == host }.isEmpty)
+    XCTAssertNil(run.images)
+  }
+
+  @MainActor func testSearchNeverRendersWholePageWhenIndependentFigureIsMissing() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    var source = agentSource(bookID: "book-test", title: "物理")
+    source.chunks = [SourceChunk(chunk_id: "momentum", book_id: "book-test", chapter_id: "chapter", page_start: 2, page_end: 2,
+      content_type: "text", text: "系统动量守恒，总动量保持不变。", asset_ids: [], key_concepts: [])]
+    store.sources = [source]; agentRegisterCourse(store)
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    run.privateTransport = true
+    let call = AgentToolCall(id: "search", name: "search_learning_materials", argumentsJSON: #"{"query":"动量守恒","include_images":true}"#, argumentsHash: "")
+    let result = agentJSON(Data(try await UnifiedAgentTools.execute(call, run: &run, store: store).utf8))
+    XCTAssertEqual(result["images_loaded"] as? Int, 0)
+    XCTAssertNil(run.images)
+    let page = AgentToolCall(id: "image", name: "read_material", argumentsJSON: #"{"course_id":"course-agent","book_id":"book-test","mode":"image","page":2}"#, argumentsHash: "")
+    do { _ = try await UnifiedAgentTools.execute(page, run: &run, store: store); XCTFail("No full-page fallback is allowed") }
+    catch { XCTAssertTrue(error.localizedDescription.contains("独立教材插图")) }
+    XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter { $0.host == host }.isEmpty)
+  }
+
+}
+
+extension AgentRuntimeTests {
+  @MainActor func testSearchSuppliesIndependentFigureBytesInPrivateTranscript() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    var source = agentSource(bookID: "book-image", title: "图片教材", pageCount: 1)
+    source.chunks = [SourceChunk(chunk_id: "figure-text", book_id: "book-image", chapter_id: "chapter", page_start: 1, page_end: 1,
+      content_type: "text", text: "动量守恒示意图", asset_ids: ["figure-1"], key_concepts: [])]
+    source.assets = [BookAsset(asset_id: "figure-1", book_id: "book-image", source_type: "textbook", page: 1,
+      type: "figure", caption: "独立示意图", image_url: "figure.png", thumbnail_url: "figure.png", source_chunk_ids: ["figure-text"], concepts: [])]
+    store.sources = [source]; agentRegisterCourse(store)
+    let png = try XCTUnwrap(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="))
+    let figurePath = try await store.repository.saveAttachment(png, extension: "png")
+    let record = LocalMaterialRecord(groupID: "group", version: "v1", bookID: source.id, files: [:], figurePaths: ["figure-1": figurePath],
+      source: source, diagnostics: [], grading: [])
+    try await store.repository.saveMaterialRecord(record, scope: store.noteScope!)
+    var run = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    run.privateTransport = true; run.context.sessionID = "local-chat"
+    let call = AgentToolCall(id: "image-search", name: "search_learning_materials", argumentsJSON: #"{"query":"动量守恒","include_images":true}"#, argumentsHash: "")
+    let payload = try await UnifiedAgentTools.execute(call, run: &run, store: store)
+    XCTAssertEqual(agentJSON(Data(payload.utf8))["images_loaded"] as? Int, 1)
+    let image = try XCTUnwrap(run.images?.first)
+    XCTAssertFalse(image.data_base64?.isEmpty ?? true)
+    run.steps[0].toolCalls = [call]
+    run.steps[0].outcomes = [AgentToolOutcome(toolCallID: call.id, status: "ok", resultJSON: payload)]
+    let next = AgentRuntime.turnRequest(for: run, stepIndex: 1)
+    XCTAssertEqual(next.contract_version, 3)
+    XCTAssertNil(next.attachments)
+    let transcript = try AgentDigest.canonicalJSON(AgentRuntime.foundationObject(.array((next.client_messages ?? []).map(JSONValue.object))))
+    XCTAssertTrue(transcript.contains("data:image/jpeg;base64,"))
+    XCTAssertTrue(transcript.contains("image-search"))
+    XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter { $0.host == host }.isEmpty)
+  }
+
+}
+
+
+extension AgentRuntimeTests {
+  @MainActor func testLegacyUnfinishedRunIsArchivedWithoutAnyNetworkOrToolExecution() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    var legacy = agentRepositoryRun(scope: store.noteScope!, evidence: agentRepositoryEvidence())
+    legacy.privateTransport = nil
+    legacy.context.sessionID = "legacy-session"
+    legacy.steps[0].state = .posted
+    legacy = try await store.repository.saveRun(legacy)
+    store.agent.resume()
+    try await agentWaitUntil { !store.agent.isWorking }
+    let stored = try await store.repository.loadRun(legacy.id, scope: legacy.scope)
+    let archived = try XCTUnwrap(stored)
+    XCTAssertEqual(archived.legacyArchived, true)
+    XCTAssertEqual(archived.status, .cancelled)
+    XCTAssertEqual(archived.steps[0].state, .posted, "Keep original request history without executing it")
+    XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter { $0.host == host }.isEmpty)
   }
 }

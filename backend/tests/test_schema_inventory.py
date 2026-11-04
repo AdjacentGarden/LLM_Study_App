@@ -25,7 +25,7 @@ def test_authoritative_schema_and_import_inventory_are_complete():
 
 
 def test_merged_queues_and_durable_note_aliases_have_explicit_import_contract():
-    assert SCHEMA_VERSION == 12
+    assert SCHEMA_VERSION == 15
     assert TABLES['course_jobs.sqlite3'] == (
         'course_jobs', 'course_job_requests', 'teaching_course_repairs', 'teaching_course_units',
         'teaching_course_proofs', 'teaching_course_submissions', 'teaching_course_epochs')
@@ -36,6 +36,15 @@ def test_merged_queues_and_durable_note_aliases_have_explicit_import_contract():
     assert JSON_COLUMNS['studio_note_request_aliases'] == {'body_json'}
     schema = (MIGRATIONS / '006_course_preparation_note_aliases.sql').read_text()
     assert 'next_step INTEGER NOT NULL DEFAULT 0' in schema
+
+
+def test_creation_drafts_have_an_ordered_import_and_json_contract():
+    native_tables = TABLES['native.sqlite3']
+    assert native_tables.index('native_creation_drafts') > native_tables.index('native_workspaces')
+    assert JSON_COLUMNS['native_creation_drafts'] == {'payload'}
+    schema = (MIGRATIONS / '014_native_creation_drafts.sql').read_text()
+    assert 'REFERENCES native_workspaces(id) ON DELETE CASCADE' in schema
+    assert 'payload TEXT NOT NULL' in schema
 
 
 def test_private_chapter_approvals_and_submission_ledger_have_explicit_import_contract():
@@ -67,8 +76,17 @@ def test_isolated_teaching_repair_state_and_submission_proofs_have_explicit_impo
 
 
 def test_assistant_ledger_has_explicit_import_contract():
-    assert TABLES['assistant.sqlite3'] == ('assistant_runs', 'assistant_steps')
+    assert TABLES['assistant.sqlite3'] == ('assistant_runs', 'assistant_steps', 'assistant_conversations', 'assistant_conversation_events', 'assistant_conversation_runs', 'assistant_history_initializations')
     assert JSON_COLUMNS['assistant_steps'] == {'message_json'}
     schema = (MIGRATIONS / '012_assistant_ledger.sql').read_text()
     assert 'PRIMARY KEY(owner,run_id,step_id)' in schema
     assert 'UNIQUE(owner,run_id,step_index)' in schema
+
+
+def test_local_first_groups_and_digest_export_checkpoint_have_explicit_schema():
+    assert 'public_course_groups' in TABLES['community.sqlite3']
+    assert 'private_export_checkpoints' in TABLES['native.sqlite3']
+    assert JSON_COLUMNS['public_course_groups'] == {'book_ids', 'manifest'}
+    schema = (MIGRATIONS / '015_local_first_public_materials.sql').read_text()
+    assert set(re.findall(r'CREATE TABLE IF NOT EXISTS (\w+)', schema)) == {
+        'public_course_groups', 'private_export_checkpoints'}

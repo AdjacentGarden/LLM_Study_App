@@ -1,5 +1,6 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from time import sleep
 
 import pytest
 from fastapi.testclient import TestClient
@@ -747,3 +748,73 @@ def test_metadata_bootstrap_deduplicates_bodies_with_constant_query_budget(nativ
     assert body["source_content"]["plan"]["tasks"][0]["task_id"].startswith("catalog:__shared__:")
     assert client.get("/api/native/builtin-content/outdated").status_code == 404
     assert client.get("/api/native/capabilities").json()["bootstrap_metadata"]
+
+
+def test_creation_stage_drafts_are_private_durable_and_do_not_run_models(native, monkeypatch):
+    a, b, root = native
+    book = uploaded(a)
+    original = api.job_repository.get_structure(book)
+    chapter = original.chapters[0]
+    wid = "workspace_stage_save"
+    payload = {"id": wid, "request_id": "stage-save-001", "name": "分阶段保存",
+               "preferences": {"urgency": ["steady"]}, "step": 1, "book_ids": [book],
+               "chapters": {book: [{"chapter_id": chapter.chapter_id, "title": "修改后的目录",
+                                     "start_page": 2, "end_page": chapter.end_page}]}}
+    from adaptive_learning.api import native_routes
+    calls = []
+    reconstructor = native_routes.require_chapter_reconstructor()
+    def summarize_once(chapter, pages):
+        calls.append(1)
+        sleep(0.1)  # Keep the first validation in flight while its retry arrives.
+        return chapter
+    monkeypatch.setattr(reconstructor, "_summarize", summarize_once, raising=False)
+    monkeypatch.setattr(native_routes, "require_chapter_reconstructor", lambda: reconstructor)
+    path = f"/api/workspaces/{wid}/creation-draft"
+    first = a.put(path, json=payload)
+    assert first.status_code == 200, first.text
+    assert calls == []
+    assert a.put(path, json=payload).status_code == 200
+    remote = first.json()["workspace"]["resources"][0]
+    assert remote["revision"] == 0
+    assert remote["session_id"] is None
+    assert len(first.json()["workspace"]["resources"]) == 1
+    assert b.get(path).status_code == 404
+    assert b.put(path, json=payload).status_code in (403, 404)
+    api.native_repository = NativeRepository(root / "state" / "native.sqlite3")
+    assert a.get(path).json()["step"] == 1
+    assert a.get(path).json()["chapters"] == payload["chapters"]
+    confirm = path + "/confirm"
+    assert a.post(confirm, json={"request_id": "old-snapshot"}).status_code == 409
+    assert a.post(confirm, json={"request_id": payload["request_id"]}).status_code == 409
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        replies = list(executor.map(lambda _: a.put(
+            f"/api/workspaces/{wid}/resources/{remote['id']}/chapters",
+            json={"revision": 0, "chapters": payload["chapters"][book]}), range(2)))
+    assert all(r.status_code == 200 for r in replies), [r.text for r in replies]
+    assert len(calls) == 1, "Concurrent retries of one resource must share the accepted validation"
+    replay = a.put(f"/api/workspaces/{wid}/resources/{remote['id']}/chapters",
+                   json={"revision": 0, "chapters": payload["chapters"][book]})
+    assert replay.status_code == 200, replay.text
+    assert len(calls) == 1, "Replaying an accepted directory must not re-run the model"
+    stale_values = [{**payload["chapters"][book][0], "title": "过期客户端的另一个修改"}]
+    stale = a.put(f"/api/workspaces/{wid}/resources/{remote['id']}/chapters",
+                  json={"revision": 0, "chapters": stale_values})
+    assert stale.status_code == 409
+    assert len(calls) == 1, "A conflicting revision must be rejected before model work"
+    assert a.post(confirm, json={"request_id": payload["request_id"]}).status_code == 200
+    assert a.post(confirm, json={"request_id": payload["request_id"]}).status_code == 200
+    assert a.get(path).json()["confirmed"] is True
+    assert api.job_repository.get_structure(book) == original
+
+
+def test_creation_draft_invalid_pages_do_not_create_workspace(native):
+    a, _, _ = native
+    book = uploaded(a)
+    chapter = api.job_repository.get_structure(book).chapters[0]
+    wid = "workspace_invalid_draft"
+    response = a.put(f"/api/workspaces/{wid}/creation-draft", json={
+        "id": wid, "request_id": "invalid-snapshot", "name": "草稿", "step": 0,
+        "book_ids": [book], "chapters": {book: [{"chapter_id": chapter.chapter_id,
+            "title": chapter.title, "start_page": 1, "end_page": 999999}]}})
+    assert response.status_code == 422
+    assert a.get(f"/api/workspaces/{wid}").status_code == 404

@@ -8,6 +8,7 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
 from ..accounts import COOKIE, Accounts
+from ..public_materials import public_group_contains_book
 
 
 def learning_guard(
@@ -21,7 +22,8 @@ def learning_guard(
             with accounts.repo.connect() as db:
                 row = db.execute("SELECT owner FROM upload_owners WHERE book_id=?", (parts[2],)).fetchone()
             public_cover = (request.method in {"GET", "HEAD"} and len(parts) == 4
-                            and parts[3] == "cover" and accounts.repo.is_public_book(parts[2]))
+                            and parts[3] == "cover" and (accounts.repo.is_public_book(parts[2])
+                                or public_group_contains_book(accounts.repo, parts[2])))
             if row and not public_cover:
                 actor = accounts.request_owner(request)
                 if request.cookies.get(COOKIE) and not actor:

@@ -52,6 +52,9 @@ def test_history_contains_actual_content_and_never_unused_answer_keys():
     assert result["knowledge"][0]["mastery"] == 0.75
     assert [row["answer"] for row in result["evidence"]] == ["第二次选择", "第一次选择"]
     assert result["evidence"][0]["title"] == bank_item.prompt
+    assert {row["question_id"] for row in result["evidence"]} == {bank_item.item_id}
+    assert len({row["attempt_id"] for row in result["evidence"]}) == 2
+    assert [row["id"] for row in result["evidence"]] == ["1", "0"]
     assert "correct_option_ids" not in json.dumps(result)
     assert "expected_answer" not in json.dumps(result)
 

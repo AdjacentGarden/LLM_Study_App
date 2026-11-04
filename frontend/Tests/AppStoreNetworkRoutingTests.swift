@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import XCTest
 
@@ -86,14 +87,14 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   private let host: String
   private let session: URLSession
 
-  init(network: ProcessingNetworkKind) throws {
+  init(network: ProcessingNetworkKind, legacyQuery: Bool = false) throws {
     directory = FileManager.default.temporaryDirectory.appendingPathComponent("routing-" + UUID().uuidString)
     repository = try LocalBookCourseRepository(directory: directory)
     host = "routing-" + UUID().uuidString.lowercased() + ".example"
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [NetworkRoutingProtocol.self]
     session = URLSession(configuration: configuration)
-    api = CloudAPI(baseURL: URL(string: "https://" + host)!, session: session)
+    api = CloudAPI(baseURL: URL(string: "https://" + host)!, session: session, legacyPrivateSyncEnabled: legacyQuery)
     policy = ProcessingNetworkPolicy(monitoring: false, automaticallySchedules: false,
       now: { 0 }, wifiStability: 0, cellularDebounce: 0, unknownGrace: 0)
     policy.updatePath(ProcessingNetworkPath(kind: network))
@@ -271,7 +272,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertFalse(answer.citations.isEmpty)
     XCTAssertTrue(answer.citations.allSatisfy { $0.bookID == id && (1...2).contains($0.page) })
     XCTAssertTrue(fixture.probe.requests.isEmpty, "Local OCR/search must not upload, prepare, or query cloud QA.")
-    let cached = try await fixture.repository.loadCloudState("isolated-routing-owner")
+    let cached = try await fixture.repository.loadPersonalState(scope: "isolated-routing-owner")
     XCTAssertEqual(cached?.filePaths[id], fixture.store.filePaths[id])
     XCTAssertEqual(cached?.sources.first { $0.id == id }?.chunks.count, 2)
     XCTAssertEqual(try Data(contentsOf: original), bytes)
@@ -333,6 +334,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   func testStableWiFiRetainsExistingPDFUploadInsteadOfSilentlySwitchingToLocal() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
+    fixture.store.cloudState.localFirstChecked = true
     fixture.probe.respond { request in
       XCTAssertEqual(request.httpMethod, "POST")
       XCTAssertEqual(request.url?.path, "/api/native/uploads")
@@ -352,6 +354,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   func testRepeatedPDFImportReusesRunningPreparationAcrossCacheRestore() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
+    fixture.store.cloudState.localFirstChecked = true
     fixture.probe.respond { _ in
       (200, try JSONEncoder().encode(CloudUpload(book_id: "server-upload",
         filename: "text.pdf", status: "uploaded")))
@@ -373,13 +376,14 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(fixture.store.courseImport(for: courseID)?.books.count, 1)
     XCTAssertEqual(fixture.store.courseImport(for: courseID)?.books.first?.stage, "diagnostics")
 
-    let saved = try await fixture.repository.loadCloudState("isolated-routing-owner")
+    let saved = try await fixture.repository.loadPersonalState(scope: "isolated-routing-owner")
     let cached = try XCTUnwrap(saved)
     let restored = AppStore(repository: fixture.repository, cloud: fixture.api,
       processingPolicy: stableWiFiProcessingPolicyForTesting())
     restored.cloudState.authenticated = true
     restored.cloudState.cacheKey = "isolated-routing-owner"
-    restored.restoreCloudCache(cached)
+    restored.cloudState.privateLocalMode = true
+    restored.restorePrivateState(cached)
     let renamed = fixture.directory.appendingPathComponent("renamed.pdf")
     try Data(contentsOf: file).write(to: renamed)
     await restored.importFile(renamed)
@@ -394,6 +398,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   func testDifferentPDFContentsWithSameFilenameRemainSeparate() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
+    fixture.store.cloudState.localFirstChecked = true
     fixture.probe.respond { _ in
       (200, try JSONEncoder().encode(CloudUpload(book_id: UUID().uuidString,
         filename: "text.pdf", status: "uploaded")))
@@ -434,7 +439,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testStableWiFiUsesUnifiedAssistantAndMapsCrossBookEvidence() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let source = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: "server-book", filename: "text.pdf")
     fixture.store.sources = [source]
@@ -462,7 +467,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testPendingLocalImportSendsOnlyDeviceEvidenceNeverServerScope() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let localID = "book_local_pending_evidence"
     let serverID = "server-pending-scope"
@@ -499,38 +504,26 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     await fixture.api.clearCredentials()
   }
 
-  func testHistoryAnswerKeepsSourceLabelAndOnlyKnownCourseLinks() async throws {
+  func testHistoryStorePersistsExecutorSourceLabelAndCourseLinks() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
     let known = "community_functions"
-    fixture.store.community = [CommunityBook(id: known, title: "函数与导数", catalogTitle: "函数与导数",
-      owner: "测试来源", cover: "", subject: "数学", grade: "高三", version: "北师大版", volume: nil,
-      learners: nil, progress: nil, flashcardCount: 0, recommended: true, tags: [],
-      description: "测试服务返回的课程信息", chapters: [])]
-    fixture.probe.respond { request in
-      XCTAssertEqual(request.url?.path, "/api/assistant/query")
-      let answer = CloudAssistantQuery(answer: "已根据学习记录回答", citations: [],
-        source_label: "learning_records", course_ids: [known, "community_post_unknown"])
-      return (200, try JSONEncoder().encode(answer))
-    }
-    let context = fixture.store.assistantSessionContext
-    let question = "我之前学到哪里了？"
-    let response = try await fixture.store.answerHistorySession(context: context,
-      history: [ChatMessage(role: "user", text: question)], question: question)
-    XCTAssertEqual(response.courseIDs, [known], "Unknown community IDs must not become course links")
-    XCTAssertEqual(response.sourceLabel, "learning_records")
-
     let history = fixture.store.assistantHistory
     await history.load(scope: fixture.store.assistantHistoryScope)
-    history.submit(question, context: context) { context, messages, question in
-      try await fixture.store.answerHistorySession(context: context, history: messages, question: question)
+    history.submit("我之前学到哪里了？", context: fixture.store.assistantSessionContext) { _, _, _ in
+      AssistantHistoryAnswer(text: "已根据学习记录回答", courseIDs: [known], sourceLabel: "learning_records")
     }
     try await waitForHistory(history)
     let message = try XCTUnwrap(history.current?.messages.last)
     XCTAssertEqual(message.role, "assistant")
     XCTAssertEqual(message.sourceLabel, "learning_records")
     XCTAssertEqual(history.current?.courseLinks[message.id], [known])
-    await fixture.api.clearCredentials()
+    await history.flush()
+    let reopened = AssistantHistoryStore(repository: fixture.repository)
+    await reopened.load(scope: fixture.store.assistantHistoryScope)
+    XCTAssertEqual(reopened.current?.messages.last?.sourceLabel, "learning_records")
+    XCTAssertEqual(reopened.current?.courseLinks[message.id], [known])
+    XCTAssertTrue(fixture.probe.requests.isEmpty)
   }
 
   func testLegacyChatMessageWithoutSourceLabelDecodesAsNil() throws {
@@ -543,7 +536,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testSelectionRemainsAHintAndOnlyDeviceCoursesAreClientMetadata() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let primary = "server-book", second = "server-second", local = "book_local_pending"
     let workspace = "workspace-qa"
@@ -585,7 +578,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testLongReaderHintsUseTheirOwnBoundedFieldsWithoutChangingTheQuestion() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let question = String(repeating: "问", count: 1999)
     let reading = CloudReadingContext(pdfPage: 3,
@@ -612,62 +605,63 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     await fixture.api.clearCredentials()
   }
 
-  func testDiscoveryAndNoSelectedBookUseTheSameConversationEndpoint() async throws {
+  func testDiscoveryAndNoSelectedBookUseUnifiedAgentTurnWithoutQuery() async throws {
     let fixture = try NetworkRoutingFixture(network: .wifi)
     defer { fixture.close() }
     fixture.store.route = .community
     let context = fixture.store.assistantSessionContext
     XCTAssertTrue(context.discovery)
     XCTAssertTrue(context.bookID.isEmpty)
-    var conversation: [ChatMessage] = []
-    let questions = ["当前有哪些课程？", "目前正在学习的课程有哪些？", "当前正在学习的课程"]
     fixture.probe.respond { request in
-      XCTAssertEqual(request.url?.path, "/api/assistant/query")
+      if request.url?.path.hasSuffix("/ack") == true { return (200, Data("{}".utf8)) }
+      if request.url?.path == "/api/assistant/conversations" {
+        return (200, Data("[]".utf8))
+      }
+      XCTAssertEqual(request.url?.path, "/api/assistant/turn")
       let body = try routingRequestBody(request)
-      XCTAssertNotNil(body["request_id"]?.stringValue.flatMap(UUID.init(uuidString:)))
-      guard case .object(let hint)? = body["context"] else { throw URLError(.badServerResponse) }
-      XCTAssertEqual(hint["book_id"], .null)
-      return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "你有两门课程。", citations: [])))
+      let object: [String: Any] = [
+        "contract_version": 3,
+        "run_id": body["run_id"]?.stringValue ?? "",
+        "step_id": body["step_id"]?.stringValue ?? "",
+        "step_index": 0, "state": "completed", "attempt": 1,
+        "message": ["content": "你有两门课程。", "tool_calls": []] as [String: Any],
+        "budget": ["steps": 1, "steps_max": 8, "posts": 1, "posts_max": 24,
+          "input_tokens": 0, "input_tokens_max": 100000, "output_tokens": 0,
+          "output_tokens_max": 10000, "model_seconds": 0, "model_seconds_max": 120,
+          "cached_input_tokens": 0],
+      ]
+      return (200, try JSONSerialization.data(withJSONObject: object))
     }
-    for question in questions {
-      conversation.append(ChatMessage(role: "user", text: question))
-      let response = try await fixture.store.answerHistorySession(context: context, history: conversation,
-        question: question)
-      XCTAssertEqual(response.text, "你有两门课程。")
-      XCTAssertTrue(response.courseIDs.isEmpty)
-      conversation.append(ChatMessage(role: "assistant", text: response.text))
-    }
-    XCTAssertEqual(fixture.probe.requests.count, 3)
-    let last = try routingRequestBody(XCTUnwrap(fixture.probe.requests.last))
-    guard case .array(let history)? = last["history"] else { throw URLError(.badServerResponse) }
-    XCTAssertEqual(history.count, 4, "Prior clarification and user replies must remain available to the same model")
-    XCTAssertEqual(last["question"], .string(questions[2]))
+    let response = try await fixture.store.answerHistorySession(context: context,
+      history: [ChatMessage(role: "user", text: "当前有哪些课程？")], question: "当前有哪些课程？")
+    XCTAssertEqual(response.text, "你有两门课程。")
+    XCTAssertFalse(fixture.probe.requests.contains { $0.url?.path == "/api/assistant/query" })
+    XCTAssertEqual(fixture.probe.requests.filter { $0.url?.path == "/api/assistant/turn" }.count, 1)
     await fixture.api.clearCredentials()
   }
 
-  func testUnifiedChatOnDeviceChoiceNeverPostsConversationOrCourseMetadata() async throws {
+  func testRetainedQueryTransportOnDeviceChoiceNeverPostsConversationOrCourseMetadata() async throws {
     let fixture = try NetworkRoutingFixture(network: .cellular)
     defer { fixture.close() }
     let source = try LocalFileImporter.extractSynchronously(url: pdf(), bookID: "cached-book", filename: "text.pdf")
     fixture.store.sources = [source]
     fixture.store.selectedBookID = source.id
-    let context = fixture.store.assistantSessionContext
     let question = "Native learning page one"
     let task = Task {
-      try await fixture.store.answerHistorySession(context: context,
-        history: [ChatMessage(role: "user", text: question)], question: question)
+      try await fixture.store.answerAssistant(question: question, bookID: source.id,
+        bookIDs: [source.id], chapterID: nil, sources: [source], history: [])
     }
     let choice = try await prompt(fixture.policy)
     XCTAssertTrue(fixture.probe.requests.isEmpty)
     fixture.policy.resolvePrompt(.onDevice, promptID: choice.id)
     let response = try await task.value
-    XCTAssertTrue(response.text.contains("本机教材检索"))
+    XCTAssertTrue(response.answer.contains("本机教材检索"))
     XCTAssertFalse(response.citations.isEmpty)
     XCTAssertTrue(fixture.probe.requests.isEmpty)
   }
 
   func testLongConversationBoundsOnlyTheRequestAndKeepsRecentMessages() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let conversation = (0..<100).map { index in
       ChatMessage(role: index.isMultiple(of: 2) ? "user" : "assistant",
@@ -696,7 +690,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
   }
 
   func testRepeatedQuestionDoesNotReuseAnOlderHistoryMessageID() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let oldQuestion = ChatMessage(role: "user", text: "再解释一下")
     let history = [oldQuestion, ChatMessage(role: "assistant", text: "之前的解释")]
@@ -723,18 +717,23 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     await history.flush()
   }
 
-  func testFailedTurnPersistsExactPayloadAndRetryReusesItAfterRelaunch() async throws {
-    let fixture = try NetworkRoutingFixture(network: .wifi)
+  func testRetainedQueryTransportPersistsExactPayloadAndRetryReusesItAfterRelaunch() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi, legacyQuery: true)
     defer { fixture.close() }
     let history = fixture.store.assistantHistory
     await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.route = .study
+    fixture.store.selectedCourseID = "local-course:first"
     fixture.store.selectedBookID = "first-book"
-    fixture.store.courses = [Course(id: "local-course:first", name: "第一门待处理课", resourceIDs: ["book_local_first"])]
+    fixture.store.courses = [Course(id: "local-course:first", name: "第一门待处理课", resourceIDs: ["first-book"])]
     let context = fixture.store.assistantSessionContext
     let question = "当前有哪些课程？"
     fixture.probe.respond { _ in (503, Data("{\"detail\":\"稍后重试\"}".utf8)) }
     history.submit(question, context: context) { context, messages, question in
-      try await fixture.store.answerHistorySession(context: context, history: messages, question: question)
+      let result = try await fixture.store.answerAssistant(question: question, bookID: context.bookID,
+        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: [], history: messages,
+        bindToCurrentSelection: false, requestID: context.messageID, requestContext: context)
+      return AssistantHistoryAnswer(text: result.answer, citations: result.citations, sourceLabel: result.sourceLabel)
     }
     try await waitForHistory(history)
     XCTAssertNotNil(history.current?.error)
@@ -744,15 +743,19 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
 
     history.reset()
     await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.selectedCourseID = "local-course:second"
     fixture.store.selectedBookID = "second-book"
-    fixture.store.courses = [Course(id: "local-course:second", name: "第二门待处理课", resourceIDs: ["book_local_second"])]
+    fixture.store.courses = [Course(id: "local-course:second", name: "第二门待处理课", resourceIDs: ["second-book"])]
     fixture.probe.respond { request in
       XCTAssertEqual(try routingRequestBody(request), initial, "Retry must not bill a changed request with the old ID")
       return (200, try JSONEncoder().encode(CloudAssistantQuery(answer: "已恢复回答", citations: [])))
     }
     history.retry { context, messages, question in
       XCTAssertEqual(context.bookID, "first-book")
-      return try await fixture.store.answerHistorySession(context: context, history: messages, question: question)
+      let result = try await fixture.store.answerAssistant(question: question, bookID: context.bookID,
+        bookIDs: context.bookIDs, chapterID: context.chapterID, sources: [], history: messages,
+        bindToCurrentSelection: false, requestID: context.messageID, requestContext: context)
+      return AssistantHistoryAnswer(text: result.answer, citations: result.citations, sourceLabel: result.sourceLabel)
     }
     try await waitForHistory(history)
     XCTAssertEqual(fixture.probe.requests.count, 2)
@@ -767,6 +770,12 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     defer { fixture.close() }
     let history = fixture.store.assistantHistory
     await history.load(scope: fixture.store.assistantHistoryScope)
+    fixture.store.route = .study
+    fixture.store.courses = [
+      Course(id: "course-first", name: "第一门课程", resourceIDs: ["first-book"]),
+      Course(id: "course-second", name: "第二门课程", resourceIDs: ["second-book"]),
+    ]
+    fixture.store.selectedCourseID = "course-first"
     fixture.store.selectedBookID = "first-book"
     let first = fixture.store.assistantSessionContext
     history.submit("先看第一本", context: first) { context, _, _ in
@@ -775,6 +784,7 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     }
     try await waitForHistory(history)
     let sessionID = history.current?.id
+    fixture.store.selectedCourseID = "course-second"
     fixture.store.selectedBookID = "second-book"
     let second = fixture.store.assistantSessionContext
     history.submit("这本书呢？", context: second) { context, messages, _ in
@@ -785,5 +795,91 @@ private final class NetworkRoutingProtocol: URLProtocol, @unchecked Sendable {
     try await waitForHistory(history)
     XCTAssertEqual(history.current?.id, sessionID)
     XCTAssertEqual(history.current?.context.bookID, "second-book")
+  }
+}
+
+extension AppStoreNetworkRoutingTests {
+  func testJoinedBooksPersonalLessonAndVoiceNoteRemainSearchableAfterRestart() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let store = fixture.store
+    let base = "/api/public/library/course-groups/group_test"
+    var downloads: [String: Data] = [:]
+    let books = try ["book-a", "book-b"].map { id in
+      let chapter = CloudChapter(chapter_id: "ch", order: 1, title: "向量", start_page: 1, end_page: 1,
+        summary: "", knowledge_points: [], source_block_ids: [])
+      let files = try [("pdf", Data(contentsOf: pdf())), ("ocr_pages", Data("{\"page_number\":1,\"text\":\"向量有方向 \(id)\"}".utf8)),
+        ("diagnostics", Data("{\"items\":[]}".utf8)), ("grading", Data("{\"items\":[]}".utf8))].map { kind, data in
+          let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+          let path = base + "/assets/" + hash
+          downloads[path] = data
+          return PublicMaterialFile(asset_id: kind, kind: kind, sha256: hash, bytes: data.count,
+            media_type: kind == "pdf" ? "application/pdf" : "application/json", download_url: path)
+        }
+      return PublicMaterialBook(book_id: id, title: id, content_version: "v1", structure: CloudStructure(
+        title: id, summary: "", source_page_count: 1, chapters: [chapter]), files: files, figures: [])
+    }
+    downloads[base + "/manifest"] = try JSONEncoder().encode(PublicMaterialManifest(schema_version: 1, group_id: "group_test",
+      title: "数学", description: "", version: "v1", books: books))
+    downloads["/api/native/local-first/capabilities"] = Data(#"{"schema_version":1,"public_library":true,"private_forwarding":true,"private_export":true,"legacy_writes_active":true}"#.utf8)
+    fixture.probe.respond { request in
+      let path = try XCTUnwrap(request.url?.path)
+      if let bytes = downloads[path] { return (200, bytes) }
+      if path.hasSuffix("/ack") { return (200, Data("{}".utf8)) }
+      XCTAssertEqual(path, "/api/assistant/private-model")
+      let body = try routingRequestBody(request)
+      guard case .array(let messages) = body["messages"], case .object(let message) = messages.last else { throw URLError(.badServerResponse) }
+      let input = try JSONDecoder().decode([String: JSONValue].self,
+        from: Data(try XCTUnwrap(message["content"]?.stringValue).utf8))
+      let result: [String: Any]
+      if body["operation"] == .string("lecture") {
+        XCTAssertEqual(input["preferences"], .object(["goal": .array([.string("复习")])]))
+        let citation: [String: Any] = ["page_number": 1, "quote": "向量有方向"]
+        let section: [String: Any] = ["title": "定向练习", "content": "画一个向量", "purpose": "复习", "citations": [citation]]
+        let course: [String: Any] = ["course_id": try XCTUnwrap(input["publication_id"]?.stringValue), "version": 1,
+          "chapter_id": "ch", "chapter_title": "向量", "opening": "定向练习", "summary": "定向练习",
+          "original_reading": [section], "knowledge_points": [["point_id":"p","title":"方向","explanation":"定向练习","mastery":0,"citations":[citation]]],
+          "units": [["unit_id":"u","title":"定向练习","knowledge_point_ids":["p"],"sections":[section],"estimated_minutes":5]],
+          "flashcards": [], "worked_examples": [], "checkpoint_questions": [], "practice_items": [], "estimated_minutes": 5,
+          "created_at": "2026-11-04", "unresolved_source_warnings": []]
+        result = ["course": course, "practice_grading": []]
+      } else {
+        XCTAssertEqual(body["operation"], .string("plan"))
+        result = ["user_id":"owner","book_id":"book-a","days":1,"daily_minutes":5,
+          "tasks":[["task_id":"task","user_id":"owner","day":1,"title":"练习","task_type":"learn","minutes":5,
+            "chapter_id":"ch","lesson_id":try XCTUnwrap(input["lesson_id"]?.stringValue),"status":"pending","weak_points":[]]]]
+      }
+      let content = String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self)
+      return (200, try JSONEncoder().encode(PrivateModelStepResponseDTO(request_id: try XCTUnwrap(body["request_id"]?.stringValue),
+        state: "completed", content: content)))
+    }
+    try await store.verifyLocalFirstCapabilities()
+    let course = try await store.acquirePublicCourseGroup(catalogID: "group_test", name: "数学")
+    XCTAssertEqual(course.resourceIDs, ["book-a", "book-b"])
+    XCTAssertTrue(store.draft.diagnosis.isEmpty)
+    store.draft.diagnosis = ["goal": ["复习"]]
+    await store.confirmCloudChapters()
+    try await store.beginLocalDiagnosis(chapterID: "ch", preview: true)
+    try await store.saveNote(StudyNote(kind: .voice, title: "语音", anchor: NoteAnchor(courseID: course.id, bookID: "book-a", page: 1),
+      transcript: "录音里的向量例子"))
+    store.completeLesson()
+    try await store.persistPrivateState()
+    let requestsBeforeSearch = fixture.probe.requests.count
+    let reopened = AppStore(repository: try LocalBookCourseRepository(directory: fixture.directory), cloud: fixture.api)
+    reopened.cloudState.authenticated = true
+    reopened.cloudState.cacheKey = store.cloudState.cacheKey
+    reopened.cloudState.privateLocalMode = true
+    let state = try await reopened.repository.loadPersonalState(scope: try XCTUnwrap(store.noteScope))
+    reopened.restorePrivateState(try XCTUnwrap(state))
+    await reopened.reloadNotes(resumeAgent: false)
+    for (kind, keyword) in [("lessons","定向练习"), ("notes","录音里的向量例子"), ("plans","练习"), ("progress","ch")] {
+      let response = try await reopened.readLocalPersonalLearning(args: ["course_id": .string(course.id),
+        "kind": .string(kind), "keyword": .string(keyword)])
+      XCTAssertGreaterThan(response["total"]?.numberValue ?? 0, 0, kind)
+    }
+    let hits = try await AppleTextbookSearch(useSystemEmbeddings: false).search(query: "向量有方向", sources: reopened.sources,
+      bookIDs: Set(course.resourceIDs), limit: 8)
+    XCTAssertEqual(Set(hits.hits.filter(\.reliable).map(\.chunk.book_id)), Set(course.resourceIDs))
+    XCTAssertEqual(fixture.probe.requests.count, requestsBeforeSearch)
   }
 }

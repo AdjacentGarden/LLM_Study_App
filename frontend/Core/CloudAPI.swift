@@ -94,7 +94,8 @@ private final class CoverRedirectPolicy: NSObject, URLSessionTaskDelegate, @unch
 
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
-  nonisolated static let defaultServer = "http://10.249.44.137:8100"
+  nonisolated static let defaultServer = "http://192.168.28.241:8100"
+  nonisolated let legacyPrivateSyncEnabled: Bool
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
     ["127.0.0.1", "localhost", "::1", "[::1]"].contains(baseURL.host ?? "")
@@ -107,7 +108,8 @@ actor CloudAPI {
   private let credentialKey: String
   private let coverCache = NSCache<NSString, NSData>()
 
-  init(baseURL: URL, session: URLSession? = nil) {
+  init(baseURL: URL, session: URLSession? = nil, legacyPrivateSyncEnabled: Bool = false) {
+    self.legacyPrivateSyncEnabled = legacyPrivateSyncEnabled
     usesNativeBackgroundUploads = session == nil
     let normalized = Self.normalizedURL(baseURL)
     self.baseURL = normalized
@@ -267,6 +269,20 @@ actor CloudAPI {
     return try JSONDecoder().decode(CloudUpload.self, from: bytes)
   }
 
+  func downloadPublicMaterial(_ path: String) async throws -> Data {
+    guard path.hasPrefix("/api/public/library/course-groups/"), !path.contains(".."),
+      URLComponents(string: path)?.host == nil else { throw CloudError(status: 422, message: "教材下载地址无效") }
+    let (data, _) = try await send(path, method: "GET", data: nil, contentType: nil)
+    return data
+  }
+
+  func downloadPrivateMigrationFile(_ path: String) async throws -> Data {
+    guard path.hasPrefix("/api/private/export/files/"), !path.contains(".."),
+      URLComponents(string: path)?.host == nil else { throw CloudError(status: 422, message: "迁移文件地址无效") }
+    let (data, _) = try await send(path, method: "GET", data: nil, contentType: nil)
+    return data
+  }
+
   func downloadPDF(bookID: String) async throws -> Data {
     let (bytes, response) = try await send(
       "/api/books/\(bookID)/source", method: "GET", data: nil, contentType: nil)
@@ -276,6 +292,16 @@ actor CloudAPI {
       throw CloudError(status: 0, message: "原 PDF 暂不可用")
     }
     return bytes
+  }
+
+  /// Paths come from a verified source asset, never directly from model arguments.
+  func downloadAssistantSourceAsset(_ path: String, bookID: String) async throws -> Data {
+    guard let parts = URLComponents(string: path), parts.scheme == nil, parts.host == nil,
+      (path.hasPrefix("/api/books/" + bookID + "/") || path.hasPrefix("/assets/textbook/")), !path.contains("..") else {
+      throw CloudError(status: 403, message: "原图地址不属于已授权教材")
+    }
+    let (data, _) = try await send(path, method: "GET", data: nil, contentType: nil)
+    return data
   }
 
   nonisolated static func isBookCoverPath(_ path: String) -> Bool {
@@ -362,6 +388,15 @@ actor CloudAPI {
     }
   }
 
+  nonisolated static func isLegacyPrivateMutation(path: String, method: String) -> Bool {
+    guard method != "GET", method != "HEAD" else { return false }
+    if path == "/api/assistant/query" { return true }
+    let prefixes = ["/api/workspaces", "/api/interviews", "/api/native/learner-preferences", "/api/native/selection",
+      "/api/assistant/tools/", "/api/assistant/learning-data/", "/api/assistant/conversations"]
+    if prefixes.contains(where: path.hasPrefix) { return true }
+    return path.hasPrefix("/api/native/catalog/") && path.hasSuffix("/import")
+  }
+
   private func send(
     _ path: String, method: String, data: Data?, contentType: String?,
     headers: [String: String] = [:], uploadFile: URL? = nil,
@@ -370,6 +405,11 @@ actor CloudAPI {
   ) async throws
     -> (Data, HTTPURLResponse)
   {
+    // Studio processes user-selected media remotely. Course and learning-data
+    // mutations still belong to the local-first flows.
+    if !legacyPrivateSyncEnabled, Self.isLegacyPrivateMutation(path: path, method: method) {
+      throw CloudError(status: 409, message: "此操作已迁至本机个人存储；请等待本机资料就绪后重试。")
+    }
     guard path.hasPrefix("/api/"), let url = URL(string: path, relativeTo: baseURL) else {
       throw CloudError(status: 0, message: "服务地址无效")
     }
@@ -382,7 +422,7 @@ actor CloudAPI {
       // A relayed tailnet connection can spend most of the normal auth budget
       // establishing TCP and TLS before the server receives the request.
       request.timeoutInterval = baseURL.host?.lowercased().hasSuffix(".ts.net") == true ? 60 : 20
-    } else if path.contains("/course-jobs")
+    } else if path.contains("/creation-draft") || path.contains("/course-jobs")
       || path.hasSuffix("/prepare") || path.contains("/prepare?")
       || path.hasSuffix("/readiness") || path.hasSuffix("/status")
       || (method == "GET" && path.hasSuffix("/diagnostics")) {

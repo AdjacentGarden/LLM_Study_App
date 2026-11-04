@@ -1,8 +1,7 @@
 import OSLog
 import UIKit
 
-/// App geometry requests are best effort. UI tests set physical simulator orientation
-/// with XCUIDevice and assert the resulting window dimensions independently.
+/// Keep visual fixtures under the same portrait-only policy as the application.
 @MainActor enum FixtureOrientation {
   private static let logger = Logger(
     subsystem: "com.littleri.bookcourseai.swiftui", category: "visual-fixture")
@@ -10,10 +9,9 @@ import UIKit
     let arguments = ProcessInfo.processInfo.arguments
     guard ContentBundle.fixtureMode,
       let index = arguments.firstIndex(of: "--fixture-orientation"),
-      arguments.indices.contains(index + 1)
-    else { return }
-    let mask: UIInterfaceOrientationMask =
-      arguments[index + 1] == "landscape" ? .landscapeLeft : .portrait
+      arguments.indices.contains(index + 1), arguments[index + 1] == "portrait"
+    else { return } // Legacy landscape requests cannot override the app policy.
+    let mask: UIInterfaceOrientationMask = .portrait
     Task { @MainActor in
       for delay in [600, 900, 1500] {
         try? await Task.sleep(for: .milliseconds(delay))

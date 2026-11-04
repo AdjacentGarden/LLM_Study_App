@@ -19,6 +19,15 @@ import Observation
 }
 
 @MainActor @Observable final class LearningSessionState {
+  var agentFocusQuizID: String?
+  var visibleQuizID: String?
+  var visibleCardID: String?
+  var visibleMistakeID: String?
+  var visibleNoteID: String?
+  var visiblePlanDay: String?
+  var agentFocusCardID: String?
+  var agentFocusMistakeID: String?
+  var agentFocusPlanDate: String?
   var readerCompletionVisible = false
   var readerOverlayVisible = false
   var selectedChapterID: String? = nil
@@ -73,6 +82,8 @@ struct ReaderOrigin: Sendable {
 }
 
 @MainActor @Observable final class AssistantConversationState {
+  var learningObjects: [AgentLearningObject] = []
+  var screenshotExcludesAssistant = false
   var globalAssistantOpen: Bool = false
   var chatMessages: [ChatMessage] = []
   var chatLoading: Bool = false
@@ -168,6 +179,9 @@ struct ReaderOrigin: Sendable {
     closeSheet()
     go(.study)
     if let upload = courseUpload(for: course.id) { showCourseUpload(upload.id) }
+    else if let record = selectedCourseImport, !record.needsPreparation, record.setupCompleted != true {
+      resumeSelectedCourseSetup()
+    }
   }
 
   func continueCourseImport(_ id: String) {
@@ -331,7 +345,7 @@ struct ReaderOrigin: Sendable {
             guard epoch == cloudState.epoch else { return }
             bindUploadedBook(localID: bookID, uploaded: uploaded)
             bookID = uploaded.book_id
-            if !id.hasPrefix("local-course:"),
+            if !cloudState.privateLocalMode, !id.hasPrefix("local-course:"),
               cloudState.workspaces.contains(where: { $0.id == id }),
               cloudState.workspaces.first(where: { $0.id == id })?.resources.contains(where: { $0.book_id == bookID }) != true {
               let _: CloudResource = try await cloud.request("/api/workspaces/\(id)/resources", method: "POST", body: ["book_id": .string(bookID)])
@@ -442,6 +456,10 @@ struct ReaderOrigin: Sendable {
         $0.job.message = complete ? (onDeviceOnly ? "本机文字识别完成，可阅读原文与检索" : "资料整理完成") : "新资料已保存，等待解析"
         if onDeviceOnly && complete { $0.setupCompleted = true }
         $0.draft.parseCompleted = complete
+      }
+      if cloudState.privateLocalMode, !onDeviceOnly, let completed = courseImport(for: id) {
+        try await queuePublicCoursePublication(title: completed.draft.name, bookIDs: completed.books.map(\.id), courseID: id)
+        await resumePublicLibraryTasks()
       }
       if Set(draft.resourceIDs) == Set(importState.courses.first(where: { $0.id == id })?.draft.resourceIDs ?? []) {
         draft.parseCompleted = importState.courses.first(where: { $0.id == id })?.job.status == .completed
@@ -575,6 +593,12 @@ struct ReaderOrigin: Sendable {
       saved.resourceIDs = importState.courses[i].books.map(\.id)
     }
     importState.courses[i].draft = saved
+    if cloud != nil {
+      if importState.courses[i].stageSave == nil { importState.courses[i].stageSave = CourseStageSave() }
+      for bookID in saved.resourceIDs {
+        if let edits = chapterDrafts[bookID] { importState.courses[i].stageSave?.chapters[bookID] = edits }
+      }
+    }
     if let index = courses.firstIndex(where: { $0.id == id && $0.id.hasPrefix("local-course:") }),
       !draft.name.isEmpty { courses[index].name = draft.name }
   }

@@ -265,3 +265,86 @@ def test_search_reuses_book_index_until_source_changes(tools, tmp_path, monkeypa
     changed = {"query": "细胞呼吸", "book_ids": ["chemistry"]}
     assert query.execute("search_learning_materials", changed)["ok"]
     assert calls["count"] == 2
+
+
+def test_search_course_filters_intersect_books_without_widening_scope(tools):
+    query, services = tools
+    # The same book may belong to more than one course; return the filtered identity.
+    services.native_repository.add_resource("alice", "workspace_chemistry", "biology")
+    result = query.execute("search_learning_materials", {
+        "query": "遗传物质", "course_ids": ["workspace_chemistry"], "book_ids": ["biology"],
+    })
+    assert result["ok"] and result["searched_book_ids"] == ["biology"]
+    evidence = result["evidence"][0]
+    assert evidence["course_id"] == "workspace_chemistry"
+    assert evidence["course_ids"] == ["workspace_chemistry"]
+    assert evidence["resource_id"]
+    assert evidence["source_version"].startswith("ocr:")
+    empty = query.execute("search_learning_materials", {
+        "query": "化学反应", "course_ids": ["workspace_biology"], "book_ids": ["chemistry"],
+    })
+    assert empty["ok"] and empty["searched_book_ids"] == [] and empty["evidence"] == []
+    for arguments in [
+        {"query": "教材", "course_ids": ["workspace_private"]},
+        {"query": "教材", "course_ids": ["workspace_chemistry"], "book_ids": ["private"]},
+        {"query": "教材", "course_ids": []},
+        {"query": "教材", "book_ids": []},
+    ]:
+        assert not query.execute("search_learning_materials", arguments)["ok"]
+
+
+def test_search_images_are_bounded_page_descriptors_not_claims_of_loaded_images(tools):
+    query, _ = tools
+    normal = query.execute("search_learning_materials", {"query": "遗传物质"})
+    assert normal["images"] == []
+    result = query.execute("search_learning_materials", {"query": "遗传物质", "include_images": True})
+    assert len(result["images"]) == 1
+    image = result["images"][0]
+    assert image["book_id"] == "biology" and image["page"] == 1
+    assert image["course_id"] == "workspace_biology" and image["course_resource_id"]
+    assert image["kind"] == "page" and image["status"] == "available_to_read"
+    assert result["image_search_method"] == "text_hit_page_descriptors"
+
+
+def test_stage_autosaved_course_is_not_counted_again_as_device_pending(tools):
+    import hashlib
+    _, services = tools
+    local_id = "local-course:stage-save"
+    wid = "workspace_" + hashlib.sha256(local_id.encode()).hexdigest()[:32]
+    services.native_repository.save_workspace("alice", wid, "创建中课程", {})
+    query = QueryTools(services, "alice", {}, [
+        {"id": local_id, "name": "创建中课程", "book_ids": ["chemistry"]},
+        {"id": "local-course:pending", "name": "另一门课程", "book_ids": ["chemistry"]},
+        {"id": "local-course:pending", "name": "重复元数据", "book_ids": ["chemistry"]},
+    ])
+    result = query.execute("list_learning_resources", {})
+    assert result["total_courses"] == 4
+    assert result["account_course_count"] == 3 and result["device_pending_course_count"] == 1
+    # An explicit mapping supports creationWorkspaceID overrides as well.
+    query.local_courses = [{"id": "local-course:override", "workspace_id": wid,
+                            "name": "创建中课程", "book_ids": []}]
+    result = query.execute("list_learning_resources", {})
+    assert result["total_courses"] == 3 and result["device_pending_course_count"] == 0
+
+
+def test_search_evidence_source_version_changes_with_ocr_corpus(tools, tmp_path):
+    query, _ = tools
+    arguments = {"query": "遗传物质", "book_ids": ["biology"]}
+    first = query.execute("search_learning_materials", arguments)["evidence"][0]
+    source = tmp_path / "biology" / "ocr" / "normalized" / "pages.jsonl"
+    _write_pages(source, ["DNA 是遗传物质。", "新增的遗传内容。"])
+    changed = query.execute("search_learning_materials", arguments)["evidence"][0]
+    assert first["source_version"] != changed["source_version"]
+
+
+def test_course_listing_does_not_infer_confirmation_from_workspace_existence(tools):
+    query, services = tools
+    services.native_repository.save_creation_draft("alice", "workspace_chemistry", {
+        "request_id": "draft_version", "name": "化学", "chapters": {},
+    })
+    listed = {c["course_id"]: c for c in query.execute("list_learning_resources", {})["courses"]}
+    assert listed["workspace_chemistry"]["creation_state"] == "draft"
+    assert listed["workspace_biology"]["creation_state"] == "unknown"
+    services.native_repository.confirm_creation_draft("alice", "workspace_chemistry", "draft_version")
+    listed = {c["course_id"]: c for c in query.execute("list_learning_resources", {})["courses"]}
+    assert listed["workspace_chemistry"]["creation_state"] == "confirmed"

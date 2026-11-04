@@ -236,10 +236,14 @@ struct SourceContent: Codable, Identifiable, Hashable, Sendable {
   var plan: StudyPlan
   var id: String { summary.book_id }
 }
+struct CatalogOrigin: Codable, Hashable, Sendable {
+  var book_id: String
+}
 struct CommunityBook: Codable, Identifiable, Hashable, Sendable {
   var id: String
   var title: String
   var catalogTitle: String
+  var catalog_origin: CatalogOrigin? = nil
   var owner: String
   var cover: String
   var subject: String
@@ -279,6 +283,8 @@ struct Course: Codable, Identifiable, Hashable, Sendable {
   var id: String = UUID().uuidString
   var name: String
   var resourceIDs: [String]
+  /// Stable course–textbook relationships; values are never textbook IDs.
+  var courseResourceIDs: [String: String]? = nil
   var activeResourceID: String?
   var diagnosis: [String: [String]] = [:]
   var createdAt: Date = .now
@@ -343,6 +349,8 @@ struct StudyLocation: Codable, Hashable, Sendable {
   var chapterID: String?
   var lessonID: String?
   var page: Int = 1
+  /// Local reading completions, scoped by the location's course and book key.
+  var completedChapterIDs: Set<String>? = nil
 }
 enum NoteKind: String, Codable, CaseIterable, Identifiable, Sendable {
   case text, ink, voice
@@ -360,6 +368,7 @@ struct UnitPointValue: Codable, Hashable, Sendable {
   var y: CGFloat
 }
 struct NoteAnchor: Codable, Hashable, Sendable {
+  var courseResourceID: String?
   var courseID: String?
   var bookID: String
   var chapterID: String?
@@ -367,9 +376,10 @@ struct NoteAnchor: Codable, Hashable, Sendable {
   var printedPage: Int?
   var quote: String?
   init(
-    courseID: String? = nil, bookID: String, chapterID: String? = nil, page: Int,
+    courseID: String? = nil, courseResourceID: String? = nil, bookID: String, chapterID: String? = nil, page: Int,
     printedPage: Int? = nil, quote: String? = nil
   ) {
+    self.courseResourceID = courseResourceID
     self.courseID = courseID
     self.bookID = bookID
     self.chapterID = chapterID
@@ -438,6 +448,8 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
   }
 }
 struct SourcePageTarget: Codable, Hashable, Sendable {
+  var courseResourceID: String?
+  var courseID: String?
   var bookID: String
   var title: String
   var page: Int
@@ -446,9 +458,11 @@ struct SourcePageTarget: Codable, Hashable, Sendable {
   var sourceText: String?
   var from: Route?
   init(
-    bookID: String, title: String, page: Int, pageEnd: Int? = nil, printedPage: Int? = nil,
+    bookID: String, title: String, page: Int, courseID: String? = nil, courseResourceID: String? = nil, pageEnd: Int? = nil, printedPage: Int? = nil,
     sourceText: String? = nil, from: Route? = nil
   ) {
+    self.courseID = courseID
+    self.courseResourceID = courseResourceID
     self.bookID = bookID
     self.title = title
     self.page = page
@@ -475,11 +489,10 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
   var text: String
   var citations: [Citation] = []
   var attachments: [AssistantAttachment]?
-  /// Frozen before submitting a paid assistant turn. A retry must replay the
-  /// same request even if the selection or local course list has since changed.
+  /// Frozen payload for the retained /query transport. Agent tasks use their own checkpoints.
   var unifiedQueryPayload: [String: JSONValue]?
-  /// Server-derived origin of an answer: textbook, textbook_uncited, learning_records,
-  /// public_catalog, mixed or general.
+  /// Origin derived from query-server results or the Agent executor
+  /// and its actual evidence/tool receipts.
   var sourceLabel: String?
 
   var sourceLabelText: String? {
@@ -487,7 +500,9 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
     case "textbook": return "来源：教材原文"
     case "learning_records": return "来源：课程目录与学习记录"
     case "public_catalog": return "来源：发现中的公开课程目录"
-    case "mixed": return "来源：教材原文与学习记录"
+    case "mixed": return "来源：多种资料"
+    case "attachments": return "来源：本会话附件"
+    case "screen": return "来源：当前页面截图"
     case "general": return "来源：通用知识，非教材内容"
     case "textbook_uncited": return "来源：未引用教材原文，可能结合页面内容与通用知识"
     default: return nil
@@ -624,6 +639,20 @@ struct CourseImportBook: Codable, Sendable, Identifiable {
 }
 
 /// Account-scoped course work survives replacement of the creation questionnaire.
+struct CourseStageSave: Codable, Sendable {
+  var fingerprint: String?
+  var attemptedFingerprint: String?
+  var serverDraftFingerprint: String?
+  var error: String?
+  var workspace: CloudWorkspace?
+  var chapters: [String: [Chapter]] = [:]
+}
+
+struct CourseStageSaveResponse: Codable, Sendable {
+  var request_id: String
+  var workspace: CloudWorkspace
+}
+
 struct CourseImportRecord: Codable, Sendable, Identifiable {
   var id: String
   var draft: CourseDraft
@@ -633,6 +662,7 @@ struct CourseImportRecord: Codable, Sendable, Identifiable {
   var started = false
   var setupCompleted: Bool? = nil
   var onDeviceOnly: Bool? = nil
+  var stageSave: CourseStageSave? = nil
   mutating func mergeDuplicateBooks() {
     guard Set(books.map(\.id)).count != books.count else { return }
     var merged: [CourseImportBook] = []

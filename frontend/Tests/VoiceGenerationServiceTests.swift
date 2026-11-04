@@ -50,7 +50,7 @@ private final class VoiceGenerationFixture: @unchecked Sendable {
     bytes.replaceSubrange(4..<12, with: Data("ftypM4A ".utf8))
     try bytes.write(to: file)
     remoteHash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-    note = StudyNote(kind: .voice, title: "我的语音", anchor: NoteAnchor(bookID: "book_voice", page: 3), duration: 4)
+    note = StudyNote(kind: .voice, title: "我的语音", anchor: NoteAnchor(courseID: "course", courseResourceID: "resource", bookID: "book_voice", page: 3), duration: 4)
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [VoiceGenerationProtocol.self]
     session = URLSession(configuration: configuration)

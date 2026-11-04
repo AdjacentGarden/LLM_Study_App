@@ -427,8 +427,8 @@ final class BookPreparationServiceTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(request.httpMethod, "GET")
         if requests.count("GET", self.prepare) > 35 { return (200, try self.job("succeeded")) }
         return (200, try self.json(["book_id": "book", "status": "queued", "stage": "diagnostics",
-          "updated": 1, "next_step": 2, "diagnostics_completed": 7, "diagnostics_total": 9,
-          "message": "正在根据审核意见优化题目"]))
+          "updated": 1, "next_step": 2, "diagnostics_completed": 7, "diagnostics_total": NSNull(),
+          "diagnostics_finalized": false, "message": "正在根据审核意见优化题目"]))
       case self.readiness: return (200, try self.ready())
       case self.diagnostics: return (200, try self.bank())
       default: throw URLError(.unsupportedURL)
@@ -438,7 +438,9 @@ final class BookPreparationServiceTests: XCTestCase, @unchecked Sendable {
     let result = try await BookPreparationService(api: api, repository: repository, accountKey: "owner")
       .waitForBook(bookID: "book", pollInterval: .milliseconds(1)) { job in
         if job.status == .queued {
-          XCTAssertTrue(job.message.contains("7／9"))
+          XCTAssertTrue(job.message.contains("7 道"))
+          XCTAssertFalse(job.message.contains("／"))
+          XCTAssertNil(job.diagnostics_total)
           XCTAssertTrue(job.message.contains("优化"))
           XCTAssertTrue(job.isPending)
         }
@@ -446,6 +448,20 @@ final class BookPreparationServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertEqual(result.status, .succeeded)
     XCTAssertTrue(requests.all.allSatisfy { $0.method == "GET" })
     XCTAssertEqual(requests.count("GET", prepare), 36)
+  }
+
+  func testDiagnosticCountIsShownOnlyAfterFinalization() throws {
+    let pending = try JSONDecoder().decode(CloudBookPreparationJob.self, from: json([
+      "book_id": "book", "status": "running", "stage": "diagnostics", "updated": 1, "next_step": 2,
+      "diagnostics_completed": 14, "diagnostics_total": NSNull(), "diagnostics_finalized": false]))
+    XCTAssertTrue(pending.message.contains("14 道"))
+    XCTAssertFalse(pending.message.contains("／"))
+    let finished = try JSONDecoder().decode(CloudBookPreparationJob.self, from: json([
+      "book_id": "book", "status": "succeeded", "stage": "ready", "updated": 2, "next_step": 3,
+      "diagnostics_completed": 14, "diagnostics_total": 14, "diagnostics_finalized": true,
+      "diagnostics_skipped": 1]))
+    XCTAssertEqual(finished.message, "学习诊断已准备完成，共 14 道题。")
+    XCTAssertEqual(finished.diagnostics_skipped, 1)
   }
 
   func testCancelledPreparationResumesOnlyAfterExplicitAction() async throws {

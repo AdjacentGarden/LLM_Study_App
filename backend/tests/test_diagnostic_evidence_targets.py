@@ -121,7 +121,7 @@ def test_application_target_with_source_conditions_still_requires_independent_se
     with pytest.raises(DiagnosticRepairPending) as pending:
         subject(writer, reviewer).generate(source_book(conditions=True), chapter_cache=cache(tmp_path), cache_scope="book")
     assert pending.value.details["diagnostics_completed"] == 2
-    assert pending.value.details["diagnostics_total"] == 3
+    assert pending.value.details["diagnostics_total"] is None
     assert reviewer.calls[-1]["items"][0]["cognitive_target"]["id"] == "source_application"
 
 
