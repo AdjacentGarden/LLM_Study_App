@@ -259,6 +259,10 @@ def assistant_router(services: Any) -> APIRouter:
 
     @router.post("/turn")
     def turn(body: TurnRequest, actor: str = Depends(owner)) -> dict[str, Any]:
+        # Account-wide read queries have their own fresh resource-ACL replay
+        # checks. They must not be resumed through the phone-note contract.
+        if body.run_id.startswith("query:"):
+            raise HTTPException(409, "此助手查询请通过普通对话继续")
         ledger = services.assistant_ledger
         # Canonical tool order keeps the serialized tool list byte-stable.
         tools = {name: schema for name, schema in TOOL_SCHEMAS.items() if name in body.tools}
@@ -316,6 +320,8 @@ def assistant_router(services: Any) -> APIRouter:
 
     @router.get("/runs/{run_id}/steps/{step_id}")
     def step_status(run_id: str, step_id: str, actor: str = Depends(owner)) -> dict[str, Any]:
+        if run_id.startswith("query:"):
+            raise HTTPException(404, "助手步骤不存在")
         found = services.assistant_ledger.step(actor, run_id, step_id)
         if found is None:
             raise HTTPException(404, "助手步骤不存在")

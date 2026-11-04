@@ -1210,6 +1210,7 @@ struct NotesRegionAIView: View {
     failedQuestion = nil
     inputFocused = false
     let history = messages
+    let submittedMessage = ChatMessage(role: "user", text: input)
     let courseID = store.selectedCourseID
     let selectedBookID = store.selectedBookID
     let sourceBookIDs = store.currentCourse?.resourceIDs ?? [bookID]
@@ -1219,20 +1220,13 @@ struct NotesRegionAIView: View {
       do {
         try Task.checkCancellation()
         if question.trimmingCharacters(in: .whitespacesAndNewlines) == input { question = "" }
-        messages.append(ChatMessage(role: "user", text: input))
+        messages.append(submittedMessage)
         await persistConversation()
         let readingContext = CloudReadingContext(pdfPage: page, pageText: pageText,
           noteText: note?.body ?? "")
-        let result: AssistantAnswer
-        if bookID.hasPrefix("book_local_") || store.cloud == nil {
-          let contextualQuestion = readingContext.localQuestion(input)
-          result = try await store.assistant.ask(question: contextualQuestion, bookID: bookID,
-            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
-        } else {
-          result = try await store.answerAssistant(question: input, bookID: bookID,
-            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history,
-            readingContext: readingContext)
-        }
+        let result = try await store.answerAssistant(question: input, bookID: bookID,
+          bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history,
+          readingContext: readingContext, requestID: submittedMessage.id)
         try Task.checkCancellation()
         guard store.selectedCourseID == courseID, store.selectedBookID == selectedBookID,
           epoch == store.cloudState.epoch else {

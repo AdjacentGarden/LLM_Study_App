@@ -34,7 +34,7 @@ struct GlobalAssistantOverlay: View {
   }
   private var session: AssistantSession? { ready ? history.current : nil }
   private var sessionContext: AssistantSessionContext {
-    session?.context ?? (ready ? history.archive.newContext : nil) ?? store.assistantSessionContext
+    store.assistantSessionContext
   }
   private var guideMessages: [ChatMessage] { session?.messages ?? [] }
   private var courseLinks: [String: [String]] { session?.courseLinks ?? [:] }

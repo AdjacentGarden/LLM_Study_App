@@ -475,6 +475,9 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
   var text: String
   var citations: [Citation] = []
   var attachments: [AssistantAttachment]?
+  /// Frozen before submitting a paid assistant turn. A retry must replay the
+  /// same request even if the selection or local course list has since changed.
+  var unifiedQueryPayload: [String: JSONValue]?
 }
 struct Diagnosis: Codable, Hashable, Sendable {
   var assignment_id: String
