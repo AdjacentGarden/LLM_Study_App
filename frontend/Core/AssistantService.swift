@@ -5,6 +5,8 @@ import Security
 struct AssistantAnswer: Sendable {
   var answer: String
   var citations: [Citation]
+  var sourceLabel: String? = nil
+  var courseIDs: [String] = []
 }
 enum DeveloperSecrets {
   static let service = "com.littleri.bookcourseai.swiftui.personal"

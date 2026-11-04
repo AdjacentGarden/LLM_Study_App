@@ -911,9 +911,10 @@ extension AppStore {
   }
 
   func askCloud(_ question: String) async {
-    guard cloud != nil, let bookID = selectedBookID, !chatLoading,
+    guard cloud != nil, !chatLoading,
       !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     else { return }
+    let bookID = selectedBookID ?? ""
     let generation = selectionGeneration
     let epoch = cloudState.epoch
     chatLoading = true
@@ -926,7 +927,8 @@ extension AppStore {
         sources: sources, history: chatMessages)
       guard epoch == cloudState.epoch, generation == selectionGeneration else { return }
       chatMessages.append(
-        ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
+        ChatMessage(role: "assistant", text: result.answer, citations: result.citations,
+          sourceLabel: result.sourceLabel))
     } catch { handleCloudError(error) }
   }
 
@@ -934,7 +936,8 @@ extension AppStore {
     question: String, bookID: String, bookIDs: [String], chapterID: String?,
     sources: [SourceContent], history: [ChatMessage], courseID: String? = nil,
     bindToCurrentSelection: Bool = true, requiresOnline: Bool = false,
-    readingContext: CloudReadingContext? = nil
+    readingContext: CloudReadingContext? = nil, requestID: String? = nil,
+    requestContext: AssistantSessionContext? = nil
   ) async throws -> AssistantAnswer {
     let epoch = cloudState.epoch
     let routingSelection = selectionGeneration
@@ -950,7 +953,7 @@ extension AppStore {
       return try await answerFromOnDeviceTextbook(question: localQuestion, bookID: bookID,
         bookIDs: bookIDs, sources: sources)
     }
-    guard let cloud, !bookID.hasPrefix("book_local_") else {
+    guard let cloud else {
       if requiresOnline, DeveloperSecrets.key() == nil {
         throw ContentError.invalid("附件已保存在本机。请连接学习服务后再进行附件问答。")
       }
@@ -958,56 +961,103 @@ extension AppStore {
         question: localQuestion, bookID: bookID, bookIDs: bookIDs,
         chapterID: chapterID, sources: sources, history: history)
     }
-    let workspace = cloudState.workspaces.first(where: { $0.id == (courseID ?? selectedCourseID) })
-    let resource = workspace?.resources.first(where: { $0.book_id == bookID })
-    guard !bookID.isEmpty, resource != nil || bookIDs.allSatisfy({ $0 == bookID }) else {
-      throw CloudError(status: 409, message: "请先打开当前课程资料再提问")
-    }
-    // Pending imports remain visible and recoverable locally, but are not yet
-    // owned server resources. Never include them in an online course QA scope.
-    var scopedBookIDs = [bookID]
-    if let workspace, resource != nil {
-      let owned = Set(workspace.resources.map(\.book_id))
-      for id in bookIDs where owned.contains(id) && !id.hasPrefix("book_local_")
-        && !scopedBookIDs.contains(id) {
-        scopedBookIDs.append(id)
-      }
+    // All online questions share one assistant. Selection describes the screen;
+    // the server validates access and the model chooses its read-only tools.
+    let selectedCourseHint = bookID.isEmpty || currentCourse?.resourceIDs.contains(bookID) == true
+      ? selectedCourseID : nil
+    let contextCourseID = requestContext?.courseID ?? courseID ?? selectedCourseHint
+    let course = courses.first { $0.id == contextCourseID }
+    var seenBooks = Set<String>()
+    let contextBookIDs = ([bookID] + bookIDs).filter { !$0.isEmpty && seenBooks.insert($0).inserted }
+    var context: [String: JSONValue] = [
+      "course_id": contextCourseID.map(JSONValue.string) ?? .null,
+      "book_id": bookID.isEmpty ? .null : .string(bookID),
+      "book_ids": .array(contextBookIDs.prefix(100).map(JSONValue.string)),
+      "chapter_id": chapterID.map(JSONValue.string) ?? .null,
+      "course_title": .string(String((requestContext?.courseTitle ?? course?.name ?? "").unicodeScalars.prefix(500))),
+      "chapter_title": .string(String((requestContext?.chapterTitle ?? "").unicodeScalars.prefix(500))),
+    ]
+    if let readingContext { context["reading_context"] = readingContext.json }
+    // Device excerpts are optional extras; a local search failure must not block the cloud answer.
+    let deviceEvidence: [JSONValue]
+    do {
+      deviceEvidence = try await pendingLocalEvidence(question: question, bookID: bookID,
+        bookIDs: contextBookIDs, sources: sources)
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      deviceEvidence = []
     }
     var turns = history
     if turns.last?.role == "user", turns.last?.text == question { turns.removeLast() }
-    var body: [String: JSONValue] = [
+    // Preserve the full local archive while bounding only the request window.
+    // Attachment excerpts are at the end, so recent evidence remains included.
+    var historyBudget = 50_000
+    var boundedHistory: [JSONValue] = []
+    for turn in turns.reversed().filter({ ["user", "assistant"].contains($0.role) }).prefix(40) {
+      guard historyBudget > 0 else { break }
+      let text = String(String.UnicodeScalarView(turn.text.unicodeScalars.prefix(min(4000, historyBudget))))
+      historyBudget -= text.unicodeScalars.count
+      boundedHistory.append(.object(["role": .string(turn.role), "content": .string(text)]))
+    }
+    let currentMessageID = history.last.flatMap { $0.role == "user" && $0.text == question ? $0.id : nil }
+    let id = requestID ?? currentMessageID
+      ?? UUID().uuidString
+    var proposed: [String: JSONValue] = [
+      "request_id": .string(id),
       "question": .string(question),
-      "book_ids": .array(scopedBookIDs.map(JSONValue.string)),
-      "chapter_id": chapterID.map(JSONValue.string) ?? .null,
-      "history": .array(
-        turns.filter { ["user", "assistant"].contains($0.role) }
-          .map {
-            .object([
-              "role": .string($0.role), "text": .string(String($0.text.unicodeScalars.prefix(4000))),
-            ])
-          }),
+      "context": .object(context),
+      // Only pending, device-only course metadata is supplied by the client.
+      // Server-backed courses and their progress are always loaded by tools.
+      "local_courses": .array(courses.filter { $0.id.hasPrefix("local-course:") }.prefix(100).map { course in
+        .object(["id": .string(course.id), "name": .string(String(course.name.unicodeScalars.prefix(500))),
+          "book_ids": .array(course.resourceIDs.prefix(100).map(JSONValue.string)), "status": .string("pending_local")])
+      }),
+      "history": .array(Array(boundedHistory.reversed())),
     ]
-    if let readingContext { body["reading_context"] = readingContext.json }
-    // Keep single-book questions available for library books not yet in a course.
-    let path = resource.map { $0.path + "/qa" } ?? "/api/books/\(bookID)/qa"
-    let result: CloudQA = try await cloud.request(path, method: "POST", body: body)
+    // Pending imports are not server resources. Only short excerpts the phone
+    // itself retrieved are sent, labelled as device evidence, never as access.
+    if !deviceEvidence.isEmpty { proposed["device_evidence"] = .array(deviceEvidence) }
+    let body = try await assistantHistory.freezeQueryPayload(proposed, messageID: id)
+    try Task.checkCancellation()
+    guard epoch == cloudState.epoch, (!bindToCurrentSelection || routingSelection == selectionGeneration) else {
+      throw CancellationError()
+    }
+    let result: CloudAssistantQuery = try await cloud.request("/api/assistant/query", method: "POST", body: body)
+    try Task.checkCancellation()
+    guard epoch == cloudState.epoch, (!bindToCurrentSelection || routingSelection == selectionGeneration) else {
+      throw CancellationError()
+    }
     var seen = Set<String>()
-    let citations = result.claims.flatMap { claim in
-      let sourceID = claim.book_id ?? result.book_id
+    let citations = result.citations.map { value in
+      let sourceID = value.book_id
       let directory = sources.first { $0.id == sourceID }?.chapters ?? []
-      return claim.citations.map { value in
-        let chapter = directory.filter {
-          $0.page_start <= value.page_number && $0.page_end >= value.page_number
-        }.min { ($0.page_end - $0.page_start) < ($1.page_end - $1.page_start) }
-        return Citation(
-          bookID: sourceID, chapterID: chapter?.id ?? "", chapterTitle: chapter?.title ?? "教材原文",
-          page: value.page_number,
-          chunkID: CloudMapping.citationID(
-            page: value.page_number, quote: value.quote, blockID: value.block_id),
-          quote: value.quote, score: result.confidence)
-      }
+      let chapter = directory.filter {
+        $0.page_start <= value.page_number && $0.page_end >= value.page_number
+      }.min { ($0.page_end - $0.page_start) < ($1.page_end - $1.page_start) }
+      return Citation(
+        bookID: sourceID, chapterID: chapter?.id ?? "", chapterTitle: chapter?.title ?? "教材原文",
+        page: value.page_number,
+        chunkID: CloudMapping.citationID(
+          page: value.page_number, quote: value.quote, blockID: value.block_id),
+        quote: value.quote, score: 1)
     }.filter { seen.insert($0.id).inserted }
-    return AssistantAnswer(answer: result.answer, citations: citations)
+    return AssistantAnswer(answer: result.answer, citations: citations,
+      sourceLabel: result.source_label, courseIDs: result.course_ids ?? [])
+  }
+
+  /// Reliable on-device hits from pending `book_local_` imports in the turn's scope.
+  private func pendingLocalEvidence(question: String, bookID: String, bookIDs: [String],
+    sources: [SourceContent]) async throws -> [JSONValue] {
+    let pending = Set(([bookID] + bookIDs).filter { $0.hasPrefix("book_local_") })
+    guard !pending.isEmpty, sources.contains(where: { pending.contains($0.id) }) else { return [] }
+    let result = try await appleTextbookSearch.search(query: question, sources: sources,
+      bookIDs: pending, limit: 6)
+    return result.hits.filter { $0.reliable && $0.lexicalScore > 0 && pending.contains($0.chunk.book_id) }
+      .prefix(6).map { hit in
+      .object(["book_id": .string(hit.chunk.book_id), "page_number": .number(Double(max(1, hit.chunk.page_start))),
+        "quote": .string(String(hit.chunk.text.unicodeScalars.prefix(600)))])
+    }
   }
 
   func submitCloudAssignment(question: QuizQuestion, answer: String) async {

@@ -38,6 +38,7 @@ struct AssistantHistoryAnswer: Sendable {
   var text: String
   var citations: [Citation] = []
   var courseIDs: [String] = []
+  var sourceLabel: String?
 }
 
 enum AssistantSessionTitle {
@@ -195,6 +196,9 @@ enum AssistantSessionTitle {
       archive.newContext = nil
     }
     guard let index = archive.sessions.firstIndex(where: { $0.id == archive.selectedID }) else { return }
+    // The page is a hint for this turn, not a permanent scope for the chat.
+    // Keep this submitted hint unchanged while the turn is pending/retried.
+    archive.sessions[index].context = context
     archive.sessions[index].messages.append(ChatMessage(role: "user", text: question,
       attachments: files.isEmpty ? nil : files))
     archive.sessions[index].draft = ""
@@ -207,6 +211,24 @@ enum AssistantSessionTitle {
   func retry(answer: @escaping @MainActor (AssistantSessionContext, [ChatMessage], String) async throws -> AssistantHistoryAnswer) {
     guard ready, !busy, let session = current, session.pendingQuestion != nil else { return }
     run(id: session.id, answer: answer)
+  }
+
+  func freezeQueryPayload(_ proposed: [String: JSONValue], messageID: String) async throws -> [String: JSONValue] {
+    guard let position = archive.sessions.firstIndex(where: { session in
+      session.messages.contains { $0.id == messageID && $0.role == "user" }
+    }), let message = archive.sessions[position].messages.firstIndex(where: { $0.id == messageID }) else {
+      // Reader questions can use the same transport without belonging to the
+      // global history archive. Their caller owns the request lifetime.
+      return proposed
+    }
+    let token = generation
+    let frozen = archive.sessions[position].messages[message].unifiedQueryPayload ?? proposed
+    archive.sessions[position].messages[message].unifiedQueryPayload = frozen
+    await flush()
+    try Task.checkCancellation()
+    guard token == generation else { throw CancellationError() }
+    if let storageError { throw ContentError.storage(storageError) }
+    return frozen
   }
 
   private func run(id: String,
@@ -228,8 +250,12 @@ enum AssistantSessionTitle {
         try Task.checkCancellation()
         guard token == generation,
           let position = archive.sessions.firstIndex(where: { $0.id == id }) else { return }
-        let message = ChatMessage(role: "assistant", text: response.text, citations: response.citations)
+        let message = ChatMessage(role: "assistant", text: response.text, citations: response.citations,
+          sourceLabel: response.sourceLabel)
         archive.sessions[position].messages.append(message)
+        if let user = archive.sessions[position].messages.lastIndex(where: { $0.role == "user" }) {
+          archive.sessions[position].messages[user].unifiedQueryPayload = nil
+        }
         if !response.courseIDs.isEmpty { archive.sessions[position].courseLinks[message.id] = response.courseIDs }
         archive.sessions[position].pendingQuestion = nil
         archive.sessions[position].error = nil
@@ -295,7 +321,8 @@ extension AppStore {
     let epoch = cloudState.epoch
     let owner = assistantHistoryScope
     let hasAttachments = history.contains { !($0.attachments ?? []).isEmpty }
-    if context.discovery {
+    // Without a learning service, discovery keeps matching the cached public catalog locally.
+    if context.discovery, cloud == nil {
       if hasAttachments { throw ContentError.invalid("请进入课程后讨论附件内容，课程发现页用于查找课程。") }
       let answer = answerCommunityCourseQuery(question, books: community)
       return AssistantHistoryAnswer(text: answer.text, courseIDs: answer.courseIds)
@@ -306,9 +333,13 @@ extension AppStore {
       let response = try await answerAssistant(question: question, bookID: context.bookID,
         bookIDs: context.bookIDs, chapterID: context.chapterID, sources: sources,
         history: turns,
-        courseID: context.courseID, bindToCurrentSelection: false, requiresOnline: hasAttachments)
+        courseID: context.courseID, bindToCurrentSelection: false, requiresOnline: hasAttachments,
+        requestID: history.last(where: { $0.role == "user" && $0.text == question })?.id,
+        requestContext: context)
       guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
-      return AssistantHistoryAnswer(text: response.answer, citations: response.citations)
+      let known = Set(community.map(\.id))
+      return AssistantHistoryAnswer(text: response.answer, citations: response.citations,
+        courseIDs: response.courseIDs.filter(known.contains), sourceLabel: response.sourceLabel)
     } catch {
       if let failure = error as? CloudError, failure.status == 401, epoch == cloudState.epoch {
         handleCloudError(error)

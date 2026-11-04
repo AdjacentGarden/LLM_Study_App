@@ -34,7 +34,7 @@ struct GlobalAssistantOverlay: View {
   }
   private var session: AssistantSession? { ready ? history.current : nil }
   private var sessionContext: AssistantSessionContext {
-    session?.context ?? (ready ? history.archive.newContext : nil) ?? store.assistantSessionContext
+    store.assistantSessionContext
   }
   private var guideMessages: [ChatMessage] { session?.messages ?? [] }
   private var courseLinks: [String: [String]] { session?.courseLinks ?? [:] }
@@ -542,6 +542,10 @@ struct GlobalAssistantOverlay: View {
           .appFont(.body)
           .foregroundStyle(user ? .white : DS.text)
           .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+        if !user, let label = message.sourceLabelText {
+          Text(label).appFont(.caption).foregroundStyle(DS.secondary)
+            .accessibilityIdentifier("assistant.sourceLabel")
+        }
         if let ids = courseLinks[message.id] {
           ForEach(store.community.filter { ids.contains($0.id) }) { book in
             Button {

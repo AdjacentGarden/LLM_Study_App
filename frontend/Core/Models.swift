@@ -475,6 +475,24 @@ struct ChatMessage: Codable, Identifiable, Hashable, Sendable {
   var text: String
   var citations: [Citation] = []
   var attachments: [AssistantAttachment]?
+  /// Frozen before submitting a paid assistant turn. A retry must replay the
+  /// same request even if the selection or local course list has since changed.
+  var unifiedQueryPayload: [String: JSONValue]?
+  /// Server-derived origin of an answer: textbook, textbook_uncited, learning_records,
+  /// public_catalog, mixed or general.
+  var sourceLabel: String?
+
+  var sourceLabelText: String? {
+    switch sourceLabel {
+    case "textbook": return "来源：教材原文"
+    case "learning_records": return "来源：课程目录与学习记录"
+    case "public_catalog": return "来源：发现中的公开课程目录"
+    case "mixed": return "来源：教材原文与学习记录"
+    case "general": return "来源：通用知识，非教材内容"
+    case "textbook_uncited": return "来源：未引用教材原文，可能结合页面内容与通用知识"
+    default: return nil
+    }
+  }
 }
 struct Diagnosis: Codable, Hashable, Sendable {
   var assignment_id: String

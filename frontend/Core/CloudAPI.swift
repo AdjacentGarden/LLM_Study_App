@@ -387,6 +387,10 @@ actor CloudAPI {
       || path.hasSuffix("/readiness") || path.hasSuffix("/status")
       || (method == "GET" && path.hasSuffix("/diagnostics")) {
       request.timeoutInterval = 20
+    } else if path == "/api/assistant/query" {
+      // One user turn may continue after several read-tool results. The server
+      // stops at 240 s, before this and the LAN gateway's 300 s read timeout.
+      request.timeoutInterval = 290
     } else if path.hasSuffix("/qa") {
       request.timeoutInterval = 60
     }
@@ -801,6 +805,19 @@ struct CloudQA: Codable, Sendable {
   var answer: String
   var claims: [Claim]
   var confidence: Double
+}
+struct CloudAssistantQuery: Codable, Sendable {
+  struct Evidence: Codable, Sendable {
+    var book_id: String
+    var page_number: Int
+    var block_id: String?
+    var quote: String
+    var evidence_id: String?
+  }
+  var answer: String
+  var citations: [Evidence]
+  var source_label: String? = nil
+  var course_ids: [String]? = nil
 }
 struct CloudPracticeAnswer: Sendable {
   var question: QuizQuestion

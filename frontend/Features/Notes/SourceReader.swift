@@ -1082,6 +1082,10 @@ struct NotesRegionAIView: View {
                 VStack(alignment: .leading, spacing: 8) {
                   bubble(message.text, user: message.role == "user")
                     .accessibilityIdentifier(message.role == "user" ? "reader.regionQuestion" : loading ? "reader.regionPendingReply" : "reader.regionReply")
+                  if message.role != "user", let label = message.sourceLabelText {
+                    Text(label).font(DS.font(.caption)).foregroundStyle(DS.secondary)
+                      .accessibilityIdentifier("reader.regionSourceLabel")
+                  }
                   if !message.citations.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                       HStack(spacing: 6) {
@@ -1208,6 +1212,7 @@ struct NotesRegionAIView: View {
     failedQuestion = nil
     inputFocused = false
     let history = messages
+    let submittedMessage = ChatMessage(role: "user", text: input)
     let courseID = store.selectedCourseID
     let selectedBookID = store.selectedBookID
     let sourceBookIDs = store.currentCourse?.resourceIDs ?? [bookID]
@@ -1217,26 +1222,20 @@ struct NotesRegionAIView: View {
       do {
         try Task.checkCancellation()
         if question.trimmingCharacters(in: .whitespacesAndNewlines) == input { question = "" }
-        messages.append(ChatMessage(role: "user", text: input))
+        messages.append(submittedMessage)
         await persistConversation()
         let readingContext = CloudReadingContext(pdfPage: page, pageText: pageText,
           noteText: note?.body ?? "")
-        let result: AssistantAnswer
-        if bookID.hasPrefix("book_local_") || store.cloud == nil {
-          let contextualQuestion = readingContext.localQuestion(input)
-          result = try await store.assistant.ask(question: contextualQuestion, bookID: bookID,
-            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history)
-        } else {
-          result = try await store.answerAssistant(question: input, bookID: bookID,
-            bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history,
-            readingContext: readingContext)
-        }
+        let result = try await store.answerAssistant(question: input, bookID: bookID,
+          bookIDs: sourceBookIDs, chapterID: chapterID, sources: sources, history: history,
+          readingContext: readingContext, requestID: submittedMessage.id)
         try Task.checkCancellation()
         guard store.selectedCourseID == courseID, store.selectedBookID == selectedBookID,
           epoch == store.cloudState.epoch else {
           throw CancellationError()
         }
-        messages.append(ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
+        messages.append(ChatMessage(role: "assistant", text: result.answer, citations: result.citations,
+          sourceLabel: result.sourceLabel))
         await persistConversation()
       } catch {
         if !Task.isCancelled {
