@@ -54,7 +54,9 @@ class ReadTools:
     schemas = {"list_learning_resources": {"type": "object", "properties": {},
                                           "additionalProperties": False},
                "search_learning_materials": {"type": "object", "properties": {},
-                                             "additionalProperties": False}}
+                                             "additionalProperties": False},
+               "list_public_courses": {"type": "object", "properties": {},
+                                       "additionalProperties": False}}
     descriptions = {name: "Read raw authorized facts" for name in schemas}
 
     def __init__(self, state, services, actor, context=None, local_courses=None):
@@ -183,6 +185,111 @@ def test_only_verified_retrieved_citations_are_returned(gateway):
     response = a.post("/api/assistant/query", json=body()).json()
     assert response["citations"] == [evidence]
     assert "[1]" in response["answer"] and "ev_fake" not in response["answer"]
+    assert response["source_label"] == "textbook" and response["course_ids"] == []
+
+
+def test_source_label_is_derived_from_tools_read_and_citations(gateway):
+    a, _, install, state, _ = gateway
+    install(Model(stream(tool=("list_learning_resources", {}), finish="tool_calls"),
+                  stream("你一共有 2 门课程。"), stream("氧化还原是电子转移。")))
+    records = a.post("/api/assistant/query", json=body(question="当前有多少门课程")).json()
+    assert records["source_label"] == "learning_records" and records["citations"] == []
+    general = a.post("/api/assistant/query", json=body(request_id="chat_2", question="什么是氧化还原")).json()
+    assert general["source_label"] == "general"
+
+
+def test_textbook_text_seen_but_not_cited_is_never_labelled_general(gateway):
+    a, _, install, state, _ = gateway
+    state.result = {"ok": True, "evidence": [{"evidence_id": "ev_abc", "book_id": "chemistry",
+                                              "page_number": 3, "quote": "氧化是失去电子。"}]}
+    install(Model(stream(tool=("search_learning_materials", {}), finish="tool_calls"),
+                  stream("氧化是失去电子的过程。"),
+                  stream("这一段讲的是电子转移。")))
+    searched = a.post("/api/assistant/query", json=body(question="什么是氧化")).json()
+    assert searched["source_label"] == "textbook_uncited" and searched["citations"] == []
+    page = {"pdf_page": 3, "page_text": "氧化是失去电子。", "note_text": "", "note_truncated": False}
+    reader = a.post("/api/assistant/query", json=body(
+        request_id="chat_2", question="解释这段",
+        context={"book_id": "chemistry", "reading_context": page})).json()
+    assert reader["source_label"] == "textbook_uncited"
+
+
+def test_empty_device_evidence_keeps_the_pre_upgrade_request_digest(gateway):
+    a, _, install, _, _ = gateway
+    model = install(Model(stream("你的化学资料")))
+    assert a.post("/api/assistant/query", json=body()).status_code == 200
+    replay = a.post("/api/assistant/query", json=body(device_evidence=[]))
+    assert replay.status_code == 200 and replay.json()["answer"] == "你的化学资料"
+    assert len(model.requests) == 1
+
+
+def test_course_count_prompt_requires_reading_courses_without_page_scope(gateway):
+    a, _, install, _, _ = gateway
+    model = install(Model(stream("好的")))
+    assert a.post("/api/assistant/query", json=body(question="当前有多少门课程")).status_code == 200
+    system = model.requests[0]["messages"][0]["content"]
+    assert "total_courses" in system and "list_learning_resources" in system
+    assert "不能只查当前书" in system
+    # The stable cacheable prefix is identical regardless of page context.
+    other = install(Model(stream("好的")))
+    a.post("/api/assistant/query", json=body(request_id="chat_2", context={"book_id": "biology"}))
+    assert other.requests[0]["messages"][0] == model.requests[0]["messages"][0]
+
+
+def test_public_course_links_only_for_named_catalog_entries(gateway):
+    a, _, install, state, _ = gateway
+    state.result = {"ok": True, "scope": "public_catalog_metadata", "courses": [
+        {"id": "community_genetics", "title": "遗传与进化"},
+        {"id": "community_post_7", "title": "有机化学基础"}], "evidence": []}
+    install(Model(stream(tool=("list_public_courses", {}), finish="tool_calls"),
+                  stream("可以看看《遗传与进化》。")))
+    response = a.post("/api/assistant/query", json=body(question="发现里有什么生物课")).json()
+    assert response["course_ids"] == ["community_genetics"]
+    assert response["source_label"] == "public_catalog"
+
+
+def test_public_course_links_follow_answer_order(gateway):
+    a, _, install, state, _ = gateway
+    state.result = {"ok": True, "scope": "public_catalog_metadata", "courses": [
+        {"id": "community_genetics", "title": "遗传与进化"},
+        {"id": "community_post_7", "title": "有机化学基础"}], "evidence": []}
+    install(Model(stream(tool=("list_public_courses", {}), finish="tool_calls"),
+                  stream("先学《有机化学基础》，再学《遗传与进化》。")))
+    response = a.post("/api/assistant/query", json=body(question="发现里有什么课")).json()
+    assert response["course_ids"] == ["community_post_7", "community_genetics"]
+
+
+def test_legacy_public_catalog_scope_entry_does_not_block_replay(gateway):
+    a, _, install, state, _ = gateway
+    state.scope = ["book:biology", "public_catalog_metadata:" + "0" * 64]
+    model = install(Model(stream("你的生物资料")))
+    assert a.post("/api/assistant/query", json=body()).status_code == 200
+    state.scope = ["book:biology"]
+    replay = a.post("/api/assistant/query", json=body())
+    assert replay.status_code == 200 and replay.json()["answer"] == "你的生物资料"
+    assert len(model.requests) == 1
+
+
+def test_device_pending_evidence_is_citable_but_only_for_local_books(gateway):
+    a, _, install, state, _ = gateway
+    excerpt = {"book_id": "book_local_abc123def456", "page_number": 4, "quote": "光合作用产生氧气。"}
+    model = install(Model(lambda request: httpx.Response(200, text=stream(
+        "光合作用会释放氧气。[" + json.loads(request.content)["messages"][-1]["content"]
+        .split('"evidence_id": "')[1].split('"')[0] + "]"),
+        headers={"content-type": "text/event-stream"})))
+    response = a.post("/api/assistant/query", json=body(device_evidence=[excerpt])).json()
+    assert response["source_label"] == "textbook" and "[1]" in response["answer"]
+    assert response["citations"][0]["book_id"] == excerpt["book_id"]
+    assert response["citations"][0]["page_number"] == 4
+    assert "光合作用产生氧气" in model.requests[0]["messages"][-1]["content"]
+    forged = {**excerpt, "book_id": "biology"}
+    assert a.post("/api/assistant/query", json=body(request_id="chat_2",
+                                                     device_evidence=[forged])).status_code == 422
+    assert len(model.requests) == 1
+
+
+def test_request_wall_clock_ends_before_the_gateway_timeout():
+    assert routes.MAX_REQUEST_SECONDS + 30 <= 300
 
 
 def test_revoked_resource_prevents_replaying_stored_answer(gateway):

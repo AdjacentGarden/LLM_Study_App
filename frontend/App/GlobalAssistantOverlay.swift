@@ -542,6 +542,10 @@ struct GlobalAssistantOverlay: View {
           .appFont(.body)
           .foregroundStyle(user ? .white : DS.text)
           .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+        if !user, let label = message.sourceLabelText {
+          Text(label).appFont(.caption).foregroundStyle(DS.secondary)
+            .accessibilityIdentifier("assistant.sourceLabel")
+        }
         if let ids = courseLinks[message.id] {
           ForEach(store.community.filter { ids.contains($0.id) }) { book in
             Button {

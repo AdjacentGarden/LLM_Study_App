@@ -1,15 +1,19 @@
 """Unified assistant tools expose facts without a hidden model/router call."""
 
 import json
+import math
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from adaptive_learning.api import assistant_query_tools
 from adaptive_learning.api.assistant_query_tools import QueryTools
 from adaptive_learning.community import CommunityRepository
 from adaptive_learning.ingestion.models import BookStructure, ChapterDraft
 from adaptive_learning.native import NativeRepository
+from adaptive_learning.rag.index import lexical_tokens
 
 
 @pytest.fixture
@@ -138,6 +142,11 @@ def test_revoked_book_access_changes_replay_scope_and_prevents_reads(tools):
     assert not query.execute("read_textbook_page", {"book_id": "chemistry", "page_number": 1})["ok"]
 
 
+def test_public_catalog_is_not_part_of_the_replay_access_scope(tools):
+    query, _ = tools
+    assert not any(item.startswith("public_catalog") for item in query.access_scope())
+
+
 def test_builtin_ocr_uses_shipped_page_map_without_model_initialization(tools):
     query, services = tools
     from adaptive_learning import native_catalog
@@ -153,3 +162,106 @@ def test_builtin_ocr_uses_shipped_page_map_without_model_initialization(tools):
     book = outline["books"][0]
     assert book["outline_entry_count"] == len(native_catalog.structure().chapters)
     assert "chapter_count" not in book, "Nested section entries must not be reported as top-level chapters"
+
+
+def _write_pages(path: Path, pages: list[str]) -> None:
+    path.write_text("".join(
+        json.dumps({"page_number": number, "cleaned_text": text,
+                    "blocks": [{"block_id": f"p{number}-b1", "text": text}]},
+                   ensure_ascii=False) + "\n"
+        for number, text in enumerate(pages, start=1)
+    ), encoding="utf-8")
+
+
+def _reference_bm25_scores(texts, query):
+    """The pre-cache BM25 implementation, kept here as the parity oracle."""
+    documents = [Counter(lexical_tokens(text)) for text in texts]
+    document_frequency = Counter(
+        token for document in documents for token in document
+    )
+    average_length = sum(sum(document.values()) for document in documents) / max(
+        1, len(documents)
+    )
+    tokens = Counter(lexical_tokens(query))
+    scores = []
+    for document in documents:
+        length = sum(document.values())
+        score = 0.0
+        for token, query_count in tokens.items():
+            frequency = document.get(token, 0)
+            if not frequency:
+                continue
+            documents_with_token = document_frequency[token]
+            inverse = math.log(
+                1
+                + (len(documents) - documents_with_token + 0.5) / (documents_with_token + 0.5)
+            )
+            normalized = (
+                frequency
+                * 2.2
+                / (frequency + 1.2 * (0.25 + 0.75 * length / max(1, average_length)))
+            )
+            score += inverse * normalized * min(2, query_count)
+        scores.append(score)
+    return scores
+
+
+def _reference_order(texts, query):
+    scores = _reference_bm25_scores(texts, query)
+    ranking = sorted(range(len(scores)), key=lambda index: scores[index], reverse=True)
+    return [texts[index] for index in ranking if scores[index] > 0]
+
+
+def test_search_ranking_matches_reference_bm25(tools, tmp_path):
+    query, services = tools
+    pages = [
+        "细胞呼吸释放能量，细胞呼吸包括有氧呼吸。",
+        "有氧呼吸需要氧气，细胞呼吸产生能量。",
+        "光合作用储存能量，光合作用与细胞呼吸不同。",
+        "细胞呼吸的场所是线粒体，线粒体参与有氧呼吸。",
+        "能量守恒，细胞呼吸释放能量。",
+    ]
+    _write_pages(tmp_path / "chemistry" / "ocr" / "normalized" / "pages.jsonl", pages)
+    text = "细胞呼吸能量"
+
+    result = query.execute("search_learning_materials", {
+        "query": text, "book_ids": ["chemistry"], "limit": 12,
+    })
+    assert [item["quote"] for item in result["evidence"]] == _reference_order(pages, text)
+
+    filtered_structure = BookStructure(
+        title="化学必修", summary="", source_page_count=len(pages),
+        chapters=[ChapterDraft(chapter_id="chapter_filtered", order=1, title="第二节",
+                               start_page=2, end_page=4, summary="",
+                               knowledge_points=[], source_block_ids=[])],
+    )
+    services.job_repository.get_structure = lambda book_id: (
+        filtered_structure if book_id == "chemistry" else None
+    )
+    filtered = query.execute("search_learning_materials", {
+        "query": text, "book_ids": ["chemistry"],
+        "chapter_id": "chapter_filtered", "limit": 12,
+    })
+    assert [item["quote"] for item in filtered["evidence"]] == _reference_order(pages[1:4], text)
+
+
+def test_search_reuses_book_index_until_source_changes(tools, tmp_path, monkeypatch):
+    query, _ = tools
+    source = tmp_path / "chemistry" / "ocr" / "normalized" / "pages.jsonl"
+    calls = {"count": 0}
+    original = assistant_query_tools._chunks
+
+    def counting_chunks(raw: str):
+        calls["count"] += 1
+        return original(raw)
+
+    monkeypatch.setattr(assistant_query_tools, "_chunks", counting_chunks)
+    arguments = {"query": "化学反应", "book_ids": ["chemistry"]}
+    assert query.execute("search_learning_materials", arguments)["ok"]
+    assert query.execute("search_learning_materials", arguments)["ok"]
+    assert calls["count"] == 1
+
+    _write_pages(source, ["细胞呼吸释放能量。", "细胞呼吸需要氧气，释放能量。"])
+    changed = {"query": "细胞呼吸", "book_ids": ["chemistry"]}
+    assert query.execute("search_learning_materials", changed)["ok"]
+    assert calls["count"] == 2

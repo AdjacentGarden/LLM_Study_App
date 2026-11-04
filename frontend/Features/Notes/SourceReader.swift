@@ -1084,6 +1084,10 @@ struct NotesRegionAIView: View {
                 VStack(alignment: .leading, spacing: 8) {
                   bubble(message.text, user: message.role == "user")
                     .accessibilityIdentifier(message.role == "user" ? "reader.regionQuestion" : loading ? "reader.regionPendingReply" : "reader.regionReply")
+                  if message.role != "user", let label = message.sourceLabelText {
+                    Text(label).font(DS.font(.caption)).foregroundStyle(DS.secondary)
+                      .accessibilityIdentifier("reader.regionSourceLabel")
+                  }
                   if !message.citations.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                       HStack(spacing: 6) {
@@ -1232,7 +1236,8 @@ struct NotesRegionAIView: View {
           epoch == store.cloudState.epoch else {
           throw CancellationError()
         }
-        messages.append(ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
+        messages.append(ChatMessage(role: "assistant", text: result.answer, citations: result.citations,
+          sourceLabel: result.sourceLabel))
         await persistConversation()
       } catch {
         if !Task.isCancelled {

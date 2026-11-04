@@ -1280,7 +1280,8 @@ import UIKit
         return
       }
       chatMessages.append(
-        ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
+        ChatMessage(role: "assistant", text: result.answer, citations: result.citations,
+          sourceLabel: result.sourceLabel))
     } catch {
       showToast(error.localizedDescription, kind: .error)
     }

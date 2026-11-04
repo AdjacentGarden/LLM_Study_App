@@ -696,6 +696,10 @@ struct AssistantChatView: View {
                     message.role == "user" ? DS.primarySoft : .white,
                     in: RoundedRectangle(cornerRadius: 18)
                   ).overlay(RoundedRectangle(cornerRadius: 18).stroke(DS.border, lineWidth: 1))
+                if message.role != "user", let label = message.sourceLabelText {
+                  Text(label).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                    .accessibilityIdentifier("chat.sourceLabel")
+                }
                 ForEach(message.citations) { citation in
                   Button {
                     store.closeSheet()

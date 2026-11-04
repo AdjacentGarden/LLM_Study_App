@@ -916,7 +916,8 @@ extension AppStore {
         sources: sources, history: chatMessages)
       guard epoch == cloudState.epoch, generation == selectionGeneration else { return }
       chatMessages.append(
-        ChatMessage(role: "assistant", text: result.answer, citations: result.citations))
+        ChatMessage(role: "assistant", text: result.answer, citations: result.citations,
+          sourceLabel: result.sourceLabel))
     } catch { handleCloudError(error) }
   }
 
@@ -966,6 +967,16 @@ extension AppStore {
       "chapter_title": .string(String((requestContext?.chapterTitle ?? "").unicodeScalars.prefix(500))),
     ]
     if let readingContext { context["reading_context"] = readingContext.json }
+    // Device excerpts are optional extras; a local search failure must not block the cloud answer.
+    let deviceEvidence: [JSONValue]
+    do {
+      deviceEvidence = try await pendingLocalEvidence(question: question, bookID: bookID,
+        bookIDs: contextBookIDs, sources: sources)
+    } catch is CancellationError {
+      throw CancellationError()
+    } catch {
+      deviceEvidence = []
+    }
     var turns = history
     if turns.last?.role == "user", turns.last?.text == question { turns.removeLast() }
     // Preserve the full local archive while bounding only the request window.
@@ -981,7 +992,7 @@ extension AppStore {
     let currentMessageID = history.last.flatMap { $0.role == "user" && $0.text == question ? $0.id : nil }
     let id = requestID ?? currentMessageID
       ?? UUID().uuidString
-    let proposed: [String: JSONValue] = [
+    var proposed: [String: JSONValue] = [
       "request_id": .string(id),
       "question": .string(question),
       "context": .object(context),
@@ -993,6 +1004,9 @@ extension AppStore {
       }),
       "history": .array(Array(boundedHistory.reversed())),
     ]
+    // Pending imports are not server resources. Only short excerpts the phone
+    // itself retrieved are sent, labelled as device evidence, never as access.
+    if !deviceEvidence.isEmpty { proposed["device_evidence"] = .array(deviceEvidence) }
     let body = try await assistantHistory.freezeQueryPayload(proposed, messageID: id)
     try Task.checkCancellation()
     guard epoch == cloudState.epoch, (!bindToCurrentSelection || routingSelection == selectionGeneration) else {
@@ -1017,7 +1031,22 @@ extension AppStore {
           page: value.page_number, quote: value.quote, blockID: value.block_id),
         quote: value.quote, score: 1)
     }.filter { seen.insert($0.id).inserted }
-    return AssistantAnswer(answer: result.answer, citations: citations)
+    return AssistantAnswer(answer: result.answer, citations: citations,
+      sourceLabel: result.source_label, courseIDs: result.course_ids ?? [])
+  }
+
+  /// Reliable on-device hits from pending `book_local_` imports in the turn's scope.
+  private func pendingLocalEvidence(question: String, bookID: String, bookIDs: [String],
+    sources: [SourceContent]) async throws -> [JSONValue] {
+    let pending = Set(([bookID] + bookIDs).filter { $0.hasPrefix("book_local_") })
+    guard !pending.isEmpty, sources.contains(where: { pending.contains($0.id) }) else { return [] }
+    let result = try await appleTextbookSearch.search(query: question, sources: sources,
+      bookIDs: pending, limit: 6)
+    return result.hits.filter { $0.reliable && $0.lexicalScore > 0 && pending.contains($0.chunk.book_id) }
+      .prefix(6).map { hit in
+      .object(["book_id": .string(hit.chunk.book_id), "page_number": .number(Double(max(1, hit.chunk.page_start))),
+        "quote": .string(String(hit.chunk.text.unicodeScalars.prefix(600)))])
+    }
   }
 
   func submitCloudAssignment(question: QuizQuestion, answer: String) async {

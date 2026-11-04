@@ -38,6 +38,7 @@ struct AssistantHistoryAnswer: Sendable {
   var text: String
   var citations: [Citation] = []
   var courseIDs: [String] = []
+  var sourceLabel: String?
 }
 
 enum AssistantSessionTitle {
@@ -249,7 +250,8 @@ enum AssistantSessionTitle {
         try Task.checkCancellation()
         guard token == generation,
           let position = archive.sessions.firstIndex(where: { $0.id == id }) else { return }
-        let message = ChatMessage(role: "assistant", text: response.text, citations: response.citations)
+        let message = ChatMessage(role: "assistant", text: response.text, citations: response.citations,
+          sourceLabel: response.sourceLabel)
         archive.sessions[position].messages.append(message)
         if let user = archive.sessions[position].messages.lastIndex(where: { $0.role == "user" }) {
           archive.sessions[position].messages[user].unifiedQueryPayload = nil
@@ -319,6 +321,12 @@ extension AppStore {
     let epoch = cloudState.epoch
     let owner = assistantHistoryScope
     let hasAttachments = history.contains { !($0.attachments ?? []).isEmpty }
+    // Without a learning service, discovery keeps matching the cached public catalog locally.
+    if context.discovery, cloud == nil {
+      if hasAttachments { throw ContentError.invalid("请进入课程后讨论附件内容，课程发现页用于查找课程。") }
+      let answer = answerCommunityCourseQuery(question, books: community)
+      return AssistantHistoryAnswer(text: answer.text, courseIDs: answer.courseIds)
+    }
     do {
       let turns = try await AssistantAttachmentContext.history(history, question: question, repository: repository)
       guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
@@ -329,7 +337,9 @@ extension AppStore {
         requestID: history.last(where: { $0.role == "user" && $0.text == question })?.id,
         requestContext: context)
       guard epoch == cloudState.epoch, owner == assistantHistoryScope else { throw CancellationError() }
-      return AssistantHistoryAnswer(text: response.answer, citations: response.citations)
+      let known = Set(community.map(\.id))
+      return AssistantHistoryAnswer(text: response.answer, citations: response.citations,
+        courseIDs: response.courseIDs.filter(known.contains), sourceLabel: response.sourceLabel)
     } catch {
       if let failure = error as? CloudError, failure.status == 401, epoch == cloudState.epoch {
         handleCloudError(error)

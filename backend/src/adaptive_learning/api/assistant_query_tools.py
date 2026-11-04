@@ -9,15 +9,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .. import native_catalog
 from ..ingestion.coverage import page_is_skipped
 from ..ingestion.models import BookStructure
-from ..rag.index import BM25
+from ..rag.index import lexical_tokens
 from ..rag.upload_index import split_text
 
 _ID = {"type": "string", "minLength": 1, "maxLength": 150}
@@ -56,7 +58,8 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
 TOOL_DESCRIPTIONS = {
     "list_learning_resources": (
         "读取当前登录用户的所有课程、教材和已同步学习进度。用户问‘当前有哪些课程’、"
-        "‘我在学什么’、整体学习情况时使用；结果不限于当前页面。支持 offset/limit 分页，"
+        "‘有多少门课程’、‘我在学什么’、整体学习情况时使用；total_courses 是课程总数，"
+        "即使只返回一页也以它为准。结果不限于当前页面。支持 offset/limit 分页，"
         "本机待上传课程会单独标记，默认页码不代表已经学习。"
     ),
     "get_course_outline": (
@@ -89,6 +92,27 @@ class _Chunk:
     block_id: str | None = None
 
 
+@dataclass(frozen=True)
+class _BookIndex:
+    """Immutable per-book lexical index shared across searches."""
+
+    chunks: tuple[_Chunk, ...]
+    lengths: tuple[int, ...]
+    postings: dict[str, tuple[tuple[int, int], ...]]
+
+    @classmethod
+    def build(cls, chunks: tuple[_Chunk, ...]) -> _BookIndex:
+        postings: dict[str, list[tuple[int, int]]] = {}
+        lengths: list[int] = []
+        for index, chunk in enumerate(chunks):
+            tokens = Counter(lexical_tokens(chunk.text))
+            lengths.append(sum(tokens.values()))
+            for token, frequency in tokens.items():
+                postings.setdefault(token, []).append((index, frequency))
+        return cls(chunks, tuple(lengths),
+                   {token: tuple(values) for token, values in postings.items()})
+
+
 def _chunks(raw: str) -> tuple[_Chunk, ...]:
     chunks: list[_Chunk] = []
     seen: set[int] = set()
@@ -116,17 +140,18 @@ def _chunks(raw: str) -> tuple[_Chunk, ...]:
     return tuple(chunks)
 
 
-@lru_cache(maxsize=4)
-def _file_chunks(path: str, mtime_ns: int, size: int) -> tuple[_Chunk, ...]:
+# Covers the 20-book search cap so an all-books search does not evict itself.
+@lru_cache(maxsize=24)
+def _file_chunks(path: str, mtime_ns: int, size: int) -> _BookIndex:
     # Fingerprinted parsed text is shared in memory, but never bypasses actor ACL.
     if size > 64 * 1024 * 1024:
         raise ValueError("textbook exceeds read budget")
-    return _chunks(Path(path).read_text(encoding="utf-8"))
+    return _BookIndex.build(_chunks(Path(path).read_text(encoding="utf-8")))
 
 
 @lru_cache(maxsize=1)
-def _builtin_chunks() -> tuple[_Chunk, ...]:
-    return _chunks(native_catalog.qa_pages().decode("utf-8"))
+def _builtin_chunks() -> _BookIndex:
+    return _BookIndex.build(_chunks(native_catalog.qa_pages().decode("utf-8")))
 
 
 class QueryTools:
@@ -144,7 +169,9 @@ class QueryTools:
         return bool(repo.owns_upload(self.actor, book_id) or repo.owns(self.actor, book_id))
 
     def _workspaces(self) -> list[dict[str, Any]]:
-        return self.services.native_repository.workspaces(self.actor)
+        values = cast(list[dict[str, Any]],
+                      self.services.native_repository.workspaces(self.actor))
+        return values
 
     def _resources(self) -> list[dict[str, Any]]:
         values: list[dict[str, Any]] = []
@@ -160,15 +187,13 @@ class QueryTools:
         return values
 
     def access_scope(self) -> list[str]:
-        """Fresh ACL snapshot for replay checks; client labels never grant access."""
-        public = hashlib.sha256()
-        with self.services.account_repository.repo.connect() as db:
-            for row in db.execute("SELECT id FROM posts WHERE active=1 AND kind='book' ORDER BY id"):
-                public.update(str(row[0]).encode())
-                public.update(b"\0")
+        """Fresh ACL snapshot for replay checks; client labels never grant access.
+
+        Public catalog metadata is readable by every account, so newly shared
+        books must not invalidate replay of an already answered question.
+        """
         return sorted({*("workspace:" + str(w["id"]) for w in self._workspaces()),
-                       *("book:" + str(r["book_id"]) for r in self._resources()),
-                       "public_catalog_metadata:" + public.hexdigest()})
+                       *("book:" + str(r["book_id"]) for r in self._resources())})
 
     @staticmethod
     def _error(code: str, message: str) -> dict[str, Any]:
@@ -183,7 +208,7 @@ class QueryTools:
             # Also validate direct callers; the model stream performs the same validation.
             from ..llm.tool_stream import validate_arguments
             validate_arguments(self.schemas[name], arguments)
-            return getattr(self, "_" + name)(**arguments)
+            return cast(dict[str, Any], getattr(self, "_" + name)(**arguments))
         except (KeyError, TypeError, ValueError):
             return self._error("resource_unavailable", "参数无效，或该资料当前不可访问；可先列出用户课程")
         except OSError:
@@ -223,7 +248,7 @@ class QueryTools:
     def _list_learning_resources(self, offset: int = 0, limit: int = 15) -> dict[str, Any]:
         workspaces = self._workspaces()
         resources = self._resources()
-        local = [row for row in self.local_courses[:100]
+        local = [row for row in self.local_courses
                  if isinstance(row, dict) and str(row.get("id", "")).startswith("local-course:")]
         total = len(workspaces) + len(local)
         items: list[dict[str, Any]] = []
@@ -284,7 +309,7 @@ class QueryTools:
                 "other_book_ids": [r["book_id"] for r in resources[1:31]],
                 "content_kind": "stored_course_outline_and_progress", "evidence": []}
 
-    def _book_chunks(self, book_id: str) -> tuple[_Chunk, ...]:
+    def _book_chunks(self, book_id: str) -> _BookIndex:
         # Called only after enumerating currently authorized server resources.
         if book_id == native_catalog.BOOK_ID:
             return _builtin_chunks()
@@ -314,6 +339,9 @@ class QueryTools:
         selected.sort(key=lambda value: value != self.context.get("book_id"))
         searched = selected[:20]
         candidates: list[tuple[str, _Chunk]] = []
+        lengths: list[int] = []
+        query_tokens = Counter(lexical_tokens(query))
+        postings: dict[str, list[tuple[int, int]]] = {token: [] for token in query_tokens}
         unavailable: list[str] = []
         for book_id in searched:
             resource = by_book[book_id]
@@ -322,13 +350,45 @@ class QueryTools:
                 chapter = next((c for c in chapters.chapters if c.chapter_id == chapter_id), None) if chapters and chapter_id else None
                 if chapter_id and chapter is None:
                     continue
-                candidates.extend((book_id, chunk) for chunk in self._book_chunks(book_id)
-                                  if chapter is None or chapter.start_page <= chunk.page <= chapter.end_page)
+                book_index = self._book_chunks(book_id)
+                local_indexes: dict[int, int] = {}
+                for local_index, chunk in enumerate(book_index.chunks):
+                    if chapter is not None and not (chapter.start_page <= chunk.page <= chapter.end_page):
+                        continue
+                    local_indexes[local_index] = len(candidates)
+                    candidates.append((book_id, chunk))
+                    lengths.append(book_index.lengths[local_index])
+                for token in query_tokens:
+                    for local_index, frequency in book_index.postings.get(token, ()):
+                        candidate_index = local_indexes.get(local_index)
+                        if candidate_index is not None:
+                            postings[token].append((candidate_index, frequency))
             except (OSError, ValueError, KeyError, TypeError):
                 unavailable.append(book_id)
-        scores = BM25(chunk.text for _, chunk in candidates).scores(query)
+        # Same BM25 formula as adaptive_learning.rag.index.BM25, computed from
+        # the cached postings over exactly the candidate set built above.
+        count = len(candidates)
+        average_length = sum(lengths) / max(1, count)
+        scores = [0.0] * count
+        for token, query_count in query_tokens.items():
+            matched = postings[token]
+            if not matched:
+                continue
+            inverse = math.log(
+                1 + (count - len(matched) + 0.5) / (len(matched) + 0.5)
+            )
+            weight = min(2, query_count)
+            for candidate_index, frequency in matched:
+                length = lengths[candidate_index]
+                normalized = (
+                    frequency
+                    * 2.2
+                    / (frequency + 1.2 * (0.25 + 0.75 * length / max(1, average_length)))
+                )
+                scores[candidate_index] += inverse * normalized * weight
         ranking = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
         evidence: list[dict[str, Any]] = []
+        titles: dict[str, str] = {}
         per_page: dict[tuple[str, int], int] = {}
         for index in ranking:
             if scores[index] <= 0 or len(evidence) >= limit:
@@ -340,9 +400,11 @@ class QueryTools:
             if any(e["book_id"] == book_id and e["page_number"] == chunk.page
                    and e["quote"] in chunk.text for e in evidence):
                 continue
+            if book_id not in titles:
+                titles[book_id] = self._book_info(by_book[book_id])["title"]
             # Keep the complete bounded chunk so matching text cannot be cut off.
             evidence.append({**self._evidence(book_id, chunk, chunk.text),
-                             "book_title": self._book_info(by_book[book_id])["title"]})
+                             "book_title": titles[book_id]})
             per_page[location] = per_page.get(location, 0) + 1
         return {"ok": True, "method": "raw_ocr_bm25", "query": query,
                 "searched_book_ids": searched, "total_accessible_books": len(by_book),
@@ -354,7 +416,7 @@ class QueryTools:
         resources = {r["book_id"]: r for r in self._resources()}
         if book_id not in resources:
             raise KeyError("book")
-        chunks = [chunk for chunk in self._book_chunks(book_id) if chunk.page == page_number]
+        chunks = [chunk for chunk in self._book_chunks(book_id).chunks if chunk.page == page_number]
         if not chunks:
             return self._error("page_unavailable", "该页没有可用 OCR 原文，可能尚未解析或已跳过")
         # Chunk overlap is intentionally retained; these remain exact source spans.
