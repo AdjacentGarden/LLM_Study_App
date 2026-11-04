@@ -179,6 +179,9 @@ struct ReaderOrigin: Sendable {
     closeSheet()
     go(.study)
     if let upload = courseUpload(for: course.id) { showCourseUpload(upload.id) }
+    else if let record = selectedCourseImport, !record.needsPreparation, record.setupCompleted != true {
+      resumeSelectedCourseSetup()
+    }
   }
 
   func continueCourseImport(_ id: String) {
@@ -586,6 +589,12 @@ struct ReaderOrigin: Sendable {
       saved.resourceIDs = importState.courses[i].books.map(\.id)
     }
     importState.courses[i].draft = saved
+    if cloud != nil {
+      if importState.courses[i].stageSave == nil { importState.courses[i].stageSave = CourseStageSave() }
+      for bookID in saved.resourceIDs {
+        if let edits = chapterDrafts[bookID] { importState.courses[i].stageSave?.chapters[bookID] = edits }
+      }
+    }
     if let index = courses.firstIndex(where: { $0.id == id && $0.id.hasPrefix("local-course:") }),
       !draft.name.isEmpty { courses[index].name = draft.name }
   }

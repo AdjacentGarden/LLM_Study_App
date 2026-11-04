@@ -6,6 +6,14 @@ enum StudyCoursePreparation: Equatable {
   case materials, setup, localGeneration, diagnosis, generation
 }
 
+struct CourseCreationStep: Identifiable {
+  var id: Int
+  var title: String
+  var completed: Bool
+  var detail: String
+  var active = false
+}
+
 @MainActor extension AppStore {
   /// The course progress card measures reading, independently of today's tasks.
   var courseLearningProgress: Double {
@@ -132,10 +140,61 @@ enum StudyCoursePreparation: Equatable {
     go(.courseProgress)
   }
 
+  func coursePreparationRequiresAction(_ preparation: StudyCoursePreparation) -> Bool {
+    switch preparation {
+    case .materials:
+      guard let record = selectedCourseImport,
+        importState.tasks[record.id] == nil else { return false }
+      return [.failed, .cancelled, .interrupted].contains(record.job.status)
+        || record.job.status == .queued && !record.started
+    case .setup: return true
+    case .localGeneration, .diagnosis: return !cloudState.isWorking && cloudState.courseTask == nil
+    case .generation: return selectedCourseJob?.status == .failed && !cloudState.isWorking
+    }
+  }
+
+  var courseCreationSteps: [CourseCreationStep] {
+    let record = selectedCourseImport
+    let saved = record?.draft ?? (draft.importCourseID == selectedCourseID ? draft
+      : CourseDraft(name: currentCourse?.name ?? "", resourceIDs: currentCourse?.resourceIDs ?? [],
+          diagnosis: currentCourse?.diagnosis ?? [:]))
+    let parsing = record?.job.status == .running
+    let parsed = record.map { !$0.needsPreparation } ?? (saved.parseCompleted || cloudResource?.structure != nil)
+    let bookIDs = Set(saved.resourceIDs)
+    let courseSources = sources.filter { bookIDs.contains($0.id) }
+    let directoryReady = !courseSources.isEmpty && courseSources.allSatisfy { !$0.chapters.isEmpty }
+    let answered = CourseDiagnosisQuestion.all.filter { !(saved.diagnosis[$0.id]?.isEmpty ?? true) }.count
+    let confirmed = record?.setupCompleted == true || (record == nil && selectedCourseJob != nil)
+    let contentReady = confirmed && hasStudyContent
+    let planReady = contentReady && courseSources.contains { !$0.plan.tasks.isEmpty }
+    let writing = selectedCourseJob?.status == .running && selectedCourseJob?.stage != "planning"
+    return [
+      CourseCreationStep(id: 0, title: "整理课程资料", completed: parsed, detail: parsed ? "已完成" : parsing ? "进行中" : "等待中", active: parsing && !parsed),
+      CourseCreationStep(id: 1, title: "识别章节与重点", completed: directoryReady, detail: directoryReady ? "已完成" : parsing && record?.job.preparationStage == "structuring" ? "进行中" : "等待中",
+        active: !directoryReady && parsing && record?.job.preparationStage == "structuring"),
+      CourseCreationStep(id: 2, title: "结合学习偏好", completed: answered == CourseDiagnosisQuestion.all.count,
+        detail: "已回答 \(answered)/\(CourseDiagnosisQuestion.all.count) 题"),
+      CourseCreationStep(id: 3, title: "安排学习计划", completed: planReady, detail: planReady ? "已完成" : selectedCourseJob?.status == .running && selectedCourseJob?.stage == "planning" ? "进行中" : "等待中",
+        active: !planReady && selectedCourseJob?.status == .running && selectedCourseJob?.stage == "planning"),
+      CourseCreationStep(id: 4, title: "准备学习内容", completed: contentReady, detail: contentReady ? "已完成" : writing ? "进行中" : selectedCourseJob?.status == .queued ? "排队中" : "等待中",
+        active: !contentReady && writing),
+    ]
+  }
+
+  func pauseCourseSetup() {
+    retainPendingCourseDraft()
+    go(.study)
+    persist()
+  }
+
   func resumeSelectedCourseSetup() {
     guard let record = selectedCourseImport else { return }
     retainPendingCourseDraft()
     draft = record.draft
+    for bookID in draft.resourceIDs {
+      if let edits = record.stageSave?.chapters[bookID] { chapterDrafts[bookID] = edits }
+      else if cloud != nil { chapterDrafts.removeValue(forKey: bookID) }
+    }
     cloudState.creationWorkspaceID = draft.creationWorkspaceID
     draft.parseCompleted = record.job.status == .completed
     let questionsCompleted = CourseDiagnosisQuestion.all.allSatisfy {

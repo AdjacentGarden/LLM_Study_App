@@ -101,7 +101,7 @@ def test_custom_directory_pending_has_explicit_backoff_without_borrowing_origina
     calls = []
     def pending(value, *, chapter_cache, cache_scope):
         calls.append((value.title, cache_scope))
-        raise DiagnosticRepairPending(completed=1, total=3, retry_after=30)
+        raise DiagnosticRepairPending(completed=1, retry_after=30)
     monkeypatch.setattr(api, "item_generator", SimpleNamespace(generate=pending))
     response = client.post(path(resource) + "?resource_revision=1")
     assert response.status_code == 409
@@ -119,7 +119,7 @@ def test_custom_known_pending_can_finish_but_unknown_never_becomes_pending(nativ
     def generate(value, **kwargs):
         calls.append(value.title)
         if len(calls) == 1:
-            raise DiagnosticRepairPending(completed=2, total=3, retry_after=5)
+            raise DiagnosticRepairPending(completed=2, retry_after=5)
         return FixtureBank().generate(value)
     monkeypatch.setattr(api, "item_generator", SimpleNamespace(generate=generate))
     url = path(resource) + "?resource_revision=1"

@@ -342,7 +342,9 @@ import ZIPFoundation
           item["stage"] = job.stage
           item["message"] = job.message
           item["diagnostics_completed"] = job.diagnostics_completed
-          item["diagnostics_total"] = job.diagnostics_total
+          item["diagnostics_total"] = job.diagnostics_total.map { $0 as Any } ?? NSNull()
+          item["diagnostics_finalized"] = job.diagnostics_finalized ?? false
+          item["diagnostics_skipped"] = job.diagnostics_skipped
         } catch let error as CloudError where error.status == 404 {
           if let ocr: CloudBookStatus = try? await cloud.request("/api/books/\(id)/status") {
             item["source"] = "live"

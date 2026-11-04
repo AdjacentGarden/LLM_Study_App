@@ -19,15 +19,25 @@ class DiagnosticChapterSubmissionBlocked(DiagnosticChapterCacheError):
     """A prior submission has no confirmed reusable result; do not submit again."""
 
 
-class DiagnosticRepairPending(RuntimeError):
-    """A completed pass needs another scheduled pass, with no retry limit."""
+MAX_DIAGNOSTIC_ITEM_ROUNDS = 8
 
-    def __init__(self, *, completed: int, total: int, retry_after: float,
+
+def diagnostic_rounds_completed(state: dict[str, Any]) -> int:
+    """Include the last legacy format-failure streak when upgrading old work."""
+    return int(state.get("rounds_completed",
+                         int(state.get("attempt", 0)) + int(state.get("review_format_failures", 0))))
+
+
+class DiagnosticRepairPending(RuntimeError):
+    """A completed pass has unfinished items within their attempt budgets."""
+
+    def __init__(self, *, completed: int, skipped: int = 0, retry_after: float,
                  waiting_for_service: bool = False) -> None:
         super().__init__("diagnostic items are being repaired")
         self.details = {
             "message": ("等待模型服务恢复，恢复后自动继续" if waiting_for_service else "正在根据审核意见优化题目"),
-            "diagnostics_completed": completed, "diagnostics_total": total,
+            "diagnostics_completed": completed, "diagnostics_total": None,
+            "diagnostics_finalized": False, "diagnostics_skipped": skipped,
             "retry_after_seconds": max(1, retry_after),
         }
 

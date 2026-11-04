@@ -528,6 +528,10 @@ struct CourseSetupView: View {
             .disabled(saving || advancing).padding(.top, 36)
           }
           VStack(spacing: 16) {
+            if let message = store.courseDraftSyncMessage {
+              Text(message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                .accessibilityIdentifier("courseSetup.syncStatus")
+            }
             if let error {
               Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
                 .accessibilityIdentifier("courseSetup.error")
@@ -631,6 +635,10 @@ struct CourseSetupView: View {
   private func previous() {
     cancelAdvance()
     error = nil
+    if store.draft.importCourseID != nil && store.draft.editingCourseID == nil {
+      store.pauseCourseSetup()
+      return
+    }
     if store.draft.step > 0 {
       store.draft.step -= 1
     } else if store.draft.step == 0 && store.draft.editingCourseID != nil {
@@ -988,7 +996,6 @@ struct CourseProcessingView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var started = false
-  @State private var importStage = 0
   private var onDevice: Bool { !importing && (store.activeImportRoute == .onDevice || store.cloud == nil) }
   private var stages: [String] {
     if onDevice { return ["本机识别原文", "原文已保存，可阅读与检索"] }
@@ -1001,12 +1008,13 @@ struct CourseProcessingView: View {
   }
   private var progress: Double {
     importing
-      ? Double(importStage) / 5
+      ? Double(store.courseCreationSteps.filter(\.completed).count) / Double(store.courseCreationSteps.count)
       : min(
         1, store.processingProgress > 1 ? store.processingProgress / 100 : store.processingProgress)
   }
   private var activeStage: Int {
-    if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return importing ? -1 : 0 }
+    if importing { return store.courseCreationSteps.firstIndex(where: { !$0.completed }) ?? stages.count }
+    if ProcessInfo.processInfo.arguments.contains("--visual-baseline") { return 0 }
     if onDevice { return store.importJob?.status == .completed ? 1 : 0 }
     if !importing, store.importState.courses.first(where: { $0.id == store.importState.legacyCourseID })?.onDeviceOnly == true {
       return store.importJob?.status == .completed ? 2 : 1
@@ -1042,7 +1050,7 @@ struct CourseProcessingView: View {
           VStack(spacing: 12) {
             VStack(spacing: 8) {
               ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
-                let done = index < activeStage || progress >= 1
+                let done = importing ? store.courseCreationSteps[index].completed : index < activeStage || progress >= 1
                 let active = index == activeStage && progress < 1
                 HStack(spacing: 10) {
                   Group {
@@ -1056,7 +1064,7 @@ struct CourseProcessingView: View {
                   }.frame(width: 30, height: 30)
                   Text(stage).font(DS.font(.cardTitle)).frame(
                     maxWidth: .infinity, alignment: .leading)
-                  Text(done ? "已完成" : active ? "处理中" : "等待中").font(DS.font(.supporting, weight: .semibold))
+                  Text(importing ? store.courseCreationSteps[index].detail : done ? "已完成" : active ? "处理中" : "等待中").font(DS.font(.supporting, weight: .semibold))
                     .foregroundStyle(done ? DS.mint : active ? DS.primaryPressed : DS.muted)
                 }.padding(.horizontal, 12).frame(height: 48).background(
                   active ? Color(hex: 0xFAF7FF) : DS.surface, in: RoundedRectangle(cornerRadius: 12)
@@ -1065,7 +1073,7 @@ struct CourseProcessingView: View {
                     active ? Color(hex: 0xDDD6FE) : DS.border))
               }
             }.padding(8).background(Color(hex: 0xF4F7FB), in: RoundedRectangle(cornerRadius: 14))
-            CourseProgressMessage(message: store.importError ?? (importing ? "正在为你整理资料，准备专属学习之旅…" : store.processingMessage))
+            CourseProgressMessage(message: store.importError ?? (importing ? "已完成 \(store.courseCreationSteps.filter(\.completed).count)/\(store.courseCreationSteps.count) 步" : store.processingMessage))
               .font(DS.font(.body)).foregroundStyle(store.importError == nil ? DS.muted : DS.danger)
               .multilineTextAlignment(.center).frame(minHeight: 44).padding(.horizontal, 8)
               .accessibilityAddTraits(.updatesFrequently)
@@ -1110,18 +1118,7 @@ struct CourseProcessingView: View {
     .task {
       guard !started else { return }
       started = true
-      if importing {
-        if ContentBundle.fixtureMode {
-          importStage = 2
-          return
-        }
-        for step in 1...5 {
-          if !reduceMotion { try? await Task.sleep(for: .milliseconds(360)) }
-          guard !Task.isCancelled else { return }
-          importStage = step
-        }
-        store.replace(.courseImportReady)
-      } else if !store.draft.parseCompleted {
+      if !importing && !store.draft.parseCompleted {
         await store.processImport()
       }
     }
@@ -1198,6 +1195,10 @@ struct CourseChapterConfirmationView: View {
             Color(hex: 0xF6F8FC), in: RoundedRectangle(cornerRadius: 14)
           ).overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
         }
+      }
+      if let message = store.courseDraftSyncMessage {
+        Text(message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+          .accessibilityIdentifier("chapters.syncStatus")
       }
       if let error { Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
 

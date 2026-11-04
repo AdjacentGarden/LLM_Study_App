@@ -392,7 +392,7 @@ actor CloudAPI {
       // A relayed tailnet connection can spend most of the normal auth budget
       // establishing TCP and TLS before the server receives the request.
       request.timeoutInterval = baseURL.host?.lowercased().hasSuffix(".ts.net") == true ? 60 : 20
-    } else if path.contains("/course-jobs")
+    } else if path.contains("/creation-draft") || path.contains("/course-jobs")
       || path.hasSuffix("/prepare") || path.contains("/prepare?")
       || path.hasSuffix("/readiness") || path.hasSuffix("/status")
       || (method == "GET" && path.hasSuffix("/diagnostics")) {

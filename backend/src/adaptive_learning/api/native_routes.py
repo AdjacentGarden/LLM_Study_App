@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import uuid
 from datetime import UTC, date, datetime
 from ipaddress import ip_address
@@ -130,6 +131,17 @@ class StructureInput(Strict):
     chapters: list[ChapterInput] = Field(min_length=1, max_length=500)
 
 
+class CreationDraftConfirmation(Strict):
+    request_id: str = Field(min_length=8, max_length=100)
+
+
+class CreationDraftInput(WorkspaceInput):
+    request_id: str = Field(min_length=8, max_length=100)
+    step: int = Field(ge=-1, le=5)
+    book_ids: list[str] = Field(min_length=1, max_length=50)
+    chapters: dict[str, list[ChapterInput]] = Field(default_factory=dict, max_length=50)
+
+
 class ProgressInput(Strict):
     revision: int = Field(ge=0)
     mutation_id: str = Field(min_length=8, max_length=100)
@@ -144,6 +156,8 @@ class ProgressInput(Strict):
 def native_router(services: Any) -> APIRouter:
     router = APIRouter(prefix="/api", tags=["native-client"])
     design = NativeLearningDesign(services)
+    chapter_locks: dict[str, Any] = {}
+    chapter_lock_guard = threading.Lock()
 
     @router.post("/native/local-login")
     def local_login(request: Request, response: Response) -> dict[str, bool]:
@@ -747,6 +761,71 @@ def native_router(services: Any) -> APIRouter:
             raise HTTPException(409, str(error)) from error
         return workspace_state(actor, body.id)
 
+    @router.put("/workspaces/{wid}/creation-draft")
+    def save_creation_draft(wid: str, body: CreationDraftInput, actor: str = Depends(owner)) -> dict[str, Any]:
+        if wid != body.id or len(set(body.book_ids)) != len(body.book_ids):
+            raise HTTPException(422, "课程草稿标识或资料列表无效")
+        if sum(len(s) for values in body.preferences.values() for s in values) > 10000:
+            raise HTTPException(422, "课程偏好内容过长")
+        for book_id in body.book_ids:
+            accessible_book(actor, book_id)
+        for book_id, values in body.chapters.items():
+            if book_id not in body.book_ids or not 1 <= len(values) <= 500:
+                raise HTTPException(422, "目录草稿与课程资料不匹配")
+            original = services.job_repository.get_structure(book_id)
+            if original is None:
+                raise HTTPException(409, "教材目录尚未准备完成")
+            allowed = {c.chapter_id for c in original.chapters}
+            if len({v.chapter_id for v in values}) != len(values) or any(
+                v.chapter_id not in allowed or not 1 <= v.start_page <= v.end_page <= original.source_page_count
+                for v in values
+            ):
+                raise HTTPException(422, "目录章节或页码范围无效")
+        try:
+            services.native_repository.save_workspace(actor, wid, body.name, body.preferences)
+            for book_id in body.book_ids:
+                services.native_repository.add_resource(actor, wid, book_id)
+            services.native_repository.save_creation_draft(actor, wid, body.model_dump(mode="json"))
+        except KeyError as error:
+            raise HTTPException(404, "课程不存在") from error
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        # Draft persistence deliberately never invokes a model or creates a learning session.
+        return {"request_id": body.request_id, "workspace": workspace_state(actor, wid)}
+
+    @router.post("/workspaces/{wid}/creation-draft/confirm")
+    def confirm_creation_draft(wid: str, body: CreationDraftConfirmation, actor: str = Depends(owner)) -> dict[str, Any]:
+        try:
+            saved = services.native_repository.creation_draft(actor, wid)
+        except KeyError as error:
+            raise HTTPException(404, "课程不存在") from error
+        if saved is None or saved["request_id"] != body.request_id:
+            raise HTTPException(409, "课程草稿已更新，请先同步最新修改")
+        workspace = workspace_state(actor, wid)
+        if not workspace["resources"] or any(r["structure"] is None for r in workspace["resources"]):
+            raise HTTPException(409, "教材目录尚未准备完成")
+        if workspace["name"] != saved["name"] or workspace["preferences"] != saved["preferences"]:
+            raise HTTPException(409, "课程配置已更新，请重新同步")
+        for book_id, values in saved["chapters"].items():
+            row = next((r for r in services.native_repository.resources(actor, wid) if r["book_id"] == book_id), None)
+            structure = effective_structure(row) if row else None
+            actual = [{"chapter_id": c.chapter_id, "title": c.title, "start_page": c.start_page,
+                       "end_page": c.end_page} for c in structure.chapters] if structure else None
+            if actual != values:
+                raise HTTPException(409, "目录草稿已保存，章节核验尚未完成，请稍后重试")
+        try:
+            services.native_repository.confirm_creation_draft(actor, wid, body.request_id)
+        except NativeConflict as error:
+            raise HTTPException(409, str(error)) from error
+        return {"request_id": body.request_id, "workspace": workspace}
+
+    @router.get("/workspaces/{wid}/creation-draft")
+    def get_creation_draft(wid: str, actor: str = Depends(owner)) -> Any:
+        try:
+            return services.native_repository.creation_draft(actor, wid)
+        except KeyError as error:
+            raise HTTPException(404, "课程不存在") from error
+
     @router.get("/workspaces/{wid}")
     def get_workspace(wid: str, actor: str = Depends(owner)) -> dict[str, Any]:
         return workspace_state(actor, wid)
@@ -870,11 +949,26 @@ def native_router(services: Any) -> APIRouter:
     def save_chapters(
         wid: str, rid: str, body: StructureInput, actor: str = Depends(owner)
     ) -> dict[str, Any]:
+        resource(wid, rid, actor)
+        with chapter_lock_guard:
+            lock = chapter_locks.setdefault(rid, threading.Lock())
+        with lock:
+            return save_chapters_serialized(wid, rid, body, actor)
+
+    def save_chapters_serialized(wid: str, rid: str, body: StructureInput, actor: str) -> dict[str, Any]:
         row = resource(wid, rid, actor)
-        original = services.job_repository.get_structure(row["book_id"])
+        original = effective_structure(row)
         if original is None:
             raise HTTPException(409, "教材目录尚未准备完成")
-        originals = {c.chapter_id: c for c in original.chapters}
+        requested = [(v.chapter_id, v.title, v.start_page, v.end_page) for v in body.chapters]
+        current = [(c.chapter_id, c.title, c.start_page, c.end_page) for c in original.chapters]
+        if requested == current:
+            return resource_state(row, actor)
+        if body.revision != row["revision"]:
+            raise HTTPException(409, "目录已更新，请重新加载后再保存")
+        base = services.job_repository.get_structure(row["book_id"]) or original
+        originals = {c.chapter_id: c for c in base.chapters}
+        originals.update({c.chapter_id: c for c in original.chapters})
         seen = set()
         chapters = []
         for index, value in enumerate(body.chapters):

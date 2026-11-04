@@ -47,6 +47,9 @@ extension AppStore {
         importJob = cached.snapshot.importJob
         importState.courses = cached.snapshot.courseImports ?? []
         for i in importState.courses.indices { importState.courses[i].mergeDuplicateBooks() }
+        for record in importState.courses {
+          cloudState.localStageFingerprints[(cloudState.cacheKey ?? "") + "::" + record.id] = stageSaveFingerprint(record)
+        }
         for i in importState.courses.indices where importState.courses[i].job.status == .running {
           importState.courses[i].job.status = .interrupted
         }
@@ -213,6 +216,7 @@ extension AppStore {
     }
     cloudState.isHydrating = false
     persistCloud()
+    scheduleCourseStageSaves(force: true)
     startCloudSync()
   }
 
@@ -269,6 +273,7 @@ extension AppStore {
       installCloudSources(workspaceID: workspaceID)
     }
     cloudState.syncError = nil
+    scheduleCourseStageSaves(force: true)
   }
 
 }

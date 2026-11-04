@@ -138,7 +138,7 @@ struct StudyDirectoryView: View {
 
   private var restorationLayout: StudyRestorationLayout {
     let node = directory.first { $0.id == expandedChapter }
-    let target = expandedSection.map { section in
+    let target = store.selectedCourseImport?.needsPreparation == true ? "study.materials.notice" : expandedSection.map { section in
       node?.sections.first?.id == section
         ? "study.chapter.title." + (node?.id ?? "")
         : "study.section.title." + section
@@ -181,6 +181,13 @@ struct StudyDirectoryView: View {
                   else { store.go(.library) }
                 }
               } else {
+                if store.selectedCourseImport?.needsPreparation == true {
+                  StudyCoursePreparationView(preparation: .materials, compact: true)
+                    .id("study.materials.notice")
+                    .onGeometryChange(for: CGFloat.self) { min(56, $0.size.height) } action: {
+                      restorationTitleHeights["study.materials.notice"] = $0
+                    }
+                }
                 ForEach(Array(directory.enumerated()), id: \.element.id) { index, node in
                   chapterCard(node, index: index)
                     .id(node.id)
@@ -295,10 +302,8 @@ struct StudyDirectoryView: View {
             .accessibilityIdentifier("study.course.create")
         }
       }
-      if store.studyCoursePreparation == nil, !directory.isEmpty,
-        store.selectedCourseImport?.needsPreparation == true {
-        StudyCoursePreparationView(preparation: .materials, compact: true)
-      } else if let course = store.currentCourse, let label = store.courseCreationLabel(course) {
+      if store.studyCoursePreparation == nil, store.selectedCourseImport?.needsPreparation != true,
+        let course = store.currentCourse, let label = store.courseCreationLabel(course) {
         Text(label).font(DS.font(.supporting, weight: .medium)).foregroundStyle(DS.secondary)
           .accessibilityIdentifier("study.course.status")
       }

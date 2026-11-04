@@ -440,6 +440,10 @@ class DiagnosticGenerationError(ValueError):
         self.repair_context: dict[str, Any] = {}
 
 
+class DiagnosticNoUsableItemsError(DiagnosticGenerationError):
+    """All candidates ended without a reviewed diagnostic item."""
+
+
 class DiagnosticReviewFormatError(DiagnosticGenerationError):
     """A reviewer response was received but its wire cannot express a verdict."""
 
@@ -897,7 +901,10 @@ class DiagnosticItemGenerator:
         if targeted:
             old = system[system.index("10. 若输入包含"):system.index("只返回 JSON：")]
             system = system.replace(old, _TARGETED_REPAIR_INSTRUCTIONS + "\n")
-            payload.update({key: value for key, value in (repair_context or {}).items() if not key.startswith("_")})
+            writer_context = repair_context or {}
+            if writer_context.get("generation_strategy") == "redesign":
+                writer_context = {"generation_strategy": "redesign"}
+            payload.update({key: value for key, value in writer_context.items() if not key.startswith("_")})
         chapter_context = {**(audit_context or {}), "chapter_id": chapter.chapter_id}
         self._audit(chapter_context, "chapter_started", source=payload)
         for attempt in range(1 if targeted else (self.validation_retries or 0) + 1):

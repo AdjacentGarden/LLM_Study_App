@@ -86,6 +86,8 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var onboardingComplete = false
   var requiresPersonalization = false
   var isWorking = false
+  var localStageFingerprints: [String: String] = [:]
+  @ObservationIgnored var stageSaveTasks: [String: Task<Void, Never>] = [:]
   var materialSyncCount = 0
   var isHydrating = false
   var syncing = false

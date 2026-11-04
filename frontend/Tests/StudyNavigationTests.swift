@@ -192,4 +192,66 @@ import XCTest
     XCTAssertEqual(store.route, .chapterConfirm)
     await store.flush()
   }
+  func testOpeningParsedCourseResumesSavedQuestionsAndBackShowsProgress() async throws {
+    let store = try store()
+    store.draft = CourseDraft(name: "待回答", resourceIDs: ["book"],
+      diagnosis: ["urgency": ["steady"], "timePattern": ["block"]], step: 2, parseCompleted: true)
+    store.retainPendingCourseDraft()
+    let course = try XCTUnwrap(store.courses.first)
+    store.go(.study)
+    store.openCourse(course)
+    XCTAssertEqual(store.route, .courseSetup)
+    XCTAssertEqual(store.draft.step, 2)
+    XCTAssertEqual(store.courseCreationSteps[2].detail, "已回答 2/6 题")
+    XCTAssertTrue(store.courseCreationSteps[0].completed)
+    XCTAssertFalse(store.courseCreationSteps[3].completed)
+    XCTAssertFalse(store.courseCreationSteps[4].completed)
+    store.pauseCourseSetup()
+    XCTAssertEqual(store.route, .study)
+    XCTAssertEqual(store.studyCoursePreparation, .setup)
+    store.openCourse(course)
+    XCTAssertEqual(store.route, .courseSetup)
+    XCTAssertEqual(store.draft.step, 2)
+    await store.flush()
+  }
+
+  func testCreationProgressDoesNotInventCompletedStepsFromQuestionPosition() async throws {
+    let store = try store()
+    store.draft = CourseDraft(name: "未回答", resourceIDs: ["book"], step: 5)
+    store.retainPendingCourseDraft()
+    store.selectCourse(try XCTUnwrap(store.courses.first).id)
+    XCTAssertEqual(store.courseCreationSteps[2].detail, "已回答 0/6 题")
+    XCTAssertFalse(store.courseCreationSteps[2].completed)
+    XCTAssertFalse(store.courseCreationSteps[3].completed)
+    XCTAssertFalse(store.courseCreationSteps[4].completed)
+    await store.flush()
+  }
+
+  func testAutomaticPreparationHidesContinueUntilUserActionIsRequired() async throws {
+    let store = try store()
+    store.draft = CourseDraft(name: "后台课程", resourceIDs: ["book"])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.selectCourse(id)
+    XCTAssertTrue(store.coursePreparationRequiresAction(.materials))
+    store.updateCourseImport(id) { $0.started = true; $0.job.status = .running }
+    XCTAssertFalse(store.coursePreparationRequiresAction(.materials))
+    XCTAssertTrue(store.courseCreationSteps[0].active)
+    store.updateCourseImport(id) { $0.job.status = .queued }
+    XCTAssertFalse(store.coursePreparationRequiresAction(.materials))
+    store.updateCourseImport(id) { $0.job.status = .failed }
+    XCTAssertTrue(store.coursePreparationRequiresAction(.materials))
+    XCTAssertTrue(store.coursePreparationRequiresAction(.setup))
+    store.cloudState.diagnosisWorkspaceID = id
+    store.cloudState.diagnosisResourceID = store.cloudResource?.id
+    store.cloudState.courseJob = CloudCourseJob(job_id: "job", session_id: "session",
+      chapter_id: "chapter", status: .running, stage: "writing", attempts: 1, retryable: false)
+    XCTAssertFalse(store.coursePreparationRequiresAction(.generation))
+    XCTAssertTrue(store.courseCreationSteps[4].active)
+    store.cloudState.courseJob?.status = .queued
+    XCTAssertFalse(store.coursePreparationRequiresAction(.generation))
+    store.cloudState.courseJob?.status = .failed
+    XCTAssertTrue(store.coursePreparationRequiresAction(.generation))
+    await store.flush()
+  }
+
 }

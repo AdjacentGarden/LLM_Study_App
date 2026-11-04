@@ -620,6 +620,20 @@ struct CourseImportBook: Codable, Sendable, Identifiable {
 }
 
 /// Account-scoped course work survives replacement of the creation questionnaire.
+struct CourseStageSave: Codable, Sendable {
+  var fingerprint: String?
+  var attemptedFingerprint: String?
+  var serverDraftFingerprint: String?
+  var error: String?
+  var workspace: CloudWorkspace?
+  var chapters: [String: [Chapter]] = [:]
+}
+
+struct CourseStageSaveResponse: Codable, Sendable {
+  var request_id: String
+  var workspace: CloudWorkspace
+}
+
 struct CourseImportRecord: Codable, Sendable, Identifiable {
   var id: String
   var draft: CourseDraft
@@ -629,6 +643,7 @@ struct CourseImportRecord: Codable, Sendable, Identifiable {
   var started = false
   var setupCompleted: Bool? = nil
   var onDeviceOnly: Bool? = nil
+  var stageSave: CourseStageSave? = nil
   mutating func mergeDuplicateBooks() {
     guard Set(books.map(\.id)).count != books.count else { return }
     var merged: [CourseImportBook] = []

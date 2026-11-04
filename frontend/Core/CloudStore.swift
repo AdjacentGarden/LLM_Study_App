@@ -88,7 +88,9 @@ extension AppStore {
 
   func rebuildCloudCourses() {
     let localCourses = courses.filter { $0.id.hasPrefix("local-course:") }
-    courses = cloudState.workspaces.map { workspace in
+    courses = cloudState.workspaces.filter { workspace in
+      !importState.courses.contains { $0.setupCompleted != true && workspaceID(for: $0) == workspace.id }
+    }.map { workspace in
       let existing = courses.first { $0.id == workspace.id }
       let candidates = [
         existing?.activeResourceID, workspace.id == selectedCourseID ? selectedBookID : nil,
@@ -516,36 +518,38 @@ extension AppStore {
     cloudState.isWorking = true
     defer { cloudState.isWorking = false }
     do {
-      let edited = chapterDrafts
-      try await saveCloudCourse(
-        name: draft.name, resourceIDs: draft.resourceIDs, diagnosis: draft.diagnosis)
-      guard let workspace = cloudState.workspaces.first(where: { $0.id == selectedCourseID }) else {
-        return
-      }
-      for resource in workspace.resources {
-        let values = edited[resource.book_id] ?? CloudMapping.source(resource).chapters
-        let body: [String: JSONValue] = [
-          "revision": .number(Double(resource.revision)),
-          "chapters": .array(
-            values.map {
-              .object([
-                "chapter_id": .string($0.id), "title": .string($0.title),
-                "start_page": .number(Double($0.page_start)),
-                "end_page": .number(Double($0.page_end)),
-              ])
-            }),
-        ]
-        let updated: CloudResource = try await cloud.request(
-          resource.path + "/chapters", method: "PUT", body: body)
-        if updated.revision != resource.revision {
-          cloudState.pending.removeValue(forKey: resource.id)
+      if let id = draft.importCourseID, courseImport(for: id) != nil {
+        let saved = try await flushCourseStageSave(id)
+        guard let record = courseImport(for: id) else { throw CancellationError() }
+        let fingerprint = stageSaveFingerprint(record)
+        let epoch = cloudState.epoch
+        let confirmation: CourseStageSaveResponse = try await cloud.request(
+          "/api/workspaces/\(saved.id)/creation-draft/confirm", method: "POST",
+          body: ["request_id": .string(fingerprint)])
+        guard epoch == cloudState.epoch, confirmation.request_id == fingerprint,
+          confirmation.workspace.id == saved.id else { throw CancellationError() }
+        let workspace = confirmation.workspace
+        if let scope = noteScope, id != workspace.id {
+          let resources = Dictionary(workspace.resources.map { ($0.book_id, $0.id) }, uniquingKeysWith: { first, _ in first })
+          let stored = try await repository.rebindNoteCourse(scope: scope, from: id, to: workspace.id, resources: resources)
+          guard epoch == cloudState.epoch else { throw CancellationError() }
+          applyCommitted(stored, scope: scope)
         }
-        chapterDrafts.removeValue(forKey: resource.book_id)
+        if let index = cloudState.workspaces.firstIndex(where: { $0.id == workspace.id }) { cloudState.workspaces[index] = workspace }
+        else { cloudState.workspaces.append(workspace) }
+        if let index = importState.courses.firstIndex(where: { $0.id == id }) { importState.courses[index].setupCompleted = true }
+        for bookID in draft.resourceIDs { chapterDrafts.removeValue(forKey: bookID) }
+        selectedCourseID = workspace.id
+        selectedBookID = draft.resourceIDs.first
+        rebuildCloudCourses()
+        selectCourse(workspace.id)
+      } else {
+        try await saveCloudCourse(name: draft.name, resourceIDs: draft.resourceIDs, diagnosis: draft.diagnosis)
       }
-      try await reloadCloud()
       finishCourseImportSetup()
-      draft = CourseDraft()
       cloudState.creationWorkspaceID = nil
+      if let durable = persistCloud() { try await durable.value.get() }
+      draft = CourseDraft()
       persistCloud()
     } catch {
       handleCloudError(error)
@@ -1223,11 +1227,17 @@ extension AppStore {
       dailyPlans: dailyPlanState.plans, pendingPlanCompletions: dailyPlanState.pending)
     let previous = persistTask
     let epoch = cloudState.epoch
+    let localVersions = Dictionary((local.snapshot.courseImports ?? []).map {
+      ($0.id, stageSaveFingerprint($0))
+    }, uniquingKeysWith: { _, last in last })
     let saved = Task<Result<Void, Error>, Never> { [repository] in
       await previous?.value
       do {
         try await repository.saveCloudState(local, key: key)
-        if epoch == self.cloudState.epoch { self.cloudState.cacheWriteError = nil }
+        if epoch == self.cloudState.epoch {
+          self.cloudState.cacheWriteError = nil
+          for (id, fingerprint) in localVersions { self.cloudState.localStageFingerprints[key + "::" + id] = fingerprint }
+        }
         return .success(())
       } catch {
         if epoch == self.cloudState.epoch {
@@ -1239,6 +1249,7 @@ extension AppStore {
     }
     persistTask = Task { _ = await saved.value }
     startCloudSync()
+    scheduleCourseStageSaves()
     return saved
   }
 
@@ -1440,5 +1451,156 @@ extension AppStore {
         }
       }
     }
+  }
+}
+
+
+// Stage saves never select a course or replace the questionnaire currently on screen.
+@MainActor extension AppStore {
+  func stageSaveFingerprint(_ record: CourseImportRecord) -> String {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    struct Payload: Encodable { var draft: CourseDraft; var chapters: [String: [Chapter]] }
+    let data = (try? encoder.encode(Payload(draft: record.draft, chapters: record.stageSave?.chapters ?? [:]))) ?? Data()
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+
+  func scheduleCourseStageSaves(force: Bool = false) {
+    guard cloud != nil, cloudState.authenticated, !cloudState.isHydrating,
+      let scope = cloudState.cacheKey else { return }
+    for record in importState.courses where record.setupCompleted != true && !record.draft.resourceIDs.isEmpty
+      && !record.draft.resourceIDs.contains(where: { $0.hasPrefix("book_local_") }) {
+      let fingerprint = stageSaveFingerprint(record)
+      if record.stageSave?.fingerprint == fingerprint { continue }
+      if !force, record.stageSave?.error != nil, record.stageSave?.attemptedFingerprint == fingerprint { continue }
+      let key = scope + "::" + record.id
+      guard cloudState.stageSaveTasks[key] == nil else { continue }
+      let epoch = cloudState.epoch
+      cloudState.stageSaveTasks[key] = Task { @MainActor in
+        defer {
+          self.cloudState.stageSaveTasks[key] = nil
+          if epoch == self.cloudState.epoch, scope == self.cloudState.cacheKey,
+            let latest = self.courseImport(for: record.id), latest.setupCompleted != true,
+            latest.stageSave?.attemptedFingerprint != self.stageSaveFingerprint(latest) {
+            self.scheduleCourseStageSaves()
+          }
+        }
+        do {
+          try await Task.sleep(for: .milliseconds(350))
+          while !Task.isCancelled && epoch == self.cloudState.epoch && scope == self.cloudState.cacheKey {
+            guard let cloud = self.cloud,
+              let index = self.importState.courses.firstIndex(where: { $0.id == record.id }),
+              self.importState.courses[index].setupCompleted != true else { return }
+            let snapshot = self.importState.courses[index]
+            let fingerprint = self.stageSaveFingerprint(snapshot)
+            if snapshot.stageSave?.fingerprint == fingerprint { return }
+            if self.importState.courses[index].stageSave == nil { self.importState.courses[index].stageSave = CourseStageSave() }
+            self.importState.courses[index].stageSave?.attemptedFingerprint = fingerprint
+            self.importState.courses[index].stageSave?.error = nil
+            guard let durable = self.persistCloud(), case .success = await durable.value else {
+              throw CloudError(status: 0, message: "课程草稿尚未保存到手机，请检查存储空间后重试。")
+            }
+            try Task.checkCancellation()
+            guard epoch == self.cloudState.epoch, scope == self.cloudState.cacheKey else { return }
+            let wid = self.workspaceID(for: snapshot)
+            let edits = snapshot.stageSave?.chapters ?? [:]
+            let chapters = edits.mapValues { values in JSONValue.array(values.map { chapter in
+              .object(["chapter_id": .string(chapter.id), "title": .string(chapter.title),
+                "start_page": .number(Double(chapter.page_start)), "end_page": .number(Double(chapter.page_end))])
+            }) }
+            let response: CourseStageSaveResponse = try await cloud.request(
+              "/api/workspaces/\(wid)/creation-draft", method: "PUT", body: [
+                "id": .string(wid), "request_id": .string(fingerprint),
+                "name": .string(snapshot.draft.name.isEmpty ? "我的课程" : snapshot.draft.name),
+                "preferences": .object(snapshot.draft.diagnosis.mapValues { .array($0.map(JSONValue.string)) }),
+                "step": .number(Double(snapshot.draft.step)),
+                "book_ids": .array(snapshot.draft.resourceIDs.map(JSONValue.string)),
+                "chapters": .object(chapters),
+              ])
+            guard response.request_id == fingerprint, response.workspace.id == wid else {
+              throw CloudError(status: 409, message: "课程草稿回执不匹配，请重新同步。")
+            }
+            guard epoch == self.cloudState.epoch, scope == self.cloudState.cacheKey,
+              let savedIndex = self.importState.courses.firstIndex(where: { $0.id == snapshot.id }) else { return }
+            self.importState.courses[savedIndex].stageSave?.serverDraftFingerprint = fingerprint
+            self.persistCloud()
+            var workspace = response.workspace
+            // Directory draft storage above is fast. Range-dependent analysis runs
+            // separately, in this background task, only for genuinely changed outlines.
+            for ri in workspace.resources.indices {
+              let resource = workspace.resources[ri]
+              guard let values = edits[resource.book_id] else { continue }
+              let existing = CloudMapping.source(resource).chapters
+              let same = values.count == existing.count && zip(values, existing).allSatisfy {
+                $0.id == $1.id && $0.title == $1.title && $0.page_start == $1.page_start && $0.page_end == $1.page_end
+              }
+              if same { continue }
+              guard epoch == self.cloudState.epoch, scope == self.cloudState.cacheKey else { return }
+              let updated: CloudResource = try await cloud.request(resource.path + "/chapters", method: "PUT",
+                body: ["revision": .number(Double(resource.revision)), "chapters": chapters[resource.book_id] ?? .array([])])
+              workspace.resources[ri] = updated
+            }
+            guard epoch == self.cloudState.epoch, scope == self.cloudState.cacheKey,
+              let current = self.importState.courses.firstIndex(where: { $0.id == snapshot.id }) else { return }
+            self.importState.courses[current].stageSave?.workspace = workspace
+            self.importState.courses[current].stageSave?.fingerprint = fingerprint
+            self.importState.courses[current].stageSave?.error = nil
+            guard let durable = self.persistCloud(), case .success = await durable.value else {
+              throw CloudError(status: 0, message: "同步回执尚未保存在手机，请重试。")
+            }
+            if self.stageSaveFingerprint(self.importState.courses[current]) == fingerprint { return }
+            try await Task.sleep(for: .milliseconds(350))
+          }
+        } catch {
+          guard epoch == self.cloudState.epoch, scope == self.cloudState.cacheKey,
+            let current = self.importState.courses.firstIndex(where: { $0.id == record.id }) else { return }
+          if self.importState.courses[current].stageSave == nil { self.importState.courses[current].stageSave = CourseStageSave() }
+          self.importState.courses[current].stageSave?.error = error.localizedDescription
+          self.persistCloud()
+          if let failure = error as? CloudError, failure.transportFailure { self.scheduleCloudRetry() }
+        }
+      }
+    }
+  }
+
+  func flushCourseStageSave(_ id: String) async throws -> CloudWorkspace {
+    guard let scope = cloudState.cacheKey else { throw CloudError(status: 401, message: "请先登录。") }
+    let epoch = cloudState.epoch
+    captureCourseImportDraft()
+    guard let durable = persistCloud(), case .success = await durable.value else {
+      throw CloudError(status: 0, message: "课程草稿尚未保存在手机。")
+    }
+    let key = scope + "::" + id
+    if let active = cloudState.stageSaveTasks[key] { await active.value }
+    guard epoch == cloudState.epoch, scope == cloudState.cacheKey else { throw CancellationError() }
+    // One explicit retry is allowed here; writes use the same workspace and payload key.
+    if let record = courseImport(for: id), record.stageSave?.fingerprint != stageSaveFingerprint(record) {
+      scheduleCourseStageSaves(force: true)
+      await cloudState.stageSaveTasks[key]?.value
+    }
+    guard epoch == cloudState.epoch, scope == cloudState.cacheKey else { throw CancellationError() }
+    guard let record = courseImport(for: id), let receipt = record.stageSave,
+      receipt.error == nil, receipt.fingerprint == stageSaveFingerprint(record), let workspace = receipt.workspace else {
+      throw CloudError(status: 503, message: courseImport(for: id)?.stageSave?.error ?? "课程修改尚未同步，请联网后重试。")
+    }
+    return workspace
+  }
+
+  var courseDraftSyncMessage: String? {
+    guard cloud != nil, let id = draft.importCourseID, let record = courseImport(for: id) else { return nil }
+    if cloudState.cacheWriteError != nil { return "保存到手机失败，请检查存储空间。" }
+    let fingerprint = stageSaveFingerprint(record)
+    let key = (cloudState.cacheKey ?? "") + "::" + id
+    if cloudState.localStageFingerprints[key] != fingerprint { return "正在保存到手机…" }
+    if record.draft.resourceIDs.contains(where: { $0.hasPrefix("book_local_") }) {
+      return "已保存到手机，资料上传后同步。"
+    }
+    if record.stageSave?.error != nil {
+      return record.stageSave?.serverDraftFingerprint == fingerprint
+        ? "草稿已同步，目录核验未完成，可重试。" : "已保存到手机，云端尚未同步；联网后可重试。"
+    }
+    if record.stageSave?.fingerprint == fingerprint { return "已同步" }
+    if record.stageSave?.serverDraftFingerprint == fingerprint { return "草稿已同步，正在核验目录…" }
+    return "已保存到手机，正在同步…"
   }
 }

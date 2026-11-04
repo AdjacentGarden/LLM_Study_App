@@ -36,6 +36,9 @@ class NativeRepository:
                     book_id TEXT NOT NULL, structure_json TEXT, session_id TEXT,
                     revision INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL,
                     UNIQUE(workspace_id,book_id));
+                CREATE TABLE IF NOT EXISTS native_creation_drafts (
+                    workspace_id TEXT PRIMARY KEY REFERENCES native_workspaces(id) ON DELETE CASCADE,
+                    payload TEXT NOT NULL, updated REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS native_session_context (
                     session_id TEXT PRIMARY KEY, resource_id TEXT NOT NULL,
                     structure_json TEXT NOT NULL, items_json TEXT NOT NULL);
@@ -918,6 +921,33 @@ class NativeRepository:
                 (key, owner, name, json.dumps(preferences, ensure_ascii=False), now, now),
             )
         return self.workspace(owner, key)
+
+    def save_creation_draft(self, owner: str, key: str, payload: dict[str, Any]) -> None:
+        self.workspace(owner, key)
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO native_creation_drafts VALUES(?,?,?) ON CONFLICT(workspace_id) "
+                "DO UPDATE SET payload=excluded.payload,updated=excluded.updated",
+                (key, json.dumps(payload, ensure_ascii=False), time.time()),
+            )
+
+    def confirm_creation_draft(self, owner: str, key: str, request_id: str) -> None:
+        self.workspace(owner, key)
+        with self.connect() as db:
+            db.begin_write()
+            row = db.execute("SELECT payload FROM native_creation_drafts WHERE workspace_id=?", (key,)).fetchone()
+            saved = json.loads(row[0]) if row else None
+            if saved is None or saved["request_id"] != request_id:
+                raise NativeConflict("课程草稿已更新，请先同步最新修改")
+            saved["confirmed"] = True
+            db.execute("UPDATE native_creation_drafts SET payload=?,updated=? WHERE workspace_id=?",
+                       (json.dumps(saved, ensure_ascii=False), time.time(), key))
+
+    def creation_draft(self, owner: str, key: str) -> dict[str, Any] | None:
+        self.workspace(owner, key)
+        with self.connect() as db:
+            row = db.execute("SELECT payload FROM native_creation_drafts WHERE workspace_id=?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
 
     def delete_workspace(self, owner: str, key: str) -> dict[str, Any]:
         # Manual removal and assistant confirmation use the same transactional

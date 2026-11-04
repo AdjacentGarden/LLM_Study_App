@@ -1187,6 +1187,10 @@ extension CloudTests {
     store.draft.name = "Another draft"
     let nextDraft = store.draft
     OfflineCloudProtocol.respond { request in
+      if request.url?.path.hasSuffix("/creation-draft") == true {
+        // Persisting a stage snapshot is independent of observing/model execution.
+        return (503, Data("{\"detail\":\"Draft sync unavailable\"}".utf8))
+      }
       XCTAssertEqual(request.httpMethod, "GET", "Viewing progress must never create, restart or retry a model job")
       XCTAssertEqual(request.url?.path, "/api/books/progress-book/status")
       return (200, Data(#"{"book_id":"progress-book","status":"processing","progress":0.42,"current_step":"正在识别原文","retryable":false,"needs_human_review":false}"#.utf8))
@@ -1196,5 +1200,251 @@ extension CloudTests {
     XCTAssertEqual(store.courseImport(for: id)?.ringProgress, 0.42)
     XCTAssertEqual(store.draft, nextDraft)
     await store.flush()
+  }
+}
+
+extension CloudTests {
+  @MainActor func testStageSaveCoalescesAnswersAndFinalFlushDoesNotResubmitAcknowledgedData() async throws {
+    let api = CloudAPI(baseURL: URL(string: "https://stage-save.example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo, cloud: api)
+    store.draft = CourseDraft(name: "分阶段课程", resourceIDs: ["book"], parseCompleted: true)
+    let id = try XCTUnwrap(store.registerCourseImport())
+    let wid = store.workspaceID(for: try XCTUnwrap(store.courseImport(for: id)))
+    let writes = NSMutableArray()
+    OfflineCloudProtocol.respond { request in
+      guard request.url?.path.hasSuffix("/creation-draft") == true else {
+        XCTFail("Unexpected full refresh or write: \(request.url?.path ?? "")")
+        return (500, Data())
+      }
+      let data: Any
+      if let body = request.httpBody { data = try JSONSerialization.jsonObject(with: body) }
+      else {
+        let stream = try XCTUnwrap(request.httpBodyStream); stream.open(); defer { stream.close() }
+        data = try JSONSerialization.jsonObject(with: stream)
+      }
+      let body = try XCTUnwrap(data as? [String: Any])
+      writes.add(body)
+      let workspace = CloudWorkspace(id: wid, name: body["name"] as? String ?? "",
+        preferences: body["preferences"] as? [String: [String]] ?? [:], created: 0, updated: 0, resources: [])
+      return (200, try JSONEncoder().encode(CourseStageSaveResponse(request_id: body["request_id"] as! String, workspace: workspace)))
+    }
+    store.cloudState.authenticated = true
+    store.cloudState.account = cachedAccount()
+    store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount())
+    store.draft.diagnosis["urgency"] = ["steady"]
+    store.persist()
+    store.draft.diagnosis["urgency"] = ["urgent"]
+    store.draft.step = 1
+    store.persist()
+    XCTAssertEqual(store.courseDraftSyncMessage, "正在保存到手机…")
+    let workspace = try await store.flushCourseStageSave(id)
+    XCTAssertEqual(store.courseDraftSyncMessage, "已同步")
+    XCTAssertEqual(workspace.preferences["urgency"], ["urgent"])
+    XCTAssertEqual(writes.count, 1, "Rapid answer changes must be coalesced before sending")
+    XCTAssertEqual(store.selectedCourseID, id, "Autosave cannot navigate or select a remote course")
+    _ = try await store.flushCourseStageSave(id)
+    XCTAssertEqual(writes.count, 1, "Final flush reuses the durable server acknowledgement")
+    await store.flush()
+    let stored = try await repo.loadCloudState(store.cloudCacheKey(cachedAccount()))
+    let cached = try XCTUnwrap(stored)
+    let restored = AppStore(repository: repo, cloud: api)
+    restored.restoreCloudCache(cached)
+    XCTAssertEqual(restored.courseImport(for: id)?.stageSave?.workspace?.id, wid)
+    XCTAssertEqual(restored.courseImport(for: id)?.draft.step, 1)
+  }
+
+  @MainActor func testFailedStageSaveRetainsLocalAnswersAndCannotPassFinalFlush() async throws {
+    OfflineCloudProtocol.respond { _ in throw URLError(.notConnectedToInternet) }
+    let api = CloudAPI(baseURL: URL(string: "https://stage-offline.example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo, cloud: api)
+    store.draft = CourseDraft(name: "断网草稿", resourceIDs: ["book"], diagnosis: ["urgency": ["urgent"]], step: 1)
+    let id = try XCTUnwrap(store.registerCourseImport())
+    store.cloudState.authenticated = true
+    store.cloudState.account = cachedAccount()
+    store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount())
+    do { _ = try await store.flushCourseStageSave(id); XCTFail("An unacknowledged draft cannot be confirmed") }
+    catch { }
+    XCTAssertNotNil(store.courseImport(for: id)?.stageSave?.error)
+    XCTAssertNil(store.courseImport(for: id)?.stageSave?.fingerprint)
+    XCTAssertEqual(store.courseImport(for: id)?.draft.diagnosis["urgency"], ["urgent"])
+    await store.flush()
+    let stored = try await repo.loadCloudState(store.cloudCacheKey(cachedAccount()))
+    let cached = try XCTUnwrap(stored)
+    XCTAssertEqual(cached.snapshot.courseImports?.first?.draft.step, 1)
+    XCTAssertNotNil(cached.snapshot.courseImports?.first?.stageSave?.error)
+  }
+}
+
+extension CloudTests {
+  @MainActor func testAcknowledgedStageConfirmationOnlySendsFinalReceipt() async throws {
+    let api = CloudAPI(baseURL: URL(string: "https://stage-confirm.example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo, cloud: api)
+    store.draft = CourseDraft(name: "已同步课程", resourceIDs: ["book"], parseCompleted: true)
+    let id = try XCTUnwrap(store.registerCourseImport())
+    let wid = store.workspaceID(for: try XCTUnwrap(store.courseImport(for: id)))
+    let workspace = CloudWorkspace(id: wid, name: "已同步课程", preferences: [:], created: 0, updated: 0, resources: [])
+    let paths = NSMutableArray()
+    var accepted = ""
+    OfflineCloudProtocol.respond { request in
+      let path = request.url!.path
+      paths.add(path)
+      let value: Any
+      if let input = request.httpBody { value = try JSONSerialization.jsonObject(with: input) }
+      else { let stream = try XCTUnwrap(request.httpBodyStream); stream.open(); defer { stream.close() }
+        value = try JSONSerialization.jsonObject(with: stream) }
+      let body = try XCTUnwrap(value as? [String: Any])
+      if path.hasSuffix("/creation-draft") { accepted = try XCTUnwrap(body["request_id"] as? String) }
+      else { XCTAssertTrue(path.hasSuffix("/creation-draft/confirm")); XCTAssertEqual(body["request_id"] as? String, accepted) }
+      return (200, try JSONEncoder().encode(CourseStageSaveResponse(request_id: accepted, workspace: workspace)))
+    }
+    store.cloudState.authenticated = true
+    store.cloudState.account = cachedAccount()
+    store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount())
+    _ = try await store.flushCourseStageSave(id)
+    await store.confirmCloudChapters()
+    XCTAssertEqual(paths.count, 2)
+    XCTAssertEqual(paths.lastObject as? String, "/api/workspaces/\(wid)/creation-draft/confirm")
+    XCTAssertEqual(store.route, .study)
+    XCTAssertEqual(store.selectedCourseID, wid)
+    XCTAssertEqual(store.courseImport(for: id)?.setupCompleted, true)
+    XCTAssertTrue(store.draft.resourceIDs.isEmpty)
+    await store.flush()
+  }
+}
+
+extension CloudTests {
+  @MainActor func testNativeStageSaveRoundTripPersistsQuestionnaireBeforeConfirmation() async throws {
+    let base = URL(string: ProcessInfo.processInfo.environment["BOOKCOURSE_NATIVE_TEST_BASE_URL"] ?? "http://127.0.0.1:18101")!
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = 10
+    config.connectionProxyDictionary = [:]
+    let probe = URLSession(configuration: config)
+    guard let (bytes, _) = try? await probe.data(from: base.appendingPathComponent("api/native-test/health")),
+      (try? JSONDecoder().decode([String: Bool].self, from: bytes))?["fixture_adapters"] == true else {
+      throw XCTSkip("Start the isolated native API fixture server")
+    }
+    let api = CloudAPI(baseURL: base)
+    await api.clearCredentials()
+    let email = "achen@zhiwo.test"
+    let challenge: CloudChallenge = try await api.request("/api/auth/code", method: "POST",
+      body: ["email": .string(email), "purpose": .string("register")])
+    let _: CloudAccountState = try await api.request("/api/auth/verify", method: "POST", body: [
+      "challenge_id": .string(challenge.challenge_id), "code": .string(try XCTUnwrap(challenge.demo_code)),
+      "registration": .object(["nickname": .string("分阶段保存验证"), "stage": .string("university"),
+        "interests": .array([]), "goal": .string("exam")])])
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let repo = try LocalBookCourseRepository(directory: root.appendingPathComponent("state"))
+    let store = AppStore(repository: repo, cloud: api, processingPolicy: stableWiFiProcessingPolicyForTesting())
+    await store.boot()
+    let (pdf, _) = try await probe.data(from: base.appendingPathComponent("api/native-test/pdf"))
+    let file = root.appendingPathComponent("阶段教材.pdf")
+    try pdf.write(to: file)
+    await store.importFile(file)
+    XCTAssertNil(store.importError, store.importError ?? "")
+    await store.processImport()
+    XCTAssertNil(store.importError, store.importError ?? "")
+    let id = try XCTUnwrap(store.draft.importCourseID)
+    store.draft.diagnosis["urgency"] = ["steady"]
+    store.draft.step = 1
+    store.persist()
+    let saved = try await store.flushCourseStageSave(id)
+    struct RemoteDraft: Decodable { var step: Int; var preferences: [String: [String]]; var confirmed: Bool? }
+    let before: RemoteDraft = try await api.request("/api/workspaces/\(saved.id)/creation-draft")
+    XCTAssertEqual(before.step, 1)
+    XCTAssertEqual(before.preferences["urgency"], ["steady"])
+    XCTAssertNotEqual(before.confirmed, true)
+    XCTAssertEqual(saved.resources.count, 1)
+    XCTAssertNil(saved.resources.first?.session_id, "Autosave must not start diagnosis or generation")
+    XCTAssertEqual(store.selectedCourseID, id, "Background saving must preserve the current local flow")
+    for question in CourseDiagnosisQuestion.all { store.draft.diagnosis[question.id] = [question.options[0].0] }
+    store.draft.step = 5
+    store.persist()
+    await store.confirmCloudChapters()
+    XCTAssertNil(store.cloudState.error, store.cloudState.error ?? "")
+    XCTAssertEqual(store.route, .study)
+    let after: RemoteDraft = try await api.request("/api/workspaces/\(saved.id)/creation-draft")
+    XCTAssertEqual(after.confirmed, true)
+    XCTAssertEqual(store.courseImport(for: id)?.setupCompleted, true)
+    XCTAssertEqual(store.selectedCourseID, saved.id)
+    await store.flush()
+    let stored = try await repo.loadCloudState(try XCTUnwrap(store.cloudState.cacheKey))
+    XCTAssertEqual(stored?.snapshot.selectedCourseID, saved.id)
+  }
+}
+
+extension CloudTests {
+  @MainActor func testStageSaveKeepsEditsMadeWhileAnOlderRequestIsInFlight() async throws {
+    let api = CloudAPI(baseURL: URL(string: "https://stage-inflight.example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo, cloud: api)
+    store.draft = CourseDraft(name: "继续编辑", resourceIDs: ["book"], diagnosis: ["urgency": ["steady"]])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    let wid = store.workspaceID(for: try XCTUnwrap(store.courseImport(for: id)))
+    let firstRequest = expectation(description: "First draft request is in flight")
+    let writes = NSMutableArray()
+    OfflineCloudProtocol.respond { request in
+      let value: Any
+      if let input = request.httpBody { value = try JSONSerialization.jsonObject(with: input) }
+      else { let stream = try XCTUnwrap(request.httpBodyStream); stream.open(); defer { stream.close() }
+        value = try JSONSerialization.jsonObject(with: stream) }
+      let body = try XCTUnwrap(value as? [String: Any])
+      writes.add(body)
+      if writes.count == 1 { firstRequest.fulfill(); Thread.sleep(forTimeInterval: 0.2) }
+      let workspace = CloudWorkspace(id: wid, name: "继续编辑",
+        preferences: body["preferences"] as? [String: [String]] ?? [:], created: 0, updated: 0, resources: [])
+      return (200, try JSONEncoder().encode(CourseStageSaveResponse(request_id: body["request_id"] as! String, workspace: workspace)))
+    }
+    store.cloudState.authenticated = true
+    store.cloudState.account = cachedAccount()
+    store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount())
+    store.persist()
+    await fulfillment(of: [firstRequest], timeout: 5)
+    store.draft.diagnosis["urgency"] = ["urgent"]
+    store.draft.step = 1
+    store.persist()
+    let saved = try await store.flushCourseStageSave(id)
+    XCTAssertEqual(writes.count, 2)
+    XCTAssertEqual(saved.preferences["urgency"], ["urgent"])
+    XCTAssertEqual(store.courseImport(for: id)?.draft.step, 1)
+    XCTAssertEqual(store.courseDraftSyncMessage, "已同步")
+  }
+
+  @MainActor func testStageSaveLateReceiptCannotRepopulateAnotherAccount() async throws {
+    let api = CloudAPI(baseURL: URL(string: "https://stage-account.example")!, session: isolatedCloudSession())
+    let repo = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repo, cloud: api)
+    store.draft = CourseDraft(name: "旧账号草稿", resourceIDs: ["book"])
+    let id = try XCTUnwrap(store.registerCourseImport())
+    let wid = store.workspaceID(for: try XCTUnwrap(store.courseImport(for: id)))
+    let firstRequest = expectation(description: "Old account request started")
+    OfflineCloudProtocol.respond { request in
+      let value: Any
+      if let input = request.httpBody { value = try JSONSerialization.jsonObject(with: input) }
+      else { let stream = try XCTUnwrap(request.httpBodyStream); stream.open(); defer { stream.close() }
+        value = try JSONSerialization.jsonObject(with: stream) }
+      let body = try XCTUnwrap(value as? [String: Any])
+      firstRequest.fulfill(); Thread.sleep(forTimeInterval: 0.2)
+      return (200, try JSONEncoder().encode(CourseStageSaveResponse(request_id: body["request_id"] as! String,
+        workspace: CloudWorkspace(id: wid, name: "旧账号草稿", preferences: [:], created: 0, updated: 0, resources: []))))
+    }
+    store.cloudState.authenticated = true
+    store.cloudState.account = cachedAccount("old")
+    let oldKey = store.cloudCacheKey(cachedAccount("old"))
+    store.cloudState.cacheKey = oldKey
+    store.persist()
+    await fulfillment(of: [firstRequest], timeout: 5)
+    let pending = store.cloudState.stageSaveTasks[oldKey + "::" + id]
+    store.cloudState.epoch = UUID()
+    store.cloudState.account = cachedAccount("new")
+    store.cloudState.cacheKey = store.cloudCacheKey(cachedAccount("new"))
+    store.importState.courses = []
+    store.draft = CourseDraft()
+    await pending?.value
+    XCTAssertTrue(store.importState.courses.isEmpty)
+    XCTAssertTrue(store.cloudState.workspaces.isEmpty)
+    XCTAssertTrue(store.draft.resourceIDs.isEmpty)
   }
 }

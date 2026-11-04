@@ -484,7 +484,7 @@ extension CoreTests {
     XCTAssertEqual(store.courseImport(for: id)?.job.status, .completed)
     XCTAssertNil(store.courseImport(for: id)?.ringProgress)
     store.openCourse(try XCTUnwrap(store.courses.first))
-    XCTAssertEqual(store.route, .study, "The existing setup remains available after parsing")
+    XCTAssertEqual(store.route, .courseSetup, "Selecting the parsed course resumes its questionnaire directly")
     store.continueCourseImport(id)
     XCTAssertEqual(store.route, .courseSetup)
     XCTAssertNil(store.draft.editingCourseID, "A new import must retain the new-course questionnaire flow")

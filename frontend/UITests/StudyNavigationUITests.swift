@@ -329,7 +329,7 @@ final class StudyNavigationUITests: XCTestCase {
     // The containing preparation card can supply the accessibility identifier
     // on this runtime; the visible action label remains stable.
     let resume = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@",
-      "study.preparation.resume", "继续整理")).firstMatch
+      "study.preparation.resume", "继续")).firstMatch
     XCTAssertTrue(resume.waitForExistence(timeout: 15))
     XCTAssertFalse(app.descendants(matching: .any)["study.plan.progress"].exists)
     XCTAssertFalse(app.buttons["study.chapter.c1"].exists)
