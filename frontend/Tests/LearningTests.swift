@@ -373,3 +373,237 @@ final class LearningTests: XCTestCase {
       image_url: "/assets/\(id).webp", thumbnail_url: "", source_chunk_ids: [], concepts: [])
   }
 }
+
+
+@MainActor final class ChapterLearningEntryTests: XCTestCase {
+  private func makeStore() throws -> AppStore {
+    let repository = try LocalBookCourseRepository(
+      directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+    let store = AppStore(repository: repository)
+    var source = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+    source.summary.book_id = "chapter-entry-book"
+    source.summary.content_mode = "local_material"
+    source.summary.page_count = 2
+    source.chapters = ["first", "second"].enumerated().map { index, id in
+      Chapter(chapter_id: id, level: 1, source_title: id, ai_title: id,
+        page_start: index + 1, page_end: index + 1, confidence: 1,
+        status: "source_available", source: "test")
+    }
+    source.lessons = []
+    source.chunks = [SourceChunk(chunk_id: "original-first", book_id: source.id,
+      chapter_id: "first", page_start: 1, page_end: 1, content_type: "text",
+      text: "原子由原子核和核外电子构成。", asset_ids: [], key_concepts: [])]
+    store.cloudState.privateLocalMode = true
+    store.courses = [Course(id: "chapter-course", name: "课程", resourceIDs: [source.id])]
+    store.sources = [source]
+    store.selectedCourseID = "chapter-course"
+    store.selectedBookID = source.id
+    // Match a hydrated account; production keeps deletion checks fail-closed before this.
+    store.courseDeletionState.scope = store.noteScope
+    return store
+  }
+
+  func testDownloadedChapterWithoutLessonOpensRealPreparationChoice() throws {
+    let store = try makeStore()
+    store.openChapterLearning(chapterID: "second")
+    XCTAssertTrue(store.lessons.isEmpty, "Opening a chapter must not synthesize teaching content")
+    XCTAssertEqual(store.selectedChapterID, "second")
+    XCTAssertNil(store.selectedLessonID)
+    XCTAssertTrue(store.cloudState.showDiagnosis)
+    XCTAssertTrue(store.cloudState.choosingLearningMode)
+    XCTAssertEqual(store.cloudState.requestedChapterID, "second")
+    XCTAssertNotEqual(store.route, .lesson, "A missing lesson must not open an empty reader")
+  }
+
+  func testBusyGenerationKeepsItsIdentityAndExplainsAnotherPendingChapter() throws {
+    let store = try makeStore()
+    let session = LocalDiagnosticSession(id: "existing", courseID: "chapter-course",
+      bookID: "chapter-entry-book", chapterID: "first", items: [], grades: [], position: 0, results: [:])
+    store.cloudState.interview = store.localInterview(session)
+    store.cloudState.diagnosisWorkspaceID = "chapter-course"
+    store.cloudState.requestedChapterID = "first"
+    store.cloudState.isWorking = true
+    store.openChapterLearning(chapterID: "second")
+    XCTAssertEqual(store.cloudState.requestedChapterID, "first")
+    XCTAssertEqual(store.cloudState.interview?.session_id, "existing")
+    XCTAssertTrue(store.cloudState.showDiagnosis)
+    XCTAssertNotNil(store.cloudState.error)
+    XCTAssertFalse(store.cloudState.choosingLearningMode)
+    XCTAssertTrue(store.lessons.isEmpty)
+  }
+
+  func testReadyChapterRemainsReadableWhileAnotherChapterIsGenerating() throws {
+    let store = try makeStore()
+    var lesson = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first?.lessons.first)
+    lesson.book_id = "chapter-entry-book"
+    lesson.chapter_id = "first"
+    lesson.lesson_id = "ready-first"
+    lesson.status = "ready"
+    store.sources[0].lessons = [lesson]
+    store.cloudState.isWorking = true
+    store.cloudState.requestedChapterID = "second"
+    store.openChapterLearning(chapterID: "first")
+    XCTAssertEqual(store.route, .lesson)
+    XCTAssertEqual(store.selectedLessonID, "ready-first")
+    XCTAssertEqual(store.cloudState.requestedChapterID, "second")
+    XCTAssertTrue(store.cloudState.isWorking)
+  }
+
+  func testMissingDiagnosticBankRetainsAnExplicitDirectLearningPath() async throws {
+    let store = try makeStore()
+    do {
+      try await store.beginLocalDiagnosis(chapterID: "first")
+      XCTFail("A missing question bank should explain the direct-learning alternative")
+    } catch {
+      XCTAssertTrue(error.localizedDescription.contains("直接预览课程"))
+    }
+    XCTAssertTrue(store.cloudState.choosingLearningMode)
+    XCTAssertFalse(store.cloudState.isWorking)
+    XCTAssertTrue(store.cloudState.localDiagnostics.isEmpty)
+    do {
+      try await store.beginLocalDiagnosis(chapterID: "first", preview: true)
+      XCTFail("This isolated store has no model service")
+    } catch {
+      XCTAssertTrue(error.localizedDescription.contains("请连接支持本机个人数据的学习服务"))
+    }
+    XCTAssertEqual(store.cloudState.localDiagnostics.count, 1)
+    XCTAssertTrue(store.cloudState.localDiagnostics.values.first?.items.isEmpty == true)
+    XCTAssertFalse(store.cloudState.isWorking)
+  }
+
+  func testFailedChapterCanReopenPreparationWithoutFakeReadyContent() throws {
+    let store = try makeStore()
+    store.cloudState.requestedChapterID = "second"
+    store.cloudState.error = "上次生成未完成"
+    store.openChapterLearning(chapterID: "second")
+    XCTAssertTrue(store.cloudState.choosingLearningMode)
+    XCTAssertNil(store.cloudState.error)
+    XCTAssertTrue(store.lessons.isEmpty)
+    XCTAssertEqual(store.cloudState.requestedChapterID, "second")
+  }
+
+  func testLateGenerationStaysWithItsOwningCourseAndCannotRecreateRemovedCourse() throws {
+    let store = try makeStore()
+    var owned = try XCTUnwrap(store.currentSource)
+    owned.summary.title = "课程A内容"
+    var other = owned
+    other.summary.title = "课程B内容"
+    store.courses.append(Course(id: "other-course", name: "另一课程", resourceIDs: [other.id]))
+    store.cloudState.localCourseSources["chapter-course"] = [owned]
+    store.cloudState.localCourseSources["other-course"] = [other]
+    store.selectedCourseID = "other-course"
+    store.sources = [other]
+    owned.summary.title = "课程A生成结果"
+    store.installGeneratedLocalSource(owned, courseID: "chapter-course")
+    XCTAssertEqual(store.sources.first?.summary.title, "课程B内容")
+    XCTAssertEqual(store.cloudState.localCourseSources["chapter-course"]?.first?.summary.title, "课程A生成结果")
+    store.courses.removeAll { $0.id == "chapter-course" }
+    store.cloudState.localCourseSources["chapter-course"] = nil
+    store.installGeneratedLocalSource(owned, courseID: "chapter-course")
+    XCTAssertNil(store.cloudState.localCourseSources["chapter-course"])
+    XCTAssertEqual(store.sources.first?.summary.title, "课程B内容")
+  }
+
+  func testUnknownGenerationOutcomeRestoresOriginalSessionInsteadOfStartingAnother() async throws {
+    let store = try makeStore()
+    let scope = try XCTUnwrap(store.noteScope)
+    let session = LocalDiagnosticSession(id: "uncertain-session", courseID: "chapter-course",
+      bookID: "chapter-entry-book", chapterID: "first", items: [], grades: [], position: 0, results: [:])
+    store.cloudState.localDiagnostics[session.id] = session
+    let id = "lecture_" + AgentDigest.sha256(session.id)
+    try await store.repository.saveLocalGeneration(LocalGenerationRecord(id: id, courseID: session.courseID,
+      bookID: session.bookID, chapterID: session.chapterID, operation: "lecture",
+      body: [:], state: "uncertain"), scope: scope)
+    do {
+      try await store.beginLocalDiagnosis(chapterID: "first", preview: true)
+      XCTFail("The isolated test store has no model service")
+    } catch {
+      XCTAssertTrue(error.localizedDescription.contains("请连接支持本机个人数据的学习服务"))
+    }
+    XCTAssertEqual(store.cloudState.interview?.session_id, session.id)
+    XCTAssertEqual(store.cloudState.localDiagnostics.count, 1)
+    let records = try await store.repository.localGenerations(scope: scope)
+    XCTAssertEqual(records.count, 1)
+    XCTAssertEqual(records.first?.id, id)
+    XCTAssertEqual(records.first?.state, "uncertain")
+  }
+
+  func testPersistedModelResultSurvivesAcknowledgementFailureWithoutAnotherModelPost() async throws {
+    let store = try makeStore()
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [ChapterGenerationAckLossProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    ChapterGenerationAckLossProtocol.reset()
+    store.cloud = CloudAPI(baseURL: URL(string: "https://chapter-generation.invalid")!, session: session)
+    store.cloudState.authenticated = true
+    store.cloudState.cacheKey = "chapter-ack-scope"
+    store.courseDeletionState.scope = store.noteScope
+    let first = try await store.performPrivateGeneration(id: "ack-loss-job", operation: "lecture",
+      courseID: "chapter-course", bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+    let replay = try await store.performPrivateGeneration(id: "ack-loss-job", operation: "lecture",
+      courseID: "chapter-course", bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+    XCTAssertEqual(first, "durable result")
+    XCTAssertEqual(replay, first)
+    let counts = ChapterGenerationAckLossProtocol.counts()
+    XCTAssertEqual(counts.modelPosts, 1)
+    XCTAssertGreaterThanOrEqual(counts.acknowledgements, 1)
+    let scope = try XCTUnwrap(store.noteScope)
+    let records = try await store.repository.localGenerations(scope: scope)
+    XCTAssertEqual(records.first?.state, "completed")
+    XCTAssertEqual(records.first?.content, "durable result")
+  }
+}
+
+
+private final class ChapterGenerationAckLossProtocol: URLProtocol, @unchecked Sendable {
+  private static let lock = NSLock()
+  nonisolated(unsafe) private static var modelPosts = 0
+  nonisolated(unsafe) private static var acknowledgements = 0
+
+  static func reset() {
+    lock.lock()
+    defer { lock.unlock() }
+    modelPosts = 0
+    acknowledgements = 0
+  }
+  static func counts() -> (modelPosts: Int, acknowledgements: Int) {
+    lock.lock()
+    defer { lock.unlock() }
+    return (modelPosts, acknowledgements)
+  }
+  override class func canInit(with request: URLRequest) -> Bool {
+    request.url?.host == "chapter-generation.invalid"
+  }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    guard let url = request.url else { return }
+    if url.path.hasSuffix("/ack") {
+      Self.lock.lock()
+      Self.acknowledgements += 1
+      Self.lock.unlock()
+      client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+      return
+    }
+    guard request.httpMethod == "POST", url.path == "/api/assistant/private-model" else {
+      client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+      return
+    }
+    Self.lock.lock()
+    Self.modelPosts += 1
+    Self.lock.unlock()
+    do {
+      let data = try JSONSerialization.data(withJSONObject: [
+        "request_id": "ack-loss-job", "state": "completed", "content": "durable result",
+      ])
+      let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+        headerFields: ["Content-Type": "application/json"])!
+      client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+      client?.urlProtocol(self, didLoad: data)
+      client?.urlProtocolDidFinishLoading(self)
+    } catch {
+      client?.urlProtocol(self, didFailWithError: error)
+    }
+  }
+  override func stopLoading() {}
+}

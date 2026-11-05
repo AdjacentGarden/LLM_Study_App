@@ -350,7 +350,10 @@ enum AssistantSessionTitle {
           applyCapacity(sessionID: id, tokens: tokens, runningTaskID: nil, estimated: false)
         }
       } catch {
-        guard token == generation,
+        // reset/delete/course removal already owns the visible cancellation
+        // state. A retired waiter must not overwrite a deletion receipt or a
+        // newer request in the same conversation.
+        guard !Task.isCancelled, token == generation,
           let position = archive.sessions.firstIndex(where: { $0.id == id }) else { return }
         if error.localizedDescription.contains("已达会话数上限"), archive.sessions[position].messages.count == 1 {
           archive.newDraft = archive.sessions[position].messages.first?.text ?? question
@@ -476,6 +479,46 @@ enum AssistantSessionTitle {
     }
     if archive.sessions[index].isReadOnly { capacityAlertSessionID = sessionID }
     persist()
+  }
+
+  /// Remove a deleted course's live references without deleting ordinary conversation text.
+  func removeCourseReferences(tombstones: [CourseDeletionTombstone]) {
+    guard ready, !tombstones.isEmpty else { return }
+    let removed = CourseDeletionPruning.ids(tombstones)
+    for index in archive.sessions.indices
+      where archive.sessions[index].context.courseID.map(removed.contains) == true {
+      let id = archive.sessions[index].id
+      requests[id]?.cancel()
+      requests[id] = nil
+      runningIDs.remove(id)
+      archive.sessions[index].pendingQuestion = nil
+      archive.sessions[index].error = nil
+    }
+    archive = CourseDeletionPruning.history(archive, tombstones: tombstones)
+    persist()
+  }
+
+  /// A course can delete the very run that confirmed its removal. Keep only a
+  /// local completion message; never put that run, its evidence or course links
+  /// back into the archive. Deleted conversations remain deleted.
+  @discardableResult func recordCourseRemovalCompletion(operationID: String, sessionID: String?,
+    messageID: String?, scope expectedScope: String) -> Bool {
+    guard ready, scope == expectedScope, !operationID.isEmpty, let sessionID,
+      !archive.removedIDs.contains(sessionID),
+      let index = archive.sessions.firstIndex(where: { $0.id == sessionID }) else { return false }
+    let receiptMessageID = "course-removal:" + operationID
+    if !archive.sessions[index].messages.contains(where: { $0.id == receiptMessageID }) {
+      archive.sessions[index].messages.append(ChatMessage(id: receiptMessageID, role: "assistant",
+        text: "课程已从本机删除。"))
+    }
+    // A later question in this retained conversation owns its own pending state.
+    if archive.sessions[index].context.messageID == messageID {
+      archive.sessions[index].pendingQuestion = nil
+      archive.sessions[index].error = nil
+    }
+    archive.sessions[index].updatedAt = .now
+    persist()
+    return true
   }
 
   private func persist() {

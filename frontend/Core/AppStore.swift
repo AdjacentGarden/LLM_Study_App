@@ -14,6 +14,7 @@ import UIKit
   var bootError: String?
   var isLoading = true
   let courseState = CourseState()
+  let courseDeletionState = CourseDeletionState()
   let uploadState = CourseUploadState()
   var chapterDrafts: [String: [Chapter]] {
     get { courseState.chapterDrafts }
@@ -283,6 +284,7 @@ import UIKit
         dismissedSourceIDs = snapshot.dismissedSourceIDs
         creditReservations = [:]
       }
+      try await restoreCourseDeletionState()
       for source in sources
       where !source.id.hasPrefix("book_local_") && !dismissedSourceIDs.contains(source.id)
         && !courses.contains(where: { $0.resourceIDs.contains(source.id) })
@@ -782,42 +784,7 @@ import UIKit
     persist()
   }
   func removeCourse(_ id: String) {
-    if cloud != nil && !cloudState.privateLocalMode && !id.hasPrefix("local-course:") {
-      Task { await removeCloudCourse(id) }
-      return
-    }
-    guard let removed = courses.first(where: { $0.id == id }) else { return }
-    if let record = courseImport(for: id), record.needsPreparation, record.job.status != .cancelled, cloud != nil {
-      let epoch = cloudState.epoch
-      Task {
-        await pauseCourseImport(record.id)
-        guard epoch == self.cloudState.epoch,
-          self.importState.courses.first(where: { $0.id == record.id })?.job.status == .cancelled else { return }
-        self.removeCourse(id)
-      }
-      return
-    }
-    if let record = courseImport(for: id) {
-      importState.tasks[record.id]?.cancel()
-      importState.tasks[record.id] = nil
-      importState.courses.removeAll { $0.id == record.id }
-    }
-    let resourceIDs = Set(removed.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) })
-    Task { @MainActor in
-      do {
-        try await clearLocalCourseData(id, resourceIDs: resourceIDs)
-        dismissedSourceIDs.formUnion(removed.resourceIDs.filter { bookID in
-          !courses.contains(where: { $0.id != id && $0.resourceIDs.contains(bookID) })
-        })
-        courses.removeAll { $0.id == id }
-        if selectedCourseID == id {
-          selectedCourseID = courses.first?.id
-          if let next = selectedCourseID { selectCourse(next) } else { selectedBookID = nil }
-        }
-        persist()
-        showToast("课程及关联学习数据已移除", kind: .success)
-      } catch { showToast(error.localizedDescription, kind: .error) }
-    }
+    Task { await deleteLocalCourse(id) }
   }
 
   func addSource(_ bookID: String, to courseID: String?) async throws {
@@ -919,10 +886,18 @@ import UIKit
       return
     }
     let requestGeneration = selectionGeneration
+    let capturedScope = noteScope
     importError = nil
     do {
-      let result = try await LocalFileImporter.stage(url: url, repository: repository)
-      guard requestGeneration == selectionGeneration, !Task.isCancelled else { return }
+      guard let capturedScope else { throw ContentError.invalid("本机课程存储尚未就绪") }
+      if courseDeletionState.scope != capturedScope { try await restoreCourseDeletionState() }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) {
+        throw CancellationError()
+      }
+      let owner = targetCourseID.map { CourseOriginalOwner(courseID: $0, scope: capturedScope, id: "legacy-import:" + UUID().uuidString) }
+      let result = try await LocalFileImporter.stage(url: url, repository: repository, owner: owner)
+      guard requestGeneration == selectionGeneration, !Task.isCancelled, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
       if !sources.contains(where: { $0.id == result.source.id }) { sources.append(result.source) }
       filePaths[result.source.id] = result.relativePath
       if !draft.resourceIDs.contains(result.source.id) {
@@ -939,8 +914,10 @@ import UIKit
       if let targetCourseID { draft.importCourseID = targetCourseID }
       _ = registerCourseImport()
       persist()
+    } catch is CancellationError {
+      return
     } catch {
-      guard !Task.isCancelled else { return }
+      guard !Task.isCancelled, capturedScope == noteScope else { return }
       importError = error.localizedDescription
       showToast(error.localizedDescription, kind: .error)
     }
@@ -1493,34 +1470,36 @@ struct CourseRemovalConfirmation: Sendable {
 
 extension AppStore {
   func prepareCourseRemoval(_ id: String) async throws -> CourseRemovalConfirmation {
-    guard let scope = noteScope, let course = courses.first(where: { $0.id == id }) else {
+    guard let scope = noteScope else { throw ContentError.invalid("请先选择当前账号的课程。") }
+    if courseDeletionState.scope != scope { try await restoreCourseDeletionState() }
+    try await repository.requireLiveCourse(courseID: id, scope: scope)
+    guard scope == noteScope, let course = courses.first(where: { $0.id == id }) else {
       throw ContentError.invalid("课程已不存在或不属于当前账号。")
     }
-    let operationID = "manual-course-removal-" + UUID().uuidString.lowercased()
-    var arguments: [String: JSONValue] = ["course_id": .string(id),
-      "local_version": .string(try UnifiedAgentTools.courseMutationVersion(id, store: self)),
-      "frozen_resource_ids": .array(course.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) }.map(JSONValue.string))]
-    var summary = "本机：" + courseRemovalSummary(id)
-    if let cloud, !cloudState.privateLocalMode, !id.hasPrefix("local-course:") {
-      let response: [String: JSONValue] = try await cloud.request("/api/assistant/tools/remove_course", method: "POST", body: [
-        "operation_id": .string(operationID), "arguments": .object(["course_id": .string(id), "confirmed": .bool(false)])])
-      guard noteScope == scope else { throw CancellationError() }
-      guard case .object(let impact)? = response["impact"], case .object(let counts)? = impact["counts"], let version = impact["version"] else {
-        throw ContentError.invalid("未能取得课程删除影响清单，请重试。")
-      }
-      arguments["impact_version"] = version
-      func count(_ key: String) -> Int { if case .number(let value)? = counts[key] { return Int(value) }; return 0 }
-      summary += "\n云端：笔记 \(count("notes")) 条 · 闪卡 \(count("flashcards")) 张 · 复习任务 \(count("review_tasks")) 项 · 学习记录 \(count("learning_records")) 条。"
-      if case .number(let legacy)? = impact["unassigned_legacy_notes_preserved"], legacy > 0 {
-        summary += "另有 \(Int(legacy)) 条未归属云端笔记，移除课程后仍会保留。"
-      }
+    guard !courseDeletionState.deleting.contains(id) else {
+      throw ContentError.invalid("这门课程正在删除，请稍候。")
     }
-    return CourseRemovalConfirmation(courseID: id, operationID: operationID, scope: scope, arguments: arguments, summary: summary)
+    let arguments: [String: JSONValue] = [
+      "course_id": .string(id),
+      "local_version": .string(try UnifiedAgentTools.courseMutationVersion(id, store: self)),
+      "frozen_book_ids": .array(course.resourceIDs.sorted().map(JSONValue.string)),
+      "frozen_resource_ids": .array(course.resourceIDs.compactMap {
+        courseResourceID(courseID: id, bookID: $0)
+      }.sorted().map(JSONValue.string)),
+    ]
+    let summary = "删除此设备中的课程、学习进度和明确归属的笔记等关联数据。其他课程共享的教材和无法确认归属的旧数据会保留。\n"
+      + courseRemovalSummary(id)
+    return CourseRemovalConfirmation(courseID: id, operationID: "local-course-removal-" + UUID().uuidString.lowercased(),
+      scope: scope, arguments: arguments, summary: summary)
   }
 
   func confirmCourseRemoval(_ confirmation: CourseRemovalConfirmation) async throws {
     guard confirmation.scope == noteScope else { throw CancellationError() }
-    _ = try await UnifiedAgentTools.performConfirmedMutation("remove_course", args: confirmation.arguments,
-      operationID: confirmation.operationID, scope: confirmation.scope, store: self)
+    if let course = courses.first(where: { $0.id == confirmation.courseID }),
+      case .array(let frozen)? = confirmation.arguments["frozen_book_ids"],
+      Set(frozen.compactMap(\.stringValue)) != Set(course.resourceIDs) {
+      throw ContentError.invalid("课程资料已变化，请重新确认删除。")
+    }
+    try await performLocalCourseDeletion(courseID: confirmation.courseID, scope: confirmation.scope)
   }
 }

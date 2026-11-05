@@ -497,16 +497,50 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         $0.toolCalls.contains { $0.id == toolCallID }
       }) else { return }
       let choiceResult: String
+      let operationID = run.id + "." + toolCallID
+      let confirmsCourseRemoval = pending.actionName == "remove_course" && option == pending.options.first
       if let action = pending.actionName, action != "repeated_failure", let json = pending.actionArgumentsJSON, option == pending.options.first {
         do {
           let arguments = try JSONDecoder().decode([String: JSONValue].self, from: Data(json.utf8))
           choiceResult = try await UnifiedAgentTools.performConfirmedMutation(action, args: arguments,
-            operationID: run.id + "." + toolCallID, scope: scope, store: store, localOnly: run.privateTransport == true)
+            operationID: operationID, scope: scope, store: store, localOnly: run.privateTransport == true)
         } catch {
-          self.notice = error.localizedDescription
-          return // Keep the original confirmation and operation ID available for reconciliation.
+          guard scope == store.noteScope else { return }
+          if confirmsCourseRemoval, self.courseAnchorWasRemoved(run, store: store) {
+            // The durable deletion barrier already closed this run. Cleanup may
+            // still need retrying, so neither resurrect the run nor claim success.
+            if self.active?.id == run.id, self.active?.scope == scope { self.active = nil }
+            self.notice = nil
+            store.showToast("课程已移除，课程清理尚未完成，请稍后重试清理。", kind: .warning)
+          } else {
+            self.notice = error.localizedDescription
+          }
+          return // Keep an undeleted run's original operation ID available for reconciliation.
         }
       } else { choiceResult = Self.answeredResult(option) }
+      guard scope == store.noteScope else { return }
+      if confirmsCourseRemoval, self.courseAnchorWasRemoved(run, store: store) {
+        // performConfirmedMutation has committed its independent minimal receipt.
+        // This course's run/receipts were intentionally retired: no checkpoint,
+        // tool transcript or additional model request may recreate them.
+        let receipt = try? JSONDecoder().decode([String: JSONValue].self, from: Data(choiceResult.utf8))
+        guard let receipt, receipt["status"]?.stringValue == "deleted",
+          receipt["operation_id"]?.stringValue == operationID,
+          let removedCourseID = receipt["course_id"]?.stringValue,
+          store.courseDeletionState.deletedIDs.contains(removedCourseID) else {
+          if self.active?.id == run.id, self.active?.scope == scope { self.active = nil }
+          store.showToast("课程已移除，删除完成回执暂不可用，请稍后检查清理状态。", kind: .warning)
+          return
+        }
+        if run.ephemeral != true {
+          store.assistantHistory.recordCourseRemovalCompletion(operationID: operationID,
+            sessionID: run.context.sessionID, messageID: run.context.messageID, scope: scope)
+        }
+        if self.active?.id == run.id, self.active?.scope == scope { self.active = nil }
+        self.notice = nil
+        store.showToast("课程已从本机删除", kind: .success)
+        return
+      }
       run.steps[index].outcomes.removeAll { $0.toolCallID == toolCallID }
       run.steps[index].outcomes.append(AgentToolOutcome(
         toolCallID: toolCallID, status: "ok", resultJSON: choiceResult,
@@ -521,6 +555,12 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         return
       }
     }
+  }
+
+  private func courseAnchorWasRemoved(_ run: AgentRunRecord, store: AppStore) -> Bool {
+    guard run.scope == store.noteScope, store.courseDeletionState.scope == run.scope,
+      let courseID = run.context.courseID else { return false }
+    return store.courseDeletionState.deletedIDs.contains(courseID)
   }
 
   /// Retire every durable turn owned by this conversation, including a turn

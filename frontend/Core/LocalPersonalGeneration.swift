@@ -11,7 +11,11 @@ private struct LocalLectureResult: Codable, Sendable {
     chapterID: String, messages: [JSONValue], schema: [String: JSONValue]) async throws -> String {
     guard cloudState.privateLocalMode, let cloud, let scope = noteScope else { throw ContentError.invalid("请连接支持本机个人数据的学习服务") }
     let epoch = cloudState.epoch
+    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    try Task.checkCancellation()
     var record = try await repository.localGenerations(scope: scope).first { $0.id == id }
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    try Task.checkCancellation()
     if record == nil {
       record = LocalGenerationRecord(id: id, courseID: courseID, bookID: bookID, chapterID: chapterID,
         operation: operation, body: ["request_id": .string(id), "operation": .string(operation),
@@ -29,7 +33,8 @@ private struct LocalLectureResult: Codable, Sendable {
       } else {
         response = try await cloud.privateModelStepStatus(saved.id)
       }
-      guard epoch == cloudState.epoch, scope == noteScope, response.request_id == id else { throw CancellationError() }
+      guard epoch == cloudState.epoch, scope == noteScope, response.request_id == id,
+        canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
       saved.state = response.state
       saved.content = response.content
       saved.error = response.error
@@ -37,10 +42,14 @@ private struct LocalLectureResult: Codable, Sendable {
       guard response.state == "completed", let content = response.content else {
         throw ContentError.invalid(response.error ?? "模型结果尚未确认。已保留原任务，请稍后查询；不会自动重新提交。")
       }
-      // The response body is durable before the server is allowed to discard its short-lived copy.
-      try await cloud.acknowledgePrivateModelStep(id)
+      // The durable result remains usable if best-effort server cleanup loses its response.
+      // Its short-lived server copy expires without issuing another model request.
+      try? await cloud.acknowledgePrivateModelStep(id)
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
       return content
     } catch {
+      guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
       if saved.state == "submitted" {
         saved.state = "uncertain"; saved.error = error.localizedDescription
         try await repository.saveLocalGeneration(saved, scope: scope)
@@ -74,11 +83,14 @@ private struct LocalLectureResult: Codable, Sendable {
   }
 
   func generateLocalPersonalChapter(sessionID: String) async throws {
-    guard let session = cloudState.localDiagnostics[sessionID], let source = sources.first(where: { $0.id == session.bookID }),
+    guard let session = cloudState.localDiagnostics[sessionID],
+      let source = cloudState.localCourseSources[session.courseID]?.first(where: { $0.id == session.bookID })
+        ?? (selectedCourseID == session.courseID ? sources.first(where: { $0.id == session.bookID }) : nil),
       let chapter = source.chapters.first(where: { $0.id == session.chapterID }), let scope = noteScope else {
       throw ContentError.invalid("本机课程资料尚未完整")
     }
     let courseID = session.courseID, bookID = session.bookID, epoch = cloudState.epoch
+    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     let chunks = source.chunks.filter { $0.page_start <= chapter.page_end && $0.page_end >= chapter.page_start }
     guard !chunks.isEmpty else { throw ContentError.invalid("本章没有可核验的本机教材原文，无法生成") }
     let passages = chunks.prefix(80).map { ["page_number": JSONValue.number(Double($0.page_start)), "quote": .string(String($0.text.prefix(5000)))] }
@@ -127,7 +139,8 @@ private struct LocalLectureResult: Codable, Sendable {
       Set(course.practice_items.map(\.item_id)).isSubset(of: Set(result.practice_grading.map(\.item_id))) else {
       throw ContentError.invalid("生成内容未通过教材引用或教学结构校验，已保留原任务")
     }
-    guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+    guard epoch == cloudState.epoch, scope == noteScope,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     var resource = CloudResource(id: courseResourceID(courseID: courseID, bookID: bookID) ?? courseID + ":" + bookID,
       book_id: bookID, workspace_id: courseID, revision: 0, filename: source.summary.title, status: "ready",
       structure: CloudStructure(title: source.summary.title, summary: "", source_page_count: source.summary.page_count,
@@ -136,6 +149,11 @@ private struct LocalLectureResult: Codable, Sendable {
     resource.session_id = session.id
     var generated = CloudMapping.source(resource)
     generated.chunks = source.chunks; generated.assets = source.assets
+    generated.chapters = source.chapters
+    generated.summary.filename = source.summary.filename
+    generated.summary.content_mode = source.summary.content_mode
+    generated.summary.chunk_count = source.summary.chunk_count
+    generated.summary.asset_count = source.summary.asset_count
     generated.lessons = source.lessons.filter { $0.chapter_id != chapter.id } + generated.lessons.filter { $0.chapter_id == chapter.id }
     generated.flashcards = source.flashcards.filter { $0.chapter_id != chapter.id } + generated.flashcards
     generated.quizzes = source.quizzes.filter { $0.chapter_id != chapter.id } + generated.quizzes.map { question in
@@ -147,14 +165,35 @@ private struct LocalLectureResult: Codable, Sendable {
       }
       return value
     }
-    if let i = sources.firstIndex(where: { $0.id == bookID }) { sources[i] = generated }
+    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    installGeneratedLocalSource(generated, courseID: courseID)
     try await persistPrivateState()
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     try await generateLocalPlan(session: session, course: course)
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     cloudState.showDiagnosis = false
     if selectedCourseID == courseID, selectedBookID == bookID, let lesson = generated.lessons.first(where: { $0.chapter_id == chapter.id }) { openLesson(lesson) }
   }
 
+  /// Results stay with their owning course even if another course is being read.
+  func installGeneratedLocalSource(_ content: SourceContent, courseID: String) {
+    guard let scope = noteScope, canApplyCourseMutation(courseID: courseID, scope: scope) else { return }
+    let resourceIDs = Set(courses.first(where: { $0.id == courseID })?.resourceIDs ?? [])
+    var scoped = cloudState.localCourseSources[courseID]
+      ?? (selectedCourseID == courseID ? sources.filter { resourceIDs.contains($0.id) } : [])
+    if let index = scoped.firstIndex(where: { $0.id == content.id }) { scoped[index] = content }
+    else { scoped.append(content) }
+    cloudState.localCourseSources[courseID] = scoped
+    if selectedCourseID == courseID {
+      if let index = sources.firstIndex(where: { $0.id == content.id }) { sources[index] = content }
+      else { sources.append(content) }
+    }
+  }
+
   private func generateLocalPlan(session: LocalDiagnosticSession, course: CloudCourse) async throws {
+    guard let scope = noteScope,
+      canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
+    let epoch = cloudState.epoch
     let task = schemaObject(["task_id": jsonString, "user_id": jsonString, "day": .object(["type": .string("integer")]),
       "title": jsonString, "task_type": jsonString, "minutes": .object(["type": .string("integer")]),
       "chapter_id": jsonString, "lesson_id": jsonString, "status": jsonString,
@@ -174,13 +213,18 @@ private struct LocalLectureResult: Codable, Sendable {
       plan.tasks.allSatisfy({ $0.chapter_id == session.chapterID && $0.lesson_id == course.course_id && $0.minutes > 0 && $0.day > 0 && $0.day <= plan.days && $0.status == "pending" }) else {
       throw ContentError.invalid("学习计划未通过本机校验，课程已保留")
     }
-    guard let index = sources.firstIndex(where: { $0.id == session.bookID }) else { throw ContentError.invalid("课程已切换") }
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
+    guard var content = cloudState.localCourseSources[session.courseID]?.first(where: { $0.id == session.bookID }) else {
+      throw ContentError.invalid("本机课程资料尚未完整")
+    }
     var combined = plan
-    let old = sources[index].plan
+    let old = content.plan
     combined.tasks = old.tasks.filter { $0.chapter_id != session.chapterID || ["done", "completed"].contains($0.status) }
       + plan.tasks.filter { candidate in !old.tasks.contains { $0.id == candidate.id && ["done", "completed"].contains($0.status) } }
     combined.days = max(old.days, plan.days)
-    sources[index].plan = combined
+    content.plan = combined
+    guard canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
+    installGeneratedLocalSource(content, courseID: session.courseID)
     try await persistPrivateState()
   }
 }

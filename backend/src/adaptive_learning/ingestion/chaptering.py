@@ -27,6 +27,13 @@ from .models import (
     TextBlock,
 )
 from .quality import evaluate_text_quality, quality_band
+from .section_roles import (
+    SECTION_ROLE_PROMPT,
+    classification_fingerprint,
+    classification_is_current,
+    partition_sections,
+    section_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -566,15 +573,24 @@ class ChapterReconstructor:
                    if chapter.start_page <= page.page_number <= chapter.end_page)]
         if not chapters:
             raise ChapteringValidationError("document contains no readable chapter content")
+        role_decisions, classification_attempted = None, False
         if self.client is not None:
             chapters = ordered_book_map(lambda chapter: self._summarize(chapter, pages), chapters)
-            book_summary = self._summarize_book(chapters)
+            book_summary, role_decisions, classification_attempted = self._summarize_book_details(
+                chapters, section_contexts=section_context(chapters, pages))
         else:
             book_summary = ""
+        selected = partition_sections(chapters, role_decisions, section_context(chapters, pages),
+            attempted=self.client is not None,
+            unavailable_reason=("model_unavailable" if self.client is None else
+                "missing_section_roles" if classification_attempted else "no_usable_chapter_summaries"),
+            input_fingerprint=classification_fingerprint(chapters, pages))
         return BookStructure(
             title=fallback_title.strip() or "未命名书籍",
             summary=book_summary,
-            chapters=chapters,
+            chapters=selected.chapters,
+            reference_sections=selected.reference_sections,
+            section_classification=selected.metadata,
             source_page_count=len(pages),
             used_fallback_chapter=used_fallback,
             source_coverage=coverage_context(pages),
@@ -643,7 +659,8 @@ class ChapterReconstructor:
     def reconcile_book(self, pages: list[PageExtraction], existing: BookStructure) -> BookStructure:
         """Repair boundaries while preserving unchanged source-backed chapters."""
         chapters, fallback = self._outline(pages)
-        old_by_start = {c.start_page: c for c in existing.chapters}
+        all_existing = [*existing.chapters, *existing.reference_sections]
+        old_by_start = {c.start_page: c for c in all_existing}
         repaired = []
         changed = False
         for chapter in chapters:
@@ -669,12 +686,27 @@ class ChapterReconstructor:
                     # diagnostic points still have valid, unchanged evidence.
                     chapter = chapter.model_copy(update={"knowledge_points": old.knowledge_points,
                         "knowledge_point_evidence": old.knowledge_point_evidence})
-            changed = changed or old is None or old.end_page != chapter.end_page or old.order != chapter.order
+            detected_order = (old.section_classification.get("detected_order", old.order)
+                              if old is not None else None)
+            changed = changed or old is None or old.end_page != chapter.end_page or detected_order != chapter.order
             repaired.append(chapter)
-        if not changed and len(repaired) == len(existing.chapters):
+        selection = existing.section_classification
+        if (not changed and len(repaired) == len(all_existing)
+                and (self.client is None or classification_is_current(all_existing, pages, selection))):
             return existing
-        summary = self._summarize_book(repaired) if self.client is not None else existing.summary
-        return existing.model_copy(update={"chapters": repaired, "summary": summary,
+        role_decisions, classification_attempted = None, False
+        if self.client is not None:
+            summary, role_decisions, classification_attempted = self._summarize_book_details(
+                repaired, section_contexts=section_context(repaired, pages))
+        else:
+            summary = existing.summary
+        selected = partition_sections(repaired, role_decisions, section_context(repaired, pages),
+            attempted=self.client is not None,
+            unavailable_reason=("model_unavailable" if self.client is None else
+                "missing_section_roles" if classification_attempted else "no_usable_chapter_summaries"),
+            input_fingerprint=classification_fingerprint(repaired, pages))
+        return existing.model_copy(update={"chapters": selected.chapters, "summary": summary,
+            "reference_sections": selected.reference_sections, "section_classification": selected.metadata,
             "used_fallback_chapter": fallback, "source_coverage": coverage_context(pages)})
 
     def reconstruct(
@@ -797,10 +829,15 @@ class ChapterReconstructor:
         })
 
     def _summarize_book(self, chapters: list[ChapterDraft]) -> str:
+        return self._summarize_book_details(chapters)[0]
+
+    def _summarize_book_details(self, chapters: list[ChapterDraft], *,
+        section_contexts: list[dict[str, Any]] | None = None,
+    ) -> tuple[str, Any, bool]:
         assert self.client is not None
         usable = [chapter for chapter in chapters if chapter.summary]
         if not usable:
-            return ""
+            return "", None, False
         valid_ids = {chapter.chapter_id for chapter in usable}
         payload: dict[str, Any] = {
             "chapters": [
@@ -810,20 +847,26 @@ class ChapterReconstructor:
             ],
             "required_chapter_ids": [chapter.chapter_id for chapter in usable],
         }
+        if section_contexts is not None:
+            payload["sections"] = section_contexts
         last_error: ValueError | LLMError | None = None
         for attempt in range(self.validation_retries + 1):
             try:
                 raw = self.client.structured(
-                    system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY,
+                    system=_BOOK_SUMMARY_SYSTEM + "\n" + OUTPUT_POLICY
+                        + (SECTION_ROLE_PROMPT if section_contexts is not None else ""),
                     user=json.dumps(payload, ensure_ascii=False),
                     temperature=0,
-                    max_tokens=900,
+                    max_tokens=(min(8192, 900 + 160 * len(chapters))
+                                if section_contexts is not None else 900),
                 )
                 draft = BookSummaryDraft.model_validate(raw)
                 returned = set(draft.chapter_ids)
                 if returned != valid_ids or len(draft.chapter_ids) != len(valid_ids):
                     raise ChapteringValidationError("book summary must cover every known chapter exactly")
-                return draft.summary.strip()
+                return (draft.summary.strip(),
+                        raw.get("section_roles") if section_contexts is not None and isinstance(raw, dict) else None,
+                        True)
             except (ValidationError, ChapteringValidationError, LLMError) as error:
                 last_error = error
                 if isinstance(error, LLMError) or attempt >= self.validation_retries:
@@ -851,7 +894,7 @@ class ChapterReconstructor:
             summaries.append(chapter.title + '：' + sentence)
         logger.info('book enhancement retained chapter summaries', extra={
             'error_type': type(last_error).__name__})
-        return '\n\n'.join(summaries)
+        return '\n\n'.join(summaries), None, True
 
     def _evidence_units(
         self, pages: list[PageExtraction]

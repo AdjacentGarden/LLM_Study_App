@@ -481,6 +481,11 @@ extension CloudAPI {
 
 extension LocalBookCourseRepository {
   func saveLessonMedia(_ url: URL, id: String, context: LessonMediaRequest, resourceID: String, scope: String) throws {
+    do { try requireLiveCourse(courseID: context.courseID, scope: scope) }
+    catch {
+      try? removeCourseFileIfUnreferenced(url)
+      throw error
+    }
     let key = AgentDigest.sha256(context.id + "|" + id)
     guard url.deletingLastPathComponent().standardizedFileURL.path == directory.appendingPathComponent("lesson-media").standardizedFileURL.path,
       FileManager.default.fileExists(atPath: url.path) else { throw ContentError.storage("生成素材尚未保存") }

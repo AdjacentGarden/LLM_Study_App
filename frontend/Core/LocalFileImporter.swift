@@ -16,7 +16,8 @@ enum LocalFileImporter {
     "pdf", "png", "jpg", "jpeg", "webp", "gif", "heic", "heif", "docx", "pptx", "xlsx", "txt", "md",
     "csv",
   ]
-  static func stage(url: URL, repository: LocalBookCourseRepository) async throws -> StagedSource {
+  static func stage(url: URL, repository: LocalBookCourseRepository,
+    owner: CourseOriginalOwner? = nil) async throws -> StagedSource {
     let accessed = url.startAccessingSecurityScopedResource()
     defer { if accessed { url.stopAccessingSecurityScopedResource() } }
     try Task.checkCancellation()
@@ -31,7 +32,7 @@ enum LocalFileImporter {
     let id = "book_local_" + hash.prefix(24)
     try Task.checkCancellation()
     let relative = try await repository.saveOriginalAttachment(
-      data, extension: url.pathExtension, contentHash: hash)
+      data, extension: url.pathExtension, contentHash: hash, owner: owner)
     let summary = SourceSummary(
       book_id: id, title: url.deletingPathExtension().lastPathComponent,
       filename: url.lastPathComponent, status: "uploaded", page_count: 0, chapter_count: 0,

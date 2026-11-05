@@ -97,6 +97,9 @@ extension AppStore {
 
   func rebuildCloudCourses() {
     guard !cloudState.privateLocalMode else { return }
+    if courseDeletionState.scope == noteScope {
+      cloudState.workspaces.removeAll { courseDeletionState.deletedIDs.contains($0.id) }
+    }
     let localCourses = courses.filter { $0.id.hasPrefix("local-course:") }
     courses = cloudState.workspaces.filter { workspace in
       !importState.courses.contains { $0.setupCompleted != true && workspaceID(for: $0) == workspace.id }
@@ -436,6 +439,7 @@ extension AppStore {
   ) async {
     guard let cloud, cloudState.authenticated else { return }
     let epoch = cloudState.epoch
+    guard let capturedScope = noteScope else { return }
     let routingSelection = selectionGeneration
     importError = nil
     var originalSaved = false
@@ -443,14 +447,19 @@ extension AppStore {
       guard url.pathExtension.lowercased() == "pdf" else {
         throw CloudError(status: 415, message: "云端课程目前支持 PDF，请选择 PDF 文件。")
       }
-      let staged = try await LocalFileImporter.stage(url: url, repository: repository)
+      if courseDeletionState.scope != capturedScope { try await restoreCourseDeletionState() }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { throw CancellationError() }
+      let owner = targetCourseID.map { CourseOriginalOwner(courseID: $0, scope: capturedScope, id: "legacy-import:" + UUID().uuidString) }
+      let staged = try await LocalFileImporter.stage(url: url, repository: repository, owner: owner)
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
+      guard epoch == cloudState.epoch, routingSelection == selectionGeneration, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
       guard noteScope != nil else { throw ContentError.invalid("请先登录") }
       if let hash = staged.contentHash {
         let matches = try await repository.matchingBookIDs(contentHash: hash,
           scope: courseUploadScope, books: filePaths)
-        guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
+        guard epoch == cloudState.epoch, routingSelection == selectionGeneration, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
         if preferredDuplicateCourse(matchingBookIDs: Set(matches + [staged.source.id])) != nil {
           _ = try await retainLocalImport(staged, targetCourseID: targetCourseID)
           return
@@ -458,7 +467,8 @@ extension AppStore {
       }
       let processingRoute = await processingPolicy.route(for: .ocr)
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch, routingSelection == selectionGeneration else { return }
+      guard epoch == cloudState.epoch, routingSelection == selectionGeneration, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
       guard processingRoute != .cancelled else {
         importError = "已取消本次导入，原文件未上传。"
         return
@@ -467,7 +477,8 @@ extension AppStore {
       let retainedID = try await retainLocalImport(staged, targetCourseID: targetCourseID)
       originalSaved = true
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch else { return }
+      guard epoch == cloudState.epoch, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
       // An identical original already has a server identity and preparation job.
       // Reusing it avoids creating another upload and a second progress card.
       if !retainedID.hasPrefix("book_local_") { return }
@@ -476,24 +487,26 @@ extension AppStore {
         return
       }
       if !cloudState.localFirstChecked { try await verifyLocalFirstCapabilities() }
-      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      guard epoch == cloudState.epoch, capturedScope == noteScope, !Task.isCancelled else { return }
       let uploaded = try await cloud.uploadPDF(
         repository.attachmentURL(staged.relativePath), filename: url.lastPathComponent,
         onProgress: onProgress)
       try Task.checkCancellation()
-      guard epoch == cloudState.epoch else { return }
+      guard epoch == cloudState.epoch, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
       bindUploadedBook(localID: staged.source.id, uploaded: uploaded)
       if let hash = staged.contentHash, let path = filePaths[uploaded.book_id] {
         try await repository.recordContentIdentity(contentHash: hash, bookID: uploaded.book_id,
           relativePath: path, scope: courseUploadScope)
-        guard epoch == cloudState.epoch else { return }
+        guard epoch == cloudState.epoch, capturedScope == noteScope else { return }
+      if let targetCourseID, !canApplyCourseMutation(courseID: targetCourseID, scope: capturedScope) { return }
       }
       await persistTask?.value
       if let error = cloudState.cacheWriteError { throw ContentError.storage(error) }
     } catch is CancellationError {
       return
     } catch {
-      guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      guard epoch == cloudState.epoch, capturedScope == noteScope, !Task.isCancelled else { return }
       importError = (originalSaved ? "原文件已保存在本机：" : "") + error.localizedDescription
       handleCloudError(error)
     }
@@ -595,13 +608,58 @@ extension AppStore {
       ? "较熟悉" : card.mastery >= 50 ? "巩固中" : "待加强"
   }
 
+  /// Directory and empty-reader entries share the same real preparation path.
+  func openChapterLearning(chapterID: String) {
+    guard chapters.contains(where: { $0.id == chapterID }) else {
+      showToast("本章目录尚未就绪，请先查看教材准备进度。", kind: .warning)
+      return
+    }
+    if let lesson = lessons.first(where: {
+      $0.chapter_id == chapterID && ["ready", "generated"].contains($0.status)
+    }) {
+      openLesson(lesson)
+      return
+    }
+    selectedChapterID = chapterID
+    selectedLessonID = nil
+    requestCloudLearning(chapterID: chapterID)
+  }
+
+  func showExistingChapterPreparation() {
+    let activeChapter = sources.flatMap(\.chapters).first { $0.id == cloudState.requestedChapterID }
+    let message = activeChapter.map { "正在准备《\($0.title)》，请等待或先阅读已就绪的章节。" }
+      ?? "正在处理学习任务，请等待当前任务完成；已就绪的章节仍可阅读。"
+    cloudState.error = message
+    if cloudState.diagnosisWorkspaceID == selectedCourseID,
+      cloudState.interview != nil || cloudState.courseJob != nil {
+      cloudState.showDiagnosis = true
+      cloudState.choosingLearningMode = false
+    }
+    showToast(message, kind: .warning)
+  }
+
   func requestCloudLearning(chapterID: String?) {
-    guard let resource = cloudResource, !cloudState.isWorking else { return }
+    guard let resource = cloudResource,
+      let chapterID = chapterID ?? resource.structure?.chapters.first?.chapter_id else {
+      showToast("本章资料尚未就绪，请先完成教材准备。", kind: .warning)
+      return
+    }
+    // Reading an available chapter never waits for another generation.
+    if let lesson = lessons.first(where: {
+      $0.chapter_id == chapterID && ["ready", "generated"].contains($0.status)
+    }) {
+      openLesson(lesson)
+      return
+    }
+    guard !cloudState.isWorking, cloudState.courseTask == nil else {
+      showExistingChapterPreparation()
+      return
+    }
     if resource.session_id != nil {
       Task { await beginCloudLearning(chapterID: chapterID) }
       return
     }
-    cloudState.requestedChapterID = chapterID ?? resource.structure?.chapters.first?.chapter_id
+    cloudState.requestedChapterID = chapterID
     cloudState.diagnosisWorkspaceID = resource.workspace_id
     cloudState.diagnosisResourceID = resource.id
     cloudState.interview = nil
@@ -685,7 +743,14 @@ extension AppStore {
       return
     }
     guard cloudState.legacyPrivateSyncEnabled else { cloudState.error = "本机学习尚未就绪，请重试连接"; return }
-    guard let cloud, let resource = cloudResource, !cloudState.isWorking else { return }
+    guard let cloud, let resource = cloudResource else {
+      showToast("请先连接学习服务并选择教材。", kind: .warning)
+      return
+    }
+    guard !cloudState.isWorking, cloudState.courseTask == nil else {
+      showExistingChapterPreparation()
+      return
+    }
     guard !retryDiagnosis || canRetryCloudDiagnosis else { return }
     guard !preview || (resource.session_id == nil && !retryDiagnosis) else { return }
     let epoch = cloudState.epoch

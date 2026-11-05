@@ -569,16 +569,16 @@ struct StudyDirectoryView: View {
   }
 
   private func open(_ route: Route, chapter: Chapter) {
+    if route == .lesson {
+      store.openChapterLearning(chapterID: chapter.id)
+      return
+    }
     store.selectedChapterID = chapter.id
     let savedLessonID = store.locations[store.locationKey]?.lessonID
     let lesson = store.lessons.first { $0.chapter_id == chapter.id && $0.id == savedLessonID }
       ?? store.lessons.first { $0.chapter_id == chapter.id && $0.lesson_kind != "module_intro" }
     store.selectedLessonID = lesson?.id
-    if route == .lesson, let lesson {
-      store.openLesson(lesson)
-    } else {
-      store.go(route)
-    }
+    store.go(route)
   }
 
   private func restorePosition() {

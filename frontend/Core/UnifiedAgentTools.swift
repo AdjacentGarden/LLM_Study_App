@@ -818,10 +818,12 @@ struct AgentLearningObject: Codable, Hashable, Sendable {
 
 extension LocalBookCourseRepository {
   func saveAgentLearningObjects(_ values: [AgentLearningObject], scope: String) throws {
-    try db.put("agent-learning-objects", scope, encoder.encode(values))
+    let filtered = try filterDeletedLearningObjects(values, scope: scope)
+    try db.put("agent-learning-objects", scope, encoder.encode(filtered))
   }
   func loadAgentLearningObjects(scope: String) throws -> [AgentLearningObject] {
-    try db.get("agent-learning-objects", scope).first.map { try decoder.decode([AgentLearningObject].self, from: $0) } ?? []
+    let values = try db.get("agent-learning-objects", scope).first.map { try decoder.decode([AgentLearningObject].self, from: $0) } ?? []
+    return try filterDeletedLearningObjects(values, scope: scope)
   }
 }
 
@@ -832,8 +834,9 @@ extension AppStore {
     guard !cloudState.privateLocalMode, let cloud, processingPolicy.path.kind != .offline else { return }
     struct Response: Decodable, Sendable { var objects: [AgentLearningObject] }
     if let response: Response = try? await cloud.request("/api/assistant/learning-data"), scope == noteScope {
-      assistantState.learningObjects = response.objects
-      try? await repository.saveAgentLearningObjects(response.objects, scope: scope)
+      guard let filtered = try? await repository.filterDeletedLearningObjects(response.objects, scope: scope), scope == noteScope else { return }
+      assistantState.learningObjects = filtered
+      try? await repository.saveAgentLearningObjects(filtered, scope: scope)
     }
   }
 
@@ -885,20 +888,13 @@ extension UnifiedAgentTools {
       question = "删除笔记“\(row.note.title)”？此操作将移除这条笔记。"
       confirm = "删除笔记"
     } else {
+      guard run.scope == store.noteScope else { throw NoteStoreError.scopeMismatch }
       let target = try course(args, store: store)
-      args["local_version"] = .string(try courseMutationVersion(target.id, store: store))
-      args["frozen_resource_ids"] = .array(target.resourceIDs.compactMap { store.courseResourceID(courseID: target.id, bookID: $0) }.map(JSONValue.string))
-      var cloudSummary = ""
-      if run.privateTransport != true, !target.id.hasPrefix("local-course:"), let cloud = store.cloud {
-        let response: [String: JSONValue] = try await cloud.request("/api/assistant/tools/remove_course", method: "POST", body: [
-          "operation_id": .string(run.id + "." + call.id), "arguments": .object(["course_id": .string(target.id), "confirmed": .bool(false)])])
-        if case .object(let impact)? = response["impact"] {
-          args["impact_version"] = impact["version"]
-          cloudSummary = "\n云端关联数据：" + (try encoded(AgentRuntime.foundationObject(.object(impact["counts"].flatMap { if case .object(let v) = $0 { return v }; return nil } ?? [:])) as? [String: Any] ?? [:]))
-        }
-      }
-      question = "移除课程“\(target.name)”并删除以下关联数据？\n" + store.courseRemovalSummary(target.id) + cloudSummary
-      confirm = "移除课程并删除关联数据"
+      let confirmation = try await store.prepareCourseRemoval(target.id)
+      guard run.scope == store.noteScope else { throw CancellationError() }
+      args = confirmation.arguments
+      question = "从本机删除课程“\(target.name)”？\n" + confirmation.summary
+      confirm = "删除本机课程"
     }
     return AgentPendingChoice(toolCallID: call.id, question: question, options: [confirm, "取消"], selected: nil,
       actionName: call.name, actionArgumentsJSON: try encoded(AgentRuntime.foundationObject(.object(args)) as? [String: Any] ?? [:]))
@@ -913,51 +909,28 @@ extension UnifiedAgentTools {
       store.notes.removeAll { $0.id == id }; store.noteState.revisions[id] = nil
       return result
     }
+    guard name == "remove_course" else { throw AgentValidationError(message: "不支持的删除操作") }
     let id = try required(args, "course_id")
-    if localOnly {
-      if let receipt = try await store.repository.localOperation(operationID, scope: scope) {
-        return try encoded(AgentRuntime.foundationObject(.object(receipt)) as? [String: Any] ?? [:])
+    let argumentsHash = AgentDigest.sha256(try AgentDigest.canonicalJSON(
+      AgentRuntime.foundationObject(.object(args)) as? [String: Any] ?? [:]))
+    if let receipt = try await store.repository.localCourseDeletionResult(operationID, scope: scope) {
+      guard receipt["course_id"]?.stringValue == id,
+        receipt["arguments_hash"]?.stringValue == argumentsHash else {
+        throw AgentValidationError(message: "删除操作的确认内容已变化，请重新确认")
       }
-      guard try courseMutationVersion(id, store: store) == args["local_version"]?.stringValue else { throw AgentValidationError(message: "课程关联数据已变化，请重新确认") }
-      let resources = Set(store.courses.first(where: { $0.id == id })?.resourceIDs.compactMap { store.courseResourceID(courseID: id, bookID: $0) } ?? [])
-      try await store.clearLocalCourseData(id, resourceIDs: resources)
-      store.courses.removeAll { $0.id == id }
-      store.cloudState.localCourseSources.removeValue(forKey: id)
-      store.cloudState.localDiagnostics = store.cloudState.localDiagnostics.filter { $0.value.courseID != id }
-      if store.selectedCourseID == id { store.selectedCourseID = store.courses.first?.id; store.selectedBookID = store.courses.first?.resourceIDs.first }
-      let receipt: [String: JSONValue] = ["status": .string("deleted"), "course_id": .string(id), "operation_id": .string(operationID)]
-      try await store.repository.saveLocalOperation(receipt, id: operationID, scope: scope)
-      try await store.persistPrivateState()
       return try encoded(AgentRuntime.foundationObject(.object(receipt)) as? [String: Any] ?? [:])
     }
-    // A submitted operation is reconciled before consulting now-deleted business objects.
-    if let cloud = store.cloud, !id.hasPrefix("local-course:") {
-      let receipt: [String: JSONValue] = try await cloud.request("/api/assistant/operations/\(operationID)")
-      let completed = receipt["state"]?.stringValue == "completed"
-      if !completed {
-        guard try courseMutationVersion(id, store: store) == args["local_version"]?.stringValue else { throw AgentValidationError(message: "课程关联数据已变化，请重新生成影响清单后确认") }
-        var body = args; body["confirmed"] = .bool(true)
-        let _: [String: JSONValue] = try await cloud.request("/api/assistant/tools/remove_course", method: "POST", body: ["operation_id": .string(operationID), "arguments": .object(body)])
-      }
-      guard scope == store.noteScope else { throw CancellationError() }
-      let ids: [String]
-      if case .array(let values)? = args["frozen_resource_ids"] { ids = values.compactMap(\.stringValue) } else { ids = [] }
-      try await store.clearLocalCourseData(id, resourceIDs: Set(ids))
-      store.cacheAcknowledgedCourseRemoval(id)
-      await store.persistTask?.value
-      try await store.reloadCloud()
-      await store.reloadAgentLearningObjects()
-      guard !store.courses.contains(where: { $0.id == id }) else { throw AgentValidationError(message: "课程移除结果仍待核对") }
-      return try encoded(["status": "deleted", "course_id": id, "operation_id": operationID])
+    if let target = store.courses.first(where: { $0.id == id }),
+      case .array(let frozen)? = args["frozen_book_ids"],
+      Set(frozen.compactMap(\.stringValue)) != Set(target.resourceIDs) {
+      throw AgentValidationError(message: "课程资料已变化，请重新确认删除")
     }
-    guard try courseMutationVersion(id, store: store) == args["local_version"]?.stringValue else { throw AgentValidationError(message: "课程关联数据已变化，请重新确认") }
-    store.removeCourse(id)
-    for _ in 0..<100 {
-      guard scope == store.noteScope else { throw CancellationError() }
-      if !store.courses.contains(where: { $0.id == id }) { return try encoded(["status": "deleted", "course_id": id, "operation_id": operationID]) }
-      try await Task.sleep(for: .milliseconds(100))
-    }
-    throw AgentValidationError(message: "本机课程移除尚未取得完成回执，请核对课程库")
+    try await store.performLocalCourseDeletion(courseID: id, scope: scope)
+    guard scope == store.noteScope else { throw CancellationError() }
+    let receipt: [String: JSONValue] = ["status": .string("deleted"), "course_id": .string(id),
+      "operation_id": .string(operationID), "arguments_hash": .string(argumentsHash)]
+    try await store.repository.saveLocalCourseDeletionResult(receipt, id: operationID, scope: scope)
+    return try encoded(AgentRuntime.foundationObject(.object(receipt)) as? [String: Any] ?? [:])
   }
 }
 

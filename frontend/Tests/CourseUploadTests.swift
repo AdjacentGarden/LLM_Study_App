@@ -58,6 +58,7 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
     store.isLoading = false
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = host
+    store.courseDeletionState.scope = host
     store.restoreCourseUploads()
     return store
   }

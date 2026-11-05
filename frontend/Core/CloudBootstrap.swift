@@ -141,6 +141,7 @@ extension AppStore {
         cloudState.authenticated = true
         cloudState.isHydrating = true
         restoreCloudCache(local)
+        try await restoreCourseDeletionState()
         // The cached shell carries no revisions; refresh them before the first save.
         await reloadNotes(resumeAgent: false)
         preloadedKey = cloudState.cacheKey
@@ -208,6 +209,8 @@ extension AppStore {
       cloudState.cacheKey = key
       let cached = try await loadCloudCache(account)
       if let cached, preloadedKey != key { restoreCloudCache(cached) }
+      if courseDeletionState.scope != noteScope { try await restoreCourseDeletionState() }
+      else { applyCourseDeletionsInMemory(Array(courseDeletionState.tombstones.values)) }
       // Refresh note revisions (and let the agent resume) once the final scope is restored.
       if preloadedKey == key || cached != nil { await reloadNotes() }
       if !offlineBoot {
@@ -250,6 +253,7 @@ extension AppStore {
     guard cloud != nil else { return }
     try await verifyLocalFirstCapabilities()
     guard let scope = noteScope else { throw ContentError.invalid("请先登录") }
+    if courseDeletionState.scope != scope { try await restoreCourseDeletionState() }
     if try await repository.loadPersonalState(scope: scope) == nil {
       try await migrateLegacyPersonalData()
       try await persistPrivateState()
@@ -275,7 +279,8 @@ extension AppStore {
     guard bootstrap.contract_version == 1 else {
       throw CloudError(status: 0, message: "客户端与后端版本不兼容")
     }
-    var workspaces = bootstrap.workspaces
+    let removed = courseDeletionState.scope == noteScope ? courseDeletionState.deletedIDs : []
+    var workspaces = bootstrap.workspaces.filter { !removed.contains($0.id) }
     for wi in workspaces.indices {
       for ri in workspaces[wi].resources.indices {
         let resource = workspaces[wi].resources[ri]
@@ -290,7 +295,9 @@ extension AppStore {
     cloudState.onboardingComplete = !cloudState.requiresPersonalization
       && bootstrap.learner_preferences?.hasCompletedOnboarding == true
     community = try BuiltinCourseCatalog.merging(bootstrap.catalog ?? [])
-    cloudState.confirmedSelection = bootstrap.selection
+    cloudState.confirmedSelection = bootstrap.selection.flatMap {
+      removed.contains($0.workspace_id ?? "") ? nil : $0
+    }
     rebuildCloudCourses()
     // "My books" contains actual device files, never every published server book.
     shelf = sources.filter { sourceFileURL($0.id) != nil }.map {
@@ -298,7 +305,7 @@ extension AppStore {
                 filename: $0.summary.filename ?? $0.summary.title, coverUrl: $0.summary.cover_url ?? "")
     }
     restoreCloudMastery()
-    for workspace in bootstrap.workspaces {
+    for workspace in workspaces {
       for resource in workspace.resources {
         let value = cloudState.pending[resource.id]?.value ?? resource.progress
         locations["\(workspace.id)::\(resource.book_id)"] = StudyLocation(
@@ -310,7 +317,7 @@ extension AppStore {
       selectedCourseID = courses.first { $0.id == candidate }?.id ?? courses.first?.id
       if let resourceID = bootstrap.selection?.resource_id {
         selectedBookID =
-          bootstrap.workspaces.flatMap(\.resources).first { $0.id == resourceID }?.book_id
+          workspaces.flatMap(\.resources).first { $0.id == resourceID }?.book_id
       }
     }
     if let workspaceID = selectedCourseID {

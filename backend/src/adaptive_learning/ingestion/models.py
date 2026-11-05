@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -89,6 +89,8 @@ class ChapterDraft(BaseModel):
     knowledge_point_evidence: dict[str, list[SourceQuote]] = Field(default_factory=dict)
     source_coverage: dict[str, Any] = Field(default_factory=dict)
     boundary_evidence: dict[str, Any] = Field(default_factory=dict)
+    section_role: Literal["learning", "reference"] = "learning"
+    section_classification: dict[str, Any] = Field(default_factory=dict)
 
 
 class BookStructure(BaseModel):
@@ -97,6 +99,8 @@ class BookStructure(BaseModel):
     chapters: list[ChapterDraft]
     source_page_count: int = Field(ge=1)
     used_fallback_chapter: bool = False
+    reference_sections: list[ChapterDraft] = Field(default_factory=list)
+    section_classification: dict[str, Any] = Field(default_factory=dict)
     source_coverage: dict[str, Any] = Field(default_factory=dict)
 
 

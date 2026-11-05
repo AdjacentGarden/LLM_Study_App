@@ -235,6 +235,7 @@ extension LocalBookCourseRepository {
 
   /// Caller must hold a transaction. `note.references == nil` keeps stored citations.
   func writeNote(_ note: StudyNote, scope: String, condition: NoteWriteCondition) throws -> StoredNote {
+    if let courseID = note.anchor?.courseID { try requireLiveCourse(courseID: courseID, scope: scope) }
     let current = try row(scope: scope, id: note.id)
     switch condition {
     case .any: break
@@ -329,9 +330,11 @@ extension LocalBookCourseRepository {
 
   private func writeRun(_ run: AgentRunRecord, scope: String) throws -> AgentRunRecord {
     guard run.scope == scope, run.context.scope == scope else { throw NoteStoreError.scopeMismatch }
+    try requireLiveAgentRun(runID: run.id, scope: scope)
+    if let courseID = run.context.courseID { try requireLiveCourse(courseID: courseID, scope: scope) }
     let stored = try loadRun(run.id, scope: scope)
     guard (stored?.version ?? 0) == run.version else { throw NoteStoreError.runConflict(runID: run.id) }
-    var next = run
+    var next = CourseDeletionPruning.runReferences(run, tombstones: try courseDeletionTombstones(scope: scope))
     // A committed cancellation can never be cleared by a later checkpoint.
     if stored?.cancelRequested == true { next.cancelRequested = true }
     next.version = run.version + 1
@@ -367,6 +370,8 @@ extension LocalBookCourseRepository {
   ) throws -> ToolNoteCommit {
     let scope = run.scope
     return try db.transaction {
+      try requireLiveAgentRun(runID: run.id, scope: scope)
+      if let courseID = run.context.courseID { try requireLiveCourse(courseID: courseID, scope: scope) }
       if let receipt = try toolReceipt(scope: scope, runID: run.id, toolCallID: toolCallID) {
         guard receipt.argumentsHash == argumentsHash, let noteID = receipt.noteID, let revision = receipt.revision
         else { throw NoteStoreError.receiptConflict(toolCallID: toolCallID) }
@@ -392,6 +397,7 @@ extension LocalBookCourseRepository {
         }
       }
       for reference in note.references ?? [] {
+        if let courseID = reference.courseID { try requireLiveCourse(courseID: courseID, scope: scope) }
         guard let evidence = run.evidence(reference.evidenceID), NoteReference(evidence) == reference else {
           throw NoteStoreError.untrustedReference(evidenceID: reference.evidenceID)
         }
@@ -462,6 +468,7 @@ extension LocalBookCourseRepository {
   func commitEphemeralToolNote(scope: String, runID: String, toolCallID: String,
     argumentsHash: String, note: StudyNote) throws -> ToolNoteCommit {
     try db.transaction {
+      try requireLiveAgentRun(runID: runID, scope: scope)
       if let receipt = try toolReceipt(scope: scope, runID: runID, toolCallID: toolCallID) {
         guard receipt.argumentsHash == argumentsHash, let noteID = receipt.noteID, let revision = receipt.revision else {
           throw NoteStoreError.receiptConflict(toolCallID: toolCallID)

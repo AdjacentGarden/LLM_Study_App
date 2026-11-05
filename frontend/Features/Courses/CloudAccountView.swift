@@ -440,6 +440,10 @@ struct CloudLearningSetupView: View {
             Text("选择学习方式").font(DS.font(.sectionTitle))
             Text("先预览本章讲解、闪卡和练习，或先做诊断再生成适合自己的课程。")
               .font(DS.font(.body)).foregroundStyle(DS.secondary)
+            if let error = store.cloudState.error, !error.isEmpty {
+              Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
+                .accessibilityIdentifier("cloud.learning.error")
+            }
             BCButton("直接预览课程") {
               Task { await store.beginCloudLearning(
                 chapterID: store.cloudState.requestedChapterID, preview: true) }

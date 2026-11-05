@@ -404,10 +404,6 @@ private struct HomeCourseShelf: View {
 
 struct CourseLibraryView: View {
   @Environment(AppStore.self) private var store
-  @State private var removingID: String?
-  @State private var removalConfirmation: CourseRemovalConfirmation?
-  @State private var removalIssue: String?
-  @State private var removalBusy = false
   var body: some View {
     CourseFeaturePage(useSourceLayoutTop: true) {
       HStack {
@@ -480,67 +476,13 @@ struct CourseLibraryView: View {
             }.buttonStyle(.plain).foregroundStyle(DS.primary).buttonFrame()
               .accessibilityIdentifier("library.addMaterials.\(course.id)")
             Spacer()
-            Button {
-              if removingID == course.id { removingID = nil; removalConfirmation = nil }
-              else { prepareRemoval(course.id) }
-            } label: {
-              BCGlyph("Trash2", color: DS.primary).frame(width: 16, height: 16).iconButtonFrame()
-            }.buttonStyle(.plain).accessibilityLabel("删除课程 \(course.name)")
+            CourseDeletionButton(courseID: course.id, courseName: course.name, iconOnly: true)
           }.frame(height: 44)
-          if removingID == course.id {
-            VStack(alignment: .leading, spacing: 10) {
-              Text("移除《\(course.name)》并删除关联学习数据？").font(DS.font(.body))
-              if let confirmation = removalConfirmation, confirmation.courseID == course.id {
-                Text(confirmation.summary).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-              } else if removalBusy { ProgressView("正在核对关联数据…") }
-              if let removalIssue { Text(removalIssue).font(DS.font(.supporting)).foregroundStyle(DS.danger) }
-              HStack {
-                BCButton("确认移除课程", style: .danger) {
-                  guard let confirmation = removalConfirmation else { return }
-                  removalBusy = true
-                  Task { @MainActor in
-                    do {
-                      try await store.confirmCourseRemoval(confirmation)
-                      removingID = nil
-                      removalConfirmation = nil
-                      store.showToast("课程及关联学习数据已移除", kind: .success)
-                    } catch {
-                      removalIssue = error.localizedDescription
-                      removalConfirmation = try? await store.prepareCourseRemoval(course.id)
-                    }
-                    removalBusy = false
-                  }
-                }.disabled(removalBusy || removalConfirmation == nil)
-                BCButton("取消", style: .secondary) { removingID = nil; removalConfirmation = nil }
-                  .disabled(removalBusy && removalConfirmation != nil)
-              }
-            }.padding(14).background(Color(hex: 0xFFF1F2), in: RoundedRectangle(cornerRadius: 14))
-          } else {
-            Color.clear.frame(height: 0)
-          }
         }.padding(19).background(DS.surface, in: RoundedRectangle(cornerRadius: 14)).overlay(
           RoundedRectangle(cornerRadius: 14).stroke(DS.border))
       }
     }
   }
-  private func prepareRemoval(_ id: String) {
-    removingID = id
-    removalConfirmation = nil
-    removalIssue = nil
-    removalBusy = true
-    Task { @MainActor in
-      defer { removalBusy = false }
-      do {
-        let confirmation = try await store.prepareCourseRemoval(id)
-        guard removingID == id else { return }
-        removalConfirmation = confirmation
-      } catch {
-        guard removingID == id else { return }
-        removalIssue = error.localizedDescription
-      }
-    }
-  }
-
 }
 
 struct CourseDetailView: View {
@@ -594,10 +536,12 @@ struct CourseDetailView: View {
             HStack(spacing: 9) {
               detailAction("调整画像与名称", icon: "Pencil") { edit(course) }
               detailAction("添加资料", icon: "Plus") { store.openSheet(.addMaterials) }
+              CourseDeletionButton(courseID: course.id, courseName: course.name)
             }
             VStack(alignment: .leading, spacing: 9) {
               detailAction("调整画像与名称", icon: "Pencil") { edit(course) }
               detailAction("添加资料", icon: "Plus") { store.openSheet(.addMaterials) }
+              CourseDeletionButton(courseID: course.id, courseName: course.name)
             }
           }
         }.padding(store.isPad ? 34.36 : 23).frame(maxWidth: .infinity, alignment: .leading)

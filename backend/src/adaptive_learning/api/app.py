@@ -797,7 +797,11 @@ def _prepare_structure(book_id: str) -> None:
     pages = load_normalized_pages(job.output_dir / "normalized" / "pages.jsonl")
     reconstructor = require_chapter_reconstructor()
     detected, _ = reconstructor.detector.detect(pages)
-    if [(c.start_page, c.end_page) for c in detected] == [(c.start_page, c.end_page) for c in existing.chapters]:
+    from ..ingestion.section_roles import classification_is_current
+    all_sections = sorted([*existing.chapters, *existing.reference_sections], key=lambda c: c.start_page)
+    unchanged = [(c.start_page, c.end_page) for c in detected] == [(c.start_page, c.end_page) for c in all_sections]
+    if unchanged and (getattr(reconstructor, "client", None) is None
+                      or classification_is_current(all_sections, pages, existing.section_classification)):
         return
     repaired = reconstructor.reconcile_book(pages, existing)
     old_fingerprint = diagnostic_fingerprint(existing)

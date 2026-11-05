@@ -44,12 +44,14 @@ struct LocalGenerationRecord: Codable, Sendable {
 
 extension LocalBookCourseRepository {
   func savePersonalState(_ state: LocalPersonalState, scope: String) throws {
-    try db.put("private-local-authority", scope, encoder.encode(state))
+    let filtered = try filterDeletedCourses(state, scope: scope)
+    try db.put("private-local-authority", scope, encoder.encode(filtered))
   }
   func loadPersonalState(scope: String) throws -> LocalPersonalState? {
     try db.get("private-local-authority", scope).first.map { try decoder.decode(LocalPersonalState.self, from: $0) }
   }
   func saveLocalGeneration(_ record: LocalGenerationRecord, scope: String) throws {
+    try requireLiveCourse(courseID: record.courseID, scope: scope)
     try db.put("private-generation:" + scope, record.id, encoder.encode(record))
   }
   func localGenerations(scope: String) throws -> [LocalGenerationRecord] {
@@ -291,22 +293,50 @@ extension LocalBookCourseRepository {
   func beginLocalDiagnosis(chapterID: String?, preview: Bool = false) async throws {
     guard let scope = noteScope, let courseID = selectedCourseID, let bookID = selectedBookID,
       let chapter = chapterID ?? currentSource?.chapters.first?.id else { throw ContentError.invalid("请先选择课程章节") }
+    guard !cloudState.isWorking, cloudState.courseTask == nil else {
+      showExistingChapterPreparation()
+      return
+    }
+    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    let epoch = cloudState.epoch
+    cloudState.isWorking = true
+    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
     let jobs = try await repository.localGenerations(scope: scope)
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     if let existing = cloudState.localDiagnostics.values.first(where: { session in
       session.courseID == courseID && session.bookID == bookID && session.chapterID == chapter
-        && (session.position < session.items.count || jobs.contains { $0.id == "lecture_" + AgentDigest.sha256(session.id) && ["submitted", "submitting", "uncertain", "retryable"].contains($0.state) })
+        && ((!preview && session.position < session.items.count) || jobs.contains {
+          $0.id == "lecture_" + AgentDigest.sha256(session.id) && ["submitted", "submitting", "uncertain", "retryable"].contains($0.state)
+        })
     }) {
+      cloudState.requestedChapterID = chapter
+      cloudState.diagnosisWorkspaceID = courseID
+      cloudState.diagnosisResourceID = courseResourceID(courseID: courseID, bookID: bookID)
       cloudState.interview = localInterview(existing)
       cloudState.showDiagnosis = true; cloudState.choosingLearningMode = false
       if existing.position >= existing.items.count { try await generateLocalPersonalChapter(sessionID: existing.id) }
       return
     }
     let records = try await repository.loadMaterialRecords(scope: scope)
-    guard let material = records.first(where: { $0.bookID == bookID }) else { throw ContentError.invalid("请先完整下载教材和公共诊断题") }
-    let items = preview ? [] : material.diagnostics.filter { $0.chapter_id == chapter }
-    guard preview || !items.isEmpty else { throw ContentError.invalid("本章没有可用公共诊断题，请选择直接学习") }
+    guard epoch == cloudState.epoch, scope == noteScope,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    let material = records.first { $0.bookID == bookID }
+    let items = preview ? [] : material?.diagnostics.filter { $0.chapter_id == chapter } ?? []
+    let grades = material?.grading ?? []
+    if !preview && (items.isEmpty || !Set(items.map(\.item_id)).isSubset(of: Set(grades.map(\.item_id)))) {
+      cloudState.requestedChapterID = chapter
+      cloudState.diagnosisWorkspaceID = courseID
+      cloudState.diagnosisResourceID = courseResourceID(courseID: courseID, bookID: bookID)
+      cloudState.interview = nil
+      cloudState.courseJob = nil
+      cloudState.choosingLearningMode = true
+      cloudState.showDiagnosis = true
+      throw ContentError.invalid("本章诊断资料尚未完整，可选择“直接预览课程”先学习。")
+    }
+    // Direct learning uses verified local original text and does not require a public question bank.
     let session = LocalDiagnosticSession(id: "local-diagnosis:" + UUID().uuidString, courseID: courseID,
-      bookID: bookID, chapterID: chapter, items: items, grades: material.grading, position: 0, results: [:])
+      bookID: bookID, chapterID: chapter, items: items, grades: grades, position: 0, results: [:])
+    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     cloudState.localDiagnostics[session.id] = session
     cloudState.requestedChapterID = chapter
     cloudState.diagnosisWorkspaceID = courseID
@@ -314,6 +344,7 @@ extension LocalBookCourseRepository {
     cloudState.showDiagnosis = true; cloudState.choosingLearningMode = false
     cloudState.interview = localInterview(session)
     try await persistPrivateState()
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     if items.isEmpty { try await generateLocalPersonalChapter(sessionID: session.id) }
   }
   func localInterview(_ session: LocalDiagnosticSession) -> CloudInterview {
@@ -328,6 +359,9 @@ extension LocalBookCourseRepository {
   func answerLocalDiagnosis(selected: [String], confidence: Double, seconds: Double) async throws {
     guard let id = cloudState.interview?.session_id, var session = cloudState.localDiagnostics[id],
       session.items.indices.contains(session.position) else { throw ContentError.invalid("本机诊断状态不可用") }
+    guard let scope = noteScope,
+      canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
+    let epoch = cloudState.epoch
     let item = session.items[session.position]
     guard let grade = session.grades.first(where: { $0.item_id == item.item_id }) else { throw ContentError.invalid("评分数据缺失") }
     let result: [String: JSONValue]
@@ -337,11 +371,13 @@ extension LocalBookCourseRepository {
     } else {
       result = try await gradeLocalShortAnswer(item: item, grade: grade, answer: selected.joined(separator: "\n"), sessionID: id)
     }
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
     session.results[item.item_id] = .object(result)
     session.position += 1
     cloudState.localDiagnostics[id] = session
     cloudState.interview = localInterview(session)
     try await persistPrivateState()
+    guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
     if session.position == session.items.count { try await generateLocalPersonalChapter(sessionID: id) }
   }
 }

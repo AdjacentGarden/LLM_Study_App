@@ -391,12 +391,16 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
         sources.append(source)
       }
     }
-    return sources
+    let removedBooks = CourseDeletionPruning.exclusiveBooks(try loadSnapshot() ?? AppSnapshot(),
+      tombstones: try courseDeletionTombstones(scope: Self.localNoteScope))
+    return sources.filter { !removedBooks.contains($0.id) }
   }
   func saveSources(_ sources: [SourceContent]) throws {
+    let removedBooks = CourseDeletionPruning.exclusiveBooks(try loadSnapshot() ?? AppSnapshot(),
+      tombstones: try courseDeletionTombstones(scope: Self.localNoteScope))
     try db.execute("BEGIN IMMEDIATE")
     do {
-      for source in sources { try db.put("source", source.id, encoder.encode(source)) }
+      for source in sources where !removedBooks.contains(source.id) { try db.put("source", source.id, encoder.encode(source)) }
       try db.execute("COMMIT")
     } catch {
       try? db.execute("ROLLBACK")
@@ -404,10 +408,10 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     }
   }
   func loadSnapshot() throws -> AppSnapshot? {
-    try db.get("app", "state").first.map { try decoder.decode(AppSnapshot.self, from: $0) }
+    try db.get("app", "state").first.map { try filterDeletedCourses(decoder.decode(AppSnapshot.self, from: $0), scope: Self.localNoteScope) }
   }
   func saveSnapshot(_ snapshot: AppSnapshot) throws {
-    try db.put("app", "state", encoder.encode(snapshot))
+    try db.put("app", "state", encoder.encode(filterDeletedCourses(snapshot, scope: Self.localNoteScope)))
   }
 
   func loadAssistantHistory(scope: String) throws -> AssistantHistoryArchive? {
@@ -415,7 +419,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
   }
 
   func saveAssistantHistory(_ value: AssistantHistoryArchive, scope: String) throws {
-    try db.put("assistant-history", scope, encoder.encode(value))
+    try db.put("assistant-history", scope, encoder.encode(CourseDeletionPruning.history(value, tombstones: courseDeletionTombstones(scope: scope))))
   }
 
   struct CloudDiskState: Codable {
@@ -486,15 +490,16 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
           }
         }
       }
-      return state
+      return try filterDeletedCourses(state, scope: key)
     }
     guard let data = try db.get("cloud", key).first else { return nil }
     var legacy = try decoder.decode(CloudLocalSnapshot.self, from: data)
     legacy.notes = try loadStoredNotes(scope: key).map(\.note)
-    return legacy
+    return try filterDeletedCourses(legacy, scope: key)
   }
 
-  func saveCloudState(_ value: CloudLocalSnapshot, key: String) throws {
+  func saveCloudState(_ original: CloudLocalSnapshot, key: String) throws {
+    let value = try filterDeletedCourses(original, scope: key)
     var state = value
     let resourceBooks = Set(value.workspaces.flatMap(\.resources).map(\.book_id))
     let extraSources = value.sources.compactMap { source -> SourceContent? in
@@ -596,7 +601,9 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
     try data.write(to: directory.appendingPathComponent(relative), options: .atomic)
     return relative
   }
-  func saveOriginalAttachment(_ data: Data, extension ext: String, contentHash: String? = nil) throws -> String {
+  func saveOriginalAttachment(_ data: Data, extension ext: String, contentHash: String? = nil,
+    owner: CourseOriginalOwner? = nil) throws -> String {
+    if let owner { try requireLiveCourse(courseID: owner.courseID, scope: owner.scope) }
     // Staging supplies its digest so a new file is read and hashed only once.
     let hash = try Self.normalizedContentHash(contentHash ?? Self.contentHash(data))
     let safeExtension = String(ext.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(12))
@@ -636,6 +643,10 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
       let file = OriginalContentFile(relativePath: relative, stamp: stamp)
       try db.put("original-content-file", hash, encoder.encode(file))
       try saveOriginalFingerprint(hash: hash, relativePath: relative, stamp: stamp)
+      if let owner {
+        try db.put("course-original:" + owner.scope, owner.id,
+          encoder.encode(CourseOriginalAttachment(courseID: owner.courseID, relativePath: relative)))
+      }
       try db.execute("COMMIT")
       return relative
     } catch {
@@ -792,7 +803,7 @@ actor LocalBookCourseRepository: BookCourseRepository, StudyNoteRepository {
         if !snapshot.courses.contains(where: { $0.id == snapshot.selectedCourseID }) {
           snapshot.selectedCourseID = nil
         }
-        try db.put("app", "state", encoder.encode(snapshot))
+        try db.put("app", "state", encoder.encode(filterDeletedCourses(snapshot, scope: Self.localNoteScope)))
       }
       try db.put("meta", "retired-previews-v1", Data([1]))
       try db.execute("COMMIT")

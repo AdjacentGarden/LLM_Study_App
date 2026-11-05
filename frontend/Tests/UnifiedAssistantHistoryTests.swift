@@ -374,3 +374,52 @@ import XCTest
   }
 
 }
+
+
+extension UnifiedAssistantHistoryTests {
+  func testCourseRemovalCompletionSurvivesCancelledWaiterAndNeverRevivesDeletedConversation() async throws {
+    let repository = try repository()
+    let history = AssistantHistoryStore(repository: repository)
+    await history.load(scope: "owner")
+    let gate = HistoryAnswerGate()
+    var waiterReturned = false
+    var anchored = context
+    anchored.courseID = "removed-course"
+    anchored.bookID = "removed-book"
+    anchored.bookIDs = ["removed-book"]
+    history.submit("删除当前课程", context: anchored) { _, _, _ in
+      let answer = await gate.wait()
+      waiterReturned = true
+      return answer
+    }
+    try await wait("The original waiter should start") { gate.started }
+    let original = try XCTUnwrap(history.current)
+    let marker = CourseDeletionTombstone(courseID: "removed-course", workspaceIDs: ["removed-course"],
+      bookIDs: ["removed-book"], resourceIDs: [])
+    history.removeCourseReferences(tombstones: [marker])
+    XCTAssertTrue(history.recordCourseRemovalCompletion(operationID: "remove-op", sessionID: original.id,
+      messageID: original.context.messageID, scope: "owner"))
+    XCTAssertTrue(history.recordCourseRemovalCompletion(operationID: "remove-op", sessionID: original.id,
+      messageID: original.context.messageID, scope: "owner"))
+    gate.finish("这个被取消的回答不应覆盖删除结果")
+    try await wait("The cancelled waiter should unwind") { waiterReturned }
+    await Task.yield()
+    await history.flush()
+    let retained = try XCTUnwrap(history.current)
+    XCTAssertEqual(retained.messages.map(\.text), ["删除当前课程", "课程已从本机删除。"])
+    XCTAssertNil(retained.context.courseID)
+    XCTAssertNil(retained.pendingQuestion)
+    XCTAssertNil(retained.error)
+    XCTAssertFalse(history.runningIDs.contains(original.id))
+    XCTAssertTrue(retained.runs?.isEmpty ?? true)
+    XCTAssertTrue(retained.courseLinks.isEmpty)
+    history.delete(original.id)
+    XCTAssertFalse(history.recordCourseRemovalCompletion(operationID: "remove-op", sessionID: original.id,
+      messageID: original.context.messageID, scope: "owner"))
+    await history.flush()
+    await history.load(scope: "other")
+    XCTAssertFalse(history.recordCourseRemovalCompletion(operationID: "remove-op", sessionID: original.id,
+      messageID: original.context.messageID, scope: "owner"))
+    XCTAssertTrue(history.sessions.isEmpty)
+  }
+}

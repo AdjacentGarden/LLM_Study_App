@@ -652,7 +652,11 @@ struct LessonReaderView: View {
   @State private var concept: String?
 
   private var lesson: Lesson? {
-    store.lessons.first { $0.chapter_id == store.selectedChapterID } ?? store.activeLesson
+    if let chapterID = store.selectedChapterID {
+      return store.lessons.first { $0.chapter_id == chapterID && ["ready", "generated"].contains($0.status) }
+    }
+    guard let lesson = store.activeLesson, ["ready", "generated"].contains(lesson.status) else { return nil }
+    return lesson
   }
   private var chapter: Chapter? { store.chapters.first { $0.id == store.selectedChapterID } }
   private var cloudCourse: CloudCourse? {
@@ -773,6 +777,13 @@ struct LessonReaderView: View {
           BCHeader(chapter?.title ?? "等待章节课程", back: { store.back() })
           EmptyStateView(title: "本节课程尚未准备好", message: "课程内容准备好后，会按原书结构展示可追溯的图文讲解。你也可以直接打开原文。", icon: "BookOpen")
           if let chapter, let bookID = store.selectedBookID {
+            if store.cloudState.requestedChapterID == chapter.id, let error = store.cloudState.error {
+              Text(error).font(DS.font(.supporting)).foregroundStyle(DS.danger)
+                .accessibilityIdentifier("lesson.preparation.error")
+            }
+            BCButton(store.cloudState.isWorking ? "查看当前准备任务" : "生成或继续本章课程", icon: "Sparkles") {
+              store.openChapterLearning(chapterID: chapter.id)
+            }.accessibilityIdentifier("lesson.prepareChapter")
             BCButton("阅读原文", icon: "book") {
               store.openSource(
                 SourcePageTarget(

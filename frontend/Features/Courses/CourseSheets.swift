@@ -10,6 +10,7 @@ struct CourseSwitcherView: View {
       ScrollView {
         VStack(spacing: 0) {
           ForEach(Array(store.courses.enumerated()), id: \.element.id) { index, course in
+            HStack(spacing: 0) {
             Button {
               store.openCourse(course)
             } label: {
@@ -42,6 +43,9 @@ struct CourseSwitcherView: View {
             }.buttonStyle(.plain).accessibilityAddTraits(
               course.id == store.selectedCourseID ? .isSelected : [])
               .accessibilityIdentifier("study.course.\(course.id)")
+            CourseDeletionButton(courseID: course.id, courseName: course.name, iconOnly: true)
+              .padding(.trailing, 8)
+            }
           }
         }
       }.frame(height: min(390, CGFloat(store.courses.count) * 82))

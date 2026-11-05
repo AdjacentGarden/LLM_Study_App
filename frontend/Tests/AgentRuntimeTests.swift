@@ -1847,3 +1847,72 @@ extension AgentRuntimeTests {
     XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter { $0.host == host }.isEmpty)
   }
 }
+
+
+extension AgentRuntimeTests {
+  @MainActor func testConfirmedRemovalOfOwnCourseEndsLocallyWithoutRevivingRunOrCallingModel() async throws {
+    let host = agentUniqueHost()
+    let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+    defer { session.invalidateAndCancel() }
+    store.isLoading = false
+    store.sources = [agentSource(bookID: "book-agent", title: "测试教材")]
+    agentRegisterCourse(store)
+    let scope = try XCTUnwrap(store.noteScope)
+    try await store.restoreCourseDeletionState()
+    var run = agentRepositoryRun(scope: scope, evidence: agentRepositoryEvidence())
+    run.context.sessionID = "removal-session"
+    run.context.messageID = "removal-question"
+    let call = AgentToolCall(id: "remove-own-course", name: "remove_course",
+      argumentsJSON: #"{"course_id":"course-agent"}"#, argumentsHash: "")
+    run.steps[0].toolCalls = [call]
+    run.pendingChoice = try await UnifiedAgentTools.prepareMutation(call, run: run, store: store)
+    run.status = .waitingForUser
+    let confirmation = try XCTUnwrap(run.pendingChoice)
+    let argumentsJSON = try XCTUnwrap(confirmation.actionArgumentsJSON)
+    let arguments = try JSONDecoder().decode([String: JSONValue].self, from: Data(argumentsJSON.utf8))
+    run = try await store.repository.saveRun(run)
+    var context = AssistantSessionContext(courseID: "course-agent", bookID: "book-agent", bookIDs: ["book-agent"],
+      chapterID: nil, courseTitle: "测试课程", chapterTitle: "", prompts: [], discovery: false)
+    context.sessionID = run.context.sessionID
+    context.messageID = run.context.messageID
+    var conversation = AssistantSession(id: "removal-session", title: "保留普通对话", context: context)
+    conversation.messages = [ChatMessage(id: "removal-question", role: "user", text: "删除这门课程")]
+    conversation.pendingQuestion = "删除这门课程"
+    conversation.runs = [run]
+    try await store.repository.saveAssistantHistory(
+      AssistantHistoryArchive(sessions: [conversation], selectedID: conversation.id), scope: scope)
+    await store.assistantHistory.load(scope: scope)
+    store.agent.resume()
+    try await agentWaitUntil { store.agent.active?.id == run.id && !store.agent.isWorking }
+    store.agent.choose(try XCTUnwrap(confirmation.options.first))
+    try await agentWaitUntil { !store.agent.isWorking && store.agent.active == nil }
+    await store.assistantHistory.flush()
+
+    let operationID = run.id + "." + call.id
+    let storedRun = try await store.repository.loadRun(run.id, scope: scope)
+    let receipt = try await store.repository.localCourseDeletionResult(operationID, scope: scope)
+    XCTAssertNil(storedRun)
+    XCTAssertEqual(receipt?["status"], .string("deleted"))
+    XCTAssertFalse(store.courses.contains { $0.id == "course-agent" })
+    let retained = try XCTUnwrap(store.assistantHistory.current)
+    XCTAssertNil(retained.context.courseID)
+    XCTAssertTrue(retained.runs?.isEmpty ?? true)
+    XCTAssertNil(retained.pendingQuestion)
+    XCTAssertNil(retained.error)
+    XCTAssertEqual(retained.messages.map(\.text), ["删除这门课程", "课程已从本机删除。"])
+    XCTAssertTrue(retained.courseLinks.isEmpty)
+    XCTAssertNil(store.agent.notice)
+    do {
+      _ = try await store.repository.saveRun(run)
+      XCTFail("The completed deletion must never resurrect its original run")
+    } catch {}
+    let replay = try await UnifiedAgentTools.performConfirmedMutation("remove_course", args: arguments,
+      operationID: operationID, scope: scope, store: store, localOnly: true)
+    XCTAssertEqual(agentJSON(Data(replay.utf8))["status"] as? String, "deleted")
+    store.agent.choose(confirmation.options[0]) // A repeated tap has no live confirmation left.
+    XCTAssertEqual(store.assistantHistory.current?.messages.count, 2)
+    XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter {
+      $0.host == host && $0.method == "POST" && $0.path == "/api/assistant/turn"
+    }.isEmpty, "A local removal receipt must terminate without another model turn")
+  }
+}
