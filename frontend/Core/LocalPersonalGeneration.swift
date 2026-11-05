@@ -180,12 +180,14 @@ enum LocalLectureSchema {
       }
       guard epoch == cloudState.epoch, scope == noteScope, response.request_id == requestID,
         canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
-      saved.state = response.state
+      // An authoritative missing claim can be submitted again under the same
+      // ID, on the next explicit action; the ledger still prevents duplicates.
+      saved.state = response.state == "not_started" ? "pending" : response.state
       saved.content = response.content
       saved.error = response.error
       try await saveTrackedLocalGeneration(saved, scope: scope)
       guard response.state == "completed", let content = response.content else {
-        throw ContentError.invalid(Self.privateGenerationMessage(state: response.state, error: response.error))
+        throw ContentError.invalid(Self.privateGenerationMessage(state: saved.state, error: saved.error))
       }
       // The durable result remains usable if best-effort server cleanup loses its response.
       // Its short-lived server copy expires without issuing another model request.
@@ -196,7 +198,9 @@ enum LocalLectureSchema {
     } catch {
       guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
       if saved.state == "submitted" {
-        saved.state = "uncertain"; saved.error = error.localizedDescription
+        let rejected = (error as? CloudError).map { !$0.transportFailure && [413, 422].contains($0.status) } ?? false
+        saved.state = rejected ? "failed" : "uncertain"
+        saved.error = rejected ? "private_request_rejected" : error.localizedDescription
         try await saveTrackedLocalGeneration(saved, scope: scope)
       }
       throw error
@@ -210,6 +214,7 @@ enum LocalLectureSchema {
     "private_model_refused": "模型服务拒绝了本次内容"]
 
   static func privateGenerationMessage(state: String, error: String?) -> String {
+    if state == "pending" { return "学习服务尚未接收本次请求，点击继续提交。" }
     guard state == "failed" else { return "模型结果尚未确认。已保留原任务，请稍后查询；不会自动重新提交。" }
     let reason = error.flatMap { privateGenerationReasons[$0] } ?? "模型服务返回失败"
     return reason + "（" + (error ?? "private_model_failed") + "）。可重新生成，将作为新的请求提交。"

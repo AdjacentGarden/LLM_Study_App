@@ -710,6 +710,13 @@ final class LearningTests: XCTestCase {
       try await store.generateLocalPersonalChapter(sessionID: "contract-session")
       XCTFail("An invalid plan must remain retryable")
     } catch { XCTAssertTrue(error.localizedDescription.contains("学习计划")) }
+    var draft = CourseDraft()
+    draft.name = "课程"; draft.resourceIDs = ["chapter-entry-book"]; draft.importCourseID = "chapter-course"
+    store.draft = draft
+    let recordID = try XCTUnwrap(store.registerCourseImport())
+    let index = try XCTUnwrap(store.importState.courses.firstIndex { $0.id == recordID })
+    store.importState.courses[index].setupCompleted = true
+    store.importState.courses[index].job.status = .completed
     XCTAssertTrue(store.hasStudyContent)
     XCTAssertEqual(store.courseCreationSteps[4].detail, "生成失败，可重试")
     XCTAssertEqual(store.studyCoursePreparation, .generation)
@@ -719,6 +726,42 @@ final class LearningTests: XCTestCase {
     XCTAssertTrue(LocalCourseContractProtocol.requestIDs().last!.hasSuffix("_a1"))
     XCTAssertTrue(store.courseCreationSteps[4].completed)
     XCTAssertNil(store.studyCoursePreparation)
+  }
+
+  func testRejectedPrivateRequestIsFailedAndRetriesOnlyOnNextAction() async throws {
+    let (store, session) = try await contractStore(mode: "request-rejected-first")
+    defer { session.invalidateAndCancel() }
+    do {
+      _ = try await store.performPrivateGeneration(id: "rejected", operation: "lecture", courseID: "chapter-course",
+        bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+      XCTFail("The schema rejection must surface")
+    } catch { XCTAssertEqual((error as? CloudError)?.status, 422) }
+    let scope = try XCTUnwrap(store.noteScope)
+    let records = try await store.repository.localGenerations(scope: scope)
+    XCTAssertEqual(records.first?.state, "failed")
+    XCTAssertEqual(LocalCourseContractProtocol.requestIDs(), ["rejected"])
+    _ = try await store.performPrivateGeneration(id: "rejected", operation: "lecture", courseID: "chapter-course",
+      bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+    XCTAssertEqual(LocalCourseContractProtocol.requestIDs(), ["rejected", "rejected_a1"])
+  }
+
+  func testMissingClaimRequiresAnotherActionAndReusesSameRequestID() async throws {
+    let (store, session) = try await contractStore(mode: "not-started-once")
+    defer { session.invalidateAndCancel() }
+    let scope = try XCTUnwrap(store.noteScope)
+    let record = LocalGenerationRecord(id: "missing-claim", courseID: "chapter-course", bookID: "chapter-entry-book",
+      chapterID: "first", operation: "lecture", body: ["request_id": .string("missing-claim"), "operation": .string("lecture"),
+        "messages": .array([]), "response_schema": .object([:]), "max_tokens": .number(32768)], state: "uncertain", attempt: nil)
+    try await store.repository.saveLocalGeneration(record, scope: scope)
+    do {
+      _ = try await store.performPrivateGeneration(id: "missing-claim", operation: "lecture", courseID: "chapter-course",
+        bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+      XCTFail("Querying must not silently submit")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("尚未接收")) }
+    XCTAssertTrue(LocalCourseContractProtocol.operations().isEmpty)
+    _ = try await store.performPrivateGeneration(id: "missing-claim", operation: "lecture", courseID: "chapter-course",
+      bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+    XCTAssertEqual(LocalCourseContractProtocol.requestIDs(), ["missing-claim"])
   }
 
   func testUnstartedAndUncertainGenerationDoNotPretendToRun() async throws {
@@ -877,6 +920,7 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
   override func startLoading() {
     do {
       var result: [String: Any] = ["ok": true]
+      var statusCode = 200
       if request.httpMethod == "POST" {
         let values = try JSONDecoder().decode([String: JSONValue].self, from: routingRequestBodyForContract(request))
         let operation = values["operation"]?.stringValue ?? ""
@@ -889,6 +933,7 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
         Self.observed.append(operation); Self.ids.append(requestID)
         let selectedMode = Self.mode
         let planNumber = Self.observed.filter { $0 == "plan" }.count
+        let requestNumber = Self.observed.count
         if let declaredSchema { Self.schema = declaredSchema }
         Self.lock.unlock()
         let citation: [String: Any] = ["page_number": 1, "quote": "原子由原子核和核外电子构成。"]
@@ -912,9 +957,16 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
               "chapter_id": "first", "lesson_id": courseID, "status": "pending", "weak_points": []]]]
         }
         let content = String(decoding: try JSONSerialization.data(withJSONObject: output), as: UTF8.self)
-        result = ["request_id": requestID, "state": "completed", "content": content, "error": ""]
+        if selectedMode == "request-rejected-first" && requestNumber == 1 {
+          statusCode = 422; result = ["detail": "个人生成请求或输出格式无效"]
+        } else { result = ["request_id": requestID, "state": "completed", "content": content, "error": ""] }
+      } else if request.httpMethod == "GET" {
+        Self.lock.lock(); let selectedMode = Self.mode; Self.lock.unlock()
+        if selectedMode == "not-started-once" {
+          result = ["request_id": request.url!.lastPathComponent, "state": "not_started", "content": NSNull()]
+        }
       }
-      let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+      let response = HTTPURLResponse(url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
       client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
       client?.urlProtocol(self, didLoad: try JSONSerialization.data(withJSONObject: result))
       client?.urlProtocolDidFinishLoading(self)

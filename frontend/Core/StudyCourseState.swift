@@ -222,6 +222,10 @@ extension LocalBookCourseRepository {
 
   var studyCoursePreparation: StudyCoursePreparation? {
     guard currentCourse != nil else { return nil }
+    if cloudState.privateLocalMode, selectedLocalGenerationStatus?.operation == "plan",
+      hasStudyContent, !sources.contains(where: {
+        currentCourse?.resourceIDs.contains($0.id) == true && !$0.plan.tasks.isEmpty
+      }) { return .generation }
     // A background import must not hide the lessons already available in this course.
     if let record = selectedCourseImport {
       if record.setupCompleted == true && hasStudyContent { return nil }
@@ -233,10 +237,6 @@ extension LocalBookCourseRepository {
       if record.setupCompleted != true { return .setup }
       if record.onDeviceOnly == true { return .localGeneration }
     }
-    if cloudState.privateLocalMode, selectedLocalGenerationStatus?.operation == "plan",
-      hasStudyContent, !sources.contains(where: {
-        currentCourse?.resourceIDs.contains($0.id) == true && !$0.plan.tasks.isEmpty
-      }) { return .generation }
     if hasStudyContent { return nil }
     if let job = selectedCourseJob, job.status != .succeeded { return .generation }
     if cloudResource != nil, !lessons.contains(where: { $0.status == "ready" }) {
