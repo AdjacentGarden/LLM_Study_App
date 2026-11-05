@@ -2,6 +2,7 @@
 import json
 from dataclasses import replace
 import httpx
+import pytest
 from native_harness import api
 from test_assistant_turn import gateway as gateway, Model, final_stream, body
 from adaptive_learning.api.private_forwarding import private_ledger, private_forwarding_router, PRIVATE_PREFIX
@@ -195,3 +196,36 @@ def test_vision_invalid_tool_arguments_are_unknown_not_text_fallback(gateway, mo
     assert response.kind == "uncertain"
     assert len(calls) == 1 and calls[0]["images"] == [("image/png", b"abc")]
     assert text.requests == []
+
+
+def test_private_schema_accepts_nullable_fields_without_weakening_required_types():
+    from adaptive_learning.api.private_forwarding import validate_schema
+    schema = {"type": "object", "properties": {"answer": {"type": ["string", "null"]}}, "required": ["answer"]}
+    validate_schema(schema)
+    validate_schema(schema, {"answer": None})
+    validate_schema(schema, {"answer": "quoted evidence"})
+    for value in [{}, {"answer": 42}, {"answer": True}]:
+        with pytest.raises(ValueError):
+            validate_schema(schema, value)
+    for kinds in [[], ["unknown"], ["string", "string"], ["string", {}]]:
+        with pytest.raises(ValueError):
+            validate_schema({"type": kinds})
+
+
+def test_private_model_nullable_contract_is_checked_before_and_after_inference(gateway):
+    a, _, install, _ = gateway
+    a.app.include_router(private_forwarding_router(api))
+    install(Model(final_stream(json.dumps({"answer": None}))))
+    payload = {"request_id": "nullable-response", "operation": "lecture",
+        "messages": [{"role": "user", "content": "Return an empty optional answer"}],
+        "response_schema": {"type": "object", "properties": {"answer": {"type": ["string", "null"]}}, "required": ["answer"]},
+        "max_tokens": 1024}
+    response = a.post("/api/assistant/private-model", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["state"] == "completed", response.json()
+    assert json.loads(response.json()["content"]) == {"answer": None}
+    payload["request_id"] = "invalid-union"
+    payload["response_schema"] = {"type": ["string", {}]}
+    assert a.post("/api/assistant/private-model", json=payload).status_code == 422
+    with api.assistant_ledger.connect() as db:
+        assert db.execute("SELECT 1 FROM assistant_steps WHERE run_id=?", ("private-model:invalid-union",)).fetchone() is None

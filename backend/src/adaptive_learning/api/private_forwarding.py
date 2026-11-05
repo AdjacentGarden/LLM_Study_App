@@ -286,7 +286,11 @@ def validate_schema(schema: Any, value: Any = ..., depth: int = 0):
     allowed = {"type", "properties", "required", "items", "additionalProperties", "enum", "description", "title",
                "minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum"}
     kind = schema.get("type")
-    if set(schema) - allowed or kind not in {"object", "array", "string", "number", "integer", "boolean", "null"}:
+    kinds = [kind] if isinstance(kind, str) else kind
+    supported = {"object", "array", "string", "number", "integer", "boolean", "null"}
+    if (set(schema) - allowed or not isinstance(kinds, list) or not kinds
+        or any(not isinstance(item, str) or item not in supported for item in kinds)
+        or len(set(kinds)) != len(kinds)):
         raise ValueError("unsupported response schema")
     for child in schema.get("properties", {}).values():
         validate_schema(child, depth=depth + 1)
@@ -294,6 +298,27 @@ def validate_schema(schema: Any, value: Any = ..., depth: int = 0):
         validate_schema(schema["items"], depth=depth + 1)
     if value is ...:
         return
+    # Select the actual value's branch without revisiting child schemas for
+    # every union member; nested nullable fields stay a bounded traversal.
+    if value is None:
+        actual = "null"
+    elif isinstance(value, bool):
+        actual = "boolean"
+    elif isinstance(value, dict):
+        actual = "object"
+    elif isinstance(value, list):
+        actual = "array"
+    elif isinstance(value, str):
+        actual = "string"
+    elif isinstance(value, int):
+        actual = "integer"
+    elif isinstance(value, float):
+        actual = "number"
+    else:
+        raise ValueError("response type mismatch")
+    kind = "number" if actual == "integer" and "integer" not in kinds and "number" in kinds else actual
+    if kind not in kinds:
+        raise ValueError("response type mismatch")
     if kind == "object":
         if not isinstance(value, dict) or any(k not in value for k in schema.get("required", [])):
             raise ValueError("response object mismatch")
