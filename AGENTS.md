@@ -16,3 +16,6 @@
 - Use isolated output directories and record commit IDs, request IDs, actual
   results and limitations. Reuse completed requests and query uncertain ones
   before initiating another paid operation.
+
+- The user disabled strict local lecture citation/pedagogical quality review.
+  Leave it off by default; retain only decoding and ownership consistency checks.

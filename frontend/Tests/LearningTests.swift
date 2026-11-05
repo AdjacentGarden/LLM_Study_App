@@ -686,6 +686,17 @@ final class LearningTests: XCTestCase {
     }
   }
 
+  func testDisabledQualityReviewAcceptsUsableCourseWithoutExactQuoteMatch() async throws {
+    let (store, session) = try await contractStore(mode: "nonexact-quote")
+    defer { session.invalidateAndCancel() }
+    XCTAssertFalse(LocalLectureSchema.qualityReviewEnabled(environment: [:]))
+    XCTAssertTrue(LocalLectureSchema.qualityReviewEnabled(environment: ["BOOKCOURSE_COURSE_QUALITY_REVIEW": "1"]))
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertFalse(store.sources.first!.plan.tasks.isEmpty)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+  }
+
   func testCitationOnlyLectureFailsBeforePlanAndKeepsDurableFailure() async throws {
     let (store, session) = try await contractStore(mode: "citation-only")
     defer { session.invalidateAndCancel() }
@@ -936,7 +947,8 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
         let requestNumber = Self.observed.count
         if let declaredSchema { Self.schema = declaredSchema }
         Self.lock.unlock()
-        let citation: [String: Any] = ["page_number": 1, "quote": "原子由原子核和核外电子构成。"]
+        let citation: [String: Any] = ["page_number": 1,
+          "quote": selectedMode == "nonexact-quote" ? "原子由原子核和核外电子组成。" : "原子由原子核和核外电子构成。"]
         let section: [String: Any] = ["title": "原子结构", "content": "原子由原子核和核外电子构成。", "purpose": "explanation", "kind": "explanation", "point_id": "p1", "citations": [citation]]
         let courseID = "local-lecture:contract-session"
         let output: [String: Any]

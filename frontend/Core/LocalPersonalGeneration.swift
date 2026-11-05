@@ -7,6 +7,9 @@ private struct LocalLectureResult: Codable, Sendable {
 
 // The provider and the native decoder share complete nested field contracts.
 enum LocalLectureSchema {
+  nonisolated static func qualityReviewEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+    environment["BOOKCOURSE_COURSE_QUALITY_REVIEW"] == "1"
+  }
   nonisolated private static let string: JSONValue = .object(["type": .string("string")])
   nonisolated private static let integer: JSONValue = .object(["type": .string("integer")])
   nonisolated private static let nullableString: JSONValue = .object(["type": .array([.string("string"), .string("null")])])
@@ -305,12 +308,17 @@ enum LocalLectureSchema {
     let course = result.course
     let sections = course.original_reading + course.worked_examples + (course.units ?? []).flatMap(\.sections)
     let citations = sections.flatMap(\.citations) + course.knowledge_points.flatMap(\.citations) + course.flashcards.flatMap(\.citations)
-    guard course.chapter_id == chapter.id, course.course_id == "local-lecture:" + session.id,
-      !course.knowledge_points.isEmpty, !(course.units ?? []).isEmpty, !citations.isEmpty,
-      citations.allSatisfy({ citation in chunks.contains { $0.page_start <= citation.page_number && $0.page_end >= citation.page_number && !citation.quote.isEmpty && $0.text.contains(citation.quote) } }),
-      Set(course.practice_items.map(\.item_id)).isSubset(of: Set(result.practice_grading.map(\.item_id))) else {
+    guard course.chapter_id == chapter.id, course.course_id == "local-lecture:" + session.id else {
       try await rejectPrivateGeneration(id: generationID, scope: scope)
-      throw ContentError.invalid("生成内容未通过教材引用或教学结构校验，可重新生成")
+      throw ContentError.invalid("生成内容的课程或章节不匹配，可重新生成")
+    }
+    if LocalLectureSchema.qualityReviewEnabled() {
+      guard !course.knowledge_points.isEmpty, !(course.units ?? []).isEmpty, !citations.isEmpty,
+        citations.allSatisfy({ citation in chunks.contains { $0.page_start <= citation.page_number && $0.page_end >= citation.page_number && !citation.quote.isEmpty && $0.text.contains(citation.quote) } }),
+        Set(course.practice_items.map(\.item_id)).isSubset(of: Set(result.practice_grading.map(\.item_id))) else {
+        try await rejectPrivateGeneration(id: generationID, scope: scope)
+        throw ContentError.invalid("生成内容未通过教材引用或教学结构校验，可重新生成")
+      }
     }
     guard epoch == cloudState.epoch, scope == noteScope,
       canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
