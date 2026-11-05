@@ -376,7 +376,7 @@ final class LearningTests: XCTestCase {
 
 
 @MainActor final class ChapterLearningEntryTests: XCTestCase {
-  private func makeStore() throws -> AppStore {
+  private func makeStore() async throws -> AppStore {
     let repository = try LocalBookCourseRepository(
       directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     let store = AppStore(repository: repository)
@@ -398,13 +398,12 @@ final class LearningTests: XCTestCase {
     store.sources = [source]
     store.selectedCourseID = "chapter-course"
     store.selectedBookID = source.id
-    // Match a hydrated account; production keeps deletion checks fail-closed before this.
-    store.courseDeletionState.scope = store.noteScope
+    try await store.ensureCourseDeletionState(scope: try XCTUnwrap(store.noteScope))
     return store
   }
 
-  func testDownloadedChapterWithoutLessonOpensRealPreparationChoice() throws {
-    let store = try makeStore()
+  func testDownloadedChapterWithoutLessonOpensRealPreparationChoice() async throws {
+    let store = try await makeStore()
     store.openChapterLearning(chapterID: "second")
     XCTAssertTrue(store.lessons.isEmpty, "Opening a chapter must not synthesize teaching content")
     XCTAssertEqual(store.selectedChapterID, "second")
@@ -415,8 +414,8 @@ final class LearningTests: XCTestCase {
     XCTAssertNotEqual(store.route, .lesson, "A missing lesson must not open an empty reader")
   }
 
-  func testBusyGenerationKeepsItsIdentityAndExplainsAnotherPendingChapter() throws {
-    let store = try makeStore()
+  func testBusyGenerationKeepsItsIdentityAndExplainsAnotherPendingChapter() async throws {
+    let store = try await makeStore()
     let session = LocalDiagnosticSession(id: "existing", courseID: "chapter-course",
       bookID: "chapter-entry-book", chapterID: "first", items: [], grades: [], position: 0, results: [:])
     store.cloudState.interview = store.localInterview(session)
@@ -432,8 +431,8 @@ final class LearningTests: XCTestCase {
     XCTAssertTrue(store.lessons.isEmpty)
   }
 
-  func testReadyChapterRemainsReadableWhileAnotherChapterIsGenerating() throws {
-    let store = try makeStore()
+  func testReadyChapterRemainsReadableWhileAnotherChapterIsGenerating() async throws {
+    let store = try await makeStore()
     var lesson = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first?.lessons.first)
     lesson.book_id = "chapter-entry-book"
     lesson.chapter_id = "first"
@@ -450,7 +449,7 @@ final class LearningTests: XCTestCase {
   }
 
   func testMissingDiagnosticBankRetainsAnExplicitDirectLearningPath() async throws {
-    let store = try makeStore()
+    let store = try await makeStore()
     do {
       try await store.beginLocalDiagnosis(chapterID: "first")
       XCTFail("A missing question bank should explain the direct-learning alternative")
@@ -471,8 +470,8 @@ final class LearningTests: XCTestCase {
     XCTAssertFalse(store.cloudState.isWorking)
   }
 
-  func testFailedChapterCanReopenPreparationWithoutFakeReadyContent() throws {
-    let store = try makeStore()
+  func testFailedChapterCanReopenPreparationWithoutFakeReadyContent() async throws {
+    let store = try await makeStore()
     store.cloudState.requestedChapterID = "second"
     store.cloudState.error = "上次生成未完成"
     store.openChapterLearning(chapterID: "second")
@@ -482,8 +481,8 @@ final class LearningTests: XCTestCase {
     XCTAssertEqual(store.cloudState.requestedChapterID, "second")
   }
 
-  func testLateGenerationStaysWithItsOwningCourseAndCannotRecreateRemovedCourse() throws {
-    let store = try makeStore()
+  func testLateGenerationStaysWithItsOwningCourseAndCannotRecreateRemovedCourse() async throws {
+    let store = try await makeStore()
     var owned = try XCTUnwrap(store.currentSource)
     owned.summary.title = "课程A内容"
     var other = owned
@@ -505,7 +504,7 @@ final class LearningTests: XCTestCase {
   }
 
   func testUnknownGenerationOutcomeRestoresOriginalSessionInsteadOfStartingAnother() async throws {
-    let store = try makeStore()
+    let store = try await makeStore()
     let scope = try XCTUnwrap(store.noteScope)
     let session = LocalDiagnosticSession(id: "uncertain-session", courseID: "chapter-course",
       bookID: "chapter-entry-book", chapterID: "first", items: [], grades: [], position: 0, results: [:])
@@ -528,8 +527,97 @@ final class LearningTests: XCTestCase {
     XCTAssertEqual(records.first?.state, "uncertain")
   }
 
+  private func waitForGate(_ gate: ChapterLearningOperationGate) async throws {
+    let deadline = ContinuousClock.now + .seconds(5)
+    while !gate.started, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    XCTAssertTrue(gate.started)
+  }
+
+  func testDeletingHeldGenerationAllowsAnotherCourseAndLateDeferCannotReleaseItsBusyState() async throws {
+    let store = try await makeStore()
+    let scope = try XCTUnwrap(store.noteScope)
+    store.courses.append(Course(id: "other-course", name: "另一课程", resourceIDs: []))
+    let first = ChapterLearningOperationGate(), second = ChapterLearningOperationGate()
+    let old = Task { @MainActor in
+      try await store.withLocalCourseLearning(courseID: "chapter-course", scope: scope) {
+        await first.wait()
+        try Task.checkCancellation()
+      }
+    }
+    try await waitForGate(first)
+    XCTAssertTrue(store.cloudState.isWorking)
+    try await store.performLocalCourseDeletion(courseID: "chapter-course", scope: scope)
+    XCTAssertFalse(store.cloudState.isWorking)
+    let next = Task { @MainActor in
+      try await store.withLocalCourseLearning(courseID: "other-course", scope: scope) {
+        await second.wait()
+        try Task.checkCancellation()
+      }
+    }
+    try await waitForGate(second)
+    let nextOwner = try XCTUnwrap(store.cloudState.localLearningOwner)
+    store.cloudState.error = "另一课程仍在准备"
+    first.finish()
+    do { try await old.value; XCTFail("A retired generation must cancel") } catch is CancellationError {} catch { XCTFail("\(error)") }
+    XCTAssertEqual(store.cloudState.localLearningOwner, nextOwner)
+    XCTAssertTrue(store.cloudState.isWorking)
+    XCTAssertEqual(store.cloudState.error, "另一课程仍在准备")
+    second.finish()
+    try await next.value
+    XCTAssertFalse(store.cloudState.isWorking)
+    XCTAssertNil(store.cloudState.localLearningOwner)
+  }
+
+  func testNestedLearningOperationCannotBorrowAnotherCoursesOwner() async throws {
+    let store = try await makeStore()
+    let scope = try XCTUnwrap(store.noteScope)
+    store.courses.append(Course(id: "other-course", name: "另一课程", resourceIDs: []))
+    var enteredWrongCourse = false
+    do {
+      try await store.withLocalCourseLearning(courseID: "chapter-course", scope: scope) {
+        try await store.withLocalCourseLearning(courseID: "other-course", scope: scope) {
+          enteredWrongCourse = true
+        }
+      }
+      XCTFail("A nested model step must preserve its owning course")
+    } catch is CancellationError {} catch { XCTFail("\(error)") }
+    XCTAssertFalse(enteredWrongCourse)
+    XCTAssertFalse(store.cloudState.isWorking)
+  }
+
+  func testOldEpochGenerationCannotReleaseSameCourseSuccessor() async throws {
+    let store = try await makeStore()
+    let scope = try XCTUnwrap(store.noteScope)
+    let first = ChapterLearningOperationGate(), second = ChapterLearningOperationGate()
+    let old = Task { @MainActor in
+      try await store.withLocalCourseLearning(courseID: "chapter-course", scope: scope) {
+        await first.wait()
+        try Task.checkCancellation()
+      }
+    }
+    try await waitForGate(first)
+    let oldOwner = try XCTUnwrap(store.cloudState.localLearningOwner)
+    store.cloudState.epoch = UUID()
+    let next = Task { @MainActor in
+      try await store.withLocalCourseLearning(courseID: "chapter-course", scope: scope) {
+        await second.wait()
+        try Task.checkCancellation()
+      }
+    }
+    try await waitForGate(second)
+    XCTAssertNotEqual(store.cloudState.localLearningOwner?.token, oldOwner.token)
+    let nextOwner = store.cloudState.localLearningOwner
+    first.finish()
+    do { try await old.value; XCTFail("An old account epoch must cancel") } catch is CancellationError {} catch { XCTFail("\(error)") }
+    XCTAssertEqual(store.cloudState.localLearningOwner, nextOwner)
+    XCTAssertTrue(store.cloudState.isWorking)
+    second.finish()
+    try await next.value
+    XCTAssertFalse(store.cloudState.isWorking)
+  }
+
   func testPersistedModelResultSurvivesAcknowledgementFailureWithoutAnotherModelPost() async throws {
-    let store = try makeStore()
+    let store = try await makeStore()
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [ChapterGenerationAckLossProtocol.self]
     let session = URLSession(configuration: configuration)
@@ -538,7 +626,7 @@ final class LearningTests: XCTestCase {
     store.cloud = CloudAPI(baseURL: URL(string: "https://chapter-generation.invalid")!, session: session)
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = "chapter-ack-scope"
-    store.courseDeletionState.scope = store.noteScope
+    try await store.ensureCourseDeletionState(scope: try XCTUnwrap(store.noteScope))
     let first = try await store.performPrivateGeneration(id: "ack-loss-job", operation: "lecture",
       courseID: "chapter-course", bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
     let replay = try await store.performPrivateGeneration(id: "ack-loss-job", operation: "lecture",
@@ -606,4 +694,18 @@ private final class ChapterGenerationAckLossProtocol: URLProtocol, @unchecked Se
     }
   }
   override func stopLoading() {}
+}
+
+
+@MainActor private final class ChapterLearningOperationGate {
+  private var continuation: CheckedContinuation<Void, Never>?
+  private(set) var started = false
+  func wait() async {
+    started = true
+    await withCheckedContinuation { continuation = $0 }
+  }
+  func finish() {
+    continuation?.resume()
+    continuation = nil
+  }
 }

@@ -6,10 +6,87 @@ private struct LocalLectureResult: Codable, Sendable {
 }
 
 @MainActor extension AppStore {
+  /// One cancellable owner spans diagnosis, lecture and plan. Nested steps share
+  /// its token; a retired task can never release a successor's busy state.
+  func withLocalCourseLearning<T: Sendable>(courseID: String, scope: String,
+    operation: @MainActor @escaping () async throws -> T) async throws -> T {
+    try await ensureCourseDeletionState(scope: scope)
+    try Task.checkCancellation()
+    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    if let owner = cloudState.localLearningOwner,
+      owner.token == LocalCourseLearningContext.token {
+      guard owner.courseID == courseID, owner.scope == scope else { throw CancellationError() }
+      try validateLocalCourseLearningOwner(owner)
+      let result = try await operation()
+      try validateLocalCourseLearningOwner(owner)
+      return result
+    }
+    if let old = cloudState.localLearningOwner,
+      old.scope != scope || old.epoch != cloudState.epoch {
+      cancelLocalCourseGenerations(courseIDs: [old.courseID], scope: old.scope)
+    }
+    guard !cloudState.isWorking, cloudState.courseTask == nil,
+      cloudState.localLearningOwner == nil else {
+      throw ContentError.invalid("正在处理学习任务，请等待当前任务完成。")
+    }
+    let owner = LocalCourseLearningOwner(token: UUID(), scope: scope,
+      epoch: cloudState.epoch, courseID: courseID)
+    let task = Task { @MainActor in
+      try await LocalCourseLearningContext.$token.withValue(owner.token) {
+        try await operation()
+      }
+    }
+    cloudState.localLearningOwner = owner
+    cloudState.cancelLocalLearningTask = { task.cancel() }
+    cloudState.isWorking = true
+    defer { finishLocalCourseLearning(owner) }
+    do {
+      let result = try await withTaskCancellationHandler {
+        try await task.value
+      } onCancel: { task.cancel() }
+      try validateLocalCourseLearningOwner(owner)
+      return result
+    } catch {
+      guard cloudState.localLearningOwner == owner, noteScope == owner.scope,
+        cloudState.epoch == owner.epoch else { throw CancellationError() }
+      throw error
+    }
+  }
+
+  private func validateLocalCourseLearningOwner(_ owner: LocalCourseLearningOwner) throws {
+    try Task.checkCancellation()
+    guard cloudState.localLearningOwner == owner, noteScope == owner.scope,
+      cloudState.epoch == owner.epoch,
+      canApplyCourseMutation(courseID: owner.courseID, scope: owner.scope) else { throw CancellationError() }
+  }
+
+  private func finishLocalCourseLearning(_ owner: LocalCourseLearningOwner) {
+    guard cloudState.localLearningOwner == owner else { return }
+    cloudState.localLearningOwner = nil
+    cloudState.cancelLocalLearningTask = nil
+    cloudState.isWorking = false
+  }
+
+  func cancelLocalCourseGenerations(courseIDs: Set<String>, scope: String) {
+    guard let owner = cloudState.localLearningOwner, owner.scope == scope,
+      courseIDs.contains(owner.courseID) else { return }
+    cloudState.cancelLocalLearningTask?()
+    finishLocalCourseLearning(owner)
+  }
+
   /// The complete request is durable before submission; unresolved submissions are queried, never reposted.
   func performPrivateGeneration(id: String, operation: String, courseID: String, bookID: String,
     chapterID: String, messages: [JSONValue], schema: [String: JSONValue]) async throws -> String {
-    guard cloudState.privateLocalMode, let cloud, let scope = noteScope else { throw ContentError.invalid("请连接支持本机个人数据的学习服务") }
+    guard cloudState.privateLocalMode, cloud != nil, let scope = noteScope else { throw ContentError.invalid("请连接支持本机个人数据的学习服务") }
+    return try await withLocalCourseLearning(courseID: courseID, scope: scope) {
+      try await self.performOwnedPrivateGeneration(id: id, operation: operation, courseID: courseID,
+        bookID: bookID, chapterID: chapterID, messages: messages, schema: schema)
+    }
+  }
+
+  private func performOwnedPrivateGeneration(id: String, operation: String, courseID: String, bookID: String,
+    chapterID: String, messages: [JSONValue], schema: [String: JSONValue]) async throws -> String {
+    guard let cloud, let scope = noteScope else { throw CancellationError() }
     let epoch = cloudState.epoch
     guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     try Task.checkCancellation()
@@ -29,6 +106,11 @@ private struct LocalLectureResult: Codable, Sendable {
       if saved.state == "pending" {
         saved.state = "submitted"
         try await repository.saveLocalGeneration(saved, scope: scope)
+        // The durable submission await can yield to deletion/account changes.
+        // Recheck immediately before the paid POST, with no intervening await.
+        try Task.checkCancellation()
+        guard epoch == cloudState.epoch,
+          canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
         response = try await cloud.privateModelStep(saved.body)
       } else {
         response = try await cloud.privateModelStepStatus(saved.id)
@@ -83,6 +165,13 @@ private struct LocalLectureResult: Codable, Sendable {
   }
 
   func generateLocalPersonalChapter(sessionID: String) async throws {
+    guard let session = cloudState.localDiagnostics[sessionID], let scope = noteScope else { throw CancellationError() }
+    try await withLocalCourseLearning(courseID: session.courseID, scope: scope) {
+      try await self.generateOwnedLocalPersonalChapter(sessionID: sessionID)
+    }
+  }
+
+  private func generateOwnedLocalPersonalChapter(sessionID: String) async throws {
     guard let session = cloudState.localDiagnostics[sessionID],
       let source = cloudState.localCourseSources[session.courseID]?.first(where: { $0.id == session.bookID })
         ?? (selectedCourseID == session.courseID ? sources.first(where: { $0.id == session.bookID }) : nil),
@@ -123,8 +212,6 @@ private struct LocalLectureResult: Codable, Sendable {
       "preferences": .object((courses.first { $0.id == courseID }?.diagnosis ?? [:]).mapValues { .array($0.map(JSONValue.string)) }),
       "learner_profile": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(preferences)),
       "diagnosis": .object(session.results), "coverage_truncated": .bool(chunks.count > 80)]
-    cloudState.isWorking = true
-    defer { cloudState.isWorking = false }
     let text = try await performPrivateGeneration(id: "lecture_" + AgentDigest.sha256(session.id), operation: "lecture",
       courseID: courseID, bookID: bookID, chapterID: chapter.id,
       messages: [.object(["role": .string("system"), "content": .string(prompt)]),

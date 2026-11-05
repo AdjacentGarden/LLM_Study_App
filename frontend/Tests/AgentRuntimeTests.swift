@@ -1916,3 +1916,63 @@ extension AgentRuntimeTests {
     }.isEmpty, "A local removal receipt must terminate without another model turn")
   }
 }
+
+
+extension AgentRuntimeTests {
+  @MainActor func testConfirmedRemovalOfReferencedCourseCompletesSurvivingRunsOnceWithoutModel() async throws {
+    for variant in ["other-course", "global", "ephemeral"] {
+      let host = agentUniqueHost()
+      let (store, session) = try agentMakeStore(directory: agentTempDirectory(), host: host)
+      defer { session.invalidateAndCancel() }
+      store.isLoading = false
+      store.sources = [agentSource(bookID: "book-agent", title: "删除教材"),
+        agentSource(bookID: "book-other", title: "保留教材")]
+      store.courses = [Course(id: "course-agent", name: "删除课程", resourceIDs: ["book-agent"]),
+        Course(id: "course-other", name: "保留课程", resourceIDs: ["book-other"])]
+      let scope = try XCTUnwrap(store.noteScope)
+      try await store.ensureCourseDeletionState(scope: scope)
+      var run = agentRepositoryRun(scope: scope, id: "remove-reference-" + variant,
+        evidence: agentRepositoryEvidence())
+      run.context.courseID = variant == "global" ? nil : "course-other"
+      run.context.bookID = variant == "global" ? "" : "book-other"
+      run.context.courseResourceID = nil
+      run.context.sessionID = "session-" + variant
+      run.ephemeral = variant == "ephemeral"
+      run.finalCourseIDs = ["course-agent", "course-other"]
+      let call = AgentToolCall(id: "remove-reference", name: "remove_course",
+        argumentsJSON: #"{"course_id":"course-agent"}"#, argumentsHash: "")
+      run.steps[0].toolCalls = [call]
+      run.pendingChoice = try await UnifiedAgentTools.prepareMutation(call, run: run, store: store)
+      run.status = .waitingForUser
+      let confirm = try XCTUnwrap(run.pendingChoice?.options.first)
+      // Seed a paused run; ephemeral then exercises loadRun's in-memory path.
+      run = try await store.repository.saveRun(run)
+      store.agent.resume()
+      try await agentWaitUntil { store.agent.active?.id == run.id && !store.agent.isWorking }
+      store.agent.choose(confirm)
+      try await agentWaitUntil { !store.agent.isWorking && store.agent.active?.status == .completed }
+      let result = try XCTUnwrap(store.agent.active)
+      XCTAssertNil(result.pendingChoice, variant)
+      XCTAssertEqual(result.context.courseID, run.context.courseID, variant)
+      XCTAssertFalse(result.evidence.contains { $0.courseID == "course-agent" }, variant)
+      XCTAssertFalse(result.finalCourseIDs?.contains("course-agent") ?? false, variant)
+      XCTAssertEqual(result.steps[0].outcomes.filter { $0.toolCallID == call.id }.count, 1, variant)
+      XCTAssertEqual(result.finalText, "课程已从本机删除。", variant)
+      XCTAssertEqual(store.courses.map(\.id), ["course-other"], variant)
+      let receipt = try await store.repository.localCourseDeletionResult(run.id + "." + call.id, scope: scope)
+      XCTAssertEqual(receipt?["status"], .string("deleted"), variant)
+      if variant != "ephemeral" {
+        let durable = try await store.repository.loadRun(run.id, scope: scope)
+        XCTAssertEqual(durable?.status, .completed, variant)
+        XCTAssertNil(durable?.pendingChoice, variant)
+        XCTAssertGreaterThan(durable?.version ?? 0, run.version, variant)
+      }
+      store.agent.choose(confirm)
+      XCTAssertEqual(store.agent.active?.steps[0].outcomes.count, 1, variant)
+      XCTAssertNil(store.agent.notice, variant)
+      XCTAssertTrue(AgentScriptedRouter.shared.snapshot().filter {
+        $0.host == host && $0.method == "POST"
+      }.isEmpty, "Finishing a local deletion must not invoke another model turn")
+    }
+  }
+}

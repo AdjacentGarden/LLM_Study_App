@@ -871,8 +871,14 @@ extension AppStore {
 
 extension UnifiedAgentTools {
   static func courseMutationVersion(_ id: String, store: AppStore) throws -> String {
-    let notes = store.notes.filter { $0.anchor?.courseID == id }.map { "\($0.id):\(store.noteState.revisions[$0.id] ?? 0)" }.sorted()
     let course = store.courses.first { $0.id == id }
+    let resources = Set((course?.resourceIDs ?? []).compactMap {
+      store.courseResourceID(courseID: id, bookID: $0)
+    })
+    let notes = store.notes.filter { note in
+      if let owner = note.anchor?.courseID { return owner == id }
+      return note.anchor?.courseResourceID.map(resources.contains) == true
+    }.map { "\($0.id):\(store.noteState.revisions[$0.id] ?? 0)" }.sorted()
     return AgentDigest.sha256(try encoded(["course": course.map { try json($0) } ?? NSNull(), "notes": notes,
       "learning_objects": try json(store.assistantState.learningObjects.filter { $0.course_id == id }),
       "mistakes": try json(store.mistakes.filter { $0.course_id == id })]))
@@ -920,10 +926,16 @@ extension UnifiedAgentTools {
       }
       return try encoded(AgentRuntime.foundationObject(.object(receipt)) as? [String: Any] ?? [:])
     }
-    if let target = store.courses.first(where: { $0.id == id }),
-      case .array(let frozen)? = args["frozen_book_ids"],
-      Set(frozen.compactMap(\.stringValue)) != Set(target.resourceIDs) {
-      throw AgentValidationError(message: "课程资料已变化，请重新确认删除")
+    if let target = store.courses.first(where: { $0.id == id }) {
+      guard args["local_version"]?.stringValue == (try courseMutationVersion(id, store: store)),
+        case .array(let frozen)? = args["frozen_book_ids"],
+        Set(frozen.compactMap(\.stringValue)) == Set(target.resourceIDs),
+        case .array(let resources)? = args["frozen_resource_ids"],
+        Set(resources.compactMap(\.stringValue)) == Set(target.resourceIDs.compactMap {
+          store.courseResourceID(courseID: id, bookID: $0)
+        }) else {
+        throw AgentValidationError(message: "课程资料或学习记录已变化，请重新确认删除")
+      }
     }
     try await store.performLocalCourseDeletion(courseID: id, scope: scope)
     guard scope == store.noteScope else { throw CancellationError() }

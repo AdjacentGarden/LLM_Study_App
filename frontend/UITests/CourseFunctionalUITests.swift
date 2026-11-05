@@ -175,6 +175,58 @@ final class CourseFunctionalUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["学习计划"].firstMatch.waitForExistence(timeout: 10))
   }
 
+
+  func testCourseDeletionCanCancelThenPersistWithoutAffectingAnotherCourse() {
+    let session = UUID().uuidString
+    let app = XCUIApplication()
+    app.launchArguments = ["--fixture", "--fixture-session", session,
+      "--fixture-reduce-motion", "--route", "study", "--book", "book_biology_2",
+      "--chapter", "c1s1"]
+    let removedCourse = "course:catalog_high_school_math_required_2"
+    let retainedCourse = "course:book_biology_2"
+    let removedRow = app.buttons["study.course.\(removedCourse)"]
+    let retainedRow = app.buttons["study.course.\(retainedCourse)"]
+    let delete = app.buttons["course.delete.\(removedCourse)"]
+
+    func openSwitcher() {
+      if !retainedRow.waitForExistence(timeout: 2) {
+        tap(app.buttons["study.course.switch"], in: app)
+      }
+      XCTAssertTrue(retainedRow.waitForExistence(timeout: 10))
+    }
+
+    app.launch()
+    openSwitcher()
+    XCTAssertTrue(removedRow.exists)
+    tap(delete, in: app)
+    let confirmation = app.sheets.firstMatch
+    XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+    tap(confirmation.buttons["取消"], in: app)
+    XCTAssertTrue(removedRow.exists, "Cancelling must keep the course in the list")
+    XCTAssertTrue(delete.exists)
+
+    tap(delete, in: app)
+    XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+    tap(confirmation.buttons["从本机删除课程"], in: app)
+    XCTAssertTrue(delete.waitForNonExistence(timeout: 10))
+    XCTAssertFalse(app.alerts["删除课程未完成"].exists)
+    openSwitcher()
+    XCTAssertFalse(removedRow.exists)
+    XCTAssertTrue(retainedRow.exists)
+
+    app.terminate()
+    app.launch()
+    openSwitcher()
+    XCTAssertFalse(removedRow.exists, "The deleted course must stay deleted after relaunch")
+    XCTAssertFalse(delete.exists)
+    tap(retainedRow, in: app)
+    let chapter = app.buttons["study.chapter.c1"]
+    XCTAssertTrue(chapter.waitForExistence(timeout: 10),
+      "Another course must still open its own chapter directory")
+    tap(chapter, in: app)
+    XCTAssertTrue(chapter.exists)
+  }
+
   func testCommunityImportCompletesQuestionnaireAndOpensStudy() {
     let app = launch("communityBook")
     tap(app.buttons["community.import"], in: app)

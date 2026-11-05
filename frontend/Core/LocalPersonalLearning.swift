@@ -293,14 +293,16 @@ extension LocalBookCourseRepository {
   func beginLocalDiagnosis(chapterID: String?, preview: Bool = false) async throws {
     guard let scope = noteScope, let courseID = selectedCourseID, let bookID = selectedBookID,
       let chapter = chapterID ?? currentSource?.chapters.first?.id else { throw ContentError.invalid("请先选择课程章节") }
-    guard !cloudState.isWorking, cloudState.courseTask == nil else {
-      showExistingChapterPreparation()
-      return
+    try await withLocalCourseLearning(courseID: courseID, scope: scope) {
+      guard self.selectedCourseID == courseID, self.selectedBookID == bookID else { throw CancellationError() }
+      try await self.beginOwnedLocalDiagnosis(courseID: courseID, bookID: bookID,
+        chapter: chapter, scope: scope, preview: preview)
     }
-    guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+  }
+
+  private func beginOwnedLocalDiagnosis(courseID: String, bookID: String, chapter: String,
+    scope: String, preview: Bool) async throws {
     let epoch = cloudState.epoch
-    cloudState.isWorking = true
-    defer { if epoch == cloudState.epoch { cloudState.isWorking = false } }
     let jobs = try await repository.localGenerations(scope: scope)
     guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     if let existing = cloudState.localDiagnostics.values.first(where: { session in
@@ -357,7 +359,15 @@ extension LocalBookCourseRepository {
     return CloudInterview(session_id: session.id, phase: phase, turn: turn, profile: .object(session.results), purpose: "learning")
   }
   func answerLocalDiagnosis(selected: [String], confidence: Double, seconds: Double) async throws {
-    guard let id = cloudState.interview?.session_id, var session = cloudState.localDiagnostics[id],
+    guard let id = cloudState.interview?.session_id, let session = cloudState.localDiagnostics[id],
+      let scope = noteScope else { throw CancellationError() }
+    try await withLocalCourseLearning(courseID: session.courseID, scope: scope) {
+      try await self.answerOwnedLocalDiagnosis(id: id, selected: selected, confidence: confidence, seconds: seconds)
+    }
+  }
+
+  private func answerOwnedLocalDiagnosis(id: String, selected: [String], confidence: Double, seconds: Double) async throws {
+    guard var session = cloudState.localDiagnostics[id],
       session.items.indices.contains(session.position) else { throw ContentError.invalid("本机诊断状态不可用") }
     guard let scope = noteScope,
       canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }

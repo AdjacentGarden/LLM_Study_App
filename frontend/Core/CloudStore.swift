@@ -44,6 +44,9 @@ extension AppStore {
     cloudState.error = error.localizedDescription
     showToast(error.localizedDescription, kind: .error)
     if let error = error as? CloudError, error.status == 401 {
+      if let owner = cloudState.localLearningOwner {
+        cancelLocalCourseGenerations(courseIDs: [owner.courseID], scope: owner.scope)
+      }
       cloudState.isWorking = false
       cloudState.diagnosisRetryAvailable = false
       cloudState.diagnosisRetryEpoch = nil
@@ -739,7 +742,13 @@ extension AppStore {
   func beginCloudLearning(chapterID: String?, retryDiagnosis: Bool = false,
     preview: Bool = false) async {
     if cloudState.privateLocalMode {
-      do { try await beginLocalDiagnosis(chapterID: chapterID, preview: preview) } catch { handleCloudError(error) }
+      let scope = noteScope, courseID = selectedCourseID, epoch = cloudState.epoch
+      do { try await beginLocalDiagnosis(chapterID: chapterID, preview: preview) }
+      catch is CancellationError { return }
+      catch {
+        guard noteScope == scope, cloudState.epoch == epoch, selectedCourseID == courseID else { return }
+        handleCloudError(error)
+      }
       return
     }
     guard cloudState.legacyPrivateSyncEnabled else { cloudState.error = "本机学习尚未就绪，请重试连接"; return }

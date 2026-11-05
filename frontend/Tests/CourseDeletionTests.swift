@@ -375,4 +375,74 @@ import XCTest
     XCTAssertTrue(CourseDeletionPruning.courseKeyIsRemoved("A:2026-11-05", separator: ":", removed: ["A"]))
   }
 
+
+  func testUploadLedgerRetirementFailureIsReportedAndRetryReclaimsOriginal() async throws {
+    let repo = try repository(), store = AppStore(repository: repo)
+    store.isLoading = false
+    store.courses = [Course(id: "A", name: "A", resourceIDs: ["book-A"]), Course(id: "B", name: "B", resourceIDs: ["book-B"])]
+    try await store.ensureCourseDeletionState(scope: "local")
+    store.restoreCourseUploads()
+    let path = try await repo.saveOriginalAttachment(Data("deleted course original".utf8), extension: "txt",
+      owner: CourseOriginalOwner(courseID: "A", scope: "local", id: "A:file"))
+    store.filePaths = ["book-A": path]
+    try await repo.saveSnapshot(store.snapshot()); try await repo.saveFilePaths(store.filePaths)
+    let batchA = CourseUploadBatch(courseID: "A", courseName: "A", scope: "local",
+      draft: CourseDraft(name: "A", resourceIDs: ["book-A"], importCourseID: "A"), addingMaterials: true,
+      files: [CourseUploadFile(filename: "A.txt", relativePath: path, bookID: "book-A", status: .completed)])
+    let batchB = CourseUploadBatch(courseID: "B", courseName: "B", scope: "local",
+      draft: CourseDraft(name: "B", resourceIDs: ["book-B"], importCourseID: "B"), addingMaterials: true,
+      files: [CourseUploadFile(filename: "B.txt", bookID: "book-B", status: .completed)])
+    store.uploadState.batches = [batchA, batchB]
+    XCTAssertTrue(store.persistCourseUploads())
+    let ledger = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: repo.directory, includingPropertiesForKeys: nil)
+      .first { $0.lastPathComponent.hasPrefix("course-uploads-") })
+    store.uploadState.failLedgerWritesForTesting = true
+    await store.deleteLocalCourse("A")
+    XCTAssertTrue(store.toast?.title.hasPrefix("删除课程未完成") == true)
+    XCTAssertFalse(store.courses.contains { $0.id == "A" })
+    let durable = try await repo.courseDeletionTombstones(scope: "local")
+    XCTAssertTrue(durable.contains { $0.courseID == "A" })
+    let failedLedger = try JSONDecoder().decode([CourseUploadBatch].self, from: Data(contentsOf: ledger))
+    XCTAssertEqual(Set(failedLedger.map(\.courseID)), ["A", "B"])
+    XCTAssertTrue(FileManager.default.fileExists(atPath: repo.attachmentURL(path).path))
+    do { try await store.performLocalCourseDeletion(courseID: "A", scope: "local"); XCTFail("Repeated cleanup must not report success while ledger is still unwritable") }
+    catch {}
+    store.uploadState.failLedgerWritesForTesting = false
+    try await store.performLocalCourseDeletion(courseID: "A", scope: "local")
+    let savedLedger = try JSONDecoder().decode([CourseUploadBatch].self, from: Data(contentsOf: ledger))
+    XCTAssertEqual(savedLedger.map(\.courseID), ["B"])
+    XCTAssertFalse(FileManager.default.fileExists(atPath: repo.attachmentURL(path).path))
+    XCTAssertTrue(store.canApplyCourseMutation(courseID: "B", scope: "local"))
+    store.suspendCourseUploads(); await store.flush()
+  }
+
+  func testRestoredDeletionStaysUnreadyUntilUploadLedgerCanRetire() async throws {
+    let repo = try repository(), initial = AppStore(repository: repo)
+    initial.isLoading = false; initial.courses = [Course(id: "A", name: "A", resourceIDs: ["book"])]
+    try await initial.ensureCourseDeletionState(scope: "local"); initial.restoreCourseUploads()
+    let path = try await repo.saveOriginalAttachment(Data("restored deleted original".utf8), extension: "txt",
+      owner: CourseOriginalOwner(courseID: "A", scope: "local", id: "A:file"))
+    initial.filePaths = ["book": path]
+    try await repo.saveSnapshot(initial.snapshot()); try await repo.saveFilePaths(initial.filePaths)
+    initial.uploadState.batches = [CourseUploadBatch(courseID: "A", courseName: "A", scope: "local",
+      draft: CourseDraft(name: "A", resourceIDs: ["book"], importCourseID: "A"), addingMaterials: true,
+      files: [CourseUploadFile(filename: "A.txt", relativePath: path, bookID: "book", status: .completed)])]
+    XCTAssertTrue(initial.persistCourseUploads())
+    try await repo.recordCourseDeletion(marker("A", paths: [path]), scope: "local")
+    initial.suspendCourseUploads()
+    let reopened = AppStore(repository: try LocalBookCourseRepository(directory: repo.directory))
+    reopened.isLoading = false; reopened.courses = initial.courses; reopened.filePaths = initial.filePaths
+    reopened.uploadState.failLedgerWritesForTesting = true
+    do { try await reopened.restoreCourseDeletionState(); XCTFail("Ledger retirement failure must propagate during launch recovery") }
+    catch {}
+    XCTAssertNil(reopened.courseDeletionState.readyEpoch)
+    XCTAssertFalse(reopened.canApplyCourseMutation(courseID: "A", scope: "local"))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: repo.attachmentURL(path).path))
+    reopened.uploadState.failLedgerWritesForTesting = false
+    try await reopened.restoreCourseDeletionState()
+    XCTAssertEqual(reopened.courseDeletionState.readyEpoch, reopened.cloudState.epoch)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: repo.attachmentURL(path).path))
+    reopened.suspendCourseUploads(); await reopened.flush()
+  }
+
 }

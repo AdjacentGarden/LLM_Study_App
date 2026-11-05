@@ -29,6 +29,23 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
   override func stopLoading() { work?.cancel(); work = nil }
 }
 
+@MainActor private final class CourseUploadInitializationBarrier {
+  var calls: [String: Int] = [:]
+  private var continuations: [String: [CheckedContinuation<Void, Never>]] = [:]
+  func wait(_ scope: String) async {
+    calls[scope, default: 0] += 1
+    await withCheckedContinuation { continuation in continuations[scope, default: []].append(continuation) }
+  }
+  func releaseAll() {
+    let pending = continuations.values.flatMap { $0 }; continuations = [:]
+    for continuation in pending { continuation.resume() }
+  }
+  func releaseNext(_ scope: String) {
+    guard var pending = continuations[scope], !pending.isEmpty else { return }
+    let next = pending.removeFirst(); continuations[scope] = pending; next.resume()
+  }
+}
+
 @MainActor final class CourseUploadTests: XCTestCase {
   private func makeStore(reply: @escaping (URLRequest) -> CourseUploadProtocol.Reply) throws -> AppStore {
     let host = "upload-" + UUID().uuidString.lowercased() + ".example"
@@ -58,7 +75,6 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
     store.isLoading = false
     store.cloudState.authenticated = true
     store.cloudState.cacheKey = host
-    store.courseDeletionState.scope = host
     store.restoreCourseUploads()
     return store
   }
@@ -499,6 +515,115 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertEqual(counts[identity.id.uuidString], 1)
     BackgroundUploadTransport.client(origin: url, scope: identity.scope).acknowledge(identity.id)
   }
+
+  func testUploadWaitsForSingleFlightDeletionInitialization() async throws {
+    let counts = UploadRequestCounts(), store = try countingStore(counts)
+    let scope = try XCTUnwrap(store.noteScope), barrier = CourseUploadInitializationBarrier()
+    defer { barrier.releaseAll() }
+    store.courseDeletionState.initializationBarrierForTesting = { await barrier.wait($0) }
+    let original = try pdf(store, name: "held-initialization.pdf")
+    let id = try XCTUnwrap(store.beginCourseUpload([original]))
+    let joined = Task { try await store.ensureCourseDeletionState(scope: scope) }
+    store.restoreCourseUploads(); store.restoreCourseUploads()
+    try await wait("One initialization must serve both upload and learning callers") { barrier.calls[scope] == 1 }
+    XCTAssertEqual(counts.value, 0)
+    XCTAssertNil(store.uploadState.restoredScope)
+    XCTAssertEqual(store.uploadState.loadedScope, scope)
+    barrier.releaseNext(scope)
+    try await joined.value
+    try await wait("Queued import must start after the durable scope gate is ready") {
+      store.uploadState.batches.first { $0.id == id }?.isComplete == true
+    }
+    XCTAssertEqual(counts.value, 1)
+    XCTAssertEqual(barrier.calls[scope], 1)
+    try await store.ensureCourseDeletionState(scope: scope)
+    XCTAssertEqual(barrier.calls[scope], 1, "Ready checks must use the cached result")
+    store.suspendCourseUploads(); await store.flush()
+  }
+
+  func testDeletionInitializationFailureBlocksUploadAndCanRetry() async throws {
+    let counts = UploadRequestCounts(), store = try countingStore(counts)
+    let scope = try XCTUnwrap(store.noteScope)
+    var attempts = 0
+    store.courseDeletionState.initializationBarrierForTesting = { _ in
+      attempts += 1
+      if attempts == 1 { throw ContentError.storage("injected deletion ledger read failure") }
+    }
+    let original = try pdf(store, name: "retry-initialization.pdf")
+    let first = try XCTUnwrap(store.beginCourseUpload([original]))
+    try await wait("Failed initialization must surface without sending the file") {
+      store.uploadState.restorationError != nil && store.uploadState.tasks[first] == nil
+    }
+    XCTAssertEqual(counts.value, 0)
+    XCTAssertNil(store.courseDeletionState.readyEpoch)
+    XCTAssertNil(store.uploadState.restoredScope)
+    store.restoreCourseUploads()
+    try await wait("A failed account initialization must be retryable") { store.uploadState.restoredScope == scope }
+    let retried = try XCTUnwrap(store.beginCourseUpload([original]))
+    try await wait("Reselected file can transfer after recovery") {
+      store.uploadState.batches.first { $0.id == retried }?.isComplete == true
+    }
+    XCTAssertEqual(counts.value, 1)
+    XCTAssertEqual(attempts, 2)
+    store.suspendCourseUploads(); await store.flush()
+  }
+
+  func testHeldInitializationAccountCycleCannotOverwriteSuccessor() async throws {
+    let counts = UploadRequestCounts(), store = try countingStore(counts)
+    let firstScope = try XCTUnwrap(store.noteScope), barrier = CourseUploadInitializationBarrier()
+    defer { barrier.releaseAll() }
+    store.courseDeletionState.initializationBarrierForTesting = { scope in
+      if scope == firstScope { await barrier.wait(scope) }
+    }
+    store.restoreCourseUploads()
+    try await wait("First account initialization should be held") { barrier.calls[firstScope] == 1 }
+    store.cloudState.epoch = UUID(); store.suspendCourseUploads()
+    store.courses = []; store.sources = []; store.filePaths = [:]; store.importState.courses = []
+    store.cloudState.cacheKey = "held-second-account"
+    store.restoreCourseUploads()
+    try await wait("Second account must initialize independently") { store.uploadState.restoredScope == "held-second-account" }
+    store.cloudState.epoch = UUID(); store.suspendCourseUploads()
+    store.courses = []; store.sources = []; store.filePaths = [:]; store.importState.courses = []
+    store.cloudState.cacheKey = firstScope
+    store.restoreCourseUploads()
+    try await wait("Returning account needs a new epoch initialization") { barrier.calls[firstScope] == 2 }
+    let successorToken = store.courseDeletionState.initializationToken
+    barrier.releaseNext(firstScope) // Retired first-epoch operation arrives late.
+    for _ in 0..<8 { await Task.yield() }
+    XCTAssertEqual(store.courseDeletionState.initializationToken, successorToken)
+    XCTAssertNotNil(store.courseDeletionState.initializationTask)
+    XCTAssertNil(store.courseDeletionState.readyEpoch)
+    XCTAssertNil(store.uploadState.restoredScope)
+    XCTAssertNil(store.uploadState.restorationError)
+    barrier.releaseNext(firstScope)
+    try await wait("Successor should become ready after its own barrier") { store.uploadState.restoredScope == firstScope }
+    XCTAssertEqual(store.courseDeletionState.readyEpoch, store.cloudState.epoch)
+    XCTAssertEqual(store.courseDeletionState.scope, firstScope)
+    XCTAssertEqual(counts.value, 0)
+    store.suspendCourseUploads(); await store.flush()
+  }
+
+
+  func testSameAccountEpochChangeReinitializesBeforeNextUpload() async throws {
+    let counts = UploadRequestCounts(), store = try countingStore(counts)
+    let scope = try XCTUnwrap(store.noteScope)
+    let first = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "before-epoch.pdf", contents: "first")] ))
+    try await wait("First epoch upload should finish") { store.uploadState.batches.first { $0.id == first }?.isComplete == true }
+    let oldEpoch = store.cloudState.epoch
+    // A failed logout can renew the epoch while retaining authentication and
+    // cacheKey. No explicit upload suspension is guaranteed on that error path.
+    store.cloudState.epoch = UUID()
+    let second = try XCTUnwrap(store.beginCourseUpload([pdf(store, name: "after-epoch.pdf", contents: "second")] ))
+    try await wait("Same-scope new epoch must initialize and transfer") { store.uploadState.batches.first { $0.id == second }?.isComplete == true }
+    XCTAssertNotEqual(oldEpoch, store.cloudState.epoch)
+    XCTAssertEqual(store.courseDeletionState.readyEpoch, store.cloudState.epoch)
+    XCTAssertEqual(store.uploadState.loadedEpoch, store.cloudState.epoch)
+    XCTAssertEqual(store.uploadState.restoredEpoch, store.cloudState.epoch)
+    XCTAssertEqual(store.uploadState.restoredScope, scope)
+    XCTAssertEqual(counts.value, 2)
+    store.suspendCourseUploads(); await store.flush()
+  }
+
 }
 
 private final class UploadRequestCounts: @unchecked Sendable {

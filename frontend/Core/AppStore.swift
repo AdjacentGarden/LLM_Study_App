@@ -1424,7 +1424,10 @@ extension AppStore {
   func courseRemovalSummary(_ id: String) -> String {
     guard let course = courses.first(where: { $0.id == id }) else { return "课程已不存在" }
     let resourceIDs = Set(course.resourceIDs.compactMap { courseResourceID(courseID: id, bookID: $0) })
-    let noteCount = notes.filter { $0.anchor?.courseResourceID.map(resourceIDs.contains) == true }.count
+    let noteCount = notes.filter { note in
+      if let owner = note.anchor?.courseID { return owner == id }
+      return note.anchor?.courseResourceID.map(resourceIDs.contains) == true
+    }.count
     let ownedBooks = course.resourceIDs.filter { bookID in
       !courses.contains(where: { $0.id != id && $0.resourceIDs.contains(bookID) })
     }
@@ -1495,11 +1498,12 @@ extension AppStore {
 
   func confirmCourseRemoval(_ confirmation: CourseRemovalConfirmation) async throws {
     guard confirmation.scope == noteScope else { throw CancellationError() }
-    if let course = courses.first(where: { $0.id == confirmation.courseID }),
-      case .array(let frozen)? = confirmation.arguments["frozen_book_ids"],
-      Set(frozen.compactMap(\.stringValue)) != Set(course.resourceIDs) {
-      throw ContentError.invalid("课程资料已变化，请重新确认删除。")
+    guard confirmation.arguments["course_id"]?.stringValue == confirmation.courseID else {
+      throw ContentError.invalid("删除目标已变化，请重新确认删除。")
     }
-    try await performLocalCourseDeletion(courseID: confirmation.courseID, scope: confirmation.scope)
+    // Manual and assistant confirmations share the frozen-impact check and receipt.
+    _ = try await UnifiedAgentTools.performConfirmedMutation("remove_course",
+      args: confirmation.arguments, operationID: confirmation.operationID,
+      scope: confirmation.scope, store: self)
   }
 }

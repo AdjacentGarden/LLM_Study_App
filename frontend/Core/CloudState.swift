@@ -79,6 +79,17 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var pendingPlanCompletions: [CloudPlanCompletion]? = nil
 }
 
+struct LocalCourseLearningOwner: Equatable, Sendable {
+  let token: UUID
+  let scope: String
+  let epoch: UUID
+  let courseID: String
+}
+
+enum LocalCourseLearningContext {
+  @TaskLocal static var token: UUID?
+}
+
 @MainActor @Observable final class CloudState {
   var legacyPrivateSyncEnabled = false
   var localDeletedCourseIDs: Set<String> = []
@@ -98,6 +109,8 @@ struct CloudLocalSnapshot: Codable, Sendable {
   var onboardingComplete = false
   var requiresPersonalization = false
   var isWorking = false
+  @ObservationIgnored var localLearningOwner: LocalCourseLearningOwner?
+  @ObservationIgnored var cancelLocalLearningTask: (@Sendable () -> Void)?
   var localStageFingerprints: [String: String] = [:]
   @ObservationIgnored var stageSaveTasks: [String: Task<Void, Never>] = [:]
   var materialSyncCount = 0

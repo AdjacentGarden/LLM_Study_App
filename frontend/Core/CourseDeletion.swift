@@ -28,6 +28,14 @@ struct CourseOriginalAttachment: Codable, Sendable {
   var scope: String?
   var tombstones: [String: CourseDeletionTombstone] = [:]
   var deleting: Set<String> = []
+  @ObservationIgnored var readyEpoch: UUID?
+  @ObservationIgnored var initializationTask: Task<Void, Error>?
+  @ObservationIgnored var initializationScope: String?
+  @ObservationIgnored var initializationEpoch: UUID?
+  @ObservationIgnored var initializationToken = UUID()
+  #if DEBUG
+  @ObservationIgnored var initializationBarrierForTesting: (@MainActor (String) async throws -> Void)?
+  #endif
   var deletedIDs: Set<String> { tombstones.values.reduce(into: Set<String>()) { $0.formUnion($1.allCourseIDs) } }
 }
 
@@ -449,50 +457,115 @@ extension LocalBookCourseRepository {
 
 @MainActor extension AppStore {
   func canApplyCourseMutation(courseID: String, scope: String) -> Bool {
-    noteScope == scope && courseDeletionState.scope == scope
+    noteScope == scope && courseDeletionState.scope == scope && courseDeletionState.readyEpoch == cloudState.epoch
       && !courseDeletionState.deleting.contains(courseID)
       && !courseDeletionState.deletedIDs.contains(courseID)
       && courses.contains { $0.id == courseID }
   }
-  /// Invoke after identifying the account and before resuming any course work.
-  func restoreCourseDeletionState() async throws {
-    guard let scope = noteScope else { courseDeletionState.scope = nil; courseDeletionState.tombstones = [:]; return }
-    var tombstones = try await repository.courseDeletionTombstones(scope: scope)
-    guard noteScope == scope else { throw CancellationError() }
-    for id in cloudState.localDeletedCourseIDs where !tombstones.contains(where: { $0.allCourseIDs.contains(id) }) {
-      let marker = CourseDeletionTombstone(courseID: id, workspaceIDs: [id], bookIDs: [], resourceIDs: [])
-      try await repository.recordCourseDeletion(marker, scope: scope)
-      guard noteScope == scope else { throw CancellationError() }
-      tombstones.append(marker)
+  /// Join one durable initialization for this account and login epoch. Learning
+  /// and upload entry points use the same gate; repeated checks do not decode the
+  /// account authority or scan files again after a successful initialization.
+  func ensureCourseDeletionState(scope: String) async throws {
+    let epoch = cloudState.epoch
+    guard noteScope == scope, !Task.isCancelled else { throw CancellationError() }
+    if courseDeletionState.scope == scope, courseDeletionState.readyEpoch == epoch,
+      cloudState.localDeletedCourseIDs.isSubset(of: courseDeletionState.deletedIDs) { return }
+    let task: Task<Void, Error>
+    if courseDeletionState.initializationScope == scope, courseDeletionState.initializationEpoch == epoch,
+      let current = courseDeletionState.initializationTask {
+      task = current
+    } else {
+      courseDeletionState.initializationTask?.cancel()
+      let token = UUID()
+      courseDeletionState.initializationToken = token
+      courseDeletionState.initializationScope = scope
+      courseDeletionState.initializationEpoch = epoch
+      courseDeletionState.readyEpoch = nil
+      task = Task { @MainActor in
+        defer {
+          if self.courseDeletionState.initializationToken == token {
+            self.courseDeletionState.initializationTask = nil
+            self.courseDeletionState.initializationScope = nil
+            self.courseDeletionState.initializationEpoch = nil
+          }
+        }
+        #if DEBUG
+        try await self.courseDeletionState.initializationBarrierForTesting?(scope)
+        #endif
+        guard self.noteScope == scope, self.cloudState.epoch == epoch,
+          self.courseDeletionState.initializationToken == token, !Task.isCancelled else { throw CancellationError() }
+        var tombstones = try await self.repository.courseDeletionTombstones(scope: scope)
+        guard self.noteScope == scope, self.cloudState.epoch == epoch,
+          self.courseDeletionState.initializationToken == token, !Task.isCancelled else { throw CancellationError() }
+        for id in self.cloudState.localDeletedCourseIDs where !tombstones.contains(where: { $0.allCourseIDs.contains(id) }) {
+          let marker = CourseDeletionTombstone(courseID: id, workspaceIDs: [id], bookIDs: [], resourceIDs: [])
+          try await self.repository.recordCourseDeletion(marker, scope: scope)
+          guard self.noteScope == scope, self.cloudState.epoch == epoch,
+            self.courseDeletionState.initializationToken == token, !Task.isCancelled else { throw CancellationError() }
+          tombstones.append(marker)
+        }
+        self.courseDeletionState.scope = scope
+        self.courseDeletionState.tombstones = Dictionary(uniqueKeysWithValues: tombstones.map { ($0.courseID, $0) })
+        self.courseDeletionState.deleting = []
+        for marker in tombstones { self.cancelLocalCourseGenerations(courseIDs: marker.allCourseIDs, scope: scope) }
+        self.applyCourseDeletionsInMemory(tombstones)
+        for marker in tombstones {
+          guard self.retireCourseUploadsForDeletion(courseIDs: marker.allCourseIDs, scope: self.courseUploadScope) else {
+            throw ContentError.storage("课程删除已生效，上传记录和原件清理未完成；下次启动会继续清理。")
+          }
+        }
+        try await self.repository.finishCourseDeletion(scope: scope)
+        guard self.noteScope == scope, self.cloudState.epoch == epoch,
+          self.courseDeletionState.initializationToken == token, !Task.isCancelled else { throw CancellationError() }
+        self.courseDeletionState.readyEpoch = epoch
+      }
+      courseDeletionState.initializationTask = task
     }
-    courseDeletionState.scope = scope
-    courseDeletionState.tombstones = Dictionary(uniqueKeysWithValues: tombstones.map { ($0.courseID, $0) })
-    courseDeletionState.deleting = []
-    applyCourseDeletionsInMemory(tombstones)
-    // Persist upload retirement before reclaiming any original file.
-    for marker in tombstones { retireCourseUploadsForDeletion(courseIDs: marker.allCourseIDs, scope: courseUploadScope) }
-    try await repository.finishCourseDeletion(scope: scope)
+    try await task.value
+    guard noteScope == scope, cloudState.epoch == epoch, !Task.isCancelled,
+      courseDeletionState.scope == scope, courseDeletionState.readyEpoch == epoch else { throw CancellationError() }
+  }
+  /// Compatibility entry for account hydration and launch recovery.
+  func restoreCourseDeletionState() async throws {
+    guard let scope = noteScope else {
+      courseDeletionState.initializationTask?.cancel(); courseDeletionState.initializationTask = nil
+      courseDeletionState.initializationToken = UUID(); courseDeletionState.readyEpoch = nil
+      courseDeletionState.scope = nil; courseDeletionState.tombstones = [:]
+      return
+    }
+    try await ensureCourseDeletionState(scope: scope)
+    applyCourseDeletionsInMemory(Array(courseDeletionState.tombstones.values))
   }
   func deleteLocalCourse(_ id: String) async {
     guard let scope = noteScope else { return }
+    let epoch = cloudState.epoch
     do {
       try await performLocalCourseDeletion(courseID: id, scope: scope)
-      if scope == noteScope { showToast("课程已从本机删除", kind: .success) }
+      if scope == noteScope, epoch == cloudState.epoch { showToast("课程已从本机删除", kind: .success) }
     } catch {
-      if scope == noteScope { showToast("删除课程未完成：" + error.localizedDescription, kind: .error) }
+      if scope == noteScope, epoch == cloudState.epoch { showToast("删除课程未完成：" + error.localizedDescription, kind: .error) }
     }
   }
   func performLocalCourseDeletion(courseID id: String, scope: String) async throws {
+    let epoch = cloudState.epoch
     guard noteScope == scope else { throw CancellationError() }
-    if courseDeletionState.scope != scope { try await restoreCourseDeletionState() }
+    try await ensureCourseDeletionState(scope: scope)
+    guard noteScope == scope, epoch == cloudState.epoch, !Task.isCancelled else { throw CancellationError() }
     guard !courseDeletionState.deleting.contains(id) else { throw ContentError.invalid("课程正在删除，请稍候。") }
     let existing = courseDeletionState.tombstones[id]
     guard let course = courses.first(where: { $0.id == id }) else {
-      if existing != nil { try await repository.finishCourseDeletion(scope: scope) }
+      if let existing {
+        guard retireCourseUploadsForDeletion(courseIDs: existing.allCourseIDs, scope: courseUploadScope) else {
+          throw ContentError.storage("课程删除已生效，上传记录和原件清理未完成；下次启动会继续清理。")
+        }
+        cancelLocalCourseGenerations(courseIDs: existing.allCourseIDs, scope: scope)
+        try await repository.finishCourseDeletion(scope: scope)
+        guard noteScope == scope, epoch == cloudState.epoch, !Task.isCancelled else { throw CancellationError() }
+      }
       return
     }
     courseDeletionState.deleting.insert(id)
-    defer { if noteScope == scope { courseDeletionState.deleting.remove(id) } }
+    defer { if noteScope == scope, epoch == cloudState.epoch { courseDeletionState.deleting.remove(id) } }
     let record = courseImport(for: id)
     var aliases: Set<String> = [id]
     if let record { aliases.insert(workspaceID(for: record)); aliases.insert(record.id) }
@@ -525,9 +598,9 @@ extension LocalBookCourseRepository {
     }
     try await repository.recordCourseDeletion(marker, scope: scope)
     // Cancellation begins only after SQLite has committed the durable barrier.
-    guard noteScope == scope else { throw CancellationError() }
+    guard noteScope == scope, epoch == cloudState.epoch, !Task.isCancelled else { throw CancellationError() }
     courseDeletionState.tombstones[id] = marker
-    retireCourseUploadsForDeletion(courseIDs: aliases, scope: courseUploadScope)
+    let uploadsRetired = retireCourseUploadsForDeletion(courseIDs: aliases, scope: courseUploadScope)
     for alias in aliases {
       importState.tasks[alias]?.cancel(); importState.tasks[alias] = nil
       importState.processingRoutes[alias] = nil
@@ -535,6 +608,7 @@ extension LocalBookCourseRepository {
       cloudState.stageSaveTasks[key]?.cancel(); cloudState.stageSaveTasks[key] = nil
       cloudState.localStageFingerprints[key] = nil
     }
+    cancelLocalCourseGenerations(courseIDs: aliases, scope: scope)
     if cloudState.diagnosisWorkspaceID.map(aliases.contains) == true {
       cloudState.courseTask?.cancel(); cloudState.courseTask = nil; cloudState.courseJob = nil
       cloudState.interview = nil; cloudState.showDiagnosis = false
@@ -543,7 +617,11 @@ extension LocalBookCourseRepository {
     assistantHistory.removeCourseReferences(tombstones: Array(courseDeletionState.tombstones.values))
     applyCourseDeletionsInMemory(Array(courseDeletionState.tombstones.values))
     persist()
+    guard uploadsRetired else {
+      throw ContentError.storage("课程删除已生效，上传记录和原件清理未完成；下次启动会继续清理。")
+    }
     try await repository.finishCourseDeletion(scope: scope)
+    guard noteScope == scope, epoch == cloudState.epoch, !Task.isCancelled else { throw CancellationError() }
   }
   func applyCourseDeletionsInMemory(_ tombstones: [CourseDeletionTombstone]) {
     guard !tombstones.isEmpty else { return }

@@ -48,6 +48,15 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
   var batches: [CourseUploadBatch] = []
   var presentedID: UUID?
   @ObservationIgnored var loadedScope: String?
+  @ObservationIgnored var loadedEpoch: UUID?
+  @ObservationIgnored var restoredScope: String?
+  @ObservationIgnored var restoredEpoch: UUID?
+  @ObservationIgnored var restorationTask: Task<Void, Error>?
+  @ObservationIgnored var restorationToken = UUID()
+  @ObservationIgnored var restorationError: String?
+  #if DEBUG
+  @ObservationIgnored var failLedgerWritesForTesting = false
+  #endif
   @ObservationIgnored var tasks: [UUID: Task<Void, Never>] = [:]
   @ObservationIgnored var taskTokens: [UUID: UUID] = [:]
   @ObservationIgnored var stagedBooksByHash: [String: String] = [:]
@@ -64,11 +73,23 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     let hash = SHA256.hash(data: Data(courseUploadScope.utf8)).map { String(format: "%02x", $0) }.joined()
     return repository.directory.appendingPathComponent("course-uploads-\(hash).json")
   }
+  private func writeCourseUploadLedger(_ batches: [CourseUploadBatch]) throws {
+    #if DEBUG
+    if uploadState.failLedgerWritesForTesting { throw ContentError.storage("上传账本暂时不可写") }
+    #endif
+    let data = try JSONEncoder().encode(batches)
+    try data.write(to: courseUploadFileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+  }
+  private func readCourseUploadLedger() throws -> [CourseUploadBatch] {
+    guard FileManager.default.fileExists(atPath: courseUploadFileURL.path) else { return [] }
+    return try JSONDecoder().decode([CourseUploadBatch].self, from: Data(contentsOf: courseUploadFileURL))
+      .filter { $0.scope == courseUploadScope }
+  }
   @discardableResult func persistCourseUploads() -> Bool {
+    guard uploadState.loadedScope == courseUploadScope, uploadState.loadedEpoch == cloudState.epoch else { return false }
     do {
-      let batches = uploadState.batches.filter { !courseDeletionState.deletedIDs.contains($0.courseID) }
-      let data = try JSONEncoder().encode(batches)
-      try data.write(to: courseUploadFileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      let removed = courseDeletionState.scope == noteScope ? courseDeletionState.deletedIDs : []
+      try writeCourseUploadLedger(uploadState.batches.filter { $0.scope == courseUploadScope && !removed.contains($0.courseID) })
       return true
     } catch {
       showToast("上传进度保存失败", kind: .error)
@@ -76,20 +97,64 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     }
   }
 
-  /// Called after account hydration. Reattaches to system transfers, rather than
-  /// starting a second HTTP write when a background transfer already exists.
+  /// Read the new account's ledger and retire the old account immediately. Course
+  /// reconstruction and transfers wait for the matching durable deletion ledger.
+  /// New imports may join this scope while hydration is in flight; their batches
+  /// are retained alongside the restored ledger instead of overwriting it.
   func restoreCourseUploads() {
-    guard !isLoading, cloud == nil || cloudState.authenticated,
-      courseDeletionState.scope == noteScope else { return }
-    guard uploadState.loadedScope != courseUploadScope else { return }
-    suspendCourseUploads()
-    uploadState.loadedScope = courseUploadScope
+    guard !isLoading, cloud == nil || cloudState.authenticated else { return }
+    let scope = courseUploadScope
+    if uploadState.loadedScope != scope || uploadState.loadedEpoch != cloudState.epoch {
+      suspendCourseUploads()
+      do { uploadState.batches = try readCourseUploadLedger() }
+      catch { cloudState.cacheWriteError = error.localizedDescription; return }
+      uploadState.loadedScope = scope
+      uploadState.loadedEpoch = cloudState.epoch
+    }
+    guard uploadState.restoredScope != scope || uploadState.restoredEpoch != cloudState.epoch else { return }
+    guard uploadState.restorationTask == nil else { return }
+    if courseDeletionState.scope == noteScope, courseDeletionState.readyEpoch == cloudState.epoch, uploadState.restorationError == nil {
+      do { try finishRestoringCourseUploads() }
+      catch { uploadState.restorationError = error.localizedDescription; cloudState.cacheWriteError = error.localizedDescription }
+      return
+    }
+    guard let ownerScope = noteScope else { return }
+    let epoch = cloudState.epoch, token = UUID()
+    uploadState.restorationToken = token
+    uploadState.restorationTask = Task { @MainActor in
+      defer {
+        if self.uploadState.restorationToken == token { self.uploadState.restorationTask = nil }
+      }
+      do {
+        guard epoch == self.cloudState.epoch, scope == self.courseUploadScope,
+          self.uploadState.loadedScope == scope, self.uploadState.restorationToken == token,
+          !Task.isCancelled else { throw CancellationError() }
+        try await self.ensureCourseDeletionState(scope: ownerScope)
+        try Task.checkCancellation()
+        guard epoch == self.cloudState.epoch, scope == self.courseUploadScope,
+          self.uploadState.loadedScope == scope, self.uploadState.restorationToken == token else { throw CancellationError() }
+        try self.finishRestoringCourseUploads()
+      } catch {
+        if epoch == self.cloudState.epoch, scope == self.courseUploadScope,
+          self.uploadState.loadedScope == scope, self.uploadState.restorationToken == token {
+          self.uploadState.restorationError = error.localizedDescription
+          self.cloudState.cacheWriteError = error.localizedDescription
+        }
+        throw error
+      }
+    }
+  }
+
+  private func finishRestoringCourseUploads() throws {
+    let scope = courseUploadScope
+    guard uploadState.loadedScope == scope, uploadState.loadedEpoch == cloudState.epoch,
+      courseDeletionState.scope == noteScope,
+      courseDeletionState.readyEpoch == cloudState.epoch,
+      uploadState.restoredScope != scope || uploadState.restoredEpoch != cloudState.epoch else { return }
     #if DEBUG
-      if installCourseUploadFixtureIfRequested() { return }
+      if installCourseUploadFixtureIfRequested() { uploadState.restoredScope = scope; uploadState.restoredEpoch = cloudState.epoch; return }
     #endif
-    uploadState.batches = (try? Data(contentsOf: courseUploadFileURL))
-      .flatMap { try? JSONDecoder().decode([CourseUploadBatch].self, from: $0) } ?? []
-    uploadState.batches.removeAll { courseDeletionState.deletedIDs.contains($0.courseID) }
+    uploadState.batches.removeAll { $0.scope != scope || courseDeletionState.deletedIDs.contains($0.courseID) }
     applyArchivedCourseUploadAliases()
     for id in uploadState.batches.map(\.id) {
       if let pending = uploadState.batches.first(where: { $0.id == id }),
@@ -98,8 +163,6 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
         finishStagingCourseUpload(id, showNotice: false)
       }
       guard let batch = uploadState.batches.first(where: { $0.id == id }) else { continue }
-      // A process may stop after the receipt is durable but before its larger
-      // account snapshot finishes. Reapply that accepted identity locally.
       for file in batch.files {
         if let original = file.originalBookID, let book = file.bookID, original != book,
           sources.contains(where: { $0.id == original }) {
@@ -113,14 +176,20 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
           activeResourceID: batch.files.first { !$0.isSkippedDuplicate }?.bookID))
       }
       for file in batch.files where file.status == .preparing {
+        // In-memory imports have their source URLs in an already queued task.
+        // Only receipts restored without such a task require the owner to retry.
+        guard uploadState.tasks[batch.id] == nil else { continue }
         updateCourseUpload(batch.id, fileID: file.id) {
           $0.status = .failed
           $0.error = "文件尚未保存，请重新选择此文件。"
         }
       }
-      if batch.isRunning { launchCourseUpload(batch.id) }
     }
-    persistCourseUploads()
+    try writeCourseUploadLedger(uploadState.batches)
+    uploadState.restoredScope = scope
+    uploadState.restoredEpoch = cloudState.epoch
+    uploadState.restorationError = nil
+    for batch in uploadState.batches where batch.isRunning { launchCourseUpload(batch.id) }
     startCourseUploadMonitor()
     if cloudState.privateLocalMode { Task { await resumePublicLibraryTasks() } }
   }
@@ -170,35 +239,43 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
   /// receipts is essential: launch recovery otherwise recreates missing courses.
   @discardableResult func retireCourseUploadsForDeletion(courseIDs: Set<String>, scope: String) -> Bool {
     guard scope == courseUploadScope else { return false }
-    let saved = (try? Data(contentsOf: courseUploadFileURL))
-      .flatMap { try? JSONDecoder().decode([CourseUploadBatch].self, from: $0) } ?? []
-    let owned = (uploadState.batches + saved).filter { $0.scope == scope && courseIDs.contains($0.courseID) }
-    let ids = Set(owned.map(\.id))
-    for batch in owned {
-      uploadState.tasks[batch.id]?.cancel(); uploadState.tasks[batch.id] = nil
-      uploadState.taskTokens[batch.id] = nil
-      for file in batch.files {
-        if let cloud, cloud.usesNativeBackgroundUploads {
-          Task { await BackgroundUploadTransport.client(origin: cloud.baseURL, scope: scope).cancel(file.requestID) }
+    do {
+      let saved = try readCourseUploadLedger()
+      guard Set(saved.map(\.id)).count == saved.count else { throw ContentError.storage("上传记录重复，暂未清理原件。") }
+      var merged = saved
+      if uploadState.loadedScope == scope {
+        for batch in uploadState.batches where batch.scope == scope {
+          if let index = merged.firstIndex(where: { $0.id == batch.id }) { merged[index] = batch }
+          else { merged.append(batch) }
         }
       }
-    }
-    if uploadState.presentedID.map(ids.contains) == true { uploadState.presentedID = nil }
-    let remaining = (uploadState.loadedScope == scope ? uploadState.batches : saved)
-      .filter { !($0.scope == scope && courseIDs.contains($0.courseID)) }
-    if uploadState.loadedScope == scope { uploadState.batches = remaining }
-    do {
-      try JSONEncoder().encode(remaining).write(to: courseUploadFileURL,
-        options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      let owned = merged.filter { courseIDs.contains($0.courseID) }
+      let ids = Set(owned.map(\.id))
+      for batch in owned {
+        uploadState.tasks[batch.id]?.cancel(); uploadState.tasks[batch.id] = nil
+        uploadState.taskTokens[batch.id] = nil
+        for file in batch.files {
+          if let cloud, cloud.usesNativeBackgroundUploads {
+            Task { await BackgroundUploadTransport.client(origin: cloud.baseURL, scope: scope).cancel(file.requestID) }
+          }
+        }
+      }
+      if uploadState.presentedID.map(ids.contains) == true { uploadState.presentedID = nil }
+      let remaining = merged.filter { !courseIDs.contains($0.courseID) }
+      if uploadState.loadedScope == scope { uploadState.batches = remaining }
+      try writeCourseUploadLedger(remaining)
       return true
     } catch {
-      // The persisted course tombstone still prevents restoration of this ledger.
+      // The tombstone already blocks callbacks and restoration, but callers must
+      // report incomplete cleanup until this durable receipt retirement succeeds.
       cloudState.cacheWriteError = error.localizedDescription
       return false
     }
   }
 
   func suspendCourseUploads() {
+    uploadState.restorationTask?.cancel(); uploadState.restorationTask = nil
+    uploadState.restorationToken = UUID(); uploadState.restoredScope = nil; uploadState.restoredEpoch = nil; uploadState.restorationError = nil
     for task in uploadState.tasks.values { task.cancel() }
     uploadState.tasks = [:]
     uploadState.taskTokens = [:]
@@ -208,14 +285,17 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     uploadState.monitor = nil
     uploadState.presentedID = nil
     uploadState.batches = []
-    uploadState.loadedScope = nil
+    uploadState.loadedScope = nil; uploadState.loadedEpoch = nil
   }
 
   @discardableResult func beginCourseUpload(_ urls: [URL], targetCourseID: String? = nil) -> UUID? {
-    guard !urls.isEmpty, cloud == nil || cloudState.authenticated else { return nil }
-    if uploadState.loadedScope != courseUploadScope { restoreCourseUploads() }
-    if let targetCourseID, courseDeletionState.deletedIDs.contains(targetCourseID)
-      || courseDeletionState.deleting.contains(targetCourseID) { return nil }
+    guard !isLoading, !urls.isEmpty, cloud == nil || cloudState.authenticated else { return nil }
+    restoreCourseUploads()
+    guard uploadState.loadedScope == courseUploadScope, uploadState.loadedEpoch == cloudState.epoch,
+      (uploadState.restoredScope == courseUploadScope && uploadState.restoredEpoch == cloudState.epoch)
+        || uploadState.restorationTask != nil else { return nil }
+    if let targetCourseID, courseDeletionState.scope == noteScope,
+      courseDeletionState.deletedIDs.contains(targetCourseID) || courseDeletionState.deleting.contains(targetCourseID) { return nil }
     let course = targetCourseID.flatMap { id in courses.first { $0.id == id } }
     let courseID = course?.id ?? "local-course:upload:" + UUID().uuidString
     var savedDraft = course == nil ? draft : CourseDraft()
@@ -243,9 +323,25 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     guard uploadState.tasks[id] == nil else { return }
     let epoch = cloudState.epoch
     let token = UUID()
+    let restoration = uploadState.restorationTask
     uploadState.taskTokens[id] = token
     uploadState.tasks[id] = Task { @MainActor in
-      await runCourseUpload(id, originals: originals, epoch: epoch)
+      do {
+        try await restoration?.value
+        try Task.checkCancellation()
+        guard uploadState.restoredScope == courseUploadScope, uploadState.restoredEpoch == cloudState.epoch,
+          courseDeletionState.scope == noteScope,
+          courseDeletionState.readyEpoch == cloudState.epoch else { throw CancellationError() }
+        await runCourseUpload(id, originals: originals, epoch: epoch)
+      } catch is CancellationError { }
+      catch {
+        if courseUploadIsCurrent(id, epoch: epoch), let batch = uploadState.batches.first(where: { $0.id == id }) {
+          for file in batch.files where [.preparing, .queued, .uploading].contains(file.status) {
+            updateCourseUpload(id, fileID: file.id) { $0.status = .failed; $0.error = error.localizedDescription }
+          }
+          persistCourseUploads()
+        }
+      }
       if epoch == cloudState.epoch, uploadState.taskTokens[id] == token {
         uploadState.tasks[id] = nil
         uploadState.taskTokens[id] = nil
@@ -344,7 +440,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
   }
 
   private func courseUploadIsCurrent(_ id: UUID, epoch: UUID) -> Bool {
-    epoch == cloudState.epoch && uploadState.loadedScope == courseUploadScope
+    epoch == cloudState.epoch && uploadState.loadedScope == courseUploadScope && uploadState.loadedEpoch == epoch
       && uploadState.batches.contains { $0.id == id && $0.scope == courseUploadScope
         && !courseDeletionState.deletedIDs.contains($0.courseID)
         && !courseDeletionState.deleting.contains($0.courseID) }
@@ -609,6 +705,7 @@ struct CourseUploadPresentation: Identifiable { var id: UUID }
     persistCourseUploads()
   }
   func retryCourseUpload(_ id: UUID) {
+    restoreCourseUploads()
     guard let index = uploadState.batches.firstIndex(where: { $0.id == id }), !uploadState.batches[index].isRunning else { return }
     // Terminal file states can be observed before the previous task group has
     // finished its persistence cleanup. Retire that task before starting a retry.

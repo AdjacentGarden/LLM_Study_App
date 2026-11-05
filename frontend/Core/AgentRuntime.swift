@@ -541,6 +541,14 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         store.showToast("课程已从本机删除", kind: .success)
         return
       }
+      if confirmsCourseRemoval {
+        // Deleting another course can prune this surviving run and advance its
+        // version. Reconcile the real receipt against that fresh row; never
+        // replay the mutation or ask the model to describe a local deletion.
+        await self.completeSurvivingCourseRemoval(runID: run.id, scope: scope,
+          pending: pending, operationID: operationID, result: choiceResult)
+        return
+      }
       run.steps[index].outcomes.removeAll { $0.toolCallID == toolCallID }
       run.steps[index].outcomes.append(AgentToolOutcome(
         toolCallID: toolCallID, status: "ok", resultJSON: choiceResult,
@@ -555,6 +563,52 @@ struct AgentValidationError: Error, Equatable, Sendable, LocalizedError {
         return
       }
     }
+  }
+
+  private func completeSurvivingCourseRemoval(runID: String, scope: String,
+    pending: AgentPendingChoice, operationID: String, result: String) async {
+    guard let store, scope == store.noteScope,
+      let receipt = try? JSONDecoder().decode([String: JSONValue].self, from: Data(result.utf8)),
+      receipt["status"]?.stringValue == "deleted",
+      receipt["operation_id"]?.stringValue == operationID,
+      let courseID = receipt["course_id"]?.stringValue,
+      store.courseDeletionState.deletedIDs.contains(courseID),
+      let tombstones = try? await store.repository.courseDeletionTombstones(scope: scope) else { return }
+    for _ in 0..<3 {
+      guard !Task.isCancelled, scope == store.noteScope,
+        var fresh = try? await loadRun(runID, scope: scope),
+        let index = fresh.steps.firstIndex(where: {
+          $0.toolCalls.contains { $0.id == pending.toolCallID }
+        }) else { return }
+      fresh = CourseDeletionPruning.runReferences(fresh, tombstones: tombstones)
+      if fresh.status == .completed,
+        fresh.steps[index].outcome(pending.toolCallID)?.resultJSON == result {
+        active = fresh
+        return
+      }
+      guard fresh.status == .waitingForUser,
+        fresh.pendingChoice?.toolCallID == pending.toolCallID,
+        fresh.pendingChoice?.actionArgumentsJSON == pending.actionArgumentsJSON else { return }
+      fresh.steps[index].outcomes.removeAll { $0.toolCallID == pending.toolCallID }
+      fresh.steps[index].outcomes.append(AgentToolOutcome(toolCallID: pending.toolCallID,
+        status: "ok", resultJSON: result, noteID: nil, noteRevision: nil))
+      fresh.pendingChoice = nil
+      fresh.status = .completed
+      fresh.finalText = "课程已从本机删除。"
+      fresh.finalCitations = []
+      fresh.finalSourceLabel = "general"
+      fresh.finalCourseIDs = []
+      fresh.failure = nil
+      switch await checkpoint(fresh) {
+      case .saved:
+        notice = nil
+        store.showToast("课程已从本机删除", kind: .success)
+        return
+      case .conflict: continue
+      case .failed: return
+      }
+    }
+    notice = "课程已删除，完成状态暂未保存；重新打开对话后会按原回执核对。"
   }
 
   private func courseAnchorWasRemoved(_ run: AgentRunRecord, store: AppStore) -> Bool {
