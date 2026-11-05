@@ -127,7 +127,8 @@ enum LocalLectureSchema {
     try await repository.saveLocalGeneration(saved, scope: scope)
     guard epoch == cloudState.epoch, scope == noteScope,
       canApplyCourseMutation(courseID: saved.courseID, scope: scope) else { throw CancellationError() }
-    if ["lecture", "plan"].contains(saved.operation) {
+    if ["lecture", "plan"].contains(saved.operation),
+      let owner = cloudState.localLearningOwner, owner.token == LocalCourseLearningContext.token {
       cloudState.localGenerationStatuses[saved.statusKey] = LocalGenerationStatus(saved)
     }
   }
