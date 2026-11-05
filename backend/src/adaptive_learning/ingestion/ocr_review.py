@@ -116,7 +116,7 @@ def _atomic(path: Path, value: Any) -> None:
 
 def review_client() -> OpenAICompatibleClient:
     settings = get_settings()
-    provider = os.getenv("OCR_REVIEW_PROVIDER", "pucoding").strip().lower()
+    provider = os.getenv("OCR_REVIEW_PROVIDER", "deepseek").strip().lower()
     if provider not in {"pucoding", "deepseek"}:
         raise OCRReviewUnavailable("OCR_REVIEW_PROVIDER must be pucoding or deepseek")
     deepseek = provider == "deepseek"

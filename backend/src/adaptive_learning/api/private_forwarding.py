@@ -174,8 +174,9 @@ def complete_private(services, *, messages, tools, descriptions, max_tokens, dea
     if len(images) > 12:
         raise HTTPException(413, "单步图片数量过多")
     settings = services.settings
-    config = LLMConfig(base_url=settings.pucoding_base_url, api_key=settings.pucoding_api_key,
-        model=settings.pucoding_vision_model, timeout_seconds=settings.rag_generation_timeout_seconds,
+    config = LLMConfig(base_url=getattr(settings, "vision_base_url", settings.pucoding_base_url),
+        api_key=getattr(settings, "vision_api_key", settings.pucoding_api_key),
+        model=getattr(settings, "vision_model", settings.pucoding_vision_model), timeout_seconds=settings.rag_generation_timeout_seconds,
         max_retries=0, proxy_url=settings.llm_https_proxy)
     if not config.api_key:
         raise HTTPException(503, "已配置图片路线不可用")
@@ -247,7 +248,9 @@ def private_turn(services, actor, body):
     ledger = private_ledger(services)
     run_id, step_id = PRIVATE_PREFIX + body.run_id, PRIVATE_PREFIX + body.step_id
     route = {"text": [client.config.base_url, client.config.model, digest(client.config.api_key)],
-             "vision": [getattr(services.settings, "pucoding_base_url", ""), getattr(services.settings, "pucoding_vision_model", ""), digest(getattr(services.settings, "pucoding_api_key", ""))]}
+             "vision": [getattr(services.settings, "vision_base_url", getattr(services.settings, "pucoding_base_url", "")),
+                        getattr(services.settings, "vision_model", getattr(services.settings, "pucoding_vision_model", "")),
+                        digest(getattr(services.settings, "vision_api_key", getattr(services.settings, "pucoding_api_key", "")))]}
     request_digest = digest({"request": body.model_dump(mode="json"), "tool_schemas": tools, "route": route})
     try:
         existing = ledger.step(actor, run_id, step_id)

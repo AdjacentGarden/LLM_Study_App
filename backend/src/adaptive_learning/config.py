@@ -82,6 +82,7 @@ class Settings:
     ocr_page_quality_accept: float = 0.82
     ocr_page_quality_review: float = 0.66
     ocr_page_structured_review: float = 0.50
+    vision_provider: str = "auto"
     rag_max_output_tokens: int = 10000
     rag_generation_timeout_seconds: int = 120
 
@@ -94,6 +95,8 @@ class Settings:
     diagnostic_allow_grounded_answer_rewrite: bool = True
 
     def __post_init__(self) -> None:
+        if self.vision_provider not in {"auto", "deepseek", "pucoding"}:
+            raise ValueError("VISION_PROVIDER must be auto, deepseek, or pucoding")
         if not 1 <= self.rag_max_output_tokens <= 10000:
             raise ValueError("RAG_MAX_OUTPUT_TOKENS must be between 1 and 10000")
         if self.rag_generation_timeout_seconds <= 0:
@@ -117,6 +120,22 @@ class Settings:
                          else r"(?:gpt|codex)-[A-Za-z0-9_.-]{1,100}")
         if self.teaching_review_model and not re.fullmatch(model_pattern, self.teaching_review_model):
             raise ValueError("TEACHING_REVIEW_MODEL must be a valid explicitly configured provider model name")
+
+    @property
+    def resolved_vision_provider(self) -> str:
+        return ("deepseek" if self.deepseek_api_key else "pucoding") if self.vision_provider == "auto" else self.vision_provider
+
+    @property
+    def vision_base_url(self) -> str:
+        return self.deepseek_base_url if self.resolved_vision_provider == "deepseek" else self.pucoding_base_url
+
+    @property
+    def vision_api_key(self) -> str:
+        return self.deepseek_api_key if self.resolved_vision_provider == "deepseek" else self.pucoding_api_key
+
+    @property
+    def vision_model(self) -> str:
+        return self.deepseek_model if self.resolved_vision_provider == "deepseek" else self.pucoding_vision_model
 
     @property
     def teaching_review_base_url(self) -> str:
@@ -197,6 +216,7 @@ def get_settings() -> Settings:
         ocr_page_quality_accept=_float("OCR_PAGE_QUALITY_ACCEPT", 0.82),
         ocr_page_quality_review=_float("OCR_PAGE_QUALITY_REVIEW", 0.66),
         ocr_page_structured_review=_float("OCR_PAGE_STRUCTURED_REVIEW", 0.50),
+        vision_provider=os.getenv("VISION_PROVIDER", "auto").strip().lower(),
         app_env=os.getenv("APP_ENV", "development"),
         app_host=os.getenv("APP_HOST", "0.0.0.0"),
         app_port=_int("APP_PORT", 8100),

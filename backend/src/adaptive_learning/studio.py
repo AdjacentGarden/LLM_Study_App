@@ -635,14 +635,15 @@ class Studio:
             text = vision = bool(s.pucoding_api_key)
         elif studio_provider == "deepseek":
             text = bool(s.deepseek_api_key)
-            vision = bool(s.pucoding_api_key)
+            vision = bool(s.vision_api_key)
         else:
             text = bool(s.text_api_key)
-            vision = bool(s.pucoding_api_key)
+            vision = bool(s.vision_api_key)
         vision_provider = os.getenv("STUDIO_VISION_PROVIDER", "").strip().lower()
         if vision_provider:
             vision = {"minimax": bool(os.getenv("MINIMAX_API_KEY")),
-                      "pucoding": bool(s.pucoding_api_key)}.get(vision_provider, False)
+                      "pucoding": bool(s.pucoding_api_key),
+                      "deepseek": bool(s.deepseek_api_key)}.get(vision_provider, False)
         note_provider = os.getenv("STUDIO_NOTE_LLM_PROVIDER", "").strip().lower()
         note_text = {"minimax": bool(os.getenv("MINIMAX_API_KEY")),
                      "pucoding": bool(s.pucoding_api_key),
@@ -1540,7 +1541,7 @@ class Studio:
             return OpenAICompatibleClient(LLMConfig(
                 s.pucoding_base_url, s.pucoding_api_key, model,
                 timeout_seconds=120, max_retries=1, proxy_url=s.llm_https_proxy))
-        if provider == "deepseek" and not vision:
+        if provider == "deepseek":
             return OpenAICompatibleClient(
                 LLMConfig(
                     s.deepseek_base_url,
@@ -1555,9 +1556,9 @@ class Studio:
             )
         return OpenAICompatibleClient(
             LLMConfig(
-                s.pucoding_base_url if vision else s.text_base_url,
-                s.pucoding_api_key if vision else s.text_api_key,
-                s.pucoding_vision_model if vision else s.text_model,
+                s.vision_base_url if vision else s.text_base_url,
+                s.vision_api_key if vision else s.text_api_key,
+                s.vision_model if vision else s.text_model,
                 timeout_seconds=120,
                 max_retries=1,
                 proxy_url=s.llm_https_proxy,
