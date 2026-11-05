@@ -562,6 +562,20 @@ final class LiveDriverUITests: XCTestCase {
         if target.waitForExistence(timeout: 10) { target.tap() } else { output = "missing \(argument)" }
       case "type":
         app.typeText(argument.replacingOccurrences(of: "\\n", with: "\n"))
+      case "value": output = String(describing: element(argument).value ?? "")
+      case "set":
+        let values = argument.split(separator: " ", maxSplits: 1).map(String.init)
+        let target = element(values[0])
+        if target.waitForExistence(timeout: 10) {
+          target.tap()
+          let current = target.value as? String ?? ""
+          target.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
+          if values.count > 1 { target.typeText(values[1]) }
+        } else { output = "missing " + values[0] }
+      case "dragxy":
+        let xy = argument.split(separator: " ").compactMap { Double($0) }
+        app.coordinate(withNormalizedOffset: CGVector(dx: xy[0], dy: xy[1]))
+          .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: xy[2], dy: xy[3])))
       case "tapxy":
         let xy = argument.split(separator: " ").compactMap { Double($0) }
         app.coordinate(withNormalizedOffset: CGVector(dx: xy[0], dy: xy[1])).tap()
