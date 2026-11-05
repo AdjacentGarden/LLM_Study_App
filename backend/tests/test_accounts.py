@@ -223,6 +223,27 @@ def test_smtp_transport_no_code_leak_and_guest_upgrade_preserves_data(community,
     assert b.get("/api/user/profile").json()["age"] == 22
 
 
+def test_login_code_for_unregistered_email_switches_to_registration(community, monkeypatch):
+    a, b, repo, _ = community
+    captured = []
+    monkeypatch.setattr(Accounts, "smtp_ready", staticmethod(lambda: True))
+    monkeypatch.setattr(
+        Accounts, "_email", staticmethod(lambda email, code: captured.append((email, code)))
+    )
+    c = challenge(a, "new@example.com", purpose="login")
+    assert c["purpose"] == "register" and "尚未注册" in c["message"]
+    assert captured and captured[0][0] == "new@example.com"
+    # Apps that predate the switch still verify without a registration body.
+    result = verify(a, c, None, code=captured[0][1])
+    assert result.status_code == 200, result.text
+    assert result.json()["account"]["email"] == "new@example.com"
+    assert a.get("/api/user/profile").json()["nickname"] == "新同学"
+    cooldown(repo, "new@example.com")
+    again = challenge(b, "new@example.com", purpose="login")
+    assert again["purpose"] == "login" and len(captured) == 2
+    assert verify(b, again, None, code=captured[-1][1]).status_code == 200
+
+
 def test_delivery_failure_invalidates_code(community, monkeypatch):
     a, _, repo, _ = community
     monkeypatch.setattr(Accounts, "smtp_ready", staticmethod(lambda: True))
