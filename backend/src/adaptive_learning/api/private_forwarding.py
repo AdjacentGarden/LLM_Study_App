@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 import time
 from dataclasses import replace
@@ -24,6 +25,22 @@ CACHE_SECONDS = 300
 CACHE_LIMIT = 256
 PRIVATE_PREFIX = "private:"
 MODEL_PREFIX = "private-model:"
+# A full chapter can take minutes; stay below the 300 s gateway read timeout.
+MODEL_DEADLINE_SECONDS = 240
+_ERROR_CODES = (
+    ("max_tokens", "output_limit"), ("time budget", "timeout"), ("context window", "context_limit"),
+    ("declined", "provider_declined"), ("refused", "refused"), ("schema_mismatch", "schema_mismatch"),
+    ("invalid model output", "invalid_output"), ("cooling down", "cooling_down"), ("busy", "busy"),
+)
+
+
+def error_code(error: str, state: str) -> str:
+    """Map a gateway-authored error to a fixed code; free text is never kept."""
+    for needle, code in _ERROR_CODES:
+        if needle in error:
+            return "private_model_" + code
+    status = re.search(r"HTTP (\d{3})", error)
+    return "private_model_" + ("http_" + status.group(1) if status else state)
 
 
 def digest(value: Any) -> str:
@@ -75,7 +92,7 @@ class PrivateLedger(AssistantLedger):
         message = kwargs.pop("message", None)
         # Errors from providers/parsers may echo personal text. Persist only a code.
         if kwargs.get("error"):
-            kwargs["error"] = "private_model_" + kwargs.get("state", "failed")
+            kwargs["error"] = error_code(kwargs["error"], kwargs.get("state", "failed"))
         with self.lock:
             step, budget = super().finish(owner, run_id, step_id, attempt, message=None, **kwargs)
             with self.connect() as db:
@@ -120,7 +137,7 @@ def wire(step, budget, *, run: str, step_id: str, refused: str | None = None):
     return result
 
 
-def complete_private(services, *, messages, tools, descriptions, max_tokens):
+def complete_private(services, *, messages, tools, descriptions, max_tokens, deadline_seconds=None):
     """Use configured vision Responses for actual images, text route otherwise.
 
     Vision's JSON decision envelope is validated into the same tool-call type;
@@ -153,7 +170,7 @@ def complete_private(services, *, messages, tools, descriptions, max_tokens):
     if not images:
         client = services.assistant_tool_chat()
         return client.complete(messages=messages, tools=tools, descriptions=descriptions,
-                               max_tokens=max_tokens, deadline_seconds=float(client.config.timeout_seconds))
+                               max_tokens=max_tokens, deadline_seconds=float(deadline_seconds or client.config.timeout_seconds))
     if len(images) > 12:
         raise HTTPException(413, "单步图片数量过多")
     settings = services.settings
@@ -315,7 +332,7 @@ class PrivateModelInput(BaseModel):
     operation: Literal["lecture", "plan", "diagnostic"]
     messages: list[dict[str, Any]] = Field(min_length=1, max_length=200)
     response_schema: dict[str, Any]
-    max_tokens: int = Field(default=8192, ge=256, le=16384)
+    max_tokens: int = Field(default=8192, ge=256, le=65536)
 
 
 def private_forwarding_router(services):
@@ -349,7 +366,8 @@ def private_forwarding_router(services):
         client = services.assistant_tool_chat()
         if client is None:
             raise HTTPException(503, "当前模型路线未配置助手工具调用")
-        messages = [{"role": "system", "content": "只返回符合以下JSON schema的JSON对象，不要代码围栏：" + json.dumps(body.response_schema, ensure_ascii=False)}, *body.messages]
+        # Indented JSON can double the output tokens of a full chapter.
+        messages = [{"role": "system", "content": "只返回符合以下JSON schema的JSON对象，不要代码围栏；输出紧凑的单行JSON，不要缩进或换行排版：" + json.dumps(body.response_schema, ensure_ascii=False)}, *body.messages]
         estimated = estimate_context(messages, {})
         if estimated + body.max_tokens > client.config.context_window_tokens:
             raise HTTPException(413, "个人生成上下文过长")
@@ -364,13 +382,14 @@ def private_forwarding_router(services):
                 # A generic generation job never automatically purchases another attempt.
                 return model_result(body.request_id, found)
             claim = ledger.claim(actor, run, step_id, 0, context_digest=digest({"operation": body.operation}),
-                digest=request_digest, lease_seconds=2 * client.config.timeout_seconds, estimated_input_tokens=estimated)
+                digest=request_digest, lease_seconds=2 * MODEL_DEADLINE_SECONDS, estimated_input_tokens=estimated)
         except LedgerConflict as error:
             raise HTTPException(409, str(error)) from error
         if not claim.send:
             return model_result(body.request_id, ledger.step(actor, run, step_id))
         try:
-            outcome = complete_private(services, messages=messages, tools={}, descriptions={}, max_tokens=body.max_tokens)
+            outcome = complete_private(services, messages=messages, tools={}, descriptions={}, max_tokens=body.max_tokens,
+                deadline_seconds=MODEL_DEADLINE_SECONDS)
         except Exception:
             outcome = ChatOutcome("uncertain", 0, error="private_model_call_interrupted")
         schema_failed = False

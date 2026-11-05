@@ -59,6 +59,41 @@ def test_private_generation_validates_json_and_omits_empty_tool_protocol(gateway
     assert len(model.requests) == 1
 
 
+def test_private_generation_failure_keeps_only_a_fixed_cause_code(gateway):
+    from test_assistant_turn import sse
+    a, _, install, _ = gateway
+    a.app.include_router(private_forwarding_router(api))
+    truncated = sse({"choices": [{"index": 0, "delta": {"content": '{"feedback":"personal-secret'}}]},
+                    {"choices": [{"index": 0, "delta": {}, "finish_reason": "length"}]})
+    model = install(Model(truncated))
+    request = {"request_id": "private_lecture", "operation": "lecture", "max_tokens": 65536,
+               "messages": [{"role": "user", "content": "private chapter"}],
+               "response_schema": {"type": "object", "properties": {"feedback": {"type": "string"}}}}
+    response = a.post("/api/assistant/private-model", json=request)
+    assert response.status_code == 200, response.text
+    assert response.json()["state"] == "failed"
+    assert response.json()["error"] == "private_model_output_limit"
+    assert model.requests[0]["max_tokens"] == 65536
+    assert "紧凑的单行JSON" in model.requests[0]["messages"][0]["content"]
+    owner = api.account_repository.session_owner(a.cookies.get("zhiwo_account"))
+    with api.assistant_ledger.connect() as db:
+        rows = [dict(row) for row in db.execute("SELECT * FROM assistant_steps WHERE owner=?", (owner,)).fetchall()]
+        assert "personal-secret" not in json.dumps(rows)
+    # The same request ID is never resent; a user retry must use a new one.
+    assert a.post("/api/assistant/private-model", json=request).json()["state"] == "failed"
+    assert len(model.requests) == 1
+    request["max_tokens"] = 65537
+    assert a.post("/api/assistant/private-model", json=request).status_code == 422
+
+
+def test_private_error_codes_never_copy_free_text():
+    from adaptive_learning.api.private_forwarding import error_code
+    assert error_code("model time budget exceeded", "uncertain") == "private_model_timeout"
+    assert error_code("provider returned HTTP 402", "failed") == "private_model_http_402"
+    assert error_code("invalid model output: personal-secret", "failed") == "private_model_invalid_output"
+    assert error_code("personal-secret", "failed") == "private_model_failed"
+
+
 def test_vision_step_uses_configured_responses_images_and_same_tool_fence(gateway, monkeypatch):
     a, _, install, _ = gateway
     install(Model())  # Text route must not be called for this image-bearing step.

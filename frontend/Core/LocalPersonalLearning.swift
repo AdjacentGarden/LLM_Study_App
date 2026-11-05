@@ -40,6 +40,8 @@ struct LocalGenerationRecord: Codable, Sendable {
   var state: String
   var content: String?
   var error: String?
+  /// Count of user-started retries after a definite failure; each uses a new request ID.
+  var attempt: Int?
 }
 
 extension LocalBookCourseRepository {
@@ -308,7 +310,7 @@ extension LocalBookCourseRepository {
     if let existing = cloudState.localDiagnostics.values.first(where: { session in
       session.courseID == courseID && session.bookID == bookID && session.chapterID == chapter
         && ((!preview && session.position < session.items.count) || jobs.contains {
-          $0.id == "lecture_" + AgentDigest.sha256(session.id) && ["submitted", "submitting", "uncertain", "retryable"].contains($0.state)
+          $0.id == "lecture_" + AgentDigest.sha256(session.id) && ["submitted", "submitting", "uncertain", "retryable", "failed"].contains($0.state)
         })
     }) {
       cloudState.requestedChapterID = chapter

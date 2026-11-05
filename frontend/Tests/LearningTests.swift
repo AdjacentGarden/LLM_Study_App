@@ -616,6 +616,39 @@ final class LearningTests: XCTestCase {
     XCTAssertFalse(store.cloudState.isWorking)
   }
 
+  func testDefiniteGenerationFailureRetriesUnderNewRequestIDOnlyWhenStartedAgain() async throws {
+    let store = try await makeStore()
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [ChapterGenerationRetryProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    ChapterGenerationRetryProtocol.reset()
+    store.cloud = CloudAPI(baseURL: URL(string: "https://chapter-retry.invalid")!, session: session)
+    store.cloudState.authenticated = true
+    store.cloudState.privateLocalMode = true
+    store.cloudState.cacheKey = "chapter-retry-scope"
+    let scope = try XCTUnwrap(store.noteScope)
+    try await store.ensureCourseDeletionState(scope: scope)
+    do {
+      _ = try await store.performPrivateGeneration(id: "retry-job", operation: "lecture",
+        courseID: "chapter-course", bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+      XCTFail("The first attempt reports a definite failure")
+    } catch {
+      XCTAssertTrue(error.localizedDescription.contains("private_model_output_limit"))
+    }
+    var records = try await store.repository.localGenerations(scope: scope)
+    XCTAssertEqual(records.first?.state, "failed")
+    XCTAssertEqual(ChapterGenerationRetryProtocol.posted(), ["retry-job"])
+    let retried = try await store.performPrivateGeneration(id: "retry-job", operation: "lecture",
+      courseID: "chapter-course", bookID: "chapter-entry-book", chapterID: "first", messages: [], schema: [:])
+    XCTAssertEqual(retried, "retried result")
+    XCTAssertEqual(ChapterGenerationRetryProtocol.posted(), ["retry-job", "retry-job_a1"])
+    records = try await store.repository.localGenerations(scope: scope)
+    XCTAssertEqual(records.count, 1)
+    XCTAssertEqual(records.first?.state, "completed")
+    XCTAssertEqual(records.first?.body["max_tokens"], .number(32768))
+  }
+
   func testPersistedModelResultSurvivesAcknowledgementFailureWithoutAnotherModelPost() async throws {
     let store = try await makeStore()
     let configuration = URLSessionConfiguration.ephemeral
@@ -641,6 +674,43 @@ final class LearningTests: XCTestCase {
     XCTAssertEqual(records.first?.state, "completed")
     XCTAssertEqual(records.first?.content, "durable result")
   }
+}
+
+
+private final class ChapterGenerationRetryProtocol: URLProtocol, @unchecked Sendable {
+  private static let lock = NSLock()
+  nonisolated(unsafe) private static var requestIDs: [String] = []
+
+  static func reset() { lock.lock(); requestIDs = []; lock.unlock() }
+  static func posted() -> [String] { lock.lock(); defer { lock.unlock() }; return requestIDs }
+  override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "chapter-retry.invalid" }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    guard let url = request.url else { return }
+    let state: [String: Any]
+    if url.path.hasSuffix("/ack") { state = [:] }
+    else {
+      var data = request.httpBody ?? Data()
+      if data.isEmpty, let stream = request.httpBodyStream {
+        stream.open()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while case let count = stream.read(&buffer, maxLength: buffer.count), count > 0 { data.append(contentsOf: buffer.prefix(count)) }
+        stream.close()
+      }
+      let id = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["request_id"] as? String ?? ""
+      Self.lock.lock()
+      Self.requestIDs.append(id)
+      let first = Self.requestIDs.count == 1
+      Self.lock.unlock()
+      state = first ? ["request_id": id, "state": "failed", "content": NSNull(), "error": "private_model_output_limit"]
+        : ["request_id": id, "state": "completed", "content": "retried result"]
+    }
+    let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: (try? JSONSerialization.data(withJSONObject: state)) ?? Data())
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
 }
 
 

@@ -427,7 +427,7 @@ actor CloudAPI {
       || path.hasSuffix("/readiness") || path.hasSuffix("/status")
       || (method == "GET" && path.hasSuffix("/diagnostics")) {
       request.timeoutInterval = 20
-    } else if path == "/api/assistant/query" {
+    } else if path == "/api/assistant/query" || path == "/api/assistant/private-model" {
       // One user turn may continue after several read-tool results. The server
       // stops at 240 s, before this and the LAN gateway's 300 s read timeout.
       request.timeoutInterval = 290

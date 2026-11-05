@@ -75,6 +75,7 @@ private struct LocalLectureResult: Codable, Sendable {
   }
 
   /// The complete request is durable before submission; unresolved submissions are queried, never reposted.
+  /// Only a definite failure is resubmitted, under a fresh request ID, when the user starts it again.
   func performPrivateGeneration(id: String, operation: String, courseID: String, bookID: String,
     chapterID: String, messages: [JSONValue], schema: [String: JSONValue]) async throws -> String {
     guard cloudState.privateLocalMode, cloud != nil, let scope = noteScope else { throw ContentError.invalid("请连接支持本机个人数据的学习服务") }
@@ -93,14 +94,18 @@ private struct LocalLectureResult: Codable, Sendable {
     var record = try await repository.localGenerations(scope: scope).first { $0.id == id }
     guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     try Task.checkCancellation()
-    if record == nil {
+    if record == nil || record?.state == "failed" {
+      let attempt = record.map { ($0.attempt ?? 0) + 1 } ?? 0
+      let requestID = attempt == 0 ? id : id + "_a" + String(attempt)
       record = LocalGenerationRecord(id: id, courseID: courseID, bookID: bookID, chapterID: chapterID,
-        operation: operation, body: ["request_id": .string(id), "operation": .string(operation),
-          "messages": .array(messages), "response_schema": .object(schema), "max_tokens": .number(16384)], state: "pending")
+        operation: operation, body: ["request_id": .string(requestID), "operation": .string(operation),
+          "messages": .array(messages), "response_schema": .object(schema), "max_tokens": .number(32768)], state: "pending",
+        attempt: attempt)
       try await repository.saveLocalGeneration(record!, scope: scope)
     }
     guard var saved = record else { throw ContentError.storage("任务未保存") }
     if saved.state == "completed", let content = saved.content { return content }
+    let requestID = saved.body["request_id"]?.stringValue ?? id
     let response: PrivateModelStepResponseDTO
     do {
       if saved.state == "pending" {
@@ -113,20 +118,20 @@ private struct LocalLectureResult: Codable, Sendable {
           canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
         response = try await cloud.privateModelStep(saved.body)
       } else {
-        response = try await cloud.privateModelStepStatus(saved.id)
+        response = try await cloud.privateModelStepStatus(requestID)
       }
-      guard epoch == cloudState.epoch, scope == noteScope, response.request_id == id,
+      guard epoch == cloudState.epoch, scope == noteScope, response.request_id == requestID,
         canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
       saved.state = response.state
       saved.content = response.content
       saved.error = response.error
       try await repository.saveLocalGeneration(saved, scope: scope)
       guard response.state == "completed", let content = response.content else {
-        throw ContentError.invalid(response.error ?? "模型结果尚未确认。已保留原任务，请稍后查询；不会自动重新提交。")
+        throw ContentError.invalid(Self.privateGenerationMessage(state: response.state, error: response.error))
       }
       // The durable result remains usable if best-effort server cleanup loses its response.
       // Its short-lived server copy expires without issuing another model request.
-      try? await cloud.acknowledgePrivateModelStep(id)
+      try? await cloud.acknowledgePrivateModelStep(requestID)
       try Task.checkCancellation()
       guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
       return content
@@ -138,6 +143,26 @@ private struct LocalLectureResult: Codable, Sendable {
       }
       throw error
     }
+  }
+
+  private static let privateGenerationReasons = [
+    "private_model_output_limit": "生成内容超过单次输出上限", "private_model_timeout": "生成超时",
+    "private_model_context_limit": "教材内容超过模型上下文", "private_model_schema_mismatch": "模型返回的格式无效",
+    "private_model_invalid_output": "模型返回的格式无效", "private_model_provider_declined": "模型服务拒绝了本次内容",
+    "private_model_refused": "模型服务拒绝了本次内容"]
+
+  static func privateGenerationMessage(state: String, error: String?) -> String {
+    guard state == "failed" else { return "模型结果尚未确认。已保留原任务，请稍后查询；不会自动重新提交。" }
+    let reason = error.flatMap { privateGenerationReasons[$0] } ?? "模型服务返回失败"
+    return reason + "（" + (error ?? "private_model_failed") + "）。可重新生成，将作为新的请求提交。"
+  }
+
+  /// A completed result that fails local checks is final for that request; the next start submits anew.
+  private func rejectPrivateGeneration(id: String, scope: String) async throws {
+    guard var record = try await repository.localGenerations(scope: scope).first(where: { $0.id == id }),
+      record.state == "completed" else { return }
+    record.state = "failed"; record.content = nil; record.error = "local_validation_failed"
+    try await repository.saveLocalGeneration(record, scope: scope)
   }
 
   private func schemaObject(_ properties: [String: JSONValue], required: [String]) -> [String: JSONValue] {
@@ -212,11 +237,15 @@ private struct LocalLectureResult: Codable, Sendable {
       "preferences": .object((courses.first { $0.id == courseID }?.diagnosis ?? [:]).mapValues { .array($0.map(JSONValue.string)) }),
       "learner_profile": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(preferences)),
       "diagnosis": .object(session.results), "coverage_truncated": .bool(chunks.count > 80)]
-    let text = try await performPrivateGeneration(id: "lecture_" + AgentDigest.sha256(session.id), operation: "lecture",
+    let generationID = "lecture_" + AgentDigest.sha256(session.id)
+    let text = try await performPrivateGeneration(id: generationID, operation: "lecture",
       courseID: courseID, bookID: bookID, chapterID: chapter.id,
       messages: [.object(["role": .string("system"), "content": .string(prompt)]),
         .object(["role": .string("user"), "content": .string(String(decoding: try JSONEncoder().encode(payload), as: UTF8.self))])], schema: schema)
-    let result = try JSONDecoder().decode(LocalLectureResult.self, from: Data(text.utf8))
+    guard let result = try? JSONDecoder().decode(LocalLectureResult.self, from: Data(text.utf8)) else {
+      try await rejectPrivateGeneration(id: generationID, scope: scope)
+      throw ContentError.invalid("生成内容不是有效的课程结构，可重新生成")
+    }
     let course = result.course
     let sections = course.original_reading + course.worked_examples + (course.units ?? []).flatMap(\.sections)
     let citations = sections.flatMap(\.citations) + course.knowledge_points.flatMap(\.citations) + course.flashcards.flatMap(\.citations)
@@ -224,7 +253,8 @@ private struct LocalLectureResult: Codable, Sendable {
       !course.knowledge_points.isEmpty, !(course.units ?? []).isEmpty, !citations.isEmpty,
       citations.allSatisfy({ citation in chunks.contains { $0.page_start <= citation.page_number && $0.page_end >= citation.page_number && !citation.quote.isEmpty && $0.text.contains(citation.quote) } }),
       Set(course.practice_items.map(\.item_id)).isSubset(of: Set(result.practice_grading.map(\.item_id))) else {
-      throw ContentError.invalid("生成内容未通过教材引用或教学结构校验，已保留原任务")
+      try await rejectPrivateGeneration(id: generationID, scope: scope)
+      throw ContentError.invalid("生成内容未通过教材引用或教学结构校验，可重新生成")
     }
     guard epoch == cloudState.epoch, scope == noteScope,
       canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
