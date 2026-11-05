@@ -24,6 +24,8 @@ DEMO_USERS = {
     "achen@zhiwo.test": "阿辰 · 演示",
 }
 DEMO_EMAILS = {*DEMO_USERS, "reader@zhiwo.test"}
+# Matches the App's registration defaults; learning preferences are collected after sign-in.
+AUTO_REGISTRATION = {"nickname": "新同学", "stage": "other", "interests": [], "goal": "interest"}
 COOKIE = "zhiwo_account"
 TTL = 30 * 86400
 LOCAL_OWNER = "native_local_default"
@@ -168,12 +170,20 @@ class Accounts:
                 ).fetchone()
             )
 
+    def email_registered(self, email: str) -> bool:
+        with self.repo.connect() as db:
+            return bool(db.execute("SELECT 1 FROM accounts WHERE email=?", (email,)).fetchone())
+
     def send_code(self, owner: str, email: str, purpose: str, ip: str) -> dict[str, Any]:
         demo = self.demo_enabled() and email in DEMO_EMAILS
         if email.endswith(".test") and not demo:
             raise HTTPException(422, "请使用有效的邮箱地址")
         if not demo and not self.smtp_ready():
             raise HTTPException(503, "邮箱验证服务暂时不可用，请稍后再试")
+        switched = purpose == "login" and not self.email_registered(email)
+        if switched:
+            # Signing in with an unknown email continues as a registration instead of silently mailing nothing.
+            purpose = "register"
         if purpose == "register" and self.account(owner):
             raise HTTPException(409, "请先退出当前账号，再注册新账号")
         if demo and purpose == "register" and self.has_profile(owner):
@@ -225,9 +235,12 @@ class Accounts:
             "challenge_id": challenge,
             "expires_in": 600,
             "retry_after": 60,
+            "purpose": purpose,
             "delivery": "demo" if demo else "email",
             "message": "演示验证码，不会发送邮件"
             if demo
+            else "该邮箱尚未注册，已为你切换到注册，验证码已发送"
+            if switched
             else "如果邮箱可用于此操作，验证码将发送到该邮箱",
         }
         if demo:
@@ -283,6 +296,9 @@ class Accounts:
             row = db.execute(
                 "SELECT * FROM email_codes WHERE id=? AND owner=?", (challenge, owner)
             ).fetchone()
+            if row and row["purpose"] == "register" and registration is None:
+                # A login that send_code turned into a registration; older apps still verify it as a login.
+                registration = dict(AUTO_REGISTRATION)
             if (
                 not row
                 or row["used"]

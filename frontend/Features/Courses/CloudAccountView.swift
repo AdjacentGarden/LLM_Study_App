@@ -340,14 +340,17 @@ struct CloudAccountView: View {
     do {
       let normalized = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
       let purpose = registering ? "register" : "login"
-      challenge = try await cloud.request(
+      let issued: CloudChallenge = try await cloud.request(
         "/api/auth/code", method: "POST",
         body: ["email": .string(normalized), "purpose": .string(purpose)])
+      // Follow the service when it turns a login for an unknown email into a registration.
+      if issued.purpose == "register" { registering = true }
+      challenge = issued
       code = ""
       email = normalized
       challengeEmail = normalized
-      challengePurpose = purpose
-      resendDate = Date().addingTimeInterval(Double(challenge?.retry_after ?? 60))
+      challengePurpose = issued.purpose ?? purpose
+      resendDate = Date().addingTimeInterval(Double(issued.retry_after))
     } catch { self.error = error.localizedDescription }
   }
   private func verifyCode() async {

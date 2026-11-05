@@ -598,6 +598,8 @@ struct CloudChallenge: Codable, Sendable {
   var challenge_id: String
   var expires_in: Int
   var retry_after: Int
+  /// The purpose the service actually issued; an unregistered login comes back as "register".
+  var purpose: String?
   var delivery: String
   var message: String
   var demo_code: String?
