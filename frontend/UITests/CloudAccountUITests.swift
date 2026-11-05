@@ -521,3 +521,71 @@ final class CloudAccountUITests: XCTestCase {
     element.tap()
   }
 }
+
+/// Drives the App from host-side command files so a live backend flow can be inspected step by step.
+final class LiveDriverUITests: XCTestCase {
+  @MainActor func testHostDrivenSession() throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard let root = environment["BOOKCOURSE_LIVE_DRIVER_DIR"],
+      let base = environment["BOOKCOURSE_REMOTE_API_BASE_URL"]
+    else { throw XCTSkip("Set BOOKCOURSE_LIVE_DRIVER_DIR and BOOKCOURSE_REMOTE_API_BASE_URL") }
+    let directory = URL(fileURLWithPath: root, isDirectory: true)
+    let app = XCUIApplication()
+    app.launchEnvironment["BOOKCOURSE_API_BASE_URL"] = base
+    app.launch()
+    func element(_ key: String) -> XCUIElement {
+      if key.hasPrefix("sb:") {
+        return XCUIApplication(bundleIdentifier: "com.apple.springboard")
+          .descendants(matching: .any)[String(key.dropFirst(3))].firstMatch
+      }
+      if key.contains("#") {
+        let pieces = key.split(separator: "#", maxSplits: 1).map(String.init)
+        return app.descendants(matching: .any).matching(identifier: pieces[0])
+          .element(boundBy: Int(pieces[1]) ?? 0)
+      }
+      return app.descendants(matching: .any)[key].firstMatch
+    }
+    var sequence = 0
+    while true {
+      let command = directory.appendingPathComponent("cmd-\(sequence).txt")
+      guard let line = try? String(contentsOf: command, encoding: .utf8) else {
+        Thread.sleep(forTimeInterval: 0.4)
+        continue
+      }
+      let parts = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        .split(separator: " ", maxSplits: 1).map(String.init)
+      let argument = parts.count > 1 ? parts[1] : ""
+      var output = "ok"
+      switch parts.first ?? "" {
+      case "tap":
+        let target = element(argument)
+        if target.waitForExistence(timeout: 10) { target.tap() } else { output = "missing \(argument)" }
+      case "type":
+        app.typeText(argument.replacingOccurrences(of: "\\n", with: "\n"))
+      case "tapxy":
+        let xy = argument.split(separator: " ").compactMap { Double($0) }
+        app.coordinate(withNormalizedOffset: CGVector(dx: xy[0], dy: xy[1])).tap()
+      case "swipeup": app.swipeUp()
+      case "swipedown": app.swipeDown()
+      case "wait":
+        let pieces = argument.split(separator: " ", maxSplits: 1).map(String.init)
+        let seconds = pieces.count > 1 ? Double(pieces[1]) ?? 30 : 30
+        output = element(pieces[0]).waitForExistence(timeout: seconds) ? "found" : "timeout"
+      case "exists": output = element(argument).exists ? "yes" : "no"
+      case "relaunch":
+        app.terminate()
+        app.launch()
+      case "sleep": Thread.sleep(forTimeInterval: Double(argument) ?? 1)
+      case "quit":
+        try? "bye".write(to: directory.appendingPathComponent("res-\(sequence).txt"), atomically: true, encoding: .utf8)
+        return
+      default: break
+      }
+      try? app.screenshot().pngRepresentation.write(to: directory.appendingPathComponent("shot-\(sequence).png"))
+      let tree = parts.first == "tree" ? app.debugDescription : ""
+      try? (output + "\n" + tree).write(
+        to: directory.appendingPathComponent("res-\(sequence).txt"), atomically: true, encoding: .utf8)
+      sequence += 1
+    }
+  }
+}
