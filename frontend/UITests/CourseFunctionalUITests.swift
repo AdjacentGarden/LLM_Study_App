@@ -199,9 +199,17 @@ final class CourseFunctionalUITests: XCTestCase {
     openSwitcher()
     XCTAssertTrue(removedRow.exists)
     tap(delete, in: app)
-    let confirmation = app.sheets.firstMatch
+    let confirmation = app.sheets["从本机删除《数学 必修 第二册》？"]
     XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
-    tap(confirmation.buttons["取消"], in: app)
+    if confirmation.buttons["取消"].exists {
+      tap(confirmation.buttons["取消"], in: app)
+    } else {
+      // Compact popovers expose a native dismissal region instead of a cancel row.
+      let dismiss = app.otherElements["PopoverDismissRegion"]
+      XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+      dismiss.tap()
+    }
+    XCTAssertTrue(confirmation.waitForNonExistence(timeout: 5))
     XCTAssertTrue(removedRow.exists, "Cancelling must keep the course in the list")
     XCTAssertTrue(delete.exists)
 
