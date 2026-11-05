@@ -354,6 +354,9 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertTrue(store.persistCourseUploads())
     store.suspendCourseUploads()
     store.restoreCourseUploads()
+    try await store.uploadState.restorationTask?.value
+    XCTAssertEqual(store.uploadState.restoredScope, store.courseUploadScope)
+    XCTAssertEqual(store.uploadState.restoredEpoch, store.cloudState.epoch)
     XCTAssertEqual(store.courses.map(\.id), [existing.id])
     XCTAssertEqual(store.uploadState.batches.first?.reusedCourseID, existing.id)
     XCTAssertEqual(counts.value, 0)
@@ -378,6 +381,9 @@ private final class CourseUploadProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertTrue(store.persistCourseUploads())
     store.suspendCourseUploads()
     store.restoreCourseUploads()
+    try await store.uploadState.restorationTask?.value
+    XCTAssertEqual(store.uploadState.restoredScope, store.courseUploadScope)
+    XCTAssertEqual(store.uploadState.restoredEpoch, store.cloudState.epoch)
     XCTAssertEqual(store.courses.map(\.id), [existing.id])
     XCTAssertEqual(store.uploadState.batches.first?.courseID, existing.id)
     XCTAssertEqual(store.uploadState.batches.first?.reusedCourseID, existing.id)
