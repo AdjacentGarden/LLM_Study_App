@@ -499,10 +499,14 @@ final class CourseJobServiceTests: XCTestCase, @unchecked Sendable {
     XCTAssertEqual(try Data(contentsOf: repository.attachmentURL(path)), original)
   }
 
-  func testProductionLANDefaultRetainsManualVPNAndLoopbackConfiguration() throws {
+  func testPlatformDefaultRetainsManualVPNAndLoopbackConfiguration() throws {
     let configured = try XCTUnwrap(CloudAPI.validatedURL(CloudAPI.defaultServer))
     XCTAssertEqual(configured.scheme, "http")
-    XCTAssertEqual(configured.port, 8100)
+    #if targetEnvironment(simulator)
+    XCTAssertEqual(configured.absoluteString, "http://127.0.0.1:18100")
+    #else
+    XCTAssertEqual(configured.absoluteString, "http://192.168.28.241:8100")
+    #endif
     XCTAssertNotNil(configured.host)
     for address in ["http://10.249.44.137:8100", "http://100.86.143.88:8100", "http://127.0.0.1:8100"] {
       XCTAssertEqual(CloudAPI.validatedURL(address)?.absoluteString, address)
