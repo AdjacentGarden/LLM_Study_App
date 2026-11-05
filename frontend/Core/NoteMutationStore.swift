@@ -277,7 +277,9 @@ extension LocalBookCourseRepository {
 
   /// Deletion keeps a revisioned tombstone so stale snapshots cannot resurrect it.
   func deleteNote(_ id: String, scope: String) throws {
+    let paths = try loadStoredNote(id, scope: scope)?.note.photos?.flatMap { [$0.originalPath, $0.preparedPath] } ?? []
     try db.transaction { try tombstone(id, scope: scope) }
+    for path in paths { try? removeCourseFileIfUnreferenced(attachmentURL(path)) }
   }
 
   /// Caller must hold a transaction.

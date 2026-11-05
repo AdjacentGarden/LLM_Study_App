@@ -24,6 +24,7 @@ extension NoteKind {
     case .text: "文字"
     case .ink: "手写"
     case .voice: "语音"
+    case .photo: "照片"
     }
   }
   var notesIcon: String {
@@ -31,6 +32,7 @@ extension NoteKind {
     case .text: "FileText"
     case .ink: "PenLine"
     case .voice: "Mic2"
+    case .photo: "Camera"
     }
   }
   var notesTone: String {
@@ -38,6 +40,7 @@ extension NoteKind {
     case .text: "mint"
     case .ink: "yellow"
     case .voice: "blue"
+    case .photo: "blue"
     }
   }
 }
@@ -86,6 +89,8 @@ enum NotesChapterScope {
 struct NotesHubView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  @State private var photoCapture = false
+  @State private var photoNoteID: String?
   @State private var filter: NoteKind?
   @State private var selectedID: String?
   @State private var focusedNoteID: String?
@@ -169,6 +174,7 @@ struct NotesHubView: View {
         }
       }
     )
+    .sheet(isPresented: $photoCapture) { NotesPhotoNoteView(noteID: photoNoteID) }
     .quickLookPreview($referencePreviewURL)
     .onAppear { applyFocusNote() }
     .onChange(of: selected?.id, initial: true) { _, id in store.learningState.visibleNoteID = id }
@@ -198,6 +204,9 @@ struct NotesHubView: View {
     }
   }
   @ViewBuilder private var noteActions: some View {
+    NotesPrimaryAction(title: "拍照导入", symbol: "camera", secondary: true) {
+      photoNoteID = nil; photoCapture = true
+    }.disabled(!hasChapter).accessibilityIdentifier("notes.photo.import")
     NotesPrimaryAction(title: "导出 PDF", symbol: "doc.badge.arrow.up", secondary: true) {
       store.go(.export)
     }.disabled(!hasChapter).accessibilityIdentifier("notes.export")
@@ -212,6 +221,7 @@ struct NotesHubView: View {
         filterButton(.text)
         filterButton(.ink)
         filterButton(.voice)
+        filterButton(.photo)
       }
     }
   }
@@ -246,7 +256,7 @@ struct NotesHubView: View {
         AssetImage("/assets/brand/empty-states/no-notes-v1.png").frame(width: 180, height: 140)
         Text(hasChapter ? "本章节还没有\(chapterNotes.isEmpty ? "" : filter?.notesLabel ?? "")笔记" : "请先选择学习章节")
           .font(DS.font(.cardTitle))
-        Text(hasChapter ? "你可以输入文字、直接批注教材原页，或录下语音后整理。" : "在学习页选择章节后，可查看和记录对应的笔记。")
+        Text(hasChapter ? "你可以输入文字、批注教材、录下语音，或拍照导入手写笔记。" : "在学习页选择章节后，可查看和记录对应的笔记。")
           .font(DS.font(.supporting)).foregroundStyle(DS.muted).multilineTextAlignment(.center)
         BCButton(hasChapter ? "去记笔记" : "选择章节", icon: hasChapter ? "Plus" : "BookOpen") {
           if hasChapter { store.openSheet(.noteType) } else { store.go(.study) }
@@ -336,6 +346,13 @@ struct NotesHubView: View {
               }
             }.padding(.top, 20)
           }
+          if let photos = note.photos, !photos.isEmpty {
+            ForEach(photos) { photo in
+              Button { referencePreviewURL = store.attachmentURL(photo.originalPath) } label: {
+                Label("查看照片原稿", systemImage: "photo").font(DS.font(.body))
+              }.padding(.top, 12).accessibilityIdentifier("notes.photo.original")
+            }
+          }
           Text(preview(note)).font(DS.font(.reading)).lineSpacing(6).foregroundStyle(DS.secondary)
             .textSelection(.enabled).padding(.top, 35).padding(.bottom, 36)
           if note.kind != .voice, let organized = note.organizedText {
@@ -347,7 +364,7 @@ struct NotesHubView: View {
             ).padding(.bottom, 16)
           }
           NotesPrimaryAction(
-            title: note.kind == .ink ? "回到教材批注" : note.kind == .voice ? "打开语音笔记" : "编辑笔记"
+            title: note.kind == .photo ? "打开照片笔记" : note.kind == .ink ? "回到教材批注" : note.kind == .voice ? "打开语音笔记" : "编辑笔记"
           ) { reopen(note) }
         }.padding(.bottom, 2).contextMenu {
           Button("编辑笔记") { reopen(note) }
@@ -364,6 +381,7 @@ struct NotesHubView: View {
     }
   }
   private func preview(_ note: StudyNote) -> String {
+    if note.kind == .photo { return note.body.isEmpty ? "照片原稿已保存，点击打开后提取整理。" : note.body }
     if note.kind == .text { return note.body }
     if note.kind == .voice {
       return NotesAnnotationRecord.voicePreview(note)
@@ -371,6 +389,7 @@ struct NotesHubView: View {
     return note.body.isEmpty ? "手写笔迹已保存，尚未整理。" : note.body
   }
   private func reopen(_ note: StudyNote) {
+    if note.kind == .photo { photoNoteID = note.id; photoCapture = true; return }
     if note.kind == .text && note.anchor == nil {
       editor = note
       return
@@ -458,6 +477,7 @@ struct NotesSticker: View {
     case .text: Color(hex: 0xb7efd8)
     case .ink: Color(hex: 0xffe883)
     case .voice: Color(hex: 0xbcdfff)
+    case .photo: Color(hex: 0xd8d0ff)
     }
   }
   private var artwork: String { kind == .text ? "NotebookPen" : kind.notesIcon }

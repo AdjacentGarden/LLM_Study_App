@@ -10,6 +10,7 @@ struct NoteSheetView: View {
 
 struct NotesTypePicker: View {
   @Environment(AppStore.self) private var store
+  @State private var photoCapture = false
   @State private var page = 1
   private var printedPage: Int {
     let citation = store.activeLesson?.blocks.flatMap(\.citations).first
@@ -50,11 +51,15 @@ struct NotesTypePicker: View {
       VStack(spacing: 10) {
         option(.text, title: "文字笔记", copy: "点击原文任意位置，输入文字批注")
         option(.ink, title: "手写批注", copy: "打开教材原页，用触控笔圈画")
+        Button { photoCapture = true } label: {
+          Label("拍照导入手写笔记", systemImage: "camera").frame(maxWidth: .infinity, minHeight: 60)
+        }.buttonStyle(.bordered).accessibilityIdentifier("notes.photo.capture")
         option(.voice, title: "语音笔记", copy: "说出想法，直接生成整理笔记，原始录音保留")
       }
       Text("原始内容会一直保留，整理版不会覆盖你的记录。").font(DS.font(.supporting)).foregroundStyle(DS.secondary).padding(
         .top, 30)
     }.padding(.horizontal, store.isPad ? 32 : 16).padding(.bottom, 36)
+      .sheet(isPresented: $photoCapture) { NotesPhotoNoteView() }
       .onAppear {
         let target = store.sourceTarget.flatMap { $0.bookID == store.selectedBookID ? $0 : nil }
         page = min(

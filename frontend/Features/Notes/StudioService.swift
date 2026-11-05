@@ -18,6 +18,7 @@ struct StudioCapabilities: Decodable, Sendable {
   var image_height: Int?
   var video_resolution: String?
   var video_requires_image: Bool?
+  var photo_notes: Bool?
   var voice_text_notes: Bool?
 }
 
@@ -492,7 +493,7 @@ actor StudioService {
 
   private func progressPhase(_ job: StudioJob) -> String {
     let phase = job.result["phase"]?.stringValue ?? job.status
-    return ["transcribing", "organizing", "queued", "planning", "submitting", "succeeded", "failed"].contains(phase)
+    return ["recognizing", "transcribing", "organizing", "queued", "planning", "submitting", "succeeded", "failed"].contains(phase)
       ? phase : "generating"
   }
 
