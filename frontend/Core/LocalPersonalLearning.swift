@@ -141,7 +141,7 @@ extension LocalBookCourseRepository {
   func restoreLocalGenerationStatuses(scope: String) async throws {
     let epoch = cloudState.epoch
     let records = try await repository.localGenerations(scope: scope)
-    guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+    guard epoch == cloudState.epoch, cloudState.cacheKey == scope || scope == noteScope else { throw CancellationError() }
     var statuses: [String: LocalGenerationStatus] = [:]
     for record in records.sorted(by: {
       ($0.updatedAt ?? 0, $0.id) < ($1.updatedAt ?? 0, $1.id)
