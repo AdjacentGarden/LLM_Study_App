@@ -1550,8 +1550,8 @@ class Studio:
                     timeout_seconds=120,
                     max_retries=1,
                     proxy_url=s.llm_https_proxy,
-                    thinking_enabled=s.text_thinking_enabled,
-                    reasoning_effort=s.text_reasoning_effort,
+                    thinking_enabled=s.text_thinking_enabled if not vision else None,
+                    reasoning_effort=s.text_reasoning_effort if not vision else None,
                 )
             )
         return OpenAICompatibleClient(
