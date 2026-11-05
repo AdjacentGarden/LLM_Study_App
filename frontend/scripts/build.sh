@@ -23,7 +23,10 @@ done
 bookcourse_xcode
 if "$regenerate"; then python3 "$BOOKCOURSE_ROOT/scripts/generate-project.py"; fi
 options=()
-if [[ "$destination" == *Simulator* ]]; then options+=(CODE_SIGNING_ALLOWED=NO); fi
+if [[ "$destination" == *Simulator* ]]; then
+  # Background transfers need a bundle signature that identifies the app to nsurlsessiond.
+  options+=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-)
+fi
 python3 "$BOOKCOURSE_ROOT/scripts/validate-content.py"
 exec xcodebuild -project "$BOOKCOURSE_ROOT/BookCourse.xcodeproj" -scheme BookCourse \
   -configuration "$BOOKCOURSE_CONFIGURATION" -destination "$destination" \

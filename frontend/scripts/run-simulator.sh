@@ -37,5 +37,10 @@ fi
 if "$build"; then "$BOOKCOURSE_ROOT/scripts/build.sh" --destination "platform=iOS Simulator,id=$device"; fi
 app="$BOOKCOURSE_DERIVED_DATA/Build/Products/$BOOKCOURSE_CONFIGURATION-iphonesimulator/BookCourse.app"
 if [[ ! -d "$app" ]]; then echo "App not found: $app. Run scripts/build.sh first." >&2; exit 1; fi
+# Check prebuilt apps too: --no-build must not install an invalid signature.
+if ! codesign --verify --deep --strict "$app"; then
+  echo 'Invalid Simulator app signature. Rebuild with scripts/build.sh before installing.' >&2
+  exit 1
+fi
 xcrun simctl install "$device" "$app"
 xcrun simctl launch --terminate-running-process "$device" com.littleri.bookcourseai.swiftui "$@"

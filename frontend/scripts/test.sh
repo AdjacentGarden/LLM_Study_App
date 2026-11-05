@@ -28,6 +28,12 @@ done
 bookcourse_xcode
 if [[ -z "$destination" ]]; then destination="platform=iOS Simulator,id=$(bookcourse_simulator)"; fi
 options=()
+# XCTest installs its host app, so Simulator tests need the same ad-hoc signing.
+if [[ "$destination" == *Simulator* ]]; then
+  options+=(CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-)
+else
+  options+=(CODE_SIGNING_ALLOWED=NO)
+fi
 if [[ -n "$selection" ]]; then options+=("-only-testing:$selection"); else
   case "$scope" in unit) options+=('-only-testing:BookCourseTests');; ui) options+=('-only-testing:BookCourseUITests');; esac
 fi
@@ -40,4 +46,4 @@ python3 "$BOOKCOURSE_ROOT/scripts/validate-content.py"
 exec xcodebuild -project "$BOOKCOURSE_ROOT/BookCourse.xcodeproj" -scheme BookCourse \
   -configuration "$BOOKCOURSE_CONFIGURATION" -destination "$destination" \
   -derivedDataPath "$BOOKCOURSE_DERIVED_DATA" -clonedSourcePackagesDirPath "$BOOKCOURSE_PACKAGES" \
-  -disableAutomaticPackageResolution -parallel-testing-enabled NO -collect-test-diagnostics never test ${options[@]+"${options[@]}"} CODE_SIGNING_ALLOWED=NO "$@"
+  -disableAutomaticPackageResolution -parallel-testing-enabled NO -collect-test-diagnostics never test ${options[@]+"${options[@]}"} "$@"
