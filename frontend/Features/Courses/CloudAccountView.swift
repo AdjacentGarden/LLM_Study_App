@@ -288,7 +288,7 @@ struct CloudAccountView: View {
         } header: {
           Text("学习服务地址")
         } footer: {
-          Text("同一局域网使用 Windows 学习服务地址；通过 VPN 可填写 http://100.86.143.88:8100。")
+          Text("使用已配置的学习服务地址，连接后会保存供下次启动使用。")
         }
       }
       .navigationTitle("设置").navigationBarTitleDisplayMode(.inline)

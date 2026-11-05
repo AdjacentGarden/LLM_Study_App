@@ -94,7 +94,16 @@ private final class CoverRedirectPolicy: NSObject, URLSessionTaskDelegate, @unch
 
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
-  nonisolated static let defaultServer = "http://192.168.28.241:8100"
+  nonisolated static let simulatorRelayServer = "http://127.0.0.1:18100"
+  private nonisolated static let legacyLANServer = "http://192.168.28.241:8100"
+  #if targetEnvironment(simulator)
+  nonisolated static let usesSimulatorRelay = true
+  #else
+  nonisolated static let usesSimulatorRelay = false
+  #endif
+  nonisolated static var defaultServer: String {
+    usesSimulatorRelay ? simulatorRelayServer : legacyLANServer
+  }
   nonisolated let legacyPrivateSyncEnabled: Bool
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
@@ -141,7 +150,10 @@ actor CloudAPI {
       && numbers[0] == 100 && (64...127).contains(numbers[1])
     // Tailnet IPv4 addresses and MagicDNS names must follow the device's VPN
     // route, including when its system HTTP proxy cannot reach that network.
-    if tailnetAddress || host.hasSuffix(".ts.net") { config.connectionProxyDictionary = [:] }
+    let loopback = ["127.0.0.1", "localhost", "::1", "[::1]"].contains(host)
+    if loopback || tailnetAddress || host.hasSuffix(".ts.net") {
+      config.connectionProxyDictionary = [:]
+    }
     return config
   }
 
@@ -173,11 +185,32 @@ actor CloudAPI {
 
   nonisolated static func configured() -> CloudAPI? {
     guard !ContentBundle.fixtureMode else { return nil }
-    let value =
-      ProcessInfo.processInfo.environment["BOOKCOURSE_API_BASE_URL"]
-      ?? UserDefaults.standard.string(forKey: "cloudpath.server") ?? defaultServer
-    guard let url = validatedURL(value) else { return nil }
+    guard let url = configuredURL() else { return nil }
     return CloudAPI(baseURL: url)
+  }
+
+  /// Simulator traffic enters the Mac's persistent VPS relay. Migrate known
+  /// direct Windows addresses once, while retaining explicit custom services.
+  nonisolated static func configuredURL(
+    defaults: UserDefaults = .standard,
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    simulatorRelay: Bool = usesSimulatorRelay
+  ) -> URL? {
+    if let override = environment["BOOKCOURSE_API_BASE_URL"] {
+      return validatedURL(override)
+    }
+    let saved = defaults.string(forKey: "cloudpath.server")
+    let legacy = saved.flatMap(validatedURL).map {
+      [legacyLANServer, "http://100.86.143.88:8100", "http://10.249.44.137:8100"]
+        .contains($0.absoluteString)
+    } ?? false
+    let value = simulatorRelay && (saved == nil || legacy)
+      ? simulatorRelayServer : (saved ?? legacyLANServer)
+    guard let url = validatedURL(value) else { return nil }
+    if saved != url.absoluteString {
+      defaults.set(url.absoluteString, forKey: "cloudpath.server")
+    }
+    return url
   }
 
   nonisolated static func validatedURL(_ value: String) -> URL? {
