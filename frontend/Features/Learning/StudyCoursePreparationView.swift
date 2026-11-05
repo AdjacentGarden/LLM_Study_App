@@ -11,7 +11,26 @@ struct StudyCoursePreparationView: View {
     if preparation == .generation { return store.cloudState.courseTask != nil }
     return record.map { store.importState.tasks[$0.id] != nil || $0.job.status == .running } ?? false
   }
+  private var localStatus: LocalGenerationStatus? {
+    guard preparation == .diagnosis || preparation == .generation else { return nil }
+    return store.selectedLocalGenerationStatus
+  }
+  private var actionTitle: String {
+    if let status = localStatus {
+      if ["submitted", "submitting", "uncertain", "retryable"].contains(status.state) { return "查询生成结果" }
+      if status.operation == "plan" { return "继续安排学习计划" }
+      if status.state == "failed" { return "重新生成学习内容" }
+    }
+    return "继续"
+  }
   private var title: String {
+    if let status = localStatus {
+      let plan = status.operation == "plan"
+      if status.state == "failed" { return plan ? "学习计划未完成" : "学习内容未生成" }
+      if store.selectedLocalGenerationIsRunning { return plan ? "正在安排学习计划" : "正在生成学习内容" }
+      if ["submitted", "submitting", "uncertain", "retryable"].contains(status.state) { return "生成结果待确认" }
+      if plan { return "继续安排学习计划" }
+    }
     switch preparation {
     case .materials:
       if compact {
@@ -32,6 +51,22 @@ struct StudyCoursePreparationView: View {
     }
   }
   private var message: String {
+    if let status = localStatus {
+      if status.state == "failed" {
+        return status.operation == "plan"
+          ? "学习内容已保留，点击继续重试学习计划。"
+          : "生成未完成，教材和学习偏好已保留，点击重新生成。"
+      }
+      if store.selectedLocalGenerationIsRunning {
+        return status.operation == "plan" ? "正在按学习偏好安排可执行的计划。" : "正在根据教材和学习偏好编写本章内容。"
+      }
+      if ["submitted", "submitting", "uncertain", "retryable"].contains(status.state) {
+        return "上次请求的结果尚未确认。点击查询原请求，不会重复提交生成。"
+      }
+    }
+    if preparation == .diagnosis, store.cloudState.privateLocalMode {
+      return "教材资料已就绪，点击继续生成学习内容和计划。"
+    }
     switch preparation {
     case .materials: return record?.message ?? "资料和创建进度已保存，可继续整理。"
     case .setup: return "教材解析已完成，继续完成课程设置和目录确认。"
@@ -49,7 +84,7 @@ struct StudyCoursePreparationView: View {
           Text(title).font(DS.font(.sectionTitle))
           CourseProgressMessage(message: message)
             .font(DS.font(.supporting)).foregroundStyle(
-              record?.error != nil || job?.status == .failed ? DS.danger : DS.secondary)
+              record?.error != nil || job?.status == .failed || localStatus?.state == "failed" ? DS.danger : DS.secondary)
         }
         Spacer(minLength: 0)
       }
@@ -84,7 +119,7 @@ struct StudyCoursePreparationView: View {
       .accessibilityIdentifier("study.preparation.steps")
 
       if store.coursePreparationRequiresAction(preparation) {
-        BCButton("继续") { continuePreparation() }
+        BCButton(actionTitle) { continuePreparation() }
           .frame(maxWidth: 240).clipShape(Capsule())
           .frame(maxWidth: .infinity).padding(.top, compact ? 32 : 64)
           .accessibilityIdentifier("study.preparation.resume")

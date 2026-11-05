@@ -200,6 +200,18 @@ extension LocalBookCourseRepository {
     return cloudState.courseJob
   }
 
+  var selectedLocalGenerationStatus: LocalGenerationStatus? {
+    guard cloudState.privateLocalMode, let course = selectedCourseID, let book = selectedBookID else { return nil }
+    return cloudState.localGenerationStatuses[course + "::" + book]
+  }
+
+  var selectedLocalGenerationIsRunning: Bool {
+    guard let status = selectedLocalGenerationStatus,
+      ["pending", "submitted", "submitting"].contains(status.state),
+      cloudState.localLearningOwner?.courseID == selectedCourseID else { return false }
+    return cloudState.isWorking
+  }
+
   var hasStudyContent: Bool {
     guard let course = currentCourse else { return false }
     return sources.contains { source in
@@ -221,6 +233,10 @@ extension LocalBookCourseRepository {
       if record.setupCompleted != true { return .setup }
       if record.onDeviceOnly == true { return .localGeneration }
     }
+    if cloudState.privateLocalMode, selectedLocalGenerationStatus?.operation == "plan",
+      hasStudyContent, !sources.contains(where: {
+        currentCourse?.resourceIDs.contains($0.id) == true && !$0.plan.tasks.isEmpty
+      }) { return .generation }
     if hasStudyContent { return nil }
     if let job = selectedCourseJob, job.status != .succeeded { return .generation }
     if cloudResource != nil, !lessons.contains(where: { $0.status == "ready" }) {
@@ -305,7 +321,11 @@ extension LocalBookCourseRepository {
         || record.job.status == .queued && !record.started
     case .setup: return true
     case .localGeneration, .diagnosis: return !cloudState.isWorking && cloudState.courseTask == nil
-    case .generation: return selectedCourseJob?.status == .failed && !cloudState.isWorking
+    case .generation:
+      if cloudState.privateLocalMode, selectedLocalGenerationStatus != nil {
+        return !cloudState.isWorking && cloudState.courseTask == nil
+      }
+      return selectedCourseJob?.status == .failed && !cloudState.isWorking
     }
   }
 
@@ -320,16 +340,37 @@ extension LocalBookCourseRepository {
     let courseSources = sources.filter { bookIDs.contains($0.id) }
     let directoryReady = !courseSources.isEmpty && courseSources.allSatisfy { !$0.chapters.isEmpty }
     let answered = CourseDiagnosisQuestion.all.filter { !(saved.diagnosis[$0.id]?.isEmpty ?? true) }.count
-    let confirmed = record?.setupCompleted == true || (record == nil && selectedCourseJob != nil)
-    let contentReady = confirmed && hasStudyContent
-    let planReady = contentReady && courseSources.contains { !$0.plan.tasks.isEmpty }
-    let writing = selectedCourseJob?.status == .running && selectedCourseJob?.stage != "planning"
-    return [
+    let common = [
       CourseCreationStep(id: 0, title: "整理课程资料", completed: parsed, detail: parsed ? "已完成" : parsing ? "进行中" : "等待中", active: parsing && !parsed),
       CourseCreationStep(id: 1, title: "识别章节与重点", completed: directoryReady, detail: directoryReady ? "已完成" : parsing && record?.job.preparationStage == "structuring" ? "进行中" : "等待中",
         active: !directoryReady && parsing && record?.job.preparationStage == "structuring"),
       CourseCreationStep(id: 2, title: "结合学习偏好", completed: answered == CourseDiagnosisQuestion.all.count,
         detail: "已回答 \(answered)/\(CourseDiagnosisQuestion.all.count) 题"),
+    ]
+    if cloudState.privateLocalMode {
+      let contentReady = hasStudyContent
+      let planReady = contentReady && courseSources.contains { !$0.plan.tasks.isEmpty }
+      let status = selectedLocalGenerationStatus
+      let writing = selectedLocalGenerationIsRunning && status?.operation == "lecture"
+      let planning = selectedLocalGenerationIsRunning && status?.operation == "plan"
+      let needsQuery = status.map { ["submitted", "submitting", "uncertain", "retryable"].contains($0.state) } ?? false
+      let contentDetail = contentReady ? "已完成" : writing ? "进行中"
+        : status?.operation == "lecture" && status?.state == "failed" ? "生成失败，可重试"
+        : status?.operation == "lecture" && needsQuery ? "结果待确认" : "需要继续"
+      let planDetail = planReady ? "已完成" : planning ? "进行中"
+        : status?.operation == "plan" && status?.state == "failed" ? "生成失败，可重试"
+        : !contentReady ? "等待学习内容"
+        : status?.operation == "plan" && needsQuery ? "结果待确认" : "需要继续"
+      return common + [
+        CourseCreationStep(id: 3, title: "准备学习内容", completed: contentReady, detail: contentDetail, active: writing),
+        CourseCreationStep(id: 4, title: "安排学习计划", completed: planReady, detail: planDetail, active: planning),
+      ]
+    }
+    let confirmed = record?.setupCompleted == true || (record == nil && selectedCourseJob != nil)
+    let contentReady = confirmed && hasStudyContent
+    let planReady = contentReady && courseSources.contains { !$0.plan.tasks.isEmpty }
+    let writing = selectedCourseJob?.status == .running && selectedCourseJob?.stage != "planning"
+    return common + [
       CourseCreationStep(id: 3, title: "安排学习计划", completed: planReady, detail: planReady ? "已完成" : selectedCourseJob?.status == .running && selectedCourseJob?.stage == "planning" ? "进行中" : "等待中",
         active: !planReady && selectedCourseJob?.status == .running && selectedCourseJob?.stage == "planning"),
       CourseCreationStep(id: 4, title: "准备学习内容", completed: contentReady, detail: contentReady ? "已完成" : writing ? "进行中" : selectedCourseJob?.status == .queued ? "排队中" : "等待中",

@@ -66,7 +66,7 @@ extension AppStore {
       cloudState.account = nil
       cloudState.cacheKey = nil
       cloudState.privateLocalMode = false; cloudState.localFirstChecked = false
-      cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
+      cloudState.localGenerationStatuses = [:]; cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
       dailyPlanState.reset()
       cloudState.pending = [:]
       cloudState.pendingReviews = []
@@ -262,7 +262,7 @@ extension AppStore {
       cloudState.account = nil
       cloudState.cacheKey = nil
       cloudState.privateLocalMode = false; cloudState.localFirstChecked = false
-      cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
+      cloudState.localGenerationStatuses = [:]; cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
       dailyPlanState.reset()
       cloudState.pending = [:]
       cloudState.pendingReviews = []

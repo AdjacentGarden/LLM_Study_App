@@ -14,6 +14,7 @@ extension AppStore {
       cloudState.privateLocalMode = true
       cloudState.cacheKey = current
       restorePrivateState(state)
+      try await restoreLocalGenerationStatuses(scope: current)
       return CloudLocalSnapshot(snapshot: state.snapshot, sources: state.sources, workspaces: state.workspaces,
         filePaths: state.filePaths, pending: [:], notes: nil)
     }
@@ -177,7 +178,7 @@ extension AppStore {
       let key = cloudCacheKey(account)
       if cloudState.cacheKey != key {
         cloudState.privateLocalMode = false; cloudState.localFirstChecked = false
-        cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
+        cloudState.localGenerationStatuses = [:]; cloudState.localCourseSources = [:]; cloudState.localDiagnostics = [:]; cloudState.localDeletedCourseIDs = []
         dailyPlanState.reset()
         cloudState.onboardingComplete = false
         cloudState.requiresPersonalization = false

@@ -645,6 +645,7 @@ extension LocalBookCourseRepository {
     cloudState.creationWorkspaceID = filtered.creationWorkspaceID
     cloudState.localDeletedCourseIDs.formUnion(removed)
     cloudState.localCourseSources = cloudState.localCourseSources.filter { !removed.contains($0.key) }
+    cloudState.localGenerationStatuses = cloudState.localGenerationStatuses.filter { !removed.contains($0.value.courseID) }
     cloudState.localDiagnostics = cloudState.localDiagnostics.filter { !removed.contains($0.value.courseID) }
     assistantState.learningObjects.removeAll { removed.contains($0.course_id) }
     dailyPlanState.plans = filtered.dailyPlans ?? [:]; dailyPlanState.pending = filtered.pendingPlanCompletions ?? []

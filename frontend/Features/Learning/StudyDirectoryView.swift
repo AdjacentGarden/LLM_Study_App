@@ -166,7 +166,7 @@ struct StudyDirectoryView: View {
             // Chapter headings must have real frames before restoration. Lazy
             // estimates required a visible chapter jump followed by a second scroll.
             VStack(alignment: .leading, spacing: 8) {
-              if let preparation = store.studyCoursePreparation {
+              if let preparation = store.studyCoursePreparation, !store.hasStudyContent {
                 StudyCoursePreparationView(preparation: preparation)
               } else if directory.isEmpty {
                 EmptyStateView(
@@ -181,6 +181,9 @@ struct StudyDirectoryView: View {
                   else { store.go(.library) }
                 }
               } else {
+                if let preparation = store.studyCoursePreparation, store.hasStudyContent {
+                  StudyCoursePreparationView(preparation: preparation, compact: true)
+                }
                 if store.selectedCourseImport?.needsPreparation == true {
                   StudyCoursePreparationView(preparation: .materials, compact: true)
                     .id("study.materials.notice")

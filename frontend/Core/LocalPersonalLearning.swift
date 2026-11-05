@@ -42,6 +42,20 @@ struct LocalGenerationRecord: Codable, Sendable {
   var error: String?
   /// Count of user-started retries after a definite failure; each uses a new request ID.
   var attempt: Int?
+  var updatedAt: TimeInterval? = nil
+  var statusKey: String { courseID + "::" + bookID }
+}
+
+struct LocalGenerationStatus: Sendable {
+  var courseID: String
+  var bookID: String
+  var operation: String
+  var state: String
+  var error: String?
+  init(_ record: LocalGenerationRecord) {
+    courseID = record.courseID; bookID = record.bookID
+    operation = record.operation; state = record.state; error = record.error
+  }
 }
 
 extension LocalBookCourseRepository {
@@ -124,6 +138,21 @@ extension LocalBookCourseRepository {
       diagnostics: cloudState.localDiagnostics, requiresPersonalization: cloudState.requiresPersonalization, initialized: true, deletedCourseIDs: cloudState.localDeletedCourseIDs)
     try await repository.savePersonalState(state, scope: scope)
   }
+  func restoreLocalGenerationStatuses(scope: String) async throws {
+    let epoch = cloudState.epoch
+    let records = try await repository.localGenerations(scope: scope)
+    guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+    var statuses: [String: LocalGenerationStatus] = [:]
+    for record in records.sorted(by: {
+      ($0.updatedAt ?? 0, $0.id) < ($1.updatedAt ?? 0, $1.id)
+    }) where ["lecture", "plan"].contains(record.operation)
+      && courses.contains(where: { $0.id == record.courseID })
+      && !cloudState.localDeletedCourseIDs.contains(record.courseID) {
+      statuses[record.statusKey] = LocalGenerationStatus(record)
+    }
+    cloudState.localGenerationStatuses = statuses
+  }
+
   func restorePrivateState(_ state: LocalPersonalState) {
     courses = state.snapshot.courses; sources = state.sources; filePaths = state.filePaths
     for source in sources {

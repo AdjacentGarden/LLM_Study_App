@@ -649,6 +649,88 @@ final class LearningTests: XCTestCase {
     XCTAssertEqual(records.first?.body["max_tokens"], .number(32768))
   }
 
+  private func contractStore(mode: String) async throws -> (AppStore, URLSession) {
+    let store = try await makeStore()
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [LocalCourseContractProtocol.self]
+    let session = URLSession(configuration: configuration)
+    LocalCourseContractProtocol.reset(mode: mode)
+    store.cloud = CloudAPI(baseURL: URL(string: "https://course-contract.invalid")!, session: session)
+    store.cloudState.authenticated = true
+    store.cloudState.cacheKey = "contract-scope"
+    try await store.ensureCourseDeletionState(scope: try XCTUnwrap(store.noteScope))
+    store.cloudState.localCourseSources["chapter-course"] = store.sources
+    store.cloudState.localDiagnostics["contract-session"] = LocalDiagnosticSession(id: "contract-session",
+      courseID: "chapter-course", bookID: "chapter-entry-book", chapterID: "first", items: [], grades: [], position: 0, results: [:])
+    return (store, session)
+  }
+
+  func testTypedLectureContractGeneratesContentAndPlanWithoutServerJob() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertFalse(store.sources.first!.plan.tasks.isEmpty)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    XCTAssertTrue(store.courseCreationSteps[3].completed)
+    XCTAssertTrue(store.courseCreationSteps[4].completed)
+    XCTAssertEqual(store.courseCreationSteps[3].title, "准备学习内容")
+    let schema = try XCTUnwrap(LocalCourseContractProtocol.lectureSchema())
+    let root = try XCTUnwrap(schema["properties"] as? [String: Any])
+    let course = try XCTUnwrap(root["course"] as? [String: Any])
+    let properties = try XCTUnwrap(course["properties"] as? [String: Any])
+    for key in ["original_reading", "worked_examples"] {
+      let list = try XCTUnwrap(properties[key] as? [String: Any])
+      let item = try XCTUnwrap(list["items"] as? [String: Any])
+      XCTAssertEqual(Set(try XCTUnwrap(item["required"] as? [String])), Set(["title", "content", "purpose", "citations"]))
+    }
+  }
+
+  func testCitationOnlyLectureFailsBeforePlanAndKeepsDurableFailure() async throws {
+    let (store, session) = try await contractStore(mode: "citation-only")
+    defer { session.invalidateAndCancel() }
+    do {
+      try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+      XCTFail("Citation objects cannot stand in for teaching sections")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("课程结构")) }
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture"])
+    XCTAssertFalse(store.hasStudyContent)
+    XCTAssertEqual(store.courseCreationSteps[3].detail, "生成失败，可重试")
+    XCTAssertEqual(store.courseCreationSteps[4].detail, "等待学习内容")
+    store.cloudState.localGenerationStatuses = [:]
+    try await store.restoreLocalGenerationStatuses(scope: try XCTUnwrap(store.noteScope))
+    XCTAssertEqual(store.courseCreationSteps[3].detail, "生成失败，可重试")
+    XCTAssertFalse(store.courseCreationSteps[3].active)
+  }
+
+  func testFailedPlanRetainsContentAndRetriesOnlyPlan() async throws {
+    let (store, session) = try await contractStore(mode: "invalid-plan-first")
+    defer { session.invalidateAndCancel() }
+    do {
+      try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+      XCTFail("An invalid plan must remain retryable")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("学习计划")) }
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertEqual(store.courseCreationSteps[4].detail, "生成失败，可重试")
+    XCTAssertEqual(store.studyCoursePreparation, .generation)
+    XCTAssertTrue(store.coursePreparationRequiresAction(.generation))
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan", "plan"])
+    XCTAssertTrue(LocalCourseContractProtocol.requestIDs().last!.hasSuffix("_a1"))
+    XCTAssertTrue(store.courseCreationSteps[4].completed)
+    XCTAssertNil(store.studyCoursePreparation)
+  }
+
+  func testUnstartedAndUncertainGenerationDoNotPretendToRun() async throws {
+    let store = try await makeStore()
+    XCTAssertEqual(store.courseCreationSteps[3].detail, "需要继续")
+    let record = LocalGenerationRecord(id: "held", courseID: "chapter-course", bookID: "chapter-entry-book",
+      chapterID: "first", operation: "lecture", body: [:], state: "uncertain", attempt: nil)
+    store.cloudState.localGenerationStatuses[record.statusKey] = LocalGenerationStatus(record)
+    XCTAssertEqual(store.courseCreationSteps[3].detail, "结果待确认")
+    XCTAssertFalse(store.courseCreationSteps[3].active)
+  }
+
   func testPersistedModelResultSurvivesAcknowledgementFailureWithoutAnotherModelPost() async throws {
     let store = try await makeStore()
     let configuration = URLSessionConfiguration.ephemeral
@@ -777,5 +859,79 @@ private final class ChapterGenerationAckLossProtocol: URLProtocol, @unchecked Se
   func finish() {
     continuation?.resume()
     continuation = nil
+  }
+}
+
+private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendable {
+  private static let lock = NSLock()
+  nonisolated(unsafe) private static var mode = "valid"
+  nonisolated(unsafe) private static var observed: [String] = []
+  nonisolated(unsafe) private static var ids: [String] = []
+  nonisolated(unsafe) private static var schema: [String: Any]?
+  static func reset(mode value: String) { lock.lock(); defer { lock.unlock() }; mode = value; observed = []; ids = []; schema = nil }
+  static func operations() -> [String] { lock.lock(); defer { lock.unlock() }; return observed }
+  static func requestIDs() -> [String] { lock.lock(); defer { lock.unlock() }; return ids }
+  static func lectureSchema() -> [String: Any]? { lock.lock(); defer { lock.unlock() }; return schema }
+  override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "course-contract.invalid" }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    do {
+      var result: [String: Any] = ["ok": true]
+      if request.httpMethod == "POST" {
+        let values = try JSONDecoder().decode([String: JSONValue].self, from: routingRequestBodyForContract(request))
+        let operation = values["operation"]?.stringValue ?? ""
+        let requestID = values["request_id"]?.stringValue ?? ""
+        let declaredSchema: [String: Any]?
+        if operation == "lecture", case .object(let declared)? = values["response_schema"] {
+          declaredSchema = try JSONSerialization.jsonObject(with: JSONEncoder().encode(declared)) as? [String: Any]
+        } else { declaredSchema = nil }
+        Self.lock.lock()
+        Self.observed.append(operation); Self.ids.append(requestID)
+        let selectedMode = Self.mode
+        let planNumber = Self.observed.filter { $0 == "plan" }.count
+        if let declaredSchema { Self.schema = declaredSchema }
+        Self.lock.unlock()
+        let citation: [String: Any] = ["page_number": 1, "quote": "原子由原子核和核外电子构成。"]
+        let section: [String: Any] = ["title": "原子结构", "content": "原子由原子核和核外电子构成。", "purpose": "explanation", "kind": "explanation", "point_id": "p1", "citations": [citation]]
+        let courseID = "local-lecture:contract-session"
+        let output: [String: Any]
+        if operation == "lecture" {
+          var course: [String: Any] = ["course_id": courseID, "version": 1, "chapter_id": "first", "chapter_title": "原子结构",
+            "opening": "认识原子", "summary": "原子的组成", "original_reading": [section],
+            "knowledge_points": [["point_id": "p1", "title": "原子结构", "explanation": "原子由原子核和核外电子构成。", "mastery": 0, "citations": [citation]]],
+            "flashcards": [], "worked_examples": [], "checkpoint_questions": [], "practice_items": [],
+            "estimated_minutes": 10, "created_at": "2026-11-06T00:00:00Z", "unresolved_source_warnings": [],
+            "units": [["unit_id": "u1", "title": "原子结构", "knowledge_point_ids": ["p1"], "sections": [section], "estimated_minutes": 10]]]
+          if selectedMode == "citation-only" { course["original_reading"] = [citation] }
+          output = ["course": course, "practice_grading": []]
+        } else if selectedMode == "invalid-plan-first" && planNumber == 1 {
+          output = [:]
+        } else {
+          output = ["user_id": "test-user", "book_id": "chapter-entry-book", "days": 1, "daily_minutes": 10,
+            "tasks": [["task_id": "t1", "user_id": "test-user", "day": 1, "title": "学习原子结构", "task_type": "learn", "minutes": 10,
+              "chapter_id": "first", "lesson_id": courseID, "status": "pending", "weak_points": []]]]
+        }
+        let content = String(decoding: try JSONSerialization.data(withJSONObject: output), as: UTF8.self)
+        result = ["request_id": requestID, "state": "completed", "content": content, "error": ""]
+      }
+      let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+      client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+      client?.urlProtocol(self, didLoad: try JSONSerialization.data(withJSONObject: result))
+      client?.urlProtocolDidFinishLoading(self)
+    } catch { client?.urlProtocol(self, didFailWithError: error) }
+  }
+  override func stopLoading() {}
+}
+
+private func routingRequestBodyForContract(_ request: URLRequest) throws -> Data {
+  if let data = request.httpBody { return data }
+  guard let stream = request.httpBodyStream else { return Data() }
+  stream.open(); defer { stream.close() }
+  var data = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+  while true {
+    let count = stream.read(&buffer, maxLength: buffer.count)
+    guard count >= 0 else { throw URLError(.cannotDecodeRawData) }
+    if count == 0 { return data }
+    data.append(contentsOf: buffer.prefix(count))
   }
 }

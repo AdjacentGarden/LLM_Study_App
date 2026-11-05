@@ -109,6 +109,7 @@ enum LocalCourseLearningContext {
   var onboardingComplete = false
   var requiresPersonalization = false
   var isWorking = false
+  var localGenerationStatuses: [String: LocalGenerationStatus] = [:]
   @ObservationIgnored var localLearningOwner: LocalCourseLearningOwner?
   @ObservationIgnored var cancelLocalLearningTask: (@Sendable () -> Void)?
   var localStageFingerprints: [String: String] = [:]
