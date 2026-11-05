@@ -353,13 +353,14 @@ struct StudyLocation: Codable, Hashable, Sendable {
   var completedChapterIDs: Set<String>? = nil
 }
 enum NoteKind: String, Codable, CaseIterable, Identifiable, Sendable {
-  case text, ink, voice
+  case text, ink, voice, photo
   var id: String { rawValue }
   var title: String {
     switch self {
     case .text: "文字"
     case .ink: "手写"
     case .voice: "语音"
+    case .photo: "照片"
     }
   }
 }
@@ -404,6 +405,7 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
   var voiceRecognitionAudioSHA256: String?
   var organizedText: String?
   var drawingPath: String?
+  var photos: [NotePhoto]?
   var conversation: [ChatMessage]?
   /// Executor-made citations, stored in note_references rather than the payload.
   var references: [NoteReference]?
@@ -416,7 +418,7 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
     transcript: String? = nil, organizedText: String? = nil, drawingPath: String? = nil,
     conversation: [ChatMessage]? = nil, voiceRecognitionSource: String? = nil,
     voiceRecognitionAudioSHA256: String? = nil, references: [NoteReference]? = nil,
-    provenance: NoteProvenance? = nil
+    provenance: NoteProvenance? = nil, photos: [NotePhoto]? = nil
   ) {
     self.id = id
     self.kind = kind
@@ -436,6 +438,7 @@ struct StudyNote: Codable, Identifiable, Hashable, Sendable {
     self.conversation = conversation
     self.references = references
     self.provenance = provenance
+    self.photos = photos
   }
   /// Legacy transcripts have no provenance and must never be treated as a new
   /// on-device recognition. Tie a reusable result to the exact saved recording.

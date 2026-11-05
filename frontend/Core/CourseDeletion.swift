@@ -286,7 +286,7 @@ extension LocalBookCourseRepository {
       var removedNoteIDs: Set<String> = []
       for note in try loadStoredNotes(scope: scope).map(\.note) {
         if CourseDeletionPruning.notes([note], tombstones: tombstones).isEmpty {
-          candidatePaths.formUnion([note.audioPath, note.drawingPath].compactMap { $0 })
+          candidatePaths.formUnion(note.attachmentPaths)
           removedNoteIDs.insert(note.id)
           try tombstone(note.id, scope: scope)
           try db.delete("cloud-note", scope + ":" + note.id)
@@ -302,7 +302,7 @@ extension LocalBookCourseRepository {
             kind == "note" || id == scope + ":" + note.id,
             CourseDeletionPruning.notes([note], tombstones: tombstones).isEmpty else { continue }
           removedNoteIDs.insert(note.id)
-          candidatePaths.formUnion([note.audioPath, note.drawingPath].compactMap { $0 })
+          candidatePaths.formUnion(note.attachmentPaths)
           try db.delete(kind, id)
         }
       }

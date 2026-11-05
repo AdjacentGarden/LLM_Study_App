@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import Field
 
+from ..photo_notes import PhotoNoteInput
 from ..native import NativeRepository
 from ..studio import get_studio
 from ..studio_models import (
@@ -76,6 +77,13 @@ def studio_router(
         if not studio.capabilities()[data.kind]:
             raise HTTPException(503, "图解或短片服务暂未就绪，原文阅读与笔记仍可使用")
         return studio.submit(owner, data.model_dump(), data.kind)
+
+    @router.post("/studio/photo-notes")
+    def photo_note(data: PhotoNoteInput, owner: str = Depends(visitor)) -> dict[str, Any]:
+        owned_book(owner, data.book_id)
+        if not studio.capabilities().get("photo_notes", False):
+            raise HTTPException(503, "照片笔记识别服务尚未就绪，原图可保存在本机。")
+        return studio.submit(owner, data.model_dump(), "photo_note")
 
     @router.get("/studio/notes")
     def notes(

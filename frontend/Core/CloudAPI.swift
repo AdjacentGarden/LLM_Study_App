@@ -94,16 +94,9 @@ private final class CoverRedirectPolicy: NSObject, URLSessionTaskDelegate, @unch
 
 /// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
 actor CloudAPI {
-  nonisolated static let simulatorRelayServer = "http://127.0.0.1:18100"
-  private nonisolated static let legacyLANServer = "http://192.168.28.241:8100"
-  #if targetEnvironment(simulator)
-  nonisolated static let usesSimulatorRelay = true
-  #else
-  nonisolated static let usesSimulatorRelay = false
-  #endif
-  nonisolated static var defaultServer: String {
-    usesSimulatorRelay ? simulatorRelayServer : legacyLANServer
-  }
+  // The shipped Mac simulator reaches the 4090 through its direct SSH forward.
+  // Device deployments can supply a reachable HTTP URL through the launch/build configuration.
+  nonisolated static let defaultServer = "http://127.0.0.1:18100"
   nonisolated let legacyPrivateSyncEnabled: Bool
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
@@ -189,23 +182,21 @@ actor CloudAPI {
     return CloudAPI(baseURL: url)
   }
 
-  /// Simulator traffic enters the Mac's persistent VPS relay. Migrate known
-  /// direct Windows addresses once, while retaining explicit custom services.
+  /// The default entry belongs to the direct 4090 connection. Retire saved
+  /// Windows endpoints once, while retaining explicit test and device URLs.
   nonisolated static func configuredURL(
     defaults: UserDefaults = .standard,
-    environment: [String: String] = ProcessInfo.processInfo.environment,
-    simulatorRelay: Bool = usesSimulatorRelay
+    environment: [String: String] = ProcessInfo.processInfo.environment
   ) -> URL? {
     if let override = environment["BOOKCOURSE_API_BASE_URL"] {
       return validatedURL(override)
     }
     let saved = defaults.string(forKey: "cloudpath.server")
     let legacy = saved.flatMap(validatedURL).map {
-      [legacyLANServer, "http://100.86.143.88:8100", "http://10.249.44.137:8100"]
+      ["http://192.168.28.241:8100", "http://100.86.143.88:8100", "http://10.249.44.137:8100"]
         .contains($0.absoluteString)
     } ?? false
-    let value = simulatorRelay && (saved == nil || legacy)
-      ? simulatorRelayServer : (saved ?? legacyLANServer)
+    let value = saved == nil || legacy ? defaultServer : saved!
     guard let url = validatedURL(value) else { return nil }
     if saved != url.absoluteString {
       defaults.set(url.absoluteString, forKey: "cloudpath.server")

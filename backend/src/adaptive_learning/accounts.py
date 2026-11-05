@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import smtplib
 import ssl
@@ -72,6 +73,16 @@ class Accounts:
     @staticmethod
     def demo_enabled() -> bool:
         return os.getenv("AUTH_DEMO_MODE", "0") == "1"
+
+    @staticmethod
+    def fixed_test_code(email: str) -> str | None:
+        configured = os.getenv("CLOUDPATH_TEST_AUTH_EMAIL", "").strip().lower()
+        if os.getenv("CLOUDPATH_TEST_AUTH_ENABLED", "0") != "1" or email != configured:
+            return None
+        code = os.getenv("CLOUDPATH_TEST_AUTH_CODE", "").strip()
+        if not configured or not re.fullmatch(r"[0-9]{6}", code):
+            raise HTTPException(503, "测试账号登录配置未就绪")
+        return code
 
     @staticmethod
     def local_login_enabled() -> bool:
@@ -175,10 +186,11 @@ class Accounts:
             return bool(db.execute("SELECT 1 FROM accounts WHERE email=?", (email,)).fetchone())
 
     def send_code(self, owner: str, email: str, purpose: str, ip: str) -> dict[str, Any]:
+        fixed = self.fixed_test_code(email)
         demo = self.demo_enabled() and email in DEMO_EMAILS
-        if email.endswith(".test") and not demo:
+        if email.endswith(".test") and not demo and fixed is None:
             raise HTTPException(422, "请使用有效的邮箱地址")
-        if not demo and not self.smtp_ready():
+        if not demo and fixed is None and not self.smtp_ready():
             raise HTTPException(503, "邮箱验证服务暂时不可用，请稍后再试")
         switched = purpose == "login" and not self.email_registered(email)
         if switched:
@@ -192,7 +204,7 @@ class Accounts:
             )
         challenge, code, now = (
             secrets.token_urlsafe(24),
-            f"{secrets.randbelow(1000000):06d}",
+            fixed if fixed is not None else f"{secrets.randbelow(1000000):06d}",
             time.time(),
         )
         with self.repo.connect() as db:
@@ -222,7 +234,7 @@ class Accounts:
             )
             db.execute("INSERT INTO email_rate VALUES(?,?,?)", (self.digest(ip), owner, now))
             exists = bool(db.execute("SELECT 1 FROM accounts WHERE email=?", (email,)).fetchone())
-        if not demo and (purpose == "register" or exists):
+        if not demo and fixed is None and (purpose == "register" or exists):
             try:
                 self._email(email, code)
             except (OSError, smtplib.SMTPException, ValueError):
@@ -236,8 +248,10 @@ class Accounts:
             "expires_in": 600,
             "retry_after": 60,
             "purpose": purpose,
-            "delivery": "demo" if demo else "email",
-            "message": "演示验证码，不会发送邮件"
+            "delivery": "test" if fixed is not None else "demo" if demo else "email",
+            "message": "测试账号验证码已就绪"
+            if fixed is not None
+            else "演示验证码，不会发送邮件"
             if demo
             else "该邮箱尚未注册，已为你切换到注册，验证码已发送"
             if switched

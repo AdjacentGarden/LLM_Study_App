@@ -662,6 +662,7 @@ class Studio:
             "notes_ai": note_text and vision,
             "voice_notes": bool(s.deepseek_api_key) and self.voice_runtime_ready(),
             "voice_text_notes": bool(s.deepseek_api_key),
+            "photo_notes": bool(s.deepseek_api_key),
             "voice_notes_provider": "DeepSeek",
             "voice_notes_model": "deepseek-flash",
             "voice_notes_legacy": note_text and self.voice_runtime_ready(),
@@ -1092,7 +1093,7 @@ class Studio:
         fingerprint_body: dict[str, Any] = {k: v for k, v in data.items() if k != "request_id"}
         if kind in {"improve", "complete"}:
             fingerprint_body = {"body": fingerprint_body, "note_review_revision": NOTE_REVIEW_REVISION}
-        elif kind == "voice_note":
+        elif kind in {"voice_note", "photo_note"}:
             fingerprint_body = {"body": fingerprint_body, "voice_note_revision": VOICE_NOTE_REVISION}
         if kind in {"image", "video"}:
             fingerprint_body = {"body": fingerprint_body, "media_review_mode": media_review_mode(),
@@ -1105,7 +1106,7 @@ class Studio:
                 # The historical table name is retained for migration compatibility.
                 # Media coalescing also needs durable aliases: a lost reply must
                 # remain recoverable without another paid submission.
-                if kind in {"improve", "complete", "voice_note", "image", "video"}:
+                if kind in {"improve", "complete", "voice_note", "photo_note", "image", "video"}:
                     db.execute("INSERT INTO studio_note_request_aliases VALUES (?,?,?,?,?,?)",
                         (owner, data["request_id"], kind, body_json, job_id, now))
 
@@ -1203,7 +1204,7 @@ class Studio:
             if kind in {"image", "video"}:
                 db.execute("UPDATE studio_jobs SET result=? WHERE id=?",
                     (json.dumps({"media_review_mode": media_review_mode(), **generation_config}), key))
-            elif kind == "voice_note":
+            elif kind in {"voice_note", "photo_note"}:
                 db.execute("UPDATE studio_jobs SET result=? WHERE id=?",
                     (json.dumps({"phase": "queued", "provider": "DeepSeek", "model": "deepseek-flash"}), key))
             remember_request(key)
@@ -2080,6 +2081,9 @@ class Studio:
             self.review_media(row)
             return
         self.update(key, status="planning")
+        if kind == "photo_note":
+            self.process_photo_note(row, data)
+            return
         if kind in {"recognize", "improve", "complete", "voice_note"}:
             self.process_note(row, data)
             return
@@ -2637,6 +2641,29 @@ class Studio:
                         error="录音已有新版本，请针对最新录音重新生成笔记")
             return
         result.update(phase="ready", **draft.model_dump(), suggestions=[])
+        self.update(key, status="succeeded", error="", result=json.dumps(result, ensure_ascii=False))
+
+    def process_photo_note(self, row: sqlite3.Row, data: dict[str, Any]) -> None:
+        from .photo_notes import decode_photo, extract_photo, summarize_photo
+        image = decode_photo(data["image_base64"], data["image_sha256"])
+        key = row["id"]
+        result = {"phase": "recognizing", "provider": "DeepSeek", "model": "deepseek-flash",
+                  "image_sha256": data["image_sha256"]}
+        self.update(key, status="submitting", result=json.dumps(result, ensure_ascii=False))
+        client = self.voice_note_client()
+        try:
+            transcript = extract_photo(client, image)
+            result.update(transcript.model_dump())
+            if not transcript.transcript.strip():
+                self.update(key, status="failed", error="照片没有识别到清楚的文字，请重新拍摄；原图仍保留。",
+                            result=json.dumps(result, ensure_ascii=False))
+                return
+            result["phase"] = "organizing"
+            self.update(key, result=json.dumps(result, ensure_ascii=False))
+            summary = summarize_photo(client, transcript)
+        finally:
+            client.close()
+        result.update(summary.model_dump(), phase="ready")
         self.update(key, status="succeeded", error="", result=json.dumps(result, ensure_ascii=False))
 
     def process_note(self, row: sqlite3.Row, data: dict[str, Any]) -> None:

@@ -324,3 +324,40 @@ def test_demo_friends_are_explicit_idempotent_and_labelled(community):
         assert db.execute("SELECT count(*) FROM chat_messages").fetchone()[0] == 3
     assert b.get("/api/social/contacts").json()["friends"] == []
     assert a.get("/api/auth/me").json()["user_id"] == aid
+
+
+def test_fixed_tester_login_uses_normal_scoped_session_without_email(community, monkeypatch):
+    a, b, repo, _ = community
+    email = "cloudpath.tester@example.com"
+    monkeypatch.setenv("AUTH_DEMO_MODE", "0")
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_ENABLED", "1")
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_EMAIL", email)
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_CODE", "246810")
+    def no_email(*args):
+        raise AssertionError("The configured test identity must not send mail")
+    monkeypatch.setattr(Accounts, "_email", no_email)
+    value = challenge(a, email, "login")
+    assert value["delivery"] == "test" and value["purpose"] == "register"
+    assert "demo_code" not in value
+    assert verify(a, value, code="000000").status_code == 400
+    signed = verify(a, value, code="246810")
+    assert signed.status_code == 200, signed.text
+    assert signed.json()["account"]["email"] == email
+    assert not signed.json()["account"]["is_demo"]
+    assert b.get("/api/auth/me").json()["account"] is None
+    assert verify(a, value, code="246810").status_code == 400
+    cooldown(repo, email)
+    logged_in = verify(b, challenge(b, email, "login"), None, code="246810")
+    assert logged_in.status_code == 200
+    assert logged_in.json()["user_id"] == signed.json()["user_id"]
+
+
+def test_fixed_code_never_applies_to_other_emails_or_disabled_configuration(community, monkeypatch):
+    a, _, _, _ = community
+    monkeypatch.setenv("AUTH_DEMO_MODE", "0")
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_ENABLED", "1")
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_EMAIL", "cloudpath.tester@example.com")
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_CODE", "246810")
+    assert a.post("/api/auth/code", json={"email": "normal-reader@example.com", "purpose": "login"}).status_code == 503
+    monkeypatch.setenv("CLOUDPATH_TEST_AUTH_ENABLED", "0")
+    assert a.post("/api/auth/code", json={"email": "cloudpath.tester@example.com", "purpose": "login"}).status_code == 503

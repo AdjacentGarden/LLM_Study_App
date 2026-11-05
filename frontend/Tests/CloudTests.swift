@@ -1459,25 +1459,25 @@ extension CloudTests {
   }
 }
 
-final class CloudRelayConfigurationTests: XCTestCase {
+final class CloudBackendConnectionTests: XCTestCase {
   private func isolatedDefaults() -> UserDefaults {
     UserDefaults(suiteName: "relay-test-" + UUID().uuidString)!
   }
 
-  func testSimulatorMigratesDirectWindowsAddressAndKeepsRelayAfterRestart() throws {
+  func testWindowsAddressMigratesToDirect4090EntryAndPersists() throws {
     for old in ["http://100.86.143.88:8100/", "http://10.249.44.137:8100", "http://192.168.28.241:8100"] {
       let defaults = isolatedDefaults()
       defaults.set(old, forKey: "cloudpath.server")
-      let first = try XCTUnwrap(CloudAPI.configuredURL(defaults: defaults, environment: [:], simulatorRelay: true))
+      let first = try XCTUnwrap(CloudAPI.configuredURL(defaults: defaults, environment: [:]))
       XCTAssertEqual(first.absoluteString, "http://127.0.0.1:18100")
       XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), first.absoluteString)
-      XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:], simulatorRelay: true), first)
+      XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:]), first)
     }
   }
 
   func testFreshSimulatorPersistsRelayWithoutLaunchEnvironment() {
     let defaults = isolatedDefaults()
-    XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:], simulatorRelay: true)?.absoluteString,
+    XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:])?.absoluteString,
       "http://127.0.0.1:18100")
     XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), "http://127.0.0.1:18100")
   }
@@ -1486,19 +1486,19 @@ final class CloudRelayConfigurationTests: XCTestCase {
     let defaults = isolatedDefaults()
     defaults.set("https://learning.example", forKey: "cloudpath.server")
     XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults,
-      environment: ["BOOKCOURSE_API_BASE_URL": "http://fixture.invalid"], simulatorRelay: true)?.absoluteString,
+      environment: ["BOOKCOURSE_API_BASE_URL": "http://fixture.invalid"])?.absoluteString,
       "http://fixture.invalid")
     XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), "https://learning.example")
   }
 
-  func testCustomServiceAndPhysicalDeviceConfigurationAreRetained() {
+  func testCustomServiceIsRetainedAndWindowsDefaultIsRetired() {
     let defaults = isolatedDefaults()
     defaults.set("https://learning.example", forKey: "cloudpath.server")
-    XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:], simulatorRelay: true)?.absoluteString,
+    XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:])?.absoluteString,
       "https://learning.example")
     defaults.set("http://100.86.143.88:8100", forKey: "cloudpath.server")
-    XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:], simulatorRelay: false)?.absoluteString,
-      "http://100.86.143.88:8100")
+    XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:])?.absoluteString,
+      "http://127.0.0.1:18100")
   }
 
   func testLoopbackRelayBypassesSystemHTTPProxy() throws {
