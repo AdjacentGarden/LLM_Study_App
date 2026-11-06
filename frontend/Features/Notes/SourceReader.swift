@@ -1,4 +1,5 @@
 import PDFKit
+import PhotosUI
 import PencilKit
 import SwiftUI
 import UIKit
@@ -91,8 +92,6 @@ struct NotesSourceReaderView: View {
   @State private var zoom: CGFloat = 1
   @State private var magnifyBase: CGFloat = 1
   @State private var pageForward = true
-  @State private var regionStart: CGPoint?
-  @State private var regionPoints: [CGPoint] = []
   @State private var ready = false
   @State private var availableWidth: CGFloat = 0
   @State private var availableHeight: CGFloat = 0
@@ -213,7 +212,7 @@ struct NotesSourceReaderView: View {
                 recognizeInk()
               }.frame(maxWidth: 220).padding(12)
             } else if mode == .ai {
-              Text("用笔圈出区域，松手后弹出 AI 对话").font(DS.font(.supporting)).foregroundStyle(DS.primary).padding(10)
+              Text("拖动框选原文，松手后向 AI 提问").font(DS.font(.supporting)).foregroundStyle(DS.primary).padding(10)
                 .background(.white, in: Capsule()).padding(10).allowsHitTesting(false)
             } else if mode == .text {
               Text("点击原文任意位置，添加文字或语音批注").font(DS.font(.supporting)).foregroundStyle(DS.primary).padding(10)
@@ -239,6 +238,10 @@ struct NotesSourceReaderView: View {
           }
       }
     }.background(.white).ignoresSafeArea(edges: .bottom)
+      .blur(radius: showRegion ? 4 : 0)
+      .allowsHitTesting(!showRegion)
+      .accessibilityHidden(showRegion)
+      .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: showRegion)
       .task { await initialize() }
       .onChange(of: selectedText) { _, value in store.selectedQuote = value }
       .onChange(of: drawingData) { _, _ in
@@ -291,7 +294,7 @@ struct NotesSourceReaderView: View {
         if let note = editor, !showRegion {
           NotesPopup(
             width: 340, height: note.kind == .voice ? 650 : 390, anchor: note.position,
-            topInset: 100, identifier: "reader.annotationDialog",
+            topInset: 100, glass: true, identifier: "reader.annotationDialog",
             onOutside: { editorCloseRequest += 1 }
           ) {
             if note.kind == .voice {
@@ -313,17 +316,15 @@ struct NotesSourceReaderView: View {
         }
       }
       .overlay {
-        if showRegion {
-          NotesPopup(
-            width: store.isPad ? min(520, availableWidth - 48) : availableWidth - 48,
-            height: min(720, availableHeight * 0.82), topInset: 100,
-            bottomAligned: true, rightInset: 24, identifier: "reader.regionDialog", onOutside: closeRegion
-          ) {
+        BottomPanelLayer(presentationID: showRegion ? "reader-ai" : nil, dimOpacity: 0.06,
+          presentationAnimation: .easeInOut(duration: 0.22), onDismiss: closeRegion) {
+          if showRegion {
             NotesRegionAIView(bookID: bookID, chapterID: chapter?.id, page: page,
-                              pageText: pageText, referenceImage: regionPreview,
-                              note: regionNote, onClose: closeRegion).id(regionSession)
+              pageText: pageText, referenceImage: regionPreview,
+              note: regionNote, onClose: closeRegion).id(regionSession)
+              .accessibilityIdentifier("reader.regionDialog")
+              .opacity(store.assistantState.screenshotExcludesAssistant ? 0 : 1)
           }
-          .opacity(store.assistantState.screenshotExcludesAssistant ? 0 : 1)
         }
       }
       .overlay {
@@ -509,29 +510,23 @@ struct NotesSourceReaderView: View {
       }
       if mode == .ai {
         Color.clear.contentShape(Rectangle()).gesture(
-          DragGesture(minimumDistance: 2).onChanged { value in
-            if regionStart == nil {
-              regionStart = value.startLocation
-              regionPoints = [value.startLocation]
+          DragGesture(minimumDistance: 2)
+            .onChanged { value in
+              region = selectionRect(from: value.startLocation, to: value.location, in: size)
             }
-            regionPoints.append(value.location)
-            let xs = regionPoints.map(\.x)
-            let ys = regionPoints.map(\.y)
-            region = CGRect(
-              x: xs.min() ?? 0, y: ys.min() ?? 0, width: (xs.max() ?? 0) - (xs.min() ?? 0),
-              height: (ys.max() ?? 0) - (ys.min() ?? 0))
-          }.onEnded { _ in captureRegion(size: size) })
-        if region != nil {
-          Path { path in
-            if let start = regionPoints.first {
-              path.move(to: start)
-              path.addLines(regionPoints)
-              if showRegion { path.closeSubpath() }
+            .onEnded { value in
+              // Use the release point, not the last drag sample, as the opposite corner.
+              region = selectionRect(from: value.startLocation, to: value.location, in: size)
+              captureRegion(size: size)
+            })
+        if let region {
+          Path { $0.addRect(region) }
+            .fill(DS.primary.opacity(0.08))
+            .overlay {
+              Path { $0.addRect(region) }
+                .stroke(DS.primary, style: StrokeStyle(lineWidth: 2, dash: [6, 3]))
             }
-          }.stroke(
-            DS.primary,
-            style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [6, 3])
-          ).allowsHitTesting(false)
+            .allowsHitTesting(false)
         }
       }
     }.frame(width: size.width, height: size.height).background(.white).clipped()
@@ -624,31 +619,42 @@ struct NotesSourceReaderView: View {
     showRegion = false
     regionNote = nil
     region = nil
-    regionPoints = []
-    regionStart = nil
+  }
+  private func selectionRect(from start: CGPoint, to end: CGPoint, in size: CGSize) -> CGRect {
+    let x1 = min(size.width, max(0, start.x))
+    let y1 = min(size.height, max(0, start.y))
+    let x2 = min(size.width, max(0, end.x))
+    let y2 = min(size.height, max(0, end.y))
+    return CGRect(x: min(x1, x2), y: min(y1, y2),
+      width: abs(x2 - x1), height: abs(y2 - y1))
   }
   private func captureRegion(size: CGSize) {
-    guard let rect = region?.intersection(CGRect(origin: .zero, size: size)), rect.width > 8,
-      rect.height > 8
-    else {
+    guard let rect = region?.intersection(CGRect(origin: .zero, size: size)),
+      rect.width > 8, rect.height > 8, size.width > 0, size.height > 0 else {
       region = nil
       return
     }
     regionPreview = nil
-    if let image = pageImage, let cg = image.cgImage {
-      let sx = CGFloat(cg.width) / size.width
-      let sy = CGFloat(cg.height) / size.height
-      if let crop = cg.cropping(
-        to: CGRect(
-          x: rect.minX * sx, y: rect.minY * sy, width: rect.width * sx, height: rect.height * sy))
-      {
-        regionPreview = UIImage(cgImage: crop)
-      }
+    guard let image = pageImage, let cg = image.cgImage else {
+      region = nil
+      error = "原文图片尚未就绪，请稍后重新框选。"
+      return
     }
+    let sx = CGFloat(cg.width) / size.width
+    let sy = CGFloat(cg.height) / size.height
+    let pixels = CGRect(x: rect.minX * sx, y: rect.minY * sy,
+      width: rect.width * sx, height: rect.height * sy).integral
+      .intersection(CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+    guard let crop = cg.cropping(to: pixels) else {
+      region = nil
+      error = "无法截取框选区域，请重新框选。"
+      return
+    }
+    regionPreview = UIImage(cgImage: crop)
+    error = nil
     regionNote = nil
     regionSession = UUID()
     showRegion = true
-    regionStart = nil
   }
   private func makeAnchor() -> NoteAnchor {
     var anchor = NoteAnchor(bookID: bookID, page: page)
@@ -1039,6 +1045,8 @@ private struct NotesPDFPage: UIViewRepresentable {
 /// never inherit unrelated messages from the global assistant.
 struct NotesRegionAIView: View {
   @Environment(AppStore.self) private var store
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  @State private var keyboardTop = CGFloat.greatestFiniteMagnitude
   let bookID: String
   let chapterID: String?
   let page: Int
@@ -1053,46 +1061,38 @@ struct NotesRegionAIView: View {
   @State private var capacityLocked = false
   @State private var showingCapacityAlert = false
   @State private var temporaryAttachments: [AssistantAttachment] = []
-  @State private var question = ""
+  @State private var pendingAttachments: [AssistantAttachment] = []
+  @State private var regionAttachment: AssistantAttachment?
+  @State private var showingAttachmentChoices = false
+  @State private var showingPhotos = false
+  @State private var showingFiles = false
+  @State private var selectedPhotos: [PhotosPickerItem] = []
+  @State private var addingAttachments = false
+  @State private var importTask: Task<Void, Never>?
+  @State private var voice = AssistantVoiceInput.configured()
+  @State private var keyboardDismissalID = 0
   @State private var loading = false
   @State private var issue: String?
   @State private var failedQuestion: String?
   @State private var request: Task<Void, Never>?
-  @FocusState private var inputFocused: Bool
   private var isTextNote: Bool { note != nil }
-  private var referenceLabel: String { "PDF 第 \(page) 页 · \(isTextNote ? "文字批注" : "圈选区域")" }
   var body: some View {
-    GeometryReader { viewport in
-      let compact = viewport.size.height < 260
-      VStack(alignment: .leading, spacing: 10) {
-        if viewport.size.height >= 160 {
-        HStack(spacing: 10) {
-          NotesGlyph(name: "Sparkles", size: 16).foregroundStyle(.white)
-            .frame(width: 34, height: 34)
-            .background(DS.primary, in: RoundedRectangle(cornerRadius: 11))
-          Text(isTextNote ? "批注 AI 对话" : "提问").font(DS.font(.supporting, weight: .semibold))
-          Spacer(minLength: 0)
-          Button(action: onClose) {
-            NotesGlyph(name: "X", size: 18).iconButtonFrame()
-          }.foregroundStyle(DS.secondary).accessibilityLabel("关闭")
-        }.frame(height: DS.ButtonSize.regular.height)
-        }
-        if !compact {
-        Text("临时批注对话 · 关闭后不保留问答，仅保留实际保存的学习产出")
-          .font(DS.font(.caption)).foregroundStyle(DS.secondary)
-        }
-        if !compact && (!inputFocused || viewport.size.height >= 430) {
-          reference
-        }
+    AssistantConversationPanel(isPad: store.isPad, voiceMode: voice.isVoiceMode,
+      keyboardTop: keyboardTop, dismissKeyboard: { keyboardDismissalID += 1 }) {
+      AssistantConversationHeader(title: isTextNote ? "批注 AI 对话" : "AI问") {
+          HStack {
+            Spacer()
+            Button(action: onClose) {
+              Image(systemName: "xmark").font(.system(size: 17, weight: .medium))
+                .foregroundStyle(DS.text).iconButtonFrame()
+                .modifier(AssistantGlassSurface(radius: 22))
+            }.buttonStyle(.plain).accessibilityLabel("关闭")
+          }
+      }
+    } content: { bottomInset in
         ScrollViewReader { proxy in
           ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-              if messages.isEmpty {
-                bubble(isTextNote
-                  ? "我会结合你的批注和所在教材页一起讨论。可以检查你的理解，也可以继续追问。"
-                  : "可以针对当前页提问，也可以查询课程、讨论附件或保存学习产出。",
-                  user: false)
-              }
               ForEach(messages) { message in
                 VStack(alignment: .leading, spacing: 8) {
                   bubble(message.text, user: message.role == "user")
@@ -1133,7 +1133,7 @@ struct NotesRegionAIView: View {
                 AssistantResultActions(run: run, onNavigate: onClose)
               }
               if loading {
-                bubble(isTextNote ? "正在结合批注和教材回答…" : "正在结合圈选内容回答…", user: false)
+                bubble(isTextNote ? "正在结合批注和教材回答…" : "正在结合圈选内容回答…", user: false, pending: true)
               }
               if let issue {
                 Text(issue).font(DS.font(.caption)).foregroundStyle(DS.danger)
@@ -1144,50 +1144,71 @@ struct NotesRegionAIView: View {
                 }
               }
               Color.clear.frame(height: 1).id("reader.regionTranscriptEnd")
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            }.padding(.bottom, bottomInset).frame(maxWidth: .infinity, alignment: .leading)
           }.scrollDismissesKeyboard(.interactively)
             .onChange(of: messages.count) { _, _ in proxy.scrollTo("reader.regionTranscriptEnd", anchor: .bottom) }
             .onChange(of: loading) { _, _ in proxy.scrollTo("reader.regionTranscriptEnd", anchor: .bottom) }
         }.frame(maxHeight: .infinity)
-        if !compact && (!inputFocused || viewport.size.height >= 430) {
-          ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-              followup(isTextNote ? "检查我的理解" : "这一处讲了什么？",
-                       question: isTextNote ? "我的这条批注理解正确吗？" : "这一处原文在讲什么？")
-              followup("举个例子", question: isTextNote ? "用一个例子解释我批注中的内容" : "用一个例子解释圈选的内容")
-            }
-          }
-        }
+    } composer: { textInset in
         VStack(alignment: .leading, spacing: 8) {
-          Text("当前上下文 约 \(contextTokens / 1000)K / 1M tokens")
-            .font(DS.font(.caption)).foregroundStyle(DS.secondary)
           if let run = store.agent.active, run.context.sessionID == temporarySessionID, let choice = run.pendingChoice {
             Text(choice.question).font(DS.font(.supporting))
             ForEach(choice.options, id: \.self) { option in
               Button(option) { store.agent.choose(option) }
             }
           }
-          if !compact {
-            Text(isTextNote ? "针对这条批注提问" : "针对圈选区域提问")
-              .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
-          }
-          let layout = compact
-            ? AnyLayout(HStackLayout(spacing: 8))
-            : AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-          layout {
-          TextField(isTextNote ? "例如：我的理解正确吗？" : "例如：这一处的箭头表示什么？", text: $question)
-            .font(DS.font(.body)).padding(.horizontal, 12).frame(height: compact ? 44 : 48)
-            .background(.white, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.border))
-            .focused($inputFocused).submitLabel(.send).onSubmit { ask(question) }
-            .accessibilityIdentifier("reader.regionInput")
-          BCButton(loading ? "正在提问…" : "提问") { ask(question) }
-            .disabled(loading || capacityLocked).accessibilityIdentifier("reader.regionSend")
-            .frame(width: compact ? 72 : nil)
-          }
+          AssistantComposer(voice: voice, keyboardDismissalID: keyboardDismissalID,
+            busy: loading || capacityLocked,
+            placeholder: isTextNote ? "问问这条批注…" : "针对圈选内容提问…",
+            attachments: pendingAttachments, addingAttachments: addingAttachments,
+            attachmentImportStatus: "正在读取附件…",
+            showAttachmentChoices: { showingAttachmentChoices = true },
+            removeAttachment: { id in pendingAttachments.removeAll { $0.id == id } },
+            textHorizontalInset: textInset, contextTokens: contextTokens,
+            referenceImage: referenceImage,
+            send: { ask(voice.draft) })
+            .disabled(capacityLocked)
         }.fixedSize(horizontal: false, vertical: true)
-      }.padding(12).frame(width: viewport.size.width, height: viewport.size.height)
-    }.task {
+    }
+    .ignoresSafeArea(.container, edges: .bottom)
+    .ignoresSafeArea(.keyboard, edges: .bottom)
+    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+      let top = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.minY
+        ?? .greatestFiniteMagnitude
+      withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardTop = top }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+      withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardTop = .greatestFiniteMagnitude }
+    }
+    .confirmationDialog("添加附件", isPresented: $showingAttachmentChoices, titleVisibility: .visible) {
+      Button("照片") { showingPhotos = true }
+      Button("文件") { showingFiles = true }
+      Button("取消", role: .cancel) { }
+    }
+    .photosPicker(isPresented: $showingPhotos, selection: $selectedPhotos,
+      maxSelectionCount: max(1, AssistantAttachment.maximumCount - pendingAttachments.count), matching: .images)
+    .fileImporter(isPresented: $showingFiles, allowedContentTypes: AssistantAttachment.allowedTypes,
+      allowsMultipleSelection: true) { result in
+      do {
+        let urls = try result.get()
+        importAttachments(count: urls.count) { index in
+          try await AssistantAttachmentImporter.file(urls[index], repository: store.repository)
+        }
+      } catch {
+        if (error as? CocoaError)?.code != .userCancelled { issue = error.localizedDescription }
+      }
+    }
+    .onChange(of: selectedPhotos) { _, items in
+      guard !items.isEmpty else { return }
+      importAttachments(count: items.count) { index in
+        guard let data = try await items[index].loadTransferable(type: Data.self) else {
+          throw ContentError.invalid("这张照片未能读取，请重新选择。")
+        }
+        return try await AssistantAttachmentImporter.photo(data, repository: store.repository)
+      }
+      selectedPhotos = []
+    }
+    .task {
       messages = []
       var session = store.assistantSessionContext
       session.bookID = bookID
@@ -1220,6 +1241,7 @@ struct NotesRegionAIView: View {
       }
       .onDisappear {
         request?.cancel()
+        importTask?.cancel()
         store.agent.closeEphemeral()
         messages = []
         let preserved = Set(store.notes.flatMap { $0.references ?? [] }.compactMap(\.attachmentPath))
@@ -1231,38 +1253,48 @@ struct NotesRegionAIView: View {
         temporaryAttachments = []
       }
   }
-  @ViewBuilder private var reference: some View {
-    if let note {
-      ScrollView {
-        VStack(alignment: .leading, spacing: 6) {
-          Text(referenceLabel).font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primaryPressed)
-          Text(note.body).font(DS.font(.supporting)).lineSpacing(7).foregroundStyle(DS.text)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 10).padding(.horizontal, 12)
-      }.frame(height: 112)
-        .background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 10))
-    } else if let image = referenceImage {
-      Image(uiImage: image).resizable().scaledToFit().frame(width: 72, height: 72)
-        .background(.white, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(DS.border))
-        .padding(6).background(DS.background, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.primary.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-        .accessibilityLabel("圈选区域参照图")
+  @ViewBuilder private func bubble(_ text: String, user: Bool, pending: Bool = false) -> some View {
+    if user {
+      HStack(alignment: .top, spacing: 0) {
+        Spacer(minLength: 44)
+        AssistantChatText(text, user: true).appFont(.body).foregroundStyle(.white)
+          .textSelection(.enabled).padding(16)
+          .modifier(AssistantMessageSurface(user: true))
+      }
+    } else {
+      AssistantReplyBubble(run: nil, hasAnswer: !pending) { EmptyView() } answer: {
+        AssistantChatText(text, user: false).appFont(.body).foregroundStyle(DS.text)
+          .textSelection(.enabled)
+      }
     }
   }
-  private func bubble(_ text: String, user: Bool) -> some View {
-    AssistantChatText(text, user: user).font(DS.font(.reading)).lineSpacing(8).textSelection(.enabled)
-      .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-      .background(user ? DS.primarySoft : .white, in: RoundedRectangle(cornerRadius: 18))
-      .overlay(RoundedRectangle(cornerRadius: 18).stroke(DS.border))
-  }
-  private func followup(_ title: String, question: String) -> some View {
-    Button(title) { ask(question) }.font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
-      .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
-      .background(.white, in: Capsule()).overlay(Capsule().stroke(DS.border)).disabled(loading)
+  private func importAttachments(count: Int, load: @escaping (Int) async throws -> AssistantAttachment) {
+    guard !addingAttachments, !loading, !capacityLocked else { return }
+    let available = AssistantAttachment.maximumCount - pendingAttachments.count
+    guard count <= available else {
+      issue = "每次最多添加 \(AssistantAttachment.maximumCount) 个附件。"
+      return
+    }
+    addingAttachments = true
+    issue = nil
+    importTask = Task { @MainActor in
+      defer { addingAttachments = false }
+      do {
+        for index in 0..<count {
+          try Task.checkCancellation()
+          let attachment = try await load(index)
+          temporaryAttachments.append(attachment)
+          pendingAttachments.append(attachment)
+        }
+      } catch is CancellationError { }
+      catch { issue = error.localizedDescription }
+    }
   }
   private func ask(_ raw: String) {
-    let input = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !input.isEmpty, !loading, !capacityLocked else { return }
+    let draft = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard (!draft.isEmpty || !pendingAttachments.isEmpty), !loading, !addingAttachments, !capacityLocked else { return }
+    let input = draft.isEmpty ? "请结合当前教材分析这些附件。" : draft
+    let submittedAttachments = pendingAttachments
     guard input.unicodeScalars.count <= 2000 else {
       issue = "问题最多 2000 字，请缩短问题后再提问；批注和页内文字会单独提供。"
       return
@@ -1270,23 +1302,27 @@ struct NotesRegionAIView: View {
     loading = true
     issue = nil
     failedQuestion = nil
-    inputFocused = false
+    keyboardDismissalID += 1
+    voice.returnToText()
     let history = messages
     let epoch = store.cloudState.epoch
     request = Task { @MainActor in
       do {
         try Task.checkCancellation()
-        if question.trimmingCharacters(in: .whitespacesAndNewlines) == input { question = "" }
-        messages.append(ChatMessage(role: "user", text: input))
+        if voice.draft.trimmingCharacters(in: .whitespacesAndNewlines) == draft { voice.draft = "" }
+        pendingAttachments = []
+        messages.append(ChatMessage(role: "user", text: input, attachments: submittedAttachments))
         guard let frozenContext, !capacityLocked else { throw ContentError.invalid("此对话已达到上下文上限，请重新打开批注对话。") }
-        if temporaryAttachments.isEmpty, let image = referenceImage, let bytes = image.pngData() {
+        if regionAttachment == nil, let image = referenceImage, let bytes = image.pngData() {
           let attachment = try await AssistantAttachmentImporter.photo(bytes, repository: store.repository)
           try Task.checkCancellation()
-          temporaryAttachments = [attachment]
+          regionAttachment = attachment
+          temporaryAttachments.append(attachment)
         }
         let result = try await store.agent.answerUnified(sessionID: temporarySessionID,
           messageID: messages.last?.id ?? UUID().uuidString, request: input,
-          context: frozenContext, history: history, attachments: temporaryAttachments, ephemeral: true)
+          context: frozenContext, history: history,
+          attachments: [regionAttachment].compactMap { $0 } + submittedAttachments, ephemeral: true)
         try Task.checkCancellation()
         guard epoch == store.cloudState.epoch else { throw CancellationError() }
         contextTokens = result.contextTokens ?? contextTokens

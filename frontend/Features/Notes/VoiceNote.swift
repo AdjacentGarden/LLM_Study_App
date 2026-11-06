@@ -278,9 +278,12 @@ struct NotesVoiceNoteView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   var existingNote: StudyNote?
   var embedded = false
+  var minimal = false
   var closeRequest = 0
+  var onKeyboard: (() -> Void)?
   var onClose: (() -> Void)?
   @State private var audio = NotesAudioController()
   @State private var currentNote: StudyNote?
@@ -302,6 +305,7 @@ struct NotesVoiceNoteView: View {
   @State private var recordingGeneration = UUID()
   @State private var generateOnFinish = false
   @State private var active = false
+  @State private var holding = false
   private var anchor: NoteAnchor? { captureAnchor ?? currentNote?.anchor }
   private var working: Bool { studioTask != nil }
   private var linkedChapterTitle: String {
@@ -333,6 +337,8 @@ struct NotesVoiceNoteView: View {
     }
   }
   var body: some View {
+    Group {
+      if minimal { minimalRecorder } else {
     VStack(spacing: 0) {
       if !embedded { NotesPageHeader(title: "语音笔记", back: { finishAndClose() }) }
       ScrollView {
@@ -372,6 +378,8 @@ struct NotesVoiceNoteView: View {
           .padding(.top, embedded ? 16 : store.isPad ? 21 : 12)
           .padding(.bottom, 20).frame(maxWidth: 1120).frame(maxWidth: .infinity)
       }.accessibilityIdentifier("voice.scroll")
+    }
+      }
     }.background(
       GeometryReader { geometry in
         Color.clear.onAppear { voiceWidth = geometry.size.width }.onChange(of: geometry.size.width) {
@@ -427,6 +435,70 @@ struct NotesVoiceNoteView: View {
         studioError = nil
       }
     } message: { Text("已保存的旧录音和笔记仍可在笔记列表中找到。") }
+  }
+  private var minimalRecorder: some View {
+    VStack(spacing: 16) {
+      Text("语音批注").appFont(.supporting, weight: .semibold)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      Spacer(minLength: 0)
+      if !organized.isEmpty {
+        ScrollView { Text(organized).appFont(.body).frame(maxWidth: .infinity, alignment: .leading) }
+      }
+      if let issue = saveError ?? audio.error ?? studioError {
+        Text(issue).appFont(.supporting).foregroundStyle(DS.danger)
+      }
+      if saveError != nil {
+        Button("重试保存") { Task { _ = await saveCurrent() } }.disabled(saving)
+      } else if audio.state == .ready, saved, organized.isEmpty, !working {
+        Button(studioError == nil ? "生成笔记" : "重试生成") { generateNote(retryFailed: studioError != nil) }
+      }
+      Text(working ? progressTitle : audio.state == .recording ? "松开结束 · \(Int(audio.seconds)) 秒" :
+        audio.state == .ready ? "录音已保存" : "按住说话")
+        .appFont(.supporting).foregroundStyle(DS.secondary)
+      HStack {
+        Button { finishAndClose(returningToText: true) } label: {
+          Image(systemName: "keyboard").font(.system(size: 21)).iconButtonFrame()
+            .modifier(AssistantGlassSurface(radius: 18))
+        }.accessibilityLabel("切回文字批注")
+        Spacer(minLength: 8)
+        ZStack {
+          ForEach(0..<3) { index in
+            AssistantVoiceRing(index: index, level: audio.state == .recording ? audio.waveform.last ?? 0 : 0,
+              reduceMotion: reduceMotion, reduceTransparency: reduceTransparency)
+          }
+          AssistantMicrophoneOrb(symbol: audio.state == .ready ? (audio.playing ? "pause.fill" : "play.fill") : "mic.fill",
+            working: working || saving || audio.state == .requesting, recording: audio.state == .recording)
+        }.iconButtonFrame().contentShape(Circle())
+          .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { _ in beginMinimalRecording() }
+            .onEnded { _ in endMinimalRecording() })
+          .accessibilityElement(children: .ignore).accessibilityAddTraits(.isButton)
+          .accessibilityLabel(audio.state == .ready ? "播放录音" : "按住录音，松开生成笔记")
+          .accessibilityAction {
+            if audio.state == .recording { endMinimalRecording() } else { beginMinimalRecording() }
+          }
+        Spacer(minLength: 8)
+        Button { finishAndClose() } label: {
+          Image(systemName: "xmark").font(.system(size: 20)).iconButtonFrame()
+            .modifier(AssistantGlassSurface(radius: 18))
+        }.accessibilityLabel("关闭语音批注")
+      }.foregroundStyle(DS.text).padding(.bottom, 12)
+    }.padding(16)
+  }
+  private func beginMinimalRecording() {
+    guard !holding, !working, !saving else { return }
+    holding = true
+    if audio.state == .ready { audio.togglePlayback(); return }
+    guard audio.state == .idle else { return }
+    Task {
+      await audio.start()
+      if !holding { generateOnFinish = true; audio.stop() }
+    }
+  }
+  private func endMinimalRecording() {
+    holding = false
+    generateOnFinish = true
+    audio.stop()
   }
   @ViewBuilder private var recorderCard: some View {
     if embedded { recorderContent } else { BCCard { recorderContent } }
@@ -618,7 +690,7 @@ struct NotesVoiceNoteView: View {
       return false
     }
   }
-  private func finishAndClose() {
+  private func finishAndClose(returningToText: Bool = false) {
     generateOnFinish = false
     studioTask?.cancel()
     audio.onFinish = nil
@@ -627,7 +699,8 @@ struct NotesVoiceNoteView: View {
       while saving { try? await Task.sleep(for: .milliseconds(50)) }
       if await saveCurrent() {
         studioTask?.cancel()
-        if let onClose { onClose() } else if embedded { dismiss() } else { store.back() }
+        if returningToText, let onKeyboard { onKeyboard() }
+        else if let onClose { onClose() } else if embedded { dismiss() } else { store.back() }
       }
     }
   }
