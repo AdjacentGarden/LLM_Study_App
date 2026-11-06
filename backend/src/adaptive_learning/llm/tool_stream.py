@@ -263,7 +263,7 @@ def assemble_chat_stream(
 
         payload = raw_arguments if raw_arguments != "" else "{}"
         try:
-            parsed = json.loads(payload)
+            parsed = json.loads(payload, strict=False)
         except json.JSONDecodeError as exc:
             raise ToolStreamError(
                 f"tool call {index} arguments are not valid JSON"
@@ -273,7 +273,15 @@ def assemble_chat_stream(
                 f"tool call {index} arguments must decode to a JSON object"
             )
 
-        validate_arguments(tools[name], parsed)
+        normalized = normalize_model_arguments(tools[name], parsed)
+        validate_arguments(tools[name], normalized)
+        try:
+            strict_value = json.loads(payload)
+        except json.JSONDecodeError:
+            strict_value = None
+        if normalized != parsed or strict_value is None:
+            raw_arguments = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+        parsed = normalized
         tool_calls.append(
             ToolCall(
                 id=call_id,
@@ -338,7 +346,9 @@ def _accumulate_tool_call(
     if call_id is not None:
         if not isinstance(call_id, str):
             raise ToolStreamError("tool call id must be a string")
-        if fragment.id is None:
+        if not call_id:
+            pass  # Some providers repeat empty metadata between argument deltas.
+        elif fragment.id is None:
             fragment.id = call_id
         elif fragment.id != call_id:
             raise ToolStreamError(f"conflicting tool call id at index {index}")
@@ -353,16 +363,43 @@ def _accumulate_tool_call(
     if name is not None:
         if not isinstance(name, str):
             raise ToolStreamError("tool call function name must be a string")
-        if fragment.name is None:
+        if not name:
+            pass
+        elif fragment.name is None:
             fragment.name = name
         elif fragment.name != name:
-            raise ToolStreamError(f"conflicting tool call name at index {index}")
+            fragment.name = name if name.startswith(fragment.name) else fragment.name + name
+        if fragment.name is not None and len(fragment.name) > 128:
+            raise ToolStreamError("tool call function name is too long")
 
     arguments = function.get("arguments")
     if arguments is not None:
         if not isinstance(arguments, str):
             raise ToolStreamError("tool call arguments fragment must be a string")
         fragment.arguments.append(arguments)
+
+
+def normalize_model_arguments(schema: Mapping[str, Any], value: Any) -> Any:
+    """Recover harmless model wire variations before the unchanged validator.
+
+    Unknown fields have no tool behavior. Optional nulls mean omission, and an
+    integer spelled as a numeric string has the same value. Required fields,
+    IDs, allowed tools, ranges and actual execution ownership still validate.
+    """
+    kind = schema.get("type")
+    if kind == "object" and isinstance(value, dict):
+        properties = schema.get("properties", {})
+        if not isinstance(properties, Mapping):
+            return value
+        required = schema.get("required", [])
+        return {key: normalize_model_arguments(properties[key], item)
+                for key, item in value.items() if key in properties
+                and not (item is None and key not in required)}
+    if kind == "array" and isinstance(value, list) and isinstance(schema.get("items"), Mapping):
+        return [normalize_model_arguments(schema["items"], item) for item in value]
+    if kind == "integer" and isinstance(value, str) and len(value) <= 32 and re.fullmatch(r"-?[0-9]+", value.strip()):
+        return int(value)
+    return value
 
 
 def validate_arguments(

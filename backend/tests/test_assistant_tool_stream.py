@@ -372,7 +372,7 @@ def test_argument_schema_violations(
     chunks = _single_call_chunks(json.dumps(arguments))
 
     with pytest.raises(ToolStreamError, match=message):
-        assemble_chat_stream(chunks, {"lookup": schema})
+        validate_arguments(schema, arguments)
 
 
 def test_schema_error_message_contains_path() -> None:
@@ -602,3 +602,35 @@ def test_usage_reports_deepseek_prompt_cache_hits() -> None:
         {},
     )
     assert turn.usage == {"input_tokens": 900, "output_tokens": 4, "cached_input_tokens": 768}
+
+
+def test_model_optional_metadata_and_numeric_limit_are_canonicalized_before_tool_execution():
+    chunks = _single_call_chunks('{"q":"复数", "limit":"3", "irrelevant":"ignored"}')
+    turn = assemble_chat_stream(chunks, TOOLS)
+    call = turn.tool_calls[0]
+    assert call.arguments == {"q": "复数", "limit": 3}
+    assert json.loads(call.raw_arguments) == call.arguments
+    chunks = _single_call_chunks('{"q":"复数", "limit":null}')
+    assert assemble_chat_stream(chunks, TOOLS).tool_calls[0].arguments == {"q": "复数"}
+
+
+def test_model_literal_newline_in_tool_text_survives_as_canonical_json():
+    turn = assemble_chat_stream(_single_call_chunks('{"q":"第一行\n第二行"}'), TOOLS)
+    assert turn.tool_calls[0].arguments["q"] == "第一行\n第二行"
+    assert json.loads(turn.tool_calls[0].raw_arguments)["q"] == "第一行\n第二行"
+
+
+def test_function_name_can_stream_and_empty_repeated_metadata_does_not_conflict():
+    chunks = [_delta_chunk({"tool_calls": [_fragment(0, call_id="call_1", name="loo", arguments="{")]}),
+              _delta_chunk({"tool_calls": [_fragment(0, call_id="", name="", arguments='"q":"复数"')]}),
+              _delta_chunk({"tool_calls": [_fragment(0, name="kup", arguments="}")]}), _finish_chunk("tool_calls")]
+    turn = assemble_chat_stream(chunks, TOOLS)
+    assert turn.tool_calls[0].name == "lookup"
+    assert turn.tool_calls[0].id == "call_1"
+    assert turn.tool_calls[0].arguments == {"q": "复数"}
+
+
+@pytest.mark.parametrize('arguments', ['{}', '{"q":null}', '{"q":123}', '{"q":"x","limit":true}'])
+def test_essential_arguments_still_reject_after_model_wire_normalization(arguments):
+    with pytest.raises(ToolStreamError):
+        assemble_chat_stream(_single_call_chunks(arguments), TOOLS)

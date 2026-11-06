@@ -8,6 +8,7 @@ that no model input left this process or the provider explicitly declined it.
 from __future__ import annotations
 
 import time
+import logging
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -169,6 +170,15 @@ class ToolChatClient:
             # The provider processed the input; a dropped stream is not a refusal.
             return outcome("uncertain", error="model stream ended before completion")
         except ToolStreamError as error:
+            detail = str(error)
+            reason = ("arguments_json" if "arguments are not valid JSON" in detail else
+                      "unknown_tool" if "unknown tool" in detail else
+                      "required_argument" if "required property" in detail else
+                      "argument_type" if "expected " in detail else
+                      "argument_range" if any(word in detail for word in ("minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems")) else
+                      "empty_turn" if "empty assistant turn" in detail else "stream_shape")
+            # Fixed reason labels contain no prompts, arguments or model output.
+            logging.getLogger(__name__).warning("Model tool stream rejected (%s)", reason)
             return outcome("failed", error=f"invalid model output: {error}"[:300])
         except LLMTimeoutError:
             return outcome("uncertain", error="model time budget exceeded")
