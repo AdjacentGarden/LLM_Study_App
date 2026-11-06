@@ -17,7 +17,9 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from collections.abc import Callable
 from typing import Any
 
@@ -84,6 +86,54 @@ def layout_capabilities() -> dict[str, Any]:
     return value
 
 
+def _service_url() -> str:
+    return os.getenv("FIGURE_LAYOUT_SERVICE_URL", "").strip().rstrip("/")
+
+
+def _extract_via_service(source: Path, normalized: Path, model: Path,
+                         heartbeat: Callable[[float, str], bool] | None) -> dict[str, Any] | None:
+    url = _service_url()
+    if not url:
+        return None
+    import urllib.request
+
+    timeout = float(os.getenv("FIGURE_LAYOUT_TIMEOUT_SECONDS", "3600"))
+    if not math.isfinite(timeout) or not 1 <= timeout <= 14400:
+        raise RuntimeError("layout_timeout_configuration_invalid")
+    payload = json.dumps({"source": str(source.resolve()), "output": str(normalized.resolve()),
+                          "model_dir": str(model.resolve())}).encode()
+    request = urllib.request.Request(url + "/layout", data=payload, method="POST",
+                                     headers={"Content-Type": "application/json"})
+    result: dict[str, Any] = {}
+    failure: list[BaseException] = []
+
+    def call() -> None:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                result["value"] = json.loads(response.read())
+        except BaseException as error:  # pragma: no cover - transport failure
+            failure.append(error)
+
+    worker = threading.Thread(target=call, daemon=True)
+    worker.start()
+    deadline = time.monotonic() + timeout
+    while worker.is_alive():
+        if heartbeat is not None and not heartbeat(0.94, "正在整理教材插图"):
+            raise RuntimeError("layout_cancelled")
+        if time.monotonic() >= deadline:
+            raise RuntimeError("layout_timeout")
+        worker.join(timeout=5)
+    if failure:
+        raise RuntimeError("layout_service_failed") from failure[0]
+    value = result.get("value")
+    if not isinstance(value, dict) or value.get("status") not in {"completed", "partial"}:
+        raise RuntimeError("layout_service_failed")
+    saved = json.loads((normalized / "figure_manifest.json").read_text())
+    if saved.get("source_sha256") != file_digest(source):
+        raise RuntimeError("layout_source_mismatch")
+    return saved
+
+
 def extract_figures(source: Path, normalized: Path,
                     heartbeat: Callable[[float, str], bool] | None = None) -> dict[str, Any]:
     """Best effort for a whole book; honest failure is never successful empty data."""
@@ -104,6 +154,13 @@ def extract_figures(source: Path, normalized: Path,
                 and all((normalized / item["file"]).is_file() for item in saved.get("figures", []))):
             return saved
     except (OSError, ValueError, KeyError, TypeError):
+        pass
+    try:
+        service_result = _extract_via_service(source, normalized, model, heartbeat)
+        if service_result is not None:
+            return service_result
+    except (OSError, ValueError, RuntimeError):
+        # The resident service is an optimization; the isolated subprocess is the fallback.
         pass
     environment = dict(os.environ)
     environment.pop("PYTHONPATH", None)
@@ -199,36 +256,57 @@ def _nms(rows: list[list[float]]) -> list[list[float]]:
     return kept
 
 
+_ENGINE_CACHE: dict[str, dict[str, Any]] = {}
+_ENGINE_LOCK = threading.Lock()
+_SERVICE_LOCK = threading.Lock()
+
+
+def _engine(model_dir: Path) -> dict[str, Any]:
+    import onnxruntime as ort
+
+    key = str(model_dir.resolve())
+    with _ENGINE_LOCK:
+        cached = _ENGINE_CACHE.get(key)
+        if cached is not None:
+            return cached
+        labels = _labels(model_dir / "inference.yml")
+        if file_digest(model_dir / "inference.onnx") != MODEL_SHA256:
+            raise ValueError("layout_model_checksum_mismatch")
+        options = ort.SessionOptions()
+        force_cpu = os.getenv("FIGURE_LAYOUT_FORCE_CPU", "").strip().lower() in {"1", "true", "yes", "on"}
+        available_providers = set(ort.get_available_providers())
+        providers = ["CPUExecutionProvider"]
+        if not force_cpu and "CUDAExecutionProvider" in available_providers:
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if providers[0] == "CUDAExecutionProvider":
+            options.intra_op_num_threads = 1
+            options.inter_op_num_threads = 1
+        else:
+            options.intra_op_num_threads = 2
+            options.inter_op_num_threads = 1
+        session = ort.InferenceSession(str(model_dir / "inference.onnx"), sess_options=options, providers=providers)
+        if {item.name for item in session.get_inputs()} != {"image", "im_shape", "scale_factor"}:
+            raise ValueError("layout_input_contract_mismatch")
+        if any(item.type != "tensor(float)" for item in session.get_inputs()):
+            raise ValueError("layout_input_dtype_mismatch")
+        cached = {"session": session, "labels": labels, "provider": session.get_providers()[0],
+                  "model_dir": key}
+        _ENGINE_CACHE[key] = cached
+        return cached
+
+
 def run_layout(source: Path, output: Path, model_dir: Path) -> dict[str, Any]:
     import numpy as np
     import cv2
     import pymupdf
-    import onnxruntime as ort
     from PIL import Image
     from adaptive_learning.ingestion.figure_filter import filter_manifest, pdf_text_context, checked_box, area
 
     if file_digest(Path(__file__).with_name("figure_filter.py")) != FILTER_SHA256:
         raise ValueError("approved_figure_filter_checksum_mismatch")
-    labels = _labels(model_dir / "inference.yml")
-    if file_digest(model_dir / "inference.onnx") != MODEL_SHA256:
-        raise ValueError("layout_model_checksum_mismatch")
-    options = ort.SessionOptions()
-    force_cpu = os.getenv("FIGURE_LAYOUT_FORCE_CPU", "").strip().lower() in {"1", "true", "yes", "on"}
-    available_providers = set(ort.get_available_providers())
-    providers = ["CPUExecutionProvider"]
-    if not force_cpu and "CUDAExecutionProvider" in available_providers:
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-    if providers[0] == "CUDAExecutionProvider":
-        options.intra_op_num_threads = 1
-        options.inter_op_num_threads = 1
-    else:
-        options.intra_op_num_threads = 2
-        options.inter_op_num_threads = 1
-    session = ort.InferenceSession(str(model_dir / "inference.onnx"), sess_options=options, providers=providers)
-    if {item.name for item in session.get_inputs()} != {"image", "im_shape", "scale_factor"}:
-        raise ValueError("layout_input_contract_mismatch")
-    if any(item.type != "tensor(float)" for item in session.get_inputs()):
-        raise ValueError("layout_input_dtype_mismatch")
+    engine = _engine(model_dir)
+    labels = engine["labels"]
+    session = engine["session"]
     source_sha256 = file_digest(source)
     baseline: dict[str, Any] = {"threshold": 0.5, "provider": session.get_providers()[0], "pages": []}
     failures: list[dict[str, Any]] = []
@@ -323,6 +401,7 @@ def run_layout(source: Path, output: Path, model_dir: Path) -> dict[str, Any]:
                     failures.append({"page_number": entry["page_number"], "candidate": candidate["file"], "reason": type(error).__name__})
     result = {"schema_version": 1, "status": "partial" if failures else "completed", "source_sha256": file_digest(source),
               "model_revision": MODEL_REVISION, "model_sha256": MODEL_SHA256, "filter_version": FILTER_VERSION, "filter_sha256": FILTER_SHA256,
+              "provider": session.get_providers()[0],
               "figures": figures, "failures": failures, "skipped_candidates": audit["skipped"]}
     if failures and len(failures) >= len(baseline["pages"]) and not figures:
         result.update(status="unavailable", reason="layout_all_pages_failed")
@@ -331,12 +410,79 @@ def run_layout(source: Path, output: Path, model_dir: Path) -> dict[str, Any]:
     return result
 
 
+def _service_health(model_dir: Path) -> dict[str, Any]:
+    engine = _engine(model_dir)
+    return {"status": "ready", "provider": engine["provider"], "model_dir": str(model_dir),
+            "model_sha256": MODEL_SHA256, "filter_sha256": FILTER_SHA256, "pid": os.getpid()}
+
+
+def serve(host: str, port: int) -> None:
+    configured = os.getenv("FIGURE_LAYOUT_MODEL_DIR", "").strip()
+    if not configured:
+        raise SystemExit("FIGURE_LAYOUT_MODEL_DIR is not configured")
+    model_dir = Path(configured).resolve()
+    engine = _engine(model_dir)
+    print(json.dumps({"event": "layout_service_ready", "host": host, "port": port,
+                      "provider": engine["provider"], "model_dir": str(model_dir)}), flush=True)
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            print(json.dumps({"event": "http", "message": format % args}), flush=True)
+
+        def _send(self, status: int, value: Any) -> None:
+            body = json.dumps(value, ensure_ascii=False).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            if self.path.split("?", 1)[0] == "/health":
+                self._send(200, _service_health(model_dir))
+            else:
+                self._send(404, {"error": "not_found"})
+
+        def do_POST(self) -> None:
+            if self.path.split("?", 1)[0] != "/layout":
+                self._send(404, {"error": "not_found"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(length) or b"{}")
+                source = Path(str(body["source"])).resolve()
+                output = Path(str(body["output"])).resolve()
+                requested_model = Path(str(body.get("model_dir", model_dir))).resolve()
+                if requested_model != model_dir:
+                    raise ValueError("model_dir_mismatch")
+                with _SERVICE_LOCK:
+                    result = run_layout(source, output, model_dir)
+                self._send(200, {"status": result.get("status"), "provider": result.get("provider"),
+                                 "figures": len(result.get("figures", [])),
+                                 "failures": len(result.get("failures", [])),
+                                 "source_sha256": result.get("source_sha256")})
+            except Exception as error:
+                self._send(500, {"error": type(error).__name__, "detail": str(error)[:500]})
+
+    server = ThreadingHTTPServer((host, port), Handler)
+    server.daemon_threads = True
+    server.serve_forever()
+
+
 if __name__ == "__main__":
     # Isolated interpreter loads repository code, not production dependency paths.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--model-dir", type=Path, required=True)
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--model-dir", type=Path)
+    parser.add_argument("--serve", action="store_true")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=18202)
     arguments = parser.parse_args()
-    run_layout(arguments.source, arguments.output, arguments.model_dir)
+    if arguments.serve:
+        serve(arguments.host, arguments.port)
+    else:
+        if arguments.source is None or arguments.output is None or arguments.model_dir is None:
+            parser.error("--source, --output and --model-dir are required unless --serve is used")
+        run_layout(arguments.source, arguments.output, arguments.model_dir)

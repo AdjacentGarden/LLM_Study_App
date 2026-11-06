@@ -37,3 +37,16 @@ simulator upload, OCR, generation, browsing, AI conversation and note flows
 pass. Mock authentication does not permit mocking model results. Preserve
 existing data and resident services, record source revisions and request IDs,
 and query uncertain operations before creating another paid request.
+
+## Resident PP-DocLayout service
+
+`figure_layout.py --serve` keeps the checksum-pinned PP-DocLayout ONNX model
+loaded in a loopback HTTP service on `127.0.0.1:18202`. The OCR worker posts
+`/layout` jobs to it instead of loading the model for every book. If the
+service is unavailable, extraction falls back to the isolated subprocess.
+
+Run it through supervisord with `supervisor-layout.conf` and
+`run-layout-service.sh`. Set `FIGURE_LAYOUT_SERVICE_URL` in the private runtime
+environment to enable the service. The service uses CUDA when
+`CUDAExecutionProvider` is available and falls back to CPU automatically;
+`FIGURE_LAYOUT_FORCE_CPU=1` forces CPU for diagnostics.
