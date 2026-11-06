@@ -981,3 +981,41 @@ extension AppStoreNetworkRoutingTests {
     XCTAssertEqual(store.currentSource?.lessons, active.lessons)
   }
 }
+
+extension AppStoreNetworkRoutingTests {
+  func testFreshLoginLoadsDiscoveryMetadataWithoutRestoringBooksOrLearningData() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let store = fixture.store
+    let account = CloudAccountState(account: .init(email: "tester@example.invalid", stage: "university",
+      interests: [], goal: "interest", is_demo: false), user_id: "fresh-login",
+      email_available: true, demo_available: false)
+    fixture.probe.respond { request in
+      switch request.url!.path {
+      case "/api/auth/me":
+        return (200, try JSONEncoder().encode(account))
+      case "/api/native/local-first/capabilities":
+        return (200, Data("{\"schema_version\":1,\"public_library\":true,\"private_forwarding\":true,\"private_export\":true,\"legacy_writes_active\":false}".utf8))
+      case "/api/public/library/course-groups":
+        return (200, Data("{\"schema_version\":1,\"items\":[{\"id\":\"server-book\",\"title\":\"发现中的教材\",\"description\":\"点击确认导入后下载\",\"version\":\"v1\",\"book_ids\":[\"book-a\"],\"status\":\"ready\",\"manifest_url\":\"/api/public/library/course-groups/server-book/manifest\"}],\"next_cursor\":null}".utf8))
+      default:
+        throw URLError(.unsupportedURL)
+      }
+    }
+    await store.boot()
+    XCTAssertFalse(store.isLoading)
+    XCTAssertTrue(store.cloudState.authenticated)
+    XCTAssertNil(store.bootError)
+    XCTAssertEqual(store.community.map(\.id), ["server-book"])
+    XCTAssertTrue(store.courses.isEmpty)
+    XCTAssertTrue(store.sources.isEmpty)
+    XCTAssertTrue(store.notes.isEmpty)
+    let paths = fixture.probe.requests.map { $0.url!.path }
+    XCTAssertFalse(paths.contains { $0.hasPrefix("/api/private/export") })
+    XCTAssertFalse(paths.contains { $0.hasSuffix("/manifest") || $0.contains("/assets/") })
+    let scope = try XCTUnwrap(store.noteScope)
+    let state = try await store.repository.loadPersonalState(scope: scope)
+    XCTAssertEqual(state?.initialized, true)
+    XCTAssertTrue(state?.snapshot.courses.isEmpty == true)
+  }
+}

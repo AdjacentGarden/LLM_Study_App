@@ -57,6 +57,9 @@ extension AppStore {
       cloudState.materialSyncCount = 0
       processingPolicy.reset()
       cloudState.syncTask?.cancel()
+      cloudState.libraryResumeTask?.cancel()
+      cloudState.libraryResumeTask = nil
+      cloudState.libraryResumeToken = nil
       cloudState.retryTask?.cancel()
       cloudState.contentTask?.cancel()
       cloudState.courseTask?.cancel()
@@ -235,6 +238,9 @@ extension AppStore {
     assistantHistory.reset()
     cloudState.materialSyncCount = 0
     processingPolicy.reset()
+    cloudState.libraryResumeTask?.cancel()
+    cloudState.libraryResumeTask = nil
+    cloudState.libraryResumeToken = nil
     cloudState.retryTask?.cancel()
     cloudState.contentTask?.cancel()
     cloudState.courseTask?.cancel()

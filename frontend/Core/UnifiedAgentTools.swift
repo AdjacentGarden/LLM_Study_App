@@ -132,8 +132,10 @@ import ZIPFoundation
     case "acquire_course":
       let id = try required(args, "catalog_id")
       if run.privateTransport == true {
-        let result = try await store.acquirePublicCourseGroup(catalogID: id, name: args["title"]?.stringValue ?? store.community.first(where: { $0.id == id })?.title ?? "我的课程")
-        return try encoded(["status": "downloaded", "course_id": result.id, "source": "local_library"])
+        guard store.community.contains(where: { $0.id == id }) else { throw AgentValidationError(message: "请先刷新发现中的教材列表") }
+        store.selectedCommunityID = id
+        store.go(.communityBook)
+        return try encoded(["status": "awaiting_confirmation", "catalog_id": id, "message": "已打开教材详情，请点击确认导入后下载", "source": "server_library"])
       }
       // Re-read visibility before acquisition, so a withdrawn search result cannot be imported.
       try await store.refreshCommunity()

@@ -101,6 +101,10 @@ enum LocalCourseLearningContext {
   var privateLocalMode = false
   var localFirstChecked = false
   var publicLibraryDownloading = false
+  @ObservationIgnored var libraryResumeTask: Task<Void, Never>?
+  @ObservationIgnored var libraryResumeScope: String?
+  @ObservationIgnored var libraryResumeEpoch: UUID?
+  @ObservationIgnored var libraryResumeToken: UUID?
   var localFirstError: String?
   var migrationStatus: String?
   var account: CloudAccountState?

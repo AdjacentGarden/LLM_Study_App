@@ -364,10 +364,38 @@ extension LocalBookCourseRepository {
     task.state = "registered" // The server owns readiness/publication after this durable intent.
     try await repository.savePublicLibraryTask(task, scope: scope)
   }
+
+  func resumeConfirmedLibraryTasksInBackground() {
+    guard cloudState.privateLocalMode, let scope = noteScope else { return }
+    let epoch = cloudState.epoch
+    if cloudState.libraryResumeTask != nil, cloudState.libraryResumeScope == scope,
+      cloudState.libraryResumeEpoch == epoch { return }
+    cloudState.libraryResumeTask?.cancel()
+    let token = UUID()
+    cloudState.libraryResumeScope = scope
+    cloudState.libraryResumeEpoch = epoch
+    cloudState.libraryResumeToken = token
+    cloudState.libraryResumeTask = Task { @MainActor [weak self] in
+      guard let self else { return }
+      defer {
+        if self.cloudState.libraryResumeToken == token {
+          self.cloudState.libraryResumeTask = nil
+          self.cloudState.libraryResumeScope = nil
+          self.cloudState.libraryResumeEpoch = nil
+          self.cloudState.libraryResumeToken = nil
+        }
+      }
+      guard self.cloudState.epoch == epoch, self.noteScope == scope, !Task.isCancelled else { return }
+      await self.resumePublicLibraryTasks()
+    }
+  }
+
   func resumePublicLibraryTasks() async {
     guard cloudState.privateLocalMode, let scope = noteScope,
       let tasks = try? await repository.publicLibraryTasks(scope: scope) else { return }
+    let epoch = cloudState.epoch
     for task in tasks where task.state != "completed" {
+      guard epoch == cloudState.epoch, scope == noteScope, !Task.isCancelled else { return }
       do {
         if task.kind == "publish" {
           if task.state == "registered", let cloud {
@@ -379,15 +407,19 @@ extension LocalBookCourseRepository {
             }
           } else { try await queuePublicCoursePublication(title: task.title, bookIDs: task.bookIDs, courseID: task.courseID) }
         }
-        else {
+        else if task.kind == "download" {
           if let id = task.attachmentCourseID, !courses.contains(where: { $0.id == id }) { continue }
           _ = try await acquirePublicCourseGroup(catalogID: task.groupID, name: task.title,
             attachToCourseID: task.attachmentCourseID, navigateAfterDownload: false)
         }
-      } catch { cloudState.syncError = "资料下载或公开整理可重试：" + error.localizedDescription }
+      } catch {
+        guard epoch == cloudState.epoch, scope == noteScope, !Task.isCancelled else { return }
+        cloudState.syncError = "资料下载或公开整理可重试：" + error.localizedDescription
+      }
     }
     // A process may stop after upload receipts were accepted but before registration.
     for batch in uploadState.batches where batch.isComplete {
+      guard epoch == cloudState.epoch, scope == noteScope, !Task.isCancelled else { return }
       let ids = batch.files.compactMap(\.bookID)
       do { try await queuePublicCoursePublication(title: batch.courseName, bookIDs: ids, courseID: batch.courseID) }
       catch { cloudState.syncError = error.localizedDescription }

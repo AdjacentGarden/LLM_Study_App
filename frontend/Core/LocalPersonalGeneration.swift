@@ -239,6 +239,43 @@ enum LocalLectureSchema {
     try await saveTrackedLocalGeneration(record, scope: scope)
   }
 
+
+  /// Recover harmless JSON wrappers without changing the model's teaching content.
+  nonisolated static func generatedJSONData(_ text: String) -> Data {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let start = trimmed.firstIndex(of: "{"), let end = trimmed.lastIndex(of: "}"), start <= end {
+      let candidate = Data(trimmed[start...end].utf8)
+      if let object = try? JSONSerialization.jsonObject(with: candidate), object is [String: Any] { return candidate }
+    }
+    return Data(trimmed.utf8)
+  }
+
+  /// Bind planning metadata to the owning lesson; correct values the client already knows.
+  nonisolated static func normalizeGeneratedPlan(_ input: StudyPlan, bookID: String,
+    chapterID: String, lessonID: String, userID: String, generationID: String) -> StudyPlan? {
+    guard !input.tasks.isEmpty else { return nil }
+    var plan = input
+    plan.book_id = bookID
+    plan.user_id = userID
+    plan.days = max(1, max(plan.days, plan.tasks.map { max(1, $0.day) }.max() ?? 1))
+    plan.daily_minutes = max(5, plan.daily_minutes)
+    var ids: Set<String> = []
+    for index in plan.tasks.indices {
+      var task = plan.tasks[index]
+      if task.task_id.isEmpty || ids.contains(task.task_id) { task.task_id = generationID + ":task:" + String(index) }
+      ids.insert(task.task_id)
+      task.user_id = userID
+      task.chapter_id = chapterID
+      task.lesson_id = lessonID
+      task.day = min(plan.days, max(1, task.day))
+      task.minutes = max(5, task.minutes)
+      task.status = "pending"
+      if task.task_type.isEmpty { task.task_type = "learn" }
+      plan.tasks[index] = task
+    }
+    return plan
+  }
+
   private func schemaObject(_ properties: [String: JSONValue], required: [String]) -> [String: JSONValue] {
     ["type": .string("object"), "properties": .object(properties), "required": .array(required.map(JSONValue.string)), "additionalProperties": .bool(true)]
   }
@@ -321,7 +358,7 @@ enum LocalLectureSchema {
       courseID: courseID, bookID: bookID, chapterID: chapter.id,
       messages: [.object(["role": .string("system"), "content": .string(prompt)]),
         .object(["role": .string("user"), "content": .string(String(decoding: try JSONEncoder().encode(payload), as: UTF8.self))])], schema: schema)
-    guard let result = try? JSONDecoder().decode(LocalLectureResult.self, from: Data(text.utf8)) else {
+    guard let result = try? JSONDecoder().decode(LocalLectureResult.self, from: Self.generatedJSONData(text)) else {
       try await rejectPrivateGeneration(id: generationID, scope: scope)
       throw ContentError.invalid("生成内容不是有效的课程结构，可重新生成")
     }
@@ -410,14 +447,11 @@ enum LocalLectureSchema {
       courseID: session.courseID, bookID: session.bookID, chapterID: session.chapterID,
       messages: [.object(["role": .string("system"), "content": .string("根据输入生成可执行的学习计划JSON。book_id/chapter_id/lesson_id原样使用，任务status为pending，合理安排学习、回忆和复习，每项minutes为正数，不虚构已学进度。")]),
         .object(["role": .string("user"), "content": .string(String(decoding: try JSONEncoder().encode(input), as: UTF8.self))])], schema: schema)
-    guard let plan = try? JSONDecoder().decode(StudyPlan.self, from: Data(text.utf8)) else {
+    guard let rawPlan = try? JSONDecoder().decode(StudyPlan.self, from: Self.generatedJSONData(text)),
+      let plan = Self.normalizeGeneratedPlan(rawPlan, bookID: session.bookID, chapterID: session.chapterID,
+        lessonID: course.course_id, userID: cloudState.account?.user_id ?? rawPlan.user_id, generationID: generationID) else {
       try await rejectPrivateGeneration(id: generationID, scope: scope)
       throw ContentError.invalid("学习计划格式无效，课程已保留，可继续重试计划")
-    }
-    guard plan.book_id == session.bookID, plan.days > 0, plan.daily_minutes > 0, !plan.tasks.isEmpty,
-      plan.tasks.allSatisfy({ $0.chapter_id == session.chapterID && $0.lesson_id == course.course_id && $0.minutes > 0 && $0.day > 0 && $0.day <= plan.days && $0.status == "pending" }) else {
-      try await rejectPrivateGeneration(id: generationID, scope: scope)
-      throw ContentError.invalid("学习计划未通过本机校验，课程已保留，可继续重试计划")
     }
     guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: session.courseID, scope: scope) else { throw CancellationError() }
     guard var content = cloudState.localCourseSources[session.courseID]?.first(where: { $0.id == session.bookID }) else {

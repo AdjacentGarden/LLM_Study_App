@@ -42,3 +42,10 @@ The hostname contains both VPS addresses. Its A and AAAA records allow native
 IPv4/IPv6 connection selection. serve_https.py opens one dual-stack listener;
 the HTTPS certificate covers the hostname and existing IPv4 address. This
 avoids the unavailable IPv4 route observed on the phone/Mac network.
+
+Discovery remains server-hosted. Fresh login fetches catalog metadata only and
+does not run the legacy personal export migration. PDF/OCR/figure downloads
+require confirmed import; locally recorded interrupted imports may resume in
+the background. Personal learning data is not restored from the server after
+app deletion. Planning metadata and harmless JSON wrappers are normalized
+without weakening request ownership or account isolation.

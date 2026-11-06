@@ -1098,7 +1098,7 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
           input = try JSONDecoder().decode([String: JSONValue].self, from: Data(text.utf8))
         }
         let courseID = input["publication_id"]?.stringValue ?? input["lesson_id"]?.stringValue ?? "local-lecture:contract-session"
-        let output: [String: Any]
+        var output: [String: Any]
         if operation == "lecture" {
           var course: [String: Any] = ["course_id": courseID, "version": 1, "chapter_id": "first", "chapter_title": "原子结构",
             "opening": "认识原子", "summary": "原子的组成", "original_reading": [section],
@@ -1115,7 +1115,12 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
             "tasks": [["task_id": "t1", "user_id": "test-user", "day": 1, "title": "学习原子结构", "task_type": "learn", "minutes": 10,
               "chapter_id": "first", "lesson_id": courseID, "status": "pending", "weak_points": []]]]
         }
-        let content = String(decoding: try JSONSerialization.data(withJSONObject: output), as: UTF8.self)
+        if selectedMode == "wrapped-relaxed-plan", operation == "plan" {
+          output["book_id"] = "provider-placeholder"; output["days"] = 0; output["daily_minutes"] = 0
+          output["tasks"] = [["task_id": "", "user_id": "placeholder", "day": 0, "title": "学习原子结构", "task_type": "", "minutes": 0, "chapter_id": "placeholder", "lesson_id": "placeholder", "status": "done", "weak_points": []]]
+        }
+        var content = String(decoding: try JSONSerialization.data(withJSONObject: output), as: UTF8.self)
+        if selectedMode == "wrapped-relaxed-plan" { content = "```json\n" + content + "\n```" }
         if selectedMode == "request-rejected-first" && requestNumber == 1 {
           statusCode = 422; result = ["detail": "个人生成请求或输出格式无效"]
         } else { result = ["request_id": requestID, "state": "completed", "content": content, "error": ""] }
@@ -1144,5 +1149,24 @@ private func routingRequestBodyForContract(_ request: URLRequest) throws -> Data
     guard count >= 0 else { throw URLError(.cannotDecodeRawData) }
     if count == 0 { return data }
     data.append(contentsOf: buffer.prefix(count))
+  }
+}
+
+extension ChapterLearningEntryTests {
+  func testWrappedLectureAndMinorPlanMetadataDoNotRequireRegeneration() async throws {
+    let (store, session) = try await contractStore(mode: "wrapped-relaxed-plan")
+    defer { session.invalidateAndCancel() }
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    let plan = try XCTUnwrap(store.currentSource?.plan)
+    XCTAssertEqual(plan.book_id, "chapter-entry-book")
+    XCTAssertEqual(plan.tasks.first?.chapter_id, "first")
+    XCTAssertEqual(plan.tasks.first?.lesson_id, "local-lecture:contract-session")
+    XCTAssertEqual(plan.tasks.first?.status, "pending")
+    XCTAssertGreaterThan(plan.tasks.first?.minutes ?? 0, 0)
+    XCTAssertGreaterThan(plan.tasks.first?.day ?? 0, 0)
+    XCTAssertFalse(plan.tasks.first?.task_id.isEmpty ?? true)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    XCTAssertTrue(store.currentSource?.quizzes.filter { $0.chapter_id == "first" }.isEmpty == true)
   }
 }

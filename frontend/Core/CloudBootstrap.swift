@@ -256,15 +256,13 @@ extension AppStore {
     guard let scope = noteScope else { throw ContentError.invalid("请先登录") }
     if courseDeletionState.scope != scope { try await restoreCourseDeletionState() }
     if try await repository.loadPersonalState(scope: scope) == nil {
-      try await migrateLegacyPersonalData()
+      // Authentication must not wait for every old PDF/image attachment.
       try await persistPrivateState()
-    } else {
-      // New phone contents always win; old-client updates are archived only.
-      do { try await migrateLegacyPersonalData() }
-      catch { cloudState.migrationStatus = "旧版变化尚未校验，已保留本机数据：" + error.localizedDescription }
     }
+    // Personal learning data belongs to this installation and is not restored
+    // from the old server export after app deletion. Discovery is restored separately.
     try await refreshPublicCourseGroups()
-    await resumePublicLibraryTasks()
+    resumeConfirmedLibraryTasksInBackground()
     shelf = sources.filter { sourceFileURL($0.id) != nil }.map {
       ShelfBook(bookId: $0.id, title: $0.summary.title, filename: $0.summary.filename ?? $0.summary.title, coverUrl: $0.summary.cover_url ?? "")
     }

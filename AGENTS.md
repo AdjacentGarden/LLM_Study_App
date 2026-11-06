@@ -20,3 +20,7 @@
 
 - The user disabled strict local lecture citation/pedagogical quality review.
   Leave it off by default; retain only decoding and ownership consistency checks.
+
+- Discovery教材保留在4090；登录和浏览只加载目录/展示信息。仅用户确认导入或此前确认的中断任务才下载完整资料。
+- 新安装不得从旧服务器导出自动恢复个人课程、生成内容、进度或笔记；个人学习数据属于本次App安装。
+- AI工具发现教材导入需打开详情等待用户确认，不能直接自动下载。
