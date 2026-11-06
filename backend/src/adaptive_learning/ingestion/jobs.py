@@ -729,6 +729,8 @@ class SubprocessOCRRunner:
                             page_count=int(report["page_count_normalized"]), artifact_dir=normalized)
 
     def _extract(self, job: OCRJob, heartbeat: Callable[[float, str], bool]) -> OCRRunResult:
+        from ..config import get_settings
+
         job.output_dir.mkdir(parents=True, exist_ok=True)
         attempt_dir = job.output_dir / (
             f"attempt-{job.attempts:02d}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
