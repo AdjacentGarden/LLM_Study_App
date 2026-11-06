@@ -309,8 +309,27 @@ enum LocalLectureSchema {
     }
     if course["version"] == nil || course["version"] is NSNull { course["version"] = 1 }
     if course["estimated_minutes"] == nil || course["estimated_minutes"] is NSNull { course["estimated_minutes"] = 10 }
+    if var units = course["units"] as? [[String: Any]] {
+      let minutes = max(1, (course["estimated_minutes"] as? Int ?? 10) / max(1, units.count))
+      for index in units.indices where units[index]["estimated_minutes"] == nil || units[index]["estimated_minutes"] is NSNull {
+        units[index]["estimated_minutes"] = minutes
+      }
+      course["units"] = units
+    }
     root["course"] = course
     return (try? JSONSerialization.data(withJSONObject: root)) ?? data
+  }
+
+  nonisolated private static func reusableLecture(_ text: String, publicationID: String, chapterID: String, title: String) -> Bool {
+    guard let result = try? JSONDecoder().decode(LocalLectureResult.self,
+      from: lectureJSONData(text, publicationID: publicationID, chapterID: chapterID, title: title)),
+      result.course.course_id == publicationID, result.course.chapter_id == chapterID else { return false }
+    let exerciseKinds = Set(["worked_example", "example", "exercise", "practice", "question", "checkpoint", "prerequisite_check"])
+    let sections = result.course.original_reading + (result.course.units ?? []).flatMap(\.sections)
+    return sections.contains {
+      !exerciseKinds.contains(($0.kind ?? $0.purpose).lowercased())
+        && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
   }
 
   /// Bind planning metadata to the owning lesson; correct values the client already knows.
@@ -424,6 +443,19 @@ enum LocalLectureSchema {
       "learner_profile": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(preferences)),
       "diagnosis": .object(session.results), "coverage_truncated": .bool(chunks.count > 80)]
     let generationID = "lecture_" + AgentDigest.sha256(session.id)
+    // A decoder repair can recover already-paid teaching content. Foreign or
+    // empty content still requires the normal explicit new attempt.
+    let retained = try await repository.localGenerations(scope: scope).first { $0.id == generationID }
+    guard epoch == cloudState.epoch, scope == noteScope,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    if !LocalLectureSchema.qualityReviewEnabled(), var retained,
+      retained.state == "failed", retained.error == "local_validation_failed",
+      retained.courseID == courseID, retained.bookID == bookID, retained.chapterID == chapter.id,
+      let content = retained.content, Self.reusableLecture(content,
+        publicationID: "local-lecture:" + session.id, chapterID: chapter.id, title: chapter.title) {
+      retained.state = "completed"; retained.error = nil
+      try await saveTrackedLocalGeneration(retained, scope: scope)
+    }
     let text = try await performPrivateGeneration(id: generationID, operation: "lecture",
       courseID: courseID, bookID: bookID, chapterID: chapter.id,
       messages: [.object(["role": .string("system"), "content": .string(prompt)]),
@@ -439,6 +471,7 @@ enum LocalLectureSchema {
     course.flashcards = []; course.worked_examples = []
     course.checkpoint_questions = []; course.practice_items = []
     let exerciseKinds = Set(["worked_example", "example", "exercise", "practice", "question", "checkpoint", "prerequisite_check"])
+    course.original_reading.removeAll { exerciseKinds.contains(($0.kind ?? $0.purpose).lowercased()) }
     course.units = course.units?.map { unit in
       var unit = unit
       unit.sections.removeAll { exerciseKinds.contains(($0.kind ?? $0.purpose).lowercased()) }

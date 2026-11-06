@@ -1244,6 +1244,9 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
             "estimated_minutes": 10, "created_at": "2026-11-06T00:00:00Z", "unresolved_source_warnings": [],
             "units": [["unit_id": "u1", "title": "原子结构", "knowledge_point_ids": ["p1"], "sections": [section], "estimated_minutes": 10]]]
           if selectedMode == "citation-only" { course["original_reading"] = [citation] }
+          if selectedMode == "missing-unit-duration", var units = course["units"] as? [[String: Any]] {
+            units[0].removeValue(forKey: "estimated_minutes"); course["units"] = units
+          }
           output = ["course": course, "practice_grading": []]
         } else if selectedMode == "invalid-plan-first" && planNumber == 1 {
           output = [:]
@@ -1356,5 +1359,34 @@ extension ChapterLearningEntryTests {
     XCTAssertFalse(plan.tasks.first?.task_id.isEmpty ?? true)
     XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
     XCTAssertTrue(store.currentSource?.quizzes.filter { $0.chapter_id == "first" }.isEmpty == true)
+  }
+}
+
+
+extension ChapterLearningEntryTests {
+  func testRealLectureShapeWithMissingUnitDurationKeepsTeachingContent() async throws {
+    let (store, session) = try await contractStore(mode: "missing-unit-duration")
+    defer { session.invalidateAndCancel() }
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    XCTAssertTrue(store.currentSource?.lessons.first?.blocks.contains { $0.content == "原子由原子核和核外电子构成。" } == true)
+  }
+
+  func testDecoderRepairReusesPaidLectureAfterPreviousMetadataRejection() async throws {
+    let (store, session) = try await contractStore(mode: "missing-unit-duration")
+    defer { session.invalidateAndCancel() }
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    let scope = try XCTUnwrap(store.noteScope)
+    let records = try await store.repository.localGenerations(scope: scope)
+    var record = try XCTUnwrap(records.first { $0.operation == "lecture" })
+    record.state = "failed"; record.error = "local_validation_failed"
+    try await store.repository.saveLocalGeneration(record, scope: scope)
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    let repaired = try await store.repository.localGenerations(scope: scope).first { $0.id == record.id }
+    XCTAssertEqual(repaired?.state, "completed")
+    XCTAssertEqual(repaired?.body["request_id"], record.body["request_id"])
   }
 }
