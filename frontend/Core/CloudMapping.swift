@@ -55,7 +55,7 @@ enum CloudMapping {
             ? "done" : task.status)
       }
       content.flashcards = content.flashcards.map { reviewedCard($0, resource: resource) }
-      return content
+      return MaterialDisplayName.source(content)
     }
     let bookID = resource.book_id
     let structure = resource.structure
@@ -189,7 +189,7 @@ enum CloudMapping {
     }
     return SourceContent(
       summary: SourceSummary(
-        book_id: bookID, title: structure?.title ?? resource.filename,
+        book_id: bookID, title: MaterialDisplayName.title([structure?.title, resource.filename]),
         cover_url: resource.cover_url,
         filename: resource.filename, status: status,
         page_count: structure?.source_page_count ?? 0, chapter_count: chapters.count,
@@ -203,5 +203,50 @@ enum CloudMapping {
       // A real supplied source_content plan is retained by the early return above.
       plan: StudyPlan(user_id: "", book_id: bookID, days: 0, daily_minutes: 0, tasks: [])
     )
+  }
+}
+
+/// Storage identities stay in their fields; readable labels use the matching source.
+enum MaterialDisplayName {
+  static func title(_ candidates: [String?], fallback: String = "教材") -> String {
+    for candidate in candidates {
+      guard let candidate else { continue }
+      let value = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+      let stem = (value as NSString).deletingPathExtension
+      guard !value.isEmpty,
+        stem.range(of: #"^(?:[a-fA-F0-9]{16,}|(?:book|chapter|course|lesson|task|group|public_group|plan|material)_[a-fA-F0-9]{12,}|[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12})$"#,
+          options: .regularExpression) == nil else { continue }
+      return value.lowercased().hasSuffix(".pdf") ? stem : value
+    }
+    return fallback
+  }
+
+  static func source(_ input: SourceContent) -> SourceContent {
+    var source = input
+    source.summary.title = title([source.summary.title, source.summary.filename])
+    for index in source.plan.tasks.indices {
+      var task = source.plan.tasks[index]
+      let chapter = source.chapters.first { $0.id == task.chapter_id }
+      let lesson = source.lessons.first { $0.id == task.lesson_id }
+      let label = title([chapter?.title, lesson?.title, source.summary.title])
+      for identity in [task.chapter_id, task.lesson_id, source.id, task.task_id].compactMap({ $0 })
+        .filter({ !$0.isEmpty }).sorted(by: { $0.count > $1.count }) {
+        // Only identifiers which are known to belong to this source are rewritten.
+        if task.title.contains(identity), identity.range(of: #"[a-fA-F0-9]{12,}"#, options: .regularExpression) != nil {
+          task.title = task.title.replacingOccurrences(of: identity, with: label)
+        }
+      }
+      task.title = title([task.title], fallback: "学习：" + label)
+      source.plan.tasks[index] = task
+    }
+    return source
+  }
+}
+
+@MainActor extension AppStore {
+  func courseDisplayTitle(_ course: Course) -> String {
+    let source = cloudState.localCourseSources[course.id]?.first
+      ?? sources.first { course.resourceIDs.contains($0.id) }
+    return MaterialDisplayName.title([course.name, source?.summary.title, source?.summary.filename], fallback: "我的课程")
   }
 }

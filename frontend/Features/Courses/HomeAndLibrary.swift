@@ -111,7 +111,7 @@ struct CourseHomeView: View {
           Spacer(minLength: 12)
           if let selected {
             HStack(alignment: .lastTextBaseline, spacing: 8) {
-              Text(store.courseImport(for: selected.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? selected.name).font(DS.font(.cardTitle)).lineLimit(3)
+              Text(store.courseImport(for: selected.id).flatMap { $0.needsPreparation ? $0.message : nil } ?? store.courseDisplayTitle(selected)).font(DS.font(.cardTitle)).lineLimit(3)
                 .multilineTextAlignment(.trailing)
               Text(
                 "\((homeCourses.firstIndex { $0.id == selected.id } ?? 0) + 1) / \(homeCourses.count)"
@@ -130,9 +130,9 @@ struct CourseHomeView: View {
             BCGlyph("LibraryBig", color: DS.primary).frame(width: 16, height: 16)
             Text("这门课程的下一步").font(DS.font(.supporting, weight: .semibold))
           }.foregroundStyle(DS.primary)
-          Text(store.currentSource?.summary.title ?? selected.name).font(DS.font(.supporting))
+          Text(store.currentSource?.summary.title ?? store.courseDisplayTitle(selected)).font(DS.font(.supporting))
             .foregroundStyle(DS.secondary)
-          Text(nextChapter?.source_title ?? nextLesson?.title ?? selected.name).font(
+          Text(nextChapter?.source_title ?? nextLesson?.title ?? store.courseDisplayTitle(selected)).font(
             DS.font(.sectionTitle))
         }.frame(height: 72, alignment: .top)
         HStack(spacing: 8) {
@@ -355,7 +355,7 @@ private struct HomeCourseShelf: View {
             .buttonStyle(.plain).id(course.id).zIndex(selectedCourseID == course.id ? 2 : 1)
             .accessibilityIdentifier("home.course.\(course.id)")
             .accessibilityLabel(
-              "\(course.name)，\(selectedCourseID == course.id ? "当前选中，点击进入课程详情" : "点击切换到这门课程")"
+              "\(store.courseDisplayTitle(course))，\(selectedCourseID == course.id ? "当前选中，点击进入课程详情" : "点击切换到这门课程")"
             )
             .accessibilityAddTraits(selectedCourseID == course.id ? .isSelected : [])
           }
@@ -448,7 +448,7 @@ struct CourseLibraryView: View {
                   CourseImportBadge(record: store.courseImport(for: course.id)).padding(2)
                 }
               VStack(alignment: .leading, spacing: 6) {
-                Text(course.name).font(DS.font(.cardTitle))
+                Text(store.courseDisplayTitle(course)).font(DS.font(.cardTitle))
                 Text(store.courseCreationLabel(course) ?? (directory ? "教材目录 · 尚未生成教学内容" : "\(course.resourceIDs.count) 份资料 · \(ready) 份可学习"))
                   .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
                 Text(source?.summary.title ?? "添加资料后开始学习").font(DS.font(.supporting)).foregroundStyle(

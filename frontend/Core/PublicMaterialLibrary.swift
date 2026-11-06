@@ -154,7 +154,7 @@ extension LocalBookCourseRepository {
             && (chapterID == nil || chapter.map { chunk.page_start <= $0.page_end && chunk.page_end >= $0.page_start } == true)
         }) { return }
       }
-      if !cloudState.publicLibraryDownloading { break }
+      if !cloudState.publicLibraryDownloading || cloudState.publicLibraryDownload?.courseID != courseID { break }
       guard ContinuousClock.now < deadline else { throw ContentError.invalid("教材原文仍在下载，原任务已保留，请稍后继续") }
       try await Task.sleep(for: .milliseconds(200))
     }
@@ -179,7 +179,7 @@ extension LocalBookCourseRepository {
       CommunityBook(id: group.id, title: group.title, catalogTitle: group.title,
         catalog_origin: group.book_ids.first.map { CatalogOrigin(book_id: $0) }, owner: "公开教材库",
         cover: group.cover_url ?? group.book_ids.first.map { "/api/books/" + $0 + "/cover" } ?? "",
-        subject: "", grade: "", version: group.version ?? "", volume: nil, learners: nil, progress: nil,
+        subject: "", grade: "", version: "", volume: nil, learners: nil, progress: nil,
         flashcardCount: 0, recommended: false, tags: ["\(group.book_ids.count) 本教材"],
         description: group.description, chapters: [])
     }
@@ -223,8 +223,12 @@ extension LocalBookCourseRepository {
     }
     guard !cloudState.publicLibraryDownloading else { throw ContentError.invalid("课程资料正在下载，请稍候") }
     captureLocalCourseContent()
-    cloudState.publicLibraryDownloading = true
-    defer { cloudState.publicLibraryDownloading = false }
+    let transfer = CloudState.PublicLibraryDownload(groupID: catalogID, courseID: attachToCourseID,
+      scope: scope, epoch: cloudState.epoch)
+    cloudState.publicLibraryDownload = transfer
+    defer {
+      if cloudState.publicLibraryDownload?.token == transfer.token { cloudState.publicLibraryDownload = nil }
+    }
     let priorTasks = try await repository.publicLibraryTasks(scope: scope)
     if let finished = priorTasks.first(where: { $0.kind == "download" && $0.groupID == catalogID && $0.state == "completed" }),
       let course = courses.first(where: { $0.id == finished.courseID }) {

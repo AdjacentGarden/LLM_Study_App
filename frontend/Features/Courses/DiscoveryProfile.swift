@@ -253,7 +253,7 @@ struct CommunityBookDetailView: View {
             maxWidth: .infinity, alignment: .leading)
         }
       } action: {
-        BCButton(store.cloudState.publicLibraryDownloading ? "正在下载课程资料…" : "导入到我的课程", icon: "square.and.arrow.down") {
+        BCButton(store.cloudState.isDownloadingPublicGroup(book.id) ? "正在下载课程资料…" : "导入到我的课程", icon: "square.and.arrow.down") {
           store.courseFeatureStartDraft(catalogID: book.id)
           if store.cloud == nil {
             store.draft.step = 0

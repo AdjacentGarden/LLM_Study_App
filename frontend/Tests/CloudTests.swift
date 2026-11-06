@@ -1603,3 +1603,48 @@ private final class MigrationCookieProtocol: URLProtocol, @unchecked Sendable {
   }
   override func stopLoading() {}
 }
+
+
+extension CloudTests {
+  @MainActor func testDiscoveryTransferBelongsOnlyToItsGroupAndCurrentSession() {
+    let state = CloudState()
+    state.publicLibraryDownload = .init(groupID: "math", courseID: "course", scope: "owner", epoch: state.epoch)
+    XCTAssertTrue(state.isDownloadingPublicGroup("math"))
+    XCTAssertFalse(state.isDownloadingPublicGroup("chemistry"))
+    state.epoch = UUID()
+    XCTAssertFalse(state.publicLibraryDownloading)
+    XCTAssertFalse(state.isDownloadingPublicGroup("math"))
+  }
+
+  func testReadableMaterialNamesKeepUserTitlesAndUseOriginalNameForOpaqueStorageNames() {
+    XCTAssertEqual(MaterialDisplayName.title([String(repeating: "a", count: 64) + ".pdf", "高中数学必修第二册.pdf"]), "高中数学必修第二册")
+    XCTAssertEqual(MaterialDisplayName.title(["chapter_330fc41d4fc86b5b", "复数的概念"]), "复数的概念")
+    XCTAssertEqual(MaterialDisplayName.title(["SHA-256 与 0123456789abcdef 的表示"]), "SHA-256 与 0123456789abcdef 的表示")
+    XCTAssertEqual(MaterialDisplayName.title(["数学（第二版）"]), "数学（第二版）")
+  }
+
+  @MainActor func testRestoredPlanUsesChapterNameWithoutChangingIdentityOrCompletedProgress() throws {
+    var source = try ContentBundle.load([SourceContent].self, name: "sources")[0]
+    let chapterID = "chapter_330fc41d4fc86b5b"
+    source.chapters[0].chapter_id = chapterID
+    source.chapters[0].ai_title = "复数的概念"
+    let task = StudyTask(task_id: "plan_deadbeef0123456789", user_id: "owner", day: 1,
+      title: "学习章节内容：" + chapterID, task_type: "learn", minutes: 10,
+      chapter_id: chapterID, lesson_id: nil, status: "completed", weak_points: [])
+    source.plan.tasks = [task]
+    let course = Course(id: "course", name: "数学", resourceIDs: [source.id])
+    var snapshot = AppSnapshot()
+    snapshot.courses = [course]; snapshot.selectedCourseID = course.id; snapshot.selectedBookID = source.id
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let store = AppStore(repository: try LocalBookCourseRepository(directory: directory),
+      processingPolicy: stableWiFiProcessingPolicyForTesting())
+    store.cloudState.privateLocalMode = true
+    store.restorePrivateState(LocalPersonalState(snapshot: snapshot, sources: [source], workspaces: [],
+      filePaths: [:], courseSources: [course.id: [source]], dailyPlans: [:], diagnostics: [:], initialized: true))
+    let restored = try XCTUnwrap(store.currentSource?.plan.tasks.first)
+    XCTAssertEqual(restored.title, "学习章节内容：复数的概念")
+    var expected = task; expected.title = restored.title
+    XCTAssertEqual(restored, expected)
+    XCTAssertEqual(store.cloudState.localCourseSources[course.id]?.first?.plan.tasks.first, expected)
+  }
+}

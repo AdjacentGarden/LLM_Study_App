@@ -154,7 +154,7 @@ extension LocalBookCourseRepository {
   }
 
   func restorePrivateState(_ state: LocalPersonalState) {
-    courses = state.snapshot.courses; sources = state.sources; filePaths = state.filePaths
+    courses = state.snapshot.courses; sources = state.sources.map(MaterialDisplayName.source); filePaths = state.filePaths
     for source in sources {
       for asset in source.assets {
         if let url = URL(string: asset.image_url), url.isFileURL,
@@ -170,7 +170,7 @@ extension LocalBookCourseRepository {
     importJob = state.snapshot.importJob; credits = state.snapshot.credits
     cloudState.workspaces = state.workspaces
     cloudState.localDeletedCourseIDs = state.deletedCourseIDs ?? []
-    cloudState.localCourseSources = state.courseSources; cloudState.localDiagnostics = state.diagnostics
+    cloudState.localCourseSources = state.courseSources.mapValues { $0.map(MaterialDisplayName.source) }; cloudState.localDiagnostics = state.diagnostics
     dailyPlanState.plans = state.dailyPlans
     cloudState.requiresPersonalization = state.requiresPersonalization ?? false
     cloudState.onboardingComplete = !cloudState.requiresPersonalization && preferences?.hasCompletedOnboarding == true

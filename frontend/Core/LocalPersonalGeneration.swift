@@ -505,6 +505,7 @@ enum LocalLectureSchema {
 
   /// Results stay with their owning course even if another course is being read.
   func installGeneratedLocalSource(_ content: SourceContent, courseID: String) {
+    let content = MaterialDisplayName.source(content)
     guard let scope = noteScope, canApplyCourseMutation(courseID: courseID, scope: scope) else { return }
     let resourceIDs = Set(courses.first(where: { $0.id == courseID })?.resourceIDs ?? [])
     var scoped = cloudState.localCourseSources[courseID]
@@ -530,12 +531,12 @@ enum LocalLectureSchema {
     let schema = schemaObject(["user_id": jsonString, "book_id": jsonString, "days": .object(["type": .string("integer")]),
       "daily_minutes": .object(["type": .string("integer")]), "tasks": jsonArray(task)], required: ["user_id", "book_id", "days", "daily_minutes", "tasks"])
     let input: [String: JSONValue] = ["book_id": .string(session.bookID), "chapter_id": .string(session.chapterID),
-      "lesson_id": .string(course.course_id), "estimated_minutes": .number(Double(course.estimated_minutes)),
+      "lesson_id": .string(course.course_id), "chapter_title": .string(course.chapter_title), "estimated_minutes": .number(Double(course.estimated_minutes)),
       "preferences": .object((courses.first { $0.id == session.courseID }?.diagnosis ?? [:]).mapValues { .array($0.map(JSONValue.string)) })]
     let generationID = "plan_" + AgentDigest.sha256(session.id)
     let text = try await performPrivateGeneration(id: generationID, operation: "plan",
       courseID: session.courseID, bookID: session.bookID, chapterID: session.chapterID,
-      messages: [.object(["role": .string("system"), "content": .string("根据输入生成可执行的学习计划JSON。book_id/chapter_id/lesson_id原样使用，任务status为pending，合理安排学习、回忆和复习，每项minutes为正数，不虚构已学进度。")]),
+      messages: [.object(["role": .string("system"), "content": .string("根据输入生成可执行的学习计划JSON。book_id/chapter_id/lesson_id原样使用，任务status为pending，任务title使用提供的chapter_title和可读名称，不得包含book_id/chapter_id/lesson_id等内部标识，合理安排学习、回忆和复习，每项minutes为正数，不虚构已学进度。")]),
         .object(["role": .string("user"), "content": .string(String(decoding: try JSONEncoder().encode(input), as: UTF8.self))])], schema: schema)
     guard let rawPlan = try? JSONDecoder().decode(StudyPlan.self, from: Self.generatedJSONData(text)),
       let plan = Self.normalizeGeneratedPlan(rawPlan, bookID: session.bookID, chapterID: session.chapterID,

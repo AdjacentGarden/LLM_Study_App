@@ -100,7 +100,18 @@ enum LocalCourseLearningContext {
   var localDiagnostics: [String: LocalDiagnosticSession] = [:]
   var privateLocalMode = false
   var localFirstChecked = false
-  var publicLibraryDownloading = false
+  struct PublicLibraryDownload {
+    var token = UUID()
+    var groupID: String
+    var courseID: String?
+    var scope: String
+    var epoch: UUID
+  }
+  var publicLibraryDownload: PublicLibraryDownload?
+  var publicLibraryDownloading: Bool { publicLibraryDownload?.epoch == epoch }
+  func isDownloadingPublicGroup(_ groupID: String) -> Bool {
+    publicLibraryDownloading && publicLibraryDownload?.groupID == groupID
+  }
   @ObservationIgnored var libraryResumeTask: Task<Void, Never>?
   @ObservationIgnored var libraryResumeScope: String?
   @ObservationIgnored var libraryResumeEpoch: UUID?
