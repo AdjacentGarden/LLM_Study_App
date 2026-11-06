@@ -50,3 +50,5 @@ Run it through supervisord with `supervisor-layout.conf` and
 environment to enable the service. The service uses CUDA when
 `CUDAExecutionProvider` is available and falls back to CPU automatically;
 `FIGURE_LAYOUT_FORCE_CPU=1` forces CPU for diagnostics.
+
+For direct access from physical phones, see [PUBLIC_API.md](PUBLIC_API.md).
