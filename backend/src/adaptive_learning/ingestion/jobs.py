@@ -721,7 +721,8 @@ class SubprocessOCRRunner:
             extract_figures(job.source_path, normalized, heartbeat)
         _write_canonical_hashes(normalized)
         unresolved = report.get("quality_band_counts", {})
-        needs_review = (not report.get("review_version")
+        needs_review = (get_settings().vision_rescue_enabled
+                        and not report.get("review_version")
                         and any(int(unresolved.get(k, 0)) for k in ("missing", "rescue")))
         return OCRRunResult(quality_score=float(report["mean_heuristic_score"]),
                             needs_human_review=bool(needs_review),
@@ -787,7 +788,8 @@ class SubprocessOCRRunner:
         report = json.loads(report_path.read_text(encoding="utf-8"))
         _write_canonical_hashes(attempt_dir / "normalized")
         bands = report.get("quality_band_counts", {})
-        needs_review = any(int(bands.get(name, 0)) for name in ("missing", "rescue"))
+        needs_review = (get_settings().vision_rescue_enabled
+                        and any(int(bands.get(name, 0)) for name in ("missing", "rescue")))
         return OCRRunResult(
             quality_score=float(report["mean_heuristic_score"]),
             needs_human_review=needs_review,
