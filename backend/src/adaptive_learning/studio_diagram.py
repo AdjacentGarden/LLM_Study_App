@@ -15,6 +15,39 @@ from PIL import Image, ImageDraw, ImageFont
 from .studio_models import TeachingPlan
 
 
+def render_complex_plane() -> bytes:
+    """Exact symbolic axes; decorative position is not a worked exercise."""
+    canvas = Image.new("RGB", (1152, 864), "#f6f8ff")
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default(size=30)
+    title_font = ImageFont.load_default(size=42)
+    origin = (310, 605)
+    point = (760, 265)
+    ink, accent = "#26334d", "#5366dc"
+    draw.rounded_rectangle((35, 30, 1117, 834), radius=32, fill="white")
+    draw.text((80, 65), "z = a + bi", fill=ink, font=title_font)
+    draw.line((130, origin[1], 1010, origin[1]), fill=ink, width=4)
+    draw.line((origin[0], 745, origin[0], 170), fill=ink, width=4)
+    draw.polygon([(1010, origin[1]), (991, origin[1]-10), (991, origin[1]+10)], fill=ink)
+    draw.polygon([(origin[0], 170), (origin[0]-10, 189), (origin[0]+10, 189)], fill=ink)
+    draw.text((954, 627), "Re(z)", fill=ink, font=font)
+    draw.text((332, 166), "Im(z)", fill=ink, font=font)
+    for x in range(origin[0], point[0], 22):
+        draw.line((x, point[1], min(x+12, point[0]), point[1]), fill="#d28c47", width=3)
+    for y in range(point[1], origin[1], 22):
+        draw.line((point[0], y, point[0], min(y+12, origin[1])), fill="#d28c47", width=3)
+    draw.line((*origin, *point), fill=accent, width=5)
+    draw.ellipse((point[0]-10, point[1]-10, point[0]+10, point[1]+10), fill=accent)
+    draw.text((point[0]+20, point[1]-35), "P(a, b)", fill=accent, font=font)
+    draw.text((point[0]-9, origin[1]+20), "a", fill=ink, font=font)
+    draw.text((origin[0]-42, point[1]-12), "b", fill=ink, font=font)
+    draw.text((origin[0]-32, origin[1]+16), "0", fill=ink, font=font)
+    draw.text((80, 765), "Re(z) = a       Im(z) = b       i^2 = -1", fill=ink, font=font)
+    output = io.BytesIO()
+    canvas.save(output, "JPEG", quality=94)
+    return output.getvalue()
+
+
 def render_diagram(plan: TeachingPlan) -> bytes:
     candidates = [
         os.getenv("STUDIO_CJK_FONT", ""),

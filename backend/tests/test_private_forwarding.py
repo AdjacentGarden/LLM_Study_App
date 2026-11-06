@@ -60,6 +60,26 @@ def test_private_generation_validates_json_and_omits_empty_tool_protocol(gateway
     assert len(model.requests) == 1
 
 
+def test_private_model_accepts_wrapped_usable_json_without_optional_schema_review(gateway):
+    a, _, install, _ = gateway
+    a.app.include_router(private_forwarding_router(api))
+    install(Model(final_stream('```json\n{"feedback":"真实模型文本","items":[]}\n```')))
+    request = {"request_id": "relaxed_private_json", "operation": "lecture",
+        "messages": [{"role": "user", "content": "章节原文"}],
+        "response_schema": {"type": "object", "required": ["items"], "properties": {
+            "items": {"type": "array", "items": {"type": "string"}, "minItems": 1}}}}
+    response = a.post("/api/assistant/private-model", json=request).json()
+    assert response["state"] == "completed"
+    assert json.loads(response["content"])["feedback"] == "真实模型文本"
+
+
+def test_private_json_still_requires_a_real_object():
+    from adaptive_learning.api.private_forwarding import private_model_json
+    for content in ("not json", "[]", "null"):
+        with pytest.raises(ValueError):
+            private_model_json(content)
+
+
 def test_private_generation_failure_keeps_only_a_fixed_cause_code(gateway):
     from test_assistant_turn import sse
     a, _, install, _ = gateway

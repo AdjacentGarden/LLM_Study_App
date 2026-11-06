@@ -382,7 +382,9 @@ final class LearningTests: XCTestCase {
       let email = env["BOOKCOURSE_LIVE_EMAIL"], let code = env["BOOKCOURSE_LIVE_CODE"] else {
       throw XCTSkip("Requires explicit live acceptance configuration")
     }
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("live-original-" + UUID().uuidString)
+    let directory = env["BOOKCOURSE_LIVE_RESUME_DIRECTORY"].map { URL(fileURLWithPath: $0) }
+      ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("BookCourseLiveValidation")
     let repository = try LocalBookCourseRepository(directory: directory)
     let api = CloudAPI(baseURL: try XCTUnwrap(URL(string: base)))
     let challenge: CloudChallenge = try await api.request("/api/auth/code", method: "POST",
@@ -394,7 +396,7 @@ final class LearningTests: XCTestCase {
     XCTAssertNil(store.bootError)
     XCTAssertTrue(store.cloudState.privateLocalMode)
     let started = Date()
-    await store.importCloudPDF(URL(fileURLWithPath: pdf))
+    if store.selectedCourseID == nil { await store.importCloudPDF(URL(fileURLWithPath: pdf)) }
     XCTAssertNil(store.importError)
     if let error = store.importError { throw ContentError.invalid(error) }
     let uploadedAt = Date()
@@ -416,7 +418,15 @@ final class LearningTests: XCTestCase {
     XCTAssertTrue(store.hasStudyContent)
     if env["BOOKCOURSE_LIVE_ALL_CHAPTERS"] == "1" {
       for chapter in source.chapters.dropFirst() {
-        try await store.beginLocalDiagnosis(chapterID: chapter.id, preview: true)
+        if store.currentSource?.lessons.contains(where: { $0.chapter_id == chapter.id && $0.status == "ready" }) != true {
+          do { try await store.beginLocalDiagnosis(chapterID: chapter.id, preview: true) }
+          catch {
+            let records = try await repository.localGenerations(scope: scope)
+            guard records.contains(where: { $0.chapterID == chapter.id && $0.state == "pending" }),
+              let original = store.cloudState.localDiagnostics.values.first(where: { $0.chapterID == chapter.id }) else { throw error }
+            try await store.generateLocalPersonalChapter(sessionID: original.id)
+          }
+        }
         print("LIVE_CHAPTER", chapter.title, "generated")
       }
     }
@@ -448,6 +458,7 @@ final class LearningTests: XCTestCase {
       "total_seconds": .number(Date().timeIntervalSince(started)), "source_pages": .number(Double(source.summary.page_count)),
       "ocr_chunks": .number(Double(source.chunks.count)), "ready_lessons": .number(Double(ready.count)),
       "local_figures": .number(Double(completed.first?.source.assets.count ?? 0)),
+      "repository_directory": .string(directory.path),
       "ai_answer": .string(answer.text), "actual_model_calls": .bool(true)]
     print("LIVE_RECEIPT", String(decoding: try JSONEncoder().encode(receipt), as: UTF8.self))
     let attachment = XCTAttachment(data: try JSONEncoder().encode(try XCTUnwrap(saved)), uniformTypeIdentifier: "public.json")
@@ -1146,7 +1157,8 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
   nonisolated(unsafe) private static var observed: [String] = []
   nonisolated(unsafe) private static var ids: [String] = []
   nonisolated(unsafe) private static var schema: [String: Any]?
-  static func reset(mode value: String) { lock.lock(); defer { lock.unlock() }; mode = value; observed = []; ids = []; schema = nil }
+  nonisolated(unsafe) private static var recovered: [String: Any]?
+  static func reset(mode value: String) { lock.lock(); defer { lock.unlock() }; mode = value; observed = []; ids = []; schema = nil; recovered = nil }
   static func operations() -> [String] { lock.lock(); defer { lock.unlock() }; return observed }
   static func requestIDs() -> [String] { lock.lock(); defer { lock.unlock() }; return ids }
   static func lectureSchema() -> [String: Any]? { lock.lock(); defer { lock.unlock() }; return schema }
@@ -1206,11 +1218,17 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
         if selectedMode == "request-rejected-first" && requestNumber == 1 {
           statusCode = 422; result = ["detail": "个人生成请求或输出格式无效"]
         } else { result = ["request_id": requestID, "state": "completed", "content": content, "error": ""] }
+        if ["lost-completed", "lost-unstarted"].contains(selectedMode), requestNumber == 1 {
+          Self.lock.lock(); Self.recovered = result; Self.lock.unlock()
+          statusCode = 502; result = ["detail": "连接中断"]
+        }
       } else if request.httpMethod == "GET" {
-        Self.lock.lock(); let selectedMode = Self.mode; Self.lock.unlock()
+        Self.lock.lock(); let selectedMode = Self.mode; let recovered = Self.recovered; Self.lock.unlock()
         if selectedMode == "not-started-once" {
           result = ["request_id": request.url!.lastPathComponent, "state": "not_started", "content": NSNull()]
         }
+        if selectedMode == "lost-completed", let recovered { result = recovered }
+        if selectedMode == "lost-unstarted" { result = ["request_id": request.url!.lastPathComponent, "state": "not_started"] }
       }
       let response = HTTPURLResponse(url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
       client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
@@ -1235,6 +1253,24 @@ private func routingRequestBodyForContract(_ request: URLRequest) throws -> Data
 }
 
 extension ChapterLearningEntryTests {
+  func testLostGenerationResponseQueriesCompletedRequestWithoutAnotherSubmission() async throws {
+    let (store, session) = try await contractStore(mode: "lost-completed")
+    defer { session.invalidateAndCancel() }
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+  }
+
+  func testUnacceptedGenerationRecoversWithSameRequestID() async throws {
+    let (store, session) = try await contractStore(mode: "lost-unstarted")
+    defer { session.invalidateAndCancel() }
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertTrue(store.hasStudyContent)
+    let ids = LocalCourseContractProtocol.requestIDs()
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "lecture", "plan"])
+    XCTAssertEqual(ids[0], ids[1])
+  }
+
   func testWrappedLectureAndMinorPlanMetadataDoNotRequireRegeneration() async throws {
     let (store, session) = try await contractStore(mode: "wrapped-relaxed-plan")
     defer { session.invalidateAndCancel() }

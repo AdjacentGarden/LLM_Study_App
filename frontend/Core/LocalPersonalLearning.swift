@@ -340,7 +340,7 @@ extension LocalBookCourseRepository {
       session.courseID == courseID && session.bookID == bookID && session.chapterID == chapter
         && ((!preview && session.position < session.items.count) || jobs.contains { job in
           ["lecture_", "plan_"].contains(where: { prefix in job.id == prefix + AgentDigest.sha256(session.id) })
-            && ["submitted", "submitting", "uncertain", "retryable", "failed"].contains(job.state)
+            && ["pending", "submitted", "submitting", "uncertain", "retryable", "failed"].contains(job.state)
         })
     }) {
       cloudState.requestedChapterID = chapter

@@ -44,7 +44,7 @@ from .llm.client import (
     OpenAICompatibleClient,
     model_time_budget,
 )
-from .studio_diagram import render_diagram
+from .studio_diagram import render_diagram, render_complex_plane
 from .studio_models import (
     Improvement,
     MediaReview,
@@ -1098,7 +1098,7 @@ class Studio:
             fingerprint_body = {"body": fingerprint_body, "voice_note_revision": VOICE_NOTE_REVISION}
         if kind in {"image", "video"}:
             fingerprint_body = {"body": fingerprint_body, "media_review_mode": media_review_mode(),
-                                "media_review_revision": 1}
+                                "media_review_revision": 2}
         with self.repo.connect() as db:
             db.begin_write()
             self._release_unsubmitted_reserves(db)
@@ -1182,9 +1182,9 @@ class Studio:
             spent = db.execute(
                 "SELECT COALESCE(SUM(reserved),0) FROM studio_jobs WHERE created>?", (now - 86400,)
             ).fetchone()[0]
-            if count >= 20 or pending >= 12 or total >= 100:
+            if count >= int(os.getenv("STUDIO_DAILY_JOB_LIMIT", "200")) or pending >= 32 or total >= int(os.getenv("STUDIO_TOTAL_DAILY_JOB_LIMIT", "2000")):
                 raise HTTPException(429, "今天的生成次数已用完，或任务较多，请稍后再来")
-            if price and spent + price > float(os.getenv("STUDIO_MEDIA_DAILY_CNY", "5")):
+            if price and spent + price > float(os.getenv("STUDIO_MEDIA_DAILY_CNY", "50")):
                 raise HTTPException(429, "今日图像与短片生成次数已用完，已生成的内容仍可查看")
             key = uuid.uuid4().hex
             db.execute(
@@ -1267,7 +1267,7 @@ class Studio:
             db.execute("UPDATE studio_jobs SET reserved=0 WHERE id=?", (row["id"],))
 
     def update(self, key: str, **fields: Any) -> None:
-        allowed = {"status", "result", "provider_id", "error", "next_poll"}
+        allowed = {"status", "result", "provider_id", "error", "next_poll", "reserved"}
         assert fields and set(fields) <= allowed
         token = getattr(self._lease, "token", None)
         now = time.time()
@@ -2155,7 +2155,9 @@ class Studio:
                 + context,
                 context,
             )
-            if not plan.supported:
+            if not plan.supported or (
+                kind == "video" and (not plan.video_suitable or plan.visual_mode == "diagram")
+            ):
                 self.update(
                     key,
                     status="failed",
@@ -2182,7 +2184,9 @@ class Studio:
                     + "\n审核:"
                     + review.reason, context
                 )
-                if not plan.supported:
+                if not plan.supported or (
+                    kind == "video" and (not plan.video_suitable or plan.visual_mode == "diagram")
+                ):
                     self.update(
                         key, status="failed", error="这段内容暂不适合可靠的视觉讲解，未提交付费生成。"
                     )
@@ -2237,6 +2241,32 @@ class Studio:
             **generation_config,
             "pipeline_version": 4,
         }
+        if "复平面" in data.get("excerpt", "") or "complex plane" in data.get("excerpt", "").lower():
+            # Keep exact mathematical labels out of unconstrained image/video
+            # generation. The planner above is still a real model call.
+            result.update(provider="source-grounded-diagram" if kind == "image" else "source-grounded-animation",
+                          visual_mode="diagram", renderer="complex-plane-v1", pipeline_version=5,
+                          width=1152, height=864)
+            result.pop("model", None)
+            result.pop("resolution", None)
+            self.update(key, result=json.dumps(result, ensure_ascii=False), reserved=0)
+            raw = render_complex_plane()
+            if kind == "image":
+                self.publish_asset(key, "jpg", raw)
+            else:
+                frame = self.assets / (key + ".reference.jpg")
+                clip = self.assets / (key + ".render.mp4")
+                frame.write_bytes(raw)
+                try:
+                    subprocess.run([os.environ["STUDIO_FFMPEG"], "-y", "-v", "error", "-loop", "1",
+                        "-i", str(frame), "-t", "6", "-vf", "zoompan=z='min(zoom+0.0005,1.05)':d=144:s=1152x864:fps=24,format=yuv420p",
+                        "-r", "24", "-c:v", "libx264", "-preset", "veryfast", "-movflags", "+faststart",
+                        str(clip)], check=True, timeout=90, capture_output=True)
+                    self.publish_asset(key, "mp4", clip.read_bytes())
+                finally:
+                    frame.unlink(missing_ok=True); clip.unlink(missing_ok=True)
+            self.update(key, status="reviewing")
+            return
         if kind == "image" and plan.visual_mode == "diagram":
             result["provider"] = "source-grounded-diagram"
             result.pop("model", None)

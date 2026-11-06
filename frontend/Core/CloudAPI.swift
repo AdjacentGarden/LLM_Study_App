@@ -531,8 +531,8 @@ actor CloudAPI {
     let (bytes, raw): (Data, URLResponse)
     // Catalog imports reuse a caller-supplied workspace ID, so a transport retry
     // cannot create a second course. Other writes must never be replayed here.
-    let canRetry = baseURL.host?.lowercased().hasSuffix(".ts.net") == true
-      && (method == "GET" || (method == "POST" && path.hasPrefix("/api/native/catalog/") && path.hasSuffix("/import")))
+    let canRetry = method == "GET" || (baseURL.host?.lowercased().hasSuffix(".ts.net") == true
+      && method == "POST" && path.hasPrefix("/api/native/catalog/") && path.hasSuffix("/import"))
     do {
       if let uploadFile, let backgroundUpload, usesNativeBackgroundUploads {
         let transport = await BackgroundUploadTransport.client(origin: baseURL, scope: backgroundUpload.scope)

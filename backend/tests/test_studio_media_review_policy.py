@@ -41,6 +41,22 @@ def test_new_jobs_default_to_disabled_quality_review(monkeypatch):
     assert media_review_mode() == "off"
 
 
+def test_complex_plane_uses_exact_rendering_without_a_paid_image_call(setup, monkeypatch):
+    a, _, studio = setup
+    prepare_planner(studio, monkeypatch)
+    monkeypatch.setattr(studio, "generate_image", lambda *args: pytest.fail("exact axes use native rendering"))
+    created = a.post("/api/studio/media", json=media(excerpt="复数在复平面中以点表示。", request_id="native_complex_plane")).json()
+    run(studio, a, created["id"])
+    completed = finish_if_reviewing(studio, a, created["id"])
+    assert completed["status"] == "succeeded"
+    assert completed["result"]["provider"] == "source-grounded-diagram"
+    assert completed["result"]["renderer"] == "complex-plane-v1"
+    with Image.open(io.BytesIO(a.get(completed["asset_url"]).content)) as image:
+        assert image.size == (1152, 864)
+    with studio.repo.connect() as db:
+        assert db.execute("SELECT reserved FROM studio_jobs WHERE id=?", (created["id"],)).fetchone()[0] == 0
+
+
 def test_off_planner_accepts_missing_review_metadata_and_long_points(setup, monkeypatch):
     _, _, studio = setup
     candidate = {**plan(), "supported": True, "visual_scope": "", "visual_checks": None,

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import time
 
 from adaptive_learning.public_materials import PublicMaterials
 
@@ -45,6 +46,14 @@ def add_pdf(public: PublicMaterials, path: Path) -> dict:
     # The resident workers produce real OCR, layout, structure and diagnostics.
     group = public.register(owner, title=path.stem, book_ids=[stored.book_id],
         group_id="manual_" + checksum[:32])
+    # OCR can finish after durable publication registration. Submit preparation
+    # once it is ready, rather than leaving a manually added PDF at OCR-only.
+    deadline = time.monotonic() + 900
+    while stored.status in {"uploaded", "queued", "running", "processing"} and time.monotonic() < deadline:
+        time.sleep(2)
+        stored = services.job_repository.get_book(stored.book_id)
+    if stored.status in {"ocr_ready", "structured", "ready"}:
+        group = public.register(owner, title=path.stem, book_ids=[stored.book_id], group_id=group["id"])
     receipt = {"source": str(path), "sha256": checksum, "book_id": stored.book_id,
                "group_id": group["id"], "status": group["status"], "reused": duplicate}
     (public.root / ("import-" + checksum[:32] + ".json")).write_text(json.dumps(receipt, ensure_ascii=False, indent=2))

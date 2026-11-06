@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import threading
 import time
@@ -27,6 +28,21 @@ PRIVATE_PREFIX = "private:"
 MODEL_PREFIX = "private-model:"
 # A full chapter can take minutes; stay below the 300 s gateway read timeout.
 MODEL_DEADLINE_SECONDS = 240
+
+
+def private_model_json(content: str) -> str:
+    """Recover harmless JSON fences; native clients own output shape checks."""
+    text = content.strip()
+    try:
+        value = json.loads(text)
+    except ValueError:
+        start, end = text.find("{"), text.rfind("}")
+        if start < 0 or end < start:
+            raise ValueError("invalid model output")
+        value = json.loads(text[start:end + 1])
+    if not isinstance(value, dict):
+        raise ValueError("invalid model output")
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 _ERROR_CODES = (
     ("max_tokens", "output_limit"), ("time budget", "timeout"), ("context window", "context_limit"),
     ("declined", "provider_declined"), ("refused", "refused"), ("schema_mismatch", "schema_mismatch"),
@@ -423,7 +439,10 @@ def private_forwarding_router(services):
         schema_failed = False
         if outcome.kind == "completed" and outcome.turn:
             try:
-                validate_schema(body.response_schema, json.loads(outcome.turn.content))
+                content = private_model_json(outcome.turn.content)
+                outcome = replace(outcome, turn=replace(outcome.turn, content=content))
+                if os.getenv("CLOUDPATH_PRIVATE_MODEL_SCHEMA_REVIEW", "0") == "1":
+                    validate_schema(body.response_schema, json.loads(content))
             except (ValueError, TypeError, AttributeError):
                 schema_failed = True
         from types import SimpleNamespace

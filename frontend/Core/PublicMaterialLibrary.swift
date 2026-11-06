@@ -392,7 +392,9 @@ extension LocalBookCourseRepository {
     installDownloadedMaterials(records, courseID: courseID)
     if attachToCourseID != nil {
       try await persistPrivateState()
-      task.state = originalsOnly ? "originals_ready" : "completed"; task.courseID = courseID; task.bookIDs = ids
+      let imagesComplete = records.allSatisfy { $0.figurePaths.count == ($0.figureDescriptors?.count ?? 0) }
+      task.state = originalsOnly ? "originals_ready" : imagesComplete ? "completed" : "partial"
+      task.courseID = courseID; task.bookIDs = ids
       try await repository.savePublicLibraryTask(task, scope: scope)
       return course
     }
@@ -413,7 +415,8 @@ extension LocalBookCourseRepository {
       retainPendingCourseDraft()
     }
     try await persistPrivateState()
-    task.state = "completed"; task.courseID = course.id; task.bookIDs = ids
+    task.state = records.allSatisfy { $0.figurePaths.count == ($0.figureDescriptors?.count ?? 0) } ? "completed" : "partial"
+    task.courseID = course.id; task.bookIDs = ids
     try await repository.savePublicLibraryTask(task, scope: scope)
     if navigateAfterDownload { go(.courseSetup) }
     return course
@@ -465,7 +468,13 @@ extension LocalBookCourseRepository {
       !bookIDs.contains(where: { $0.hasPrefix("book_local_") }) else { return }
     let id = "group_" + AgentDigest.sha256(scope + "|" + bookIDs.joined(separator: "|"))
     let previous = try await repository.publicLibraryTasks(scope: scope)
-    if previous.contains(where: { $0.id == id && $0.kind == "publish" && ["registered", "completed"].contains($0.state) }) { return }
+    if var registered = previous.first(where: { $0.id == id && $0.kind == "publish" && ["registered", "completed"].contains($0.state) }) {
+      if registered.courseID != courseID {
+        registered.courseID = courseID
+        try await repository.savePublicLibraryTask(registered, scope: scope)
+      }
+      return
+    }
     var task = PublicLibraryTask(id: id, kind: "publish", groupID: id, title: title, bookIDs: bookIDs, state: "pending", courseID: courseID)
     try await repository.savePublicLibraryTask(task, scope: scope)
     let group: PublicCourseGroup = try await cloud.request("/api/public/library/course-groups", method: "POST",

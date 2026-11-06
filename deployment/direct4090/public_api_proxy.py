@@ -17,7 +17,9 @@ UPSTREAM = httpx.URL(os.environ.get("CLOUDPATH_PUBLIC_API_UPSTREAM", "http://127
 async def lifespan(app):
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(1000.0, connect=10.0, pool=15.0),
-        limits=httpx.Limits(max_connections=128, max_keepalive_connections=32),
+        # The upstream is an SSH TCP forward. Fresh sockets avoid racing the
+        # backend's idle HTTP connection closure while image requests overlap.
+        limits=httpx.Limits(max_connections=128, max_keepalive_connections=0),
         follow_redirects=False, trust_env=False,
     ) as client:
         app.state.client = client
@@ -58,8 +60,22 @@ async def forward(request: Request, path: str):
     outgoing = client.build_request(request.method, target, headers=headers, content=request_body())
     try:
         upstream = await client.send(outgoing, stream=True)
-    except httpx.HTTPError:
-        return JSONResponse({"detail": "学习服务暂时不可用，请稍后重试"}, status_code=502)
+    except httpx.HTTPError as error:
+        print("CLOUDPATH_RELAY_ERROR " + json.dumps({"method": request.method,
+            "path": request.url.path, "type": type(error).__name__, "received_bytes": received_bytes}), flush=True)
+        can_retry = request.method in {"GET", "HEAD"} or (isinstance(error, httpx.ConnectError) and received_bytes == 0)
+        if not can_retry:
+            return JSONResponse({"detail": "学习服务暂时不可用，请稍后重试"}, status_code=502)
+        # Reads are safe to repeat. A paid POST is retried only if no upstream
+        # connection existed and its body has never been consumed.
+        retry = client.build_request(request.method, target, headers=headers,
+            content=b"" if request.method in {"GET", "HEAD"} else request_body())
+        try:
+            upstream = await client.send(retry, stream=True)
+        except httpx.HTTPError as second:
+            print("CLOUDPATH_RELAY_ERROR " + json.dumps({"method": request.method,
+                "path": request.url.path, "type": type(second).__name__, "retry": True}), flush=True)
+            return JSONResponse({"detail": "学习服务暂时不可用，请稍后重试"}, status_code=502)
 
     if request.method == "POST" and request.url.path == "/api/native/uploads":
         print("CLOUDPATH_RELAY_UPLOAD " + json.dumps({

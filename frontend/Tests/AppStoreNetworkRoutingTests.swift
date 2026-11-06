@@ -1074,4 +1074,19 @@ extension AppStoreNetworkRoutingTests {
     let uploaded = try await fixture.api.uploadPDF(pdf())
     XCTAssertEqual(uploaded.book_id, "uploaded-book")
   }
+
+  func testReuploadedBookRebindsRegisteredMaterialToTheNewPrivateCourse() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    fixture.store.cloudState.privateLocalMode = true
+    let scope = try XCTUnwrap(fixture.store.noteScope)
+    let id = "group_" + AgentDigest.sha256(scope + "|new-book")
+    try await fixture.repository.savePublicLibraryTask(PublicLibraryTask(id: id, kind: "publish",
+      groupID: "existing_group", title: "教材", bookIDs: ["new-book"], state: "registered", courseID: "deleted-course"), scope: scope)
+    try await fixture.store.queuePublicCoursePublication(title: "新课程", bookIDs: ["new-book"], courseID: "new-course")
+    let tasks = try await fixture.repository.publicLibraryTasks(scope: scope)
+    XCTAssertEqual(tasks.first?.courseID, "new-course")
+    XCTAssertEqual(tasks.first?.groupID, "existing_group")
+    XCTAssertTrue(fixture.probe.requests.isEmpty)
+  }
 }

@@ -13,6 +13,7 @@ from pydantic import Field
 
 from ..photo_notes import PhotoNoteInput
 from ..native import NativeRepository
+from ..ingestion.jobs import SQLiteOCRJobRepository
 from ..studio import get_studio
 from ..studio_models import (
     MediaInput,
@@ -37,6 +38,7 @@ def studio_router(
     router = APIRouter(tags=["learning-studio"])
     studio = get_studio(data_dir)
     native = NativeRepository(data_dir / "state" / "native.sqlite3")
+    originals = SQLiteOCRJobRepository(data_dir / "state" / "ocr_jobs.sqlite3")
 
     def validate_note_resource(owner: str, data: NoteInput) -> None:
         if not data.course_id and not data.course_resource_id:
@@ -49,7 +51,14 @@ def studio_router(
         # access and Studio always scopes private records to the session owner.
         if data.course_id.startswith("local-course:"):
             relation = f"{data.course_id}:{data.book_id}"
-            if data.course_resource_id in {relation, "local-resource:" + hashlib.sha256(relation.encode()).hexdigest()}:
+            accepted = {relation, "local-resource:" + hashlib.sha256(relation.encode()).hexdigest()}
+            fingerprint = originals.source_fingerprint(data.book_id)
+            if fingerprint:
+                # Upload rebinds the book ID but keeps the local relationship
+                # stable. Its original digest proves this is the same PDF.
+                staged = f"{data.course_id}:book_local_{fingerprint[:24]}"
+                accepted.update({staged, "local-resource:" + hashlib.sha256(staged.encode()).hexdigest()})
+            if data.course_resource_id in accepted:
                 return
             raise HTTPException(404, "课程教材关联不匹配")
         try:

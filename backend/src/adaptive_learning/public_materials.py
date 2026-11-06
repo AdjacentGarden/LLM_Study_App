@@ -245,6 +245,12 @@ class PublicMaterials:
                 self._export_catalog(json.loads(row["manifest"]))
                 return
             try:
+                queue = getattr(self.services, "preparation_queue", None)
+                if queue is not None:
+                    for book_id in json.loads(row["book_ids"]):
+                        stored = self.services.job_repository.get_book(book_id)
+                        if stored is not None and stored.status in {"ocr_ready", "structured", "ready"} and queue.get(book_id) is None:
+                            queue.enqueue(book_id)
                 books = [self._book(group_id, book) for book in json.loads(row["book_ids"])]
                 payload: dict[str, Any] = {"schema_version": 1, "group_id": group_id, "title": row["title"],
                                           "description": row["description"], "books": books}

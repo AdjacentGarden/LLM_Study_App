@@ -185,7 +185,20 @@ enum LocalLectureSchema {
         try Task.checkCancellation()
         guard epoch == cloudState.epoch,
           canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
-        response = try await cloud.privateModelStep(saved.body)
+        do {
+          response = try await cloud.privateModelStep(saved.body)
+        } catch let error as CloudError where error.transportFailure || [408, 429, 500, 502, 503, 504].contains(error.status) {
+          // A lost response is not a new generation. Query the exact request;
+          // only authoritative absence permits one submission with the same ID.
+          let observed = try await recoverPrivateModelResponse(requestID: requestID, cloud: cloud,
+            courseID: courseID, scope: scope, epoch: epoch)
+          if observed.state == "not_started" {
+            try Task.checkCancellation()
+            guard epoch == cloudState.epoch, scope == noteScope,
+              canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+            response = try await cloud.privateModelStep(saved.body)
+          } else { response = observed }
+        }
       } else {
         response = try await cloud.privateModelStepStatus(requestID)
       }
@@ -218,6 +231,29 @@ enum LocalLectureSchema {
     }
   }
 
+  private func recoverPrivateModelResponse(requestID: String, cloud: CloudAPI, courseID: String,
+    scope: String, epoch: UUID) async throws -> PrivateModelStepResponseDTO {
+    let deadline = ContinuousClock.now + .seconds(300)
+    var failures = 0
+    while true {
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, scope == noteScope,
+        canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+      do {
+        let result = try await cloud.privateModelStepStatus(requestID)
+        guard result.request_id == requestID else { throw CancellationError() }
+        if ["completed", "failed", "not_started"].contains(result.state) { return result }
+      } catch let error as CloudError where error.transportFailure || [408, 429, 500, 502, 503, 504].contains(error.status) {
+        failures += 1
+        if failures >= 4 { throw error }
+      }
+      guard ContinuousClock.now < deadline else {
+        throw ContentError.invalid("生成仍在处理，原请求已保留，请稍后继续查询")
+      }
+      try await Task.sleep(for: .seconds(2))
+    }
+  }
+
   private static let privateGenerationReasons = [
     "private_model_output_limit": "生成内容超过单次输出上限", "private_model_timeout": "生成超时",
     "private_model_context_limit": "教材内容超过模型上下文", "private_model_schema_mismatch": "模型返回的格式无效",
@@ -235,7 +271,7 @@ enum LocalLectureSchema {
   private func rejectPrivateGeneration(id: String, scope: String) async throws {
     guard var record = try await repository.localGenerations(scope: scope).first(where: { $0.id == id }),
       record.state == "completed" else { return }
-    record.state = "failed"; record.content = nil; record.error = "local_validation_failed"
+    record.state = "failed"; record.error = "local_validation_failed"
     try await saveTrackedLocalGeneration(record, scope: scope)
   }
 
@@ -250,6 +286,33 @@ enum LocalLectureSchema {
     return Data(trimmed.utf8)
   }
 
+  nonisolated static func lectureJSONData(_ text: String, publicationID: String, chapterID: String, title: String) -> Data {
+    let data = generatedJSONData(text)
+    guard var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return data }
+    if root["course"] == nil {
+      for key in ["result", "data", "output"] {
+        if let nested = root[key] as? [String: Any], nested["course"] is [String: Any] { root = nested; break }
+      }
+    }
+    guard var course = root["course"] as? [String: Any] else { return data }
+    // These fields are bookkeeping or belong to assignment diagnosis. Preserve
+    // all actual teaching text and still reject an explicit foreign chapter ID.
+    for field in ["flashcards", "worked_examples", "checkpoint_questions", "practice_items"] { course[field] = [Any]() }
+    root["practice_grading"] = [Any]()
+    for field in ["original_reading", "knowledge_points", "unresolved_source_warnings"] {
+      if course[field] == nil || course[field] is NSNull { course[field] = [Any]() }
+    }
+    for (field, fallback) in [("course_id", publicationID), ("chapter_id", chapterID),
+      ("chapter_title", title), ("opening", ""), ("summary", ""),
+      ("created_at", ISO8601DateFormatter().string(from: Date()))] {
+      if course[field] == nil || course[field] is NSNull { course[field] = fallback }
+    }
+    if course["version"] == nil || course["version"] is NSNull { course["version"] = 1 }
+    if course["estimated_minutes"] == nil || course["estimated_minutes"] is NSNull { course["estimated_minutes"] = 10 }
+    root["course"] = course
+    return (try? JSONSerialization.data(withJSONObject: root)) ?? data
+  }
+
   /// Bind planning metadata to the owning lesson; correct values the client already knows.
   nonisolated static func normalizeGeneratedPlan(_ input: StudyPlan, bookID: String,
     chapterID: String, lessonID: String, userID: String, generationID: String) -> StudyPlan? {
@@ -262,6 +325,7 @@ enum LocalLectureSchema {
     var ids: Set<String> = []
     for index in plan.tasks.indices {
       var task = plan.tasks[index]
+      if !task.task_id.isEmpty, !task.task_id.hasPrefix(generationID + ":") { task.task_id = generationID + ":" + task.task_id }
       if task.task_id.isEmpty || ids.contains(task.task_id) { task.task_id = generationID + ":task:" + String(index) }
       ids.insert(task.task_id)
       task.user_id = userID
@@ -364,12 +428,27 @@ enum LocalLectureSchema {
       courseID: courseID, bookID: bookID, chapterID: chapter.id,
       messages: [.object(["role": .string("system"), "content": .string(prompt)]),
         .object(["role": .string("user"), "content": .string(String(decoding: try JSONEncoder().encode(payload), as: UTF8.self))])], schema: schema)
-    guard let result = try? JSONDecoder().decode(LocalLectureResult.self, from: Self.generatedJSONData(text)) else {
+    guard let result = try? JSONDecoder().decode(LocalLectureResult.self, from: Self.lectureJSONData(text,
+      publicationID: "local-lecture:" + session.id, chapterID: chapter.id, title: chapter.title)) else {
       try await rejectPrivateGeneration(id: generationID, scope: scope)
       throw ContentError.invalid("生成内容不是有效的课程结构，可重新生成")
     }
-    let course = result.course
+    var course = result.course
+    // Exercise generation belongs to assignment diagnosis, independent of
+    // optional model schema/quality review.
+    course.flashcards = []; course.worked_examples = []
+    course.checkpoint_questions = []; course.practice_items = []
+    let exerciseKinds = Set(["worked_example", "example", "exercise", "practice", "question", "checkpoint", "prerequisite_check"])
+    course.units = course.units?.map { unit in
+      var unit = unit
+      unit.sections.removeAll { exerciseKinds.contains(($0.kind ?? $0.purpose).lowercased()) }
+      return unit
+    }.filter { !$0.sections.isEmpty }
     let sections = course.original_reading + course.worked_examples + (course.units ?? []).flatMap(\.sections)
+    guard sections.contains(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
+      try await rejectPrivateGeneration(id: generationID, scope: scope)
+      throw ContentError.invalid("生成内容缺少讲解，原课程已保留，可重新生成")
+    }
     let citations = sections.flatMap(\.citations) + course.knowledge_points.flatMap(\.citations) + course.flashcards.flatMap(\.citations)
     guard course.chapter_id == chapter.id, course.course_id == "local-lecture:" + session.id else {
       try await rejectPrivateGeneration(id: generationID, scope: scope)
