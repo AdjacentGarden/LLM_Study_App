@@ -183,7 +183,7 @@ actor CourseJobService {
       case .succeeded:
         guard let course = job.course, course.chapter_id == chapterID,
           !course.course_id.isEmpty, !course.knowledge_points.isEmpty,
-          !course.practice_items.isEmpty else {
+          !(course.units ?? []).isEmpty else {
           throw CloudError(status: 409, message: "任务已完成，但未返回完整课程，请重新查询原任务。")
         }
         return course
