@@ -686,6 +686,76 @@ final class LearningTests: XCTestCase {
     }
   }
 
+  func testChapterGenerationRestoresDownloadedOCRIntoStaleCourseSource() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    let scope = try XCTUnwrap(store.noteScope)
+    let material = try XCTUnwrap(store.currentSource)
+    try await store.repository.saveMaterialRecord(LocalMaterialRecord(groupID: "cached-group", version: "v1",
+      bookID: material.id, files: [:], figurePaths: [:], source: material, diagnostics: [], grading: []), scope: scope)
+    var stale = material
+    stale.chunks = []; stale.assets = []
+    stale.summary.chunk_count = 0; stale.summary.content_mode = "remote"
+    store.sources = [stale]
+    store.cloudState.localCourseSources["chapter-course"] = [stale]
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    XCTAssertEqual(store.currentSource?.chunks, material.chunks)
+    XCTAssertEqual(store.currentSource?.summary.chunk_count, material.chunks.count)
+    XCTAssertTrue(store.hasStudyContent)
+    let restored = try await store.repository.loadPersonalState(scope: scope)
+    XCTAssertEqual(restored?.courseSources["chapter-course"]?.first?.chunks, material.chunks)
+  }
+
+  func testChapterGenerationWithoutDownloadedOCRDoesNotSubmitModelRequest() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    var source = try XCTUnwrap(store.currentSource)
+    source.chunks = []
+    store.sources = [source]
+    store.cloudState.localCourseSources["chapter-course"] = [source]
+    do {
+      try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+      XCTFail("Generation must wait for the actual textbook material")
+    } catch {
+      XCTAssertTrue(error.localizedDescription.contains("原文尚未下载完成"))
+    }
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), [])
+    XCTAssertFalse(store.cloudState.isWorking)
+  }
+
+  func testCompletedDownloadRestoresOwningCourseWithoutReplacingAnotherCoursesLessons() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    let scope = try XCTUnwrap(store.noteScope)
+    let material = try XCTUnwrap(store.currentSource)
+    try await store.generateLocalPersonalChapter(sessionID: "contract-session")
+    var owned = try XCTUnwrap(store.currentSource)
+    let lessons = owned.lessons
+    let plan = owned.plan
+    owned.chunks = []
+    var other = owned
+    other.summary.title = "另一课程"
+    other.lessons[0].title = "另一课程的讲解"
+    store.cloudState.localCourseSources["chapter-course"] = [owned]
+    store.courses.append(Course(id: "other-course", name: "另一课程", resourceIDs: [material.id]))
+    store.selectedCourseID = "other-course"
+    store.sources = [other]
+    try await store.repository.saveMaterialRecord(LocalMaterialRecord(groupID: "cached-group", version: "v1",
+      bookID: material.id, files: [:], figurePaths: [:], source: material, diagnostics: [], grading: []), scope: scope)
+    try await store.repository.savePublicLibraryTask(PublicLibraryTask(id: "download_cached", kind: "download",
+      groupID: "cached-group", title: "教材", bookIDs: [material.id], state: "completed", courseID: "chapter-course"), scope: scope)
+    let course = try await store.acquirePublicCourseGroup(catalogID: "cached-group", name: "教材")
+    XCTAssertEqual(course.id, "chapter-course")
+    let restored = try XCTUnwrap(store.cloudState.localCourseSources[course.id]?.first)
+    XCTAssertEqual(restored.chunks, material.chunks)
+    XCTAssertEqual(restored.lessons, lessons)
+    XCTAssertEqual(restored.plan, plan)
+    XCTAssertEqual(store.currentSource?.lessons, other.lessons)
+    XCTAssertEqual(store.selectedCourseID, "other-course")
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+  }
+
   func testDisabledQualityReviewAcceptsUsableCourseWithoutExactQuoteMatch() async throws {
     let (store, session) = try await contractStore(mode: "nonexact-quote")
     defer { session.invalidateAndCancel() }

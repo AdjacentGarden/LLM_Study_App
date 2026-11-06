@@ -56,6 +56,19 @@ struct LocalMaterialRecord: Codable, Sendable {
   var source: SourceContent
   var diagnostics: [LocalDiagnosticItem]
   var grading: [LocalDiagnosticGrade]
+
+  /// Restore shared textbook material without replacing this course's lessons or progress.
+  func enriching(_ content: SourceContent) -> SourceContent {
+    guard content.id == bookID else { return content }
+    var enriched = content
+    enriched.chunks = source.chunks
+    enriched.assets = source.assets
+    if enriched.chapters.isEmpty { enriched.chapters = source.chapters }
+    enriched.summary.chunk_count = enriched.chunks.count
+    enriched.summary.asset_count = enriched.assets.count
+    enriched.summary.content_mode = "local_material"
+    return enriched
+  }
 }
 struct LocalDiagnosticItem: Codable, Sendable {
   var item_id: String
@@ -142,7 +155,15 @@ extension LocalBookCourseRepository {
     defer { cloudState.publicLibraryDownloading = false }
     let priorTasks = try await repository.publicLibraryTasks(scope: scope)
     if let finished = priorTasks.first(where: { $0.kind == "download" && $0.groupID == catalogID && $0.state == "completed" }),
-      let course = courses.first(where: { $0.id == finished.courseID }) { return course }
+      let course = courses.first(where: { $0.id == finished.courseID }) {
+      let epoch = cloudState.epoch
+      let records = try await repository.loadMaterialRecords(scope: scope)
+      guard epoch == cloudState.epoch, scope == noteScope,
+        canApplyCourseMutation(courseID: course.id, scope: scope) else { throw CancellationError() }
+      installDownloadedMaterials(records.filter { course.resourceIDs.contains($0.bookID) }, courseID: course.id)
+      try await persistPrivateState()
+      return course
+    }
     var task = priorTasks.first(where: { $0.kind == "download" && $0.groupID == catalogID && $0.state != "completed" })
       ?? PublicLibraryTask(id: "download_" + UUID().uuidString, kind: "download", groupID: catalogID, title: name, bookIDs: [], state: "pending")
     try await repository.savePublicLibraryTask(task, scope: scope)
@@ -229,10 +250,7 @@ extension LocalBookCourseRepository {
       try await repository.saveMaterialRecord(record, scope: scope)
       if let i = sources.firstIndex(where: { $0.id == record.bookID }) {
         if attachToCourseID != nil {
-          var enriched = sources[i]
-          enriched.chunks = record.source.chunks; enriched.assets = record.source.assets
-          if enriched.chapters.isEmpty { enriched.chapters = record.source.chapters }
-          sources[i] = enriched
+          sources[i] = record.enriching(sources[i])
         } else { sources[i] = record.source }
       } else { sources.append(record.source) }
       filePaths[record.bookID] = record.files["pdf"]
@@ -244,7 +262,7 @@ extension LocalBookCourseRepository {
     if !courses.contains(where: { $0.id == course.id }) { courses.append(course) }
     if let attachToCourseID {
       // Enrich uploaded local materials without resetting the owner's questionnaire or navigating.
-      if cloudState.localCourseSources[attachToCourseID] == nil { cloudState.localCourseSources[attachToCourseID] = records.map(\.source) }
+      installDownloadedMaterials(records, courseID: attachToCourseID)
       try await persistPrivateState()
       task.state = "completed"; task.courseID = attachToCourseID; task.bookIDs = ids
       try await repository.savePublicLibraryTask(task, scope: scope)
@@ -267,6 +285,16 @@ extension LocalBookCourseRepository {
     try await repository.savePublicLibraryTask(task, scope: scope)
     go(.courseSetup)
     return course
+  }
+
+  private func installDownloadedMaterials(_ records: [LocalMaterialRecord], courseID: String) {
+    for record in records {
+      let content = cloudState.localCourseSources[courseID]?.first { $0.id == record.bookID }
+        ?? (selectedCourseID == courseID ? sources.first { $0.id == record.bookID } : nil)
+        ?? record.source
+      installGeneratedLocalSource(record.enriching(content), courseID: courseID)
+      filePaths[record.bookID] = record.files["pdf"]
+    }
   }
 }
 
