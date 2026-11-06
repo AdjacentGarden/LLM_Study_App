@@ -31,10 +31,11 @@ struct LearningAssignmentView: View {
   private var questions: [QuizQuestion] {
     let available = store.cloudState.privateLocalMode
       ? (diagnosticContext == contextKey ? diagnosticQuestions : []) : store.quizzes
+    let planned = store.activeDailyStudyTask?.task.practice_item_id
+    let focus = available.contains(where: { $0.id == planned }) ? planned : nil
     return available.filter {
       (store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID)
-        && (store.learningState.agentFocusQuizID != nil || store.activeDailyStudyTask?.task.practice_item_id == nil
-          || $0.id == store.activeDailyStudyTask?.task.practice_item_id)
+        && (store.learningState.agentFocusQuizID != nil || focus == nil || $0.id == focus)
     }
   }
   private var question: QuizQuestion? {
