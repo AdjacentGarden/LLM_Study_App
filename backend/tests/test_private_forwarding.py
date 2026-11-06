@@ -85,14 +85,15 @@ def test_unsubmitted_private_generation_can_reclaim_the_same_fence(gateway, monk
     a, _, install, _ = gateway
     a.app.include_router(private_forwarding_router(api))
     model = install(Model(final_stream('{"answer":"真实回复"}')))
-    complete = model.complete
+    client = api.assistant_tool_chat()
+    complete = client.complete
     attempts = []
     def attempt(**kwargs):
         attempts.append(1)
         if len(attempts) == 1:
             return ChatOutcome("not_submitted", 0, error="model connection failed before submission")
         return complete(**kwargs)
-    monkeypatch.setattr(model, "complete", attempt)
+    monkeypatch.setattr(client, "complete", attempt)
     body = {"request_id": "safe_unsubmitted", "operation": "lecture",
         "messages": [{"role": "user", "content": "章节原文"}], "response_schema": {"type": "object"}}
     assert a.post("/api/assistant/private-model", json=body).json()["state"] == "not_started"
