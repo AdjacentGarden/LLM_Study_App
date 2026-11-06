@@ -4,7 +4,7 @@
 - The current backend is the 4090 at connect.bjb1.seetacloud.com, SSH port 36243.
   Runtime root: /root/autodl-tmp/adaptive-book-ocr; API loopback port 18126.
 - The latest user-authorized application path is iPhone/simulator -> Germany VPS
-  HTTPS https://213.145.87.189:18443 -> this 4090 API. App traffic must not depend
+  HTTPS https://213-145-87-189.2a12-6e40-eff6-cc7b--1.sslip.io:18443 -> this 4090 API. App traffic must not depend
   on the remote Mac or Windows. See deployment/germany4090/README.md.
 - Reuse the deployed OCR, BGE models and Whisper; preserve existing model
   environments, data, credentials and unrelated processes.

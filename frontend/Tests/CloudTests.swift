@@ -1521,7 +1521,7 @@ extension CloudBackendConnectionTests {
       let url = try XCTUnwrap(CloudAPI.configuredURL(defaults: defaults, environment: [:]))
       XCTAssertEqual(url.absoluteString, CloudAPI.defaultServer)
       XCTAssertEqual(url.scheme, "https")
-      XCTAssertEqual(url.host, "213.145.87.189")
+      XCTAssertEqual(url.host, "213-145-87-189.2a12-6e40-eff6-cc7b--1.sslip.io")
       XCTAssertEqual(url.port, 18443)
       XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), url.absoluteString)
     }

@@ -109,10 +109,11 @@ struct CloudBackendMigration: Sendable {
 /// Credentials remain in Keychain; a verified backend relocation retains its local data origin.
 actor CloudAPI {
   // iPhone and simulator use the Germany HTTPS entry connected to the same 4090 API.
-  nonisolated static let defaultServer = "https://213.145.87.189:18443"
+  nonisolated static let defaultServer = "https://213-145-87-189.2a12-6e40-eff6-cc7b--1.sslip.io:18443"
   nonisolated static var mainBackendMigration: CloudBackendMigration {
     CloudBackendMigration(id: "main4090", publicURL: URL(string: defaultServer)!,
       legacyOrigins: [
+        "https://213.145.87.189:18443",
         "http://zhenghangdemacbook-air.local:18102", "http://192.168.28.244:18102",
         "http://172.20.10.2:18102", "http://127.0.0.1:18100", "http://localhost:18100",
         "http://127.0.0.1:18102", "http://localhost:18102",

@@ -3,7 +3,7 @@
 Approved application path:
 
 ```text
-iPhone / simulator -> https://213.145.87.189:18443
+iPhone / simulator -> https://213-145-87-189.2a12-6e40-eff6-cc7b--1.sslip.io:18443
   -> Germany VPS 127.0.0.1:18426 (restricted persistent SSH forward)
   -> 4090 API 127.0.0.1:18126
 ```
@@ -26,7 +26,8 @@ Provision an API-only SSH key on the VPS and authorize it on the 4090 with:
 Keep all private keys and runtime credentials outside Git.
 
 The HTTPS IP certificate is issued by Let's Encrypt using Certbot's standalone
-HTTP-01 authenticator, `--preferred-profile shortlived --ip-address 213.145.87.189`.
+HTTP-01 authenticator, `--preferred-profile shortlived --ip-address 213.145.87.189`
+and `-d 213-145-87-189.2a12-6e40-eff6-cc7b--1.sslip.io`.
 Its live path is /etc/letsencrypt/live/cloudpath-vps-ip/. The included timer
 checks renewal twice daily and restarts only the public API entry after renewal.
 Port 80 must remain reachable for certificate validation; port 18443 serves the
@@ -36,3 +37,8 @@ The client retires saved Mac/loopback addresses automatically. A Keychain
 binding retains the verified 4090 account's original local-data origin, so
 courses, notes, deletion tombstones and generation request records remain in
 their existing scope after this endpoint move.
+
+The hostname contains both VPS addresses. Its A and AAAA records allow native
+IPv4/IPv6 connection selection. serve_https.py opens one dual-stack listener;
+the HTTPS certificate covers the hostname and existing IPv4 address. This
+avoids the unavailable IPv4 route observed on the phone/Mac network.
