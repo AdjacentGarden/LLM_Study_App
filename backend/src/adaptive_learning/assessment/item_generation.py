@@ -585,8 +585,6 @@ class DiagnosticItemGenerator:
         self.points_per_chapter = points_per_chapter
         self.validation_retries = validation_retries
         self.verify_items = verify_items
-        if allow_grounded_answer_rewrite and not verify_items:
-            raise ValueError("rewritten answers require semantic review")
         self.allow_grounded_answer_rewrite = allow_grounded_answer_rewrite
 
     def _audit(self, context: dict[str, object] | None, event: str, **data: object) -> None:

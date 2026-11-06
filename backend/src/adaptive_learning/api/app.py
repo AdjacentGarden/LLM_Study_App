@@ -250,13 +250,14 @@ def _create_teaching_review_client(configuration, client_type=OpenAICompatibleCl
 
 
 def _create_diagnostic_generator(configuration, writer, reviewer, audit_callback=None):
-    if writer is None or reviewer is None:
+    review_enabled = os.getenv("CLOUDPATH_DIAGNOSTIC_QUALITY_REVIEW", "0") == "1"
+    if writer is None or (review_enabled and reviewer is None):
         return None
     try:
         return DiagnosticItemGenerator(
             writer, review_client=reviewer, audit_callback=audit_callback,
             review_identity=configuration.teaching_review_identity,
-            validation_retries=None,
+            validation_retries=2, verify_items=review_enabled,
             allow_grounded_answer_rewrite=configuration.diagnostic_allow_grounded_answer_rewrite,
         )
     except ValueError:

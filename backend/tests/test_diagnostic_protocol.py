@@ -118,6 +118,7 @@ def test_unversioned_non_native_session_still_reads_its_legacy_bank(bank_environ
 
 
 def test_missing_independent_reviewer_never_generates_or_claims_a_bank(bank_environment, monkeypatch):
+    monkeypatch.setenv("CLOUDPATH_DIAGNOSTIC_QUALITY_REVIEW", "1")
     value, _ = bank_environment
     writer = object()
     assert api._create_diagnostic_generator(api.settings, writer, None) is None
@@ -126,6 +127,14 @@ def test_missing_independent_reviewer_never_generates_or_claims_a_bank(bank_envi
         api.generate_diagnostic_bank('book')
     assert failure.value.status_code == 503
     assert api.assessment_repository.get_bank(diagnostic_bank_key('book')) is None
+
+
+def test_optional_diagnostic_review_does_not_require_an_independent_client(bank_environment, monkeypatch):
+    monkeypatch.delenv("CLOUDPATH_DIAGNOSTIC_QUALITY_REVIEW", raising=False)
+    generator = api._create_diagnostic_generator(api.settings, object(), None)
+    assert generator is not None
+    assert not generator.verify_items
+    assert generator.validation_retries == 2
 
 
 def test_book_submission_block_is_actionable_409_and_never_publishes_partial_bank(bank_environment, monkeypatch):

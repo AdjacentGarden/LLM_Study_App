@@ -392,7 +392,8 @@ def private_forwarding_router(services):
         if found is None:
             return {"request_id": request_id, "state": "not_started", "content": None}
         step, budget = found
-        return {"request_id": request_id, "state": step.state, "content": (step.message or {}).get("content"),
+        state = "not_started" if step.state == "retryable" and budget.posts == 0 else step.state
+        return {"request_id": request_id, "state": state, "content": (step.message or {}).get("content"),
                 "error": step.error, "retry_after": step.retry_after, "usage": budget.public()}
 
     @router.post("/private-model")
@@ -423,8 +424,10 @@ def private_forwarding_router(services):
             if found is not None:
                 if found[0].request_digest != request_digest:
                     raise LedgerConflict("request ID reused with different content")
-                # A generic generation job never automatically purchases another attempt.
-                return model_result(body.request_id, found)
+                # No model input left this process: an explicit repeat may
+                # reclaim the same fenced request. Posted calls stay immutable.
+                if found[0].state != "retryable" or found[1].posts != 0:
+                    return model_result(body.request_id, found)
             claim = ledger.claim(actor, run, step_id, 0, context_digest=digest({"operation": body.operation}),
                 digest=request_digest, lease_seconds=2 * MODEL_DEADLINE_SECONDS, estimated_input_tokens=estimated)
         except LedgerConflict as error:
