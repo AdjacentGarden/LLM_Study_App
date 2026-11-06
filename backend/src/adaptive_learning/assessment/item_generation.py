@@ -677,7 +677,8 @@ class DiagnosticItemGenerator:
                 "application_output_shapes": _APPLICATION_OUTPUT_SHAPES,
                 "writer_prompt": _item_system(self.allow_grounded_answer_rewrite),
                 "writer_route": route(self.client), "points_per_chapter": self.points_per_chapter,
-                "rewrite": self.allow_grounded_answer_rewrite, "verify_items": self.verify_items}),
+                "rewrite": self.allow_grounded_answer_rewrite, "verify_items": self.verify_items,
+                **({"application_review_policy": "optional-v1"} if not self.verify_items else {})}),
             "review_fingerprint": digest({"version": DIAGNOSTIC_BANK_VERSION,
                 "prompt": _ITEM_REVIEW_SYSTEM, "identity": self.review_identity,
                 "route": route(self.review_client)}),
@@ -845,11 +846,6 @@ class DiagnosticItemGenerator:
         point_offset: int = 0, repair_context: dict[str, Any] | None = None,
         targeted: bool = False,
     ) -> list[DiagnosticItem]:
-        if not self.verify_items and any(
-            self._target_for_point(point, index + point_offset)["id"] == "source_application"
-            for index, point in enumerate(points)
-        ):
-            raise DiagnosticGenerationError("structured applications require independent semantic review")
         payload: dict[str, object] = {
             "book_title": book_title,
             "source_coverage": chapter.source_coverage,
@@ -869,7 +865,8 @@ class DiagnosticItemGenerator:
             "choice_length_rule": {
                 "applies_to": "non-source_application",
                 "correct_answer_source": "expected_answer" if self.allow_grounded_answer_rewrite else "label",
-                "application_answer_source": "source_scenario.outcomes[correct_index]; independent review required",
+                "application_answer_source": "source_scenario.outcomes[correct_index]",
+                "independent_review_enabled": self.verify_items,
                 "minimum_nonempty_characters": 1,
                 "maximum_option_characters": 600,
                 "evaluation": "independent_semantic_review",

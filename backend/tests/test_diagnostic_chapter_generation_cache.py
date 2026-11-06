@@ -208,14 +208,19 @@ def test_corrupt_approved_result_never_becomes_a_hit_or_a_new_paid_submission(co
     assert len(writer.calls) == len(reviewer.calls) == 6
 
 
-def test_cache_requires_scope_and_independent_review_before_any_claim():
+def test_cache_requires_scope_and_allows_source_validated_items_when_review_is_disabled():
     cache = MemoryApprovals()
     with pytest.raises(ValueError, match="book scope"):
         generator().generate(book(), chapter_cache=cache)
-    subject = generation.DiagnosticItemGenerator(Writer(), verify_items=False)
-    with pytest.raises(ValueError, match="independent review"):
-        subject.generate(book(), chapter_cache=cache, cache_scope="book")
     assert not cache.claims
+    writer = Writer()
+    subject = generation.DiagnosticItemGenerator(writer, verify_items=False)
+    items = subject.generate(book(), chapter_cache=cache, cache_scope="book")
+    assert len(items) == 18
+    assert len(writer.calls) == 6
+    assert subject.generate(book(), chapter_cache=cache, cache_scope="book") == items
+    assert len(writer.calls) == 6
+    assert all(claim["protocol_fingerprint"] for claim in cache.claims)
 
 
 def test_failed_approval_persistence_remains_unknown_and_does_not_return_a_bank():

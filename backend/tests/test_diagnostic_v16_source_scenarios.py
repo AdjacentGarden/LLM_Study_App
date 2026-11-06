@@ -230,3 +230,18 @@ def test_v16_source_protocol_requires_new_exact_approval(cases, monkeypatch):
     assert generation.DIAGNOSTIC_BANK_VERSION.startswith('grounded-independent-review-v19+evidence-targets-v1+review-format-v1+required-edits-v1+')
     monkeypatch.setattr(generation, 'DIAGNOSTIC_BANK_VERSION', 'grounded-independent-review-v15+historical')
     assert generation.diagnostic_bank_fingerprint(value) != current
+
+
+@pytest.mark.parametrize('chapter', [POPULATION, TRANSLATION, SUTTON])
+def test_current_source_scenarios_can_prepare_without_optional_quality_reviewer(cases, chapter):
+    case, writer, cache = cases[chapter], Writer(cases[chapter]), MemoryApprovals()
+    subject = generation.DiagnosticItemGenerator(writer, verify_items=False,
+        allow_grounded_answer_rewrite=True, validation_retries=0)
+    bank = subject.generate(book(case), chapter_cache=cache, cache_scope='review-disabled')
+    task = case['application_item']['application_task']
+    assert bank[2].prompt == task['situation'] + '\n' + task['decision']
+    assert bank[2].expected_answer == task['outcomes'][task['correct_index']]
+    assert bank[2].options[int(bank[2].correct_option_ids[0])] == bank[2].expected_answer
+    assert len(writer.calls) == 1
+    assert subject.generate(book(case), chapter_cache=cache, cache_scope='review-disabled') == bank
+    assert len(writer.calls) == 1

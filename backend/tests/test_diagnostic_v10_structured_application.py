@@ -363,13 +363,14 @@ def test_actual_grounded_prompt_retains_design_guidance_and_separates_task_answe
     assert '非应用项继续原有prompt/options/expected_answer格式' in system
 
 
-def test_application_requires_an_independent_judge_even_in_unverified_legacy_mode():
+def test_application_legacy_wire_also_obeys_disabled_optional_review_policy():
     writer = Writer()
     instance = ArchivedV10StructuredGenerator(writer, verify_items=False,
         allow_grounded_answer_rewrite=False, validation_retries=2)
-    with pytest.raises(generation.DiagnosticGenerationError, match='require independent semantic review'):
-        instance.generate(source_book())
-    assert writer.calls == []
+    bank = instance.generate(source_book())
+    assert len(bank) == 3
+    assert len(writer.calls) == 1
+    assert bank[2].options[int(bank[2].correct_option_ids[0])] == bank[2].expected_answer
 
 
 def test_legacy_repair_payload_distinguishes_task_mapping_from_non_application_labels():
