@@ -17,9 +17,7 @@ struct GlobalAssistantOverlay: View {
   @Environment(\.scenePhase) private var scenePhase
   @State private var voice = AssistantVoiceInput.configured()
   @State private var keyboardTop = CGFloat.greatestFiniteMagnitude
-  @State private var composerHeight: CGFloat = 58
   @State private var keyboardDismissalID = 0
-  @State private var revealed = false
   @State private var showingHistory = false
   @State private var showingHistorySearch = false
   @State private var historyQuery = ""
@@ -71,23 +69,11 @@ struct GlobalAssistantOverlay: View {
   }
 
   private var assistantPanel: some View {
-    GeometryReader { geometry in
-      let visibleHeight = max(180,
-        voice.isVoiceMode ? geometry.size.height :
-          min(geometry.size.height, keyboardTop - geometry.frame(in: .global).minY))
-      // Voice controls fade in at the bottom even while the keyboard is dismissing.
-      let keyboardVisible = !voice.isVoiceMode && keyboardTop < geometry.frame(in: .global).maxY
-      let windowInset = UIApplication.shared.connectedScenes.compactMap {
-        ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom
-      }.first ?? 0
-      let bottomPadding = keyboardVisible ? 12 : max(geometry.safeAreaInsets.bottom, windowInset) + 12
-      let panelWidth = store.isPad ? min(460, geometry.size.width - 48) : geometry.size.width
-      // The reference composer spans about 84% of the phone, centered horizontally.
-      let textInset = max(0, panelWidth * 0.08 - 16)
-      VStack(spacing: 16) {
+    AssistantConversationPanel(isPad: store.isPad, voiceMode: voice.isVoiceMode,
+      keyboardTop: keyboardTop, dismissKeyboard: dismissComposerKeyboard) {
         header
-          .opacity(reduceMotion || revealed ? 1 : 0)
-          .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(0.04), value: revealed)
+    } content: { bottomInset in
+      VStack(spacing: 16) {
         if readOnly {
           Text(session?.isReadOnly == true
             ? "此对话已达到上下文上限，无法继续对话。请新建对话。"
@@ -115,14 +101,9 @@ struct GlobalAssistantOverlay: View {
             }.buttonFrame()
           }.padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
-        conversation(bottomInset: composerHeight + bottomPadding + 16)
+        conversation(bottomInset: bottomInset)
       }
-      .padding(.horizontal, 16).padding(.top, 12)
-      .frame(width: panelWidth, height: visibleHeight)
-      // Attach before the composer overlay so typing never dismisses its own keyboard.
-      .contentShape(Rectangle())
-      .simultaneousGesture(TapGesture().onEnded { dismissComposerKeyboard() })
-      .overlay(alignment: .bottom) {
+    } composer: { textInset in
         AssistantComposer(voice: voice, keyboardDismissalID: keyboardDismissalID, busy: busy || preparingSubmission || !ready || readOnly,
           placeholder: sessionContext.discovery ? "想学什么？问问 AI…" : "问教材、问错题、问计划…",
           attachments: attachments, addingAttachments: addingAttachments,
@@ -134,35 +115,15 @@ struct GlobalAssistantOverlay: View {
           contextTokens: session?.contextTokens ?? 0, contextEstimated: session?.contextEstimated ?? true,
           send: send)
           .disabled(readOnly)
-          .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
-          .background(alignment: .bottom) {
-            // The footer stays translucent; messages can scroll behind the glass composer.
-            ProgressiveMaterial()
-              .padding(.horizontal, -16)
-              .padding(.top, -36)
-              .padding(.bottom, -bottomPadding)
-              .contentShape(Rectangle())
-              .onTapGesture { dismissComposerKeyboard() }
-          }
-          .opacity(reduceMotion || revealed ? 1 : 0)
-          .scaleEffect(reduceMotion || revealed ? 1 : 0.97, anchor: .center)
-          .animation(reduceMotion ? nil : .easeOut(duration: 0.26), value: revealed)
-          .padding(.horizontal, 16).padding(.bottom, bottomPadding)
-      }
-      .frame(maxWidth: .infinity, alignment: store.isPad ? .trailing : .center)
-      .padding(.trailing, store.isPad ? 24 : 0)
-      .accessibilityElement(children: .contain)
-      .accessibilityAddTraits(.isModal)
-      .allowsHitTesting(!showingHistory && !showingAttachmentChoices)
-      .accessibilityHidden(showingHistory || showingAttachmentChoices)
     }
+    .allowsHitTesting(!showingHistory && !showingAttachmentChoices)
+    .accessibilityHidden(showingHistory || showingAttachmentChoices)
   }
 
   var body: some View {
     assistantPanel
     .ignoresSafeArea(.container, edges: .bottom)
     .ignoresSafeArea(.keyboard, edges: .bottom)
-    .onAppear { revealed = true }
     .task(id: loadID) { await loadHistory() }
     .overlayPreferenceValue(AssistantComposerBoundsKey.self) { anchor in
       if showingAttachmentChoices, let anchor {
@@ -344,12 +305,7 @@ struct GlobalAssistantOverlay: View {
   }
 
   private var header: some View {
-    ZStack {
-      AssistantAdaptiveTitle(title: title).foregroundStyle(DS.text)
-        .padding(.horizontal, 100).buttonFrame(fillsWidth: true)
-        .contentTransition(.opacity)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: title)
-        .accessibilityIdentifier("assistant-session-title")
+    AssistantConversationHeader(title: title) {
       HStack {
         Button {
           saveDraft()
@@ -379,7 +335,7 @@ struct GlobalAssistantOverlay: View {
             .modifier(AssistantGlassSurface(radius: 22))
         }.accessibilityLabel("收起 AI 助手").accessibilityIdentifier("global-assistant-close")
       }
-    }.frame(minHeight: 44)
+    }
   }
 
   private var historySidebar: some View {
@@ -999,7 +955,7 @@ private struct AssistantCameraRequest: Identifiable {
 
 /// Pick the largest tier that fits the space between the two header controls.
 /// Intrinsic text width handles Chinese, Latin, numbers and Dynamic Type alike.
-private struct AssistantAdaptiveTitle: View {
+struct AssistantAdaptiveTitle: View {
   let title: String
 
   var body: some View {
@@ -1014,7 +970,7 @@ private struct AssistantAdaptiveTitle: View {
   }
 }
 
-private struct AssistantMessageSurface: ViewModifier {
+struct AssistantMessageSurface: ViewModifier {
   let user: Bool
   func body(content: Content) -> some View {
     content.modifier(AssistantGlassSurface(radius: 24, clear: false,
@@ -1050,7 +1006,7 @@ private struct AssistantReplyFont: ViewModifier {
 }
 
 /// The container keeps the same identity from preparation through the saved reply.
-private struct AssistantReplyBubble<Operations: View, Answer: View>: View {
+struct AssistantReplyBubble<Operations: View, Answer: View>: View {
   let run: AgentRunRecord?
   let hasAnswer: Bool
   @ViewBuilder let operations: () -> Operations
@@ -1260,5 +1216,75 @@ struct AssistantResultActions: View {
         Task { await store.startCourseImport(record.id, retryPreparation: true) }
       }
     }
+  }
+}
+
+/// Shared geometry for every AI conversation, including original-page selections.
+struct AssistantConversationPanel<Header: View, Content: View, Composer: View>: View {
+  var isPad: Bool
+  var voiceMode: Bool
+  var keyboardTop: CGFloat
+  var dismissKeyboard: () -> Void
+  @ViewBuilder var header: () -> Header
+  @ViewBuilder var content: (CGFloat) -> Content
+  @ViewBuilder var composer: (CGFloat) -> Composer
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  @State private var revealed = false
+  @State private var composerHeight: CGFloat = 58
+
+  var body: some View {
+    GeometryReader { geometry in
+      let visibleHeight = max(180, voiceMode ? geometry.size.height :
+        min(geometry.size.height, keyboardTop - geometry.frame(in: .global).minY))
+      let keyboardVisible = !voiceMode && keyboardTop < geometry.frame(in: .global).maxY
+      let windowInset = UIApplication.shared.connectedScenes.compactMap {
+        ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom
+      }.first ?? 0
+      let bottomPadding = keyboardVisible ? 12 : max(geometry.safeAreaInsets.bottom, windowInset) + 12
+      let panelWidth = isPad ? min(460, geometry.size.width - 48) : geometry.size.width
+      let textInset = max(0, panelWidth * 0.08 - 16)
+      VStack(spacing: 16) {
+        header()
+          .opacity(reduceMotion || revealed ? 1 : 0)
+          .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(0.04), value: revealed)
+        content(composerHeight + bottomPadding + 16)
+      }
+      .padding(.horizontal, 16).padding(.top, 12)
+      .frame(width: panelWidth, height: visibleHeight)
+      .contentShape(Rectangle())
+      .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
+      .overlay(alignment: .bottom) {
+        composer(textInset)
+          .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
+          .background(alignment: .bottom) {
+            ProgressiveMaterial()
+              .padding(.horizontal, -16).padding(.top, -36).padding(.bottom, -bottomPadding)
+              .contentShape(Rectangle()).onTapGesture { dismissKeyboard() }
+          }
+          .opacity(reduceMotion || revealed ? 1 : 0)
+          .scaleEffect(reduceMotion || revealed ? 1 : 0.97)
+          .animation(reduceMotion ? nil : .easeOut(duration: 0.26), value: revealed)
+          .padding(.horizontal, 16).padding(.bottom, bottomPadding)
+      }
+      .frame(maxWidth: .infinity, alignment: isPad ? .trailing : .center)
+      .padding(.trailing, isPad ? 24 : 0)
+      .accessibilityElement(children: .contain).accessibilityAddTraits(.isModal)
+    }.onAppear { revealed = true }
+  }
+}
+
+struct AssistantConversationHeader<Controls: View>: View {
+  var title: String
+  @ViewBuilder var controls: () -> Controls
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  var body: some View {
+    ZStack {
+      AssistantAdaptiveTitle(title: title).foregroundStyle(DS.text)
+        .padding(.horizontal, 100).buttonFrame(fillsWidth: true)
+        .contentTransition(.opacity)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: title)
+        .accessibilityIdentifier("assistant-session-title")
+      controls()
+    }.frame(minHeight: 44)
   }
 }

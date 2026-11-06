@@ -138,6 +138,7 @@ struct NotesPopup<Content: View>: View {
   var bottomAligned = false
   var rightInset: CGFloat? = nil
   var dim = false
+  var glass = false
   var identifier = "notes.localPopup"
   var onOutside: () -> Void
   @ViewBuilder var content: () -> Content
@@ -173,9 +174,9 @@ struct NotesPopup<Content: View>: View {
           .accessibilityLabel("关闭弹层并保留内容")
         content()
           .frame(width: popupWidth, height: popupHeight)
-          .background(.white, in: RoundedRectangle(cornerRadius: 28))
+          .modifier(NotesPopupSurface(glass: glass))
           .clipShape(RoundedRectangle(cornerRadius: 28))
-          .shadow(color: Color(hex: 0x20263a).opacity(0.22), radius: 30, y: 24)
+          .shadow(color: glass ? .clear : Color(hex: 0x20263a).opacity(0.22), radius: 30, y: 24)
           .accessibilityElement(children: .contain)
           .accessibilityAddTraits(.isModal)
           .accessibilityIdentifier(identifier)
@@ -193,5 +194,13 @@ struct NotesPopup<Content: View>: View {
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification))
     { _ in keyboardTop = .greatestFiniteMagnitude }
     .transition(.opacity.combined(with: .scale(scale: reduceMotion ? 1 : 0.94)))
+  }
+}
+
+private struct NotesPopupSurface: ViewModifier {
+  var glass: Bool
+  @ViewBuilder func body(content: Content) -> some View {
+    if glass { content.modifier(AssistantGlassSurface(radius: 28)) }
+    else { content.background(.white, in: RoundedRectangle(cornerRadius: 28)) }
   }
 }

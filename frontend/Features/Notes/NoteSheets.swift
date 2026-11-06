@@ -223,6 +223,7 @@ struct NotesTextEditor: View {
   @State private var persistence: NotesTextDraftPersistence?
   @State private var editorReady = false
   @State private var voiceDraft: StudyNote?
+  @State private var resumedNote: StudyNote?
   private var effectiveAnchor: NoteAnchor? {
     if let anchor = note?.anchor ?? anchor { return anchor }
     guard store.currentSource != nil else { return nil }
@@ -240,13 +241,9 @@ struct NotesTextEditor: View {
             NotesGlyph(name: "MessageSquareText", size: 17).foregroundStyle(DS.primary)
             Text("文字批注").font(DS.font(.supporting, weight: .semibold))
             Spacer()
-            Text(
-              saving || persistence?.isSaving == true
-                ? "保存中…"
-                : persistence?.hasUnsavedContent == false && persistence?.lastSaved != nil
-                  ? "已保存" : "自动保存"
-            ).font(DS.font(.caption)).foregroundStyle(
-              DS.secondary)
+            if saving || persistence?.isSaving == true {
+              ProgressView().controlSize(.small).accessibilityLabel("保存中")
+            }
           } else {
             BCPill(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记")
             Spacer()
@@ -257,10 +254,7 @@ struct NotesTextEditor: View {
             NotesGlyph(name: "X", size: 18).iconButtonFrame()
           }.foregroundStyle(DS.secondary).accessibilityLabel("关闭")
         }
-        if compact {
-          Text(effectiveAnchor.map { "PDF 第 \($0.page) 页 · 教材摘录" } ?? "学习笔记").font(DS.font(.caption))
-            .foregroundStyle(DS.secondary)
-        } else {
+        if !compact {
           Text(title.isEmpty ? "文字笔记" : title).font(DS.font(.cardTitle))
         }
         if let quote = effectiveAnchor?.quote, !quote.isEmpty {
@@ -326,12 +320,11 @@ struct NotesTextEditor: View {
           Button {
             startVoice()
           } label: {
-            HStack(spacing: 6) {
-              NotesGlyph(name: "Mic2", size: 17)
-              Text(compact ? "开始语音批注" : "添加语音批注")
-            }.font(DS.font(compact ? .smallButton : .button)).foregroundStyle(DS.primary).frame(
-              maxWidth: .infinity).buttonFrame()
-          }.buttonStyle(.plain)
+            Image(systemName: "mic.fill").font(.system(size: 21))
+              .foregroundStyle(DS.primary).iconButtonFrame()
+              .modifier(AssistantGlassSurface(radius: 22))
+          }.buttonStyle(.plain).frame(maxWidth: .infinity)
+            .accessibilityLabel("语音批注")
         }
         if saved {
           HStack {
@@ -341,20 +334,21 @@ struct NotesTextEditor: View {
           .transition(.scale.combined(with: .opacity))
         }
       }.padding(compact ? 12 : 20)
-    }.scrollDismissesKeyboard(.interactively).task {
+    }.scrollDismissesKeyboard(.interactively).task(id: voiceDraft?.id) {
       guard persistence == nil else { return }
+      let sourceNote = resumedNote ?? note
       title =
-        note?.title ?? (store.selectedQuote.isEmpty ? store.activeLesson?.title ?? "学习笔记" : "教材摘录")
+        sourceNote?.title ?? (store.selectedQuote.isEmpty ? store.activeLesson?.title ?? "学习笔记" : "教材摘录")
       bodyText =
-        note?.body ?? (store.selectedQuote.isEmpty ? "" : "摘录：\(store.selectedQuote)\n\n我的理解：")
-      var record = note ?? StudyNote(kind: .text, title: title, body: bodyText)
+        sourceNote?.body ?? (store.selectedQuote.isEmpty ? "" : "摘录：\(store.selectedQuote)\n\n我的理解：")
+      var record = sourceNote ?? StudyNote(kind: .text, title: title, body: bodyText)
       record.title = title
       record.body = bodyText
       record.anchor = effectiveAnchor
-      record.position = note?.position ?? position
+      record.position = sourceNote?.position ?? position
       // The editor saves against the copy it opened, so an assistant or
       // other-screen commit made meanwhile is reported instead of overwritten.
-      let opened = store.notes.contains { $0.id == record.id } ? note : nil
+      let opened = store.notes.contains { $0.id == record.id } ? sourceNote : nil
       var base = store.noteState.revisions[record.id]
       persistence = NotesTextDraftPersistence(
         note: record, initiallySaved: store.notes.contains { $0.id == record.id }
@@ -378,17 +372,25 @@ struct NotesTextEditor: View {
     .onChange(of: closeRequest) { _, _ in
       if voiceDraft != nil { voiceCloseRequest += 1 } else { closeEditor() }
     }
+    .opacity(compact && voiceDraft != nil ? 0 : 1)
+    .allowsHitTesting(!compact || voiceDraft == nil)
+    .accessibilityHidden(compact && voiceDraft != nil)
     .overlay {
       if let record = voiceDraft {
         if compact {
           NotesVoiceNoteView(
-            existingNote: record, embedded: true, closeRequest: voiceCloseRequest,
-            onClose: {
+            existingNote: record, embedded: true, minimal: true, closeRequest: voiceCloseRequest,
+            onKeyboard: {
+              resumedNote = store.notes.first { $0.id == record.id } ?? record
+              persistence = nil
+              editorReady = false
+              voiceDraft = nil
+            }, onClose: {
               voiceDraft = nil
               finish()
             }
           )
-          .frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
           .clipShape(RoundedRectangle(cornerRadius: 28)).id(record.id)
         } else {
           NotesPopup(width: 560, height: 650, dim: true, onOutside: { voiceCloseRequest += 1 }) {

@@ -40,6 +40,7 @@ struct AssistantComposer: View {
   var textHorizontalInset: CGFloat = 0
   var contextTokens: Int = 0
   var contextEstimated: Bool = true
+  var referenceImage: UIImage? = nil
   let send: () -> Void
   @FocusState private var focused: Bool
   @State private var keyboardFocusTask: Task<Void, Never>?
@@ -60,6 +61,18 @@ struct AssistantComposer: View {
           .frame(maxWidth: .infinity, alignment: .leading).padding(12)
           .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
           .accessibilityIdentifier("guide-voice-error")
+      }
+      if let referenceImage {
+        HStack {
+          Image(uiImage: referenceImage).resizable().scaledToFit()
+            .frame(width: min(180, 112 * referenceImage.size.width / max(1, referenceImage.size.height)),
+              height: min(112, 180 * referenceImage.size.height / max(1, referenceImage.size.width)))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(6).modifier(AssistantGlassSurface(radius: 18))
+            .accessibilityLabel("圈选的原文区域")
+            .accessibilityIdentifier("reader.regionPreview")
+          Spacer(minLength: 0)
+        }
       }
       AssistantComposerLayout(voiceMode: voice.isVoiceMode) {
         textComposer
@@ -141,6 +154,7 @@ struct AssistantComposer: View {
         .accessibilityIdentifier(voice.isVoiceMode ? "guide-more-hidden" : "guide-more")
         .disabled(busy || voice.isVoiceMode || addingAttachments || attachments.count >= AssistantAttachment.maximumCount)
 
+
         TextField("", text: $voice.draft,
           prompt: focused || preparingKeyboard || (voice.isVoiceMode && voicePlaceholderHidden) ? nil :
             Text(placeholder).foregroundColor(DS.secondary), axis: .vertical)
@@ -201,7 +215,7 @@ private struct AssistantComposerLayout: Layout {
   }
 }
 
-private struct AssistantMicrophoneOrb: View {
+struct AssistantMicrophoneOrb: View {
   private let size = DS.ButtonSize.regular.height
   var symbol = "mic.fill"
   var working = false
@@ -227,7 +241,7 @@ private struct AssistantMicrophoneOrb: View {
   }
 }
 
-private struct AssistantVoiceRing: View {
+struct AssistantVoiceRing: View {
   let index: Int
   let level: Double
   let reduceMotion: Bool
