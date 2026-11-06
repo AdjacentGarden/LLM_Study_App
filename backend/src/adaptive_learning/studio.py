@@ -2128,9 +2128,7 @@ class Studio:
                 + context,
                 context,
             )
-            if not plan.supported or (
-                kind == "video" and (not plan.video_suitable or plan.visual_mode == "diagram")
-            ):
+            if not plan.supported:
                 self.update(
                     key,
                     status="failed",
@@ -2157,9 +2155,7 @@ class Studio:
                     + "\n审核:"
                     + review.reason, context
                 )
-                if not plan.supported or (
-                    kind == "video" and (not plan.video_suitable or plan.visual_mode == "diagram")
-                ):
+                if not plan.supported:
                     self.update(
                         key, status="failed", error="这段内容暂不适合可靠的视觉讲解，未提交付费生成。"
                     )

@@ -1272,32 +1272,38 @@ def test_stale_note_job_is_not_applied(setup):
     assert a.get("/api/studio/jobs/" + key).json()["status"] == "failed"
 
 
-def test_video_unsuitable_is_rejected_before_paid_call(setup, monkeypatch):
+def test_video_unsuitable_still_submits_when_content_rule_is_disabled(setup, monkeypatch):
     a, _, s = setup
     monkeypatch.setattr(s, "evidence", lambda *args: [{"page": 1, "text": "准确计算"}])
-    monkeypatch.setattr(
-        s,
-        "llm",
-        lambda *args: {
-            "title": "计算",
-            "visual_scope": "精确计算关系",
-            "visual_checks": ["计算关系完整"],
-            "explanation": "精确计算",
-            "points": ["精确计算"],
-            "visual_prompt": "Do not generate this video.",
-            "caution": "",
-            "supported": True,
-            "video_suitable": False,
-        },
-    )
+    plan = {
+        "title": "计算",
+        "visual_scope": "精确计算关系",
+        "visual_checks": ["计算关系完整"],
+        "explanation": "精确计算",
+        "points": ["精确计算"],
+        "visual_prompt": "A simple educational scene about counting.",
+        "caution": "",
+        "supported": True,
+        "video_suitable": False,
+        "visual_mode": "diagram",
+        "diagram_facts": [
+            {"subject": "数量", "relation": "对应", "object": "计算结果"}
+        ],
+    }
+    answers = iter([plan, {"passed": True, "reason": "ok"}, visual_review()])
+    monkeypatch.setattr(s, "llm", lambda *args: next(answers))
+    calls = []
 
-    def no_call(*args):
-        raise AssertionError("must not charge")
+    def provider(path, payload):
+        calls.append((path, payload))
+        return {"task_id": "12345"}
 
-    monkeypatch.setattr(s, "minimax", no_call)
+    monkeypatch.setattr(s, "minimax", provider)
     key = a.post("/api/studio/media", json=media(kind="video")).json()["id"]
     run(s, a, key)
-    assert a.get("/api/studio/jobs/" + key).json()["status"] == "failed"
+    value = a.get("/api/studio/jobs/" + key).json()
+    assert value["status"] == "polling"
+    assert len(calls) == 1 and calls[0][0] == "/v2/video_generation"
 
 
 @pytest.mark.parametrize(
