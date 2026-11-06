@@ -20,9 +20,18 @@ struct LearningAssignmentView: View {
   @State private var questionStarted = Date()
   @State private var elapsed: [String: Double] = [:]
   @State private var confidence = 0.6
+  @State private var diagnosticQuestions: [QuizQuestion] = []
+  @State private var diagnosticContext: String?
+  @State private var loadingDiagnostics = false
+
+  private var contextKey: String {
+    "\(store.noteScope ?? ""):\(store.selectedCourseID ?? ""):\(store.selectedBookID ?? ""):\(store.selectedChapterID ?? "")"
+  }
 
   private var questions: [QuizQuestion] {
-    store.quizzes.filter {
+    let available = store.cloudState.privateLocalMode
+      ? (diagnosticContext == contextKey ? diagnosticQuestions : []) : store.quizzes
+    return available.filter {
       (store.selectedChapterID == nil || $0.chapter_id == store.selectedChapterID)
         && (store.learningState.agentFocusQuizID != nil || store.activeDailyStudyTask?.task.practice_item_id == nil
           || $0.id == store.activeDailyStudyTask?.task.practice_item_id)
@@ -40,6 +49,7 @@ struct LearningAssignmentView: View {
   private var last: Bool { index >= questions.count - 1 }
 
   var body: some View {
+    Group {
     if let question {
       GeometryReader { geometry in
         let phone = geometry.size.width < 720
@@ -70,9 +80,35 @@ struct LearningAssignmentView: View {
       .onChange(of: question.id) { _, id in store.learningState.visibleQuizID = id }
       .onDisappear { store.learningState.visibleQuizID = nil; store.learningState.agentFocusQuizID = nil }
     } else {
-      LearningNoSource(title: "暂无可练习的章节", message: "完成教材解析并进入章节后，就能按判断题、选择题、简答题的顺序检查理解。")
+      if loadingDiagnostics {
+        ProgressView("正在读取本章诊断资料……")
+      } else {
+        VStack(spacing: 16) {
+          LearningNoSource(title: "本章诊断资料尚未准备完成", message: error ?? "诊断题与章节讲解独立保存，请确认教材资料已完成下载。")
+          Button("重新读取诊断资料") { Task { await loadDiagnostics() } }
+        }
+      }
     }
+    }.task(id: contextKey) { await loadDiagnostics() }
   }
+
+  @MainActor private func loadDiagnostics() async {
+    guard store.cloudState.privateLocalMode else { return }
+    let context = contextKey
+    diagnosticQuestions = []; diagnosticContext = nil; error = nil
+    loadingDiagnostics = true
+    defer { if context == contextKey { loadingDiagnostics = false } }
+    guard let courseID = store.selectedCourseID, let bookID = store.selectedBookID else {
+      error = "请先选择课程和教材"; return
+    }
+    do {
+      let loaded = try await store.localAssignmentQuestions(courseID: courseID, bookID: bookID)
+      guard context == contextKey, !Task.isCancelled else { return }
+      diagnosticQuestions = loaded; diagnosticContext = context
+      index = 0; answers = [:]; shortAnswer = ""
+    } catch is CancellationError { }
+    catch { if context == contextKey { self.error = error.localizedDescription } }
+    }
 
   private var chapterHeader: some View {
     VStack(spacing: 6) {

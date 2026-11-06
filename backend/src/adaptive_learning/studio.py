@@ -658,6 +658,8 @@ class Studio:
             "video_provider": "MiniMax",
             "video_model": video_config["model"],
             "video_resolution": video_config["resolution"],
+            "video_delivery_height": 360,
+            "video_delivery_fps": 15,
             "video_requires_image": video_config["model"] == "MiniMax-Hailuo-02",
             "video_notice": os.getenv("STUDIO_VIDEO_PAUSED_REASON", "") if not video_enabled else "",
             "notes_ai": note_text and vision,
@@ -1098,7 +1100,7 @@ class Studio:
             fingerprint_body = {"body": fingerprint_body, "voice_note_revision": VOICE_NOTE_REVISION}
         if kind in {"image", "video"}:
             fingerprint_body = {"body": fingerprint_body, "media_review_mode": media_review_mode(),
-                                "media_review_revision": 2}
+                                "media_review_revision": 3}
         with self.repo.connect() as db:
             db.begin_write()
             self._release_unsubmitted_reserves(db)
@@ -2001,8 +2003,8 @@ class Studio:
     def image_generation_config(self, identity: dict[str, Any] | None = None) -> dict[str, Any]:
         identity = identity or self.image_identity()
         if identity["provider"] == "MiniMax":
-            width = int(os.getenv("MINIMAX_IMAGE_WIDTH", "2048"))
-            height = int(os.getenv("MINIMAX_IMAGE_HEIGHT", "1536"))
+            width = int(os.getenv("MINIMAX_IMAGE_WIDTH", "768"))
+            height = int(os.getenv("MINIMAX_IMAGE_HEIGHT", "576"))
             if any(value < 512 or value > 2048 or value % 8 for value in (width, height)):
                 raise ValueError("MiniMax image dimensions must be multiples of 8 between 512 and 2048")
             return {**identity, "width": width, "height": height}
@@ -2023,6 +2025,32 @@ class Studio:
             raise ValueError("unsupported MiniMax video model/resolution combination")
         return {"provider": "MiniMax", "model": model, "resolution": resolution,
                 "ratio": "4:3", "duration": 6}
+
+    @staticmethod
+    def compact_image(data: bytes) -> bytes:
+        with Image.open(io.BytesIO(data)) as source:
+            image = source.convert("RGB")
+            image.thumbnail((768, 576), Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=82, optimize=True)
+            return output.getvalue()
+
+    def compact_video(self, key: str, data: bytes) -> bytes:
+        # Keep the existing file validator responsible for invalid containers.
+        if len(data) < 12 or data[4:8] != b"ftyp":
+            return data
+        source = self.assets / (key + ".delivery-input.mp4")
+        target = self.assets / (key + ".delivery-output.mp4")
+        source.write_bytes(data)
+        try:
+            subprocess.run([os.environ["STUDIO_FFMPEG"], "-y", "-v", "error", "-i", str(source),
+                "-vf", "scale=-2:'trunc(min(360,ih)/2)*2',fps=15", "-c:v", "libx264",
+                "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "48k", "-movflags", "+faststart", str(target)],
+                check=True, capture_output=True, timeout=90)
+            return target.read_bytes()
+        finally:
+            source.unlink(missing_ok=True); target.unlink(missing_ok=True)
 
     @staticmethod
     def video_estimate(config: dict[str, Any]) -> float:
@@ -2246,11 +2274,11 @@ class Studio:
             # generation. The planner above is still a real model call.
             result.update(provider="source-grounded-diagram" if kind == "image" else "source-grounded-animation",
                           visual_mode="diagram", renderer="complex-plane-v1", pipeline_version=5,
-                          width=1152, height=864)
+                          width=768, height=576)
             result.pop("model", None)
             result.pop("resolution", None)
             self.update(key, result=json.dumps(result, ensure_ascii=False), reserved=0)
-            raw = render_complex_plane()
+            raw = self.compact_image(render_complex_plane())
             if kind == "image":
                 self.publish_asset(key, "jpg", raw)
             else:
@@ -2259,8 +2287,8 @@ class Studio:
                 frame.write_bytes(raw)
                 try:
                     subprocess.run([os.environ["STUDIO_FFMPEG"], "-y", "-v", "error", "-loop", "1",
-                        "-i", str(frame), "-t", "6", "-vf", "zoompan=z='min(zoom+0.0005,1.05)':d=144:s=1152x864:fps=24,format=yuv420p",
-                        "-r", "24", "-c:v", "libx264", "-preset", "veryfast", "-movflags", "+faststart",
+                        "-i", str(frame), "-t", "6", "-vf", "zoompan=z='min(zoom+0.0005,1.05)':d=90:s=480x360:fps=15,format=yuv420p",
+                        "-r", "15", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-movflags", "+faststart",
                         str(clip)], check=True, timeout=90, capture_output=True)
                     self.publish_asset(key, "mp4", clip.read_bytes())
                 finally:
@@ -2271,7 +2299,7 @@ class Studio:
             result["provider"] = "source-grounded-diagram"
             result.pop("model", None)
             self.update(key, result=json.dumps(result, ensure_ascii=False))
-            self.publish_asset(key, "jpg", render_diagram(plan))
+            self.publish_asset(key, "jpg", self.compact_image(render_diagram(plan)))
             self.update(key, status="reviewing")
             return
         reference = None
@@ -2290,9 +2318,7 @@ class Studio:
             image = Image.open(io.BytesIO(raw))
             if image.width * image.height > 10_000_000:
                 raise ValueError("image too large")
-            output = io.BytesIO()
-            image.convert("RGB").save(output, format="JPEG", quality=90)
-            self.publish_asset(key, "jpg", output.getvalue())
+            self.publish_asset(key, "jpg", self.compact_image(raw))
             self.update(key, status="reviewing")
         else:
             payload: dict[str, Any] = {
@@ -2384,7 +2410,7 @@ class Studio:
                     self.fail_video_task(row, value, task["status"])
                 elif task["status"] == "succeeded":
                     content = self.download(task["content"]["url"], 60_000_000)
-                    self.publish_asset(row["id"], "mp4", content)
+                    self.publish_asset(row["id"], "mp4", self.compact_video(row["id"], content))
                     self.update(row["id"], status="reviewing")
                 else:
                     self.update(row["id"], next_poll=time.time() + VIDEO_POLL_SECONDS)
@@ -2399,7 +2425,7 @@ class Studio:
                     raise ValueError("invalid file ID")
                 file = self.minimax("/v1/files/retrieve?file_id=" + file_id)
                 content = self.download(file["file"]["download_url"], 60_000_000)
-                self.publish_asset(row["id"], "mp4", content)
+                self.publish_asset(row["id"], "mp4", self.compact_video(row["id"], content))
                 self.update(row["id"], status="reviewing")
             else:
                 self.update(row["id"], next_poll=time.time() + VIDEO_POLL_SECONDS)

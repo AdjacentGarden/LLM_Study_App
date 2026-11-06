@@ -52,7 +52,7 @@ def test_complex_plane_uses_exact_rendering_without_a_paid_image_call(setup, mon
     assert completed["result"]["provider"] == "source-grounded-diagram"
     assert completed["result"]["renderer"] == "complex-plane-v1"
     with Image.open(io.BytesIO(a.get(completed["asset_url"]).content)) as image:
-        assert image.size == (1152, 864)
+        assert image.size == (768, 576)
     with studio.repo.connect() as db:
         assert db.execute("SELECT reserved FROM studio_jobs WHERE id=?", (created["id"],)).fetchone()[0] == 0
 

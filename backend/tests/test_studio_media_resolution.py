@@ -1,12 +1,47 @@
 """Offline provider payload and paid-job recovery contracts; no generated videos."""
 
 import pytest
+import io
+import subprocess
 from PIL import Image
 from fastapi import HTTPException
 from test_community import community as community
 from test_studio import media, run, setup as setup
 
 from adaptive_learning.studio import Studio
+
+
+def test_phone_image_default_is_small_and_provider_supported(monkeypatch):
+    monkeypatch.delenv("MINIMAX_IMAGE_WIDTH", raising=False)
+    monkeypatch.delenv("MINIMAX_IMAGE_HEIGHT", raising=False)
+    studio = Studio.__new__(Studio)
+    config = studio.image_generation_config({"provider": "MiniMax", "model": "image-01"})
+    assert (config["width"], config["height"]) == (768, 576)
+    raw = io.BytesIO()
+    Image.new("RGB", (2048, 1536), "#438fc2").save(raw, "JPEG", quality=95)
+    small = studio.compact_image(raw.getvalue())
+    with Image.open(io.BytesIO(small)) as image:
+        assert image.size == (768, 576)
+    assert len(small) < len(raw.getvalue())
+
+
+def test_phone_video_transcodes_to_360p_15fps_and_keeps_audio(tmp_path, monkeypatch):
+    import imageio_ffmpeg
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    monkeypatch.setenv("STUDIO_FFMPEG", ffmpeg)
+    source = tmp_path / "source.mp4"
+    subprocess.run([ffmpeg, "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=960x720:rate=30",
+        "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100", "-t", "2", "-c:v", "libx264",
+        "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(source)], check=True)
+    studio = Studio.__new__(Studio)
+    studio.assets = tmp_path
+    result = studio.compact_video("phone-video", source.read_bytes())
+    target = tmp_path / "compact.mp4"; target.write_bytes(result)
+    probe = subprocess.run([ffmpeg, "-i", str(target)], capture_output=True)
+    text = probe.stderr.decode()
+    assert "480x360" in text and "15 fps" in text
+    assert "Audio: aac" in text
+    assert len(result) < source.stat().st_size
 
 
 @pytest.mark.parametrize("width,height", [(511, 1536), (2056, 1536), (2048, 1537), (2048, 0)])

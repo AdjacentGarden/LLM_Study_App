@@ -1264,6 +1264,33 @@ private func routingRequestBodyForContract(_ request: URLRequest) throws -> Data
 }
 
 extension ChapterLearningEntryTests {
+  func testAssignmentReadsIndependentDiagnosticsWhenLecturesHaveNoExercises() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    let scope = try XCTUnwrap(store.noteScope)
+    var source = try XCTUnwrap(store.currentSource)
+    source.quizzes = []
+    store.sources = [source]
+    store.cloudState.localCourseSources["chapter-course"] = [source]
+    let chapters = source.chapters
+    let items = chapters.map { chapter in LocalDiagnosticItem(item_id: "diagnostic-" + chapter.id,
+      chapter_id: chapter.id, prompt: "选择正确的概念描述", response_type: "single_choice",
+      options: ["正确概念", "错误概念"], knowledge_point_ids: nil, source_pages: [chapter.page_start]) }
+    let grades = items.map { LocalDiagnosticGrade(item_id: $0.item_id, correct_option_ids: ["0"],
+      expected_answer: "正确概念", rubric: []) }
+    try await store.repository.saveMaterialRecord(LocalMaterialRecord(groupID: "diagnostic-group", version: "v1",
+      bookID: source.id, files: [:], figurePaths: [:], source: source, diagnostics: items, grading: grades), scope: scope)
+    let questions = try await store.localAssignmentQuestions(courseID: "chapter-course", bookID: source.id)
+    XCTAssertEqual(Set(questions.map(\.chapter_id)), Set(chapters.map(\.id)))
+    XCTAssertTrue(store.currentSource?.quizzes.isEmpty == true)
+    let first = try XCTUnwrap(questions.first)
+    try await store.submitCloudAssignments([CloudPracticeAnswer(question: first, answer: "A", eventID: UUID().uuidString,
+      seconds: 2, confidence: 0.8)])
+    XCTAssertEqual(store.route, .diagnosis)
+    XCTAssertNotNil(store.latestDiagnosis)
+    XCTAssertFalse(store.latestDiagnosis?.mistake_recorded ?? true)
+  }
+
   func testLostGenerationResponseQueriesCompletedRequestWithoutAnotherSubmission() async throws {
     let (store, session) = try await contractStore(mode: "lost-completed")
     defer { session.invalidateAndCancel() }

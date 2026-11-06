@@ -425,8 +425,47 @@ extension LocalBookCourseRepository {
 }
 
 @MainActor extension AppStore {
+  func localAssignmentQuestions(courseID: String, bookID: String) async throws -> [QuizQuestion] {
+    guard cloudState.privateLocalMode, let scope = noteScope else { return quizzes }
+    let epoch = cloudState.epoch
+    try await ensureCourseDeletionState(scope: scope)
+    guard courses.first(where: { $0.id == courseID })?.resourceIDs.contains(bookID) == true,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    let records = try await repository.loadMaterialRecords(scope: scope)
+    guard epoch == cloudState.epoch, scope == noteScope,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    guard let material = records.first(where: { $0.bookID == bookID }),
+      let source = cloudState.localCourseSources[courseID]?.first(where: { $0.id == bookID })
+        ?? (selectedCourseID == courseID ? sources.first(where: { $0.id == bookID }) : nil) else {
+      throw ContentError.invalid("诊断资料尚未下载，请继续已确认的教材资料下载")
+    }
+    let grades = Dictionary(material.grading.map { ($0.item_id, $0) }, uniquingKeysWith: { first, _ in first })
+    return material.diagnostics.compactMap { item in
+      guard let grade = grades[item.item_id], !item.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+      let pages = item.source_pages ?? []
+      let chapter = source.chapters.first { $0.id == item.chapter_id }
+        ?? source.chapters.first { chapter in pages.contains { $0 >= chapter.page_start && $0 <= chapter.page_end } }
+      guard let chapter else { return nil }
+      let firstPage = pages.min() ?? chapter.page_start
+      let lastPage = pages.max() ?? firstPage
+      return QuizQuestion(question_id: item.item_id, book_id: bookID,
+        lesson_id: "diagnostic:" + courseID + ":" + chapter.id, chapter_id: chapter.id,
+        prompt: item.prompt, choices: item.options,
+        answer: item.options.isEmpty ? (grade.expected_answer ?? "") : grade.correct_option_ids.joined(separator: ","),
+        explanation: grade.expected_answer ?? grade.rubric.joined(separator: "\n"), concept: chapter.title,
+        source_chunk_ids: material.source.chunks.filter { $0.page_start <= lastPage && $0.page_end >= firstPage }.map(\.id),
+        page_start: firstPage, page_end: lastPage, printed_page_start: nil, printed_page_end: nil,
+        question_type: item.options.isEmpty ? "short-answer" : "choice", instruction: nil,
+        source_kind: "public_diagnostic", source_quote: nil)
+    }
+  }
+
   func submitLocalPractice(question: QuizQuestion, answer: String) async throws {
-    guard let courseID = selectedCourseID else { throw ContentError.invalid("请先选择课程") }
+    guard let courseID = selectedCourseID, let scope = noteScope,
+      courses.first(where: { $0.id == courseID })?.resourceIDs.contains(question.book_id) == true else {
+      throw ContentError.invalid("请先选择这道题所属的课程")
+    }
+    let epoch = cloudState.epoch
     let correct: Bool, feedback: String
     if !question.choices.isEmpty {
       let raw = answer.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -446,6 +485,8 @@ extension LocalBookCourseRepository {
       correct = result["correct"] == .bool(true)
       feedback = result["feedback"]?.stringValue ?? ""
     }
+    guard epoch == cloudState.epoch, scope == noteScope, selectedCourseID == courseID,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     assignmentAnswer = answer
     diagnosisText = feedback
     latestDiagnosis = Diagnosis(assignment_id: question.id, submission_id: UUID().uuidString, result: correct ? "correct" : "incorrect",

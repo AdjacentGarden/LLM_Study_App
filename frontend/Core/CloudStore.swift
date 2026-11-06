@@ -1272,7 +1272,26 @@ extension AppStore {
 
   func submitCloudAssignments(_ submissions: [CloudPracticeAnswer]) async throws {
     if cloudState.privateLocalMode {
-      for submission in submissions { try await submitLocalPractice(question: submission.question, answer: submission.answer) }
+      guard let courseID = selectedCourseID, let scope = noteScope, !submissions.isEmpty else {
+        throw ContentError.invalid("请先选择课程并完成作答")
+      }
+      let epoch = cloudState.epoch
+      var feedback: [Diagnosis] = []
+      for submission in submissions {
+        guard epoch == cloudState.epoch, noteScope == scope, selectedCourseID == courseID else { throw CancellationError() }
+        try await submitLocalPractice(question: submission.question, answer: submission.answer)
+        if let result = latestDiagnosis { feedback.append(result) }
+      }
+      guard epoch == cloudState.epoch, noteScope == scope, selectedCourseID == courseID else { throw CancellationError() }
+      let correct = feedback.filter { $0.result == "correct" }.count
+      latestDiagnosis = Diagnosis(assignment_id: submissions[0].question.id, submission_id: UUID().uuidString,
+        result: "已完成 \(feedback.count) 道诊断题，\(correct) 道回答正确。",
+        stuck_point: feedback.filter { $0.result != "correct" }.map(\.stuck_point).joined(separator: "；"),
+        knowledge_points: submissions.map { $0.question.concept }, review_citations: [],
+        hint: feedback.map(\.hint).filter { !$0.isEmpty }.joined(separator: "\n"),
+        needs_followup: correct < feedback.count, mistake_recorded: correct < feedback.count)
+      try await persistPrivateState()
+      go(.diagnosis)
       return
     }
     guard cloudState.legacyPrivateSyncEnabled else { throw ContentError.invalid("本机作答尚未就绪") }
