@@ -103,6 +103,31 @@ def test_multi_book_group_downloads_all_public_files_and_never_private_workspace
     assert services.native_repository.workspaces("bob")==[]
 
 
+def test_discovery_catalog_has_complete_named_server_files_and_manual_withdrawal(material_services):
+    import shutil
+    services = material_services
+    add_book(services, "one")
+    public = PublicMaterials(services)
+    group = public.register("alice", title="统一目录教材", book_ids=["one"])
+    manifest = public.manifest(group["id"])
+    directory = public.root / "catalog" / group["id"]
+    assert json.loads((directory / "manifest.json").read_text()) == manifest
+    files = directory / "one"
+    assert (files / "source.pdf").read_bytes().startswith(b"%PDF-")
+    assert json.loads((files / "ocr-pages.jsonl").read_text())["page_number"] == 1
+    assert (files / "structure.json").is_file()
+    assert (files / "diagnostics.json").is_file()
+    shutil.rmtree(directory)
+    assert public.list_ready() == []
+    with pytest.raises(KeyError):
+        public.manifest(group["id"])
+    # A read never recreates deleted discovery data or deletes uploader storage.
+    assert not directory.exists()
+    assert services.job_repository.get_book("one").file_path.is_file()
+    public.register("alice", title="重新明确发布", book_ids=["one"], group_id=group["id"])
+    assert public.list_ready()[0]["id"] == group["id"]
+
+
 def test_unshared_historical_upload_never_auto_appears_and_private_fields_rejected(material_services):
     add_book(material_services,"private-old")
     with client(material_services) as api:

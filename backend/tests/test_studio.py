@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import os
 import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +28,8 @@ from adaptive_learning.studio_models import Recognition, TeachingPlan
 @pytest.fixture
 def setup(community, monkeypatch):
     a, b, repo, _ = community
+    if "STUDIO_MEDIA_REVIEW_MODE" not in os.environ:
+        monkeypatch.setenv("STUDIO_MEDIA_REVIEW_MODE", "strict")
     # Existing image fixtures explicitly exercise the legacy provider adapter.
     monkeypatch.setenv("STUDIO_IMAGE_PROVIDER", "pucoding")
     monkeypatch.setenv("PUCODING_API_KEY", "pucoding-test")

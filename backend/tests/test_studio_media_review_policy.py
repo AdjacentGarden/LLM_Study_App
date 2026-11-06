@@ -12,7 +12,7 @@ from test_studio import setup as setup
 from test_studio import test_note_review_repairs_once_and_rechecks as note_rejection_scenario
 
 from adaptive_learning.config import get_settings
-from adaptive_learning.studio import Studio
+from adaptive_learning.studio import Studio, media_review_mode
 from adaptive_learning.studio_models import Review
 
 _REAL_CAPABILITIES = Studio.capabilities
@@ -34,6 +34,23 @@ def plan():
         "visual_mode": "diagram",
         "diagram_facts": [{"subject": "函数", "relation": "调用", "object": "自身"}],
     }
+
+
+def test_new_jobs_default_to_disabled_quality_review(monkeypatch):
+    monkeypatch.delenv("STUDIO_MEDIA_REVIEW_MODE", raising=False)
+    assert media_review_mode() == "off"
+
+
+def test_off_planner_accepts_missing_review_metadata_and_long_points(setup, monkeypatch):
+    _, _, studio = setup
+    candidate = {**plan(), "supported": True, "visual_scope": "", "visual_checks": None,
+                 "points": "解释" * 100, "diagram_facts": [], "provider_metadata": "ignored"}
+    monkeypatch.setattr(studio, "llm", lambda *args: candidate)
+    generated = studio.teaching_plan("辅助视觉说明", "已选中的教材段落", relaxed=True)
+    assert generated.visual_prompt == candidate["visual_prompt"]
+    assert generated.explanation == candidate["explanation"]
+    assert generated.visual_mode == "illustration"
+    assert len(generated.points[0]) == 120
 
 
 def png():

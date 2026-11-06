@@ -56,6 +56,7 @@ struct LocalMaterialRecord: Codable, Sendable {
   var source: SourceContent
   var diagnostics: [LocalDiagnosticItem]
   var grading: [LocalDiagnosticGrade]
+  var figureDescriptors: [PublicMaterialFigure]? = nil
 
   /// Restore shared textbook material without replacing this course's lessons or progress.
   func enriching(_ content: SourceContent) -> SourceContent {
@@ -125,6 +126,51 @@ extension LocalBookCourseRepository {
 }
 
 @MainActor extension AppStore {
+  /// Upload/confirmed import already authorizes fetching this course's original.
+  /// Join an active transfer, or recover only the core files; figures may follow.
+  func ensureLocalCourseOriginal(courseID: String, bookID: String, chapterID: String? = nil) async throws {
+    guard let scope = noteScope else { throw CancellationError() }
+    let epoch = cloudState.epoch
+    try await ensureCourseDeletionState(scope: scope)
+    guard courses.first(where: { $0.id == courseID })?.resourceIDs.contains(bookID) == true,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    let deadline = ContinuousClock.now + .seconds(900)
+    while true {
+      try Task.checkCancellation()
+      guard epoch == cloudState.epoch, scope == noteScope,
+        canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+      let records = try await repository.loadMaterialRecords(scope: scope)
+      guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+      var content = cloudState.localCourseSources[courseID]?.first { $0.id == bookID }
+        ?? (selectedCourseID == courseID ? sources.first { $0.id == bookID } : nil)
+      if let material = records.first(where: { $0.bookID == bookID }), let current = content {
+        content = material.enriching(current)
+        installGeneratedLocalSource(content!, courseID: courseID)
+      }
+      if let content {
+        let chapter = chapterID.flatMap { id in content.chapters.first { $0.id == id } }
+        if content.chunks.contains(where: { chunk in
+          !chunk.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (chapterID == nil || chapter.map { chunk.page_start <= $0.page_end && chunk.page_end >= $0.page_start } == true)
+        }) { return }
+      }
+      if !cloudState.publicLibraryDownloading { break }
+      guard ContinuousClock.now < deadline else { throw ContentError.invalid("教材原文仍在下载，原任务已保留，请稍后继续") }
+      try await Task.sleep(for: .milliseconds(200))
+    }
+    let tasks = try await repository.publicLibraryTasks(scope: scope)
+    guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+    guard let task = tasks.first(where: {
+      ($0.kind == "publish" && $0.courseID == courseID && $0.bookIDs.contains(bookID))
+        || ($0.kind == "download" && ($0.attachmentCourseID == courseID || $0.courseID == courseID))
+    }) else { throw ContentError.invalid("本章教材原文尚未下载完成，请继续已确认的教材下载") }
+    _ = try await acquirePublicCourseGroup(catalogID: task.groupID, name: task.title,
+      attachToCourseID: courseID, navigateAfterDownload: false, originalsOnly: true)
+    guard epoch == cloudState.epoch, scope == noteScope,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    resumeConfirmedLibraryTasksInBackground()
+  }
+
   func refreshPublicCourseGroups() async throws {
     guard let cloud else { throw ContentError.invalid("请连接学习服务") }
     let response: PublicCourseGroups = try await cloud.request("/api/public/library/course-groups")
@@ -139,14 +185,36 @@ extension LocalBookCourseRepository {
     }
   }
 
+  private func downloadMaterialFigure(_ figure: PublicMaterialFigure, scope: String, epoch: UUID) async throws -> (PublicMaterialFigure, String?) {
+    try Task.checkCancellation()
+    guard let cloud, noteScope == scope, cloudState.epoch == epoch else { throw CancellationError() }
+    let file = PublicMaterialFile(asset_id: figure.asset_id, kind: "figure", sha256: figure.sha256,
+      bytes: figure.bytes, media_type: figure.media_type, download_url: figure.download_url)
+    var path = try await repository.verifiedMaterialFile(file, scope: scope)
+    if path == nil {
+      do {
+        let bytes = try await cloud.downloadPublicMaterial(file.download_url)
+        path = try await repository.verifiedMaterialFile(file, scope: scope, bytes: bytes)
+      } catch {
+        try Task.checkCancellation()
+        guard noteScope == scope, cloudState.epoch == epoch else { throw CancellationError() }
+        return (figure, nil)
+      }
+    }
+    try Task.checkCancellation()
+    guard noteScope == scope, cloudState.epoch == epoch else { throw CancellationError() }
+    return (figure, path)
+  }
+
   /// A course is created only after every required file has a verified durable copy.
   /// On retry completed content hashes are reused; an interrupted file is downloaded afresh.
   func acquirePublicCourseGroup(catalogID: String, name: String, attachToCourseID: String? = nil,
-    navigateAfterDownload: Bool = true) async throws -> Course {
+    navigateAfterDownload: Bool = true, originalsOnly: Bool = false) async throws -> Course {
     guard cloudState.privateLocalMode, let cloud, let scope = noteScope else {
       throw ContentError.invalid("服务尚未启用本机学习模式，请更新服务后重试")
     }
     try await ensureCourseDeletionState(scope: scope)
+    guard !originalsOnly || attachToCourseID != nil else { throw CancellationError() }
     if let targetID = attachToCourseID,
       !canApplyCourseMutation(courseID: targetID, scope: scope) { throw CancellationError() }
     guard !catalogID.isEmpty, catalogID.utf8.count <= 150,
@@ -199,9 +267,16 @@ extension LocalBookCourseRepository {
       var paths: [String: String] = [:]
       for file in book.files {
         guard ["pdf", "ocr_pages", "structure", "figure_manifest", "diagnostics", "grading", "cover"].contains(file.kind) else { throw ContentError.invalid("资料清单包含不支持的文件类型") }
+        if originalsOnly, !["pdf", "ocr_pages", "diagnostics", "grading"].contains(file.kind) { continue }
         try Task.checkCancellation()
         guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
         var path = try await repository.verifiedMaterialFile(file, scope: scope)
+        if path == nil, file.kind == "pdf", let original = sourceFileURL(book.book_id),
+          let bytes = try? Data(contentsOf: original, options: .mappedIfSafe),
+          bytes.count == file.bytes,
+          SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == file.sha256.lowercased() {
+          path = try await repository.verifiedMaterialFile(file, scope: scope, bytes: bytes)
+        }
         if path == nil {
           let bytes = try await cloud.downloadPublicMaterial(file.download_url)
           path = try await repository.verifiedMaterialFile(file, scope: scope, bytes: bytes)
@@ -211,28 +286,6 @@ extension LocalBookCourseRepository {
       }
       guard paths["pdf"] != nil, let ocrPath = paths["ocr_pages"], let diagnosticPath = paths["diagnostics"], let gradePath = paths["grading"] else {
         throw ContentError.invalid("教材缺少 PDF、原文或公共诊断题，下载尚未完成")
-      }
-      var figurePaths: [String: String] = [:]
-      var assets: [BookAsset] = []
-      for figure in book.figures {
-        let file = PublicMaterialFile(asset_id: figure.asset_id, kind: "figure", sha256: figure.sha256,
-          bytes: figure.bytes, media_type: figure.media_type, download_url: figure.download_url)
-        var path = try await repository.verifiedMaterialFile(file, scope: scope)
-        if path == nil {
-          // Figure failure is explicit partial coverage; never render/crop a whole page as fallback.
-          if let bytes = try? await cloud.downloadPublicMaterial(file.download_url) {
-            path = try? await repository.verifiedMaterialFile(file, scope: scope, bytes: bytes)
-          }
-        }
-        guard let path else { continue }
-        figurePaths[figure.asset_id] = path
-        let localURL = repository.directory.appendingPathComponent(path)
-        ContentBundle.registerMaterialURL(localURL)
-        let url = localURL.absoluteString
-        assets.append(BookAsset(asset_id: figure.asset_id, book_id: book.book_id, chapter_id: nil,
-          source_type: "textbook", page: figure.page_number, type: "figure", caption: figure.caption ?? "",
-          bbox: figure.bbox, image_url: url, thumbnail_url: url, source_page_image_url: nil,
-          source_chunk_ids: [], concepts: [], metadata: ["verified_sha256": .string(figure.sha256)]))
       }
       let raw = try Data(contentsOf: repository.directory.appendingPathComponent(ocrPath))
       let decoder = JSONDecoder()
@@ -245,7 +298,7 @@ extension LocalBookCourseRepository {
         let chapter = book.structure.chapters.first { $0.start_page <= page.page_number && $0.end_page >= page.page_number }
         chunks.append(SourceChunk(chunk_id: "public:\(book.book_id):\(page.page_number)", book_id: book.book_id,
           chapter_id: chapter?.chapter_id ?? "", page_start: page.page_number, page_end: page.page_number,
-          content_type: "text", text: text, asset_ids: assets.filter { $0.page == page.page_number }.map(\.id),
+          content_type: "text", text: text, asset_ids: [],
           key_concepts: [], source_metadata: ["origin": .string("downloaded_public_ocr")]))
       }
       let items = try decoder.decode(DiagnosticDownload.self, from: Data(contentsOf: repository.directory.appendingPathComponent(diagnosticPath))).items
@@ -258,13 +311,68 @@ extension LocalBookCourseRepository {
       source.summary.cover_url = book.cover_url ?? "/api/books/" + book.book_id + "/cover"
       source.summary.content_mode = "local_material"
       source.summary.chunk_count = chunks.count
-      source.summary.asset_count = assets.count
+      source.summary.asset_count = 0
       source.chunks = chunks
-      source.assets = assets
+      source.assets = []
       // Public material never imports somebody else's lessons, answers or progress.
       source.lessons = []
-      records.append(LocalMaterialRecord(groupID: catalogID, version: book.content_version, bookID: book.book_id,
-        files: paths, figurePaths: figurePaths, source: source, diagnostics: items, grading: grades))
+      var material = LocalMaterialRecord(groupID: catalogID, version: book.content_version, bookID: book.book_id,
+        files: paths, figurePaths: [:], source: source, diagnostics: items, grading: grades,
+        figureDescriptors: book.figures)
+      guard !chunks.isEmpty else { throw ContentError.invalid("教材原文为空，下载尚未完成") }
+      guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+      try await repository.saveMaterialRecord(material, scope: scope)
+      guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+      if let targetID = attachToCourseID {
+        guard canApplyCourseMutation(courseID: targetID, scope: scope) else { throw CancellationError() }
+        installDownloadedMaterials([material], courseID: targetID)
+        try await persistPrivateState()
+      }
+      // OCR is durable and usable before optional figures are transferred.
+      if originalsOnly { records.append(material); continue }
+      var figurePaths: [String: String] = [:]
+      var assets: [BookAsset] = []
+      try await withThrowingTaskGroup(of: (PublicMaterialFigure, String?).self) { group in
+        var next = 0
+        for figure in book.figures.prefix(4) {
+          group.addTask { try await self.downloadMaterialFigure(figure, scope: scope, epoch: epoch) }
+          next += 1
+        }
+        while let (figure, path) = try await group.next() {
+          guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
+          if next < book.figures.count {
+            let pending = book.figures[next]; next += 1
+            group.addTask { try await self.downloadMaterialFigure(pending, scope: scope, epoch: epoch) }
+          }
+        guard let path else { continue }
+        figurePaths[figure.asset_id] = path
+        let localURL = repository.directory.appendingPathComponent(path)
+        ContentBundle.registerMaterialURL(localURL)
+        let url = localURL.absoluteString
+        assets.append(BookAsset(asset_id: figure.asset_id, book_id: book.book_id, chapter_id: nil,
+          source_type: "textbook", page: figure.page_number, type: "figure", caption: figure.caption ?? "",
+          bbox: figure.bbox, image_url: url, thumbnail_url: url, source_page_image_url: nil,
+          source_chunk_ids: [], concepts: [], metadata: ["verified_sha256": .string(figure.sha256)]))
+
+          if assets.count % 8 == 0, let targetID = attachToCourseID {
+            material.figurePaths = figurePaths
+            material.source.assets = assets
+            material.source.summary.asset_count = assets.count
+            try await repository.saveMaterialRecord(material, scope: scope)
+            guard epoch == cloudState.epoch, scope == noteScope,
+              canApplyCourseMutation(courseID: targetID, scope: scope) else { throw CancellationError() }
+            installDownloadedMaterials([material], courseID: targetID)
+          }
+        }
+      }
+      material.figurePaths = figurePaths
+      material.source.assets = assets
+      material.source.summary.asset_count = assets.count
+      for index in material.source.chunks.indices {
+        let page = material.source.chunks[index].page_start
+        material.source.chunks[index].asset_ids = assets.filter { $0.page == page }.map(\.id)
+      }
+      records.append(material)
     }
     guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
     for record in records {
@@ -284,7 +392,7 @@ extension LocalBookCourseRepository {
     installDownloadedMaterials(records, courseID: courseID)
     if attachToCourseID != nil {
       try await persistPrivateState()
-      task.state = "completed"; task.courseID = courseID; task.bookIDs = ids
+      task.state = originalsOnly ? "originals_ready" : "completed"; task.courseID = courseID; task.bookIDs = ids
       try await repository.savePublicLibraryTask(task, scope: scope)
       return course
     }
@@ -356,6 +464,8 @@ extension LocalBookCourseRepository {
     guard cloudState.privateLocalMode, let cloud, let scope = noteScope, !bookIDs.isEmpty,
       !bookIDs.contains(where: { $0.hasPrefix("book_local_") }) else { return }
     let id = "group_" + AgentDigest.sha256(scope + "|" + bookIDs.joined(separator: "|"))
+    let previous = try await repository.publicLibraryTasks(scope: scope)
+    if previous.contains(where: { $0.id == id && $0.kind == "publish" && ["registered", "completed"].contains($0.state) }) { return }
     var task = PublicLibraryTask(id: id, kind: "publish", groupID: id, title: title, bookIDs: bookIDs, state: "pending", courseID: courseID)
     try await repository.savePublicLibraryTask(task, scope: scope)
     let group: PublicCourseGroup = try await cloud.request("/api/public/library/course-groups", method: "POST",

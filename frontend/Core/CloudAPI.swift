@@ -501,7 +501,9 @@ actor CloudAPI {
     if privateAsset || url.path == "/api/native/local-first/capabilities" || url.path == "/openapi.json" { request.cachePolicy = .reloadIgnoringLocalCacheData }
     request.httpMethod = method
     if uploadFile != nil {
-      request.timeoutInterval = backgroundUpload != nil && usesNativeBackgroundUploads ? 900 : 60
+      // Large textbooks take the same route in foreground and background.
+      // Progress still has its independent 90-second stall watchdog.
+      request.timeoutInterval = 900
     } else if path.hasPrefix("/api/auth/") || path == "/api/native/local-login" {
       // A relayed tailnet connection can spend most of the normal auth budget
       // establishing TCP and TLS before the server receives the request.

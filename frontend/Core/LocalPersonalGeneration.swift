@@ -312,6 +312,7 @@ enum LocalLectureSchema {
       throw ContentError.invalid("本机课程资料尚未完整")
     }
     let courseID = session.courseID, bookID = session.bookID, epoch = cloudState.epoch
+    try await ensureLocalCourseOriginal(courseID: courseID, bookID: bookID, chapterID: session.chapterID)
     let records = try await repository.loadMaterialRecords(scope: scope)
     guard epoch == cloudState.epoch, scope == noteScope,
       canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
@@ -346,10 +347,15 @@ enum LocalLectureSchema {
     只在这些讲解字段中用**关键词**适量强调核心概念或易错区别，优先本节知识点。通常每80–120字选择1–2个短词语，长段最多3处，强调字数约占10–15%、最多20%；短段没有明确重点可不加粗，不机械凑比例，不把整句、整段或所有数字加粗。
     citation.quote及教材原文证据必须逐字保留，不加格式标记；不输出Markdown代码围栏、井号标题或复杂表格。
     引用quote必须逐字来自提供的同页原文，不得编造页码；课程至少含真实原文引用、知识解释和学习单元。
+    textbook_figures来自教材版面提取，按page_number与原文关联；只使用已有caption和同页原文解释插图，不根据空caption或bbox猜测图像内容。
     chapter_id必须保持输入值，course_id使用输入的publication_id。不要输出占位内容或声称人工审核通过。
     """
     let payload: [String: JSONValue] = ["publication_id": .string("local-lecture:" + session.id),
       "chapter_id": .string(chapter.id), "title": .string(chapter.title), "material": .array(passages.map(JSONValue.object)),
+      "textbook_figures": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(
+        (records.first { $0.bookID == bookID }?.figureDescriptors ?? []).filter {
+          $0.page_number >= chapter.page_start && $0.page_number <= chapter.page_end
+        })),
       "preferences": .object((courses.first { $0.id == courseID }?.diagnosis ?? [:]).mapValues { .array($0.map(JSONValue.string)) }),
       "learner_profile": try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(preferences)),
       "diagnosis": .object(session.results), "coverage_truncated": .bool(chunks.count > 80)]
@@ -404,6 +410,11 @@ enum LocalLectureSchema {
       return value
     }
     guard canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    // Figure transfer may have finished while the real model was generating.
+    let latestMaterials = try await repository.loadMaterialRecords(scope: scope)
+    guard epoch == cloudState.epoch, scope == noteScope,
+      canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+    if let material = latestMaterials.first(where: { $0.bookID == bookID }) { generated = material.enriching(generated) }
     installGeneratedLocalSource(generated, courseID: courseID)
     try await persistPrivateState()
     guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }

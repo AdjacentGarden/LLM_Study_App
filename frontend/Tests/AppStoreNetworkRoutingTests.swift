@@ -980,6 +980,50 @@ extension AppStoreNetworkRoutingTests {
     XCTAssertEqual(store.draft, draft)
     XCTAssertEqual(store.currentSource?.lessons, active.lessons)
   }
+
+  func testUploadedOriginalRecoveryReusesPDFAndDoesNotWaitForFigures() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let store = fixture.store
+    var source = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+    source.summary.book_id = "new-book"; source.chunks = []; source.assets = []
+    store.cloudState.privateLocalMode = true
+    store.courses = [Course(id: "upload-course", name: "上传课程", resourceIDs: [source.id])]
+    store.sources = [source]; store.selectedCourseID = "upload-course"; store.selectedBookID = source.id
+    store.cloudState.localCourseSources["upload-course"] = [source]
+    store.filePaths[source.id] = try await fixture.repository.saveAttachment(Data(contentsOf: pdf()), extension: "pdf")
+    let scope = try XCTUnwrap(store.noteScope)
+    try await fixture.repository.savePublicLibraryTask(PublicLibraryTask(id: "upload-group", kind: "publish",
+      groupID: "upload_group", title: "上传课程", bookIDs: [source.id], state: "registered", courseID: "upload-course"), scope: scope)
+    var downloads = try materialDownloadsForConfirmation(groupID: "upload_group", bookID: source.id)
+    let manifestPath = "/api/public/library/course-groups/upload_group/manifest"
+    var manifest = try JSONDecoder().decode(PublicMaterialManifest.self, from: XCTUnwrap(downloads[manifestPath]))
+    manifest.books[0].figures = [PublicMaterialFigure(asset_id: "slow-figure", page_number: 1,
+      sha256: String(repeating: "a", count: 64), bytes: 1, media_type: "image/png", download_url: "/api/public/library/course-groups/upload_group/assets/slow-figure")]
+    downloads[manifestPath] = try JSONEncoder().encode(manifest)
+    let responses = downloads
+    fixture.probe.respond { request in
+      guard let bytes = responses[request.url!.path] else { throw URLError(.unsupportedURL) }
+      return (200, bytes)
+    }
+    // Keep the continuation owned by this test while inspecting the core phase.
+    let blocker = Task { do { try await Task.sleep(for: .seconds(30)) } catch {} }
+    store.cloudState.libraryResumeScope = scope; store.cloudState.libraryResumeEpoch = store.cloudState.epoch
+    store.cloudState.libraryResumeTask = blocker
+    defer { blocker.cancel(); store.cloudState.libraryResumeTask = nil }
+    try await store.ensureLocalCourseOriginal(courseID: "upload-course", bookID: source.id)
+    XCTAssertEqual(store.currentSource?.chunks.first?.text, "向量有大小和方向")
+    XCTAssertEqual(store.currentSource?.lessons, source.lessons)
+    XCTAssertEqual(store.courses.count, 1)
+    let paths = fixture.probe.requests.map { $0.url!.path }
+    let pdfPath = try XCTUnwrap(manifest.books[0].files.first { $0.kind == "pdf" }?.download_url)
+    XCTAssertFalse(paths.contains(pdfPath))
+    XCTAssertFalse(paths.contains { $0.contains("slow-figure") })
+    let material = try await fixture.repository.loadMaterialRecords(scope: scope)
+    XCTAssertEqual(material.first?.source.chunks.count, 1)
+    let receipts = try await fixture.repository.publicLibraryTasks(scope: scope)
+    XCTAssertTrue(receipts.contains { $0.kind == "download" && $0.state == "originals_ready" && $0.courseID == "upload-course" })
+  }
 }
 
 extension AppStoreNetworkRoutingTests {
@@ -1017,5 +1061,17 @@ extension AppStoreNetworkRoutingTests {
     let state = try await store.repository.loadPersonalState(scope: scope)
     XCTAssertEqual(state?.initialized, true)
     XCTAssertTrue(state?.snapshot.courses.isEmpty == true)
+  }
+
+  func testForegroundPDFUploadUsesTextbookTransferTimeout() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    fixture.probe.respond { request in
+      XCTAssertEqual(request.url?.path, "/api/native/uploads")
+      XCTAssertEqual(request.timeoutInterval, 900)
+      return (200, Data(#"{"book_id":"uploaded-book","filename":"book.pdf","status":"uploaded"}"#.utf8))
+    }
+    let uploaded = try await fixture.api.uploadPDF(pdf())
+    XCTAssertEqual(uploaded.book_id, "uploaded-book")
   }
 }

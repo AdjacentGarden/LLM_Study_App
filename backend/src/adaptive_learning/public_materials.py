@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import tempfile
 import threading
 import time
@@ -58,6 +59,8 @@ class PublicMaterials:
         self.community = services.account_repository.repo
         self.root = Path(services.settings.data_dir) / "public-materials"
         self.blobs = self.root / "blobs"
+        self.catalog = self.root / "catalog"
+        self.catalog_index = self.root / "catalog-index.json"
         with self.community.connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS public_course_groups (
@@ -75,12 +78,68 @@ class PublicMaterials:
         if row is None:
             raise KeyError("group")
         value = dict(row)
+        # Once exported, removing this folder is an administrator withdrawal.
+        # Never recreate a manually removed discovery course during a GET.
+        if group_id in self._catalog_ids() and not (self.catalog / group_id / "manifest.json").is_file():
+            with self.community.connect() as db:
+                db.execute("UPDATE public_course_groups SET active=0,status='withdrawn',updated=? WHERE id=?", (time.time(), group_id))
+            raise KeyError("group")
         if value["legacy_post"]:
             with self.community.connect() as db:
                 live = db.execute("SELECT 1 FROM posts WHERE id=? AND active=1 AND kind='book'", (value["legacy_post"],)).fetchone()
             if live is None:
                 raise KeyError("group")
         return value
+
+    def _catalog_ids(self) -> set[str]:
+        if not self.catalog_index.is_file():
+            return set()
+        return set(json.loads(self.catalog_index.read_text()))
+
+    def _save_catalog_ids(self, ids: set[str]) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=self.root, delete=False) as stream:
+            stream.write(json_bytes(sorted(ids)))
+            temporary = Path(stream.name)
+        os.replace(temporary, self.catalog_index)
+
+    def _export_catalog(self, manifest: dict[str, Any]) -> None:
+        group_id = manifest["group_id"]
+        known = self._catalog_ids()
+        directory = self.catalog / group_id
+        if group_id in known and (directory / "manifest.json").is_file():
+            return
+        directory.mkdir(parents=True, exist_ok=True)
+        for book in manifest["books"]:
+            book_id = book["book_id"]
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", book_id):
+                raise ValueError("invalid_book_id")
+            folder = directory / book_id
+            folder.mkdir(exist_ok=True)
+            for descriptor in [*book["files"], *book["figures"]]:
+                digest = descriptor["sha256"]
+                if not _DIGEST.fullmatch(digest):
+                    raise ValueError("invalid_asset_digest")
+                kind = descriptor.get("kind", "figure")
+                names = {"pdf": "source.pdf", "ocr_pages": "ocr-pages.jsonl", "structure": "structure.json",
+                         "diagnostics": "diagnostics.json", "grading": "grading.json", "figure_manifest": "figures.json", "cover": "cover.jpg"}
+                if kind == "figure":
+                    (folder / "figures").mkdir(exist_ok=True)
+                    extension = ".png" if descriptor["media_type"] == "image/png" else ".jpg"
+                    target = folder / "figures" / (digest + extension)
+                else:
+                    target = folder / names[kind]
+                if target.is_file() and not target.is_symlink() and target.stat().st_size == descriptor["bytes"] and file_digest(target) == digest:
+                    continue
+                if target.exists() or target.is_symlink():
+                    target.unlink()
+                source = self.blobs / digest
+                try:
+                    os.link(source, target)
+                except OSError:
+                    shutil.copyfile(source, target)
+        (directory / "manifest.json").write_bytes(json_bytes(manifest))
+        self._save_catalog_ids(known | {group_id})
 
     @staticmethod
     def describe(row: dict[str, Any]) -> dict[str, Any]:
@@ -117,6 +176,11 @@ class PublicMaterials:
                     ON CONFLICT(id) DO UPDATE SET title=excluded.title,description=excluded.description,
                     book_ids=excluded.book_ids,status='preparing',manifest=NULL,error=NULL,active=1,legacy_post=NULL,updated=excluded.updated""",
                     (group_id, actor, title, description, json.dumps(book_ids), now, now))
+        if not unchanged:
+            with _LOCK:
+                known = self._catalog_ids()
+                if group_id in known:
+                    self._save_catalog_ids(known - {group_id})
         # Preparation owns shared diagnostics; this never writes personal preferences.
         queue = getattr(self.services, "preparation_queue", None)
         if queue is not None:
@@ -178,6 +242,7 @@ class PublicMaterials:
         with _LOCK:
             row = self._row(group_id)
             if row["status"] == "ready":
+                self._export_catalog(json.loads(row["manifest"]))
                 return
             try:
                 books = [self._book(group_id, book) for book in json.loads(row["book_ids"])]
@@ -185,6 +250,7 @@ class PublicMaterials:
                                           "description": row["description"], "books": books}
                 payload["version"] = hashlib.sha256(json_bytes(payload)).hexdigest()
                 encoded = json_bytes(payload).decode()
+                self._export_catalog(payload)
                 with self.community.connect() as db:
                     db.execute("UPDATE public_course_groups SET status='ready',manifest=?,error=NULL,updated=? WHERE id=?",
                                (encoded, time.time(), group_id))

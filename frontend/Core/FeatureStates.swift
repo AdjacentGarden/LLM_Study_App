@@ -449,6 +449,14 @@ struct ReaderOrigin: Sendable {
         }
       }
       guard epoch == cloudState.epoch else { return }
+      if cloudState.privateLocalMode, !onDeviceOnly, let completed = courseImport(for: id) {
+        updateCourseImport(id) { $0.job.message = "正在保存教材原文"; $0.job.preparationStage = "downloading_originals" }
+        try await queuePublicCoursePublication(title: completed.draft.name, bookIDs: completed.books.map(\.id), courseID: id)
+        for book in completed.books {
+          try await ensureLocalCourseOriginal(courseID: id, bookID: book.id)
+        }
+        guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+      }
       updateCourseImport(id) {
         let complete = $0.books.allSatisfy { $0.status == .completed }
         $0.job.status = complete ? .completed : .queued
@@ -456,10 +464,6 @@ struct ReaderOrigin: Sendable {
         $0.job.message = complete ? (onDeviceOnly ? "本机文字识别完成，可阅读原文与检索" : "资料整理完成") : "新资料已保存，等待解析"
         if onDeviceOnly && complete { $0.setupCompleted = true }
         $0.draft.parseCompleted = complete
-      }
-      if cloudState.privateLocalMode, !onDeviceOnly, let completed = courseImport(for: id) {
-        try await queuePublicCoursePublication(title: completed.draft.name, bookIDs: completed.books.map(\.id), courseID: id)
-        await resumePublicLibraryTasks()
       }
       if Set(draft.resourceIDs) == Set(importState.courses.first(where: { $0.id == id })?.draft.resourceIDs ?? []) {
         draft.parseCompleted = importState.courses.first(where: { $0.id == id })?.job.status == .completed
@@ -538,6 +542,14 @@ struct ReaderOrigin: Sendable {
             }
           }
           if complete {
+            if cloudState.privateLocalMode {
+              updateCourseImport(id) { $0.job.message = "正在保存教材原文"; $0.job.preparationStage = "downloading_originals" }
+              try await queuePublicCoursePublication(title: record.draft.name, bookIDs: record.books.map(\.id), courseID: id)
+              for book in record.books {
+                try await ensureLocalCourseOriginal(courseID: id, bookID: book.id)
+              }
+              guard epoch == cloudState.epoch, !Task.isCancelled else { return }
+            }
             updateCourseImport(id) { $0.job.status = .completed; $0.job.message = "资料整理完成"; $0.job.progress = 1; $0.error = nil; $0.draft.parseCompleted = true }
           }
         } catch is CancellationError { return }

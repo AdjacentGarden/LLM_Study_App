@@ -374,6 +374,88 @@ final class LearningTests: XCTestCase {
   }
 }
 
+/// Explicit, environment-gated acceptance against the deployed service.
+@MainActor final class LiveOriginalPreparationTests: XCTestCase {
+  func testUploadedPDFPreparesOriginalAndGeneratesRealLearningContent() async throws {
+    let env = ProcessInfo.processInfo.environment
+    guard let base = env["BOOKCOURSE_LIVE_API_BASE_URL"], let pdf = env["BOOKCOURSE_LIVE_PDF_PATH"],
+      let email = env["BOOKCOURSE_LIVE_EMAIL"], let code = env["BOOKCOURSE_LIVE_CODE"] else {
+      throw XCTSkip("Requires explicit live acceptance configuration")
+    }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("live-original-" + UUID().uuidString)
+    let repository = try LocalBookCourseRepository(directory: directory)
+    let api = CloudAPI(baseURL: try XCTUnwrap(URL(string: base)))
+    let challenge: CloudChallenge = try await api.request("/api/auth/code", method: "POST",
+      body: ["email": .string(email), "purpose": .string("login")])
+    let _: CloudAccountState = try await api.request("/api/auth/verify", method: "POST",
+      body: ["challenge_id": .string(challenge.challenge_id), "code": .string(code)])
+    let store = AppStore(repository: repository, cloud: api, processingPolicy: stableWiFiProcessingPolicyForTesting())
+    await store.boot()
+    XCTAssertNil(store.bootError)
+    XCTAssertTrue(store.cloudState.privateLocalMode)
+    let started = Date()
+    await store.importCloudPDF(URL(fileURLWithPath: pdf))
+    XCTAssertNil(store.importError)
+    if let error = store.importError { throw ContentError.invalid(error) }
+    let uploadedAt = Date()
+    let courseID = try XCTUnwrap(store.selectedCourseID)
+    await store.startCourseImport(courseID)
+    XCTAssertEqual(store.courseImport(for: courseID)?.job.status, .completed, store.courseImport(for: courseID)?.message ?? "")
+    let source = try XCTUnwrap(store.currentSource)
+    XCTAssertFalse(source.chunks.isEmpty)
+    XCTAssertFalse(source.chapters.isEmpty)
+    let scope = try XCTUnwrap(store.noteScope)
+    let material = try await repository.loadMaterialRecords(scope: scope)
+    XCTAssertFalse(try XCTUnwrap(material.first).source.chunks.isEmpty)
+    store.continueCourseImport(courseID)
+    store.draft.step = 5
+    store.draft.diagnosis = ["goals": ["interest"], "aids": ["guidedNotes"]]
+    await store.confirmCloudChapters()
+    XCTAssertNil(store.cloudState.error)
+    if let error = store.cloudState.error { throw ContentError.invalid(error) }
+    XCTAssertTrue(store.hasStudyContent)
+    if env["BOOKCOURSE_LIVE_ALL_CHAPTERS"] == "1" {
+      for chapter in source.chapters.dropFirst() {
+        try await store.beginLocalDiagnosis(chapterID: chapter.id, preview: true)
+        print("LIVE_CHAPTER", chapter.title, "generated")
+      }
+    }
+    let generated = try XCTUnwrap(store.currentSource)
+    let ready = generated.lessons.filter { $0.status == "ready" }
+    XCTAssertFalse(ready.isEmpty)
+    XCTAssertTrue(generated.quizzes.isEmpty)
+    XCTAssertFalse(generated.plan.tasks.isEmpty)
+    for lesson in ready {
+      XCTAssertFalse(lesson.blocks.isEmpty)
+      store.openLesson(lesson)
+      XCTAssertEqual(store.selectedLessonID, lesson.id)
+    }
+    let context = store.agent.frozenContext(session: AssistantSessionContext(courseID: courseID,
+      bookID: source.id, bookIDs: [source.id], chapterID: source.chapters.first?.id,
+      courseTitle: source.summary.title, chapterTitle: source.chapters.first?.title ?? "",
+      prompts: [], discovery: false))
+    let answer = try await store.agent.answerUnified(sessionID: "live-session-" + UUID().uuidString,
+      messageID: UUID().uuidString, request: "请用教材原文简要总结第一章的核心知识，不要出题。",
+      context: context, history: [], attachments: [], ephemeral: true)
+    XCTAssertFalse(answer.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    await store.cloudState.libraryResumeTask?.value
+    let completed = try await repository.loadMaterialRecords(scope: scope)
+    if !(material.first?.figureDescriptors ?? []).isEmpty { XCTAssertFalse(completed.first?.source.assets.isEmpty ?? true) }
+    let saved = try await repository.loadPersonalState(scope: scope)
+    XCTAssertEqual(saved?.courseSources[courseID]?.first?.lessons.filter { $0.status == "ready" }.count, ready.count)
+    let receipt: [String: JSONValue] = ["course_id": .string(courseID), "book_id": .string(source.id),
+      "upload_seconds": .number(uploadedAt.timeIntervalSince(started)),
+      "total_seconds": .number(Date().timeIntervalSince(started)), "source_pages": .number(Double(source.summary.page_count)),
+      "ocr_chunks": .number(Double(source.chunks.count)), "ready_lessons": .number(Double(ready.count)),
+      "local_figures": .number(Double(completed.first?.source.assets.count ?? 0)),
+      "ai_answer": .string(answer.text), "actual_model_calls": .bool(true)]
+    print("LIVE_RECEIPT", String(decoding: try JSONEncoder().encode(receipt), as: UTF8.self))
+    let attachment = XCTAttachment(data: try JSONEncoder().encode(try XCTUnwrap(saved)), uniformTypeIdentifier: "public.json")
+    attachment.name = "real-upload-generated-learning.json"; attachment.lifetime = .keepAlways
+    add(attachment)
+  }
+}
+
 
 @MainActor final class ChapterLearningEntryTests: XCTestCase {
   private func makeStore() async throws -> AppStore {
