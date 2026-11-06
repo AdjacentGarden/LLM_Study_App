@@ -134,12 +134,20 @@ struct StudyToolEntryStyle: ButtonStyle {
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
 
   func makeBody(configuration: Configuration) -> some View {
-    materialLabel(configuration)
+    configuration.label.modifier(StudyToolEntrySurface(tint: tint, showsBorder: showsBorder))
       .contentShape(Capsule())
       .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
       .opacity(configuration.isPressed ? 0.94 : 1)
       .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
   }
+}
+
+/// Shared with capsule actions whose labels are embedded in larger tappable views.
+private struct StudyToolEntrySurface: ViewModifier {
+  var tint: Color? = DS.primary
+  var showsBorder = true
+  @Environment(\.bookCourseReduceMotion) private var reduceMotion
+  @Environment(\.isEnabled) private var enabled
 
   private var fallbackColors: [Color] {
     guard let tint else { return [.white.opacity(0.96), .white.opacity(0.88)] }
@@ -147,17 +155,19 @@ struct StudyToolEntryStyle: ButtonStyle {
     return [tint.opacity(0.85), tint, tint]
   }
 
-  @ViewBuilder private func materialLabel(_ configuration: Configuration) -> some View {
-    if #available(iOS 26.0, *) {
+  @ViewBuilder func body(content: Content) -> some View {
+    if !enabled {
+      content.background(Color(hex: 0xeef1f5), in: Capsule())
+    } else if #available(iOS 26.0, *) {
       if let tint {
-        configuration.label
+        content
           .glassEffect(.regular.tint(tint).interactive(!reduceMotion), in: Capsule())
       } else {
-        configuration.label
+        content
           .glassEffect(.regular.interactive(!reduceMotion), in: Capsule())
       }
     } else {
-      configuration.label.background {
+      content.background {
         Capsule().fill(LinearGradient(colors: fallbackColors,
           startPoint: .topLeading, endPoint: .bottomTrailing))
           .overlay {
@@ -174,6 +184,23 @@ struct StudyToolEntryStyle: ButtonStyle {
           .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
       }
     }
+  }
+}
+
+private struct PrimaryCapsuleSurface: ViewModifier {
+  var active: Bool
+  @ViewBuilder func body(content: Content) -> some View {
+    if active {
+      content.modifier(StudyToolEntrySurface())
+    } else {
+      content
+    }
+  }
+}
+
+extension View {
+  func primaryCapsuleSurface(active: Bool = true) -> some View {
+    modifier(PrimaryCapsuleSurface(active: active))
   }
 }
 

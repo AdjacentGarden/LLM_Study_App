@@ -57,9 +57,20 @@ extension NoteProvenance {
 }
 
 enum NotesChapterScope {
+  /// Notes opened from any subsection belong to its enclosing chapter.
+  static func chapterID(containing selectedID: String?, chapters: [Chapter]) -> String? {
+    guard var id = selectedID else { return nil }
+    var visited: Set<String> = [id]
+    while let parent = chapters.first(where: { $0.id == id })?.parent_id,
+      chapters.contains(where: { $0.id == parent }), visited.insert(parent).inserted {
+      id = parent
+    }
+    return id
+  }
+
   static func notes(_ notes: [StudyNote], courseID: String?, bookID: String?,
     chapterID: String?, chapters: [Chapter], courseResourceID: String? = nil) -> [StudyNote] {
-    guard let bookID, let chapterID else { return [] }
+    guard let bookID, let chapterID = self.chapterID(containing: chapterID, chapters: chapters) else { return [] }
     var chapterIDs: Set<String> = [chapterID]
     var changed = true
     while changed {
@@ -86,11 +97,53 @@ enum NotesChapterScope {
   }
 }
 
+enum NotesSortOrder: String, CaseIterable, Identifiable {
+  case recordedAt, chapterOrder
+  var id: String { rawValue }
+  var title: String { self == .recordedAt ? "按记录时间" : "按章节顺序" }
+
+  func sorted(_ notes: [StudyNote], chapters: [Chapter]) -> [StudyNote] {
+    // Walk the directory, preserving sibling order even when children are not
+    // adjacent to their parents in the source array.
+    var ranks: [String: Int] = [:]
+    func visit(_ chapter: Chapter) {
+      guard ranks[chapter.id] == nil else { return }
+      ranks[chapter.id] = ranks.count
+      for child in chapters where child.parent_id == chapter.id { visit(child) }
+    }
+    for chapter in chapters where chapter.parent_id == nil
+      || !chapters.contains(where: { $0.id == chapter.parent_id }) { visit(chapter) }
+    for chapter in chapters { visit(chapter) }
+    func rank(_ note: StudyNote) -> Int {
+      if let id = note.anchor?.chapterID, let rank = ranks[id] { return rank }
+      // Place older annotations with retired chapter IDs by their PDF page.
+      guard let page = note.anchor?.page else { return .max }
+      let chapter = chapters.filter {
+        $0.page_start > 0 && ($0.page_start...max($0.page_start, $0.page_end)).contains(page)
+      }.max { $0.level < $1.level }
+      return chapter.flatMap { ranks[$0.id] } ?? .max
+    }
+    return notes.sorted { lhs, rhs in
+      if self == .chapterOrder {
+        let left = rank(lhs), right = rank(rhs)
+        if left != right { return left < right }
+        let leftPage = lhs.anchor?.page ?? .max, rightPage = rhs.anchor?.page ?? .max
+        if leftPage != rightPage { return leftPage < rightPage }
+      }
+      if lhs.createdAt != rhs.createdAt {
+        return self == .recordedAt ? lhs.createdAt > rhs.createdAt : lhs.createdAt < rhs.createdAt
+      }
+      return lhs.id < rhs.id
+    }
+  }
+}
+
 struct NotesHubView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var photoCapture = false
   @State private var photoNoteID: String?
+  @AppStorage("notes.sortOrder") private var sortOrder: NotesSortOrder = .recordedAt
   @State private var filter: NoteKind?
   @State private var selectedID: String?
   @State private var focusedNoteID: String?
@@ -98,21 +151,23 @@ struct NotesHubView: View {
   @State private var editorCloseRequest = 0
   @State private var referencePreviewURL: URL?
   @State private var deleting: StudyNote?
-  @State private var hubWidth: CGFloat = 834
   private var hasChapter: Bool { store.selectedBookID != nil && store.selectedChapterID != nil }
+  private var chapterTitle: String {
+    let id = NotesChapterScope.chapterID(containing: store.selectedChapterID, chapters: store.chapters)
+    return store.chapters.first { $0.id == id }?.title ?? store.chapterTitle
+  }
   private var chapterNotes: [StudyNote] {
     var values = NotesChapterScope.notes(store.notes, courseID: store.selectedCourseID,
       bookID: store.selectedBookID, chapterID: store.selectedChapterID, chapters: store.chapters,
       courseResourceID: store.courseResourceID(courseID: store.selectedCourseID, bookID: store.selectedBookID ?? ""))
     if let id = focusedNoteID ?? store.noteState.focusNoteID, let note = store.notes.first(where: { $0.id == id }),
-      note.anchor == nil || (note.anchor?.courseResourceID != nil && note.anchor?.courseResourceID == store.courseResourceID(courseID: store.selectedCourseID, bookID: store.selectedBookID ?? "")) {
+      note.anchor == nil {
       if !values.contains(where: { $0.id == id }) { values.insert(note, at: 0) }
     }
     return values
   }
   private var filtered: [StudyNote] {
-    chapterNotes.filter { filter == nil || $0.kind == filter }
-      .sorted { $0.updatedAt > $1.updatedAt }
+    sortOrder.sorted(chapterNotes.filter { filter == nil || $0.kind == filter }, chapters: store.chapters)
   }
   private var selected: StudyNote? { filtered.first { $0.id == selectedID } ?? filtered.first }
   var body: some View {
@@ -139,24 +194,26 @@ struct NotesHubView: View {
           }.padding(12).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
         }
         if hasChapter {
-          Text(store.chapterTitle).font(DS.font(.cardTitle)).foregroundStyle(DS.secondary)
+          Text(chapterTitle).font(DS.font(.cardTitle)).foregroundStyle(DS.secondary)
             .accessibilityIdentifier("notes.chapter.title")
         }
         if !chapterNotes.isEmpty {
-          filters
+          ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+              filterOptions
+              Spacer(minLength: 0)
+              sortingMenu
+            }
+            VStack(alignment: .leading, spacing: 8) {
+              filters
+              sortingMenu.frame(maxWidth: .infinity, alignment: .trailing)
+            }
+          }
         }
         if filtered.isEmpty {
           empty
         } else {
-          if store.isPad {
-            HStack(alignment: .top, spacing: 22) {
-              detail.frame(width: max(250, (hubWidth - 86) * 0.36))
-              noteList.frame(maxWidth: .infinity)
-            }
-          } else {
-            detail
-            noteList
-          }
+          noteList
         }
         if store.isPad {
           HStack(spacing: 12) { noteActions }.padding(.top, 7)
@@ -167,13 +224,6 @@ struct NotesHubView: View {
         .top, store.isPad ? 21 : 12
       ).padding(.bottom, 20).frame(maxWidth: .infinity)
     }
-    .background(
-      GeometryReader { geometry in
-        Color.clear.onAppear { hubWidth = geometry.size.width }.onChange(of: geometry.size.width) {
-          _, value in hubWidth = value
-        }
-      }
-    )
     .sheet(isPresented: $photoCapture) { NotesPhotoNoteView(noteID: photoNoteID) }
     .quickLookPreview($referencePreviewURL)
     .onAppear { applyFocusNote() }
@@ -216,14 +266,31 @@ struct NotesHubView: View {
   }
   private var filters: some View {
     ScrollView(.horizontal, showsIndicators: false) {
-      HStack(spacing: 8) {
-        filterButton(nil)
-        filterButton(.text)
-        filterButton(.ink)
-        filterButton(.voice)
-        filterButton(.photo)
-      }
+      filterOptions
     }
+  }
+  private var filterOptions: some View {
+    HStack(spacing: 8) {
+      filterButton(nil)
+      filterButton(.text)
+      filterButton(.ink)
+      filterButton(.voice)
+      filterButton(.photo)
+    }
+  }
+  private var sortingMenu: some View {
+    Menu {
+      Picker("笔记排序", selection: $sortOrder) {
+        ForEach(NotesSortOrder.allCases) { order in
+          Text(order.title).tag(order)
+        }
+      }
+    } label: {
+      Label(sortOrder.title, systemImage: "arrow.up.arrow.down")
+        .font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.primary)
+        .padding(.horizontal, 8).buttonFrame()
+    }.fixedSize().accessibilityIdentifier("notes.sort")
+      .accessibilityLabel("笔记排序").accessibilityValue(sortOrder.title)
   }
   private func filterButton(_ value: NoteKind?) -> some View {
     Button {
@@ -265,10 +332,13 @@ struct NotesHubView: View {
     }
   }
   private var noteList: some View {
-    LazyVStack(spacing: 8) {
-      ForEach(filtered) { note in
+    let notes = filtered
+    let highlightedID = notes.first { $0.id == selectedID }?.id ?? notes.first?.id
+    return LazyVStack(spacing: 8) {
+      ForEach(notes) { note in
         Button {
-          withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { selectedID = note.id }
+          selectedID = note.id
+          reopen(note)
         } label: {
           HStack(alignment: .top, spacing: 12) {
             NotesSticker(kind: note.kind, glyphSize: 18, size: 44)
@@ -281,104 +351,65 @@ struct NotesHubView: View {
               Text(note.title).font(DS.font(.cardTitle)).foregroundStyle(DS.text).lineLimit(
                 2)
               Text(preview(note)).accessibilityIdentifier("notes.originalBody").font(DS.font(.body)).foregroundStyle(DS.secondary).lineLimit(2)
+              HStack {
+                if let id = note.anchor?.chapterID, let chapter = store.chapters.first(where: { $0.id == id }) {
+                  Text(chapter.title).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Text(note.createdAt, format: .dateTime.year().month().day().hour().minute())
+              }.font(DS.font(.caption)).foregroundStyle(DS.muted)
             }.frame(maxWidth: .infinity, alignment: .leading)
-          }.padding(16).background(selected?.id == note.id ? DS.primarySoft : .white)
+          }.padding(16).background(highlightedID == note.id ? DS.primarySoft : .white)
             .overlay(
               Rectangle().stroke(
-                !store.isPad && selected?.id == note.id ? DS.primary : .clear, lineWidth: 3
+                !store.isPad && highlightedID == note.id ? DS.primary : .clear, lineWidth: 3
               ).padding(-3))
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).accessibilityIdentifier("notes.row.\(note.id)")
+          .contextMenu { noteMenu(note) }
       }
     }
   }
-  @ViewBuilder private var detail: some View {
-    if let note = selected {
-      BCCard {
-        VStack(alignment: .leading, spacing: 0) {
-          HStack(alignment: .top, spacing: 12) {
-            NotesSticker(kind: note.kind, glyphSize: 18, size: 44)
-            VStack(alignment: .leading, spacing: 6) {
-              NotesBadge(title: note.kind.notesLabel + "笔记")
-              Text(note.title).font(DS.font(.cardTitle)).lineSpacing(5).fixedSize(
-                horizontal: false, vertical: true)
-              Text(
-                note.anchor.map { "第 \($0.printedPage ?? $0.page) 页" } ?? "本地学习笔记"
-              ).font(DS.font(.caption)).foregroundStyle(DS.muted).frame(minHeight: 18, alignment: .top)
-            }
-          }
-          if let provenance = note.provenance {
-            Text(provenance.sourceLabelText).font(DS.font(.caption)).foregroundStyle(DS.muted)
-              .padding(.top, 12)
-          }
-          if let quote = note.anchor?.quote, !quote.isEmpty {
-            NotesQuote(quote: quote).padding(.top, 20)
-          }
-          if let references = note.references, !references.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-              Text("引用来源").font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
-              ForEach(references, id: \.evidenceID) { reference in
-                Button {
-                  if ["attachment", "screenshot"].contains(reference.sourceType ?? ""), let path = reference.attachmentPath {
-                    referencePreviewURL = store.attachmentURL(path)
-                    return
-                  }
-                  let bookID =
-                    store.sources.contains(where: { $0.id == reference.bookID })
-                    ? reference.bookID : (note.anchor?.bookID ?? reference.bookID)
-                  let courseID = store.courses.contains(where: { $0.id == reference.courseID && $0.resourceIDs.contains(bookID) })
-                    ? reference.courseID : note.anchor?.courseID
-                  store.openSource(
-                    SourcePageTarget(
-                      bookID: bookID, title: note.title, page: reference.page,
-                      courseID: courseID, courseResourceID: store.courseResourceID(courseID: courseID, bookID: bookID),
-                      printedPage: reference.printedPage, from: .notes))
-                } label: {
-                  VStack(alignment: .leading, spacing: 6) {
-                    Text(["attachment", "screenshot"].contains(reference.sourceType ?? "")
-                      ? (reference.sourceType == "screenshot" ? "查看界面截图" : "查看会话附件") :
-                      reference.printedPage.map { "教材第 \($0) 页" }
-                        ?? "PDF 第 \(reference.page) 页"
-                    ).font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.secondary)
-                    NotesQuote(quote: reference.quote, textStyle: .supporting)
-                  }.frame(maxWidth: .infinity, alignment: .leading)
-                }.buttonStyle(.plain)
-                  .accessibilityIdentifier("notes.reference")
-              }
-            }.padding(.top, 20)
-          }
-          if let photos = note.photos, !photos.isEmpty {
-            ForEach(photos) { photo in
-              Button { referencePreviewURL = store.attachmentURL(photo.originalPath) } label: {
-                Label("查看照片原稿", systemImage: "photo").font(DS.font(.body))
-              }.padding(.top, 12).accessibilityIdentifier("notes.photo.original")
-            }
-          }
-          Text(preview(note)).font(DS.font(.reading)).lineSpacing(6).foregroundStyle(DS.secondary)
-            .textSelection(.enabled).padding(.top, 35).padding(.bottom, 36)
-          if note.kind != .voice, let organized = note.organizedText {
-            VStack(alignment: .leading, spacing: 7) {
-              Text("独立整理版").font(DS.font(.cardTitle)).foregroundStyle(DS.primary)
-              Text(organized).font(DS.font(.reading)).lineSpacing(5).textSelection(.enabled)
-            }.padding(13).frame(maxWidth: .infinity, alignment: .leading).background(
-              Color(hex: 0xf3f8ff), in: RoundedRectangle(cornerRadius: 14)
-            ).padding(.bottom, 16)
-          }
-          NotesPrimaryAction(
-            title: note.kind == .photo ? "打开照片笔记" : note.kind == .ink ? "回到教材批注" : note.kind == .voice ? "打开语音笔记" : "编辑笔记"
-          ) { reopen(note) }
-        }.padding(.bottom, 2).contextMenu {
-          Button("编辑笔记") { reopen(note) }
-          if let anchor = note.anchor {
-            Button("查看原文") {
-              store.openSource(
-                SourcePageTarget(
-                  bookID: anchor.bookID, title: note.title, page: anchor.page, courseID: anchor.courseID, courseResourceID: anchor.courseResourceID, from: .notes))
-            }
-          }
-          Button("删除笔记", role: .destructive) { deleting = note }
-        }
-      }.id(note.id)
+  @ViewBuilder private func noteMenu(_ note: StudyNote) -> some View {
+    Button("编辑笔记") { reopen(note) }
+    if let anchor = note.anchor {
+      Button("查看原文") {
+        store.openSource(
+          SourcePageTarget(
+            bookID: anchor.bookID, title: note.title, page: anchor.page,
+            courseID: anchor.courseID, courseResourceID: anchor.courseResourceID, from: .notes))
+      }
     }
+    if let references = note.references, !references.isEmpty {
+      Menu("引用来源") {
+        ForEach(Array(references.enumerated()), id: \.element.evidenceID) { index, reference in
+          Button("引用 \(index + 1) · \(reference.quote.prefix(40))") {
+            openReference(reference, note: note)
+          }.accessibilityIdentifier("notes.reference")
+        }
+      }
+    }
+    if let photos = note.photos {
+      ForEach(photos) { photo in
+        Button("查看照片原稿") { referencePreviewURL = store.attachmentURL(photo.originalPath) }
+          .accessibilityIdentifier("notes.photo.original")
+      }
+    }
+    Button("删除笔记", role: .destructive) { deleting = note }
+  }
+  private func openReference(_ reference: NoteReference, note: StudyNote) {
+    if ["attachment", "screenshot"].contains(reference.sourceType ?? ""), let path = reference.attachmentPath {
+      referencePreviewURL = store.attachmentURL(path)
+      return
+    }
+    let bookID = store.sources.contains(where: { $0.id == reference.bookID })
+      ? reference.bookID : (note.anchor?.bookID ?? reference.bookID)
+    let courseID = store.courses.contains(where: { $0.id == reference.courseID && $0.resourceIDs.contains(bookID) })
+      ? reference.courseID : note.anchor?.courseID
+    store.openSource(
+      SourcePageTarget(
+        bookID: bookID, title: note.title, page: reference.page,
+        courseID: courseID, courseResourceID: store.courseResourceID(courseID: courseID, bookID: bookID),
+        printedPage: reference.printedPage, from: .notes))
   }
   private func preview(_ note: StudyNote) -> String {
     if note.kind == .photo { return note.body.isEmpty ? "照片原稿已保存，点击打开后提取整理。" : note.body }
@@ -462,8 +493,9 @@ struct NotesPrimaryAction: View {
       }
       .foregroundStyle(secondary ? DS.text : .white)
       .buttonFrame(size ?? (secondary ? .regular : .primary), fillsWidth: true)
-      .background(secondary ? .white : DS.primary, in: Capsule()).overlay(
+      .background(secondary ? Color.white : .clear, in: Capsule()).overlay(
         Capsule().stroke(secondary ? Color(hex: 0xb4c3d9) : .clear))
+      .primaryCapsuleSurface(active: !secondary)
     }.buttonStyle(BCPressStyle())
   }
 }

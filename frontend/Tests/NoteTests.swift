@@ -40,11 +40,74 @@ final class NoteTests: XCTestCase {
     XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
       chapterID: "root", chapters: chapters).map(\.id), ["root", "section"])
     XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
-      chapterID: "section", chapters: chapters).map(\.id), ["section"])
+      chapterID: "section", chapters: chapters).map(\.id), ["root", "section"])
     XCTAssertTrue(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
       chapterID: nil, chapters: chapters).isEmpty)
     XCTAssertTrue(NotesChapterScope.notes(notes, courseID: "course", bookID: nil,
       chapterID: "root", chapters: chapters).isEmpty)
+  }
+
+  func testNotesOpenedFromNestedSectionIncludeEntireChapterAndKeepResourceIsolation() {
+    func chapter(_ id: String, parent: String? = nil, start: Int, end: Int) -> Chapter {
+      Chapter(chapter_id: id, level: parent == nil ? 1 : 2, source_title: id, ai_title: id,
+        page_start: start, page_end: end, confidence: 100, status: "ready", source: "server", parent_id: parent)
+    }
+    let chapters = [chapter("chapter", start: 1, end: 10),
+      chapter("first", parent: "chapter", start: 1, end: 4),
+      chapter("nested", parent: "first", start: 2, end: 3),
+      chapter("second", parent: "chapter", start: 5, end: 10),
+      chapter("other", start: 11, end: 20)]
+    func note(_ id: String, chapter: String?, page: Int, resource: String = "resource") -> StudyNote {
+      StudyNote(id: id, kind: .text, title: id, anchor: NoteAnchor(courseID: "course",
+        courseResourceID: resource, bookID: "book", chapterID: chapter, page: page))
+    }
+    let notes = [note("root", chapter: "chapter", page: 1),
+      note("nested", chapter: "nested", page: 2), note("sibling", chapter: "second", page: 6),
+      note("missing-chapter", chapter: nil, page: 7), note("retired", chapter: "old", page: 8),
+      note("other-chapter", chapter: "other", page: 11),
+      note("other-resource", chapter: "first", page: 2, resource: "another"),
+      note("outside", chapter: nil, page: 12)]
+    XCTAssertEqual(NotesChapterScope.chapterID(containing: "nested", chapters: chapters), "chapter")
+    XCTAssertEqual(NotesChapterScope.notes(notes, courseID: "course", bookID: "book",
+      chapterID: "nested", chapters: chapters, courseResourceID: "resource").map(\.id),
+      ["root", "nested", "sibling", "missing-chapter", "retired"])
+  }
+
+  func testNotesTimeOrderUsesCreationTimeInsteadOfLastEditAndBreaksTiesStably() {
+    func note(_ id: String, created: Double, updated: Double) -> StudyNote {
+      StudyNote(id: id, kind: .text, title: id,
+        createdAt: Date(timeIntervalSince1970: created), updatedAt: Date(timeIntervalSince1970: updated))
+    }
+    let notes = [note("old-edited", created: 1, updated: 100),
+      note("new-b", created: 3, updated: 3), note("middle", created: 2, updated: 2),
+      note("new-a", created: 3, updated: 4)]
+    XCTAssertEqual(NotesSortOrder.recordedAt.sorted(notes, chapters: []).map(\.id),
+      ["new-a", "new-b", "middle", "old-edited"])
+  }
+
+  func testNotesChapterOrderFollowsDirectoryThenPDFPageThenRecordingTime() {
+    func chapter(_ id: String, parent: String? = nil, start: Int, end: Int) -> Chapter {
+      Chapter(chapter_id: id, level: parent == nil ? 1 : 2, source_title: id, ai_title: id,
+        page_start: start, page_end: end, confidence: 100, status: "ready", source: "server", parent_id: parent)
+    }
+    // A child can be separated from its parent in a server's flat chapter array.
+    let chapters = [chapter("root", start: 1, end: 30),
+      chapter("section-z", parent: "root", start: 1, end: 10),
+      chapter("section-a", parent: "root", start: 11, end: 30),
+      chapter("nested", parent: "section-z", start: 2, end: 4)]
+    func note(_ id: String, chapter: String?, page: Int, created: Double) -> StudyNote {
+      StudyNote(id: id, kind: .text, title: id,
+        anchor: NoteAnchor(bookID: "book", chapterID: chapter, page: page, printedPage: 100 - page),
+        createdAt: Date(timeIntervalSince1970: created))
+    }
+    let notes = [note("last-page", chapter: "section-a", page: 20, created: 1),
+      note("same-page-newer", chapter: "section-a", page: 11, created: 3),
+      note("nested", chapter: "nested", page: 3, created: 5),
+      note("first-section", chapter: "section-z", page: 5, created: 6),
+      note("same-page-older", chapter: "section-a", page: 11, created: 2),
+      note("retired", chapter: "retired", page: 12, created: 4)]
+    XCTAssertEqual(NotesSortOrder.chapterOrder.sorted(notes, chapters: chapters).map(\.id),
+      ["first-section", "nested", "same-page-older", "same-page-newer", "retired", "last-page"])
   }
 
   func testNoteMediaAndCourseIdentitySurviveRepositoryReopen() async throws {

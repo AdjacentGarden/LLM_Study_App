@@ -61,7 +61,7 @@ final class CloudAccountUITests: XCTestCase {
     let page = app.staticTexts["lesson.page"].firstMatch
     XCTAssertTrue(page.waitForExistence(timeout: 15))
     for _ in 0..<12 {
-      if app.buttons["完成本节"].firstMatch.exists { break }
+      if app.buttons["lesson.takeTest"].exists { break }
       let previous = page.value as? String
       app.coordinate(withNormalizedOffset: CGVector(dx: 0.77, dy: 0.42)).press(forDuration: 0.08,
         thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.23, dy: 0.42)))
@@ -70,7 +70,9 @@ final class CloudAccountUITests: XCTestCase {
       }, object: nil)
       XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
     }
-    tap(app.buttons["完成本节"].firstMatch, app: app)
+    tap(app.buttons["lesson.takeTest"], app: app)
+    app.terminate()
+    app.launch()
     let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
       progress.exists && progress.value as? String != "0%"
     }, object: nil)

@@ -1046,7 +1046,6 @@ private struct NotesPDFPage: UIViewRepresentable {
 struct NotesRegionAIView: View {
   @Environment(AppStore.self) private var store
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
-  @State private var keyboardTop = CGFloat.greatestFiniteMagnitude
   let bookID: String
   let chapterID: String?
   let page: Int
@@ -1078,7 +1077,7 @@ struct NotesRegionAIView: View {
   private var isTextNote: Bool { note != nil }
   var body: some View {
     AssistantConversationPanel(isPad: store.isPad, voiceMode: voice.isVoiceMode,
-      keyboardTop: keyboardTop, dismissKeyboard: { keyboardDismissalID += 1 }) {
+      dismissKeyboard: { keyboardDismissalID += 1 }) {
       AssistantConversationHeader(title: isTextNote ? "批注 AI 对话" : "AI问") {
           HStack {
             Spacer()
@@ -1172,14 +1171,6 @@ struct NotesRegionAIView: View {
     }
     .ignoresSafeArea(.container, edges: .bottom)
     .ignoresSafeArea(.keyboard, edges: .bottom)
-    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
-      let top = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.minY
-        ?? .greatestFiniteMagnitude
-      withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardTop = top }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-      withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardTop = .greatestFiniteMagnitude }
-    }
     .confirmationDialog("添加附件", isPresented: $showingAttachmentChoices, titleVisibility: .visible) {
       Button("照片") { showingPhotos = true }
       Button("文件") { showingFiles = true }

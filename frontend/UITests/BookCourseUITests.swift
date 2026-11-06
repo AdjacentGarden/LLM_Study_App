@@ -41,6 +41,30 @@ final class BookCourseUITests: XCTestCase {
     }
   }
 
+  func testNotesUseFullWidthListAndRememberSortOrder() throws {
+    let app = launch("notes")
+    let row = app.buttons["notes.row.ink-demo-needs-confirmation"].firstMatch
+    XCTAssertTrue(row.waitForExistence(timeout: 20))
+    XCTAssertFalse(app.buttons["回到教材批注"].exists)
+    XCTAssertGreaterThan(row.frame.width, app.windows.firstMatch.frame.width * 0.8)
+    let sorting = app.buttons["notes.sort"].firstMatch
+    XCTAssertTrue(sorting.exists)
+    sorting.tap()
+    app.buttons["按章节顺序"].firstMatch.tap()
+    XCTAssertEqual(sorting.value as? String, "按章节顺序")
+    app.terminate()
+    app.launch()
+    XCTAssertTrue(sorting.waitForExistence(timeout: 20))
+    XCTAssertEqual(sorting.value as? String, "按章节顺序")
+    sorting.tap()
+    app.buttons["按记录时间"].firstMatch.tap()
+    XCTAssertEqual(sorting.value as? String, "按记录时间")
+    keepScreenshot("notes-full-width-list-and-sort", app: app)
+    row.tap()
+    XCTAssertTrue(app.descendants(matching: .any)["reader.page"].firstMatch.waitForExistence(timeout: 10))
+    keepScreenshot("notes-row-opens-original-page", app: app)
+  }
+
   func testTabsAndCourseLearningEntry() throws {
     let app = launch("home")
     let study = app.buttons["tab-study"]
@@ -1050,8 +1074,8 @@ final class BookCourseUITests: XCTestCase {
     let handwriting = reopened.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "手写")).firstMatch
     XCTAssertTrue(handwriting.exists)
     handwriting.tap()
-    let originalInk = reopened.buttons["回到教材批注"].firstMatch
-    XCTAssertTrue(originalInk.waitForExistence(timeout: 5))
+    XCTAssertFalse(reopened.buttons["回到教材批注"].exists)
+    XCTAssertTrue(reopened.buttons["notes.row.ink-demo-needs-confirmation"].firstMatch.exists)
     keepScreenshot("chapter-handwriting-note-is-visible", app: reopened)
     let export = reopened.buttons["notes.export"].firstMatch
     try reveal(export, in: reopened)

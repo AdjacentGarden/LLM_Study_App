@@ -17,6 +17,7 @@ enum DS {
   static let warning = Color(hex: 0x985014), danger = Color(hex: 0xb4233c),
     mint = Color(hex: 0x1e765d), orange = Color(hex: 0x985014)
   static let navigationRowHeight: CGFloat = 44
+  static let padRailCollapsedWidth: CGFloat = 117.3334
   // Align controls with the visible cap height of the navigation title.
   static let navigationButtonOffset: CGFloat = -4
   /// Button controls share two heights; tappable cards keep their content-driven layout.
@@ -205,7 +206,7 @@ struct BCButton: View {
       .background(
         enabled
           ? (style == .primary
-            ? DS.primary
+            ? Color.clear
             : style == .secondary ? Color.white : style == .danger ? Color(hex: 0xffedf0) : .clear)
           : Color(hex: 0xeef1f5), in: Capsule()
       )
@@ -215,6 +216,7 @@ struct BCButton: View {
             ? Color(hex: 0xb8c5d7) : style == .danger ? DS.danger.opacity(0.28) : .clear,
           lineWidth: 1)
       )
+      .primaryCapsuleSurface(active: style == .primary)
       .contentShape(Capsule())
     }.buttonStyle(BCPressStyle())
   }
@@ -439,6 +441,7 @@ struct BottomPanelLayer<Content: View>: View {
   let presentationID: String?
   var dimOpacity: Double = 0.46
   var presentationAnimation: Animation = DS.panelAnimation
+  var backdropLabel = "关闭弹层"
   let onDismiss: () -> Void
   @ViewBuilder var content: () -> Content
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
@@ -448,7 +451,7 @@ struct BottomPanelLayer<Content: View>: View {
       Color(hex: 0x20263a).opacity(presentationID == nil ? 0 : dimOpacity)
         .ignoresSafeArea()
         .contentShape(Rectangle()).onTapGesture(perform: onDismiss)
-        .accessibilityLabel("关闭弹层").accessibilityIdentifier("modal.backdrop")
+        .accessibilityLabel(backdropLabel).accessibilityIdentifier("modal.backdrop")
         .accessibilityHidden(presentationID == nil)
         .animation(
           reduceMotion ? nil : .easeInOut(duration: 0.20), value: presentationID != nil)

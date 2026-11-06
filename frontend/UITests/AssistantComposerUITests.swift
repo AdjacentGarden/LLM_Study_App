@@ -126,6 +126,17 @@ final class AssistantComposerUITests: XCTestCase {
     XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
     XCTAssertEqual(field.value as? String, editedDraft)
     XCTAssertFalse(app.descendants(matching: .any)["guide-user-message"].exists)
+    let restingFrame = field.frame
+    for _ in 0..<3 {
+      field.tap()
+      XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+      app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)).tap()
+      XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+      XCTAssertTrue(app.buttons["global-assistant-close"].exists)
+      XCTAssertTrue(field.isHittable)
+      XCTAssertEqual(field.frame.minY, restingFrame.minY, accuracy: 8)
+      XCTAssertEqual(field.value as? String, editedDraft)
+    }
   }
 
   func testTextMicSwitchMultilineKeyboardAndSend() {

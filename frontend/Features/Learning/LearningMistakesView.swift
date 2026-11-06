@@ -137,7 +137,7 @@ struct LearningMistakesView: View {
     } label: {
       Text(due > 0 ? "开始今日复习" : "再复习一轮").font(DS.font(.button))
         .foregroundStyle(.white).padding(.horizontal, DS.ButtonSize.primary.horizontalPadding).buttonFrame(.primary)
-        .background(DS.primary, in: Capsule())
+        .primaryCapsuleSurface()
     }.buttonStyle(.plain)
   }
 
@@ -388,13 +388,14 @@ struct LearningMistakesView: View {
                     Text(reason)
                   }
                   .font(DS.font(.caption, weight: .semibold)).buttonFrame(fillsWidth: true)
-                  .foregroundStyle(selectedReason == reason ? DS.primary : DS.secondary)
+                  .foregroundStyle(selectedReason == reason ? Color.white : DS.secondary)
                   .background(
-                    selectedReason == reason ? DS.primarySoft : DS.background, in: Capsule()
+                    selectedReason == reason ? Color.clear : DS.background, in: Capsule()
                   )
                   .overlay(
                     Capsule().stroke(
-                      selectedReason == reason ? DS.primary : DS.border, lineWidth: 1))
+                      selectedReason == reason ? Color.clear : DS.border, lineWidth: 1))
+                  .primaryCapsuleSurface(active: selectedReason == reason)
                 }.buttonStyle(.plain).accessibilityAddTraits(
                   selectedReason == reason ? .isSelected : [])
               }

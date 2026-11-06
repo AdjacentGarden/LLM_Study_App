@@ -216,7 +216,7 @@ private struct CommunityCourseTile: View {
       HStack(spacing: 4) {
         Spacer(minLength: 0)
         Text("进入").font(DS.font(.smallButton)).foregroundStyle(.white).padding(.horizontal, 12)
-          .frame(minWidth: 56).buttonFrame().background(DS.primary, in: Capsule())
+          .frame(minWidth: 56).buttonFrame().primaryCapsuleSurface()
       }
     }.padding(12)
   }
