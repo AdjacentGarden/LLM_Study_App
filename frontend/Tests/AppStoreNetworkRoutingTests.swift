@@ -859,7 +859,8 @@ extension AppStoreNetworkRoutingTests {
     XCTAssertTrue(store.draft.diagnosis.isEmpty)
     store.draft.diagnosis = ["goal": ["复习"]]
     await store.confirmCloudChapters()
-    try await store.beginLocalDiagnosis(chapterID: "ch", preview: true)
+    XCTAssertTrue(store.hasStudyContent, "Confirmation starts the initial lesson")
+    XCTAssertFalse(store.currentSource?.plan.tasks.isEmpty ?? true)
     try await store.saveNote(StudyNote(kind: .voice, title: "语音", anchor: NoteAnchor(courseID: course.id, bookID: "book-a", page: 1),
       transcript: "录音里的向量例子"))
     store.completeLesson()
@@ -881,5 +882,102 @@ extension AppStoreNetworkRoutingTests {
       bookIDs: Set(course.resourceIDs), limit: 8)
     XCTAssertEqual(Set(hits.hits.filter(\.reliable).map(\.chunk.book_id)), Set(course.resourceIDs))
     XCTAssertEqual(fixture.probe.requests.count, requestsBeforeSearch)
+  }
+}
+
+
+extension AppStoreNetworkRoutingTests {
+  private func materialDownloadsForConfirmation(groupID: String, bookID: String) throws -> [String: Data] {
+    let base = "/api/public/library/course-groups/" + groupID
+    var downloads: [String: Data] = [:]
+    let files = try [
+      ("pdf", Data(contentsOf: pdf())),
+      ("ocr_pages", Data("{\"page_number\":1,\"text\":\"向量有大小和方向\"}".utf8)),
+      ("diagnostics", Data("{\"items\":[]}".utf8)),
+      ("grading", Data("{\"items\":[]}".utf8)),
+    ].map { kind, bytes in
+      let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+      let path = base + "/assets/" + hash
+      downloads[path] = bytes
+      return PublicMaterialFile(asset_id: kind, kind: kind, sha256: hash, bytes: bytes.count,
+        media_type: kind == "pdf" ? "application/pdf" : "application/json", download_url: path)
+    }
+    let chapter = CloudChapter(chapter_id: "new-chapter", order: 1, title: "向量", start_page: 1,
+      end_page: 1, summary: "", knowledge_points: [], source_block_ids: [])
+    let book = PublicMaterialBook(book_id: bookID, title: "新教材", content_version: "v1",
+      structure: CloudStructure(title: "新教材", summary: "", source_page_count: 1, chapters: [chapter]),
+      files: files, figures: [])
+    downloads[base + "/manifest"] = try JSONEncoder().encode(PublicMaterialManifest(schema_version: 1,
+      group_id: groupID, title: "新教材", description: "", version: "v1", books: [book]))
+    return downloads
+  }
+
+  func testBackgroundMaterialDownloadPreservesCurrentCourseAndDraft() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let store = fixture.store
+    var active = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+    active.summary.book_id = "active-book"
+    store.cloudState.privateLocalMode = true
+    store.courses = [Course(id: "active-course", name: "正在设置的课程", resourceIDs: [active.id])]
+    store.sources = [active]
+    store.selectedCourseID = "active-course"
+    store.selectedBookID = active.id
+    store.route = .courseSetup
+    var draft = CourseDraft(name: "正在设置的课程", resourceIDs: [active.id])
+    draft.importCourseID = "active-course"; draft.step = 5; draft.diagnosis = ["goal": ["复习"]]
+    store.draft = draft
+    let downloads = try materialDownloadsForConfirmation(groupID: "background_group", bookID: "new-book")
+    fixture.probe.respond { request in
+      guard let bytes = downloads[request.url!.path] else { throw URLError(.unsupportedURL) }
+      return (200, bytes)
+    }
+    let created = try await store.acquirePublicCourseGroup(catalogID: "background_group",
+      name: "新教材", navigateAfterDownload: false)
+    XCTAssertEqual(store.selectedCourseID, "active-course")
+    XCTAssertEqual(store.selectedBookID, active.id)
+    XCTAssertEqual(store.route, .courseSetup)
+    XCTAssertEqual(store.draft, draft)
+    XCTAssertEqual(store.currentSource?.lessons, active.lessons)
+    XCTAssertEqual(store.cloudState.localCourseSources[created.id]?.first?.id, "new-book")
+  }
+
+  func testInterruptedAttachedDownloadResumesIntoSameUploadCourse() async throws {
+    let fixture = try NetworkRoutingFixture(network: .wifi)
+    defer { fixture.close() }
+    let store = fixture.store
+    var active = try XCTUnwrap(ContentBundle.load([SourceContent].self, name: "sources").first)
+    active.summary.book_id = "new-book"
+    store.cloudState.privateLocalMode = true
+    store.courses = [Course(id: "upload-course", name: "已上传的课程", resourceIDs: [active.id])]
+    store.sources = [active]; store.selectedCourseID = "upload-course"; store.selectedBookID = active.id
+    var draft = CourseDraft(name: "已上传的课程", resourceIDs: [active.id])
+    draft.importCourseID = "upload-course"; draft.step = 5
+    store.draft = draft
+    fixture.probe.respond { _ in (422, Data("{\"detail\":\"暂时无法取得资料清单\"}".utf8)) }
+    do {
+      _ = try await store.acquirePublicCourseGroup(catalogID: "resume_group", name: "已上传的课程",
+        attachToCourseID: "upload-course", navigateAfterDownload: false)
+      XCTFail("The interrupted request must stay recoverable")
+    } catch { XCTAssertEqual((error as? CloudError)?.status, 422) }
+    let scope = try XCTUnwrap(store.noteScope)
+    let before = try await store.repository.publicLibraryTasks(scope: scope)
+    XCTAssertEqual(before.count, 1)
+    XCTAssertEqual(before.first?.attachmentCourseID, "upload-course")
+    let downloads = try materialDownloadsForConfirmation(groupID: "resume_group", bookID: "new-book")
+    fixture.probe.respond { request in
+      guard let bytes = downloads[request.url!.path] else { throw URLError(.unsupportedURL) }
+      return (200, bytes)
+    }
+    await store.resumePublicLibraryTasks()
+    let after = try await store.repository.publicLibraryTasks(scope: scope)
+    XCTAssertEqual(after.count, 1)
+    XCTAssertEqual(after.first?.id, before.first?.id)
+    XCTAssertEqual(after.first?.state, "completed")
+    XCTAssertEqual(after.first?.courseID, "upload-course")
+    XCTAssertEqual(store.courses.count, 1)
+    XCTAssertEqual(store.selectedCourseID, "upload-course")
+    XCTAssertEqual(store.draft, draft)
+    XCTAssertEqual(store.currentSource?.lessons, active.lessons)
   }
 }

@@ -578,8 +578,8 @@ struct ReaderOrigin: Sendable {
     importState.preparationServices[key] = service
     return service
   }
-  func finishCourseImportSetup() {
-    guard let id = selectedCourseID, let record = courseImport(for: id) else { return }
+  func finishCourseImportSetup(courseID: String? = nil) {
+    guard let id = courseID ?? selectedCourseID, let record = courseImport(for: id) else { return }
     updateCourseImport(record.id) { $0.setupCompleted = true }
   }
 }

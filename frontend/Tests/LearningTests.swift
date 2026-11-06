@@ -665,6 +665,78 @@ final class LearningTests: XCTestCase {
     return (store, session)
   }
 
+
+  private func prepareConfirmation(_ store: AppStore) {
+    var value = CourseDraft(name: "已上传的课程", resourceIDs: ["chapter-entry-book"])
+    value.importCourseID = "chapter-course"
+    value.diagnosis = ["goal": ["复习"]]
+    value.parseCompleted = true
+    value.step = 5
+    store.draft = value
+    store.importState.courses = [CourseImportRecord(id: "chapter-course", draft: value,
+      books: [CourseImportBook(id: "chapter-entry-book", status: .completed, progress: 1, message: "资料整理完成")],
+      job: ImportJob(bookIDs: ["chapter-entry-book"], status: .completed, progress: 1, message: "资料整理完成"),
+      setupCompleted: false)]
+    store.cloudState.localDiagnostics = [:]
+  }
+
+  func testConfirmationButtonStartsLectureAndPlanForUploadedCourse() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    prepareConfirmation(store)
+    store.confirmChapters()
+    let deadline = ContinuousClock.now + .seconds(5)
+    while ContinuousClock.now < deadline {
+      if store.hasStudyContent, store.cloudState.localLearningOwner == nil,
+        !(store.currentSource?.plan.tasks.isEmpty ?? true) { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertFalse(store.currentSource?.plan.tasks.isEmpty ?? true)
+    XCTAssertEqual(store.courses.first?.diagnosis, ["goal": ["复习"]])
+    XCTAssertEqual(store.courseImport(for: "chapter-course")?.setupCompleted, true)
+    XCTAssertEqual(store.selectedCourseID, "chapter-course")
+    XCTAssertTrue(store.draft.resourceIDs.isEmpty)
+    let saved = try await store.repository.loadPersonalState(scope: try XCTUnwrap(store.noteScope))
+    XCTAssertFalse(saved?.courseSources["chapter-course"]?.first?.lessons.isEmpty ?? true)
+  }
+
+  func testPreviewResumesFailedPlanWithoutGeneratingLectureAgain() async throws {
+    let (store, session) = try await contractStore(mode: "invalid-plan-first")
+    defer { session.invalidateAndCancel() }
+    prepareConfirmation(store)
+    await store.confirmCloudChapters()
+    XCTAssertTrue(store.hasStudyContent)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan"])
+    let sessionID = try XCTUnwrap(store.cloudState.localDiagnostics.values.first?.id)
+    try await store.beginLocalDiagnosis(chapterID: "first", preview: true)
+    XCTAssertEqual(LocalCourseContractProtocol.operations(), ["lecture", "plan", "plan"])
+    XCTAssertEqual(store.cloudState.localDiagnostics.count, 1)
+    XCTAssertEqual(store.cloudState.localDiagnostics.values.first?.id, sessionID)
+    XCTAssertFalse(store.currentSource?.plan.tasks.isEmpty ?? true)
+  }
+
+  func testCachedPublicMaterialAttachesToRequestedCourse() async throws {
+    let (store, session) = try await contractStore(mode: "valid")
+    defer { session.invalidateAndCancel() }
+    let scope = try XCTUnwrap(store.noteScope)
+    let material = try XCTUnwrap(store.currentSource)
+    store.courses.append(Course(id: "cached-course", name: "已下载课程", resourceIDs: [material.id]))
+    store.cloudState.localCourseSources["cached-course"] = [material]
+    try await store.repository.saveMaterialRecord(LocalMaterialRecord(groupID: "cached-group", version: "v1",
+      bookID: material.id, files: [:], figurePaths: [:], source: material, diagnostics: [], grading: []), scope: scope)
+    try await store.repository.savePublicLibraryTask(PublicLibraryTask(id: "download_other", kind: "download",
+      groupID: "cached-group", title: "教材", bookIDs: [material.id], state: "completed", courseID: "cached-course"), scope: scope)
+    let course = try await store.acquirePublicCourseGroup(catalogID: "cached-group", name: "教材", attachToCourseID: "chapter-course")
+    XCTAssertEqual(course.id, "chapter-course")
+    XCTAssertEqual(store.selectedCourseID, "chapter-course")
+    XCTAssertEqual(store.cloudState.localCourseSources["chapter-course"]?.first?.chunks, material.chunks)
+    let receipts = try await store.repository.publicLibraryTasks(scope: scope)
+    XCTAssertTrue(receipts.contains { $0.courseID == "chapter-course" && $0.state == "completed" })
+    XCTAssertTrue(LocalCourseContractProtocol.operations().isEmpty)
+  }
+
   func testTypedLectureContractGeneratesContentAndPlanWithoutServerJob() async throws {
     let (store, session) = try await contractStore(mode: "valid")
     defer { session.invalidateAndCancel() }
@@ -1020,7 +1092,12 @@ private final class LocalCourseContractProtocol: URLProtocol, @unchecked Sendabl
         let citation: [String: Any] = ["page_number": 1,
           "quote": selectedMode == "nonexact-quote" ? "原子由原子核和核外电子组成。" : "原子由原子核和核外电子构成。"]
         let section: [String: Any] = ["title": "原子结构", "content": "原子由原子核和核外电子构成。", "purpose": "explanation", "kind": "explanation", "point_id": "p1", "citations": [citation]]
-        let courseID = "local-lecture:contract-session"
+        var input: [String: JSONValue] = [:]
+        if case .array(let messages)? = values["messages"],
+          case .object(let last)? = messages.last, let text = last["content"]?.stringValue {
+          input = try JSONDecoder().decode([String: JSONValue].self, from: Data(text.utf8))
+        }
+        let courseID = input["publication_id"]?.stringValue ?? input["lesson_id"]?.stringValue ?? "local-lecture:contract-session"
         let output: [String: Any]
         if operation == "lecture" {
           var course: [String: Any] = ["course_id": courseID, "version": 1, "chapter_id": "first", "chapter_title": "原子结构",

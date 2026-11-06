@@ -141,10 +141,14 @@ extension LocalBookCourseRepository {
 
   /// A course is created only after every required file has a verified durable copy.
   /// On retry completed content hashes are reused; an interrupted file is downloaded afresh.
-  func acquirePublicCourseGroup(catalogID: String, name: String, attachToCourseID: String? = nil) async throws -> Course {
+  func acquirePublicCourseGroup(catalogID: String, name: String, attachToCourseID: String? = nil,
+    navigateAfterDownload: Bool = true) async throws -> Course {
     guard cloudState.privateLocalMode, let cloud, let scope = noteScope else {
       throw ContentError.invalid("服务尚未启用本机学习模式，请更新服务后重试")
     }
+    try await ensureCourseDeletionState(scope: scope)
+    if let targetID = attachToCourseID,
+      !canApplyCourseMutation(courseID: targetID, scope: scope) { throw CancellationError() }
     guard !catalogID.isEmpty, catalogID.utf8.count <= 150,
       catalogID.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 || $0 == 95 }) else {
       throw ContentError.invalid("公开课程标识无效")
@@ -158,14 +162,31 @@ extension LocalBookCourseRepository {
       let course = courses.first(where: { $0.id == finished.courseID }) {
       let epoch = cloudState.epoch
       let records = try await repository.loadMaterialRecords(scope: scope)
+      let targetID = attachToCourseID ?? course.id
       guard epoch == cloudState.epoch, scope == noteScope,
-        canApplyCourseMutation(courseID: course.id, scope: scope) else { throw CancellationError() }
-      installDownloadedMaterials(records.filter { course.resourceIDs.contains($0.bookID) }, courseID: course.id)
-      try await persistPrivateState()
-      return course
+        let target = courses.first(where: { $0.id == targetID }),
+        canApplyCourseMutation(courseID: targetID, scope: scope) else { throw CancellationError() }
+      let required = Set(finished.bookIDs).intersection(target.resourceIDs)
+      let materials = records.filter { required.contains($0.bookID) }
+      let filesPresent = materials.allSatisfy { record in
+        (Array(record.files.values) + Array(record.figurePaths.values)).allSatisfy {
+          FileManager.default.fileExists(atPath: repository.directory.appendingPathComponent($0).path)
+        }
+      }
+      if !required.isEmpty, Set(materials.map(\.bookID)) == required, filesPresent {
+        installDownloadedMaterials(materials, courseID: targetID)
+        try await persistPrivateState()
+        if targetID != finished.courseID {
+          try await repository.savePublicLibraryTask(PublicLibraryTask(
+            id: "download_" + UUID().uuidString, kind: "download", groupID: catalogID,
+            title: name, bookIDs: materials.map(\.bookID), state: "completed", courseID: targetID), scope: scope)
+        }
+        return target
+      }
     }
-    var task = priorTasks.first(where: { $0.kind == "download" && $0.groupID == catalogID && $0.state != "completed" })
+    var task = priorTasks.first(where: { $0.kind == "download" && $0.groupID == catalogID && $0.state != "completed" && $0.attachmentCourseID == attachToCourseID })
       ?? PublicLibraryTask(id: "download_" + UUID().uuidString, kind: "download", groupID: catalogID, title: name, bookIDs: [], state: "pending")
+    task.attachmentCourseID = attachToCourseID
     try await repository.savePublicLibraryTask(task, scope: scope)
     let epoch = cloudState.epoch
     let manifest: PublicMaterialManifest = try await cloud.request("/api/public/library/course-groups/\(catalogID)/manifest")
@@ -248,42 +269,45 @@ extension LocalBookCourseRepository {
     guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
     for record in records {
       try await repository.saveMaterialRecord(record, scope: scope)
-      if let i = sources.firstIndex(where: { $0.id == record.bookID }) {
-        if attachToCourseID != nil {
-          sources[i] = record.enriching(sources[i])
-        } else { sources[i] = record.source }
-      } else { sources.append(record.source) }
+      guard epoch == cloudState.epoch, scope == noteScope else { throw CancellationError() }
       filePaths[record.bookID] = record.files["pdf"]
     }
     let ids = records.map(\.bookID)
     let courseID = attachToCourseID ?? "local-course:" + task.id
-    let course = Course(id: courseID, name: name.isEmpty ? manifest.title : name, resourceIDs: ids,
-      courseResourceIDs: Dictionary(uniqueKeysWithValues: ids.map { ($0, courseID + ":" + $0) }), activeResourceID: ids.first)
+    if let attachToCourseID,
+      !canApplyCourseMutation(courseID: attachToCourseID, scope: scope) { throw CancellationError() }
+    guard !cloudState.localDeletedCourseIDs.contains(courseID) else { throw CancellationError() }
+    let course = courses.first(where: { $0.id == courseID })
+      ?? Course(id: courseID, name: name.isEmpty ? manifest.title : name, resourceIDs: ids,
+        courseResourceIDs: Dictionary(uniqueKeysWithValues: ids.map { ($0, courseID + ":" + $0) }), activeResourceID: ids.first)
     if !courses.contains(where: { $0.id == course.id }) { courses.append(course) }
-    if let attachToCourseID {
-      // Enrich uploaded local materials without resetting the owner's questionnaire or navigating.
-      installDownloadedMaterials(records, courseID: attachToCourseID)
+    installDownloadedMaterials(records, courseID: courseID)
+    if attachToCourseID != nil {
       try await persistPrivateState()
-      task.state = "completed"; task.courseID = attachToCourseID; task.bookIDs = ids
+      task.state = "completed"; task.courseID = courseID; task.bookIDs = ids
       try await repository.savePublicLibraryTask(task, scope: scope)
-      return courses.first(where: { $0.id == attachToCourseID }) ?? course
+      return course
     }
-    selectedCourseID = course.id
-    selectedBookID = ids.first
-    draft = CourseDraft(name: course.name, resourceIDs: ids)
-    draft.importCourseID = course.id
-    draft.parseCompleted = true
-    draft.diagnosis = [:]
+    var downloadedDraft = CourseDraft(name: course.name, resourceIDs: ids)
+    downloadedDraft.importCourseID = course.id
+    downloadedDraft.parseCompleted = true
+    downloadedDraft.diagnosis = [:]
     if !importState.courses.contains(where: { $0.id == course.id }) {
-      importState.courses.append(CourseImportRecord(id: course.id, draft: draft,
+      importState.courses.append(CourseImportRecord(id: course.id, draft: downloadedDraft,
         books: ids.map { CourseImportBook(id: $0, status: .completed, progress: 1, message: "教材已下载") },
         job: ImportJob(bookIDs: ids, status: .completed, progress: 1, message: "教材已下载"), setupCompleted: false))
     }
-    retainPendingCourseDraft()
+    if navigateAfterDownload {
+      selectedCourseID = course.id
+      selectedBookID = ids.first
+      installLocalCourseContent(course.id)
+      draft = downloadedDraft
+      retainPendingCourseDraft()
+    }
     try await persistPrivateState()
     task.state = "completed"; task.courseID = course.id; task.bookIDs = ids
     try await repository.savePublicLibraryTask(task, scope: scope)
-    go(.courseSetup)
+    if navigateAfterDownload { go(.courseSetup) }
     return course
   }
 
@@ -317,6 +341,7 @@ struct PublicLibraryTask: Codable, Sendable {
   var bookIDs: [String]
   var state: String
   var courseID: String?
+  var attachmentCourseID: String? = nil
 }
 extension LocalBookCourseRepository {
   func publicLibraryTasks(scope: String) throws -> [PublicLibraryTask] {
@@ -347,10 +372,18 @@ extension LocalBookCourseRepository {
         if task.kind == "publish" {
           if task.state == "registered", let cloud {
             let group: PublicCourseGroup = try await cloud.request("/api/public/library/course-groups/" + task.groupID)
-            if group.status == "ready", let id = task.courseID { _ = try await acquirePublicCourseGroup(catalogID: group.id, name: task.title, attachToCourseID: id) }
+            if group.status == "ready", let id = task.courseID,
+              courses.contains(where: { $0.id == id }) {
+              _ = try await acquirePublicCourseGroup(catalogID: group.id, name: task.title,
+                attachToCourseID: id, navigateAfterDownload: false)
+            }
           } else { try await queuePublicCoursePublication(title: task.title, bookIDs: task.bookIDs, courseID: task.courseID) }
         }
-        else { _ = try await acquirePublicCourseGroup(catalogID: task.groupID, name: task.title) }
+        else {
+          if let id = task.attachmentCourseID, !courses.contains(where: { $0.id == id }) { continue }
+          _ = try await acquirePublicCourseGroup(catalogID: task.groupID, name: task.title,
+            attachToCourseID: task.attachmentCourseID, navigateAfterDownload: false)
+        }
       } catch { cloudState.syncError = "资料下载或公开整理可重试：" + error.localizedDescription }
     }
     // A process may stop after upload receipts were accepted but before registration.

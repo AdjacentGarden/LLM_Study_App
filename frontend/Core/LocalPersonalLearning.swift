@@ -338,8 +338,9 @@ extension LocalBookCourseRepository {
     guard epoch == cloudState.epoch, canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
     if let existing = cloudState.localDiagnostics.values.first(where: { session in
       session.courseID == courseID && session.bookID == bookID && session.chapterID == chapter
-        && ((!preview && session.position < session.items.count) || jobs.contains {
-          $0.id == "lecture_" + AgentDigest.sha256(session.id) && ["submitted", "submitting", "uncertain", "retryable", "failed"].contains($0.state)
+        && ((!preview && session.position < session.items.count) || jobs.contains { job in
+          ["lecture_", "plan_"].contains(where: { prefix in job.id == prefix + AgentDigest.sha256(session.id) })
+            && ["submitted", "submitting", "uncertain", "retryable", "failed"].contains(job.state)
         })
     }) {
       cloudState.requestedChapterID = chapter

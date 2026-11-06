@@ -519,11 +519,13 @@ extension AppStore {
     await processImport(retryPreparation: retryPreparation)
   }
 
-  func saveCloudCourse(name: String, resourceIDs: [String], diagnosis: [String: [String]])
-    async throws
+  func saveCloudCourse(name: String, resourceIDs: [String], diagnosis: [String: [String]],
+    courseID: String? = nil) async throws
   {
     guard cloudState.privateLocalMode else { throw ContentError.invalid("本机课程尚未就绪，请重试连接") }
-    if let id = draft.editingCourseID ?? draft.importCourseID, let index = courses.firstIndex(where: { $0.id == id }) {
+    if let courseID, !courses.contains(where: { $0.id == courseID }) { throw CancellationError() }
+    if let id = courseID ?? draft.editingCourseID ?? draft.importCourseID,
+      let index = courses.firstIndex(where: { $0.id == id }) {
       courses[index].name = name.isEmpty ? "我的课程" : name
       courses[index].resourceIDs = resourceIDs
       courses[index].diagnosis = diagnosis
@@ -542,15 +544,55 @@ extension AppStore {
 
   func confirmCloudChapters() async {
     if cloudState.privateLocalMode {
+      guard !cloudState.isWorking, cloudState.localLearningOwner == nil else {
+        showExistingChapterPreparation()
+        return
+      }
+      let confirmed = draft
+      guard let scope = noteScope,
+        let courseID = confirmed.editingCourseID ?? confirmed.importCourseID,
+        selectedCourseID == courseID, let bookID = confirmed.resourceIDs.first else {
+        handleCloudError(ContentError.invalid("请重新打开当前课程设置后确认"))
+        return
+      }
+      let edits = chapterDrafts
+      let epoch = cloudState.epoch
       do {
-        try await saveCloudCourse(name: draft.name, resourceIDs: draft.resourceIDs, diagnosis: draft.diagnosis)
-        for bookID in draft.resourceIDs {
-          if let chapters = chapterDrafts[bookID], let index = sources.firstIndex(where: { $0.id == bookID }) { sources[index].chapters = chapters }
-          chapterDrafts.removeValue(forKey: bookID)
+        try await withLocalCourseLearning(courseID: courseID, scope: scope) {
+          guard self.selectedCourseID == courseID,
+            (self.draft.editingCourseID ?? self.draft.importCourseID) == courseID else { throw CancellationError() }
+          try await self.saveCloudCourse(name: confirmed.name, resourceIDs: confirmed.resourceIDs,
+            diagnosis: confirmed.diagnosis, courseID: courseID)
+          for id in confirmed.resourceIDs {
+            if let chapters = edits[id],
+              var source = self.cloudState.localCourseSources[courseID]?.first(where: { $0.id == id })
+                ?? self.sources.first(where: { $0.id == id }) {
+              source.chapters = chapters
+              self.installGeneratedLocalSource(source, courseID: courseID)
+            }
+            if self.chapterDrafts[id] == edits[id] { self.chapterDrafts.removeValue(forKey: id) }
+          }
+          guard self.selectedCourseID == courseID, self.selectedBookID == bookID,
+            let chapter = self.currentSource?.chapters.first else {
+            throw ContentError.invalid("首份教材目录尚未就绪，请继续整理资料")
+          }
+          self.finishCourseImportSetup(courseID: courseID)
+          try await self.persistPrivateState()
+          guard self.noteScope == scope, self.cloudState.epoch == epoch,
+            self.selectedCourseID == courseID, self.selectedBookID == bookID,
+            (self.draft.editingCourseID ?? self.draft.importCourseID) == courseID,
+            self.canApplyCourseMutation(courseID: courseID, scope: scope) else { throw CancellationError() }
+          self.draft = CourseDraft()
+          self.go(.study)
+          if let lesson = self.lessons.first(where: {
+            $0.chapter_id == chapter.id && ["ready", "generated"].contains($0.status)
+          }), self.currentSource?.plan.tasks.contains(where: { $0.chapter_id == chapter.id }) == true {
+            self.openLesson(lesson)
+          } else {
+            // Confirmation itself starts the first explanatory chapter and its plan.
+            try await self.beginLocalDiagnosis(chapterID: chapter.id, preview: true)
+          }
         }
-        finishCourseImportSetup()
-        try await persistPrivateState()
-        draft = CourseDraft(); go(.study)
       } catch { handleCloudError(error) }
       return
     }

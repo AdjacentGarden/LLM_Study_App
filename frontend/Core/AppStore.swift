@@ -958,7 +958,7 @@ import UIKit
     persist()
   }
   func confirmChapters() {
-    if cloud != nil && !cloudState.privateLocalMode {
+    if cloud != nil {
       Task { await confirmCloudChapters() }
       return
     }
