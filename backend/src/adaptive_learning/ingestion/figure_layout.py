@@ -70,10 +70,14 @@ def layout_capabilities() -> dict[str, Any]:
         environment = dict(os.environ)
         environment.pop("PYTHONPATH", None)
         environment.pop("PYTHONHOME", None)
-        check = subprocess.run([str(python), "-c", "import onnxruntime,numpy,cv2,pymupdf,PIL"],
-            env=environment, capture_output=True, timeout=10, check=False)
+        check = subprocess.run([str(python), "-c",
+            "import onnxruntime,numpy,cv2,pymupdf,PIL;print(','.join(onnxruntime.get_available_providers()))"],
+            env=environment, capture_output=True, timeout=10, check=False, text=True)
         if check.returncode:
             raise RuntimeError("layout_dependencies_unavailable")
+        providers = set(check.stdout.strip().split(","))
+        value["provider"] = ("CUDAExecutionProvider" if "CUDAExecutionProvider" in providers
+                             else "CPUExecutionProvider")
         value.update(available=True, status="ready")
     except (RuntimeError, OSError, subprocess.SubprocessError) as error:
         value.update(status="unavailable", reason=str(error) if isinstance(error, RuntimeError) else "layout_runtime_unavailable")
@@ -209,15 +213,24 @@ def run_layout(source: Path, output: Path, model_dir: Path) -> dict[str, Any]:
     if file_digest(model_dir / "inference.onnx") != MODEL_SHA256:
         raise ValueError("layout_model_checksum_mismatch")
     options = ort.SessionOptions()
-    options.intra_op_num_threads = 2
-    options.inter_op_num_threads = 1
-    session = ort.InferenceSession(str(model_dir / "inference.onnx"), sess_options=options, providers=["CPUExecutionProvider"])
+    force_cpu = os.getenv("FIGURE_LAYOUT_FORCE_CPU", "").strip().lower() in {"1", "true", "yes", "on"}
+    available_providers = set(ort.get_available_providers())
+    providers = ["CPUExecutionProvider"]
+    if not force_cpu and "CUDAExecutionProvider" in available_providers:
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    if providers[0] == "CUDAExecutionProvider":
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
+    else:
+        options.intra_op_num_threads = 2
+        options.inter_op_num_threads = 1
+    session = ort.InferenceSession(str(model_dir / "inference.onnx"), sess_options=options, providers=providers)
     if {item.name for item in session.get_inputs()} != {"image", "im_shape", "scale_factor"}:
         raise ValueError("layout_input_contract_mismatch")
     if any(item.type != "tensor(float)" for item in session.get_inputs()):
         raise ValueError("layout_input_dtype_mismatch")
     source_sha256 = file_digest(source)
-    baseline: dict[str, Any] = {"threshold": 0.5, "pages": []}
+    baseline: dict[str, Any] = {"threshold": 0.5, "provider": session.get_providers()[0], "pages": []}
     failures: list[dict[str, Any]] = []
     # First pass retains only detections. No crops are saved until filtering all pages.
     with pymupdf.open(source) as document:
