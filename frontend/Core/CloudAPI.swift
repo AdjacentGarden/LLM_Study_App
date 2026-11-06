@@ -92,11 +92,32 @@ private final class CoverRedirectPolicy: NSObject, URLSessionTaskDelegate, @unch
   }
 }
 
-/// A separate credential jar per backend origin; credentials never enter SQLite snapshots.
+
+struct CloudBackendMigration: Sendable {
+  let id: String
+  let publicURL: URL
+  let legacyOrigins: [URL]
+  var bindingKey: String { "cloudpath.data-origin." + id }
+  func accepts(_ url: URL) -> Bool {
+    let origin = CloudAPI.normalizedURL(url).absoluteString
+    return ([publicURL] + legacyOrigins).contains {
+      CloudAPI.normalizedURL($0).absoluteString == origin
+    }
+  }
+}
+
+/// Credentials remain in Keychain; a verified backend relocation retains its local data origin.
 actor CloudAPI {
-  // The shipped Mac simulator reaches the 4090 through its direct SSH forward.
-  // Device deployments can supply a reachable HTTP URL through the launch/build configuration.
-  nonisolated static let defaultServer = "http://127.0.0.1:18100"
+  // iPhone and simulator use the Germany HTTPS entry connected to the same 4090 API.
+  nonisolated static let defaultServer = "https://213.145.87.189:18443"
+  nonisolated static var mainBackendMigration: CloudBackendMigration {
+    CloudBackendMigration(id: "main4090", publicURL: URL(string: defaultServer)!,
+      legacyOrigins: [
+        "http://zhenghangdemacbook-air.local:18102", "http://192.168.28.244:18102",
+        "http://172.20.10.2:18102", "http://127.0.0.1:18100", "http://localhost:18100",
+        "http://127.0.0.1:18102", "http://localhost:18102",
+      ].map { URL(string: $0)! })
+  }
   nonisolated let legacyPrivateSyncEnabled: Bool
   nonisolated let baseURL: URL
   nonisolated var prefersLocalLogin: Bool {
@@ -105,22 +126,51 @@ actor CloudAPI {
   private let session: URLSession
   nonisolated let usesNativeBackgroundUploads: Bool
   private var cookies: [String: String]
+  private var identityCredentialKey: String?
+  private let dataOriginBindingKey: String?
+  nonisolated let cacheIdentityOrigin: String
   nonisolated let cacheOrigins: [String]
   private let credentialKeys: [String]
   private let credentialKey: String
   private let coverCache = NSCache<NSString, NSData>()
 
-  init(baseURL: URL, session: URLSession? = nil, legacyPrivateSyncEnabled: Bool = false) {
+  init(baseURL: URL, session: URLSession? = nil, legacyPrivateSyncEnabled: Bool = false,
+    migration: CloudBackendMigration? = nil) {
     self.legacyPrivateSyncEnabled = legacyPrivateSyncEnabled
     usesNativeBackgroundUploads = session == nil
-    let normalized = Self.normalizedURL(baseURL)
+    let proposal = migration ?? (session == nil ? Self.mainBackendMigration : nil)
+    let active = proposal.flatMap { $0.accepts(baseURL) ? $0 : nil }
+    let normalized = Self.normalizedURL(active?.publicURL ?? baseURL)
     self.baseURL = normalized
-    cacheOrigins = Self.compatibleOrigins(baseURL)
-    credentialKeys = cacheOrigins.map(Self.credentialKeyForOrigin)
+    var origins = Self.compatibleOrigins(normalized)
+    for legacy in active?.legacyOrigins ?? [] {
+      for origin in Self.compatibleOrigins(legacy) where !origins.contains(origin) { origins.append(origin) }
+    }
+    cacheOrigins = origins
+    credentialKeys = origins.map(Self.credentialKeyForOrigin)
     credentialKey = Self.credentialKeyForOrigin(normalized.absoluteString)
-    if let data = credentialKeys.compactMap({ Self.readCredential($0) }).first {
-      cookies = (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
-    } else { cookies = [:] }
+    dataOriginBindingKey = active?.bindingKey
+    var loaded: (String, [String: String])?
+    for key in credentialKeys {
+      if let data = Self.readCredential(key), let value = try? JSONDecoder().decode([String: String].self, from: data),
+        !value.isEmpty { loaded = (key, value); break }
+    }
+    cookies = loaded?.1 ?? [:]
+    identityCredentialKey = loaded?.0
+    if let key = active?.bindingKey, let data = Self.readCredential(key),
+      let value = String(data: data, encoding: .utf8), let saved = Self.validatedURL(value) {
+      cacheIdentityOrigin = saved.absoluteString
+    } else if let legacy = active?.legacyOrigins.first(where: {
+      for origin in Self.compatibleOrigins($0) {
+        let key = Self.credentialKeyForOrigin(origin)
+        if let data = Self.readCredential(key), let jar = try? JSONDecoder().decode([String: String].self, from: data),
+          jar["zhiwo_account"] != nil, let identity = Self.readCredential(key + ".identity"),
+          (try? JSONDecoder().decode(CloudAccountState.self, from: identity))?.account != nil { return true }
+      }
+      return false
+    }) {
+      cacheIdentityOrigin = Self.normalizedURL(legacy).absoluteString
+    } else { cacheIdentityOrigin = normalized.absoluteString }
     if let session {
       self.session = session
     } else {
@@ -144,7 +194,7 @@ actor CloudAPI {
     // Tailnet IPv4 addresses and MagicDNS names must follow the device's VPN
     // route, including when its system HTTP proxy cannot reach that network.
     let loopback = ["127.0.0.1", "localhost", "::1", "[::1]"].contains(host)
-    if loopback || tailnetAddress || host.hasSuffix(".ts.net") {
+    if loopback || tailnetAddress || host.hasSuffix(".ts.net") || normalizedURL(url).absoluteString == defaultServer {
       config.connectionProxyDictionary = [:]
     }
     return config
@@ -192,9 +242,11 @@ actor CloudAPI {
       return validatedURL(override)
     }
     let saved = defaults.string(forKey: "cloudpath.server")
-    let legacy = saved.flatMap(validatedURL).map {
+    let legacy = saved.flatMap(validatedURL).map { url in
       ["http://192.168.28.241:8100", "http://100.86.143.88:8100", "http://10.249.44.137:8100"]
-        .contains($0.absoluteString)
+        .contains(url.absoluteString) || Self.mainBackendMigration.legacyOrigins.contains { legacy in
+          Self.normalizedURL(legacy) == url
+        }
     } ?? false
     let value = saved == nil || legacy ? defaultServer : saved!
     guard let url = validatedURL(value) else { return nil }
@@ -223,12 +275,18 @@ actor CloudAPI {
   }
 
   func verifiedAccount() -> CloudAccountState? {
-    guard cookies["zhiwo_account"] != nil, let data = credentialKeys.compactMap({ Self.readCredential($0 + ".identity") }).first else { return nil }
+    guard cookies["zhiwo_account"] != nil, let key = identityCredentialKey,
+      let data = Self.readCredential(key + ".identity") else { return nil }
     return try? JSONDecoder().decode(CloudAccountState.self, from: data)
   }
 
   func rememberAccount(_ value: CloudAccountState) {
+    Self.writeCredential(credentialKey, data: try? JSONEncoder().encode(cookies))
     Self.writeCredential(credentialKey + ".identity", data: try? JSONEncoder().encode(value))
+    identityCredentialKey = credentialKey
+    if let key = dataOriginBindingKey {
+      Self.writeCredential(key, data: Data(cacheIdentityOrigin.utf8))
+    }
   }
 
   func request<T: Decodable & Sendable>(
@@ -405,6 +463,7 @@ actor CloudAPI {
 
   func clearCredentials() {
     cookies = [:]
+    identityCredentialKey = nil
     coverCache.removeAllObjects()
     for key in credentialKeys {
       Self.writeCredential(key, data: nil)
@@ -509,6 +568,7 @@ actor CloudAPI {
     let headers = response.allHeaderFields.reduce(into: [String: String]()) { result, pair in
       result[String(describing: pair.key)] = String(describing: pair.value)
     }
+    let previousAccountCookie = cookies["zhiwo_account"]
     for cookie in HTTPCookie.cookies(withResponseHeaderFields: headers, for: url)
     where ["zhiwo_account", "zhiwo_visitor"].contains(cookie.name) {
       if cookie.value.isEmpty || (cookie.expiresDate.map { $0 <= Date() } ?? false) {
@@ -517,6 +577,7 @@ actor CloudAPI {
         cookies[cookie.name] = cookie.value
       }
     }
+    if previousAccountCookie != cookies["zhiwo_account"] { identityCredentialKey = nil }
     Self.writeCredential(credentialKey, data: try? JSONEncoder().encode(cookies))
     guard (200..<300).contains(response.statusCode) else {
       let json = try? JSONDecoder().decode([String: JSONValue].self, from: bytes)

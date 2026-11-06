@@ -1,0 +1,13 @@
+[Unit]
+Description=CloudPath Germany to 4090 API forward
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/ssh -F /dev/null -N -p 36243 -i /root/.ssh/cloudpath-germany4090-api -o IdentitiesOnly=yes -o BatchMode=yes -o UserKnownHostsFile=/root/.ssh/cloudpath-germany4090-known-hosts -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -L 127.0.0.1:18426:127.0.0.1:18126 root@connect.bjb1.seetacloud.com
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

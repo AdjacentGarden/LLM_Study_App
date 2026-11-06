@@ -1,0 +1,5 @@
+[Unit]
+Description=Renew CloudPath Germany HTTPS certificate
+[Service]
+Type=oneshot
+ExecStart=/root/cloudpath-ops/germany4090-public/.venv/bin/certbot renew --cert-name cloudpath-vps-ip --quiet --deploy-hook "/usr/bin/systemctl restart cloudpath-germany4090-public"

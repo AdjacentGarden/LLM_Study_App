@@ -3,8 +3,9 @@
 - Use main as the sole working and delivery branch. Keep completed repairs on main.
 - The current backend is the 4090 at connect.bjb1.seetacloud.com, SSH port 36243.
   Runtime root: /root/autodl-tmp/adaptive-book-ocr; API loopback port 18126.
-- The remote Mac simulator connects directly to this machine through its local
-  port 18100. Do not make App traffic depend on Windows or the Germany VPS.
+- The latest user-authorized application path is iPhone/simulator -> Germany VPS
+  HTTPS https://213.145.87.189:18443 -> this 4090 API. App traffic must not depend
+  on the remote Mac or Windows. See deployment/germany4090/README.md.
 - Reuse the deployed OCR, BGE models and Whisper; preserve existing model
   environments, data, credentials and unrelated processes.
 - Read deployment/direct4090/README.md before deployment. Keep credentials out of Git.

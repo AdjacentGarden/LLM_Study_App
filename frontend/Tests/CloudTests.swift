@@ -1469,17 +1469,17 @@ final class CloudBackendConnectionTests: XCTestCase {
       let defaults = isolatedDefaults()
       defaults.set(old, forKey: "cloudpath.server")
       let first = try XCTUnwrap(CloudAPI.configuredURL(defaults: defaults, environment: [:]))
-      XCTAssertEqual(first.absoluteString, "http://127.0.0.1:18100")
+      XCTAssertEqual(first.absoluteString, CloudAPI.defaultServer)
       XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), first.absoluteString)
       XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:]), first)
     }
   }
 
-  func testFreshSimulatorPersistsRelayWithoutLaunchEnvironment() {
+  func testFreshAppPersistsPublicVpsEntryWithoutLaunchEnvironment() {
     let defaults = isolatedDefaults()
     XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:])?.absoluteString,
-      "http://127.0.0.1:18100")
-    XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), "http://127.0.0.1:18100")
+      CloudAPI.defaultServer)
+    XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), CloudAPI.defaultServer)
   }
 
   func testExplicitTestAddressDoesNotOverwriteSavedService() {
@@ -1498,7 +1498,7 @@ final class CloudBackendConnectionTests: XCTestCase {
       "https://learning.example")
     defaults.set("http://100.86.143.88:8100", forKey: "cloudpath.server")
     XCTAssertEqual(CloudAPI.configuredURL(defaults: defaults, environment: [:])?.absoluteString,
-      "http://127.0.0.1:18100")
+      CloudAPI.defaultServer)
   }
 
   func testLoopbackRelayBypassesSystemHTTPProxy() throws {
@@ -1506,4 +1506,100 @@ final class CloudBackendConnectionTests: XCTestCase {
     let config = CloudAPI.serviceSessionConfiguration(for: url)
     XCTAssertEqual(config.connectionProxyDictionary?.count, 0)
   }
+}
+
+extension CloudBackendConnectionTests {
+  private func migrationAccount(_ id: String) -> CloudAccountState {
+    CloudAccountState(account: .init(email: id + "@example.invalid", stage: "university",
+      interests: [], goal: "interest", is_demo: false), user_id: id,
+      email_available: true, demo_available: false)
+  }
+  func testMacEntriesMigrateToPublicVpsWithoutManualConfiguration() throws {
+    for old in CloudAPI.mainBackendMigration.legacyOrigins {
+      let defaults = isolatedDefaults()
+      defaults.set(old.absoluteString + "/", forKey: "cloudpath.server")
+      let url = try XCTUnwrap(CloudAPI.configuredURL(defaults: defaults, environment: [:]))
+      XCTAssertEqual(url.absoluteString, CloudAPI.defaultServer)
+      XCTAssertEqual(url.scheme, "https")
+      XCTAssertEqual(url.host, "213.145.87.189")
+      XCTAssertEqual(url.port, 18443)
+      XCTAssertEqual(defaults.string(forKey: "cloudpath.server"), url.absoluteString)
+    }
+  }
+  @MainActor func testRelocationRetainsPrivateCourseAndUncertainGenerationAfterRestart() async throws {
+    let token = UUID().uuidString.lowercased()
+    let old = URL(string: "https://" + token + ".old.invalid")!
+    let target = URL(string: "https://" + token + ".new.invalid")!
+    let migration = CloudBackendMigration(id: token, publicURL: target, legacyOrigins: [old])
+    let account = migrationAccount(token)
+    CloudAPI.seedLegacyIdentityForTesting(url: old, account: account)
+    let api = CloudAPI(baseURL: old, migration: migration)
+    XCTAssertEqual(api.baseURL, target)
+    XCTAssertEqual(api.cacheIdentityOrigin, old.absoluteString)
+    let identity = await api.verifiedAccount()
+    XCTAssertEqual(identity?.user_id, account.user_id)
+    let repository = try LocalBookCourseRepository(directory: FileManager.default.temporaryDirectory.appendingPathComponent(token))
+    let store = AppStore(repository: repository, cloud: api)
+    store.cloudState.authenticated = true
+    store.cloudState.account = account
+    store.cloudState.cacheKey = store.cloudCacheKey(account)
+    store.cloudState.privateLocalMode = true
+    store.courses = [Course(id: "kept-course", name: "保留课程", resourceIDs: ["book"])]
+    store.selectedCourseID = "kept-course"
+    try await store.ensureCourseDeletionState(scope: try XCTUnwrap(store.noteScope))
+    try await store.persistPrivateState()
+    let scope = try XCTUnwrap(store.noteScope)
+    try await repository.saveLocalGeneration(LocalGenerationRecord(id: "awaiting-model",
+      courseID: "kept-course", bookID: "book", chapterID: "chapter", operation: "lecture",
+      body: ["request_id": .string("original-request")], state: "uncertain"), scope: scope)
+    await api.rememberAccount(account)
+    let reopenedAPI = CloudAPI(baseURL: target, migration: migration)
+    defer { Task { await reopenedAPI.clearCredentials() } }
+    XCTAssertEqual(reopenedAPI.cacheIdentityOrigin, old.absoluteString)
+    let reopened = AppStore(repository: repository, cloud: reopenedAPI)
+    reopened.cloudState.authenticated = true
+    reopened.cloudState.account = account
+    XCTAssertEqual(reopened.cloudCacheKey(account), scope)
+    let snapshot = try await reopened.loadCloudCache(account)
+    XCTAssertNotNil(snapshot)
+    XCTAssertEqual(reopened.courses.map(\.id), ["kept-course"])
+    let records = try await repository.localGenerations(scope: scope)
+    XCTAssertEqual(records.map(\.id), ["awaiting-model"])
+    XCTAssertEqual(records.first?.body["request_id"]?.stringValue, "original-request")
+    let unrelated = CloudAPI(baseURL: URL(string: "https://" + token + ".other.invalid")!, migration: migration)
+    let unrelatedIdentity = await unrelated.verifiedAccount()
+    XCTAssertNil(unrelatedIdentity)
+  }
+  func testReplacementCookieCannotUseAnOldOriginIdentity() async throws {
+    let token = UUID().uuidString.lowercased()
+    let old = URL(string: "https://" + token + ".old.invalid")!
+    let target = URL(string: "https://" + token + ".new.invalid")!
+    let migration = CloudBackendMigration(id: token, publicURL: target, legacyOrigins: [old])
+    CloudAPI.seedLegacyIdentityForTesting(url: old, account: migrationAccount(token))
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MigrationCookieProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let api = CloudAPI(baseURL: target, session: session, migration: migration)
+    let _: CloudOK = try await api.request("/api/health")
+    let replacedIdentity = await api.verifiedAccount()
+    XCTAssertNil(replacedIdentity)
+    let reopened = CloudAPI(baseURL: target, migration: migration)
+    let reopenedIdentity = await reopened.verifiedAccount()
+    XCTAssertNil(reopenedIdentity)
+    await reopened.clearCredentials()
+  }
+}
+private final class MigrationCookieProtocol: URLProtocol, @unchecked Sendable {
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+  override func startLoading() {
+    let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+      headerFields: ["Content-Type": "application/json",
+        "Set-Cookie": "zhiwo_account=replacement-credential; Path=/; Secure; HttpOnly"])!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+    client?.urlProtocol(self, didLoad: Data("{\"ok\":true}".utf8))
+    client?.urlProtocolDidFinishLoading(self)
+  }
+  override func stopLoading() {}
 }

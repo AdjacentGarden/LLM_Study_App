@@ -4,7 +4,7 @@ import Foundation
 /// Verified-identity startup, offline cache recovery and authenticated retry.
 extension AppStore {
   func cloudCacheKey(_ account: CloudAccountState, origin: String? = nil) -> String {
-    SHA256.hash(data: Data(((origin ?? cloud?.baseURL.absoluteString ?? "") + "|" + account.user_id).utf8))
+    SHA256.hash(data: Data(((origin ?? cloud?.cacheIdentityOrigin ?? "") + "|" + account.user_id).utf8))
       .map { String(format: "%02x", $0) }.joined()
   }
 

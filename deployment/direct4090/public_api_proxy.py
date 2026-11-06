@@ -1,6 +1,9 @@
 """Public AutoDL HTTP entry for the loopback CloudPath API."""
 from contextlib import asynccontextmanager
 import httpx
+import os
+import json
+import time
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse, StreamingResponse
 
@@ -8,7 +11,7 @@ HOP_HEADERS = {
     b"connection", b"keep-alive", b"proxy-authenticate", b"proxy-authorization",
     b"te", b"trailer", b"transfer-encoding", b"upgrade",
 }
-UPSTREAM = httpx.URL("http://127.0.0.1:18126")
+UPSTREAM = httpx.URL(os.environ.get("CLOUDPATH_PUBLIC_API_UPSTREAM", "http://127.0.0.1:18126"))
 
 @asynccontextmanager
 async def lifespan(app):
@@ -39,16 +42,33 @@ async def forward(request: Request, path: str):
         (b"x-forwarded-proto", b"https"),
         (b"x-forwarded-for", (request.client.host if request.client else "unknown").encode()),
     ])
+
     target = UPSTREAM.copy_with(
         raw_path=request.scope.get("raw_path", request.url.path.encode())
         + (b"?" + request.scope["query_string"] if request.scope.get("query_string") else b"")
     )
     client = request.app.state.client
-    outgoing = client.build_request(request.method, target, headers=headers, content=request.stream())
+    received_bytes = 0
+    started = time.monotonic()
+    async def request_body():
+        nonlocal received_bytes
+        async for chunk in request.stream():
+            received_bytes += len(chunk)
+            yield chunk
+    outgoing = client.build_request(request.method, target, headers=headers, content=request_body())
     try:
         upstream = await client.send(outgoing, stream=True)
     except httpx.HTTPError:
         return JSONResponse({"detail": "学习服务暂时不可用，请稍后重试"}, status_code=502)
+
+    if request.method == "POST" and request.url.path == "/api/native/uploads":
+        print("CLOUDPATH_RELAY_UPLOAD " + json.dumps({
+            "request_id": request.headers.get("x-cloudpath-upload-id", ""),
+            "received_bytes": received_bytes,
+            "content_length": request.headers.get("content-length"),
+            "upstream_status": upstream.status_code,
+            "elapsed_seconds": time.monotonic() - started,
+        }), flush=True)
 
     async def body():
         try:
