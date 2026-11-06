@@ -82,6 +82,7 @@ class ToolChatClient:
         descriptions: Mapping[str, str],
         max_tokens: int,
         deadline_seconds: float,
+        json_object: bool = False,
     ) -> ChatOutcome:
         started = time.monotonic()
         until = started + deadline_seconds
@@ -107,6 +108,8 @@ class ToolChatClient:
         if not tools:
             payload.pop("tools", None)
             payload.pop("tool_choice", None)
+        if json_object:
+            payload["response_format"] = {"type": "json_object"}
         if urlsplit(base_url).hostname == "api.deepseek.com":
             # Thinking mode requires replaying private reasoning between tool
             # steps. The gateway never stores it, so keep tool turns nonthinking.

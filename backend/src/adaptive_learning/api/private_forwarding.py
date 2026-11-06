@@ -34,12 +34,12 @@ def private_model_json(content: str) -> str:
     """Recover harmless JSON fences; native clients own output shape checks."""
     text = content.strip()
     try:
-        value = json.loads(text)
+        value = json.loads(text, strict=False)
     except ValueError:
         start, end = text.find("{"), text.rfind("}")
         if start < 0 or end < start:
             raise ValueError("invalid model output")
-        value = json.loads(text[start:end + 1])
+        value = json.loads(text[start:end + 1], strict=False)
     if not isinstance(value, dict):
         raise ValueError("invalid model output")
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
@@ -153,7 +153,7 @@ def wire(step, budget, *, run: str, step_id: str, refused: str | None = None):
     return result
 
 
-def complete_private(services, *, messages, tools, descriptions, max_tokens, deadline_seconds=None):
+def complete_private(services, *, messages, tools, descriptions, max_tokens, deadline_seconds=None, json_object=False):
     """Use configured vision Responses for actual images, text route otherwise.
 
     Vision's JSON decision envelope is validated into the same tool-call type;
@@ -186,7 +186,8 @@ def complete_private(services, *, messages, tools, descriptions, max_tokens, dea
     if not images:
         client = services.assistant_tool_chat()
         return client.complete(messages=messages, tools=tools, descriptions=descriptions,
-                               max_tokens=max_tokens, deadline_seconds=float(deadline_seconds or client.config.timeout_seconds))
+                               max_tokens=max_tokens, deadline_seconds=float(deadline_seconds or client.config.timeout_seconds),
+                               **({"json_object": True} if json_object else {}))
     if len(images) > 12:
         raise HTTPException(413, "单步图片数量过多")
     settings = services.settings
@@ -436,7 +437,7 @@ def private_forwarding_router(services):
             return model_result(body.request_id, ledger.step(actor, run, step_id))
         try:
             outcome = complete_private(services, messages=messages, tools={}, descriptions={}, max_tokens=body.max_tokens,
-                deadline_seconds=MODEL_DEADLINE_SECONDS)
+                deadline_seconds=MODEL_DEADLINE_SECONDS, json_object=True)
         except Exception:
             outcome = ChatOutcome("uncertain", 0, error="private_model_call_interrupted")
         schema_failed = False

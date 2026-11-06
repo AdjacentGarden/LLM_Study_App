@@ -610,8 +610,8 @@ class DiagnosticItemGenerator:
         self, structure: BookStructure, *, chapter_cache: DiagnosticChapterCache | None = None,
         cache_scope: str = "",
     ) -> list[DiagnosticItem]:
-        if chapter_cache is not None and (not self.verify_items or not cache_scope.strip()):
-            raise ValueError("private chapter approvals require independent review and a book scope")
+        if chapter_cache is not None and not cache_scope.strip():
+            raise ValueError("private chapter records require a book scope")
         if self.validation_retries is None:
             from .item_repairs import advance_diagnostic_items
             if chapter_cache is None:
