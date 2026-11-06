@@ -173,12 +173,20 @@ class ToolChatClient:
             detail = str(error)
             reason = ("arguments_json" if "arguments are not valid JSON" in detail else
                       "unknown_tool" if "unknown tool" in detail else
+                      "tool_call_count" if "too many tool calls" in detail else
+                      "tool_indexes" if "contiguous" in detail else
+                      "finish_reason" if "unsupported finish_reason" in detail else
+                      "argument_enum" if "allowed values" in detail else
+                      "schema" if "unsupported schema" in detail else
                       "required_argument" if "required property" in detail else
                       "argument_type" if "expected " in detail else
                       "argument_range" if any(word in detail for word in ("minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems")) else
                       "empty_turn" if "empty assistant turn" in detail else "stream_shape")
             # Fixed reason labels contain no prompts, arguments or model output.
-            logging.getLogger(__name__).warning("Model tool stream rejected (%s)", reason)
+            known_paths = {"$." + key for schema in tools.values() for key in schema.get("properties", {})}
+            path = detail.split(":", 1)[0]
+            logging.getLogger(__name__).warning("Model tool stream rejected (%s %s)", reason,
+                path if path in known_paths else "")
             return outcome("failed", error=f"invalid model output: {error}"[:300])
         except LLMTimeoutError:
             return outcome("uncertain", error="model time budget exceeded")

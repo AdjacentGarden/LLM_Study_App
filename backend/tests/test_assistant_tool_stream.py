@@ -634,3 +634,11 @@ def test_function_name_can_stream_and_empty_repeated_metadata_does_not_conflict(
 def test_essential_arguments_still_reject_after_model_wire_normalization(arguments):
     with pytest.raises(ToolStreamError):
         assemble_chat_stream(_single_call_chunks(arguments), TOOLS)
+
+
+def test_six_page_read_batch_is_allowed_without_dropping_any_call():
+    fragments = [_fragment(index, call_id=f"page_{index}", name="lookup",
+        arguments=json.dumps({"q": f"page {index+1}"}), call_type="function") for index in range(6)]
+    turn = assemble_chat_stream([_delta_chunk({"tool_calls": fragments}), _finish_chunk("tool_calls")], TOOLS)
+    assert len(turn.tool_calls) == 6
+    assert [call.id for call in turn.tool_calls] == [f"page_{index}" for index in range(6)]

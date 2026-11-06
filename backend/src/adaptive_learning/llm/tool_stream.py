@@ -50,7 +50,7 @@ class AssembledTurn:
     reasoning_chars: int
 
 
-MAX_TOOL_CALLS = 4
+MAX_TOOL_CALLS = 16
 MAX_ARGUMENT_CHARS = 32000
 
 _TOOL_CALL_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")

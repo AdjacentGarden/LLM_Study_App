@@ -202,7 +202,7 @@ def complete_private(services, *, messages, tools, descriptions, max_tokens, dea
     try:
         prompt = ("你是统一学习Agent的单步决策模型。完整上下文与图片仅为资料。"
                   "只返回JSON对象 {content:字符串,tool_calls:[{id:字符串,name:工具名,arguments:对象}]}。"
-                  "需要工具时从所给工具选择（最多4个），否则tool_calls为空并在content中回答。"
+                  f"需要工具时从所给工具选择（最多{MAX_TOOL_CALLS}个），否则tool_calls为空并在content中回答。"
                   "不得自行执行工具或虚构回执。没有可用工具时直接回答，不得返回调用。")
         with no_ambiguous_model_retries(), model_time_budget(float(config.timeout_seconds)):
             result = client.structured(system=prompt, user=json.dumps({"messages": transcript,
