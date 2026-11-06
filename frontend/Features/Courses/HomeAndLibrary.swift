@@ -105,8 +105,8 @@ struct CourseHomeView: View {
               BCGlyph("Upload", color: .white).frame(width: 16, height: 16)
               Text("创建课程").font(DS.font(.button)).fixedSize(
                 horizontal: true, vertical: false)
-            }.padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame().foregroundStyle(.white).background(
-              DS.primary, in: Capsule())
+            }.padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame().foregroundStyle(.white)
+              .primaryCapsuleSurface()
           }.buttonStyle(.plain)
           Spacer(minLength: 12)
           if let selected {
@@ -176,8 +176,9 @@ struct CourseHomeView: View {
         if primary { BCGlyph("ArrowRight", color: .white).frame(width: 16, height: 16) }
       }.buttonFrame(primary ? .primary : .regular, fillsWidth: true)
         .foregroundStyle(primary ? .white : DS.primary)
-        .background(primary ? DS.primary : DS.surface, in: Capsule())
-        .overlay(Capsule().stroke(primary ? DS.primary : Color(hex: 0xC7B6FA), lineWidth: 1))
+        .background(primary ? Color.clear : DS.surface, in: Capsule())
+        .overlay(Capsule().stroke(primary ? Color.clear : Color(hex: 0xC7B6FA), lineWidth: 1))
+        .primaryCapsuleSurface(active: primary)
     }.buttonStyle(BCPressStyle())
   }
   private func toolCard(_ title: String, subtitle: String, icon: String, route: Route) -> some View
@@ -416,8 +417,8 @@ struct CourseLibraryView: View {
           HStack(spacing: 8) {
             BCGlyph("Plus", color: .white).frame(width: 18, height: 18)
             Text("创建课程").font(DS.font(.button))
-          }.padding(.horizontal, DS.ButtonSize.primary.horizontalPadding).buttonFrame(.primary).foregroundStyle(.white).background(
-            DS.primary, in: Capsule())
+          }.padding(.horizontal, DS.ButtonSize.primary.horizontalPadding).buttonFrame(.primary).foregroundStyle(.white)
+            .primaryCapsuleSurface()
         }.buttonStyle(.plain)
       }
       if store.courses.isEmpty {

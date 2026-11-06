@@ -6,6 +6,38 @@ import XCTest
 @testable import BookCourse
 
 final class LearningTests: XCTestCase {
+  @MainActor func testIllustratedReadingFlowsAroundImageAndReturnsToFullWidth() {
+    let text = String(repeating: "同源染色体在减数第一次分裂后期分离，配子获得每对染色体中的一条。", count: 36)
+    for width: CGFloat in [360, 740] {
+      for leading in [false, true] {
+        let image = LearningReadingImageLayout.frame(width: width, aspectRatio: 1.6, leading: leading)
+        let view = UITextView(frame: CGRect(x: 0, y: 0, width: width, height: 4000),
+          textContainer: nil)
+        view.textContainerInset = .zero
+        view.textContainer.lineFragmentPadding = 0
+        view.attributedText = LearningReadingTypography.attributedText(in: text)
+        view.textContainer.exclusionPaths = [UIBezierPath(rect: CGRect(
+          x: max(0, image.minX - 20), y: 0, width: image.width + 20, height: image.height + 18))]
+        let manager = view.layoutManager
+        manager.ensureLayout(for: view.textContainer)
+        let glyphs = manager.glyphRange(for: view.textContainer)
+        XCTAssertEqual(NSMaxRange(manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)),
+          view.attributedText.length, "The full formatted text must remain laid out")
+        XCTAssertEqual(view.attributedText.string.replacingOccurrences(of: "\n", with: ""), text)
+        var fragments: [CGRect] = []
+        manager.enumerateLineFragments(forGlyphRange: glyphs) { _, used, _, _, _ in fragments.append(used) }
+        XCTAssertFalse(fragments.isEmpty)
+        XCTAssertTrue(fragments.allSatisfy { !$0.intersects(image) }, "Text must not paint under the image")
+        if width >= 560 {
+          XCTAssertTrue(fragments.contains { $0.minY < image.maxY && $0.width < width * 0.7 })
+          XCTAssertTrue(fragments.contains { $0.minY > image.maxY && $0.width > width * 0.8 })
+        } else {
+          XCTAssertGreaterThanOrEqual(fragments[0].minY, image.maxY)
+        }
+      }
+    }
+  }
+
   func testBilingualFontResolvesLatinAndChineseWithMatchingWeights() {
     let cases: [(Font.Weight, String, String)] = [
       (.light, "Helvetica-Light", "PingFangSC-Light"),

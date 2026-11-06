@@ -18,7 +18,7 @@ final class RemoteMediaUITests: XCTestCase {
     first.lifetime = .keepAlways
     add(first)
     app.buttons["lesson.media.close"].tap()
-    app.buttons["lesson.video.open.\(asset)"].tap()
+    openVideoMenu(app, asset: asset)
     XCTAssertTrue(app.staticTexts["lesson.media.status"].waitForExistence(timeout: 90))
     XCTAssertEqual(app.staticTexts["lesson.media.status"].label, expected)
     app.terminate()
@@ -35,26 +35,33 @@ final class RemoteMediaUITests: XCTestCase {
     let ready = XCTNSPredicateExpectation(
       predicate: NSPredicate { _, _ in
         !app.images["app.loading"].exists
-          && (app.buttons["tab-profile"].isHittable || app.staticTexts["lesson.page"].isHittable)
+          && (app.buttons["tab-profile"].isHittable || app.progressIndicators["lesson.page"].isHittable)
       }, object: nil)
     XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 135), .completed)
-    if !app.staticTexts["lesson.page"].isHittable {
+    if !app.progressIndicators["lesson.page"].isHittable {
       let resume = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "继续学习"))
       let visible = resume.allElementsBoundByIndex.first { $0.isHittable }
       XCTAssertNotNil(visible)
       visible?.tap()
     }
-    let button = app.buttons["lesson.video.open.\(asset)"]
-    XCTAssertTrue(button.waitForExistence(timeout: 30))
-    for _ in 0..<5 {
-      if button.isHittable { break }
-      app.swipeUp()
-    }
-    button.tap()
+    openVideoMenu(app, asset: asset)
     XCTAssertTrue(app.staticTexts["lesson.media.status"].waitForExistence(timeout: 90))
     XCTAssertEqual(app.staticTexts["lesson.media.status"].label, expected)
     XCTAssertFalse(app.staticTexts["这张图暂时无法生成视频"].exists)
     XCTAssertFalse(app.buttons["生成图解"].exists)
     XCTAssertFalse(app.buttons["生成短片"].exists)
   }
+  private func openVideoMenu(_ app: XCUIApplication, asset: String) {
+    let figure = app.images["lesson.figure." + asset]
+    XCTAssertTrue(figure.waitForExistence(timeout: 30))
+    for _ in 0..<5 {
+      if figure.isHittable { break }
+      app.swipeUp()
+    }
+    figure.press(forDuration: 1)
+    let action = app.buttons["lesson.video.open." + asset]
+    XCTAssertTrue(action.waitForExistence(timeout: 5))
+    action.tap()
+  }
+
 }

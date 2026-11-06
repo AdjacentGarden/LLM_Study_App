@@ -1224,7 +1224,18 @@ extension AppStore {
 
   func submitCloudAssignments(_ submissions: [CloudPracticeAnswer]) async throws {
     if cloudState.privateLocalMode {
-      for submission in submissions { try await submitLocalPractice(question: submission.question, answer: submission.answer) }
+      var results: [Diagnosis] = []
+      for submission in submissions {
+        try await submitLocalPractice(question: submission.question, answer: submission.answer, navigate: false)
+        if let result = latestDiagnosis { results.append(result) }
+      }
+      guard !results.isEmpty else { return }
+      latestDiagnosis?.evaluated_questions = results.reduce(0) { $0 + ($1.evaluated_questions ?? 0) }
+      latestDiagnosis?.incorrect_questions = results.reduce(0) { $0 + ($1.incorrect_questions ?? 0) }
+      latestDiagnosis?.grading_scope = "练习题"
+      let focus = results.first { ($0.incorrect_questions ?? 0) > 0 } ?? results.last
+      latestDiagnosis?.summary_hint = focus.map { $0.hint.isEmpty ? $0.stuck_point : $0.hint }
+      go(.diagnosis)
       return
     }
     guard cloudState.legacyPrivateSyncEnabled else { throw ContentError.invalid("本机作答尚未就绪") }
@@ -1280,7 +1291,9 @@ extension AppStore {
       knowledge_points: submissions.map { $0.question.concept }, review_citations: [],
       hint: feedback.flatMap(\.missing_rubric).joined(separator: "；"),
       needs_followup: feedback.contains { $0.needs_follow_up },
-      mistake_recorded: correct < feedback.count)
+      mistake_recorded: correct < feedback.count,
+      evaluated_questions: feedback.count, incorrect_questions: feedback.count - correct,
+      grading_scope: "练习题")
     persistCloud()
     go(.diagnosis)
   }

@@ -535,16 +535,33 @@ enum LearningReadingTypography {
   }
 }
 
+/// TextKit excludes the illustration rectangle so text flows beside it and
+/// returns to full width underneath. Narrow columns stack the same image above.
+enum LearningReadingImageLayout {
+  static func frame(width: CGFloat, aspectRatio: CGFloat, leading: Bool) -> CGRect {
+    let ratio = aspectRatio.isFinite && aspectRatio > 0 ? aspectRatio : 1
+    let imageWidth = width >= 560 ? min(300, width * 0.4) : width
+    let imageHeight = min(width >= 560 ? 280 : 240, imageWidth / ratio)
+    return CGRect(x: leading ? 0 : width - imageWidth, y: 0,
+      width: imageWidth, height: imageHeight)
+  }
+}
+
 private struct LearningPrettyReadingText: UIViewRepresentable {
   let text: String
   var keyConcepts: [String] = []
   var focusConcepts: [String] = []
+  var imageAspectRatio: CGFloat? = nil
+  var imageOnLeading = false
+  var fontScale: CGFloat = 1
   final class Coordinator {
     var text = ""
     var keyConcepts: [String] = []
     var focusConcepts: [String] = []
     var width: CGFloat = -1
     var height: CGFloat = 28
+    var imageFrame: CGRect = .zero
+    var fontScale: CGFloat = 0
   }
   func makeCoordinator() -> Coordinator { Coordinator() }
   func makeUIView(context: Context) -> UITextView {
@@ -568,24 +585,44 @@ private struct LearningPrettyReadingText: UIViewRepresentable {
   func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context)
     -> CGSize?
   {
-    let width = min(721.5, proposal.width ?? 721.5)
+    let width = proposal.width ?? 721.5
     guard width.isFinite, width > 0 else { return nil }
     apply(width: width, view: uiView, cache: context.coordinator)
     return CGSize(width: width, height: context.coordinator.height)
   }
   private func apply(width: CGFloat, view: UITextView, cache: Coordinator) {
+    let imageFrame = imageAspectRatio.map {
+      LearningReadingImageLayout.frame(width: width, aspectRatio: $0, leading: imageOnLeading)
+    } ?? .zero
     guard cache.text != text || cache.keyConcepts != keyConcepts || cache.focusConcepts != focusConcepts
-      || abs(cache.width - width) > 0.1 else { return }
-    if cache.text != text || cache.keyConcepts != keyConcepts || cache.focusConcepts != focusConcepts {
-      view.attributedText = LearningReadingTypography.attributedText(in: text,
-        keyConcepts: keyConcepts, focusConcepts: focusConcepts)
+      || abs(cache.width - width) > 0.1 || cache.imageFrame != imageFrame
+      || cache.fontScale != fontScale else { return }
+    if cache.text != text || cache.keyConcepts != keyConcepts || cache.focusConcepts != focusConcepts
+      || cache.fontScale != fontScale {
+      let attributed = NSMutableAttributedString(attributedString:
+        LearningReadingTypography.attributedText(in: text,
+          keyConcepts: keyConcepts, focusConcepts: focusConcepts))
+      attributed.enumerateAttribute(.font, in: NSRange(location: 0, length: attributed.length)) { value, range, _ in
+        if let font = value as? UIFont {
+          attributed.addAttribute(.font, value: font.withSize(font.pointSize * fontScale), range: range)
+        }
+      }
+      view.attributedText = attributed
       view.accessibilityLabel = view.attributedText.string
     }
+    view.textContainer.exclusionPaths = imageFrame == .zero ? [] : [
+      UIBezierPath(rect: CGRect(x: max(0, imageFrame.minX - 20), y: 0,
+        width: imageFrame.width + 20, height: imageFrame.height + 18))
+    ]
+    view.textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
     cache.text = text
     cache.keyConcepts = keyConcepts
     cache.focusConcepts = focusConcepts
     cache.width = width
-    cache.height = ceil(view.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height)
+    cache.imageFrame = imageFrame
+    cache.fontScale = fontScale
+    cache.height = max(imageFrame.maxY,
+      ceil(view.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height))
   }
 }
 
@@ -701,72 +738,63 @@ struct LessonReaderView: View {
       if let lesson {
         VStack(spacing: 0) {
           readerHeader(lesson)
-          ScrollViewReader { proxy in
-            ScrollView {
-              VStack(spacing: 0) {
-                if needsPreferenceUpdate {
-                  VStack(alignment: .leading, spacing: 10) {
-                    Text("学习偏好已更新").font(DS.font(.cardTitle))
-                    Text("本章仍保留原来的学习内容。更新后会按当前课程设置重新整理，学习记录会保留。")
-                      .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-                    BCButton("按当前偏好更新本章", icon: "arrow.clockwise") {
-                      store.requestCloudLearning(chapterID: lesson.chapter_id)
-                    }.disabled(store.cloudState.isWorking)
-                      .accessibilityIdentifier("lesson.updatePreferences")
-                  }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
-                    .background(DS.primarySoft)
-                    .accessibilityIdentifier("lesson.preferencesChanged")
-                }
-                pageStatus
-                Group {
+          pageStatus
+          GeometryReader { viewport in
+            ScrollViewReader { proxy in
+              ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                  if needsPreferenceUpdate {
+                    VStack(alignment: .leading, spacing: 10) {
+                      Text("学习偏好已更新").font(DS.font(.cardTitle))
+                      Text("本章仍保留原来的学习内容。更新后会按当前课程设置重新整理，学习记录会保留。")
+                        .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+                      BCButton("按当前偏好更新本章", icon: "arrow.clockwise") {
+                        store.requestCloudLearning(chapterID: lesson.chapter_id)
+                      }.disabled(store.cloudState.isWorking)
+                        .accessibilityIdentifier("lesson.updatePreferences")
+                    }.padding(16).background(DS.primarySoft, in: RoundedRectangle(cornerRadius: 12))
+                      .accessibilityIdentifier("lesson.preferencesChanged")
+                  }
                   if let section = activeSection {
                     sectionContent(section)
                   } else {
                     introduction(lesson)
                   }
+                  if page == pageCount - 1 {
+                    completionActions
+                  }
                 }
-                .padding(.horizontal, 19).padding(.top, 22).padding(.bottom, 70)
-                .frame(maxWidth: .infinity, minHeight: 620, alignment: .topLeading)
+                .padding(.horizontal, store.isPad ? 44 : 22)
+                .padding(.top, store.isPad ? 32 : 24).padding(.bottom, 72)
+                .frame(maxWidth: 1120, minHeight: viewport.size.height, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .background(readerSurface)
                 .overlay(alignment: .bottomTrailing) {
-                  sourceEntry.padding(.trailing, 18).padding(.bottom, 14)
+                  sourceEntry.padding(.trailing, 24).padding(.bottom, 16)
                 }
+                .id("lesson-top")
               }
-              .background(DS.surface, in: RoundedRectangle(cornerRadius: 16))
-              .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.border, lineWidth: 1))
-              .clipShape(RoundedRectangle(cornerRadius: 16))
-              .id("lesson-top")
-              .frame(maxWidth: 1120, alignment: .leading)
-              .padding(.horizontal, store.isPad ? 32 : 16).padding(.top, 6).padding(.bottom, 28)
-              .frame(maxWidth: .infinity)
-              mediaActions.padding(.horizontal, 20).padding(.bottom, 16)
-            }
-            .background(DS.background)
-            .simultaneousGesture(
-              DragGesture(minimumDistance: 35).onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.4 else {
-                  return
+              .accessibilityIdentifier("lesson.scroll")
+              .background(readerSurface)
+              .scrollDismissesKeyboard(.interactively)
+              .simultaneousGesture(
+                DragGesture(minimumDistance: 35).onEnded { value in
+                  guard abs(value.translation.width) > abs(value.translation.height) * 1.4 else { return }
+                  changePage(by: value.translation.width < 0 ? 1 : -1)
                 }
-                changePage(by: value.translation.width < 0 ? 1 : -1)
+              )
+              .onChange(of: page) { _, _ in
+                store.learningState.readerCompletionVisible = page == pageCount - 1
+                UserDefaults.standard.set(page, forKey: positionKey)
+                proxy.scrollTo("lesson-top", anchor: .top)
               }
-            )
-            .onChange(of: page) { _, _ in
-              store.learningState.readerCompletionVisible = page == pageCount - 1
-              UserDefaults.standard.set(page, forKey: positionKey)
-              proxy.scrollTo("lesson-top", anchor: .top)
+              .onChange(of: positionKey) { _, _ in
+                proxy.scrollTo("lesson-top", anchor: .top)
+              }
             }
-          }
-          if page == pageCount - 1 {
-            HStack {
-              Spacer()
-              BCButton("完成本节", icon: "checkmark.circle") {
-                store.completeLesson()
-                store.go(.study)
-              }
-              .frame(maxWidth: 190)
-              Spacer()
-            }.padding(.horizontal, 20).padding(.bottom, 12)
           }
         }
+        .background(readerSurface)
         .task(id: positionKey) {
           store.selectedLessonID = lesson.id
           page = min(max(0, UserDefaults.standard.integer(forKey: positionKey)), pageCount - 1)
@@ -814,67 +842,81 @@ struct LessonReaderView: View {
     }
   }
 
+  private let readerSurface = Color(hex: 0xf8f7f1)
+
+  private var nextSection: Chapter? {
+    let directory = learningDirectory(store.chapters)
+    let ordered = directory.flatMap(\.sections)
+    guard let chapterID = lesson?.chapter_id else { return nil }
+    if let index = ordered.firstIndex(where: { $0.id == chapterID }) {
+      return ordered.indices.contains(index + 1) ? ordered[index + 1] : nil
+    }
+    return directory.first { $0.chapter.id == chapterID }?.sections.first
+  }
+
+  private var completionActions: some View {
+    HStack(spacing: 12) {
+      BCButton("去测试", icon: "checkmark.circle") {
+        guard let chapterID = lesson?.chapter_id else { return }
+        store.completeLesson()
+        store.openChapterAssignment(chapterID: chapterID)
+      }.accessibilityIdentifier("lesson.takeTest")
+      BCButton("学习下一节", icon: "arrow.right", style: .secondary, size: .primary) {
+        guard let next = nextSection else { return }
+        store.completeLesson()
+        store.dailyPlanState.focus = nil
+        // Start the next section at its introduction, including previously visited sections.
+        for nextLesson in store.lessons where nextLesson.chapter_id == next.id {
+          let key = "native.lesson.page.\(store.selectedCourseID ?? "none").\(store.selectedBookID ?? "none").\(nextLesson.id)"
+          UserDefaults.standard.set(0, forKey: key)
+        }
+        page = 0
+        store.openChapterLearning(chapterID: next.id)
+      }.disabled(nextSection == nil)
+        .accessibilityIdentifier("lesson.nextSection")
+    }.frame(maxWidth: 400).frame(maxWidth: .infinity)
+  }
+
   private func readerHeader(_ lesson: Lesson) -> some View {
-    ZStack(alignment: .top) {
-      Text("章节学习").font(DS.font(.pageTitle))
+    HStack(spacing: 16) {
+      Button {
+        store.back()
+      } label: {
+        BCGlyph("ArrowLeft").frame(width: 20, height: 20).iconButtonFrame()
+      }.buttonStyle(.plain).accessibilityLabel("返回")
+        .accessibilityIdentifier("navigation.back")
+      Text(lesson.title)
+        .font(DS.font(.pageTitle)).lineLimit(2)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("navigation.title")
-      HStack {
-        Button {
-          store.back()
-        } label: {
-          BCGlyph("ArrowLeft").frame(width: 18, height: 18)
-            .iconButtonFrame().background(
-              DS.surface, in: RoundedRectangle(cornerRadius: 12)
-            )
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.border, lineWidth: 1))
-        }.buttonStyle(.plain).accessibilityLabel("返回")
-          .accessibilityIdentifier("navigation.back")
-        Spacer()
-      }.offset(y: DS.navigationButtonOffset)
-    }.frame(height: DS.navigationRowHeight, alignment: .top).padding(.horizontal, store.isPad ? 32 : 16)
-      .padding(.top, NotesScreenMetrics.titleTopInset)
-      .padding(.bottom, store.isPad ? 14.84 : 6)
-      .foregroundStyle(DS.text)
-      .navigationBarSurface(DS.surface)
+    }
+    .padding(.horizontal, store.isPad ? 32 : 16)
+    .padding(.top, NotesScreenMetrics.titleTopInset)
+    .padding(.bottom, 16)
+    .foregroundStyle(DS.text)
+    .navigationBarSurface(readerSurface)
   }
 
   private var pageStatus: some View {
-    VStack(spacing: 10) {
-      HStack(spacing: 10) {
-        Text("第 \(page + 1) / \(pageCount) 页").accessibilityIdentifier("lesson.page")
-          .accessibilityValue(String(page + 1)).font(
-            DS.font(.cardTitle)
-          ).foregroundStyle(
-            DS.primary)
-        Text(activeSection?.block.title ?? "本节导读").font(DS.font(.cardTitle)).foregroundStyle(
-          DS.secondary
-        ).lineLimit(1)
-        Spacer(minLength: 0)
-        Text("左右滑动").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
-      }.frame(height: 28, alignment: .top)
-      GeometryReader { geometry in
-        ZStack(alignment: .leading) {
-          Capsule().fill(DS.border)
-          Capsule().fill(DS.primary).frame(
-            width: geometry.size.width * Double(page + 1) / Double(pageCount))
-        }
-      }.frame(height: 5)
-    }
-    .padding(.horizontal, 17).padding(.vertical, 14).padding(.bottom, 1).padding(.top, 1)
-    .background(Color(hex: 0xf3f6fb))
-    .overlay(alignment: .bottom) { Rectangle().fill(DS.border).frame(height: 1) }
-    .accessibilityElement(children: .combine)
+    ProgressView(value: Double(page + 1), total: Double(pageCount))
+      .progressViewStyle(.linear).tint(DS.primary)
+      .frame(height: 4).clipped()
+      .accessibilityLabel("阅读进度，第 \(page + 1) 页，共 \(pageCount) 页")
+      .accessibilityValue(String(page + 1))
+      .accessibilityIdentifier("lesson.page")
   }
 
   private func introduction(_ lesson: Lesson) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       VStack(alignment: .leading, spacing: 4) {
-        Text(lesson.title).font(DS.font(.sectionTitle)).frame(minHeight: 32, alignment: .leading)
+        Text(lesson.title).font(Font(DS.uiFont(.pageTitle).withSize(store.isPad ? 30 : 24)))
+          .fixedSize(horizontal: false, vertical: true)
         Text(
           "\(store.selectedBookID == "book_biology_2" ? "人教版高中生物必修二遗传与进化" : store.currentSource?.summary.title ?? store.currentTitle) · 原书\(learningPageLabel(lesson.page_start, end: lesson.page_end, printed: chapter?.printed_page_start, printedEnd: chapter?.printed_page_end).replacingOccurrences(of: "教材", with: ""))"
         )
         .font(DS.font(.supporting)).foregroundStyle(DS.secondary).frame(minHeight: 20)
-      }.padding(.bottom, 15).overlay(alignment: .bottom) {
+      }.frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 15).overlay(alignment: .bottom) {
         Rectangle().fill(DS.border).frame(height: 1)
       }
       Button {
@@ -883,14 +925,13 @@ struct LessonReaderView: View {
         Text("本节导读").font(DS.font(.cardTitle)).buttonFrame()
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(lesson.key_concepts.first ?? lesson.title)")
         .accessibilityIdentifier("lesson.concept")
-      paragraph(lesson.summary, focusConcepts: [lesson.title])
+      paragraph(lesson.summary, focusConcepts: [lesson.title], illustration: overviewImage)
       if let summary = cloudCourse?.personalizationSummary {
         VStack(alignment: .leading, spacing: 6) {
           Text("本章学习安排").font(DS.font(.cardTitle))
           Text(summary).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }.accessibilityIdentifier("lesson.personalization")
       }
-      if let overviewImage { figure(overviewImage) }
       if !lesson.objectives.isEmpty {
         VStack(alignment: .leading, spacing: 5) {
           ForEach(lesson.objectives, id: \.self) { objective in
@@ -918,14 +959,19 @@ struct LessonReaderView: View {
       Button {
         concept = section.block.title
       } label: {
-        Text(section.block.title).font(DS.font(.cardTitle)).lineSpacing(3).buttonFrame()
+        Text(section.block.title)
+          .font(Font(DS.uiFont(.sectionTitle, weight: .bold).withSize(store.isPad ? 26 : 22)))
+          .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true).buttonFrame()
       }.buttonStyle(.plain).accessibilityLabel("查看概念：\(section.block.title)")
         .accessibilityIdentifier("lesson.concept")
       ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, text in
-        paragraph(text, focusConcepts: [section.block.title])
-        if index < section.assets.count { figure(section.assets[index]) }
+        paragraph(text, focusConcepts: [section.block.title],
+          illustration: index < section.assets.count ? section.assets[index] : nil,
+          imageOnLeading: index.isMultiple(of: 2) == false)
       }
-      ForEach(Array(section.assets.dropFirst(paragraphs.count))) { asset in figure(asset) }
+      ForEach(Array(section.assets.dropFirst(paragraphs.count))) { asset in
+        figure(asset).frame(maxWidth: 360).frame(height: 240)
+      }
     }
     .id(section.id)
     .transition(
@@ -940,10 +986,14 @@ struct LessonReaderView: View {
     (lesson?.objectives ?? []) + (lesson?.key_concepts ?? [])
   }
 
-  private func paragraph(_ text: String, focusConcepts: [String] = []) -> some View {
-    LearningPrettyReadingText(text: text, keyConcepts: emphasisConcepts,
-      focusConcepts: focusConcepts)
-      .frame(maxWidth: 721.5, alignment: .leading)
+  private func paragraph(_ text: String, focusConcepts: [String] = [],
+    illustration: BookAsset? = nil, imageOnLeading: Bool = false) -> some View {
+    let image = illustration.flatMap { ContentBundle.image($0.image_url) }
+    let aspectRatio = image.map { $0.size.width / max(1, $0.size.height) }
+    return LearningPrettyReadingText(text: text, keyConcepts: emphasisConcepts,
+      focusConcepts: focusConcepts, imageAspectRatio: aspectRatio,
+      imageOnLeading: imageOnLeading, fontScale: store.isPad ? 1.125 : 1)
+      .frame(maxWidth: .infinity, alignment: .leading)
       .contextMenu {
         Button("摘录为笔记", systemImage: "note.text.badge.plus") {
           store.selectedQuote = LearningReadingTypography.plainText(in: text)
@@ -955,45 +1005,45 @@ struct LessonReaderView: View {
           store.openSheet(.chat)
         }
       }
+      .overlay(alignment: .topLeading) {
+        if let illustration, let aspectRatio {
+          GeometryReader { geometry in
+            let rect = LearningReadingImageLayout.frame(width: geometry.size.width,
+              aspectRatio: aspectRatio, leading: imageOnLeading)
+            figure(illustration)
+              .frame(width: rect.width, height: rect.height)
+              .offset(x: rect.minX, y: rect.minY)
+          }
+        }
+      }
   }
 
   @ViewBuilder private func figure(_ asset: BookAsset) -> some View {
     if ContentBundle.url(asset.image_url) != nil {
-      VStack(spacing: 6) {
-        if asset.source_type == "extracted" {
-          Button {
-            openAssetSource(asset)
-          } label: {
-            figureImage(asset)
-          }.buttonStyle(.plain)
-        } else {
-          figureImage(asset)
+      AssetImage(asset.image_url)
+        .padding(6).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.white, in: RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture {
+          if asset.source_type == "extracted" { openAssetSource(asset) }
         }
-        HStack(spacing: 12) {
-          if asset.source_type == "extracted", let page = asset.page, page > 0 {
-            Text("第 \(page) 页").font(DS.font(.body)).foregroundStyle(DS.secondary)
-          }
-          Spacer(minLength: 0)
-          Button {
+        .contextMenu {
+          Button("生成讲解短片", systemImage: "play.rectangle") {
             openMedia(kind: "video", asset: asset)
-          } label: {
-            HStack(spacing: 5) {
-              Image(systemName: "play.circle").font(.system(size: 14))
-              Text("生成讲解短片")
-            }.font(DS.font(.smallButton)).foregroundStyle(DS.primary).buttonFrame()
-          }.buttonStyle(.plain).accessibilityIdentifier("lesson.video.open.\(asset.id)")
-        }.frame(height: DS.ButtonSize.regular.height).frame(maxWidth: 272).fixedSize(
-          horizontal: false, vertical: true)
-      }.frame(maxWidth: .infinity).padding(.vertical, 2)
-        .accessibilityElement(children: .contain).accessibilityLabel(asset.caption)
+          }.accessibilityIdentifier("lesson.video.open.\(asset.id)")
+          if asset.source_type == "extracted" {
+            Button("查看教材原图", systemImage: "book") { openAssetSource(asset) }
+          }
+        }
+        .accessibilityHidden(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(asset.caption)
+        .accessibilityHint("长按生成讲解短片")
+        .accessibilityAddTraits(.isImage)
+        .accessibilityIdentifier("lesson.figure.\(asset.id)")
+        .accessibilityAction(named: "生成讲解短片") { openMedia(kind: "video", asset: asset) }
     }
-  }
-
-  private func figureImage(_ asset: BookAsset) -> some View {
-    AssetImage(asset.image_url).frame(
-      maxWidth: activeSection == nil ? 272 : 216, maxHeight: activeSection == nil ? 168 : 152
-    )
-    .clipShape(RoundedRectangle(cornerRadius: 8))
   }
 
   @ViewBuilder private var sourceEntry: some View {
@@ -1027,19 +1077,11 @@ struct LessonReaderView: View {
           Text("问问 AI").font(DS.font(.smallButton))
         }
         .padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
-        .background(DS.primarySoft, in: Capsule())
+        .foregroundStyle(.white).primaryCapsuleSurface()
       }
       Spacer(minLength: 0)
       if page == pageCount - 1 {
-        Button {
-          store.completeLesson()
-          store.go(.study)
-        } label: {
-          Label("完成本节", systemImage: "checkmark.circle.fill").font(DS.font(.button))
-            .foregroundStyle(.white).padding(.horizontal, DS.ButtonSize.primary.horizontalPadding)
-            .buttonFrame(.primary)
-            .background(DS.primary, in: Capsule())
-        }
+        completionActions
       } else {
         Button {
           changePage(by: 1)
@@ -1070,13 +1112,6 @@ struct LessonReaderView: View {
     store.openSource(SourcePageTarget(bookID: id, title: asset.caption, page: start, from: .lesson))
   }
 
-  private var mediaActions: some View {
-    HStack(spacing: 12) {
-      BCButton("生成辅助图", icon: "photo", style: .secondary) { openMedia(kind: "image") }
-      BCButton("生成讲解短片", icon: "video", style: .secondary) { openMedia(kind: "video") }
-    }
-  }
-
   private func openMedia(kind: String, asset: BookAsset? = nil) {
     guard let lesson, let bookID = store.selectedBookID else { return }
     let linked = asset?.source_chunk_ids.compactMap { id in
@@ -1092,6 +1127,7 @@ struct LessonReaderView: View {
       excerpt: String(excerpt.trimmingCharacters(in: .whitespacesAndNewlines).prefix(3000)),
       pages: sourcePages.filter { $0 > 0 }, lessonID: lesson.id,
       courseID: store.selectedCourseID ?? "")
+    mediaRequest?.previewImagePath = asset?.image_url
     let previous = LessonMediaRequest(lesson: lesson, section: activeSection?.block,
       asset: asset, kind: kind == "image" ? .image : .video)
     mediaRequest?.legacyExcerpt = previous.excerpt
@@ -1157,6 +1193,8 @@ struct LessonMediaRequest: Identifiable {
   // Lookup compatibility for tasks created before the cloud request model was adopted.
   var legacyExcerpt: String? = nil
   var legacyChapterTitle: String? = nil
+  // Local preview only; generation still uses the authenticated source context.
+  var previewImagePath: String? = nil
 
   var id: String {
     let parts = [kind, bookID, chapterID, lessonID, courseID, excerpt,

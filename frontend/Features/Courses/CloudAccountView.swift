@@ -27,57 +27,10 @@ struct CloudAccountView: View {
 
   var body: some View {
     GeometryReader { geometry in
-      let width = min(geometry.size.width, 480)
-      let scale = width / 402
-      let heroHeight = max(190, 332 * scale - geometry.safeAreaInsets.top)
-      ZStack(alignment: .top) {
-        ScrollViewReader { proxy in
-          ScrollView {
-            VStack(spacing: 0) {
-              illustration(width: width, scale: scale, topInset: geometry.safeAreaInsets.top)
-                .frame(height: heroHeight + 58 * scale, alignment: .top)
-                .clipped()
-                .padding(.bottom, -58 * scale)
-              accountForm(scale: scale)
-                .frame(minHeight: max(542 * scale,
-                  geometry.size.height - heroHeight + geometry.safeAreaInsets.bottom))
-                .background {
-                  // A continuous white surface has no bottom-edge shadow at the safe area.
-                  UnevenRoundedRectangle(topLeadingRadius: 58 * scale, topTrailingRadius: 58 * scale)
-                    .fill(DS.surface)
-                }
-                .offset(y: panelPresented ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
-                .allowsHitTesting(panelPresented)
-                .accessibilityHidden(!panelPresented)
-            }
-            .frame(width: width)
-            .frame(maxWidth: .infinity)
-            .id("cloud.formTop")
-            .offset(y: reduceMotion ? 0 : dragOffset)
-          }
-          .accessibilityIdentifier("cloud.scroll")
-          .scrollIndicators(.hidden)
-          .scrollDismissesKeyboard(.interactively)
-          // Normal dragging only stretches the presentation; it cannot leave a scroll offset.
-          // Text input may still reveal fields above the keyboard.
-          .scrollDisabled(!focused)
-          .simultaneousGesture(
-            DragGesture(minimumDistance: 12).updating($dragOffset) { value, offset, transaction in
-              guard !focused, panelPresented else { return }
-              transaction.animation = nil
-              let distance = value.translation.height
-              offset = distance * 0.28 / (1 + abs(distance) / 360)
-            })
-          .onChange(of: focused) { _, isFocused in
-            if !isFocused { proxy.scrollTo("cloud.formTop", anchor: .top) }
-          }
-        }
-
-        accountHeader(scale: scale, topInset: geometry.safeAreaInsets.top)
-          .frame(width: width)
-      }
-      .background(alignment: .top) {
-        accountBackground(width: width, scale: scale).ignoresSafeArea()
+      if geometry.size.width >= 720 {
+        padAccountLayout(geometry)
+      } else {
+        phoneAccountLayout(geometry)
       }
     }
     .background(DS.surface.ignoresSafeArea())
@@ -99,6 +52,110 @@ struct CloudAccountView: View {
         Spacer()
         Button("完成") { focused = false }.accessibilityIdentifier("cloud.keyboardDone")
       }
+    }
+  }
+
+  private func phoneAccountLayout(_ geometry: GeometryProxy) -> some View {
+    let width = min(geometry.size.width, 480)
+    let scale = width / 402
+    let heroHeight = max(190, 332 * scale - geometry.safeAreaInsets.top)
+    return ZStack(alignment: .top) {
+      ScrollViewReader { proxy in
+        ScrollView {
+          VStack(spacing: 0) {
+            illustration(width: width, scale: scale, topInset: geometry.safeAreaInsets.top)
+              .frame(height: heroHeight + 58 * scale, alignment: .top)
+              .clipped()
+              .padding(.bottom, -58 * scale)
+            accountForm(scale: scale)
+              .frame(minHeight: max(542 * scale,
+                geometry.size.height - heroHeight + geometry.safeAreaInsets.bottom))
+              .background {
+                // A continuous white surface has no bottom-edge shadow at the safe area.
+                UnevenRoundedRectangle(topLeadingRadius: 58 * scale, topTrailingRadius: 58 * scale)
+                  .fill(DS.surface)
+              }
+              .offset(y: panelPresented ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
+              .allowsHitTesting(panelPresented)
+              .accessibilityHidden(!panelPresented)
+          }
+          .frame(width: width)
+          .frame(maxWidth: .infinity)
+          .id("cloud.formTop")
+          .offset(y: reduceMotion ? 0 : dragOffset)
+        }
+        .accessibilityIdentifier("cloud.scroll")
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        // Normal dragging only stretches the presentation; it cannot leave a scroll offset.
+        // Text input may still reveal fields above the keyboard.
+        .scrollDisabled(!focused)
+        .simultaneousGesture(
+          DragGesture(minimumDistance: 12).updating($dragOffset) { value, offset, transaction in
+            guard !focused, panelPresented else { return }
+            transaction.animation = nil
+            let distance = value.translation.height
+            offset = distance * 0.28 / (1 + abs(distance) / 360)
+          })
+        .onChange(of: focused) { _, isFocused in
+          if !isFocused { proxy.scrollTo("cloud.formTop", anchor: .top) }
+        }
+      }
+
+      accountHeader(scale: scale, topInset: geometry.safeAreaInsets.top)
+        .frame(width: width)
+    }
+    .background(alignment: .top) {
+      accountBackground(width: width, scale: scale).ignoresSafeArea()
+    }
+  }
+
+  /// The iPad frame is 834 × 1194 in Figma. The hero and panel span the
+  /// available width; the form keeps its own readable, centered column.
+  private func padAccountLayout(_ geometry: GeometryProxy) -> some View {
+    let width = geometry.size.width
+    let scale = width / 834
+    let panelTop = max(0, 501 * scale - geometry.safeAreaInsets.top)
+    let heroTop = max(0, 98 * scale - geometry.safeAreaInsets.top)
+    return ZStack(alignment: .top) {
+      ScrollViewReader { proxy in
+        ScrollView {
+          VStack(spacing: 0) {
+            Color.clear.frame(height: panelTop).accessibilityHidden(true)
+            accountForm(scale: scale, padLayout: true)
+              .frame(maxWidth: .infinity)
+              .frame(minHeight: max(693 * scale,
+                geometry.size.height - panelTop + geometry.safeAreaInsets.bottom), alignment: .top)
+              .background {
+                UnevenRoundedRectangle(topLeadingRadius: 100 * scale,
+                  topTrailingRadius: 100 * scale).fill(DS.surface)
+              }
+              .offset(y: panelPresented ? 0 : geometry.size.height + geometry.safeAreaInsets.bottom)
+              .allowsHitTesting(panelPresented)
+              .accessibilityHidden(!panelPresented)
+          }
+          .background(alignment: .top) {
+            AssetImage("/assets/brand/login/cloud-hero.png")
+              .frame(width: width, height: 573 * scale)
+              .opacity(0.8).padding(.top, heroTop)
+          }
+          .id("cloud.formTop")
+        }
+        .accessibilityIdentifier("cloud.scroll")
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: focused) { _, isFocused in
+          if !isFocused { proxy.scrollTo("cloud.formTop", anchor: .top) }
+        }
+      }
+      accountHeader(scale: scale, topInset: geometry.safeAreaInsets.top, padLayout: true)
+    }
+    .background {
+      LinearGradient(stops: [
+        .init(color: Color(hex: 0xdccafa), location: 0),
+        .init(color: Color(hex: 0xfcfaff), location: 0.2267),
+        .init(color: Color(hex: 0xfcfaff), location: 1),
+      ], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
     }
   }
 
@@ -130,11 +187,13 @@ struct CloudAccountView: View {
       .offset(x: -scale, y: 93 * scale - topInset)
   }
 
-  private func accountHeader(scale: CGFloat, topInset: CGFloat) -> some View {
-    HStack {
-      Spacer().frame(width: 44)
+  private func accountHeader(scale: CGFloat, topInset: CGFloat, padLayout: Bool = false) -> some View {
+    let buttonSize = padLayout ? max(44, 46.5 * scale) : 44
+    return HStack {
+      Spacer().frame(width: buttonSize)
       Text(registering ? "注册" : "登录")
-        .font(DS.font(.pageTitle)).foregroundStyle(DS.primary)
+        .font(padLayout ? Font(DS.uiFont(.pageTitle).withSize(36 * scale)) : DS.font(.pageTitle))
+        .foregroundStyle(DS.primary)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("cloud.title")
         .frame(maxWidth: .infinity)
@@ -145,9 +204,10 @@ struct CloudAccountView: View {
         showingSettings = true
       } label: {
         BCGlyph("Settings", color: DS.primary)
-          .frame(width: 16, height: 16)
-          .iconButtonFrame()
-          .background(Color(hex: 0xf7f3ff), in: RoundedRectangle(cornerRadius: 8))
+          .frame(width: padLayout ? 22 * scale : 16, height: padLayout ? 22 * scale : 16)
+          .frame(width: buttonSize, height: buttonSize)
+          .background(Color(hex: 0xf7f3ff),
+            in: RoundedRectangle(cornerRadius: padLayout ? 12 * scale : 8))
           .contentShape(Rectangle())
       }
       .buttonStyle(BCPressStyle())
@@ -155,13 +215,13 @@ struct CloudAccountView: View {
       .accessibilityIdentifier("cloud.settings")
       .disabled(busy)
     }
-    .padding(.horizontal, 12 * scale)
-    .padding(.top, max(16, 63 * scale - topInset))
+    .padding(.horizontal, (padLayout ? 39.5 : 12) * scale)
+    .padding(.top, max(16, (padLayout ? 37.25 : 63) * scale - topInset))
   }
 
-  private func accountForm(scale: CGFloat) -> some View {
+  private func accountForm(scale: CGFloat, padLayout: Bool = false) -> some View {
     VStack(spacing: 0) {
-      VStack(alignment: .leading, spacing: 17) {
+      VStack(alignment: .leading, spacing: padLayout ? 17 * scale : 17) {
         if store.cloudState.localLogin {
           Text("正在使用本地默认账号，无需邮箱验证。")
             .font(DS.font(.body)).foregroundStyle(DS.secondary)
@@ -175,7 +235,8 @@ struct CloudAccountView: View {
             .keyboardType(.emailAddress).textContentType(.emailAddress)
             .focused($focused)
             .accessibilityLabel("邮箱地址").accessibilityIdentifier("cloud.email")
-            .padding(.horizontal, 21).frame(minHeight: 47)
+            .padding(.horizontal, padLayout ? 21 * scale : 21)
+            .frame(minHeight: padLayout ? max(44, 47 * scale) : 47)
             .background(Color(.systemGray6), in: Capsule())
           HStack(spacing: 4) {
             TextField("邮箱验证码", text: $code)
@@ -191,7 +252,8 @@ struct CloudAccountView: View {
                 Task { await sendCode() }
               } label: {
                 Text(remaining > 0 ? "\(remaining) 秒" : busy ? "发送中…" : "获取验证码")
-                  .font(DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
+                  .font(padLayout ? Font(DS.uiFont(.caption, weight: .semibold).withSize(14 * scale))
+                    : DS.font(.caption, weight: .semibold)).foregroundStyle(DS.primary)
                   .fixedSize().buttonFrame()
               }
               .buttonStyle(BCPressStyle())
@@ -200,7 +262,8 @@ struct CloudAccountView: View {
               .accessibilityIdentifier("cloud.sendCode")
             }
           }
-          .padding(.horizontal, 21).frame(minHeight: 47)
+          .padding(.horizontal, padLayout ? 21 * scale : 21)
+          .frame(minHeight: padLayout ? max(44, 47 * scale) : 47)
           .background(Color(.systemGray6), in: Capsule())
           if let challenge, hasCurrentChallenge {
             Text(challenge.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
@@ -216,37 +279,49 @@ struct CloudAccountView: View {
             .accessibilityIdentifier("cloud.error")
         }
       }
-      .font(DS.font(.body)).tint(DS.primary)
-      .frame(maxWidth: .infinity, minHeight: registering ? 186 * scale : 256 * scale, alignment: .topLeading)
-      .padding(.horizontal, 50 * scale)
+      .font(padLayout ? Font(DS.uiFont(.body).withSize(20 * scale)) : DS.font(.body)).tint(DS.primary)
+      .frame(maxWidth: .infinity,
+        minHeight: padLayout ? 256 * scale : (registering ? 186 : 256) * scale, alignment: .topLeading)
+      .frame(width: padLayout ? 400 * scale : nil)
+      .padding(.leading, padLayout ? 21 * scale : 0)
+      .padding(.horizontal, padLayout ? 0 : 50 * scale)
+      .frame(maxWidth: .infinity, alignment: .leading)
       if !store.cloudState.localLogin {
-        HStack(spacing: 27 * scale) {
+        HStack(spacing: padLayout ? 0 : 27 * scale) {
           Button {
             Task { await verifyCode() }
           } label: {
             Text(busy ? "请稍候…" : registering ? "注册" : "登录")
-              .font(DS.font(.button)).foregroundStyle(DS.primary)
-              .buttonFrame(.primary, fillsWidth: true)
-              .background(DS.primarySoft, in: Capsule())
+              .font(padLayout ? Font(DS.uiFont(.button, weight: .regular).withSize(24 * scale))
+                : DS.font(.button)).foregroundStyle(.white)
+              .frame(minWidth: 44, maxWidth: padLayout ? nil : .infinity)
+              .frame(width: padLayout ? 154 * scale : nil, height: padLayout ? max(44, 47 * scale) : 54)
+              .contentShape(Rectangle())
+              .primaryCapsuleSurface()
           }
           .buttonStyle(BCPressStyle()).disabled(busy)
           .accessibilityIdentifier("cloud.verify")
           if !registering {
+            if padLayout { Spacer(minLength: 24 * scale) }
             Button { setRegistering(true) } label: {
               Text("注册")
-                .font(DS.font(.button)).foregroundStyle(DS.secondary)
-                .buttonFrame(fillsWidth: true)
+                .font(padLayout ? Font(DS.uiFont(.button, weight: .regular).withSize(24 * scale))
+                  : DS.font(.button)).foregroundStyle(DS.secondary)
+                .frame(minWidth: 44, maxWidth: padLayout ? nil : .infinity)
+                .frame(width: padLayout ? 154 * scale : nil, height: padLayout ? max(44, 47 * scale) : 44)
+                .contentShape(Rectangle())
                 .background(Color(hex: 0xeef1f5), in: Capsule())
             }
             .buttonStyle(BCPressStyle()).disabled(busy)
             .accessibilityLabel("切换到注册")
             .accessibilityIdentifier("cloud.registerMode")
           }
-        }.padding(.horizontal, 33 * scale)
+        }.padding(.horizontal, padLayout ? 0 : 33 * scale)
       }
-      Spacer(minLength: 80)
+      Spacer(minLength: padLayout ? 80 * scale : 80)
     }
-    .padding(.top, registering ? 90 * scale : 100 * scale)
+    .frame(width: padLayout ? 539 * scale : nil)
+    .padding(.top, padLayout ? 187 * scale : (registering ? 90 : 100) * scale)
     .overlay(alignment: .topLeading) {
       if registering {
         Button { setRegistering(false) } label: {

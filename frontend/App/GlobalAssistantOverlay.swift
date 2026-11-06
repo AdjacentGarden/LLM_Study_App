@@ -70,7 +70,7 @@ struct GlobalAssistantOverlay: View {
 
   private var assistantPanel: some View {
     AssistantConversationPanel(isPad: store.isPad, voiceMode: voice.isVoiceMode,
-      keyboardTop: keyboardTop, dismissKeyboard: dismissComposerKeyboard) {
+      dismissKeyboard: dismissComposerKeyboard) {
         header
     } content: { bottomInset in
       VStack(spacing: 16) {
@@ -196,6 +196,9 @@ struct GlobalAssistantOverlay: View {
     }
     .onChange(of: scenePhase) { _, phase in
       if phase == .background { saveDraft(); Task { [history] in await history.flush() } }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .assistantDismissKeyboard)) { _ in
+      dismissComposerKeyboard()
     }
     .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) {
       notification in
@@ -1223,7 +1226,6 @@ struct AssistantResultActions: View {
 struct AssistantConversationPanel<Header: View, Content: View, Composer: View>: View {
   var isPad: Bool
   var voiceMode: Bool
-  var keyboardTop: CGFloat
   var dismissKeyboard: () -> Void
   @ViewBuilder var header: () -> Header
   @ViewBuilder var content: (CGFloat) -> Content
@@ -1231,45 +1233,64 @@ struct AssistantConversationPanel<Header: View, Content: View, Composer: View>: 
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @State private var revealed = false
   @State private var composerHeight: CGFloat = 58
+  @State private var keyboardFrame = CGRect.null
 
   var body: some View {
     GeometryReader { geometry in
-      let visibleHeight = max(180, voiceMode ? geometry.size.height :
-        min(geometry.size.height, keyboardTop - geometry.frame(in: .global).minY))
-      let keyboardVisible = !voiceMode && keyboardTop < geometry.frame(in: .global).maxY
       let windowInset = UIApplication.shared.connectedScenes.compactMap {
         ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom
       }.first ?? 0
-      let bottomPadding = keyboardVisible ? 12 : max(geometry.safeAreaInsets.bottom, windowInset) + 12
+      let safeBottom = max(geometry.safeAreaInsets.bottom, windowInset)
+      let keyboard = keyboardFrame.intersection(CGRect(origin: .zero, size: geometry.size))
+      let keyboardVisible = !voiceMode && !keyboard.isNull && keyboard.height > safeBottom + 1
+      let visibleHeight = keyboardVisible
+        ? max(composerHeight + 16, min(geometry.size.height, keyboard.minY)) : geometry.size.height
+      let bottomPadding = keyboardVisible ? 16 : safeBottom + 12
       let panelWidth = isPad ? min(460, geometry.size.width - 48) : geometry.size.width
+      let floating = keyboardVisible && keyboard.width < geometry.size.width * 0.8
+      let defaultLeft = isPad ? max(0, geometry.size.width - panelWidth - 24) : 0
+      let left = floating
+        ? max(0, min(geometry.size.width - panelWidth, keyboard.midX - panelWidth / 2)) : defaultLeft
       let textInset = max(0, panelWidth * 0.08 - 16)
       VStack(spacing: 16) {
-        header()
-          .opacity(reduceMotion || revealed ? 1 : 0)
-          .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(0.04), value: revealed)
         content(composerHeight + bottomPadding + 16)
+          .contentShape(Rectangle())
+          .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
       }
-      .padding(.horizontal, 16).padding(.top, 12)
+      .padding(.horizontal, 16).padding(.top, 72)
       .frame(width: panelWidth, height: visibleHeight)
       .contentShape(Rectangle())
-      .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
       .overlay(alignment: .bottom) {
         composer(textInset)
           .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
-          .background(alignment: .bottom) {
-            ProgressiveMaterial()
-              .padding(.horizontal, -16).padding(.top, -36).padding(.bottom, -bottomPadding)
-              .contentShape(Rectangle()).onTapGesture { dismissKeyboard() }
-          }
           .opacity(reduceMotion || revealed ? 1 : 0)
           .scaleEffect(reduceMotion || revealed ? 1 : 0.97)
           .animation(reduceMotion ? nil : .easeOut(duration: 0.26), value: revealed)
           .padding(.horizontal, 16).padding(.bottom, bottomPadding)
       }
-      .frame(maxWidth: .infinity, alignment: isPad ? .trailing : .center)
-      .padding(.trailing, isPad ? 24 : 0)
+      .offset(x: left)
+      .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+      .background {
+        Color.clear.contentShape(Rectangle()).onTapGesture { dismissKeyboard() }
+      }
+      .overlay(alignment: .top) {
+        // The toolbar belongs to the full screen, independently of the narrow
+        // conversation column and the floating keyboard's horizontal position.
+        header()
+          .padding(.horizontal, 12).padding(.top, 12)
+          .opacity(reduceMotion || revealed ? 1 : 0)
+          .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(0.04), value: revealed)
+      }
+      .overlay(alignment: .topLeading) {
+        // Keep the UIKit reader inside this viewport: an outer background can
+        // extend under the status bar and report a different local origin.
+        AssistantKeyboardFrameReader { keyboardFrame = $0 }
+          .frame(width: geometry.size.width, height: geometry.size.height)
+          .allowsHitTesting(false)
+      }
       .accessibilityElement(children: .contain).accessibilityAddTraits(.isModal)
-    }.onAppear { revealed = true }
+    }
+    .onAppear { revealed = true }
   }
 }
 

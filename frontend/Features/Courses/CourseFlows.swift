@@ -1101,11 +1101,8 @@ struct CourseProcessingView: View {
                 Button {
                   store.go(.study)
                 } label: {
-                  Text("后台运行，返回学习页").font(DS.font(.button)).foregroundStyle(
-                    DS.primaryPressed
-                  ).buttonFrame(fillsWidth: true).background(
-                    DS.primarySoft, in: Capsule()
-                  ).overlay(Capsule().stroke(Color(hex: 0xDDD6FE)))
+                  Text("后台运行，返回学习页").font(DS.font(.button)).foregroundStyle(.white)
+                    .buttonFrame(fillsWidth: true).primaryCapsuleSurface()
                 }.buttonStyle(.plain)
               }
             }.padding(.top, min(40, max(24, screenHeight * 0.04))).frame(
@@ -1422,7 +1419,7 @@ struct CourseFlowPrimaryButton: View {
       Text(title).font(DS.font(.button)).multilineTextAlignment(.center)
         .buttonFrame(.primary, fillsWidth: true)
         .foregroundStyle(enabled ? .white : DS.secondary)
-        .background(enabled ? DS.primary : DS.border, in: Capsule())
+        .primaryCapsuleSurface()
     }.buttonStyle(BCPressStyle())
   }
 }

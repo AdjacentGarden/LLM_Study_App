@@ -519,6 +519,10 @@ struct Diagnosis: Codable, Hashable, Sendable {
   var hint: String
   var needs_followup: Bool
   var mistake_recorded: Bool
+  var evaluated_questions: Int? = nil
+  var incorrect_questions: Int? = nil
+  var grading_scope: String? = nil
+  var summary_hint: String? = nil
 }
 struct MistakeRecord: Codable, Identifiable, Hashable, Sendable {
   var mistake_id: String
@@ -568,7 +572,7 @@ enum Route: String, Codable, CaseIterable, Identifiable, Sendable {
     case .plan: "学习计划"
     case .flashcards: "知识点闪卡"
     case .lesson: "章节学习"
-    case .assignment: "作业练习"
+    case .assignment: "作业诊断"
     case .diagnosis: "作业诊断"
     case .mistakes: "错题集"
     case .notes: "学习笔记"

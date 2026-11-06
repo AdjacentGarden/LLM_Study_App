@@ -20,6 +20,8 @@ struct LearningAssignmentView: View {
   @State private var questionStarted = Date()
   @State private var elapsed: [String: Double] = [:]
   @State private var confidence = 0.6
+  @State private var padKeyboardFrame = CGRect.null
+  @State private var answerFrame = CGRect.null
 
   private var questions: [QuizQuestion] {
     store.quizzes.filter {
@@ -38,21 +40,32 @@ struct LearningAssignmentView: View {
       : answers[question.id] != nil
   }
   private var last: Bool { index >= questions.count - 1 }
+  private var answeredCount: Int {
+    questions.filter { item in
+      if item.id == question?.id, learningQuestionKind(item) == "short-answer" {
+        return !shortAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      }
+      return !(answers[item.id]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }.count
+  }
 
   var body: some View {
     if let question {
       GeometryReader { geometry in
-        let phone = geometry.size.width < 720
-        VStack(spacing: phone ? 12 : 16) {
-          chapterHeader
-            .padding(.horizontal, phone ? 16 : 0)
-          questionPanel(question, phone: phone)
+        if geometry.size.width >= 720 {
+          padLayout(question)
+        } else {
+          VStack(spacing: 12) {
+            chapterHeader.padding(.horizontal, 16)
+            questionPanel(question, phone: true)
+          }
+          .padding(.top, 12)
+          .frame(maxWidth: .infinity)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .padding(.top, phone ? 12 : 22)
-        .frame(maxWidth: phone ? .infinity : 660)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
       }
       .background(Color(hex: 0xd9d2ff))
+      .overlay { AssignmentKeyboardDismissal().allowsHitTesting(false) }
       .task(id: "\(store.selectedBookID ?? ""):\(store.selectedChapterID ?? "")") {
         index = store.learningState.agentFocusQuizID.flatMap { target in questions.firstIndex { $0.id == target } } ?? 0
         answers = [:]
@@ -70,8 +83,73 @@ struct LearningAssignmentView: View {
       .onChange(of: question.id) { _, id in store.learningState.visibleQuizID = id }
       .onDisappear { store.learningState.visibleQuizID = nil; store.learningState.agentFocusQuizID = nil }
     } else {
-      LearningNoSource(title: "暂无可练习的章节", message: "完成教材解析并进入章节后，就能按判断题、选择题、简答题的顺序检查理解。")
+      GeometryReader { geometry in
+        if geometry.size.width >= 720 {
+          padLayout(nil)
+        } else {
+          LearningNoSource(title: "暂无可练习的章节", message: "完成教材解析并进入章节后，就能按判断题、选择题、简答题的顺序检查理解。")
+        }
+      }
     }
+  }
+
+  private func padLayout(_ question: QuizQuestion?) -> some View {
+    HStack(spacing: 0) {
+      padSidebar(question)
+        .frame(width: DS.padRailCollapsedWidth)
+      Group {
+        if let question {
+          questionPanel(question, phone: false)
+        } else {
+          EmptyStateView(title: "本节暂无题目", message: "章节练习准备好后，会在这里显示题目和作答区域。", icon: "ClipboardCheck")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DS.surface, in: RoundedRectangle(cornerRadius: 24))
+        }
+      }.padding(20)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+
+  private func padSidebar(_ question: QuizQuestion?) -> some View {
+    VStack(alignment: .leading, spacing: 20) {
+      Button { store.back() } label: {
+        Label("返回", systemImage: "chevron.left")
+          .font(DS.font(.smallButton)).foregroundStyle(DS.text)
+          .buttonFrame(fillsWidth: true)
+          .background(.white, in: Capsule())
+      }.buttonStyle(BCPressStyle()).accessibilityLabel("返回")
+        .accessibilityIdentifier("navigation.back")
+      ScrollView {
+        VStack(alignment: .leading, spacing: 20) {
+          VStack(alignment: .leading, spacing: 10) {
+            Text("作业诊断").font(DS.font(.sectionTitle)).foregroundStyle(DS.primary)
+              .accessibilityAddTraits(.isHeader).accessibilityIdentifier("navigation.title")
+            Text(store.chapters.first { $0.id == store.selectedChapterID }?.source_title ?? store.chapterTitle)
+              .font(DS.font(.supporting)).foregroundStyle(DS.text).lineLimit(4)
+              .fixedSize(horizontal: false, vertical: true)
+              .accessibilityIdentifier("assignment.chapter-title")
+          }
+          VStack(alignment: .leading, spacing: 14) {
+            Text("诊断进度").font(DS.font(.supporting, weight: .semibold)).foregroundStyle(DS.secondary)
+            Text(question == nil ? "暂无题目" : "第 \(index + 1) 题")
+              .font(DS.font(.sectionTitle)).foregroundStyle(DS.text)
+              .accessibilityLabel(question == nil ? "暂无题目" : "第 \(index + 1) 题，共 \(questions.count) 题")
+              .accessibilityIdentifier("assignment.question-position")
+            Text("共 \(questions.count) 题").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+            BCProgress(value: Double(answeredCount) / Double(max(1, questions.count)))
+              .accessibilityLabel("已作答 \(answeredCount) 题，共 \(questions.count) 题")
+              .accessibilityIdentifier("assignment.progress")
+            Text("已作答 \(answeredCount) 题").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+            Text("还剩 \(max(0, questions.count - answeredCount)) 题")
+              .font(DS.font(.body, weight: .semibold)).foregroundStyle(DS.primary)
+              .accessibilityIdentifier("assignment.remaining")
+          }.accessibilityIdentifier("assignment.chapter-header")
+        }.frame(maxWidth: .infinity, alignment: .leading)
+      }.scrollIndicators(.hidden)
+    }
+    .padding(.horizontal, 12).padding(.vertical, 24)
+    .background(Color(hex: 0xf2edff).ignoresSafeArea(.container, edges: [.top, .bottom]))
+    .accessibilityIdentifier("assignment.sidebar")
   }
 
   private var chapterHeader: some View {
@@ -95,21 +173,47 @@ struct LearningAssignmentView: View {
 
   private func questionPanel(_ question: QuizQuestion, phone: Bool) -> some View {
     let shape = UnevenRoundedRectangle(
-      topLeadingRadius: phone ? 48 : 14, bottomLeadingRadius: phone ? 0 : 14,
-      bottomTrailingRadius: phone ? 0 : 14, topTrailingRadius: phone ? 48 : 14)
+      topLeadingRadius: phone ? 48 : 24, bottomLeadingRadius: phone ? 0 : 24,
+      bottomTrailingRadius: phone ? 0 : 24, topTrailingRadius: phone ? 48 : 24)
     return GeometryReader { panel in
+      let keyboard = padKeyboardFrame.intersection(CGRect(origin: .zero, size: panel.size))
+      let keyboardInset = !phone && !keyboard.isNull && keyboard.height > panel.safeAreaInsets.bottom + 1
+        ? min(max(0, panel.size.height - 120), max(0, panel.size.height - keyboard.minY + 16)) : 0
       ScrollViewReader { proxy in
         ScrollView {
-          questionContent(question)
-            .padding(.horizontal, phone ? 26 : 18)
-            .padding(.top, phone ? 24 : 18).padding(.bottom, phone ? 26 : 18)
+          questionContent(question, phone: phone)
+            .padding(.horizontal, phone ? 26 : 32)
+            .padding(.top, phone ? 24 : 32).padding(.bottom, phone ? 26 : 32)
             .frame(maxWidth: .infinity, minHeight: panel.size.height, alignment: .topLeading)
             .id(question.id)
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+          if keyboardInset > 0 {
+            Color.clear.frame(height: keyboardInset).allowsHitTesting(false)
+          }
+        }
         .accessibilityIdentifier("assignment.question-scroll")
         .onChange(of: question.id) { _, id in proxy.scrollTo(id, anchor: .top) }
+        .task(id: keyboardInset) {
+          guard keyboardInset > 0, learningQuestionKind(question) == "short-answer" else { return }
+          // The card keeps its original size; only its scroll viewport changes.
+          await Task.yield()
+          guard !Task.isCancelled else { return }
+          let keyboardTop = panel.frame(in: .global).minY + keyboard.minY
+          guard answerFrame.isNull || answerFrame.maxY + 16 > keyboardTop else { return }
+          withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            proxy.scrollTo("assignment.answer-editor", anchor: .top)
+          }
+        }
+      }
+      .overlay(alignment: .topLeading) {
+        if !phone {
+          AssistantKeyboardFrameReader { padKeyboardFrame = $0 }
+            .frame(width: panel.size.width, height: panel.size.height)
+            .allowsHitTesting(false)
+        }
       }
     }
     .clipShape(shape)
@@ -120,18 +224,18 @@ struct LearningAssignmentView: View {
     .accessibilityIdentifier("assignment.question-panel")
   }
 
-  private func questionContent(_ question: QuizQuestion) -> some View {
+  private func questionContent(_ question: QuizQuestion, phone: Bool) -> some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack(spacing: 9) {
         StickerIcon(kindIcon(question), size: 36, glyphSize: 19)
-        Text("\(kindTitle(question)) · 第 \(index + 1) 题").font(DS.font(.supporting, weight: .semibold))
+        Text(phone ? "\(kindTitle(question)) · 第 \(index + 1) 题" : kindTitle(question)).font(DS.font(.supporting, weight: .semibold))
           .foregroundStyle(DS.primary)
       }
       Text(question.prompt).accessibilityIdentifier("assignment.question").font(
-        DS.font(.sectionTitle)
+        DS.font(phone ? .sectionTitle : .pageTitle)
       ).lineSpacing(4)
         .fixedSize(horizontal: false, vertical: true).frame(
-          maxWidth: 385, alignment: .leading)
+          maxWidth: phone ? 385 : .infinity, alignment: .leading)
       if learningQuestionKind(question) != "short-answer" {
         Text(
           question.instruction
@@ -157,27 +261,51 @@ struct LearningAssignmentView: View {
         }
       }
       Spacer(minLength: 32)
-      if question.page_start > 0 && question.source_kind != "ai_supplement" {
-        HStack {
-          Spacer()
-          Button("查看原文") { openSource(question) }.font(DS.font(.smallButton)).buttonFrame()
-            .foregroundStyle(DS.primary).buttonStyle(.plain)
-        }.padding(.bottom, 10)
+      if phone {
+        if question.page_start > 0 && question.source_kind != "ai_supplement" {
+          HStack {
+            Spacer()
+            sourceButton(question)
+          }.padding(.bottom, 10)
+        }
+        submitButton(question, phone: true)
+      } else {
+        VStack(spacing: 64) {
+          submitButton(question, phone: false)
+          HStack {
+            Spacer()
+            if question.page_start > 0 && question.source_kind != "ai_supplement" {
+              sourceButton(question)
+            }
+          }.frame(height: DS.ButtonSize.regular.height)
+        }.padding(.bottom, 32)
       }
-      Button {
-        if last { submit() } else { changeQuestion(1) }
-      } label: {
-        Text(last ? (submitting ? "正在生成诊断……" : "提交并查看诊断") : "提交答案")
-          .font(DS.font(.button)).buttonFrame(.primary, fillsWidth: true)
-          .foregroundStyle(canContinue ? Color.white : DS.secondary)
-          .background(canContinue ? DS.primary : Color(hex: 0xedf1f5), in: Capsule())
-          .overlay(Capsule().stroke(canContinue ? DS.primary : DS.border, lineWidth: 1))
-      }.buttonStyle(.plain).disabled(
-        submitting || (learningQuestionKind(question) != "short-answer" && !canContinue)
-      )
-      .accessibilityLabel(last ? "提交作业" : "提交\(kindTitle(question))答案并进入下一题")
-      .accessibilityIdentifier("assignment.submit")
     }
+  }
+
+  private func sourceButton(_ question: QuizQuestion) -> some View {
+    Button("查看原文") { openSource(question) }.font(DS.font(.smallButton)).buttonFrame()
+      .foregroundStyle(DS.primary).buttonStyle(.plain)
+  }
+
+  private func submitButton(_ question: QuizQuestion, phone: Bool) -> some View {
+    Button {
+      if last { submit() } else { changeQuestion(1) }
+    } label: {
+      Text(submitting ? "正在生成诊断……" : phone
+        ? (last ? "提交并查看诊断" : "提交答案") : (last ? "提交答案" : "下一题"))
+        .font(DS.font(.button)).buttonFrame(.primary, fillsWidth: true)
+        .foregroundStyle(canContinue ? Color.white : DS.secondary)
+        .background(canContinue ? Color.clear : Color(hex: 0xedf1f5), in: Capsule())
+        .overlay(Capsule().stroke(canContinue ? Color.clear : DS.border, lineWidth: 1))
+        .primaryCapsuleSurface(active: canContinue)
+    }.buttonStyle(.plain).disabled(
+      submitting || (learningQuestionKind(question) != "short-answer" && !canContinue)
+    )
+    .accessibilityLabel(phone
+      ? (last ? "提交作业" : "提交\(kindTitle(question))答案并进入下一题")
+      : (last ? "提交答案" : "下一题"))
+    .accessibilityIdentifier("assignment.submit")
   }
 
   private func judgmentOptions(_ question: QuizQuestion) -> some View {
@@ -275,6 +403,8 @@ struct LearningAssignmentView: View {
           }), placeholder: "在这里写下你的思路……"
       )
       .frame(minHeight: 210).accessibilityIdentifier("assignment.answer")
+      .id("assignment.answer-editor")
+      .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { answerFrame = $0 }
     }
   }
 
@@ -368,6 +498,54 @@ struct LearningAssignmentView: View {
 }
 
 
+/// Observe blank-area taps without putting a dismiss gesture on the editor's
+/// SwiftUI ancestors. The recognizer never cancels normal scrolling or controls.
+private struct AssignmentKeyboardDismissal: UIViewRepresentable {
+  func makeUIView(context: Context) -> DismissalView { DismissalView() }
+  func updateUIView(_ view: DismissalView, context: Context) { }
+  static func dismantleUIView(_ view: DismissalView, coordinator: ()) { view.detach() }
+
+  final class DismissalView: UIView, UIGestureRecognizerDelegate {
+    private weak var observedWindow: UIWindow?
+    private lazy var tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+
+    override init(frame: CGRect) {
+      super.init(frame: frame)
+      isUserInteractionEnabled = false
+      tap.cancelsTouchesInView = false
+      tap.delegate = self
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      detach()
+      observedWindow = window
+      window?.addGestureRecognizer(tap)
+    }
+
+    func detach() {
+      observedWindow?.removeGestureRecognizer(tap)
+      observedWindow = nil
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+      guard window != nil, bounds.contains(touch.location(in: self)) else { return false }
+      var touched = touch.view
+      while let view = touched {
+        if view is UITextView || view is UITextField || view is UIControl { return false }
+        touched = view.superview
+      }
+      return true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+      shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+
+    @objc private func dismissKeyboard() { window?.endEditing(true) }
+  }
+}
+
 /// As with the assistant title, actual rendered width selects the largest fitting tier.
 /// Single-line text keeps the chapter header at the same height for every question.
 private struct LearningAssignmentTitle: View {
@@ -392,15 +570,21 @@ struct LearningDiagnosisView: View {
 
   var body: some View {
     if let diagnosis = store.latestDiagnosis {
-      LearningScroll(width: 1120) {
-        ViewThatFits(in: .horizontal) {
-          HStack(alignment: .top, spacing: 20) {
-            analysis(diagnosis).frame(width: 560)
-            nextSteps(diagnosis).frame(width: 320)
-          }
-          VStack(spacing: 20) {
-            analysis(diagnosis)
-            nextSteps(diagnosis)
+      GeometryReader { geometry in
+        if geometry.size.width >= 720 {
+          padSummary(diagnosis)
+        } else {
+          LearningScroll(width: 1120) {
+            ViewThatFits(in: .horizontal) {
+              HStack(alignment: .top, spacing: 20) {
+                analysis(diagnosis).frame(width: 560)
+                nextSteps(diagnosis).frame(width: 320)
+              }
+              VStack(spacing: 20) {
+                analysis(diagnosis)
+                nextSteps(diagnosis)
+              }
+            }
           }
         }
       }
@@ -411,6 +595,141 @@ struct LearningDiagnosisView: View {
         BCButton("回到章节", style: .secondary) { store.go(.lesson) }
       }
     }
+  }
+
+  private func padSummary(_ diagnosis: Diagnosis) -> some View {
+    let total = diagnosis.evaluated_questions ?? 0
+    let wrong = diagnosis.incorrect_questions ?? -1
+    let hasScores = total > 0 && wrong >= 0 && wrong <= total
+    let rate = hasScores ? Double(wrong) / Double(total) : 0
+    let chapterID = trainingChapterID(diagnosis)
+    let hintChapter = hintChapterID(diagnosis)
+    let providedHint = (diagnosis.summary_hint ?? diagnosis.hint).trimmingCharacters(in: .whitespacesAndNewlines)
+    let hint = providedHint.isEmpty
+      ? (diagnosis.stuck_point.isEmpty ? "本次没有额外提示，可以返回章节继续巩固。" : diagnosis.stuck_point)
+      : providedHint
+
+    return LearningScroll(width: 720, inlinePadding: 32, spacing: 24) {
+      VStack(spacing: 28) {
+        VStack(spacing: 16) {
+          Text("本次错误率").font(DS.font(.pageTitle))
+          ZStack {
+            Circle().stroke(DS.primary.opacity(0.10), lineWidth: 10)
+            if hasScores, wrong > 0 {
+              Circle().trim(from: 0, to: rate)
+                .stroke(DS.primary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            }
+            Text(hasScores ? "\(Int((rate * 100).rounded()))%" : "—")
+              .font(Font(DS.uiFont(.metric).withSize(72))).foregroundStyle(DS.primary)
+              .lineLimit(1).minimumScaleFactor(0.6)
+              .accessibilityLabel(hasScores
+                ? "错误率 \(Int((rate * 100).rounded()))%，共 \(total) 道已判分\(diagnosis.grading_scope ?? "题目")"
+                : "暂无已判分的题目")
+              .accessibilityIdentifier("diagnosis.errorRate")
+          }.frame(width: 240, height: 240)
+        }
+        if hasScores {
+          HStack {
+            Text("答对 \(total - wrong) 题").frame(maxWidth: .infinity)
+              .accessibilityIdentifier("diagnosis.correctCount")
+            Divider().frame(height: 26)
+            Text("答错 \(wrong) 题").frame(maxWidth: .infinity)
+              .accessibilityIdentifier("diagnosis.incorrectCount")
+          }.font(DS.font(.sectionTitle))
+        }
+        Divider()
+      }
+      .padding(36).frame(maxWidth: .infinity)
+      .background(DS.surface, in: RoundedRectangle(cornerRadius: 28))
+      .overlay(RoundedRectangle(cornerRadius: 28).stroke(DS.border.opacity(0.7), lineWidth: 1))
+      .accessibilityIdentifier("diagnosis.summary")
+
+      VStack(alignment: .leading, spacing: 12) {
+        HStack {
+          Text("学习提示").font(DS.font(.sectionTitle))
+          Spacer(minLength: 16)
+          Button {
+            openHintChapter(diagnosis)
+          } label: {
+            Label("查看章节", systemImage: "arrow.up.right")
+              .font(DS.font(.smallButton)).foregroundStyle(DS.primary).buttonFrame()
+          }.buttonStyle(.plain).disabled(hintChapter == nil)
+            .accessibilityIdentifier("diagnosis.reviewChapter")
+        }
+        Text(hint).font(DS.font(.reading)).foregroundStyle(DS.secondary).lineSpacing(6)
+          .fixedSize(horizontal: false, vertical: true)
+          .accessibilityIdentifier("diagnosis.summaryHint")
+      }
+      .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+      .background(DS.surface, in: RoundedRectangle(cornerRadius: 28))
+
+      HStack(spacing: 12) {
+        BCButton("完成本节训练", style: .secondary, size: .primary) {
+          guard let chapterID else { return }
+          selectTrainingChapter(chapterID)
+          store.learningState.studyReturnChapterID = chapterID
+          store.go(.study)
+        }.disabled(chapterID == nil)
+          .accessibilityIdentifier("diagnosis.finishTraining")
+        BCButton("进入闪卡复习") {
+          guard let chapterID else { return }
+          selectTrainingChapter(chapterID)
+          store.learningState.agentFocusCardID = nil
+          store.dailyPlanState.focus = nil
+          store.go(.flashcards)
+        }.disabled(chapterID == nil)
+          .accessibilityIdentifier("diagnosis.flashcards")
+      }.padding(.horizontal, 24).padding(.top, 16)
+    }
+  }
+
+  private func trainingChapterID(_ diagnosis: Diagnosis) -> String? {
+    let ids = Set(store.chapters.map(\.id))
+    if let id = store.currentSource?.quizzes.first(where: { $0.id == diagnosis.assignment_id })?.chapter_id,
+      ids.contains(id) { return id }
+    if let id = store.selectedChapterID, ids.contains(id) { return id }
+    return diagnosis.review_citations.first {
+      $0.bookID == store.selectedBookID && ids.contains($0.chapterID)
+    }?.chapterID
+  }
+
+  private func hintChapterID(_ diagnosis: Diagnosis) -> String? {
+    let ids = Set(store.chapters.map(\.id))
+    return diagnosis.review_citations.first {
+      $0.bookID == store.selectedBookID && ids.contains($0.chapterID)
+    }?.chapterID ?? trainingChapterID(diagnosis)
+  }
+
+  private func selectTrainingChapter(_ chapterID: String) {
+    store.selectedChapterID = chapterID
+    if !store.lessons.contains(where: { $0.id == store.selectedLessonID && $0.chapter_id == chapterID }) {
+      store.selectedLessonID = store.lessons.first {
+        $0.chapter_id == chapterID && $0.lesson_kind != "module_intro"
+      }?.id
+    }
+    store.saveLocation()
+  }
+
+  private func openHintChapter(_ diagnosis: Diagnosis) {
+    guard let chapterID = hintChapterID(diagnosis) else { return }
+    if let lesson = store.lessons.first(where: {
+      $0.chapter_id == chapterID && ["ready", "generated"].contains($0.status)
+    }) {
+      let chunks = Set(diagnosis.review_citations.map(\.chunkID))
+      let block = lesson.blocks.firstIndex {
+        !chunks.isDisjoint(with: $0.source_chunk_ids)
+          || $0.citations.contains { chunks.contains($0.chunk_id) }
+      } ?? lesson.blocks.firstIndex { block in
+        diagnosis.knowledge_points.contains {
+          block.title.localizedCaseInsensitiveContains($0) || block.content.localizedCaseInsensitiveContains($0)
+        }
+      }
+      let key = "native.lesson.page.\(store.selectedCourseID ?? "none").\(store.selectedBookID ?? "none").\(lesson.id)"
+      UserDefaults.standard.set(block.map { $0 + 1 } ?? 0, forKey: key)
+    }
+    store.dailyPlanState.focus = nil
+    store.openChapterLearning(chapterID: chapterID)
   }
 
   private func analysis(_ diagnosis: Diagnosis) -> some View {

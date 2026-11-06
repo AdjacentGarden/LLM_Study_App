@@ -395,7 +395,7 @@ extension LocalBookCourseRepository {
 }
 
 @MainActor extension AppStore {
-  func submitLocalPractice(question: QuizQuestion, answer: String) async throws {
+  func submitLocalPractice(question: QuizQuestion, answer: String, navigate: Bool = true) async throws {
     guard let courseID = selectedCourseID else { throw ContentError.invalid("请先选择课程") }
     let correct: Bool, feedback: String
     if !question.choices.isEmpty {
@@ -420,7 +420,8 @@ extension LocalBookCourseRepository {
     diagnosisText = feedback
     latestDiagnosis = Diagnosis(assignment_id: question.id, submission_id: UUID().uuidString, result: correct ? "correct" : "incorrect",
       stuck_point: correct ? "" : question.concept, knowledge_points: [question.concept], review_citations: [], hint: feedback,
-      needs_followup: !correct, mistake_recorded: !correct)
+      needs_followup: !correct, mistake_recorded: !correct,
+      evaluated_questions: 1, incorrect_questions: correct ? 0 : 1, grading_scope: "题目")
     if !correct {
       mistakes.append(MistakeRecord(mistake_id: UUID().uuidString, user_id: cloudState.account?.user_id ?? "",
         book_id: question.book_id, assignment_id: question.id, question: question.prompt, answer: answer,
@@ -440,6 +441,6 @@ extension LocalBookCourseRepository {
       assistantState.learningObjects = objects
     }
     try await persistPrivateState()
-    go(.diagnosis)
+    if navigate { go(.diagnosis) }
   }
 }

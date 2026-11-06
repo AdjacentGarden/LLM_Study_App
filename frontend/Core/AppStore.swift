@@ -494,6 +494,12 @@ import UIKit
       cancelImport()
       return
     }
+    if route == .assignment || route == .diagnosis {
+      learningState.studyReturnChapterID = selectedChapterID
+      saveLocation()
+      go(.study)
+      return
+    }
     let leavingCreation = [.upload, .parseReady, .courseSetup, .chapterConfirm].contains(route)
     if leavingCreation {
       retainPendingCourseDraft()
@@ -616,6 +622,21 @@ import UIKit
     selectedLessonID = lesson.id
     saveLocation()
     go(.lesson)
+  }
+  /// Shared by the directory's homework diagnosis card and the reader's test action.
+  func openChapterAssignment(chapterID: String) {
+    guard chapters.contains(where: { $0.id == chapterID }) else { return }
+    selectedChapterID = chapterID
+    if !lessons.contains(where: { $0.id == selectedLessonID && $0.chapter_id == chapterID }) {
+      selectedLessonID = lessons.first {
+        $0.chapter_id == chapterID && $0.lesson_kind != "module_intro"
+      }?.id
+    }
+    learningState.agentFocusQuizID = nil
+    selectedQuizIndex = 0
+    dailyPlanState.focus = nil
+    saveLocation()
+    go(.assignment)
   }
   func openSource(_ target: SourcePageTarget, allowDownload: Bool = true) {
     var target = target
@@ -1132,7 +1153,9 @@ import UIKit
         ? "客观题已通过，接下来需要用完整因果链表达“\(focus.concept)”。" : "客观题暴露出对“\(focus.concept)”的理解偏差。",
       knowledge_points: section.map(\.concept).reduce(into: [String]()) { values, value in
         if !values.contains(value) { values.append(value) }
-      }, review_citations: citations, hint: hint, needs_followup: false, mistake_recorded: !correct)
+      }, review_citations: citations, hint: hint, needs_followup: false, mistake_recorded: !correct,
+      evaluated_questions: checks.count, incorrect_questions: wrong.count,
+      grading_scope: grouped ? "客观题" : "题目")
     diagnosisText = result
     for (q, _) in wrong {
       let record = MistakeRecord(

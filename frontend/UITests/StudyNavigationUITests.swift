@@ -291,7 +291,7 @@ final class StudyNavigationUITests: XCTestCase {
 
   func testChapterGlassToolsKeepAllFiveDestinations() {
     let entries = [
-      ("flashcards", "知识点闪卡"), ("assignment", "作业练习"),
+      ("flashcards", "知识点闪卡"), ("assignment", "作业诊断"),
       ("mistakes", "错题集"), ("notes", "学习笔记"), ("lesson", ""),
     ]
     for (index, entry) in entries.enumerated() {

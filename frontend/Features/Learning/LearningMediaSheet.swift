@@ -9,8 +9,10 @@ struct LearningMediaSheet: View {
   @Environment(\.scenePhase) private var scenePhase
   @State private var model: CloudMediaModel
   @State private var actionTask: Task<Void, Never>?
+  private let illustrationPath: String?
 
   init(request: LessonMediaRequest, store: AppStore) {
+    illustrationPath = request.previewImagePath
     let scope = store.noteScope
     _model = State(initialValue: CloudMediaModel(api: store.cloud ?? CloudAPI.configured(), request: request,
       libraryDirectory: store.repository.directory.appendingPathComponent("lesson-media")) { id, url in
@@ -26,8 +28,13 @@ struct LearningMediaSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 20) {
-          Label(model.kind == .image ? "生成辅助图" : "看懂这张图", systemImage: "play.circle")
-            .font(DS.font(.sectionTitle)).foregroundStyle(DS.primary)
+          if model.kind == .image {
+            Label("生成辅助图", systemImage: "play.circle")
+              .font(DS.font(.sectionTitle)).foregroundStyle(DS.primary)
+          }
+          if !model.isPreviewingHistory, let illustrationPath {
+            AssetImage(illustrationPath).frame(maxWidth: .infinity).frame(height: 240)
+          }
           if model.isPreviewingHistory {
             HStack {
               Text("正在查看历史任务").font(DS.font(.supporting)).foregroundStyle(DS.secondary)
@@ -90,8 +97,9 @@ struct LearningMediaSheet: View {
           }
         }.padding(24).frame(maxWidth: 760).frame(maxWidth: .infinity)
       }
-      .background(DS.surface)
+      .background(.clear)
       .navigationBarTitleDisplayMode(.inline)
+      .toolbarBackground(.hidden, for: .navigationBar)
       .toolbar {
         ToolbarItem(placement: .principal) {
           Text(mediaName).font(DS.font(.cardTitle))
@@ -99,6 +107,13 @@ struct LearningMediaSheet: View {
         ToolbarItem(placement: .confirmationAction) {
           Button("关闭") { dismiss() }.accessibilityIdentifier("lesson.media.close")
         }
+      }
+    }
+    .presentationBackground {
+      if #available(iOS 26.0, *) {
+        Color.clear.glassEffect(.regular, in: Rectangle())
+      } else {
+        Rectangle().fill(.regularMaterial)
       }
     }
     .foregroundStyle(DS.text)
@@ -123,27 +138,41 @@ struct LearningMediaSheet: View {
   private var confirmation: some View {
     VStack(alignment: .leading, spacing: 12) {
       if let capabilities = model.capabilities, capabilities.available(model.kind) {
-        Text(model.kind == .image ? "根据当前教材选段生成辅助图解。"
-          : "根据当前图示说明和章节内容，生成约 \(capabilities.video_seconds ?? 6) 秒的讲解短片。")
-          .font(DS.font(.body))
-        if let target = capabilities.generationTarget(model.kind) {
-          Text(target).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-            .accessibilityIdentifier("lesson.media.generationTarget")
+        if model.kind == .image {
+          Text("根据当前教材选段生成辅助图解。")
+            .font(DS.font(.body))
+          if let target = capabilities.generationTarget(model.kind) {
+            Text(target).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+              .accessibilityIdentifier("lesson.media.generationTarget")
+          }
+          if let estimate = capabilities.image_estimate {
+            Text("预计服务费用 ¥\(estimate, specifier: "%.2f")，以服务方实际计费为准。")
+              .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+          }
+          Text("生成可能需要几分钟。关闭后可从这张图重新打开查看进度；重复打开不会再次生成。")
+            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
         }
         if let requirement = capabilities.generationRequirement(model.kind) {
           Text(requirement).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             .accessibilityIdentifier("lesson.media.generationRequirement")
         }
-        if let estimate = model.kind == .image ? capabilities.image_estimate : capabilities.video_estimate {
-          Text("预计服务费用 ¥\(estimate, specifier: "%.2f")，以服务方实际计费为准。")
-            .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
+        if model.kind == .video {
+          Button {
+            perform { await model.submit() }
+          } label: {
+            Text(model.submitting ? "正在提交……" : "生成视频")
+              .font(DS.font(.button)).foregroundStyle(.white)
+              .buttonFrame(.primary, fillsWidth: true)
+              .padding(.horizontal, DS.ButtonSize.primary.horizontalPadding)
+          }.buttonStyle(StudyToolEntryStyle())
+            .disabled(model.submitting || model.context.excerpt.count < 4)
+            .accessibilityIdentifier("lesson.media.generate")
+        } else {
+          BCButton(model.submitting ? "正在提交……" : (model.job == nil ? "确认生成" : "重新生成") + mediaName) {
+            perform { await model.submit() }
+          }.disabled(model.submitting || model.context.excerpt.count < 4)
+            .accessibilityIdentifier("lesson.media.generate")
         }
-        Text("生成可能需要几分钟。关闭后可从这张图重新打开查看进度；重复打开不会再次生成。")
-          .font(DS.font(.supporting)).foregroundStyle(DS.secondary)
-        BCButton(model.submitting ? "正在提交……" : (model.job == nil ? "确认生成" : "重新生成") + mediaName) {
-          perform { await model.submit() }
-        }.disabled(model.submitting || model.context.excerpt.count < 4)
-          .accessibilityIdentifier("lesson.media.generate")
       } else if let capabilities = model.capabilities {
         Text(capabilities.unavailableNotice(model.kind))
         .font(DS.font(.body)).foregroundStyle(DS.secondary)

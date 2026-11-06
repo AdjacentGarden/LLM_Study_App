@@ -1,5 +1,95 @@
 import AVFoundation
 import SwiftUI
+import UIKit
+
+extension Notification.Name {
+  static let assistantDismissKeyboard = Notification.Name("CloudPath.assistantDismissKeyboard")
+}
+
+/// Convert both the keyboard guide and keyboard notification into this exact
+/// viewport. Floating keyboard suggestions can extend above the guide's frame.
+struct AssistantKeyboardFrameReader: UIViewRepresentable {
+  let changed: (CGRect) -> Void
+
+  func makeUIView(context: Context) -> KeyboardFrameView {
+    let view = KeyboardFrameView()
+    view.changed = changed
+    return view
+  }
+
+  func updateUIView(_ view: KeyboardFrameView, context: Context) {
+    view.changed = changed
+  }
+
+  final class KeyboardFrameView: UIView {
+    var changed: ((CGRect) -> Void)?
+    private var lastFrame = CGRect.null
+    private var notifiedScreenFrame: CGRect?
+    private var notifiedAt = Date.distantPast
+    private var hiding = false
+
+    override init(frame: CGRect) {
+      super.init(frame: frame)
+      isUserInteractionEnabled = false
+      keyboardLayoutGuide.followsUndockedKeyboard = true
+      NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)),
+        name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+      NotificationCenter.default.addObserver(self, selector: #selector(keyboardChanged(_:)),
+        name: UIResponder.keyboardDidChangeFrameNotification, object: nil)
+      NotificationCenter.default.addObserver(self, selector: #selector(keyboardHidden),
+        name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc private func keyboardChanged(_ notification: Notification) {
+      guard (notification.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? Bool) != false,
+        let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+      else { return }
+      notifiedScreenFrame = frame
+      notifiedAt = Date()
+      hiding = false
+      publishFrame()
+      setNeedsLayout()
+    }
+
+    @objc private func keyboardHidden() {
+      hiding = true
+      notifiedScreenFrame = nil
+      publishFrame()
+    }
+
+    override func layoutSubviews() {
+      super.layoutSubviews()
+      publishFrame()
+    }
+
+    private func publishFrame() {
+      guard let window else { return }
+      var frame = hiding ? CGRect.null : keyboardLayoutGuide.layoutFrame
+      if !hiding, let notifiedScreenFrame, Date().timeIntervalSince(notifiedAt) < 0.5 {
+        let inWindow = window.convert(notifiedScreenFrame, from: window.screen.coordinateSpace)
+        let notified = convert(inWindow, from: window).intersection(bounds)
+        // Use the full keyboard bounds while its guide catches up with the
+        // animation. For floating keyboards, also include the suggestion row.
+        if !notified.isNull, notified.height > safeAreaInsets.bottom + 1 {
+          if frame.height <= safeAreaInsets.bottom + 1 || frame.isNull {
+            frame = notified
+          } else if abs(frame.midY - notified.midY) < max(80, notified.height * 0.4) {
+            frame = frame.union(notified)
+          }
+        }
+      }
+      guard frame != lastFrame else { return }
+      lastFrame = frame
+      DispatchQueue.main.async { [weak self] in
+        // Ignore a queued frame if the keyboard moved or began dismissing again.
+        guard let self, self.window != nil, self.lastFrame == frame else { return }
+        self.changed?(frame)
+      }
+    }
+  }
+}
 
 struct AssistantGlassSurface: ViewModifier {
   var radius: CGFloat = 28
@@ -216,23 +306,25 @@ private struct AssistantComposerLayout: Layout {
 }
 
 struct AssistantMicrophoneOrb: View {
-  private let size = DS.ButtonSize.regular.height
+  var size: CGFloat = DS.ButtonSize.regular.height
   var symbol = "mic.fill"
   var working = false
   var recording = false
   var themeFill = false
+  var tint: Color = DS.primary
+  var tintOpacity: Double? = nil
   var body: some View {
     Color.clear
-      .iconButtonFrame()
-      .background(themeFill ? DS.primary : .clear, in: Circle())
+      .frame(width: size, height: size)
+      .background(themeFill ? tint : .clear, in: Circle())
       .modifier(AssistantGlassSurface(radius: size / 2, clear: true,
-        tint: DS.primary.opacity(themeFill ? 1 : (recording ? 0.46 : 0.32)), interactive: true))
+        tint: tint.opacity(themeFill ? 1 : (tintOpacity ?? (recording ? 0.46 : 0.32))), interactive: true))
       .overlay {
         // Keep the white glyph above the tinted glass material.
         if working { ProgressView().tint(.white) }
         else {
           Image(systemName: symbol)
-            .font(.system(size: 21, weight: .medium))
+            .font(.system(size: 21 * size / DS.ButtonSize.regular.height, weight: .medium))
             .symbolRenderingMode(.monochrome)
             .foregroundStyle(.white)
             .contentTransition(.symbolEffect(.replace))
@@ -269,6 +361,7 @@ private struct AssistantVoiceControls: View {
   @State private var holdStarted = false
   @Environment(\.bookCourseReduceMotion) private var reduceMotion
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  private let recordDiameter = DS.ButtonSize.regular.height * 1.2
 
   private var working: Bool {
     voice.phase == .transcribing || voice.phase == .requestingPermission
@@ -303,9 +396,10 @@ private struct AssistantVoiceControls: View {
               index: index, level: voice.level, reduceMotion: reduceMotion,
               reduceTransparency: reduceTransparency)
           }
-          AssistantMicrophoneOrb(working: working, recording: voice.phase == .recording)
+          AssistantMicrophoneOrb(size: recordDiameter, working: working,
+            recording: voice.phase == .recording, themeFill: true, tint: DS.primary)
         }
-        .iconButtonFrame().contentShape(Circle())
+        .frame(width: recordDiameter, height: recordDiameter).contentShape(Circle())
         .animation(reduceMotion ? nil : .easeOut(duration: 0.11), value: voice.level)
         .gesture(
           DragGesture(minimumDistance: 0)

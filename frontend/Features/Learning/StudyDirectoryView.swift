@@ -154,8 +154,8 @@ struct StudyDirectoryView: View {
     ScrollViewReader { proxy in
       VStack(spacing: 8) {
         studyHeader(compact: compactPlan)
-          .frame(maxWidth: 720)
-          .padding(.horizontal, store.isPad ? 32 : 16)
+          .frame(maxWidth: .infinity)
+          .padding(.horizontal, 16)
           .frame(maxWidth: .infinity, alignment: .top)
           .navigationBarSurface()
           .onGeometryChange(for: StudyHeaderMeasurement.self) {
@@ -195,8 +195,8 @@ struct StudyDirectoryView: View {
               }
             }
           }
-          .frame(maxWidth: 720)
-          .padding(.horizontal, store.isPad ? 32 : 16)
+          .frame(maxWidth: .infinity)
+          .padding(.horizontal, 16)
           .padding(.bottom, 32)
           .frame(maxWidth: .infinity)
           // Cached chapters stay visible and usable while scroll restoration waits
@@ -573,6 +573,10 @@ struct StudyDirectoryView: View {
       store.openChapterLearning(chapterID: chapter.id)
       return
     }
+    if route == .assignment {
+      store.openChapterAssignment(chapterID: chapter.id)
+      return
+    }
     store.selectedChapterID = chapter.id
     let savedLessonID = store.locations[store.locationKey]?.lessonID
     let lesson = store.lessons.first { $0.chapter_id == chapter.id && $0.id == savedLessonID }
@@ -582,7 +586,8 @@ struct StudyDirectoryView: View {
   }
 
   private func restorePosition() {
-    let chapterID = store.studyResumeChapter?.id
+    let chapterID = store.learningState.studyReturnChapterID ?? store.studyResumeChapter?.id
+    store.learningState.studyReturnChapterID = nil
     let selected = directory.first { $0.sections.contains { $0.id == chapterID } } ?? directory.first
     expandedChapter = selected?.id
     expandedSection = selected?.sections.first(where: { $0.id == chapterID })?.id

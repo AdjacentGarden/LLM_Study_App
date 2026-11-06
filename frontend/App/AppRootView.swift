@@ -20,7 +20,7 @@ struct AppRootView: View {
         && geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
           >= 600
       HStack(spacing: 0) {
-        if pad, store.route.showsPrimaryNavigation {
+        if pad, store.route.showsPrimaryNavigation || store.route == .lesson {
           PadRail(
             expandedWidth: min(232, max(208, geometry.size.width * 0.22)),
             topInset: max(0, 32 - geometry.safeAreaInsets.top))
@@ -66,6 +66,7 @@ struct AppRootView: View {
             .communityBook,
           ].contains(store.route), store.sheet == nil, !store.globalAssistantOpen,
           !(store.route == .lesson && store.learningState.readerOverlayVisible)
+          && !(pad && store.route == .diagnosis)
         {
           FloatingAssistant(
             windowSize: CGSize(
@@ -93,7 +94,8 @@ struct AppRootView: View {
         BottomPanelLayer(
           presentationID: store.globalAssistantOpen ? "guide" : nil, dimOpacity: 0.06,
           presentationAnimation: .easeInOut(duration: 0.22),
-          onDismiss: { store.globalAssistantOpen = false }
+          backdropLabel: "收起键盘",
+          onDismiss: { NotificationCenter.default.post(name: .assistantDismissKeyboard, object: nil) }
         ) {
           if store.globalAssistantOpen {
             GlobalAssistantOverlay()
@@ -121,7 +123,8 @@ struct AppRootView: View {
         FixtureOrientation.apply()
       }
       .overlay {
-        if store.cloud != nil, !store.cloudState.authenticated, !store.isLoading, !showingStartup {
+        if (accountPreview || (store.cloud != nil && !store.cloudState.authenticated)),
+          !store.isLoading, !showingStartup {
           CloudAccountView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
       }
@@ -161,6 +164,11 @@ struct AppRootView: View {
       }
       .toastHUD(isEnabled: !showingStartup && !store.isLoading && !uploadCoverActive && !store.cloudState.showDiagnosis)
     }
+    .ignoresSafeArea(.keyboard, edges:
+      store.globalAssistantOpen
+        || (store.route == .assignment && UIDevice.current.userInterfaceIdiom == .pad)
+        ? .bottom : [])
+    .background(PortraitSceneLock().allowsHitTesting(false))
     .background(pageBackground.ignoresSafeArea()).font(DS.font()).foregroundStyle(DS.text).tint(
       DS.primary
     )
@@ -192,6 +200,15 @@ struct AppRootView: View {
       CloudLearningSetupView().environment(store).toastHUD()
     }
   }
+  private var accountPreview: Bool {
+    #if DEBUG
+      ContentBundle.fixtureMode
+        && ProcessInfo.processInfo.arguments.contains("--fixture-login-preview")
+    #else
+      false
+    #endif
+  }
+
   private var startupPreview: Bool {
     #if DEBUG
       ContentBundle.fixtureMode
@@ -204,7 +221,8 @@ struct AppRootView: View {
   private var pageBackground: Color {
     switch store.route {
     case .assignment: Color(hex: 0xd9d2ff)
-    case .source, .lesson, .processing, .courseProgress, .courseImportProcessing, .chapterConfirm, .mistakes: .white
+    case .lesson: Color(hex: 0xf8f7f1)
+    case .source, .processing, .courseProgress, .courseImportProcessing, .chapterConfirm, .mistakes: .white
     case .parseReady, .communityBook: Color(hex: 0xddd6fe)
     case .upload: Color(hex: 0xdccafa)
     default: DS.background
@@ -217,16 +235,20 @@ struct AppRootView: View {
 
   private func page(route: Route, pad: Bool, topInset: CGFloat) -> some View {
     VStack(spacing: 0) {
-      if !route.hidesHeader {
+      if !route.hidesHeader, !(pad && route == .assignment) {
         BCHeader(
-          route == .courseDetail ? store.currentTitle : route.title,
+          route == .courseDetail ? store.currentTitle : (pad && route == .diagnosis ? "诊断结果" : route.title),
           back: route.isTab || [.courseReady, .courseImportReady, .communityImport].contains(route)
             ? nil : { store.back() },
           titleColor: route == .upload ? .white : DS.text
         ).padding(.top, pad ? topInset : 0).padding(.horizontal, pad ? 16 : 0)
           .navigationBarSurface(pageBackground)
       }
-      screen(route: route).frame(maxWidth: .infinity, maxHeight: .infinity)
+      // Study supplies its own header, so it needs the same iPad top clearance
+      // as pages using BCHeader, including after the startup status bar returns.
+      screen(route: route)
+        .padding(.top, pad && [.home, .study].contains(route) ? topInset : 0)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }.background(pageBackground)
   }
 
@@ -241,7 +263,7 @@ struct AppRootView: View {
 }
 private let primaryTabs: [Route] = [.study, .community, .profile]
 private func isCurrentTab(_ tab: Route, _ route: Route) -> Bool {
-  tab == route
+  tab == route || (tab == .study && route == .lesson)
 }
 
 @available(iOS 26.0, *)
@@ -419,7 +441,8 @@ struct PhoneBottomBar: View {
           ).buttonFrame()
           .background {
             if isCurrentTab(tab, store.route) {
-              Capsule().fill(DS.primary).matchedGeometryEffect(id: "tab", in: selection)
+              Capsule().fill(.clear).primaryCapsuleSurface()
+                .matchedGeometryEffect(id: "tab", in: selection)
             }
           }
           .contentShape(Capsule())
@@ -476,7 +499,7 @@ struct PadRail: View {
       Spacer(minLength: 0)
       tabButton(.profile)
     }.padding(.horizontal, 7).padding(.top, topInset).padding(.bottom, 0).frame(
-      width: expanded ? expandedWidth : 58.6667
+      width: expanded ? expandedWidth : DS.padRailCollapsedWidth
     ).background(Color(hex: 0x19191b).ignoresSafeArea())
   }
   private func tabButton(_ tab: Route) -> some View {
@@ -760,8 +783,8 @@ struct AssistantChatView: View {
                       ? "请结合原文给一个\(sourceChapterTitle)的例子" : "围绕\(sourceChapterTitle)给我出一道题")
                 } label: {
                   Text(prompt).font(DS.font(.body)).padding(.horizontal, DS.ButtonSize.regular.horizontalPadding).buttonFrame()
-                    .background(DS.primarySoft, in: Capsule())
-                }.foregroundStyle(DS.primary).disabled(store.chatLoading)
+                    .primaryCapsuleSurface()
+                }.foregroundStyle(.white).disabled(store.chatLoading)
               }
             }
             VStack(alignment: .leading, spacing: 8) {

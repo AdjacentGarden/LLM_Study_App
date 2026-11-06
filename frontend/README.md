@@ -20,7 +20,13 @@
 
 AI 对话列表中的回复内容区最多展示 240 点高，超出时渐隐并显示省略提示，完整回答与操作记录通过右上角全屏按钮查看，气泡内不单独滚动。全屏正文基准字号为 20 点并增加行距，记录与引用同步放大，支持系统动态字体；历史保存与模型上下文仍使用完整内容。Debug 可通过 `--fixture --assistant --fixture-assistant-long-reply` 检查长回答展示，使用独立的 `--fixture-session` 隔离测试数据。
 
-应用在 iPhone 和 iPad 上统一仅支持正向竖屏，横持启动或旋转设备时不会自动切换横屏。方向限制同时配置于 Info.plist、工程生成脚本及 UIApplicationDelegate；iPad 使用全屏兼容模式。视觉 fixtures 也遵循相同限制。旋转回归入口为 `BookCourseUITests/testCorePagesRemainPortraitWhenDeviceRotates`，旧横屏采集及其历史验证记录不代表当前行为。
+应用在 iPhone 和 iPad 上统一仅支持正向竖屏。方向限制同时配置于 Info.plist、工程生成脚本及 UIApplicationDelegate；iPad 根容器额外声明竖屏和 iPadOS 26+ 的界面方向锁定偏好，并在显示时请求正向竖屏。系统只在符合全屏条件时启用场景方向锁。视觉 fixtures 也遵循相同限制。旋转回归入口为 `BookCourseUITests/testCorePagesRemainPortraitWhenDeviceRotates`，旧横屏采集及其历史验证记录不代表当前行为。
+
+AI 对话输入栏不再叠加渐进模糊背景；使用本地坐标的系统键盘布局指南跟随停靠及悬浮键盘，输入栏位于键盘上方。点击对话空白区域或外层背景仅收起键盘并保留草稿，关闭对话使用右上角关闭按钮。
+
+iPad 作业诊断结果页分别用两张卡片展示错误率、答对/答错题数和学习提示，不显示统计注释小字。提示旁的「查看章节」会打开对应知识点的章节学习内容；底部「完成本节训练」返回学习页并定位到本次训练的章节，「进入闪卡复习」打开该章节的闪卡。统计使用判分时记录的数值，不从诊断文案推算；离线示例只计已判分客观题，未判分的简答题不纳入分母，旧数据缺少计数时不显示虚构的百分比。手机端继续使用原有解析布局。
+
+学习笔记采用单列列表，汇总当前小节所属整章及各级小节的文字、手写和语音笔记。类型筛选旁可选择“按记录时间”（创建时间从新到旧，编辑不改变顺序）或“按章节顺序”（目录顺序、PDF 页码、同页创建时间从旧到新），排序选择在本机保留。点击列表项直接打开笔记，长按可编辑、查看原文或删除；AI 笔记的引用来源也可从长按菜单打开。
 
 ## 构建与运行
 
@@ -35,6 +41,12 @@ python3 scripts/validate-content.py
 ```
 
 也可以直接用 Xcode 打开 `BookCourse.xcodeproj`，选择 `BookCourse` scheme 运行。首次构建需要联网下载锁定的 ONNX Runtime **1.24.2**、ZIPFoundation **0.9.20** 与 AlertToast **1.3.9**；源码、资源、模型均已提交。真机运行需要在 Xcode 配置自己的签名团队，仓库不提供开发者证书。
+
+离线修改和预览界面时，在 Xcode 选择 `BookCourse-Offline` scheme 和 iOS 模拟器，按 `⌘R` 运行。该方案使用 Debug 配置，自动传入 `--fixture --fixture-session ui-edit --route study`，从独立的本地示例数据进入学习页，无需登录或连接后端。为方便直接预览，默认不挂载调试器；需要断点调试时，可在 Edit Scheme → Run → Info 勾选 Debug executable。
+
+预览登录页时，可在上述离线参数后添加 `--fixture-login-preview`。该入口仅在 Debug fixtures 中展示原生登录界面，不会自动登录或请求验证码；Release 忽略该参数。
+
+紫色胶囊操作按钮统一复用学习页「创建课程」的 regular Liquid Glass 材质，旧系统保留渐变回退。章节末页并列显示「去测试」和白色「学习下一节」：两者记录本节完成，前者打开本节练习，后者按目录顺序从下一节第一页开始，章末进入下一章第一节；全书末节禁用下一节操作。
 
 日常提示统一使用顶部 HUD：沿用 AlertToast 的胶囊布局，iOS 26 及以上直接使用原生 `glassEffect(.regular, in: Capsule())`，不叠加旧模糊背景、手工描边或阴影；iOS 17–25 使用 AlertToast 原有的系统毛玻璃。成功、信息、警告、错误按图标区分，可带副标题。出现 240ms、完整停留 3 秒、消失 200ms；连续触发只保留最新消息并重新计时。加载提示保留至任务结束；现有上传、解析和同步进度继续使用各自的进度界面。HUD 不拦截点击，支持 VoiceOver 播报和减少动态效果，展示时避开顶部同步状态。
 

@@ -390,6 +390,9 @@ final class CoreTests: XCTestCase {
       question: short, answer: "判断题：\(judgment.answer)\n选择题：\(letter)｜\(choice.answer)\n简答题：我会继续复习")
     XCTAssertEqual(store.latestDiagnosis?.mistake_recorded, false)
     XCTAssertTrue(store.latestDiagnosis?.result.contains("已答对 2 题") == true)
+    XCTAssertEqual(store.latestDiagnosis?.evaluated_questions, 2)
+    XCTAssertEqual(store.latestDiagnosis?.incorrect_questions, 0)
+    XCTAssertEqual(store.latestDiagnosis?.grading_scope, "客观题")
     await store.flush()
   }
   @MainActor func testAllCommunityEntriesUseExactContentOrTheirOwnDirectory() async throws {

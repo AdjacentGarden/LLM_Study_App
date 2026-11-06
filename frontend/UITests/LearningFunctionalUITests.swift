@@ -205,10 +205,20 @@ final class LearningFunctionalUITests: XCTestCase {
     XCTAssertTrue((shortAnswer.value as? String ?? "").contains("deliberately incomplete"))
     dismissKeyboard(app)
     tap(submit, app: app)
-    XCTAssertTrue(app.staticTexts["诊断解析"].waitForExistence(timeout: 15))
-    XCTAssertTrue(app.staticTexts["需要再巩固"].exists)
+    if app.windows.firstMatch.frame.width >= 720 {
+      XCTAssertTrue(app.staticTexts["diagnosis.errorRate"].waitForExistence(timeout: 15))
+      XCTAssertTrue(app.staticTexts["diagnosis.summaryHint"].exists)
+    } else {
+      XCTAssertTrue(app.staticTexts["诊断解析"].waitForExistence(timeout: 15))
+      XCTAssertTrue(app.staticTexts["需要再巩固"].exists)
+    }
     evidence("learning-submitted-real-answers-diagnosis", app: app)
-    tap(app.buttons["diagnosis.continue"], app: app)
+    if app.windows.firstMatch.frame.width >= 720 {
+      tap(app.buttons["diagnosis.finishTraining"], app: app)
+      tap(app.buttons["study.section.c2s1.mistakes"], app: app)
+    } else {
+      tap(app.buttons["diagnosis.continue"], app: app)
+    }
     // Select the new objective-error record produced by this submission, not
     // the pre-existing demonstration mistake seeded with the textbook.
     let recordID = "mistake_quiz_c2s1_01"
@@ -255,7 +265,7 @@ final class LearningFunctionalUITests: XCTestCase {
   }
 
   private func returnToIntroduction(_ app: XCUIApplication) {
-    let page = app.staticTexts["lesson.page"].firstMatch
+    let page = app.progressIndicators["lesson.page"].firstMatch
     XCTAssertTrue(page.waitForExistence(timeout: 20))
     for _ in 0..<5 {
       if page.value as? String == "1" { return }
@@ -271,7 +281,7 @@ final class LearningFunctionalUITests: XCTestCase {
   func testLessonPagingConceptDismissalAndCompletion() throws {
     let session = UUID().uuidString
     let app = launch("lesson", session: session)
-    let page = app.staticTexts["lesson.page"].firstMatch
+    let page = app.progressIndicators["lesson.page"].firstMatch
     XCTAssertTrue(page.waitForExistence(timeout: 20))
     returnToIntroduction(app)
     XCTAssertEqual(page.value as? String, "1")
@@ -290,38 +300,70 @@ final class LearningFunctionalUITests: XCTestCase {
       wait("Lesson page \(number) should be reachable") { page.value as? String == String(number) }
     }
     evidence("learning-last-lesson-page", app: app)
-    let complete = app.buttons["完成本节"].firstMatch
-    XCTAssertEqual(complete.frame.height, 54, accuracy: 1)
-    tap(complete, app: app)
+    let takeTest = app.buttons["lesson.takeTest"]
+    XCTAssertEqual(takeTest.frame.height, 54, accuracy: 1)
+    XCTAssertTrue(app.buttons["lesson.nextSection"].exists)
+    tap(takeTest, app: app)
+    XCTAssertTrue(app.staticTexts["assignment.question"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["作业诊断"].exists)
+    tap(app.buttons["navigation.back"], app: app)
     XCTAssertTrue(app.buttons["study.course.switch"].firstMatch.waitForExistence(timeout: 10))
-    let section = app.buttons["study.section.c2s1.title"]
-    wait("Finishing the lesson must mark the section complete") { section.label.contains("已完成") }
-    evidence("learning-completed-section", app: app)
+    let currentSection = app.buttons["study.section.c2s1.title"]
+    wait("Returning from diagnosis must expand and locate the current section") {
+      currentSection.isHittable && app.buttons["study.section.c2s1.assignment"].isHittable
+    }
     app.terminate()
     let reopened = launch("study", session: session)
     let restoredSection = reopened.buttons["study.section.c2s1.title"]
     wait("The completed section must survive relaunch") { restoredSection.label.contains("已完成") }
     tap(reopened.buttons["study.section.c2s1.lesson"], app: reopened)
-    XCTAssertTrue(reopened.staticTexts["lesson.page"].firstMatch.waitForExistence(timeout: 20))
+    XCTAssertTrue(reopened.progressIndicators["lesson.page"].firstMatch.waitForExistence(timeout: 20))
     XCTAssertEqual(
-      reopened.staticTexts["lesson.page"].firstMatch.value as? String, "5",
+      reopened.progressIndicators["lesson.page"].firstMatch.value as? String, "5",
       "Reading position must survive relaunch")
+  }
+
+  func testLessonReaderShowsChapterTitleProgressAndFullHeightReadingSurface() {
+    let app = launch("lesson", session: UUID().uuidString)
+    let progress = app.progressIndicators["lesson.page"]
+    XCTAssertTrue(progress.waitForExistence(timeout: 20))
+    XCTAssertEqual(app.staticTexts["navigation.title"].label, "减数分裂和受精作用")
+    XCTAssertFalse(app.staticTexts["章节学习"].exists)
+    XCTAssertFalse(app.staticTexts["左右滑动"].exists)
+    XCTAssertFalse(app.buttons["生成辅助图"].exists)
+    XCTAssertFalse(app.buttons["生成讲解短片"].exists)
+    let scroll = app.scrollViews["lesson.scroll"]
+    XCTAssertGreaterThanOrEqual(scroll.frame.maxY, app.frame.maxY - 40)
+    if app.frame.width >= 720 {
+      XCTAssertTrue(app.buttons["tab-study"].isHittable)
+      XCTAssertTrue(app.buttons["tab-community"].isHittable)
+      XCTAssertTrue(app.buttons["展开侧栏"].isHittable)
+    }
+    evidence("lesson-chapter-reader-layout", app: app)
   }
 
   func testMediaSheetRequiresConfiguredBackendAndClosingPreservesReadingPosition() {
     let app = launch("lesson", session: UUID().uuidString)
     returnToIntroduction(app)
-    let open = app.buttons["lesson.video.open.asset_ai_meiosis_dna_replication_v1"]
-    let initialPage = app.staticTexts["lesson.page"].firstMatch.value as? String
-    tap(open, app: app)
+    let asset = "asset_ai_meiosis_dna_replication_v1"
+    let figure = app.images["lesson.figure." + asset]
+    func openVideo() {
+      reveal(figure, app: app)
+      figure.press(forDuration: 1)
+      let action = app.buttons["lesson.video.open." + asset]
+      XCTAssertTrue(action.waitForExistence(timeout: 5))
+      action.tap()
+    }
+    let initialPage = app.progressIndicators["lesson.page"].firstMatch.value as? String
+    openVideo()
     XCTAssertTrue(app.staticTexts["lesson.media.error"].waitForExistence(timeout: 15))
     XCTAssertFalse(app.buttons["lesson.media.generate"].exists,
       "Fixture data must not submit an unconfigured provider job")
     XCTAssertEqual(app.buttons.matching(identifier: "lesson.media.close").count, 1)
     evidence("learning-single-cloud-media-sheet", app: app)
     tap(app.buttons["lesson.media.close"], app: app)
-    XCTAssertEqual(app.staticTexts["lesson.page"].firstMatch.value as? String, initialPage)
-    tap(open, app: app)
+    XCTAssertEqual(app.progressIndicators["lesson.page"].firstMatch.value as? String, initialPage)
+    openVideo()
     XCTAssertTrue(app.staticTexts["lesson.media.error"].waitForExistence(timeout: 10))
     XCTAssertFalse(app.buttons["lesson.media.generate"].exists)
     tap(app.buttons["lesson.media.close"], app: app)

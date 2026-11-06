@@ -32,6 +32,8 @@ import Observation
   var readerOverlayVisible = false
   var selectedChapterID: String? = nil
   var selectedLessonID: String? = nil
+  /// Consumed by the study directory after returning from chapter practice.
+  var studyReturnChapterID: String?
   var assignmentAnswer: String = ""
   var diagnosisText: String = ""
   var latestDiagnosis: Diagnosis? = nil
