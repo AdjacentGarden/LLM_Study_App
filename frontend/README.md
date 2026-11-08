@@ -44,7 +44,7 @@ python3 scripts/validate-content.py
 
 离线修改和预览界面时，在 Xcode 选择 `BookCourse-Offline` scheme 和 iOS 模拟器，按 `⌘R` 运行。该方案使用 Debug 配置，自动传入 `--fixture --fixture-session ui-edit --route study`，从独立的本地示例数据进入学习页，无需登录或连接后端。为方便直接预览，默认不挂载调试器；需要断点调试时，可在 Edit Scheme → Run → Info 勾选 Debug executable。
 
-预览登录页时，可在上述离线参数后添加 `--fixture-login-preview`。该入口仅在 Debug fixtures 中展示原生登录界面，不会自动登录或请求验证码；Release 忽略该参数。
+预览登录页时，可在上述离线参数后添加 `--fixture-login-preview`。该入口仅在 Debug fixtures 中展示原生登录界面，不会自动登录或请求验证码；Release 忽略该参数。 验证码输入满六位后会自动收起键盘；邮箱与验证码分别管理焦点，邮箱回车切换到验证码。iPad 验证码使用带“完成”键的数字与符号键盘，输入仍限定六位 ASCII 数字，避免紧凑数字弹层遮挡退出操作；iPhone 保留数字键盘。输入时也可点击空白处或页头的收键盘图标结束编辑。
 
 紫色胶囊操作按钮统一复用学习页「创建课程」的 regular Liquid Glass 材质，旧系统保留渐变回退。章节末页并列显示「去测试」和白色「学习下一节」：两者记录本节完成，前者打开本节练习，后者按目录顺序从下一节第一页开始，章末进入下一章第一节；全书末节禁用下一节操作。
 

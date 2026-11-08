@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CloudAccountView: View {
   @Environment(AppStore.self) private var store
@@ -16,7 +17,10 @@ struct CloudAccountView: View {
   @State private var showingSettings = false
   @State private var panelPresented = false
   @State private var settingsError: String?
-  @FocusState private var focused: Bool
+  private enum InputField: String, Hashable {
+    case email = "cloud.email.input", code = "cloud.code.input"
+  }
+  @FocusState private var focusedField: InputField?
   @GestureState(resetTransaction: Transaction(animation: .spring(response: 0.38, dampingFraction: 0.82)))
   private var dragOffset: CGFloat = 0
 
@@ -34,6 +38,7 @@ struct CloudAccountView: View {
       }
     }
     .background(DS.surface.ignoresSafeArea())
+    .background(CloudAccountKeyboardDismissal(onDismiss: dismissKeyboard))
     .onAppear { server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer }
     .task {
       if reduceMotion {
@@ -50,7 +55,7 @@ struct CloudAccountView: View {
     .toolbar {
       ToolbarItemGroup(placement: .keyboard) {
         Spacer()
-        Button("完成") { focused = false }.accessibilityIdentifier("cloud.keyboardDone")
+        Button("完成", action: dismissKeyboard).accessibilityIdentifier("cloud.keyboardDone")
       }
     }
   }
@@ -89,16 +94,16 @@ struct CloudAccountView: View {
         .scrollDismissesKeyboard(.interactively)
         // Normal dragging only stretches the presentation; it cannot leave a scroll offset.
         // Text input may still reveal fields above the keyboard.
-        .scrollDisabled(!focused)
+        .scrollDisabled(focusedField == nil)
         .simultaneousGesture(
           DragGesture(minimumDistance: 12).updating($dragOffset) { value, offset, transaction in
-            guard !focused, panelPresented else { return }
+            guard focusedField == nil, panelPresented else { return }
             transaction.animation = nil
             let distance = value.translation.height
             offset = distance * 0.28 / (1 + abs(distance) / 360)
           })
-        .onChange(of: focused) { _, isFocused in
-          if !isFocused { proxy.scrollTo("cloud.formTop", anchor: .top) }
+        .onChange(of: focusedField) { _, field in
+          proxy.scrollTo(field?.rawValue ?? "cloud.formTop", anchor: field == nil ? .top : .center)
         }
       }
 
@@ -144,8 +149,8 @@ struct CloudAccountView: View {
         .accessibilityIdentifier("cloud.scroll")
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
-        .onChange(of: focused) { _, isFocused in
-          if !isFocused { proxy.scrollTo("cloud.formTop", anchor: .top) }
+        .onChange(of: focusedField) { _, field in
+          proxy.scrollTo(field?.rawValue ?? "cloud.formTop", anchor: field == nil ? .top : .center)
         }
       }
       accountHeader(scale: scale, topInset: geometry.safeAreaInsets.top, padLayout: true)
@@ -190,7 +195,18 @@ struct CloudAccountView: View {
   private func accountHeader(scale: CGFloat, topInset: CGFloat, padLayout: Bool = false) -> some View {
     let buttonSize = padLayout ? max(44, 46.5 * scale) : 44
     return HStack {
-      Spacer().frame(width: buttonSize)
+      // iPad's floating number pad may not expose the keyboard toolbar.
+      // Keep an exit in the page header's existing leading slot as well.
+      Button(action: dismissKeyboard) {
+        Image(systemName: "keyboard.chevron.compact.down")
+          .font(.system(size: padLayout ? 22 * scale : 20))
+          .frame(width: buttonSize, height: buttonSize)
+          .contentShape(Rectangle())
+      }.buttonStyle(.plain).foregroundStyle(DS.primary)
+        .opacity(focusedField == nil ? 0 : 1)
+        .allowsHitTesting(focusedField != nil)
+        .accessibilityHidden(focusedField == nil)
+        .accessibilityLabel("收起键盘").accessibilityIdentifier("cloud.dismissKeyboard")
       Text(registering ? "注册" : "登录")
         .font(padLayout ? Font(DS.uiFont(.pageTitle).withSize(36 * scale)) : DS.font(.pageTitle))
         .foregroundStyle(DS.primary)
@@ -198,7 +214,7 @@ struct CloudAccountView: View {
         .accessibilityIdentifier("cloud.title")
         .frame(maxWidth: .infinity)
       Button {
-        focused = false
+        dismissKeyboard()
         server = store.cloud?.baseURL.absoluteString ?? CloudAPI.defaultServer
         settingsError = nil
         showingSettings = true
@@ -233,18 +249,29 @@ struct CloudAccountView: View {
           TextField("邮箱账号", text: $email)
             .textInputAutocapitalization(.never).autocorrectionDisabled()
             .keyboardType(.emailAddress).textContentType(.emailAddress)
-            .focused($focused)
+            .focused($focusedField, equals: .email)
+            .submitLabel(.next)
+            .onSubmit { focusedField = .code }
             .accessibilityLabel("邮箱地址").accessibilityIdentifier("cloud.email")
             .padding(.horizontal, padLayout ? 21 * scale : 21)
             .frame(minHeight: padLayout ? max(44, 47 * scale) : 47)
             .background(Color(.systemGray6), in: Capsule())
+            .id(InputField.email.rawValue)
           HStack(spacing: 4) {
             TextField("邮箱验证码", text: $code)
-              .keyboardType(.numberPad).textContentType(.oneTimeCode)
-              .focused($focused)
+              // iPad's compact number-pad popover can block page controls and
+              // leave the keyboard toolbar unreachable. The standard numeric
+              // layout has a real Done key; the same six-digit filter applies.
+              .keyboardType(UIDevice.current.userInterfaceIdiom == .pad ? .numbersAndPunctuation : .numberPad)
+              .textContentType(.oneTimeCode)
+              .focused($focusedField, equals: .code)
+              .submitLabel(.done)
+              .onSubmit(dismissKeyboard)
               .accessibilityLabel("六位验证码").accessibilityIdentifier("cloud.code")
               .onChange(of: code) { _, value in
-                code = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
+                let digits = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
+                if code != digits { code = digits }
+                if digits.count == 6, focusedField == .code { dismissKeyboard() }
               }
             TimelineView(.periodic(from: .now, by: 1)) { context in
               let remaining = max(0, Int(ceil(resendDate.timeIntervalSince(context.date))))
@@ -265,6 +292,7 @@ struct CloudAccountView: View {
           .padding(.horizontal, padLayout ? 21 * scale : 21)
           .frame(minHeight: padLayout ? max(44, 47 * scale) : 47)
           .background(Color(.systemGray6), in: Capsule())
+          .id(InputField.code.rawValue)
           if let challenge, hasCurrentChallenge {
             Text(challenge.message).font(DS.font(.supporting)).foregroundStyle(DS.secondary)
             if let demo = challenge.demo_code {
@@ -336,8 +364,14 @@ struct CloudAccountView: View {
     }
   }
 
+  private func dismissKeyboard() {
+    focusedField = nil
+    // Also end the UIKit responder session when the iPad keyboard is floating.
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+  }
+
   private func setRegistering(_ value: Bool) {
-    focused = false
+    dismissKeyboard()
     registering = value
     challenge = nil
     code = ""
@@ -402,7 +436,7 @@ struct CloudAccountView: View {
     Task { await store.boot() }
   }
   private func sendCode() async {
-    focused = false
+    dismissKeyboard()
     guard !busy else { return }
     guard let cloud = store.cloud else {
       error = "请先在设置中连接学习服务"
@@ -429,7 +463,7 @@ struct CloudAccountView: View {
     } catch { self.error = error.localizedDescription }
   }
   private func verifyCode() async {
-    focused = false
+    dismissKeyboard()
     guard !busy else { return }
     guard let cloud = store.cloud else {
       error = "请先在设置中连接学习服务"
@@ -464,6 +498,61 @@ struct CloudAccountView: View {
       store.isLoading = true
       await store.boot()
     } catch { self.error = error.localizedDescription }
+  }
+}
+
+/// A window recognizer handles blank space without stealing taps from text fields,
+/// buttons, or the scroll view. Floating keyboards need the same dismissal path.
+private struct CloudAccountKeyboardDismissal: UIViewRepresentable {
+  var onDismiss: () -> Void
+
+  func makeUIView(context: Context) -> DismissalView { DismissalView(onDismiss: onDismiss) }
+  func updateUIView(_ view: DismissalView, context: Context) { view.onDismiss = onDismiss }
+  static func dismantleUIView(_ view: DismissalView, coordinator: ()) { view.detach() }
+
+  final class DismissalView: UIView, UIGestureRecognizerDelegate {
+    var onDismiss: () -> Void
+    private weak var observedWindow: UIWindow?
+    private lazy var tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+
+    init(onDismiss: @escaping () -> Void) {
+      self.onDismiss = onDismiss
+      super.init(frame: .zero)
+      isUserInteractionEnabled = false
+      tap.cancelsTouchesInView = false
+      tap.delegate = self
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      detach()
+      observedWindow = window
+      window?.addGestureRecognizer(tap)
+    }
+
+    func detach() {
+      observedWindow?.removeGestureRecognizer(tap)
+      observedWindow = nil
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+      guard window != nil, bounds.contains(touch.location(in: self)) else { return false }
+      var touched = touch.view
+      while let view = touched {
+        if view is UITextView || view is UITextField || view is UIControl { return false }
+        touched = view.superview
+      }
+      return true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+      shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+
+    @objc private func dismissKeyboard() {
+      onDismiss()
+      window?.endEditing(true)
+    }
   }
 }
 
