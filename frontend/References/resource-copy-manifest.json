@@ -6,7 +6,8 @@
     "device databases",
     "personal attachments",
     "node_modules",
-    "public/rag/runtime"
+    "public/rag/runtime",
+    "public/assets/lesson/meiosis-explainer-demo-v1.mp4"
   ],
   "files": [
     {
@@ -428,12 +429,6 @@
       "path": "Resources/Content/assets/lesson/meiosis-dna-replication-v1.webp",
       "bytes": 41678,
       "sha256": "89b749e25eed033312f41c59e2b738fc286e9311f43b7ae44a0a14d08060f8c3"
-    },
-    {
-      "source": "public/assets/lesson/meiosis-explainer-demo-v1.mp4",
-      "path": "Resources/Content/assets/lesson/meiosis-explainer-demo-v1.mp4",
-      "bytes": 1225315,
-      "sha256": "e902089f6f773d93e2b41049e6cb70fccaf6ecb67fa8111d07e992e82338c701"
     },
     {
       "source": "public/assets/lesson/meiosis-fertilization-cycle-v1.webp",

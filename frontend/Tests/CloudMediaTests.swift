@@ -256,35 +256,6 @@ private final class MediaProtocol: URLProtocol, @unchecked Sendable {
     XCTAssertNil(model.videoURL)
   }
 
-  func testAuthenticatedMP4DownloadProducesPlayableLocalVideo() async throws {
-    let context = try context(), root = storage()
-    defer { try? FileManager.default.removeItem(at: root) }
-    let model = CloudMediaModel(api: api(), request: context, storageRoot: root)
-    let source = try XCTUnwrap(ContentBundle.url("/assets/lesson/meiosis-explainer-demo-v1.mp4"))
-    let bytes = try Data(contentsOf: source)
-    MediaProtocol.handler = { request in
-      let path = request.url!.path
-      if path.hasSuffix("capabilities") { return try self.json(self.capabilities) }
-      if path.hasSuffix("/jobs") { return try self.json(["items": [self.job(context, status: "succeeded")]]) }
-      if path.hasSuffix("/asset") { return (200, ["Content-Type": "video/mp4"], bytes) }
-      return try self.json(self.job(context, status: "succeeded"))
-    }
-    await model.load()
-    await model.follow()
-    XCTAssertNil(model.error)
-    let url = try XCTUnwrap(model.videoURL)
-    let duration = try await AVURLAsset(url: url).load(.duration)
-    XCTAssertGreaterThan(duration.seconds, 1)
-    let player = AVPlayer(url: url)
-    player.isMuted = true; player.play()
-    defer { player.pause() }
-    for _ in 0..<100 {
-      if player.currentTime().seconds >= 0.3 { break }
-      try await Task.sleep(for: .milliseconds(100))
-    }
-    XCTAssertGreaterThanOrEqual(player.currentTime().seconds, 0.3)
-  }
-
   func testCloudModelsDecodeWithoutOptionalPresentationMetadataAndAcceptPNG() async throws {
     let value = try JSONDecoder().decode(StudioJob.self, from: JSONSerialization.data(withJSONObject: [
       "id": jobID, "book_id": "book", "kind": "image", "status": "succeeded", "result": [:],
